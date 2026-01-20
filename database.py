@@ -842,3 +842,407 @@ def add_note(case_id: int, content: str) -> dict:
         result = dict(cur.fetchone())
         result["created_at"] = str(result["created_at"])
         return result
+
+
+# ===== DELETE OPERATIONS =====
+
+def delete_task(task_id: int) -> bool:
+    """Delete a task by ID."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM tasks WHERE id = %s RETURNING id", (task_id,))
+        return cur.fetchone() is not None
+
+
+def delete_deadline(deadline_id: int) -> bool:
+    """Delete a deadline by ID."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM deadlines WHERE id = %s RETURNING id", (deadline_id,))
+        return cur.fetchone() is not None
+
+
+def delete_note(note_id: int) -> bool:
+    """Delete a note by ID."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM notes WHERE id = %s RETURNING id", (note_id,))
+        return cur.fetchone() is not None
+
+
+def delete_case(case_id: int) -> bool:
+    """Delete a case and all related data (cascades)."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM cases WHERE id = %s RETURNING id", (case_id,))
+        return cur.fetchone() is not None
+
+
+# ===== ADDITIONAL GET OPERATIONS =====
+
+def get_all_contacts() -> List[dict]:
+    """Get all contacts."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT id, name, firm, phone, email, address, notes, created_at
+            FROM contacts ORDER BY name
+        """)
+        results = []
+        for row in cur.fetchall():
+            r = dict(row)
+            if r.get("created_at"):
+                r["created_at"] = str(r["created_at"])
+            results.append(r)
+        return results
+
+
+def get_all_activities(case_id: int = None) -> List[dict]:
+    """Get all activities, optionally filtered by case."""
+    with get_cursor() as cur:
+        if case_id:
+            cur.execute("""
+                SELECT a.id, a.date, a.description, a.type, a.minutes,
+                       c.id as case_id, c.case_name
+                FROM activities a
+                JOIN cases c ON a.case_id = c.id
+                WHERE a.case_id = %s
+                ORDER BY a.date DESC
+            """, (case_id,))
+        else:
+            cur.execute("""
+                SELECT a.id, a.date, a.description, a.type, a.minutes,
+                       c.id as case_id, c.case_name
+                FROM activities a
+                JOIN cases c ON a.case_id = c.id
+                ORDER BY a.date DESC
+            """)
+        results = []
+        for row in cur.fetchall():
+            r = dict(row)
+            if r.get("date"):
+                r["date"] = str(r["date"])
+            results.append(r)
+        return results
+
+
+def get_dashboard_stats() -> dict:
+    """Get statistics for dashboard."""
+    with get_cursor() as cur:
+        # Total cases by status
+        cur.execute("""
+            SELECT status, COUNT(*) as count
+            FROM cases
+            GROUP BY status
+        """)
+        cases_by_status = {row["status"]: row["count"] for row in cur.fetchall()}
+
+        # Active cases (not Closed or Settl. Pend.)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM cases
+            WHERE status NOT IN ('Closed', 'Settl. Pend.')
+        """)
+        active_cases = cur.fetchone()["count"]
+
+        # Pending tasks
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM tasks
+            WHERE status IN ('Pending', 'Active')
+        """)
+        pending_tasks = cur.fetchone()["count"]
+
+        # Upcoming deadlines (next 30 days)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM deadlines
+            WHERE status = 'Pending'
+            AND date <= CURRENT_DATE + INTERVAL '30 days'
+        """)
+        upcoming_deadlines = cur.fetchone()["count"]
+
+        # Urgent items (urgency >= 4)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM tasks
+            WHERE urgency >= 4 AND status NOT IN ('Done')
+        """)
+        urgent_tasks = cur.fetchone()["count"]
+
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM deadlines
+            WHERE urgency >= 4 AND status = 'Pending'
+        """)
+        urgent_deadlines = cur.fetchone()["count"]
+
+        return {
+            "active_cases": active_cases,
+            "cases_by_status": cases_by_status,
+            "pending_tasks": pending_tasks,
+            "upcoming_deadlines": upcoming_deadlines,
+            "urgent_tasks": urgent_tasks,
+            "urgent_deadlines": urgent_deadlines
+        }
+
+
+def update_deadline_full(deadline_id: int, date: str = None, description: str = None,
+                         status: str = None, urgency: int = None,
+                         document_link: str = None, calculation_note: str = None) -> Optional[dict]:
+    """Update a deadline with all fields."""
+    updates = {}
+    if date is not None:
+        updates["date"] = date
+    if description is not None:
+        updates["description"] = description
+    if status is not None:
+        updates["status"] = status
+    if urgency is not None:
+        updates["urgency"] = urgency
+    if document_link is not None:
+        updates["document_link"] = document_link
+    if calculation_note is not None:
+        updates["calculation_note"] = calculation_note
+
+    if not updates:
+        return None
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [deadline_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE deadlines SET {set_clause}
+            WHERE id = %s
+            RETURNING id, date, description, status, urgency, document_link, calculation_note
+        """, values)
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            r["date"] = str(r["date"])
+            return r
+        return None
+
+
+def update_task_full(task_id: int, description: str = None, due_date: str = None,
+                     status: str = None, urgency: int = None) -> Optional[dict]:
+    """Update a task with all fields."""
+    updates = {}
+    if description is not None:
+        updates["description"] = description
+    if due_date is not None:
+        updates["due_date"] = due_date
+    if status is not None:
+        updates["status"] = status
+    if urgency is not None:
+        updates["urgency"] = urgency
+
+    if not updates:
+        return None
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [task_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE tasks SET {set_clause}
+            WHERE id = %s
+            RETURNING id, due_date, description, status, urgency, case_id
+        """, values)
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            if r.get("due_date"):
+                r["due_date"] = str(r["due_date"])
+            return r
+        return None
+
+
+# ===== CLIENT UPDATE/DELETE =====
+
+def get_all_clients() -> List[dict]:
+    """Get all clients."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT id, name, phone, email, address, notes, created_at
+            FROM clients ORDER BY name
+        """)
+        results = []
+        for row in cur.fetchall():
+            r = dict(row)
+            if r.get("created_at"):
+                r["created_at"] = str(r["created_at"])
+            results.append(r)
+        return results
+
+
+def update_client(client_id: int, name: str = None, phone: str = None,
+                  email: str = None, address: str = None, notes: str = None) -> Optional[dict]:
+    """Update a client's information."""
+    updates = {}
+    if name is not None:
+        updates["name"] = name
+    if phone is not None:
+        updates["phone"] = phone
+    if email is not None:
+        updates["email"] = email
+    if address is not None:
+        updates["address"] = address
+    if notes is not None:
+        updates["notes"] = notes
+
+    if not updates:
+        return None
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [client_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE clients SET {set_clause}
+            WHERE id = %s
+            RETURNING id, name, phone, email, address, notes
+        """, values)
+        result = cur.fetchone()
+        return dict(result) if result else None
+
+
+def remove_client_from_case(case_id: int, client_id: int) -> bool:
+    """Remove a client from a case (does not delete the client)."""
+    with get_cursor() as cur:
+        cur.execute("""
+            DELETE FROM case_clients WHERE case_id = %s AND client_id = %s
+            RETURNING id
+        """, (case_id, client_id))
+        return cur.fetchone() is not None
+
+
+# ===== CONTACT UPDATE/DELETE =====
+
+def update_contact(contact_id: int, name: str = None, firm: str = None,
+                   phone: str = None, email: str = None, address: str = None,
+                   notes: str = None) -> Optional[dict]:
+    """Update a contact's information."""
+    updates = {}
+    if name is not None:
+        updates["name"] = name
+    if firm is not None:
+        updates["firm"] = firm
+    if phone is not None:
+        updates["phone"] = phone
+    if email is not None:
+        updates["email"] = email
+    if address is not None:
+        updates["address"] = address
+    if notes is not None:
+        updates["notes"] = notes
+
+    if not updates:
+        return None
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [contact_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE contacts SET {set_clause}
+            WHERE id = %s
+            RETURNING id, name, firm, phone, email, address, notes
+        """, values)
+        result = cur.fetchone()
+        return dict(result) if result else None
+
+
+def remove_contact_from_case(case_id: int, contact_id: int, role: str = None) -> bool:
+    """Remove a contact from a case. If role specified, only removes that role."""
+    with get_cursor() as cur:
+        if role:
+            cur.execute("""
+                DELETE FROM case_contacts
+                WHERE case_id = %s AND contact_id = %s AND role = %s
+                RETURNING id
+            """, (case_id, contact_id, role))
+        else:
+            cur.execute("""
+                DELETE FROM case_contacts
+                WHERE case_id = %s AND contact_id = %s
+                RETURNING id
+            """, (case_id, contact_id))
+        return cur.fetchone() is not None
+
+
+# ===== ACTIVITY UPDATE/DELETE =====
+
+def update_activity(activity_id: int, date: str = None, description: str = None,
+                    activity_type: str = None, minutes: int = None) -> Optional[dict]:
+    """Update an activity."""
+    updates = {}
+    if date is not None:
+        updates["date"] = date
+    if description is not None:
+        updates["description"] = description
+    if activity_type is not None:
+        updates["type"] = activity_type
+    if minutes is not None:
+        updates["minutes"] = minutes
+
+    if not updates:
+        return None
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [activity_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE activities SET {set_clause}
+            WHERE id = %s
+            RETURNING id, date, description, type, minutes
+        """, values)
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            r["date"] = str(r["date"])
+            return r
+        return None
+
+
+def delete_activity(activity_id: int) -> bool:
+    """Delete an activity by ID."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM activities WHERE id = %s RETURNING id", (activity_id,))
+        return cur.fetchone() is not None
+
+
+# ===== NOTE UPDATE =====
+
+def update_note(note_id: int, content: str) -> Optional[dict]:
+    """Update a note's content."""
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE notes SET content = %s
+            WHERE id = %s
+            RETURNING id, content, created_at
+        """, (content, note_id))
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            r["created_at"] = str(r["created_at"])
+            return r
+        return None
+
+
+# ===== CASE NUMBER DELETE =====
+
+def delete_case_number(case_number_id: int) -> bool:
+    """Delete a case number by ID."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM case_numbers WHERE id = %s RETURNING id", (case_number_id,))
+        return cur.fetchone() is not None
+
+
+# ===== DEFENDANT DELETE =====
+
+def remove_defendant_from_case(case_id: int, defendant_id: int) -> bool:
+    """Remove a defendant from a case."""
+    with get_cursor() as cur:
+        cur.execute("""
+            DELETE FROM case_defendants WHERE case_id = %s AND defendant_id = %s
+            RETURNING id
+        """, (case_id, defendant_id))
+        return cur.fetchone() is not None
