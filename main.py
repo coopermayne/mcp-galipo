@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 from fastmcp import FastMCP
+from fastapi import Request
 from fastapi.responses import HTMLResponse
 
 import database as db
@@ -18,7 +19,7 @@ mcp = FastMCP("Legal Case Management")
 
 
 @mcp.custom_route("/", methods=["GET"])
-async def dashboard():
+async def dashboard(request: Request):
     """Simple HTML dashboard to view all cases."""
     cases = db.get_all_cases()
     case_names = db.get_all_case_names()
