@@ -10,9 +10,12 @@ from datetime import datetime
 from typing import Optional
 from fastmcp import FastMCP
 from fastapi import Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from pathlib import Path
 
 import database as db
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 # Initialize the MCP server
 mcp = FastMCP("Legal Case Management")
@@ -20,160 +23,78 @@ mcp = FastMCP("Legal Case Management")
 
 @mcp.custom_route("/", methods=["GET"])
 async def dashboard(request: Request):
-    """HTML dashboard to view all cases with full details."""
-    cases = db.get_all_cases()
-
-    # Build case details HTML
-    cases_html = ""
-    for case_summary in cases:
-        case = db.get_case_by_id(case_summary["id"])
-        if case:
-            # Case numbers
-            case_numbers_html = ", ".join(
-                f"{cn['case_number']} ({cn['label'] or 'N/A'})"
-                + (" [Primary]" if cn['is_primary'] else "")
-                for cn in case.get("case_numbers", [])
-            ) or "None"
-
-            # Clients
-            clients_html = ""
-            for cl in case.get("clients", []):
-                contact_info = "Direct" if cl["contact_directly"] else f"Via {cl.get('contact_via_name', 'N/A')} ({cl.get('contact_via_relationship', '')})"
-                primary_badge = " [Primary]" if cl["is_primary"] else ""
-                clients_html += f"<tr><td>{cl['name']}{primary_badge}</td><td>{cl.get('phone', '-')}</td><td>{cl.get('email', '-')}</td><td>{contact_info}</td></tr>"
-
-            # Defendants
-            defendants_html = ", ".join(d["name"] for d in case.get("defendants", [])) or "None"
-
-            # Contacts
-            contacts_html = ""
-            for co in case.get("contacts", []):
-                contacts_html += f"<tr><td>{co['name']}</td><td>{co.get('firm', '-')}</td><td>{co['role']}</td><td>{co.get('phone', '-')}</td><td>{co.get('email', '-')}</td></tr>"
-
-            # Activities
-            activities_html = ""
-            for a in case.get("activities", []):
-                activities_html += f"<tr><td>{a['date']}</td><td>{a['type']}</td><td>{a['description']}</td><td>{a.get('minutes') or '-'}</td></tr>"
-
-            # Deadlines
-            deadlines_html = ""
-            for d in case.get("deadlines", []):
-                urgency_class = "urgency-high" if d['urgency'] >= 4 else "urgency-medium" if d['urgency'] >= 3 else "urgency-low"
-                deadlines_html += f"<tr class='{urgency_class}'><td>{d['date']}</td><td>{d['description']}</td><td>{d['status']}</td><td>{d['urgency']}</td><td>{d.get('calculation_note', '-')}</td></tr>"
-
-            # Tasks
-            tasks_html = ""
-            for t in case.get("tasks", []):
-                urgency_class = "urgency-high" if t['urgency'] >= 4 else "urgency-medium" if t['urgency'] >= 3 else "urgency-low"
-                deadline_ref = f" (linked to: {t['deadline_description']})" if t.get('deadline_description') else ""
-                tasks_html += f"<tr class='{urgency_class}'><td>{t.get('due_date', '-')}</td><td>{t['description']}{deadline_ref}</td><td>{t['status']}</td><td>{t['urgency']}</td></tr>"
-
-            # Notes
-            notes_html = ""
-            for n in case.get("notes", []):
-                notes_html += f"<div class='note'><small>{n['created_at']}</small><p>{n['content']}</p></div>"
-
-            # Status badge color
-            status_colors = {
-                "Signing Up": "#6c757d", "Prospective": "#17a2b8", "Pre-Filing": "#ffc107",
-                "Pleadings": "#007bff", "Discovery": "#28a745", "Expert Discovery": "#20c997",
-                "Pre-trial": "#fd7e14", "Trial": "#dc3545", "Post-Trial": "#6610f2",
-                "Appeal": "#e83e8c", "Settl. Pend.": "#6f42c1", "Stayed": "#adb5bd", "Closed": "#343a40"
-            }
-            status_color = status_colors.get(case['status'], "#007bff")
-
-            cases_html += f"""
-            <div class="case">
-                <h2>{case['case_name']}</h2>
-                <div class="meta">
-                    <span><strong>Status:</strong> <span class="status" style="background:{status_color}">{case['status']}</span></span>
-                    <span><strong>Court:</strong> {case.get('court', '-')}</span>
-                    <span><strong>Print Code:</strong> {case.get('print_code', '-')}</span>
-                </div>
-                <div class="meta">
-                    <span><strong>Case Numbers:</strong> {case_numbers_html}</span>
-                    <span><strong>Defendants:</strong> {defendants_html}</span>
-                </div>
-                {f'<div class="meta"><strong>Summary:</strong> {case["case_summary"]}</div>' if case.get('case_summary') else ''}
-                <div class="meta">
-                    <span><strong>Date of Injury:</strong> {case.get('date_of_injury', '-')}</span>
-                    <span><strong>Claim Due:</strong> {case.get('claim_due', '-')}</span>
-                    <span><strong>Complaint Due:</strong> {case.get('complaint_due', '-')}</span>
-                    <span><strong>Trial Date:</strong> {case.get('trial_date', '-')}</span>
-                </div>
-
-                <h3>Clients</h3>
-                <table>
-                    <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Contact Method</th></tr></thead>
-                    <tbody>{clients_html if clients_html else '<tr><td colspan="4">No clients</td></tr>'}</tbody>
-                </table>
-
-                <h3>Contacts</h3>
-                <table>
-                    <thead><tr><th>Name</th><th>Firm</th><th>Role</th><th>Phone</th><th>Email</th></tr></thead>
-                    <tbody>{contacts_html if contacts_html else '<tr><td colspan="5">No contacts</td></tr>'}</tbody>
-                </table>
-
-                <h3>Deadlines</h3>
-                <table>
-                    <thead><tr><th>Date</th><th>Description</th><th>Status</th><th>Urgency</th><th>Calculation</th></tr></thead>
-                    <tbody>{deadlines_html if deadlines_html else '<tr><td colspan="5">No deadlines</td></tr>'}</tbody>
-                </table>
-
-                <h3>Tasks</h3>
-                <table>
-                    <thead><tr><th>Due Date</th><th>Description</th><th>Status</th><th>Urgency</th></tr></thead>
-                    <tbody>{tasks_html if tasks_html else '<tr><td colspan="4">No tasks</td></tr>'}</tbody>
-                </table>
-
-                <h3>Activities</h3>
-                <table>
-                    <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Minutes</th></tr></thead>
-                    <tbody>{activities_html if activities_html else '<tr><td colspan="4">No activities</td></tr>'}</tbody>
-                </table>
-
-                <h3>Notes</h3>
-                <div class="notes-container">{notes_html if notes_html else '<p>No notes</p>'}</div>
+    """Modern SPA dashboard for legal case management."""
+    html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Case Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Case Manager</h1>
             </div>
-            """
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-view="dashboard" onclick="navigate('dashboard')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    Dashboard
+                </a>
+                <a class="nav-item" data-view="cases" onclick="navigate('cases')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    Cases
+                </a>
+                <a class="nav-item" data-view="tasks" onclick="navigate('tasks')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    Tasks
+                </a>
+                <a class="nav-item" data-view="deadlines" onclick="navigate('deadlines')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Deadlines
+                </a>
+            </nav>
+        </aside>
+        <main class="main-content" id="main-content">
+            <div class="loading"><div class="spinner"></div></div>
+        </main>
+    </div>
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Legal Case Management</title>
-        <style>
-            * {{ box-sizing: border-box; }}
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
-            h1 {{ color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }}
-            .case {{ background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-            .case h2 {{ margin-top: 0; color: #007bff; }}
-            .case h3 {{ color: #555; margin-top: 20px; font-size: 1em; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-            .meta {{ display: flex; flex-wrap: wrap; gap: 20px; color: #666; font-size: 0.9em; margin-bottom: 10px; }}
-            .status {{ color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; }}
-            table {{ width: 100%; border-collapse: collapse; font-size: 0.9em; margin-bottom: 10px; }}
-            th, td {{ padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; }}
-            th {{ background: #f8f9fa; font-weight: 600; color: #555; }}
-            tr:hover {{ background: #f8f9fa; }}
-            .urgency-high {{ background-color: #ffe6e6; }}
-            .urgency-medium {{ background-color: #fff9e6; }}
-            .urgency-low {{ background-color: #e6ffe6; }}
-            .refresh {{ float: right; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }}
-            .refresh:hover {{ background: #0056b3; }}
-            .notes-container {{ max-height: 200px; overflow-y: auto; }}
-            .note {{ background: #f8f9fa; padding: 10px; margin-bottom: 8px; border-radius: 4px; border-left: 3px solid #007bff; }}
-            .note small {{ color: #888; }}
-            .note p {{ margin: 5px 0 0 0; }}
-        </style>
-    </head>
-    <body>
-        <h1>Legal Case Management <button class="refresh" onclick="location.reload()">Refresh</button></h1>
-        <p>Total cases: {len(cases)} | Statuses: {', '.join(db.CASE_STATUSES[:5])}...</p>
-        {cases_html if cases_html else '<p>No cases found.</p>'}
-    </body>
-    </html>
+    <div class="modal-overlay" id="modal-overlay" onclick="if(event.target === this) closeModal()">
+        <div class="modal" id="modal-content"></div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
     """
     return HTMLResponse(content=html)
+
+
+@mcp.custom_route("/static/{filename:path}", methods=["GET"])
+async def serve_static(request: Request):
+    """Serve static files."""
+    filename = request.path_params["filename"]
+    file_path = STATIC_DIR / filename
+    if file_path.exists() and file_path.is_file():
+        content_types = {
+            ".css": "text/css",
+            ".js": "application/javascript",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".svg": "image/svg+xml"
+        }
+        content_type = content_types.get(file_path.suffix, "application/octet-stream")
+        return FileResponse(file_path, media_type=content_type)
+    return HTMLResponse("Not found", status_code=404)
 
 
 # Initialize database on startup (drop and recreate for migration)
@@ -627,6 +548,539 @@ def add_note(case_id: int, content: str) -> dict:
     """
     result = db.add_note(case_id, content)
     return {"success": True, "note": result}
+
+
+@mcp.tool()
+def update_note(note_id: int, content: str) -> dict:
+    """
+    Update a note's content.
+
+    Args:
+        note_id: ID of the note
+        content: New content
+
+    Returns updated note.
+    """
+    result = db.update_note(note_id, content)
+    if not result:
+        return {"error": "Note not found"}
+    return {"success": True, "note": result}
+
+
+@mcp.tool()
+def delete_note(note_id: int) -> dict:
+    """
+    Delete a note.
+
+    Args:
+        note_id: ID of the note to delete
+
+    Returns confirmation.
+    """
+    if db.delete_note(note_id):
+        return {"success": True, "message": "Note deleted"}
+    return {"error": "Note not found"}
+
+
+# ===== DELETE TOOLS =====
+
+@mcp.tool()
+def delete_task(task_id: int) -> dict:
+    """
+    Delete a task.
+
+    Args:
+        task_id: ID of the task to delete
+
+    Returns confirmation.
+    """
+    if db.delete_task(task_id):
+        return {"success": True, "message": "Task deleted"}
+    return {"error": "Task not found"}
+
+
+@mcp.tool()
+def delete_deadline(deadline_id: int) -> dict:
+    """
+    Delete a deadline.
+
+    Args:
+        deadline_id: ID of the deadline to delete
+
+    Returns confirmation.
+    """
+    if db.delete_deadline(deadline_id):
+        return {"success": True, "message": "Deadline deleted"}
+    return {"error": "Deadline not found"}
+
+
+@mcp.tool()
+def delete_case(case_id: int) -> dict:
+    """
+    Delete a case and all related data (clients, deadlines, tasks, notes, etc. are CASCADE deleted).
+
+    Args:
+        case_id: ID of the case to delete
+
+    Returns confirmation.
+    """
+    if db.delete_case(case_id):
+        return {"success": True, "message": "Case and all related data deleted"}
+    return {"error": "Case not found"}
+
+
+@mcp.tool()
+def delete_activity(activity_id: int) -> dict:
+    """
+    Delete an activity/time entry.
+
+    Args:
+        activity_id: ID of the activity to delete
+
+    Returns confirmation.
+    """
+    if db.delete_activity(activity_id):
+        return {"success": True, "message": "Activity deleted"}
+    return {"error": "Activity not found"}
+
+
+@mcp.tool()
+def delete_case_number(case_number_id: int) -> dict:
+    """
+    Delete a case number.
+
+    Args:
+        case_number_id: ID of the case number to delete
+
+    Returns confirmation.
+    """
+    if db.delete_case_number(case_number_id):
+        return {"success": True, "message": "Case number deleted"}
+    return {"error": "Case number not found"}
+
+
+# ===== LIST TOOLS =====
+
+@mcp.tool()
+def list_clients() -> dict:
+    """
+    List all clients in the system.
+
+    Returns list of clients with contact information.
+    """
+    clients = db.get_all_clients()
+    return {"clients": clients, "total": len(clients)}
+
+
+@mcp.tool()
+def list_contacts() -> dict:
+    """
+    List all contacts in the system (opposing counsel, experts, judges, etc.).
+
+    Returns list of contacts with firm and contact information.
+    """
+    contacts = db.get_all_contacts()
+    return {"contacts": contacts, "total": len(contacts)}
+
+
+@mcp.tool()
+def list_activities(case_id: Optional[int] = None) -> dict:
+    """
+    List activities/time entries, optionally filtered by case.
+
+    Args:
+        case_id: Optional case ID to filter by
+
+    Returns list of activities.
+    """
+    activities = db.get_all_activities(case_id)
+    return {"activities": activities, "total": len(activities)}
+
+
+# ===== UPDATE TOOLS =====
+
+@mcp.tool()
+def update_deadline(
+    deadline_id: int,
+    date: Optional[str] = None,
+    description: Optional[str] = None,
+    status: Optional[str] = None,
+    urgency: Optional[int] = None,
+    document_link: Optional[str] = None,
+    calculation_note: Optional[str] = None
+) -> dict:
+    """
+    Update a deadline.
+
+    Args:
+        deadline_id: ID of the deadline
+        date: New date (YYYY-MM-DD)
+        description: New description
+        status: New status
+        urgency: New urgency (1-5)
+        document_link: New document link
+        calculation_note: New calculation note
+
+    Returns updated deadline.
+    """
+    result = db.update_deadline_full(deadline_id, date, description, status,
+                                      urgency, document_link, calculation_note)
+    if not result:
+        return {"error": "Deadline not found or no updates provided"}
+    return {"success": True, "deadline": result}
+
+
+@mcp.tool()
+def update_client(
+    client_id: int,
+    name: Optional[str] = None,
+    phone: Optional[str] = None,
+    email: Optional[str] = None,
+    address: Optional[str] = None,
+    notes: Optional[str] = None
+) -> dict:
+    """
+    Update a client's information.
+
+    Args:
+        client_id: ID of the client
+        name: New name
+        phone: New phone
+        email: New email
+        address: New address
+        notes: New notes
+
+    Returns updated client.
+    """
+    result = db.update_client(client_id, name, phone, email, address, notes)
+    if not result:
+        return {"error": "Client not found or no updates provided"}
+    return {"success": True, "client": result}
+
+
+@mcp.tool()
+def update_contact(
+    contact_id: int,
+    name: Optional[str] = None,
+    firm: Optional[str] = None,
+    phone: Optional[str] = None,
+    email: Optional[str] = None,
+    address: Optional[str] = None,
+    notes: Optional[str] = None
+) -> dict:
+    """
+    Update a contact's information.
+
+    Args:
+        contact_id: ID of the contact
+        name: New name
+        firm: New firm
+        phone: New phone
+        email: New email
+        address: New address
+        notes: New notes
+
+    Returns updated contact.
+    """
+    result = db.update_contact(contact_id, name, firm, phone, email, address, notes)
+    if not result:
+        return {"error": "Contact not found or no updates provided"}
+    return {"success": True, "contact": result}
+
+
+@mcp.tool()
+def update_activity(
+    activity_id: int,
+    date: Optional[str] = None,
+    description: Optional[str] = None,
+    activity_type: Optional[str] = None,
+    minutes: Optional[int] = None
+) -> dict:
+    """
+    Update an activity/time entry.
+
+    Args:
+        activity_id: ID of the activity
+        date: New date (YYYY-MM-DD)
+        description: New description
+        activity_type: New type
+        minutes: New minutes
+
+    Returns updated activity.
+    """
+    result = db.update_activity(activity_id, date, description, activity_type, minutes)
+    if not result:
+        return {"error": "Activity not found or no updates provided"}
+    return {"success": True, "activity": result}
+
+
+# ===== REMOVE/UNLINK TOOLS =====
+
+@mcp.tool()
+def remove_client_from_case(case_id: int, client_id: int) -> dict:
+    """
+    Remove a client from a case (does not delete the client record).
+
+    Args:
+        case_id: ID of the case
+        client_id: ID of the client to remove
+
+    Returns confirmation.
+    """
+    if db.remove_client_from_case(case_id, client_id):
+        return {"success": True, "message": "Client removed from case"}
+    return {"error": "Client-case link not found"}
+
+
+@mcp.tool()
+def remove_contact_from_case(
+    case_id: int,
+    contact_id: int,
+    role: Optional[str] = None
+) -> dict:
+    """
+    Remove a contact from a case (does not delete the contact record).
+
+    Args:
+        case_id: ID of the case
+        contact_id: ID of the contact to remove
+        role: Optional specific role to remove (if contact has multiple roles)
+
+    Returns confirmation.
+    """
+    if db.remove_contact_from_case(case_id, contact_id, role):
+        return {"success": True, "message": "Contact removed from case"}
+    return {"error": "Contact-case link not found"}
+
+
+@mcp.tool()
+def remove_defendant_from_case(case_id: int, defendant_id: int) -> dict:
+    """
+    Remove a defendant from a case (does not delete the defendant record).
+
+    Args:
+        case_id: ID of the case
+        defendant_id: ID of the defendant to remove
+
+    Returns confirmation.
+    """
+    if db.remove_defendant_from_case(case_id, defendant_id):
+        return {"success": True, "message": "Defendant removed from case"}
+    return {"error": "Defendant-case link not found"}
+
+
+# ===== REST API ENDPOINTS FOR FRONTEND =====
+
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import Optional as Opt
+
+class TaskCreate(BaseModel):
+    case_id: int
+    description: str
+    due_date: Opt[str] = None
+    urgency: int = 3
+    status: str = "Pending"
+
+class TaskUpdate(BaseModel):
+    description: Opt[str] = None
+    due_date: Opt[str] = None
+    status: Opt[str] = None
+    urgency: Opt[int] = None
+
+class DeadlineCreate(BaseModel):
+    case_id: int
+    date: str
+    description: str
+    urgency: int = 3
+    status: str = "Pending"
+    document_link: Opt[str] = None
+    calculation_note: Opt[str] = None
+
+class DeadlineUpdate(BaseModel):
+    date: Opt[str] = None
+    description: Opt[str] = None
+    status: Opt[str] = None
+    urgency: Opt[int] = None
+    document_link: Opt[str] = None
+    calculation_note: Opt[str] = None
+
+class CaseCreate(BaseModel):
+    case_name: str
+    status: str = "Signing Up"
+    court: Opt[str] = None
+    print_code: Opt[str] = None
+    case_summary: Opt[str] = None
+    date_of_injury: Opt[str] = None
+
+class CaseUpdate(BaseModel):
+    case_name: Opt[str] = None
+    status: Opt[str] = None
+    court: Opt[str] = None
+    print_code: Opt[str] = None
+    case_summary: Opt[str] = None
+    date_of_injury: Opt[str] = None
+    claim_due: Opt[str] = None
+    claim_filed_date: Opt[str] = None
+    complaint_due: Opt[str] = None
+    complaint_filed_date: Opt[str] = None
+    trial_date: Opt[str] = None
+
+class NoteCreate(BaseModel):
+    case_id: int
+    content: str
+
+# API Routes
+@mcp.custom_route("/api/stats", methods=["GET"])
+async def api_stats(request):
+    stats = db.get_dashboard_stats()
+    return JSONResponse(stats)
+
+@mcp.custom_route("/api/cases", methods=["GET"])
+async def api_list_cases(request):
+    status = request.query_params.get("status")
+    cases = db.get_all_cases(status)
+    return JSONResponse({"cases": cases, "total": len(cases)})
+
+@mcp.custom_route("/api/cases/{case_id}", methods=["GET"])
+async def api_get_case(request):
+    case_id = int(request.path_params["case_id"])
+    case = db.get_case_by_id(case_id)
+    if not case:
+        return JSONResponse({"error": "Case not found"}, status_code=404)
+    return JSONResponse(case)
+
+@mcp.custom_route("/api/cases", methods=["POST"])
+async def api_create_case(request):
+    data = await request.json()
+    result = db.create_case(
+        data["case_name"],
+        data.get("status", "Signing Up"),
+        data.get("court"),
+        data.get("print_code"),
+        data.get("case_summary"),
+        data.get("date_of_injury")
+    )
+    return JSONResponse({"success": True, "case": result})
+
+@mcp.custom_route("/api/cases/{case_id}", methods=["PUT"])
+async def api_update_case(request):
+    case_id = int(request.path_params["case_id"])
+    data = await request.json()
+    result = db.update_case(case_id, **data)
+    if not result:
+        return JSONResponse({"error": "Case not found"}, status_code=404)
+    return JSONResponse({"success": True, "case": result})
+
+@mcp.custom_route("/api/cases/{case_id}", methods=["DELETE"])
+async def api_delete_case(request):
+    case_id = int(request.path_params["case_id"])
+    if db.delete_case(case_id):
+        return JSONResponse({"success": True})
+    return JSONResponse({"error": "Case not found"}, status_code=404)
+
+@mcp.custom_route("/api/tasks", methods=["GET"])
+async def api_list_tasks(request):
+    case_id = request.query_params.get("case_id")
+    status = request.query_params.get("status")
+    urgency = request.query_params.get("urgency")
+    tasks = db.get_tasks(
+        int(case_id) if case_id else None,
+        status,
+        int(urgency) if urgency else None
+    )
+    return JSONResponse({"tasks": tasks, "total": len(tasks)})
+
+@mcp.custom_route("/api/tasks", methods=["POST"])
+async def api_create_task(request):
+    data = await request.json()
+    result = db.add_task(
+        data["case_id"],
+        data["description"],
+        data.get("due_date"),
+        data.get("status", "Pending"),
+        data.get("urgency", 3),
+        data.get("deadline_id")
+    )
+    return JSONResponse({"success": True, "task": result})
+
+@mcp.custom_route("/api/tasks/{task_id}", methods=["PUT"])
+async def api_update_task(request):
+    task_id = int(request.path_params["task_id"])
+    data = await request.json()
+    result = db.update_task_full(task_id, **data)
+    if not result:
+        return JSONResponse({"error": "Task not found"}, status_code=404)
+    return JSONResponse({"success": True, "task": result})
+
+@mcp.custom_route("/api/tasks/{task_id}", methods=["DELETE"])
+async def api_delete_task(request):
+    task_id = int(request.path_params["task_id"])
+    if db.delete_task(task_id):
+        return JSONResponse({"success": True})
+    return JSONResponse({"error": "Task not found"}, status_code=404)
+
+@mcp.custom_route("/api/deadlines", methods=["GET"])
+async def api_list_deadlines(request):
+    urgency = request.query_params.get("urgency")
+    status = request.query_params.get("status")
+    deadlines = db.get_upcoming_deadlines(
+        int(urgency) if urgency else None,
+        status
+    )
+    return JSONResponse({"deadlines": deadlines, "total": len(deadlines)})
+
+@mcp.custom_route("/api/deadlines", methods=["POST"])
+async def api_create_deadline(request):
+    data = await request.json()
+    result = db.add_deadline(
+        data["case_id"],
+        data["date"],
+        data["description"],
+        data.get("status", "Pending"),
+        data.get("urgency", 3),
+        data.get("document_link"),
+        data.get("calculation_note")
+    )
+    return JSONResponse({"success": True, "deadline": result})
+
+@mcp.custom_route("/api/deadlines/{deadline_id}", methods=["PUT"])
+async def api_update_deadline(request):
+    deadline_id = int(request.path_params["deadline_id"])
+    data = await request.json()
+    result = db.update_deadline_full(deadline_id, **data)
+    if not result:
+        return JSONResponse({"error": "Deadline not found"}, status_code=404)
+    return JSONResponse({"success": True, "deadline": result})
+
+@mcp.custom_route("/api/deadlines/{deadline_id}", methods=["DELETE"])
+async def api_delete_deadline(request):
+    deadline_id = int(request.path_params["deadline_id"])
+    if db.delete_deadline(deadline_id):
+        return JSONResponse({"success": True})
+    return JSONResponse({"error": "Deadline not found"}, status_code=404)
+
+@mcp.custom_route("/api/notes", methods=["POST"])
+async def api_create_note(request):
+    data = await request.json()
+    result = db.add_note(data["case_id"], data["content"])
+    return JSONResponse({"success": True, "note": result})
+
+@mcp.custom_route("/api/notes/{note_id}", methods=["DELETE"])
+async def api_delete_note(request):
+    note_id = int(request.path_params["note_id"])
+    if db.delete_note(note_id):
+        return JSONResponse({"success": True})
+    return JSONResponse({"error": "Note not found"}, status_code=404)
+
+@mcp.custom_route("/api/constants", methods=["GET"])
+async def api_constants(request):
+    return JSONResponse({
+        "case_statuses": db.CASE_STATUSES,
+        "contact_roles": db.CONTACT_ROLES,
+        "task_statuses": db.TASK_STATUSES
+    })
 
 
 if __name__ == "__main__":
