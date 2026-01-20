@@ -5,6 +5,7 @@ A minimal FastMCP server exposing tools to query and manage legal cases.
 Uses in-memory mock data for testing MCP connectivity.
 """
 
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from fastmcp import FastMCP
@@ -175,4 +176,5 @@ def log_activity(
 
 if __name__ == "__main__":
     # Run the MCP server with SSE transport for remote access
-    mcp.run(transport="sse", host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    mcp.run(transport="sse", host="0.0.0.0", port=port)
