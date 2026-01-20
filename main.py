@@ -9,11 +9,85 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 from fastmcp import FastMCP
+from fastapi.responses import HTMLResponse
 
 import database as db
 
 # Initialize the MCP server
 mcp = FastMCP("Legal Case Management")
+
+
+@mcp.custom_route("/", methods=["GET"])
+async def dashboard():
+    """Simple HTML dashboard to view all cases."""
+    cases = db.get_all_cases()
+    case_names = db.get_all_case_names()
+
+    # Build case details HTML
+    cases_html = ""
+    for name in case_names:
+        case = db.get_case_by_name(name)
+        if case:
+            activities_html = "".join(
+                f"<tr><td>{a['date']}</td><td>{a['type']}</td><td>{a['description']}</td><td>{a['minutes'] or '-'}</td></tr>"
+                for a in case["activities"]
+            )
+            deadlines_html = "".join(
+                f"<tr><td>{d['date']}</td><td>{d['description']}</td><td>{d['status']}</td></tr>"
+                for d in case["deadlines"]
+            )
+            cases_html += f"""
+            <div class="case">
+                <h2>{case['case_name']}</h2>
+                <div class="meta">
+                    <span><strong>Case #:</strong> {case['case_number']}</span>
+                    <span><strong>Client:</strong> {case['client_name']}</span>
+                    <span><strong>Status:</strong> <span class="status">{case['status']}</span></span>
+                    <span><strong>Court:</strong> {case['court']}</span>
+                </div>
+                <h3>Activities</h3>
+                <table>
+                    <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Minutes</th></tr></thead>
+                    <tbody>{activities_html if activities_html else '<tr><td colspan="4">No activities</td></tr>'}</tbody>
+                </table>
+                <h3>Deadlines</h3>
+                <table>
+                    <thead><tr><th>Date</th><th>Description</th><th>Status</th></tr></thead>
+                    <tbody>{deadlines_html if deadlines_html else '<tr><td colspan="3">No deadlines</td></tr>'}</tbody>
+                </table>
+            </div>
+            """
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Legal Case Management</title>
+        <style>
+            * {{ box-sizing: border-box; }}
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
+            h1 {{ color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }}
+            .case {{ background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            .case h2 {{ margin-top: 0; color: #007bff; }}
+            .case h3 {{ color: #555; margin-top: 20px; font-size: 1em; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
+            .meta {{ display: flex; flex-wrap: wrap; gap: 20px; color: #666; font-size: 0.9em; margin-bottom: 15px; }}
+            .status {{ background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; }}
+            table {{ width: 100%; border-collapse: collapse; font-size: 0.9em; }}
+            th, td {{ padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; }}
+            th {{ background: #f8f9fa; font-weight: 600; color: #555; }}
+            tr:hover {{ background: #f8f9fa; }}
+            .refresh {{ float: right; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }}
+            .refresh:hover {{ background: #0056b3; }}
+        </style>
+    </head>
+    <body>
+        <h1>Legal Case Management <button class="refresh" onclick="location.reload()">Refresh</button></h1>
+        <p>Total cases: {len(case_names)}</p>
+        {cases_html if cases_html else '<p>No cases found.</p>'}
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 # Initialize database on startup
 db.init_db()
