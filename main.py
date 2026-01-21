@@ -31,8 +31,9 @@ if os.environ.get("RESET_DB", "").lower() == "true":
 else:
     # Just ensure tables exist (safe for production)
     db.init_db()
-    # Run migration for existing databases (moves case_numbers to JSONB)
+    # Run migrations for existing databases
     db.migrate_case_numbers_to_jsonb()
+    db.migrate_add_short_name()
 
 
 if __name__ == "__main__":
