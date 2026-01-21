@@ -139,11 +139,19 @@ export function CaseDetail() {
     <>
       <Header
         title={
-          <EditableText
-            value={caseData.case_name}
-            onSave={(value) => handleUpdateField('case_name', value)}
-            className="text-2xl font-semibold"
-          />
+          <div>
+            <EditableText
+              value={caseData.case_name}
+              onSave={(value) => handleUpdateField('case_name', value)}
+              className="text-2xl font-semibold"
+            />
+            <EditableText
+              value={caseData.short_name || ''}
+              onSave={(value) => handleUpdateField('short_name', value || null)}
+              placeholder="Set short name..."
+              className="text-sm text-slate-400 mt-0.5"
+            />
+          </div>
         }
         subtitle={
           <div className="flex items-center gap-3 mt-1">
@@ -213,17 +221,17 @@ export function CaseDetail() {
         </PageContent>
       )}
       {activeTab === 'tasks' && (
-        <PageContent variant="wide">
+        <PageContent>
           <TasksTab caseId={caseId} tasks={caseData.tasks || []} constants={constants} />
         </PageContent>
       )}
       {activeTab === 'deadlines' && (
-        <PageContent variant="wide">
+        <PageContent>
           <DeadlinesTab caseId={caseId} deadlines={caseData.deadlines || []} />
         </PageContent>
       )}
       {activeTab === 'notes' && (
-        <PageContent variant="narrow">
+        <PageContent>
           <NotesTab caseId={caseId} notes={caseData.notes || []} />
         </PageContent>
       )}

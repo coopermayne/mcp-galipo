@@ -172,7 +172,7 @@ export function Cases() {
         }
       />
 
-      <PageContent variant="wide">
+      <PageContent>
         {/* Status Filter */}
         <div className="mb-4 flex items-center gap-4">
           <label className="text-sm text-slate-400">Filter by status:</label>

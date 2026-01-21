@@ -2,19 +2,17 @@ interface PageContentProps {
   children: React.ReactNode;
   /**
    * Layout variant:
-   * - "full": Multi-column content, uses available width (Dashboard grids, CaseDetail overview)
-   * - "narrow": Single-column content, max-width with centering (tables, lists, forms)
-   * - "wide": Single-column but wider max-width (for wider tables)
+   * - "full": No max-width constraint, content uses available space
+   * - "constrained": Max-width applied, content left-aligned
    */
-  variant?: 'full' | 'narrow' | 'wide';
+  variant?: 'full' | 'constrained';
   className?: string;
 }
 
-export function PageContent({ children, variant = 'full', className = '' }: PageContentProps) {
+export function PageContent({ children, variant = 'constrained', className = '' }: PageContentProps) {
   const variantClasses = {
-    full: '', // No max-width, uses full available space
-    narrow: 'max-w-4xl mx-auto', // ~896px - good for forms, narrow lists
-    wide: 'max-w-6xl mx-auto', // ~1152px - good for tables
+    full: '',
+    constrained: 'max-w-5xl', // ~1024px - good balance for lists and tables
   };
 
   return (

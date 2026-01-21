@@ -1,46 +1,168 @@
-import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
-import { StatusBadge, UrgencyBadge } from '../components/common';
-import { getStats, getTasks, getDeadlines } from '../api/client';
+import {
+  StatusBadge,
+  UrgencyBadge,
+  EditableText,
+  EditableSelect,
+  EditableDate,
+  ListPanel,
+} from '../components/common';
+import { getStats, getTasks, getDeadlines, getConstants, updateTask, deleteTask, updateDeadline, deleteDeadline } from '../api/client';
+import type { Task, Deadline } from '../types';
 import {
   Briefcase,
   CheckSquare,
   Clock,
   ChevronRight,
   Loader2,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, differenceInDays } from 'date-fns';
 
 export function Dashboard() {
+  const queryClient = useQueryClient();
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: getStats,
   });
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
-    queryKey: ['tasks', { status: 'Pending', limit: 5 }],
-    queryFn: () => getTasks({ status: 'Pending', limit: 5 }),
+    queryKey: ['dashboard-tasks'],
+    queryFn: () => getTasks({ limit: 10 }),
   });
 
   const { data: deadlinesData, isLoading: deadlinesLoading } = useQuery({
-    queryKey: ['deadlines', { status: 'Pending', limit: 5 }],
-    queryFn: () => getDeadlines({ status: 'Pending', limit: 5 }),
+    queryKey: ['dashboard-deadlines'],
+    queryFn: () => getDeadlines({ limit: 10 }),
   });
 
-  const formatDate = (dateStr: string | undefined) => {
-    if (!dateStr) return 'No date';
+  const { data: constants } = useQuery({
+    queryKey: ['constants'],
+    queryFn: getConstants,
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) => updateTask(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: number) => deleteTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
+  const updateDeadlineMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Deadline> }) => updateDeadline(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
+  const deleteDeadlineMutation = useMutation({
+    mutationFn: (id: number) => deleteDeadline(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
+  const handleUpdateTask = useCallback(
+    async (taskId: number, field: string, value: any) => {
+      await updateTaskMutation.mutateAsync({ id: taskId, data: { [field]: value } });
+    },
+    [updateTaskMutation]
+  );
+
+  const handleDeleteTask = useCallback(
+    (taskId: number) => {
+      if (confirm('Delete this task?')) {
+        deleteTaskMutation.mutate(taskId);
+      }
+    },
+    [deleteTaskMutation]
+  );
+
+  const handleUpdateDeadline = useCallback(
+    async (deadlineId: number, field: string, value: any) => {
+      await updateDeadlineMutation.mutateAsync({ id: deadlineId, data: { [field]: value } });
+    },
+    [updateDeadlineMutation]
+  );
+
+  const handleDeleteDeadline = useCallback(
+    (deadlineId: number) => {
+      if (confirm('Delete this deadline?')) {
+        deleteDeadlineMutation.mutate(deadlineId);
+      }
+    },
+    [deleteDeadlineMutation]
+  );
+
+  const taskStatusOptions = (constants?.task_statuses || []).map((s) => ({
+    value: s,
+    label: s,
+  }));
+
+  const deadlineStatusOptions = [
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Met', label: 'Met' },
+    { value: 'Missed', label: 'Missed' },
+    { value: 'Extended', label: 'Extended' },
+  ];
+
+  const urgencyOptions = [
+    { value: '1', label: '1 - Low' },
+    { value: '2', label: '2' },
+    { value: '3', label: '3 - Medium' },
+    { value: '4', label: '4' },
+    { value: '5', label: '5 - Critical' },
+  ];
+
+  const getDaysUntil = (dateStr: string) => {
     const date = parseISO(dateStr);
-    return isValid(date) ? format(date, 'MMM d, yyyy') : dateStr;
+    if (!isValid(date)) return null;
+    const days = differenceInDays(date, new Date());
+    if (days < 0) return `${Math.abs(days)}d overdue`;
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
+    return `${days}d`;
   };
+
+  // Filter to only show non-completed tasks
+  const pendingTasks = tasksData?.tasks.filter(t => t.status !== 'Done') || [];
+
+  // Filter to only show upcoming pending deadlines (not overdue)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const pendingDeadlines = deadlinesData?.deadlines.filter(d => {
+    if (d.status !== 'Pending') return false;
+    const deadlineDate = parseISO(d.date);
+    return isValid(deadlineDate) && deadlineDate >= today;
+  }) || [];
 
   return (
     <>
-      <Header title="Dashboard" subtitle="Overview of your legal cases" />
+      <Header title="Overview" subtitle="Your cases at a glance" />
 
       <PageContent variant="full">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard
             title="Total Cases"
             value={stats?.total_cases ?? '-'}
@@ -76,9 +198,9 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Pending Tasks */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
-              <h2 className="font-semibold text-slate-100">Pending Tasks</h2>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold text-slate-100">Tasks</h2>
               <Link
                 to="/tasks"
                 className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
@@ -86,49 +208,63 @@ export function Dashboard() {
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="divide-y divide-slate-700">
+            <ListPanel>
               {tasksLoading ? (
-                <div className="p-4 flex justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-                </div>
-              ) : tasksData?.tasks.length === 0 ? (
-                <div className="p-4 text-center text-slate-400 text-sm">
-                  No pending tasks
-                </div>
+                <ListPanel.Loading />
+              ) : pendingTasks.length === 0 ? (
+                <ListPanel.Empty message="No pending tasks" />
               ) : (
-                tasksData?.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="px-4 py-3 hover:bg-slate-700 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
+                <ListPanel.Body>
+                  {pendingTasks.slice(0, 8).map((task) => (
+                    <ListPanel.Row key={task.id}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-100 truncate">
-                          {task.description}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {task.case_name || `Case #${task.case_id}`}
-                        </p>
+                        <EditableText
+                          value={task.description}
+                          onSave={(value) => handleUpdateTask(task.id, 'description', value)}
+                          className="text-sm"
+                        />
+                        <Link
+                          to={`/cases/${task.case_id}`}
+                          className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-0.5"
+                        >
+                          {task.short_name || task.case_name || `Case #${task.case_id}`}
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {task.due_date && (
-                          <span className="text-xs text-slate-400">
-                            {formatDate(task.due_date)}
-                          </span>
-                        )}
-                        <UrgencyBadge urgency={task.urgency} />
-                      </div>
-                    </div>
-                  </div>
-                ))
+                      <EditableDate
+                        value={task.due_date || null}
+                        onSave={(value) => handleUpdateTask(task.id, 'due_date', value)}
+                        placeholder="Due"
+                      />
+                      <EditableSelect
+                        value={task.status}
+                        options={taskStatusOptions}
+                        onSave={(value) => handleUpdateTask(task.id, 'status', value)}
+                        renderValue={(value) => <StatusBadge status={value} />}
+                      />
+                      <EditableSelect
+                        value={String(task.urgency)}
+                        options={urgencyOptions}
+                        onSave={(value) => handleUpdateTask(task.id, 'urgency', parseInt(value))}
+                        renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
+                      />
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-1 text-slate-500 hover:text-red-400"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </ListPanel.Row>
+                  ))}
+                </ListPanel.Body>
               )}
-            </div>
+            </ListPanel>
           </div>
 
           {/* Upcoming Deadlines */}
-          <div className="bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
-              <h2 className="font-semibold text-slate-100">Upcoming Deadlines</h2>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold text-slate-100">Deadlines</h2>
               <Link
                 to="/deadlines"
                 className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
@@ -136,61 +272,63 @@ export function Dashboard() {
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="divide-y divide-slate-700">
+            <ListPanel>
               {deadlinesLoading ? (
-                <div className="p-4 flex justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-                </div>
-              ) : deadlinesData?.deadlines.length === 0 ? (
-                <div className="p-4 text-center text-slate-400 text-sm">
-                  No upcoming deadlines
-                </div>
+                <ListPanel.Loading />
+              ) : pendingDeadlines.length === 0 ? (
+                <ListPanel.Empty message="No pending deadlines" />
               ) : (
-                deadlinesData?.deadlines.map((deadline) => (
-                  <div
-                    key={deadline.id}
-                    className="px-4 py-3 hover:bg-slate-700 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
+                <ListPanel.Body>
+                  {pendingDeadlines.slice(0, 8).map((deadline) => (
+                    <ListPanel.Row key={deadline.id}>
+                      <div className="w-28 shrink-0">
+                        <EditableDate
+                          value={deadline.date}
+                          onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
+                        />
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {getDaysUntil(deadline.date)}
+                        </p>
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-100 truncate">
-                          {deadline.description}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {deadline.case_name || `Case #${deadline.case_id}`}
-                        </p>
+                        <EditableText
+                          value={deadline.description}
+                          onSave={(value) => handleUpdateDeadline(deadline.id, 'description', value)}
+                          className="text-sm"
+                        />
+                        <Link
+                          to={`/cases/${deadline.case_id}`}
+                          className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-0.5"
+                        >
+                          {deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-medium text-slate-300">
-                          {formatDate(deadline.date)}
-                        </span>
-                        <UrgencyBadge urgency={deadline.urgency} />
-                      </div>
-                    </div>
-                  </div>
-                ))
+                      <EditableSelect
+                        value={deadline.status}
+                        options={deadlineStatusOptions}
+                        onSave={(value) => handleUpdateDeadline(deadline.id, 'status', value)}
+                        renderValue={(value) => <StatusBadge status={value} />}
+                      />
+                      <EditableSelect
+                        value={String(deadline.urgency)}
+                        options={urgencyOptions}
+                        onSave={(value) => handleUpdateDeadline(deadline.id, 'urgency', parseInt(value))}
+                        renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
+                      />
+                      <button
+                        onClick={() => handleDeleteDeadline(deadline.id)}
+                        className="p-1 text-slate-500 hover:text-red-400"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </ListPanel.Row>
+                  ))}
+                </ListPanel.Body>
               )}
-            </div>
+            </ListPanel>
           </div>
         </div>
-
-        {/* Cases by Status */}
-        {stats?.cases_by_status && Object.keys(stats.cases_by_status).length > 0 && (
-          <div className="mt-6 bg-slate-800 rounded-lg border border-slate-700 shadow-sm p-4">
-            <h2 className="font-semibold text-slate-100 mb-4">Cases by Status</h2>
-            <div className="flex flex-wrap gap-3">
-              {Object.entries(stats.cases_by_status).map(([status, count]) => (
-                <div
-                  key={status}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 rounded-lg"
-                >
-                  <StatusBadge status={status} />
-                  <span className="text-sm font-medium text-slate-300">{count as number}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </PageContent>
     </>
   );
