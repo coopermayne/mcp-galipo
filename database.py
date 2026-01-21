@@ -205,6 +205,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS cases (
                 id SERIAL PRIMARY KEY,
                 case_name VARCHAR(255) NOT NULL,
+                short_name VARCHAR(100),
                 status VARCHAR(50) NOT NULL DEFAULT 'Signing Up',
                 court VARCHAR(255),
                 print_code VARCHAR(50),
@@ -611,7 +612,7 @@ def create_case(case_name: str, status: str = "Signing Up", court: str = None,
                 print_code: str = None, case_summary: str = None,
                 date_of_injury: str = None, case_numbers: List[dict] = None,
                 clients: List[dict] = None, defendants: List[str] = None,
-                contacts: List[dict] = None) -> dict:
+                contacts: List[dict] = None, short_name: str = None) -> dict:
     """
     Create a new case with optional nested data.
 
@@ -626,19 +627,24 @@ def create_case(case_name: str, status: str = "Signing Up", court: str = None,
         clients: List of clients to add [{"name": "...", "phone": "...", "is_primary": bool, ...}]
         defendants: List of defendant names ["City of LA", "LAPD"]
         contacts: List of contacts to add [{"name": "...", "role": "...", "firm": "..."}]
+        short_name: Short name for the case (defaults to first word of case_name)
 
     Returns the created case with nested data summary.
     """
     import json
     case_numbers_json = json.dumps(case_numbers) if case_numbers else '[]'
 
+    # Default short_name to first word of case_name
+    if short_name is None:
+        short_name = case_name.split()[0] if case_name else None
+
     with get_cursor() as cur:
         # Create the case
         cur.execute("""
-            INSERT INTO cases (case_name, status, court, print_code, case_summary, date_of_injury, case_numbers)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO cases (case_name, short_name, status, court, print_code, case_summary, date_of_injury, case_numbers)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (case_name, status, court, print_code, case_summary, date_of_injury, case_numbers_json))
+        """, (case_name, short_name, status, court, print_code, case_summary, date_of_injury, case_numbers_json))
         case_id = cur.fetchone()["id"]
 
     # Add clients (using smart function - outside the cursor context for separate transactions)
@@ -688,6 +694,7 @@ def create_case(case_name: str, status: str = "Signing Up", court: str = None,
     return {
         "id": case_id,
         "case_name": case_name,
+        "short_name": short_name,
         "status": status,
         "case_numbers": case_numbers or [],
         "clients_added": clients_added,
@@ -700,7 +707,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
     """Update case fields, including case_numbers as JSONB."""
     import json
 
-    allowed_fields = ["case_name", "status", "court", "print_code", "case_summary",
+    allowed_fields = ["case_name", "short_name", "status", "court", "print_code", "case_summary",
                       "date_of_injury", "claim_due", "claim_filed_date",
                       "complaint_due", "complaint_filed_date", "trial_date", "case_numbers"]
     updates = {k: v for k, v in kwargs.items() if k in allowed_fields and v is not None}
@@ -719,7 +726,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         cur.execute(f"""
             UPDATE cases SET {set_clause}, updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
-            RETURNING id, case_name, status, case_numbers
+            RETURNING id, case_name, short_name, status, case_numbers
         """, values)
         result = cur.fetchone()
         if result:
@@ -1368,7 +1375,7 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
 
         cur.execute(f"""
             SELECT t.id, t.description, t.status, t.urgency, t.due_date,
-                   c.id as case_id, c.case_name
+                   c.id as case_id, c.case_name, c.short_name
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             WHERE {where_clause}
@@ -1411,7 +1418,7 @@ def search_deadlines(query: str = None, case_id: int = None, status: str = None,
 
         cur.execute(f"""
             SELECT d.id, d.description, d.status, d.urgency, d.date,
-                   d.calculation_note, c.id as case_id, c.case_name
+                   d.calculation_note, c.id as case_id, c.case_name, c.short_name
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
             WHERE {where_clause}
@@ -1495,7 +1502,7 @@ def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None
         query = f"""
             SELECT d.id, d.date, d.description, d.status, d.urgency,
                    d.document_link, d.calculation_note,
-                   c.id as case_id, c.case_name
+                   c.id as case_id, c.case_name, c.short_name
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
             WHERE {where_clause}
@@ -1536,7 +1543,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
             # Get deadlines
             query = """
                 SELECT d.id, d.date, d.description, d.status, d.urgency,
-                       c.id as case_id, c.case_name,
+                       c.id as case_id, c.case_name, c.short_name,
                        'deadline' as item_type
                 FROM deadlines d
                 JOIN cases c ON d.case_id = c.id
@@ -1562,7 +1569,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
             # Get tasks with due dates
             query = """
                 SELECT t.id, t.due_date as date, t.description, t.status, t.urgency,
-                       c.id as case_id, c.case_name,
+                       c.id as case_id, c.case_name, c.short_name,
                        'task' as item_type
                 FROM tasks t
                 JOIN cases c ON t.case_id = c.id
@@ -1680,7 +1687,7 @@ def get_tasks(case_id: int = None, status_filter: str = None,
         # Get paginated results
         query = f"""
             SELECT t.id, t.due_date, t.description, t.status, t.urgency,
-                   t.deadline_id, c.id as case_id, c.case_name,
+                   t.deadline_id, c.id as case_id, c.case_name, c.short_name,
                    d.description as deadline_description, d.date as deadline_date
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
@@ -1898,6 +1905,10 @@ def get_all_activities(case_id: int = None) -> List[dict]:
 def get_dashboard_stats() -> dict:
     """Get statistics for dashboard."""
     with get_cursor() as cur:
+        # Total cases
+        cur.execute("SELECT COUNT(*) as count FROM cases")
+        total_cases = cur.fetchone()["count"]
+
         # Total cases by status
         cur.execute("""
             SELECT status, COUNT(*) as count
@@ -1947,6 +1958,7 @@ def get_dashboard_stats() -> dict:
         urgent_deadlines = cur.fetchone()["count"]
 
         return {
+            "total_cases": total_cases,
             "active_cases": active_cases,
             "cases_by_status": cases_by_status,
             "pending_tasks": pending_tasks,

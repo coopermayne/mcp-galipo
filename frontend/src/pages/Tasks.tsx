@@ -8,13 +8,15 @@ import {
   EditableDate,
   StatusBadge,
   UrgencyBadge,
+  ListPanel,
 } from '../components/common';
 import { getTasks, getConstants, updateTask, deleteTask } from '../api/client';
 import type { Task } from '../types';
-import { Loader2, Trash2, ExternalLink, Filter } from 'lucide-react';
+import { Trash2, ExternalLink, Filter, Search } from 'lucide-react';
 
 export function Tasks() {
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('');
 
@@ -82,9 +84,21 @@ export function Tasks() {
     [deleteMutation]
   );
 
-  // Group tasks by date
+  // Filter and group tasks by date
   const groupedTasks = useMemo(() => {
     if (!tasksData?.tasks) return {};
+
+    // Filter by search query (description, case name, or short name)
+    const filteredTasks = searchQuery
+      ? tasksData.tasks.filter((task) => {
+          const query = searchQuery.toLowerCase();
+          return (
+            task.description.toLowerCase().includes(query) ||
+            (task.case_name && task.case_name.toLowerCase().includes(query)) ||
+            (task.short_name && task.short_name.toLowerCase().includes(query))
+          );
+        })
+      : tasksData.tasks;
 
     const groups: Record<string, Task[]> = {
       overdue: [],
@@ -102,7 +116,7 @@ export function Tasks() {
     const weekEnd = new Date(today);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
-    tasksData.tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task.due_date) {
         groups.noDueDate.push(task);
         return;
@@ -125,7 +139,7 @@ export function Tasks() {
     });
 
     return groups;
-  }, [tasksData?.tasks]);
+  }, [tasksData?.tasks, searchQuery]);
 
   const groupLabels: Record<string, string> = {
     overdue: 'Overdue',
@@ -152,51 +166,64 @@ export function Tasks() {
         subtitle={`${tasksData?.total ?? 0} tasks`}
       />
 
-      <PageContent variant="wide">
+      <PageContent>
         {/* Filters */}
-        <div className="mb-6 flex items-center gap-4 bg-slate-800 rounded-lg border border-slate-700 p-4">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">Status:</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
-            >
-              <option value="">All</option>
-              {constants?.task_statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
+        <ListPanel className="mb-6">
+          <div className="px-4 py-3 flex items-center gap-4">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search tasks or cases..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+            </div>
+            <div className="h-6 w-px bg-slate-600" />
+            <Filter className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-400">Status:</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
+              >
+                <option value="">All</option>
+                {constants?.task_statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-400">Min Urgency:</label>
+              <select
+                value={urgencyFilter}
+                onChange={(e) => setUrgencyFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
+              >
+                <option value="">All</option>
+                {urgencyOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">Min Urgency:</label>
-            <select
-              value={urgencyFilter}
-              onChange={(e) => setUrgencyFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
-            >
-              <option value="">All</option>
-              {urgencyOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        </ListPanel>
 
         {/* Task List */}
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-          </div>
+          <ListPanel>
+            <ListPanel.Loading />
+          </ListPanel>
         ) : tasksData?.tasks.length === 0 ? (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 p-8 text-center text-slate-400">
-            No tasks found
-          </div>
+          <ListPanel>
+            <ListPanel.Empty message="No tasks found" />
+          </ListPanel>
         ) : (
           <div className="space-y-6">
             {Object.entries(groupedTasks).map(
@@ -206,52 +233,51 @@ export function Tasks() {
                     <h2 className={`text-sm font-semibold mb-2 ${groupColors[group]}`}>
                       {groupLabels[group]} ({tasks.length})
                     </h2>
-                    <div className="bg-slate-800 rounded-lg border border-slate-700 divide-y divide-slate-700">
-                      {tasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="px-4 py-3 flex items-center gap-4 hover:bg-slate-700"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <EditableText
-                              value={task.description}
-                              onSave={(value) => handleUpdate(task.id, 'description', value)}
-                              className="text-sm"
+                    <ListPanel>
+                      <ListPanel.Body>
+                        {tasks.map((task) => (
+                          <ListPanel.Row key={task.id}>
+                            <div className="flex-1 min-w-0">
+                              <EditableText
+                                value={task.description}
+                                onSave={(value) => handleUpdate(task.id, 'description', value)}
+                                className="text-sm"
+                              />
+                              <Link
+                                to={`/cases/${task.case_id}`}
+                                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-1"
+                              >
+                                {task.short_name || task.case_name || `Case #${task.case_id}`}
+                                <ExternalLink className="w-3 h-3" />
+                              </Link>
+                            </div>
+                            <EditableDate
+                              value={task.due_date || null}
+                              onSave={(value) => handleUpdate(task.id, 'due_date', value)}
+                              placeholder="Due date"
                             />
-                            <Link
-                              to={`/cases/${task.case_id}`}
-                              className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-1"
+                            <EditableSelect
+                              value={task.status}
+                              options={taskStatusOptions}
+                              onSave={(value) => handleUpdate(task.id, 'status', value)}
+                              renderValue={(value) => <StatusBadge status={value} />}
+                            />
+                            <EditableSelect
+                              value={String(task.urgency)}
+                              options={urgencyOptions}
+                              onSave={(value) => handleUpdate(task.id, 'urgency', parseInt(value))}
+                              renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
+                            />
+                            <button
+                              onClick={() => handleDelete(task.id)}
+                              className="p-1 text-slate-500 hover:text-red-400"
                             >
-                              {task.case_name || `Case #${task.case_id}`}
-                              <ExternalLink className="w-3 h-3" />
-                            </Link>
-                          </div>
-                          <EditableDate
-                            value={task.due_date || null}
-                            onSave={(value) => handleUpdate(task.id, 'due_date', value)}
-                            placeholder="Due date"
-                          />
-                          <EditableSelect
-                            value={task.status}
-                            options={taskStatusOptions}
-                            onSave={(value) => handleUpdate(task.id, 'status', value)}
-                            renderValue={(value) => <StatusBadge status={value} />}
-                          />
-                          <EditableSelect
-                            value={String(task.urgency)}
-                            options={urgencyOptions}
-                            onSave={(value) => handleUpdate(task.id, 'urgency', parseInt(value))}
-                            renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
-                          />
-                          <button
-                            onClick={() => handleDelete(task.id)}
-                            className="p-1 text-slate-500 hover:text-red-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </ListPanel.Row>
+                        ))}
+                      </ListPanel.Body>
+                    </ListPanel>
                   </div>
                 )
             )}

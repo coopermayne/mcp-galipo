@@ -39,6 +39,7 @@ export interface Task {
   id: number;
   case_id: number;
   case_name?: string;
+  short_name?: string;
   description: string;
   due_date?: string;
   status: TaskStatus;
@@ -51,6 +52,7 @@ export interface Deadline {
   id: number;
   case_id: number;
   case_name?: string;
+  short_name?: string;
   date: string;
   description: string;
   status: string;
@@ -80,6 +82,7 @@ export interface Activity {
 export interface Case {
   id: number;
   case_name: string;
+  short_name?: string;
   status: CaseStatus;
   court?: string;
   print_code?: string;
@@ -183,12 +186,14 @@ export interface CalendarItem {
   urgency: number;
   case_id: number;
   case_name: string;
+  short_name?: string;
   item_type: 'task' | 'deadline';
 }
 
 // Create/update types
 export interface CreateCaseInput {
   case_name: string;
+  short_name?: string;
   status?: CaseStatus;
   court?: string;
   print_code?: string;
@@ -202,6 +207,7 @@ export interface CreateCaseInput {
 
 export interface UpdateCaseInput {
   case_name?: string;
+  short_name?: string;
   status?: CaseStatus;
   court?: string;
   print_code?: string;
