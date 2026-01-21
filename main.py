@@ -334,7 +334,104 @@ def add_client(
     }
 
 
+@mcp.tool()
+def link_existing_client(
+    case_id: int,
+    client_id: int,
+    contact_directly: bool = True,
+    contact_via_id: Optional[int] = None,
+    contact_via_relationship: Optional[str] = None,
+    is_primary: bool = False,
+    notes: Optional[str] = None
+) -> dict:
+    """
+    Link an existing client to a case (use when client already exists in system).
+
+    Use search_clients first to find the client ID.
+
+    Args:
+        case_id: ID of the case
+        client_id: ID of the existing client
+        contact_directly: Whether to contact client directly (default True)
+        contact_via_id: ID of contact person (use search_contacts to find)
+        contact_via_relationship: Relationship of contact person (e.g., "Mother", "Guardian")
+        is_primary: Whether this is the primary client
+        notes: Additional notes
+
+    Returns confirmation of link.
+    """
+    result = db.link_existing_client_to_case(
+        case_id, client_id, contact_directly,
+        contact_via_id, contact_via_relationship, is_primary, notes
+    )
+    if not result:
+        return not_found_error("Client")
+    return {
+        "success": True,
+        "message": f"Client '{result['client_name']}' linked to case",
+        "client_id": result["client_id"],
+        "contact_method": "direct" if contact_directly else f"via contact {contact_via_id} ({contact_via_relationship})"
+    }
+
+
+@mcp.tool()
+def update_client_case_link(
+    case_id: int,
+    client_id: int,
+    contact_directly: Optional[bool] = None,
+    contact_via_id: Optional[int] = None,
+    contact_via_relationship: Optional[str] = None,
+    is_primary: Optional[bool] = None,
+    notes: Optional[str] = None
+) -> dict:
+    """
+    Update the contact preferences for a client-case relationship.
+
+    Args:
+        case_id: ID of the case
+        client_id: ID of the client
+        contact_directly: Whether to contact client directly
+        contact_via_id: ID of contact person
+        contact_via_relationship: Relationship of contact person
+        is_primary: Whether this is the primary client
+        notes: Additional notes
+
+    Returns updated link info.
+    """
+    result = db.update_client_case_link(
+        case_id, client_id, contact_directly,
+        contact_via_id, contact_via_relationship, is_primary, notes
+    )
+    if not result:
+        return not_found_error("Client-case link or no updates provided")
+    return {"success": True, "link": result}
+
+
 # ===== CASE NUMBER TOOLS =====
+
+@mcp.tool()
+def update_case_number(
+    case_number_id: int,
+    case_number: Optional[str] = None,
+    label: Optional[str] = None,
+    is_primary: Optional[bool] = None
+) -> dict:
+    """
+    Update a case number.
+
+    Args:
+        case_number_id: ID of the case number record
+        case_number: New case number value
+        label: New label (e.g., "State", "Federal", "Appeal")
+        is_primary: Whether this is the primary case number
+
+    Returns updated case number.
+    """
+    result = db.update_case_number(case_number_id, case_number, label, is_primary)
+    if not result:
+        return not_found_error("Case number or no updates provided")
+    return {"success": True, "case_number": result}
+
 
 @mcp.tool()
 def add_case_number(
@@ -431,6 +528,23 @@ def add_defendant(case_id: int, defendant_name: str) -> dict:
     """
     result = db.add_defendant_to_case(case_id, defendant_name)
     return {"success": True, "message": f"Defendant '{defendant_name}' added to case"}
+
+
+@mcp.tool()
+def update_defendant(defendant_id: int, name: str) -> dict:
+    """
+    Update a defendant's name.
+
+    Args:
+        defendant_id: ID of the defendant
+        name: New name for the defendant
+
+    Returns updated defendant.
+    """
+    result = db.update_defendant(defendant_id, name)
+    if not result:
+        return not_found_error("Defendant")
+    return {"success": True, "defendant": result}
 
 
 @mcp.tool()
