@@ -50,9 +50,9 @@ export interface Deadline {
   location?: string;
   description: string;
   status: string;
-  urgency: number;
   document_link?: string;
   calculation_note?: string;
+  starred?: boolean;
   created_at: string;
 }
 
@@ -86,11 +86,6 @@ export interface Case {
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
-  claim_due?: string;
-  claim_filed_date?: string;
-  complaint_due?: string;
-  complaint_filed_date?: string;
-  trial_date?: string;
   created_at: string;
   updated_at?: string;
   case_numbers: CaseNumber[];
@@ -171,7 +166,7 @@ export interface CalendarItem {
   location?: string;
   description: string;
   status: string;
-  urgency: number;
+  urgency?: number;  // Only present for tasks
   case_id: number;
   case_name: string;
   short_name?: string;
@@ -200,11 +195,6 @@ export interface UpdateCaseInput {
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
-  claim_due?: string;
-  claim_filed_date?: string;
-  complaint_due?: string;
-  complaint_filed_date?: string;
-  trial_date?: string;
   case_numbers?: CaseNumber[];
 }
 
@@ -230,22 +220,22 @@ export interface CreateDeadlineInput {
   date: string;
   description: string;
   status?: string;
-  urgency?: number;
   time?: string;
   location?: string;
   document_link?: string;
   calculation_note?: string;
+  starred?: boolean;
 }
 
 export interface UpdateDeadlineInput {
   date?: string;
   description?: string;
   status?: string;
-  urgency?: number;
   time?: string;
   location?: string;
   document_link?: string;
   calculation_note?: string;
+  starred?: boolean;
 }
 
 // Person types (unified person management)

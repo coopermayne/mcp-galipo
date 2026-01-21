@@ -308,12 +308,6 @@ export function Dashboard() {
                         onSave={(value) => handleUpdateDeadline(deadline.id, 'status', value)}
                         renderValue={(value) => <StatusBadge status={value} />}
                       />
-                      <EditableSelect
-                        value={String(deadline.urgency)}
-                        options={urgencyOptions}
-                        onSave={(value) => handleUpdateDeadline(deadline.id, 'urgency', parseInt(value))}
-                        renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
-                      />
                       <button
                         onClick={() => handleDeleteDeadline(deadline.id)}
                         className="p-1 text-slate-500 hover:text-red-400"

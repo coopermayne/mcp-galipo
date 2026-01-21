@@ -195,11 +195,6 @@ def register_tools(mcp):
         case_summary: Optional[str] = None,
         result: Optional[str] = None,
         date_of_injury: Optional[str] = None,
-        claim_due: Optional[str] = None,
-        claim_filed_date: Optional[str] = None,
-        complaint_due: Optional[str] = None,
-        complaint_filed_date: Optional[str] = None,
-        trial_date: Optional[str] = None,
         case_numbers: Optional[list] = None
     ) -> dict:
         """
@@ -215,11 +210,6 @@ def register_tools(mcp):
             case_summary: New summary
             result: Case outcome/result
             date_of_injury: Date of injury (YYYY-MM-DD)
-            claim_due: Claim due date (YYYY-MM-DD)
-            claim_filed_date: Date claim was filed (YYYY-MM-DD)
-            complaint_due: Complaint due date (YYYY-MM-DD)
-            complaint_filed_date: Date complaint was filed (YYYY-MM-DD)
-            trial_date: Trial date (YYYY-MM-DD)
             case_numbers: List of case numbers (replaces entire list).
                           Format: [{"number": "24STCV12345", "label": "State", "primary": true}]
 
@@ -229,22 +219,15 @@ def register_tools(mcp):
         try:
             if status:
                 db.validate_case_status(status)
-            for field_name, value in [
-                ("date_of_injury", date_of_injury), ("claim_due", claim_due),
-                ("claim_filed_date", claim_filed_date), ("complaint_due", complaint_due),
-                ("complaint_filed_date", complaint_filed_date), ("trial_date", trial_date)
-            ]:
-                if value:
-                    db.validate_date_format(value, field_name)
+            if date_of_injury:
+                db.validate_date_format(date_of_injury, "date_of_injury")
         except ValidationError as e:
             return validation_error(str(e))
 
         updated = db.update_case(
             case_id, case_name=case_name, short_name=short_name, status=status,
             court_id=court_id, print_code=print_code, case_summary=case_summary,
-            result=result, date_of_injury=date_of_injury, claim_due=claim_due,
-            claim_filed_date=claim_filed_date, complaint_due=complaint_due,
-            complaint_filed_date=complaint_filed_date, trial_date=trial_date,
+            result=result, date_of_injury=date_of_injury,
             case_numbers=case_numbers
         )
         if not updated:
@@ -348,29 +331,27 @@ def register_tools(mcp):
         context: Context,
         query: Optional[str] = None,
         case_id: Optional[int] = None,
-        status: Optional[str] = None,
-        urgency: Optional[int] = None
+        status: Optional[str] = None
     ) -> dict:
         """
-        Search for deadlines by description, case, status, or urgency.
+        Search for deadlines by description, case, or status.
 
         Args:
             query: Search in deadline descriptions (partial match)
             case_id: Filter to specific case
             status: Filter by status (Pending, Met, Missed, etc.)
-            urgency: Filter by urgency level (1-5)
 
         At least one parameter must be provided.
 
         Examples:
             - search_deadlines(query="discovery") - find deadlines mentioning "discovery"
-            - search_deadlines(urgency=5) - find critical deadlines
+            - search_deadlines(status="Pending") - find pending deadlines
         """
-        if not any([query, case_id, status, urgency]):
+        if not any([query, case_id, status]):
             return validation_error("Provide at least one search parameter")
 
         context.info(f"Searching deadlines{' for query=' + query if query else ''}{' status=' + status if status else ''}")
-        deadlines = db.search_deadlines(query, case_id, status, urgency)
+        deadlines = db.search_deadlines(query, case_id, status)
         context.info(f"Found {len(deadlines)} matching deadlines")
         return {"deadlines": deadlines, "total": len(deadlines)}
 
@@ -471,12 +452,12 @@ def register_tools(mcp):
         case_id: int,
         date: str,
         description: str,
-        urgency: int = 3,
         status: str = "Pending",
         time: Optional[str] = None,
         location: Optional[str] = None,
         document_link: Optional[str] = None,
-        calculation_note: Optional[str] = None
+        calculation_note: Optional[str] = None,
+        starred: bool = False
     ) -> dict:
         """
         Add a deadline or event to a case - anything that HAS to happen on a specific date.
@@ -491,12 +472,12 @@ def register_tools(mcp):
             case_id: ID of the case
             date: Deadline date (YYYY-MM-DD)
             description: What is due/happening (e.g., "MSJ due", "Discovery cutoff", "Deposition of Dr. Smith")
-            urgency: 1-5 scale (1=low, 5=critical), default 3
             status: Status (default "Pending")
             time: Time of deadline (HH:MM format, 24-hour)
             location: Location (e.g., courtroom, address)
             document_link: URL to related document
             calculation_note: How the deadline was calculated (e.g., "Filing date + 60 days")
+            starred: Whether to star/highlight this deadline in case overview (default False)
 
         Returns the created deadline with ID.
         """
@@ -504,12 +485,11 @@ def register_tools(mcp):
         try:
             db.validate_date_format(date, "date")
             db.validate_time_format(time, "time")
-            db.validate_urgency(urgency)
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.add_deadline(case_id, date, description, status, urgency,
-                                  document_link, calculation_note, time, location)
+        result = db.add_deadline(case_id, date, description, status,
+                                  document_link, calculation_note, time, location, starred)
         context.info(f"Deadline created with ID {result.get('id')}")
         return {"success": True, "deadline": result}
 
@@ -517,25 +497,23 @@ def register_tools(mcp):
     def get_deadlines(
         context: Context,
         case_id: Optional[int] = None,
-        urgency_filter: Optional[int] = None,
         status_filter: Optional[str] = None
     ) -> dict:
         """
-        Get upcoming deadlines, optionally filtered by case, urgency, or status.
+        Get upcoming deadlines, optionally filtered by case or status.
 
         Args:
             case_id: Filter by specific case
-            urgency_filter: Filter by urgency level (1-5)
             status_filter: Filter by status (e.g., "Pending")
 
         Returns list of deadlines with case information.
 
         Examples:
-            - get_deadlines(status_filter="Pending", urgency_filter=5) - critical pending deadlines
+            - get_deadlines(status_filter="Pending") - all pending deadlines
             - get_deadlines(case_id=5) - all deadlines for case 5
         """
         context.info(f"Fetching deadlines{' for case ' + str(case_id) if case_id else ''}")
-        result = db.get_upcoming_deadlines(urgency_filter, status_filter)
+        result = db.get_upcoming_deadlines(status_filter)
 
         # Filter by case_id if provided (since db function doesn't support it directly)
         if case_id:
@@ -552,11 +530,11 @@ def register_tools(mcp):
         date: Optional[str] = None,
         description: Optional[str] = None,
         status: Optional[str] = None,
-        urgency: Optional[int] = None,
         time: Optional[str] = None,
         location: Optional[str] = None,
         document_link: Optional[str] = None,
-        calculation_note: Optional[str] = None
+        calculation_note: Optional[str] = None,
+        starred: Optional[bool] = None
     ) -> dict:
         """
         Update a deadline.
@@ -566,11 +544,11 @@ def register_tools(mcp):
             date: New date (YYYY-MM-DD)
             description: New description
             status: New status
-            urgency: New urgency (1-5)
             time: New time (HH:MM format)
             location: New location
             document_link: New document link
             calculation_note: New calculation note
+            starred: Whether to star/highlight this deadline in case overview
 
         Returns updated deadline.
         """
@@ -580,14 +558,12 @@ def register_tools(mcp):
                 db.validate_date_format(date, "date")
             if time:
                 db.validate_time_format(time, "time")
-            if urgency is not None:
-                db.validate_urgency(urgency)
         except ValidationError as e:
             return validation_error(str(e))
 
         result = db.update_deadline_full(deadline_id, date, description, status,
-                                          urgency, document_link, calculation_note,
-                                          time, location)
+                                          document_link, calculation_note,
+                                          time, location, starred)
         if not result:
             return not_found_error("Deadline or no updates provided")
         context.info(f"Deadline {deadline_id} updated successfully")
@@ -628,8 +604,8 @@ def register_tools(mcp):
             include_deadlines: Include deadlines in results (default True)
 
         Returns combined list sorted by date.
-        Each item includes: id, date, time, location, description, status, urgency,
-        case_id, case_name, short_name, item_type
+        Each item includes: id, date, time, location, description, status,
+        case_id, case_name, short_name, item_type (tasks also include urgency)
 
         Examples:
             - get_calendar(days=7) - everything due this week

@@ -329,7 +329,6 @@ def register_routes(mcp):
         """List deadlines with optional filtering and pagination."""
         if err := auth.require_auth(request):
             return err
-        urgency = request.query_params.get("urgency")
         status = request.query_params.get("status")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
@@ -337,7 +336,6 @@ def register_routes(mcp):
         offset = int(offset)
 
         result = db.get_upcoming_deadlines(
-            urgency_filter=int(urgency) if urgency else None,
             status_filter=status,
             limit=limit,
             offset=offset
@@ -355,11 +353,11 @@ def register_routes(mcp):
             data["date"],
             data["description"],
             data.get("status", "Pending"),
-            data.get("urgency", 3),
             data.get("document_link"),
             data.get("calculation_note"),
             data.get("time"),
-            data.get("location")
+            data.get("location"),
+            data.get("starred", False)
         )
         return JSONResponse({"success": True, "deadline": result})
 

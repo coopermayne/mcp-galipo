@@ -7,7 +7,6 @@ import {
   EditableSelect,
   EditableDate,
   StatusBadge,
-  UrgencyBadge,
   ListPanel,
   ConfirmModal,
 } from '../components/common';
@@ -19,15 +18,13 @@ export function Deadlines() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [urgencyFilter, setUrgencyFilter] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const { data: deadlinesData, isLoading } = useQuery({
-    queryKey: ['deadlines', { status: statusFilter || undefined, urgency: urgencyFilter ? parseInt(urgencyFilter) : undefined }],
+    queryKey: ['deadlines', { status: statusFilter || undefined }],
     queryFn: () =>
       getDeadlines({
         status: statusFilter || undefined,
-        urgency: urgencyFilter ? parseInt(urgencyFilter) : undefined,
       }),
   });
 
@@ -53,14 +50,6 @@ export function Deadlines() {
     { value: 'Met', label: 'Met' },
     { value: 'Missed', label: 'Missed' },
     { value: 'Extended', label: 'Extended' },
-  ];
-
-  const urgencyOptions = [
-    { value: '1', label: '1 - Low' },
-    { value: '2', label: '2' },
-    { value: '3', label: '3 - Medium' },
-    { value: '4', label: '4' },
-    { value: '5', label: '5 - Critical' },
   ];
 
   const handleUpdate = useCallback(
@@ -189,21 +178,6 @@ export function Deadlines() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-500 dark:text-slate-400">Min Urgency:</label>
-              <select
-                value={urgencyFilter}
-                onChange={(e) => setUrgencyFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-              >
-                <option value="">All</option>
-                {urgencyOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </ListPanel>
 
@@ -252,12 +226,6 @@ export function Deadlines() {
                               options={statusOptions}
                               onSave={(value) => handleUpdate(deadline.id, 'status', value)}
                               renderValue={(value) => <StatusBadge status={value} />}
-                            />
-                            <EditableSelect
-                              value={String(deadline.urgency)}
-                              options={urgencyOptions}
-                              onSave={(value) => handleUpdate(deadline.id, 'urgency', parseInt(value))}
-                              renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
                             />
                             <button
                               onClick={() => handleDelete(deadline.id)}
