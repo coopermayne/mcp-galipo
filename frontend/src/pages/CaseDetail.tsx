@@ -49,10 +49,13 @@ import {
   Link,
   ChevronDown,
   ChevronUp,
+  Settings,
+  AlertTriangle,
+  Activity,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 
-type TabType = 'overview' | 'tasks' | 'deadlines' | 'notes';
+type TabType = 'overview' | 'tasks' | 'deadlines' | 'notes' | 'settings';
 
 export function CaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -133,28 +136,28 @@ export function CaseDetail() {
     { id: 'tasks' as TabType, label: 'Tasks', icon: CheckSquare, count: caseData.tasks?.length },
     { id: 'deadlines' as TabType, label: 'Deadlines', icon: Clock, count: caseData.deadlines?.length },
     { id: 'notes' as TabType, label: 'Notes', icon: StickyNote, count: caseData.notes?.length },
+    { id: 'settings' as TabType, label: 'Settings', icon: Settings },
   ];
 
   return (
     <>
-      <Header
-        title={
-          <div>
-            <EditableText
-              value={caseData.case_name}
-              onSave={(value) => handleUpdateField('case_name', value)}
-              className="text-2xl font-semibold"
-            />
-            <EditableText
-              value={caseData.short_name || ''}
-              onSave={(value) => handleUpdateField('short_name', value || null)}
-              placeholder="Set short name..."
-              className="text-sm text-slate-400 mt-0.5"
-            />
-          </div>
-        }
-        subtitle={
-          <div className="flex items-center gap-3 mt-1">
+      <Header breadcrumbLabel={caseData.short_name || caseData.case_name} />
+
+      {/* Case Title Section */}
+      <div className="px-6 py-4">
+        <div className="flex-1 min-w-0">
+          <EditableText
+            value={caseData.case_name}
+            onSave={(value) => handleUpdateField('case_name', value)}
+            className="text-2xl font-semibold"
+          />
+          <EditableText
+            value={caseData.short_name || ''}
+            onSave={(value) => handleUpdateField('short_name', value || null)}
+            placeholder="Set short name..."
+            className="text-sm text-slate-500 dark:text-slate-400 mt-1"
+          />
+          <div className="flex items-center gap-3 mt-2">
             <EditableSelect
               value={caseData.status}
               options={statusOptions}
@@ -162,28 +165,14 @@ export function CaseDetail() {
               renderValue={(value) => <StatusBadge status={value} />}
             />
             {caseData.court && (
-              <span className="text-slate-500">{caseData.court}</span>
+              <span className="text-slate-500 dark:text-slate-400 text-sm">{caseData.court}</span>
             )}
           </div>
-        }
-        actions={
-          <button
-            onClick={handleDelete}
-            className="
-              inline-flex items-center gap-2 px-4 py-2
-              text-red-400 border border-red-800 rounded-lg
-              hover:bg-red-900/30 transition-colors
-              text-sm font-medium
-            "
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
-        }
-      />
+        </div>
+      </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-700 bg-slate-800 px-6">
+      <div className="border-b border-slate-200 dark:border-slate-700 px-6">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -193,15 +182,15 @@ export function CaseDetail() {
                 flex items-center gap-2 py-3 border-b-2 text-sm font-medium transition-colors
                 ${
                   activeTab === tab.id
-                    ? 'border-primary-400 text-primary-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }
               `}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="px-1.5 py-0.5 text-xs bg-slate-700 rounded-full">
+                <span className="px-1.5 py-0.5 text-xs bg-slate-200 dark:bg-slate-700 rounded-full">
                   {tab.count}
                 </span>
               )}
@@ -233,6 +222,16 @@ export function CaseDetail() {
       {activeTab === 'notes' && (
         <PageContent>
           <NotesTab caseId={caseId} notes={caseData.notes || []} />
+        </PageContent>
+      )}
+      {activeTab === 'settings' && (
+        <PageContent>
+          <SettingsTab
+            caseId={caseId}
+            caseName={caseData.case_name}
+            activities={caseData.activities || []}
+            onDelete={handleDelete}
+          />
         </PageContent>
       )}
     </>
@@ -1176,6 +1175,103 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+}
+
+// Settings Tab Component
+function SettingsTab({
+  caseId,
+  caseName,
+  activities,
+  onDelete,
+}: {
+  caseId: number;
+  caseName: string;
+  activities: import('../types').Activity[];
+  onDelete: () => void;
+}) {
+  const formatDate = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    return isValid(date) ? format(date, 'MMM d, yyyy h:mm a') : dateStr;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Activity Log */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            <h3 className="font-medium text-slate-900 dark:text-slate-100">Activity Log</h3>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Recent activities and time entries for this case
+          </p>
+        </div>
+        <div className="divide-y divide-slate-200 dark:divide-slate-700">
+          {activities.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+              No activities recorded
+            </div>
+          ) : (
+            activities.slice(0, 20).map((activity) => (
+              <div key={activity.id} className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-900 dark:text-slate-100">{activity.description}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatDate(activity.date)}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded">
+                        {activity.activity_type}
+                      </span>
+                      {activity.minutes && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {activity.minutes} min
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-red-200 dark:border-red-900/50">
+        <div className="px-4 py-3 border-b border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <h3 className="font-medium text-red-600 dark:text-red-400">Danger Zone</h3>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">Delete this case</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Permanently delete "{caseName}" and all associated data. This action cannot be undone.
+              </p>
+            </div>
+            <button
+              onClick={onDelete}
+              className="
+                inline-flex items-center gap-2 px-4 py-2
+                bg-red-600 text-white rounded-lg
+                hover:bg-red-700 transition-colors
+                text-sm font-medium
+              "
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Case
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
