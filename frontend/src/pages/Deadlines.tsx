@@ -12,7 +12,7 @@ import {
 } from '../components/common';
 import { getDeadlines, updateDeadline, deleteDeadline } from '../api/client';
 import type { Deadline } from '../types';
-import { Trash2, ExternalLink, Filter, AlertTriangle, Search } from 'lucide-react';
+import { Trash2, ExternalLink, Filter, Search } from 'lucide-react';
 
 export function Deadlines() {
   const queryClient = useQueryClient();
@@ -137,11 +137,11 @@ export function Deadlines() {
   };
 
   const groupColors: Record<string, string> = {
-    overdue: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30',
-    today: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30',
-    thisWeek: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30',
-    thisMonth: 'text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-700',
-    later: 'text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700',
+    overdue: 'text-red-600',
+    today: 'text-amber-600',
+    thisWeek: 'text-blue-600',
+    thisMonth: 'text-slate-600',
+    later: 'text-slate-500',
   };
 
   return (
@@ -215,10 +215,9 @@ export function Deadlines() {
               ([group, deadlines]) =>
                 deadlines.length > 0 && (
                   <div key={group}>
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold mb-2 ${groupColors[group]}`}>
-                      {group === 'overdue' && <AlertTriangle className="w-4 h-4" />}
+                    <h2 className={`text-sm font-semibold mb-2 ${groupColors[group]}`}>
                       {groupLabels[group]} ({deadlines.length})
-                    </div>
+                    </h2>
                     <ListPanel>
                       <ListPanel.Body>
                         {deadlines.map((deadline) => (
