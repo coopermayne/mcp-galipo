@@ -9,6 +9,7 @@ import {
   StatusBadge,
   UrgencyBadge,
   ListPanel,
+  ConfirmModal,
 } from '../components/common';
 import { getTasks, getConstants, updateTask, deleteTask } from '../api/client';
 import type { Task } from '../types';
@@ -19,6 +20,7 @@ export function Tasks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
 
   const { data: tasksData, isLoading } = useQuery({
     queryKey: ['tasks', { status: statusFilter || undefined, urgency: urgencyFilter ? parseInt(urgencyFilter) : undefined }],
@@ -76,13 +78,18 @@ export function Tasks() {
   );
 
   const handleDelete = useCallback(
-    (taskId: number) => {
-      if (confirm('Are you sure you want to delete this task?')) {
-        deleteMutation.mutate(taskId);
-      }
+    (taskId: number, description: string) => {
+      setDeleteTarget({ id: taskId, description });
     },
-    [deleteMutation]
+    []
   );
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   // Filter and group tasks by date
   const groupedTasks = useMemo(() => {
@@ -269,7 +276,7 @@ export function Tasks() {
                               renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
                             />
                             <button
-                              onClick={() => handleDelete(task.id)}
+                              onClick={() => handleDelete(task.id, task.description)}
                               className="p-1 text-slate-500 hover:text-red-400"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -284,6 +291,17 @@ export function Tasks() {
           </div>
         )}
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Task"
+        message={`Are you sure you want to delete this task?`}
+        confirmText="Delete Task"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </>
   );
 }

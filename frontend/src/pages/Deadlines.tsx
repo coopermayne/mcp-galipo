@@ -9,6 +9,7 @@ import {
   StatusBadge,
   UrgencyBadge,
   ListPanel,
+  ConfirmModal,
 } from '../components/common';
 import { getDeadlines, updateDeadline, deleteDeadline } from '../api/client';
 import type { Deadline } from '../types';
@@ -19,6 +20,7 @@ export function Deadlines() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const { data: deadlinesData, isLoading } = useQuery({
     queryKey: ['deadlines', { status: statusFilter || undefined, urgency: urgencyFilter ? parseInt(urgencyFilter) : undefined }],
@@ -70,12 +72,17 @@ export function Deadlines() {
 
   const handleDelete = useCallback(
     (deadlineId: number) => {
-      if (confirm('Are you sure you want to delete this deadline?')) {
-        deleteMutation.mutate(deadlineId);
-      }
+      setDeleteTarget(deadlineId);
     },
-    [deleteMutation]
+    []
   );
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   // Filter and group deadlines by date
   const groupedDeadlines = useMemo(() => {
@@ -268,6 +275,17 @@ export function Deadlines() {
           </div>
         )}
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Deadline"
+        message="Are you sure you want to delete this deadline?"
+        confirmText="Delete Deadline"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </>
   );
 }

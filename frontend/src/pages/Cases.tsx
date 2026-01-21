@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Header, PageContent } from '../components/layout';
-import { DataTable, StatusBadge, EditableSelect } from '../components/common';
+import { DataTable, StatusBadge, EditableSelect, ConfirmModal } from '../components/common';
 import { getCases, getConstants, createCase, updateCase, deleteCase } from '../api/client';
 import type { CaseSummary, CaseStatus } from '../types';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
@@ -14,6 +14,7 @@ export function Cases() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const { data: casesData, isLoading } = useQuery({
     queryKey: ['cases', { status: statusFilter || undefined }],
@@ -72,14 +73,19 @@ export function Cases() {
   );
 
   const handleDeleteCase = useCallback(
-    (e: React.MouseEvent, caseId: number) => {
+    (e: React.MouseEvent, caseId: number, caseName: string) => {
       e.stopPropagation();
-      if (confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
-        deleteMutation.mutate(caseId);
-      }
+      setDeleteTarget({ id: caseId, name: caseName });
     },
-    [deleteMutation]
+    []
   );
+
+  const confirmDeleteCase = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   const statusOptions = useMemo(
     () =>
@@ -139,7 +145,7 @@ export function Cases() {
         header: '',
         cell: ({ row }) => (
           <button
-            onClick={(e) => handleDeleteCase(e, row.original.id)}
+            onClick={(e) => handleDeleteCase(e, row.original.id, row.original.case_name)}
             className="p-1 text-slate-500 hover:text-red-400 transition-colors"
             title="Delete case"
           >
@@ -266,6 +272,17 @@ export function Cases() {
           />
         )}
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteCase}
+        title="Delete Case"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This will permanently remove the case and all associated data. This action cannot be undone.`}
+        confirmText="Delete Case"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </>
   );
 }

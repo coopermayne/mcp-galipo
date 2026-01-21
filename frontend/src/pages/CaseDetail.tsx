@@ -8,6 +8,7 @@ import {
   EditableDate,
   StatusBadge,
   UrgencyBadge,
+  ConfirmModal,
 } from '../components/common';
 import {
   getCase,
@@ -62,6 +63,7 @@ export function CaseDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const caseId = parseInt(id || '0', 10);
 
@@ -101,9 +103,12 @@ export function CaseDetail() {
   );
 
   const handleDelete = useCallback(() => {
-    if (confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
-      deleteCaseMutation.mutate();
-    }
+    setShowDeleteModal(true);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    deleteCaseMutation.mutate();
+    setShowDeleteModal(false);
   }, [deleteCaseMutation]);
 
   const statusOptions = useMemo(
@@ -234,6 +239,17 @@ export function CaseDetail() {
           />
         </PageContent>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={confirmDelete}
+        title="Delete Case"
+        message={`Are you sure you want to delete "${caseData.case_name}"? This will permanently remove the case and all associated tasks, deadlines, and notes. This action cannot be undone.`}
+        confirmText="Delete Case"
+        variant="danger"
+        isLoading={deleteCaseMutation.isPending}
+      />
     </>
   );
 }
