@@ -387,6 +387,93 @@ def search_cases_by_defendant(defendant_name: str) -> dict:
     return {"cases": cases, "total": len(cases), "search": defendant_name}
 
 
+# ===== SEARCH TOOLS =====
+
+@mcp.tool()
+def search_clients(
+    name: Optional[str] = None,
+    phone: Optional[str] = None,
+    email: Optional[str] = None
+) -> dict:
+    """
+    Search for clients/plaintiffs by name, phone, or email (partial match).
+
+    Use this to find a client before updating their info or to disambiguate
+    when multiple clients might match. Returns clients with their case
+    associations so you can identify the right person.
+
+    Args:
+        name: Full or partial client name (e.g., "Martinez")
+        phone: Full or partial phone number
+        email: Full or partial email address
+
+    At least one search parameter must be provided.
+
+    Returns matching clients with their case associations:
+    [{id, name, phone, email, cases: [{id, case_name, status}]}]
+    """
+    if not any([name, phone, email]):
+        return {"error": "Provide at least one search parameter (name, phone, or email)"}
+
+    clients = db.search_clients(name, phone, email)
+    return {"clients": clients, "total": len(clients)}
+
+
+@mcp.tool()
+def search_cases(
+    name: Optional[str] = None,
+    case_number: Optional[str] = None
+) -> dict:
+    """
+    Search for cases by name or case number (partial match).
+
+    Use this to find a case before performing operations on it.
+    Returns cases with their clients and defendants for context.
+
+    Args:
+        name: Full or partial case name (e.g., "Martinez", "City of LA")
+        case_number: Full or partial case number (e.g., "24STCV", "12345")
+
+    At least one search parameter must be provided.
+
+    Returns matching cases with context:
+    [{id, case_name, status, clients: [{id, name}], defendants: [{id, name}], case_numbers: [...]}]
+    """
+    if not any([name, case_number]):
+        return {"error": "Provide at least one search parameter (name or case_number)"}
+
+    cases = db.search_cases(name, case_number)
+    return {"cases": cases, "total": len(cases)}
+
+
+@mcp.tool()
+def search_contacts(
+    name: Optional[str] = None,
+    firm: Optional[str] = None
+) -> dict:
+    """
+    Search for contacts by name or firm (partial match).
+
+    Contacts include opposing counsel, experts, judges, mediators, etc.
+    Use this to find a contact before updating their info or linking to a case.
+    Returns contacts with their case/role associations.
+
+    Args:
+        name: Full or partial contact name (e.g., "Smith", "Dr. Johnson")
+        firm: Full or partial firm name (e.g., "City Attorney")
+
+    At least one search parameter must be provided.
+
+    Returns matching contacts with their case associations:
+    [{id, name, firm, phone, email, cases: [{id, case_name, role}]}]
+    """
+    if not any([name, firm]):
+        return {"error": "Provide at least one search parameter (name or firm)"}
+
+    contacts = db.search_contacts(name, firm)
+    return {"contacts": contacts, "total": len(contacts)}
+
+
 # ===== ACTIVITY TOOLS =====
 
 @mcp.tool()

@@ -647,6 +647,170 @@ def search_cases_by_defendant(defendant_name: str) -> List[dict]:
         return [dict(row) for row in cur.fetchall()]
 
 
+# ===== SEARCH OPERATIONS =====
+
+def search_clients(name: str = None, phone: str = None, email: str = None) -> List[dict]:
+    """
+    Search for clients by name, phone, or email.
+    Returns clients with their case associations for disambiguation.
+    """
+    with get_cursor() as cur:
+        # Build WHERE clause based on provided filters
+        conditions = []
+        params = []
+
+        if name:
+            conditions.append("cl.name ILIKE %s")
+            params.append(f"%{name}%")
+        if phone:
+            conditions.append("cl.phone ILIKE %s")
+            params.append(f"%{phone}%")
+        if email:
+            conditions.append("cl.email ILIKE %s")
+            params.append(f"%{email}%")
+
+        if not conditions:
+            return []
+
+        where_clause = " OR ".join(conditions)
+
+        # Get matching clients
+        cur.execute(f"""
+            SELECT DISTINCT cl.id, cl.name, cl.phone, cl.email, cl.address
+            FROM clients cl
+            WHERE {where_clause}
+            ORDER BY cl.name
+        """, params)
+
+        clients = [dict(row) for row in cur.fetchall()]
+
+        # For each client, get their case associations
+        for client in clients:
+            cur.execute("""
+                SELECT c.id, c.case_name, c.status, cc.is_primary
+                FROM cases c
+                JOIN case_clients cc ON c.id = cc.case_id
+                WHERE cc.client_id = %s
+                ORDER BY c.case_name
+            """, (client["id"],))
+            client["cases"] = [dict(row) for row in cur.fetchall()]
+
+        return clients
+
+
+def search_cases(name: str = None, case_number: str = None) -> List[dict]:
+    """
+    Search for cases by name or case number (partial match).
+    Returns cases with clients and defendants for context.
+    """
+    with get_cursor() as cur:
+        # Build query based on provided filters
+        conditions = []
+        params = []
+
+        if name:
+            conditions.append("c.case_name ILIKE %s")
+            params.append(f"%{name}%")
+        if case_number:
+            conditions.append("cn.case_number ILIKE %s")
+            params.append(f"%{case_number}%")
+
+        if not conditions:
+            return []
+
+        where_clause = " OR ".join(conditions)
+
+        # Get matching cases
+        cur.execute(f"""
+            SELECT DISTINCT c.id, c.case_name, c.status, c.court, c.trial_date
+            FROM cases c
+            LEFT JOIN case_numbers cn ON c.id = cn.case_id
+            WHERE {where_clause}
+            ORDER BY c.case_name
+        """, params)
+
+        cases = [dict(row) for row in cur.fetchall()]
+
+        # For each case, get clients, defendants, and case numbers
+        for case in cases:
+            if case.get("trial_date"):
+                case["trial_date"] = str(case["trial_date"])
+
+            # Get clients
+            cur.execute("""
+                SELECT cl.id, cl.name
+                FROM clients cl
+                JOIN case_clients cc ON cl.id = cc.client_id
+                WHERE cc.case_id = %s
+            """, (case["id"],))
+            case["clients"] = [dict(row) for row in cur.fetchall()]
+
+            # Get defendants
+            cur.execute("""
+                SELECT d.id, d.name
+                FROM defendants d
+                JOIN case_defendants cd ON d.id = cd.defendant_id
+                WHERE cd.case_id = %s
+            """, (case["id"],))
+            case["defendants"] = [dict(row) for row in cur.fetchall()]
+
+            # Get case numbers
+            cur.execute("""
+                SELECT case_number, label, is_primary
+                FROM case_numbers
+                WHERE case_id = %s
+            """, (case["id"],))
+            case["case_numbers"] = [dict(row) for row in cur.fetchall()]
+
+        return cases
+
+
+def search_contacts(name: str = None, firm: str = None) -> List[dict]:
+    """
+    Search for contacts by name or firm.
+    Returns contacts with their case/role associations for disambiguation.
+    """
+    with get_cursor() as cur:
+        # Build WHERE clause based on provided filters
+        conditions = []
+        params = []
+
+        if name:
+            conditions.append("co.name ILIKE %s")
+            params.append(f"%{name}%")
+        if firm:
+            conditions.append("co.firm ILIKE %s")
+            params.append(f"%{firm}%")
+
+        if not conditions:
+            return []
+
+        where_clause = " OR ".join(conditions)
+
+        # Get matching contacts
+        cur.execute(f"""
+            SELECT DISTINCT co.id, co.name, co.firm, co.phone, co.email
+            FROM contacts co
+            WHERE {where_clause}
+            ORDER BY co.name
+        """, params)
+
+        contacts = [dict(row) for row in cur.fetchall()]
+
+        # For each contact, get their case/role associations
+        for contact in contacts:
+            cur.execute("""
+                SELECT c.id, c.case_name, cc.role
+                FROM cases c
+                JOIN case_contacts cc ON c.id = cc.case_id
+                WHERE cc.contact_id = %s
+                ORDER BY c.case_name
+            """, (contact["id"],))
+            contact["cases"] = [dict(row) for row in cur.fetchall()]
+
+        return contacts
+
+
 # ===== ACTIVITY OPERATIONS =====
 
 def add_activity(case_id: int, description: str, activity_type: str,
