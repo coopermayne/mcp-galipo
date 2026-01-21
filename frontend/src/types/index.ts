@@ -133,7 +133,7 @@ export type TaskStatus =
   | 'Pending'
   | 'Active'
   | 'Done'
-  | 'Partially Complete'
+  | 'Partially Done'
   | 'Blocked'
   | 'Awaiting Atty Review';
 
@@ -171,6 +171,7 @@ export interface Constants {
   case_statuses: string[];
   contact_roles: string[];
   task_statuses: string[];
+  courts: string[];
 }
 
 // Calendar item type
