@@ -163,7 +163,7 @@ export function Tasks() {
     <>
       <Header
         title="Tasks"
-        subtitle={`${tasksData?.total ?? 0} tasks`}
+        subtitle="Track your to-dos"
       />
 
       <PageContent>

@@ -147,8 +147,8 @@ export function Deadlines() {
   return (
     <>
       <Header
-        title="Deadlines"
-        subtitle={`${deadlinesData?.total ?? 0} deadlines`}
+        title="Deadlines & Events"
+        subtitle="Important dates and court events"
       />
 
       <PageContent>
