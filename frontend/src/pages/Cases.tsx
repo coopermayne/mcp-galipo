@@ -161,8 +161,8 @@ export function Cases() {
   return (
     <>
       <Header
-        title="Cases"
-        subtitle={`${casesData?.total ?? 0} cases`}
+        title="Case Files"
+        subtitle="All your active and archived matters"
         actions={
           <button
             onClick={() => setIsCreating(true)}
