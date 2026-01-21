@@ -13,7 +13,6 @@ import {
 import { getDeadlines, updateDeadline, deleteDeadline } from '../api/client';
 import type { Deadline } from '../types';
 import { Trash2, ExternalLink, Filter, AlertTriangle, Search } from 'lucide-react';
-import { parseISO, differenceInDays, isValid } from 'date-fns';
 
 export function Deadlines() {
   const queryClient = useQueryClient();
@@ -145,16 +144,6 @@ export function Deadlines() {
     later: 'text-slate-400 bg-slate-700',
   };
 
-  const getDaysUntil = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (!isValid(date)) return null;
-    const days = differenceInDays(date, new Date());
-    if (days < 0) return `${Math.abs(days)} days overdue`;
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    return `${days} days`;
-  };
-
   return (
     <>
       <Header
@@ -234,15 +223,6 @@ export function Deadlines() {
                       <ListPanel.Body>
                         {deadlines.map((deadline) => (
                           <ListPanel.Row key={deadline.id} highlight={group === 'overdue'}>
-                            <div className="w-28 shrink-0">
-                              <EditableDate
-                                value={deadline.date}
-                                onSave={(value) => handleUpdate(deadline.id, 'date', value)}
-                              />
-                              <p className={`text-xs mt-0.5 ${group === 'overdue' ? 'text-red-400 font-medium' : 'text-slate-500'}`}>
-                                {getDaysUntil(deadline.date)}
-                              </p>
-                            </div>
                             <div className="flex-1 min-w-0">
                               <EditableText
                                 value={deadline.description}
@@ -251,12 +231,16 @@ export function Deadlines() {
                               />
                               <Link
                                 to={`/cases/${deadline.case_id}`}
-                                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-1"
+                                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-0.5"
                               >
                                 {deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
                                 <ExternalLink className="w-3 h-3" />
                               </Link>
                             </div>
+                            <EditableDate
+                              value={deadline.date}
+                              onSave={(value) => handleUpdate(deadline.id, 'date', value)}
+                            />
                             <EditableSelect
                               value={deadline.status}
                               options={statusOptions}

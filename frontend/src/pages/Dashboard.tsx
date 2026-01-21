@@ -21,7 +21,7 @@ import {
   Trash2,
   ExternalLink,
 } from 'lucide-react';
-import { parseISO, isValid, differenceInDays } from 'date-fns';
+import { parseISO, isValid } from 'date-fns';
 
 export function Dashboard() {
   const queryClient = useQueryClient();
@@ -133,16 +133,6 @@ export function Dashboard() {
     { value: '4', label: '4' },
     { value: '5', label: '5 - Critical' },
   ];
-
-  const getDaysUntil = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (!isValid(date)) return null;
-    const days = differenceInDays(date, new Date());
-    if (days < 0) return `${Math.abs(days)}d overdue`;
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    return `${days}d`;
-  };
 
   // Filter to only show non-completed tasks
   const pendingTasks = tasksData?.tasks.filter(t => t.status !== 'Done') || [];
@@ -281,15 +271,6 @@ export function Dashboard() {
                 <ListPanel.Body>
                   {pendingDeadlines.slice(0, 8).map((deadline) => (
                     <ListPanel.Row key={deadline.id}>
-                      <div className="w-28 shrink-0">
-                        <EditableDate
-                          value={deadline.date}
-                          onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
-                        />
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {getDaysUntil(deadline.date)}
-                        </p>
-                      </div>
                       <div className="flex-1 min-w-0">
                         <EditableText
                           value={deadline.description}
@@ -304,6 +285,10 @@ export function Dashboard() {
                           <ExternalLink className="w-3 h-3" />
                         </Link>
                       </div>
+                      <EditableDate
+                        value={deadline.date}
+                        onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
+                      />
                       <EditableSelect
                         value={deadline.status}
                         options={deadlineStatusOptions}
