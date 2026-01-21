@@ -7,9 +7,10 @@ interface HeaderProps {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
+  breadcrumbLabel?: string;
 }
 
-export function Header({ title, subtitle, actions }: HeaderProps) {
+export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProps) {
   const location = useLocation();
   const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -17,8 +18,9 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
 
   const breadcrumbs = pathSegments.map((segment, index) => {
     const path = '/' + pathSegments.slice(0, index + 1).join('/');
-    const label = segment.charAt(0).toUpperCase() + segment.slice(1);
     const isLast = index === pathSegments.length - 1;
+    // Use custom breadcrumbLabel for the last segment if provided
+    const label = isLast && breadcrumbLabel ? breadcrumbLabel : segment.charAt(0).toUpperCase() + segment.slice(1);
 
     return { path, label, isLast };
   });
