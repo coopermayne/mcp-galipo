@@ -6,33 +6,23 @@ export interface CaseNumber {
   primary?: boolean;
 }
 
-export interface Client {
-  id: number;
-  name: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  contact_directly: boolean;
-  contact_via?: string;
-  contact_via_relationship?: string;
-  is_primary: boolean;
-  notes?: string;
+export interface PhoneEntry {
+  value: string;
+  label?: string;
+  primary?: boolean;
 }
 
-export interface Defendant {
-  id: number;
-  name: string;
+export interface EmailEntry {
+  value: string;
+  label?: string;
+  primary?: boolean;
 }
 
-export interface Contact {
+export interface Jurisdiction {
   id: number;
   name: string;
-  firm?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
+  local_rules_link?: string;
   notes?: string;
-  role?: string;
 }
 
 export interface Task {
@@ -42,9 +32,11 @@ export interface Task {
   short_name?: string;
   description: string;
   due_date?: string;
+  completion_date?: string;
   status: TaskStatus;
   urgency: number;
   deadline_id?: number;
+  deadline_description?: string;
   created_at: string;
 }
 
@@ -54,6 +46,8 @@ export interface Deadline {
   case_name?: string;
   short_name?: string;
   date: string;
+  time?: string;
+  location?: string;
   description: string;
   status: string;
   urgency: number;
@@ -67,13 +61,14 @@ export interface Note {
   case_id: number;
   content: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Activity {
   id: number;
   case_id: number;
   description: string;
-  activity_type: string;
+  type: string;
   date: string;
   minutes?: number;
   created_at: string;
@@ -85,8 +80,11 @@ export interface Case {
   short_name?: string;
   status: CaseStatus;
   court?: string;
+  court_id?: number;
+  local_rules_link?: string;
   print_code?: string;
   case_summary?: string;
+  result?: string;
   date_of_injury?: string;
   claim_due?: string;
   claim_filed_date?: string;
@@ -94,10 +92,9 @@ export interface Case {
   complaint_filed_date?: string;
   trial_date?: string;
   created_at: string;
+  updated_at?: string;
   case_numbers: CaseNumber[];
-  clients: Client[];
-  defendants: Defendant[];
-  contacts: Contact[];
+  persons: CasePerson[];
   tasks?: Task[];
   deadlines?: Deadline[];
   notes?: Note[];
@@ -141,20 +138,6 @@ export type TaskStatus =
   | 'Blocked'
   | 'Awaiting Atty Review';
 
-export type ContactRole =
-  | 'Opposing Counsel'
-  | 'Co-Counsel'
-  | 'Referring Attorney'
-  | 'Mediator'
-  | 'Judge'
-  | 'Magistrate Judge'
-  | 'Plaintiff Expert'
-  | 'Defendant Expert'
-  | 'Witness'
-  | 'Client Contact'
-  | 'Guardian Ad Litem'
-  | 'Family Contact';
-
 // API response types
 export interface PaginatedResponse<T> {
   items: T[];
@@ -173,17 +156,19 @@ export interface DashboardStats {
 
 export interface Constants {
   case_statuses: string[];
-  contact_roles: string[];
   task_statuses: string[];
-  courts: string[];
+  activity_types: string[];
   person_types?: string[];
   person_sides?: string[];
+  jurisdictions?: Jurisdiction[];
 }
 
 // Calendar item type
 export interface CalendarItem {
   id: number;
   date: string;
+  time?: string;
+  location?: string;
   description: string;
   status: string;
   urgency: number;
@@ -198,23 +183,22 @@ export interface CreateCaseInput {
   case_name: string;
   short_name?: string;
   status?: CaseStatus;
-  court?: string;
+  court_id?: number;
   print_code?: string;
   case_summary?: string;
+  result?: string;
   date_of_injury?: string;
   case_numbers?: CaseNumber[];
-  clients?: Partial<Client>[];
-  defendants?: string[];
-  contacts?: Partial<Contact & { role: ContactRole }>[];
 }
 
 export interface UpdateCaseInput {
   case_name?: string;
   short_name?: string;
   status?: CaseStatus;
-  court?: string;
+  court_id?: number;
   print_code?: string;
   case_summary?: string;
+  result?: string;
   date_of_injury?: string;
   claim_due?: string;
   claim_filed_date?: string;
@@ -236,6 +220,7 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   description?: string;
   due_date?: string;
+  completion_date?: string;
   status?: TaskStatus;
   urgency?: number;
 }
@@ -246,6 +231,8 @@ export interface CreateDeadlineInput {
   description: string;
   status?: string;
   urgency?: number;
+  time?: string;
+  location?: string;
   document_link?: string;
   calculation_note?: string;
 }
@@ -255,6 +242,8 @@ export interface UpdateDeadlineInput {
   description?: string;
   status?: string;
   urgency?: number;
+  time?: string;
+  location?: string;
   document_link?: string;
   calculation_note?: string;
 }
@@ -319,8 +308,8 @@ export interface Person {
   id: number;
   person_type: PersonType;
   name: string;
-  phone?: string;
-  email?: string;
+  phones: PhoneEntry[];
+  emails: EmailEntry[];
   address?: string;
   organization?: string;
   attributes: PersonAttributes;
@@ -332,20 +321,17 @@ export interface Person {
 }
 
 export interface CasePersonAssignment {
-  id: number;
+  assignment_id: number;
   case_id: number;
   case_name?: string;
   short_name?: string;
-  person_id: number;
   role: string;
   side?: PersonSide;
   case_attributes: Record<string, unknown>;
   case_notes?: string;
   is_primary: boolean;
-  contact_directly: boolean;
   contact_via_person_id?: number;
   contact_via_name?: string;
-  contact_via_relationship?: string;
   assigned_date?: string;
   created_at: string;
 }
@@ -357,10 +343,8 @@ export interface CasePerson extends Person {
   case_attributes: Record<string, unknown>;
   case_notes?: string;
   is_primary: boolean;
-  contact_directly: boolean;
   contact_via_person_id?: number;
   contact_via_name?: string;
-  contact_via_relationship?: string;
   assigned_date?: string;
   assigned_at: string;
   person_notes?: string;
@@ -370,8 +354,8 @@ export interface CasePerson extends Person {
 export interface CreatePersonInput {
   person_type: PersonType;
   name: string;
-  phone?: string;
-  email?: string;
+  phones?: PhoneEntry[];
+  emails?: EmailEntry[];
   address?: string;
   organization?: string;
   attributes?: PersonAttributes;
@@ -381,8 +365,8 @@ export interface CreatePersonInput {
 export interface UpdatePersonInput {
   name?: string;
   person_type?: PersonType;
-  phone?: string;
-  email?: string;
+  phones?: PhoneEntry[];
+  emails?: EmailEntry[];
   address?: string;
   organization?: string;
   attributes?: PersonAttributes;
@@ -397,9 +381,7 @@ export interface AssignPersonInput {
   case_attributes?: Record<string, unknown>;
   case_notes?: string;
   is_primary?: boolean;
-  contact_directly?: boolean;
   contact_via_person_id?: number;
-  contact_via_relationship?: string;
   assigned_date?: string;
 }
 
@@ -409,8 +391,6 @@ export interface UpdateAssignmentInput {
   case_attributes?: Record<string, unknown>;
   case_notes?: string;
   is_primary?: boolean;
-  contact_directly?: boolean;
   contact_via_person_id?: number;
-  contact_via_relationship?: string;
   assigned_date?: string;
 }

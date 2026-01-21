@@ -22,14 +22,11 @@ import {
   deleteDeadline,
   createNote,
   deleteNote,
-  addClientToCase,
-  removeClientFromCase,
-  addDefendantToCase,
-  removeDefendantFromCase,
-  addContactToCase,
-  removeContactFromCase,
+  createPerson,
+  assignPersonToCase,
+  removePersonFromCase,
 } from '../api/client';
-import type { Case, Task, Deadline, Note, TaskStatus, Constants, ContactRole, CaseNumber } from '../types';
+import type { Case, Task, Deadline, Note, TaskStatus, Constants, CaseNumber, Jurisdiction } from '../types';
 import {
   Loader2,
   Trash2,
@@ -49,6 +46,7 @@ import {
   Link,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 
@@ -91,7 +89,7 @@ export function CaseDetail() {
   });
 
   const handleUpdateField = useCallback(
-    async (field: string, value: string | null) => {
+    async (field: string, value: string | number | null) => {
       await updateCaseMutation.mutateAsync({ [field]: value });
     },
     [updateCaseMutation]
@@ -239,6 +237,19 @@ export function CaseDetail() {
   );
 }
 
+// Helper to get primary phone/email from arrays
+function getPrimaryPhone(phones: Array<{ value: string; label?: string; primary?: boolean }> | undefined): string | null {
+  if (!phones || phones.length === 0) return null;
+  const primary = phones.find(p => p.primary);
+  return primary?.value || phones[0]?.value || null;
+}
+
+function getPrimaryEmail(emails: Array<{ value: string; label?: string; primary?: boolean }> | undefined): string | null {
+  if (!emails || emails.length === 0) return null;
+  const primary = emails.find(e => e.primary);
+  return primary?.value || emails[0]?.value || null;
+}
+
 // Overview Tab Component
 function OverviewTab({
   caseData,
@@ -249,7 +260,7 @@ function OverviewTab({
   caseData: Case;
   caseId: number;
   constants: Constants | undefined;
-  onUpdateField: (field: string, value: string | null) => Promise<void>;
+  onUpdateField: (field: string, value: string | number | null) => Promise<void>;
 }) {
   const queryClient = useQueryClient();
   const [showAddClient, setShowAddClient] = useState(false);
@@ -257,29 +268,62 @@ function OverviewTab({
   const [showAddContact, setShowAddContact] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '', is_primary: false });
   const [newDefendantName, setNewDefendantName] = useState('');
-  const [newContact, setNewContact] = useState({ name: '', role: 'Co-Counsel' as ContactRole, firm: '', phone: '', email: '' });
+  const [newContact, setNewContact] = useState({ name: '', role: 'Opposing Counsel', organization: '', phone: '', email: '' });
 
-  const courtOptions = useMemo(
+  // Filter persons by role
+  const clients = useMemo(
+    () => (caseData.persons || []).filter(p => p.role === 'Client'),
+    [caseData.persons]
+  );
+
+  const defendants = useMemo(
+    () => (caseData.persons || []).filter(p => p.role === 'Defendant'),
+    [caseData.persons]
+  );
+
+  const contacts = useMemo(
+    () => (caseData.persons || []).filter(p => p.role !== 'Client' && p.role !== 'Defendant'),
+    [caseData.persons]
+  );
+
+  const jurisdictionOptions = useMemo(
     () =>
-      (constants?.courts || []).map((c) => ({
-        value: c,
-        label: c,
+      (constants?.jurisdictions || []).map((j: Jurisdiction) => ({
+        value: String(j.id),
+        label: j.name,
       })),
     [constants]
   );
 
-  const contactRoleOptions = useMemo(
-    () =>
-      (constants?.contact_roles || []).map((r) => ({
-        value: r,
-        label: r,
-      })),
-    [constants]
+  const currentJurisdiction = useMemo(
+    () => constants?.jurisdictions?.find((j: Jurisdiction) => j.id === caseData.court_id),
+    [constants, caseData.court_id]
   );
+
+  // Common contact roles
+  const contactRoleOptions = [
+    'Opposing Counsel', 'Co-Counsel', 'Referring Attorney', 'Mediator',
+    'Judge', 'Magistrate Judge', 'Expert - Plaintiff', 'Expert - Defendant',
+    'Witness', 'Guardian Ad Litem', 'Insurance Adjuster', 'Lien Holder'
+  ];
 
   const addClientMutation = useMutation({
-    mutationFn: (data: { name: string; phone?: string; email?: string; is_primary?: boolean }) =>
-      addClientToCase(caseId, data),
+    mutationFn: async (data: { name: string; phone?: string; email?: string; is_primary?: boolean }) => {
+      // First create the person
+      const personResult = await createPerson({
+        person_type: 'client',
+        name: data.name,
+        phones: data.phone ? [{ value: data.phone, primary: true }] : [],
+        emails: data.email ? [{ value: data.email, primary: true }] : [],
+      });
+      // Then assign to case
+      return assignPersonToCase(caseId, {
+        person_id: personResult.person.id,
+        role: 'Client',
+        side: 'plaintiff',
+        is_primary: data.is_primary,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       setNewClient({ name: '', phone: '', email: '', is_primary: false });
@@ -288,14 +332,25 @@ function OverviewTab({
   });
 
   const removeClientMutation = useMutation({
-    mutationFn: (clientId: number) => removeClientFromCase(caseId, clientId),
+    mutationFn: (personId: number) => removePersonFromCase(caseId, personId, 'Client'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     },
   });
 
   const addDefendantMutation = useMutation({
-    mutationFn: (name: string) => addDefendantToCase(caseId, name),
+    mutationFn: async (name: string) => {
+      // Create person and assign to case
+      const personResult = await createPerson({
+        person_type: 'defendant',
+        name: name,
+      });
+      return assignPersonToCase(caseId, {
+        person_id: personResult.person.id,
+        role: 'Defendant',
+        side: 'defendant',
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       setNewDefendantName('');
@@ -304,25 +359,61 @@ function OverviewTab({
   });
 
   const removeDefendantMutation = useMutation({
-    mutationFn: (defendantId: number) => removeDefendantFromCase(caseId, defendantId),
+    mutationFn: (personId: number) => removePersonFromCase(caseId, personId, 'Defendant'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     },
   });
 
   const addContactMutation = useMutation({
-    mutationFn: (data: { name: string; role: string; firm?: string; phone?: string; email?: string }) =>
-      addContactToCase(caseId, data),
+    mutationFn: async (data: { name: string; role: string; organization?: string; phone?: string; email?: string }) => {
+      // Determine person type and side based on role
+      let personType = 'attorney';
+      let side: 'plaintiff' | 'defendant' | 'neutral' = 'neutral';
+
+      if (data.role.includes('Judge') || data.role === 'Mediator') {
+        personType = data.role.includes('Judge') ? 'judge' : 'mediator';
+        side = 'neutral';
+      } else if (data.role.includes('Expert')) {
+        personType = 'expert';
+        side = data.role.includes('Plaintiff') ? 'plaintiff' : 'defendant';
+      } else if (data.role === 'Opposing Counsel') {
+        side = 'defendant';
+      } else if (data.role === 'Co-Counsel' || data.role === 'Referring Attorney') {
+        side = 'plaintiff';
+      } else if (data.role === 'Guardian Ad Litem') {
+        personType = 'guardian';
+      } else if (data.role === 'Insurance Adjuster') {
+        personType = 'insurance_adjuster';
+      } else if (data.role === 'Lien Holder') {
+        personType = 'lien_holder';
+      } else if (data.role === 'Witness') {
+        personType = 'witness';
+      }
+
+      const personResult = await createPerson({
+        person_type: personType,
+        name: data.name,
+        organization: data.organization || undefined,
+        phones: data.phone ? [{ value: data.phone, primary: true }] : [],
+        emails: data.email ? [{ value: data.email, primary: true }] : [],
+      });
+      return assignPersonToCase(caseId, {
+        person_id: personResult.person.id,
+        role: data.role,
+        side: side,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setNewContact({ name: '', role: 'Co-Counsel', firm: '', phone: '', email: '' });
+      setNewContact({ name: '', role: 'Opposing Counsel', organization: '', phone: '', email: '' });
       setShowAddContact(false);
     },
   });
 
   const removeContactMutation = useMutation({
-    mutationFn: ({ contactId, role }: { contactId: number; role?: string }) =>
-      removeContactFromCase(caseId, contactId, role),
+    mutationFn: ({ personId, role }: { personId: number; role?: string }) =>
+      removePersonFromCase(caseId, personId, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     },
@@ -335,11 +426,24 @@ function OverviewTab({
         <h3 className="font-semibold text-slate-100 mb-4">Case Details</h3>
         <div className="space-y-3">
           <Field label="Court">
-            <EditableSelect
-              value={caseData.court || ''}
-              options={courtOptions}
-              onSave={(value) => onUpdateField('court', value || null)}
-            />
+            <div className="flex items-center gap-2">
+              <EditableSelect
+                value={caseData.court_id ? String(caseData.court_id) : ''}
+                options={jurisdictionOptions}
+                onSave={(value) => onUpdateField('court_id', value ? parseInt(value, 10) : null)}
+              />
+              {currentJurisdiction?.local_rules_link && (
+                <a
+                  href={currentJurisdiction.local_rules_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-400 hover:text-primary-300"
+                  title="View local rules"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </div>
           </Field>
           <Field label="Print Code">
             <EditableText
@@ -347,6 +451,13 @@ function OverviewTab({
               onSave={(value) => onUpdateField('print_code', value || null)}
               placeholder="Enter code"
               inputClassName="font-mono"
+            />
+          </Field>
+          <Field label="Result">
+            <EditableText
+              value={caseData.result || ''}
+              onSave={(value) => onUpdateField('result', value || null)}
+              placeholder="e.g., Settled, Verdict"
             />
           </Field>
         </div>
@@ -503,13 +614,13 @@ function OverviewTab({
             </div>
           </form>
         )}
-        {caseData.clients.length === 0 && !showAddClient ? (
+        {clients.length === 0 && !showAddClient ? (
           <p className="text-sm text-slate-400">No clients linked</p>
         ) : (
           <div className="space-y-2">
-            {caseData.clients.map((client) => (
+            {clients.map((client) => (
               <div
-                key={client.id}
+                key={client.assignment_id}
                 className="p-3 bg-slate-700 rounded-lg group relative"
               >
                 <button
@@ -525,22 +636,21 @@ function OverviewTab({
                   )}
                 </div>
                 <div className="mt-1 space-y-0.5">
-                  {client.phone && (
+                  {getPrimaryPhone(client.phones) && (
                     <p className="text-xs text-slate-400 flex items-center gap-1">
                       <Phone className="w-3 h-3" />
-                      {client.phone}
+                      {getPrimaryPhone(client.phones)}
                     </p>
                   )}
-                  {client.email && (
+                  {getPrimaryEmail(client.emails) && (
                     <p className="text-xs text-slate-400 flex items-center gap-1">
                       <Mail className="w-3 h-3" />
-                      {client.email}
+                      {getPrimaryEmail(client.emails)}
                     </p>
                   )}
-                  {!client.contact_directly && client.contact_via && (
+                  {client.contact_via_name && (
                     <p className="text-xs text-slate-500 italic">
-                      Contact via: {client.contact_via}
-                      {client.contact_via_relationship && ` (${client.contact_via_relationship})`}
+                      Contact via: {client.contact_via_name}
                     </p>
                   )}
                 </div>
@@ -589,13 +699,13 @@ function OverviewTab({
             </button>
           </form>
         )}
-        {caseData.defendants.length === 0 && !showAddDefendant ? (
+        {defendants.length === 0 && !showAddDefendant ? (
           <p className="text-sm text-slate-400">No defendants linked</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {caseData.defendants.map((defendant) => (
+            {defendants.map((defendant) => (
               <span
-                key={defendant.id}
+                key={defendant.assignment_id}
                 className="inline-flex items-center gap-1 px-3 py-1 bg-slate-700 text-slate-200 rounded-full text-sm group"
               >
                 {defendant.name}
@@ -634,7 +744,7 @@ function OverviewTab({
                 addContactMutation.mutate({
                   name: newContact.name.trim(),
                   role: newContact.role,
-                  firm: newContact.firm || undefined,
+                  organization: newContact.organization || undefined,
                   phone: newContact.phone || undefined,
                   email: newContact.email || undefined,
                 });
@@ -652,20 +762,20 @@ function OverviewTab({
               />
               <select
                 value={newContact.role}
-                onChange={(e) => setNewContact({ ...newContact, role: e.target.value as ContactRole })}
+                onChange={(e) => setNewContact({ ...newContact, role: e.target.value })}
                 className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               >
                 {contactRoleOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                  <option key={opt} value={opt}>
+                    {opt}
                   </option>
                 ))}
               </select>
               <input
                 type="text"
-                value={newContact.firm}
-                onChange={(e) => setNewContact({ ...newContact, firm: e.target.value })}
-                placeholder="Firm"
+                value={newContact.organization}
+                onChange={(e) => setNewContact({ ...newContact, organization: e.target.value })}
+                placeholder="Firm / Organization"
                 className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
               <input
@@ -701,17 +811,17 @@ function OverviewTab({
             </div>
           </form>
         )}
-        {caseData.contacts.length === 0 && !showAddContact ? (
+        {contacts.length === 0 && !showAddContact ? (
           <p className="text-sm text-slate-400">No contacts linked</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {caseData.contacts.map((contact) => (
+            {contacts.map((contact) => (
               <div
-                key={`${contact.id}-${contact.role}`}
+                key={contact.assignment_id}
                 className="p-3 bg-slate-700 rounded-lg group relative"
               >
                 <button
-                  onClick={() => removeContactMutation.mutate({ contactId: contact.id, role: contact.role })}
+                  onClick={() => removeContactMutation.mutate({ personId: contact.id, role: contact.role })}
                   className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -722,20 +832,20 @@ function OverviewTab({
                     {contact.role}
                   </span>
                 )}
-                {contact.firm && (
-                  <p className="text-xs text-slate-400 mt-1">{contact.firm}</p>
+                {contact.organization && (
+                  <p className="text-xs text-slate-400 mt-1">{contact.organization}</p>
                 )}
                 <div className="mt-1 space-y-0.5">
-                  {contact.phone && (
+                  {getPrimaryPhone(contact.phones) && (
                     <p className="text-xs text-slate-400 flex items-center gap-1">
                       <Phone className="w-3 h-3" />
-                      {contact.phone}
+                      {getPrimaryPhone(contact.phones)}
                     </p>
                   )}
-                  {contact.email && (
+                  {getPrimaryEmail(contact.emails) && (
                     <p className="text-xs text-slate-400 flex items-center gap-1">
                       <Mail className="w-3 h-3" />
-                      {contact.email}
+                      {getPrimaryEmail(contact.emails)}
                     </p>
                   )}
                 </div>
@@ -756,7 +866,7 @@ function TasksTab({
 }: {
   caseId: number;
   tasks: Task[];
-  constants: any;
+  constants: Constants | undefined;
 }) {
   const queryClient = useQueryClient();
   const [newTask, setNewTask] = useState('');

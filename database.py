@@ -6,10 +6,12 @@ Implements normalized schema for personal injury litigation practice.
 """
 
 import os
+import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 from typing import Optional, List
+from datetime import datetime, date, time
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -20,26 +22,8 @@ CASE_STATUSES = [
     "Settl. Pend.", "Stayed", "Closed"
 ]
 
-CONTACT_ROLES = [
-    "Opposing Counsel", "Co-Counsel", "Referring Attorney", "Mediator",
-    "Judge", "Magistrate Judge", "Plaintiff Expert", "Defendant Expert",
-    "Witness", "Client Contact", "Guardian Ad Litem", "Family Contact"
-]
-
 TASK_STATUSES = [
     "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-]
-
-COURT_OPTIONS = [
-    # California Federal Courts
-    "C.D. Cal.", "E.D. Cal.", "N.D. Cal.", "S.D. Cal.",
-    # California State Courts
-    "Superior Court - Los Angeles", "Superior Court - Orange", "Superior Court - San Diego",
-    "Superior Court - Riverside", "Superior Court - San Bernardino", "Superior Court - Ventura",
-    "Superior Court - Santa Barbara", "Superior Court - Kern", "Superior Court - San Francisco",
-    "Superior Court - Alameda", "Superior Court - Santa Clara", "Superior Court - Sacramento",
-    # Other
-    "Other"
 ]
 
 ACTIVITY_TYPES = [
@@ -57,12 +41,26 @@ DEFAULT_PERSON_TYPES = [
 # Sides in a case
 PERSON_SIDES = ["plaintiff", "defendant", "neutral"]
 
-# Default expertise types for experts (can be extended via expertise_types table)
+# Default expertise types for experts
 DEFAULT_EXPERTISE_TYPES = [
     "Biomechanics", "Accident Reconstruction", "Medical - Orthopedic",
     "Medical - Neurology", "Medical - General", "Economics/Damages",
     "Vocational Rehabilitation", "Life Care Planning", "Forensic Accounting",
     "Engineering", "Human Factors", "Toxicology", "Psychiatry", "Psychology"
+]
+
+# Default jurisdictions
+DEFAULT_JURISDICTIONS = [
+    {"name": "C.D. Cal.", "local_rules_link": "https://www.cacd.uscourts.gov/court-procedures/local-rules"},
+    {"name": "E.D. Cal.", "local_rules_link": "https://www.caed.uscourts.gov/caednew/index.cfm/rules/local-rules/"},
+    {"name": "N.D. Cal.", "local_rules_link": "https://www.cand.uscourts.gov/rules/local-rules/"},
+    {"name": "S.D. Cal.", "local_rules_link": "https://www.casd.uscourts.gov/rules.aspx"},
+    {"name": "9th Cir.", "local_rules_link": "https://www.ca9.uscourts.gov/rules/"},
+    {"name": "Los Angeles Superior", "local_rules_link": "https://www.lacourt.org/courtrules/ui/"},
+    {"name": "Orange County Superior", "local_rules_link": None},
+    {"name": "San Diego Superior", "local_rules_link": None},
+    {"name": "Riverside Superior", "local_rules_link": None},
+    {"name": "San Bernardino Superior", "local_rules_link": None},
 ]
 
 
@@ -71,18 +69,34 @@ class ValidationError(Exception):
     pass
 
 
+def serialize_value(val):
+    """Convert datetime/date/time objects to ISO format strings for JSON serialization."""
+    if isinstance(val, datetime):
+        return val.isoformat()
+    elif isinstance(val, date):
+        return val.isoformat()
+    elif isinstance(val, time):
+        return val.strftime("%H:%M")
+    return val
+
+
+def serialize_row(row: dict) -> dict:
+    """Serialize a database row, converting datetime objects to strings."""
+    if row is None:
+        return None
+    return {k: serialize_value(v) for k, v in row.items()}
+
+
+def serialize_rows(rows: list) -> list:
+    """Serialize a list of database rows."""
+    return [serialize_row(row) for row in rows]
+
+
 def validate_case_status(status: str) -> str:
     """Validate case status against allowed values."""
     if status not in CASE_STATUSES:
         raise ValidationError(f"Invalid case status '{status}'. Must be one of: {', '.join(CASE_STATUSES)}")
     return status
-
-
-def validate_contact_role(role: str) -> str:
-    """Validate contact role against allowed values."""
-    if role not in CONTACT_ROLES:
-        raise ValidationError(f"Invalid contact role '{role}'. Must be one of: {', '.join(CONTACT_ROLES)}")
-    return role
 
 
 def validate_task_status(status: str) -> str:
@@ -107,6 +121,30 @@ def validate_date_format(date_str: str, field_name: str = "date") -> str:
     if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
         raise ValidationError(f"Invalid {field_name} format '{date_str}'. Must be YYYY-MM-DD.")
     return date_str
+
+
+def validate_time_format(time_str: str, field_name: str = "time") -> str:
+    """Validate time string is in HH:MM format."""
+    if time_str is None:
+        return None
+    import re
+    if not re.match(r'^\d{2}:\d{2}$', time_str):
+        raise ValidationError(f"Invalid {field_name} format '{time_str}'. Must be HH:MM.")
+    return time_str
+
+
+def validate_person_type(person_type: str) -> str:
+    """Validate person type is a non-empty string. Any type is allowed."""
+    if not person_type or not person_type.strip():
+        raise ValidationError("Person type cannot be empty")
+    return person_type.strip()
+
+
+def validate_person_side(side: str) -> str:
+    """Validate person side against allowed values."""
+    if side and side not in PERSON_SIDES:
+        raise ValidationError(f"Invalid side '{side}'. Must be one of: {', '.join(PERSON_SIDES)}")
+    return side
 
 
 @contextmanager
@@ -136,121 +174,208 @@ def get_cursor(dict_cursor=True):
 
 
 def drop_all_tables():
-    """Drop all existing tables for clean migration."""
+    """Drop all existing tables for clean reset."""
     with get_cursor(dict_cursor=False) as cur:
         cur.execute("""
             DROP TABLE IF EXISTS notes CASCADE;
             DROP TABLE IF EXISTS tasks CASCADE;
             DROP TABLE IF EXISTS deadlines CASCADE;
             DROP TABLE IF EXISTS activities CASCADE;
-            DROP TABLE IF EXISTS case_defendants CASCADE;
-            DROP TABLE IF EXISTS defendants CASCADE;
-            DROP TABLE IF EXISTS case_contacts CASCADE;
-            DROP TABLE IF EXISTS contacts CASCADE;
-            DROP TABLE IF EXISTS case_numbers CASCADE;
-            DROP TABLE IF EXISTS case_clients CASCADE;
-            DROP TABLE IF EXISTS clients CASCADE;
             DROP TABLE IF EXISTS case_persons CASCADE;
             DROP TABLE IF EXISTS expertise_types CASCADE;
             DROP TABLE IF EXISTS person_types CASCADE;
             DROP TABLE IF EXISTS persons CASCADE;
             DROP TABLE IF EXISTS cases CASCADE;
+            DROP TABLE IF EXISTS jurisdictions CASCADE;
         """)
     print("All tables dropped.")
 
 
-def migrate_add_short_name():
-    """
-    Add short_name column to cases table if it doesn't exist.
-    This is a one-time migration for existing databases.
-    """
+def init_db():
+    """Create tables if they don't exist."""
     with get_cursor(dict_cursor=False) as cur:
-        # Check if short_name column exists
+        # 1. Jurisdictions table (must be created before cases for FK)
         cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'cases' AND column_name = 'short_name'
-            )
-        """)
-        column_exists = cur.fetchone()[0]
-
-        if column_exists:
-            print("short_name column already exists - migration not needed.")
-            return
-
-        # Add the column
-        cur.execute("ALTER TABLE cases ADD COLUMN short_name VARCHAR(100)")
-        print("Added short_name column to cases table.")
-
-        # Optionally populate with first word of case_name for existing cases
-        cur.execute("""
-            UPDATE cases
-            SET short_name = split_part(case_name, ' ', 1)
-            WHERE short_name IS NULL
-        """)
-        cur.execute("SELECT COUNT(*) FROM cases WHERE short_name IS NOT NULL")
-        count = cur.fetchone()[0]
-        print(f"Populated short_name for {count} existing cases.")
-
-
-def migrate_case_numbers_to_jsonb():
-    """
-    Migrate case_numbers from separate table to JSONB column in cases.
-    This is a one-time migration for existing databases.
-    """
-    with get_cursor(dict_cursor=False) as cur:
-        # Check if old case_numbers table exists
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables
-                WHERE table_name = 'case_numbers'
-            )
-        """)
-        table_exists = cur.fetchone()[0]
-
-        if not table_exists:
-            print("No case_numbers table found - migration not needed.")
-            return
-
-        # Check if cases table has case_numbers column
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'cases' AND column_name = 'case_numbers'
-            )
-        """)
-        column_exists = cur.fetchone()[0]
-
-        if not column_exists:
-            # Add the JSONB column
-            cur.execute("ALTER TABLE cases ADD COLUMN case_numbers JSONB DEFAULT '[]'")
-            print("Added case_numbers JSONB column to cases table.")
-
-        # Migrate data from case_numbers table to JSONB column
-        cur.execute("""
-            UPDATE cases c
-            SET case_numbers = COALESCE(
-                (SELECT json_agg(
-                    json_build_object(
-                        'number', cn.case_number,
-                        'label', cn.label,
-                        'primary', cn.is_primary
-                    )
-                )
-                FROM case_numbers cn
-                WHERE cn.case_id = c.id),
-                '[]'::json
+            CREATE TABLE IF NOT EXISTS jurisdictions (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                local_rules_link TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
-        # Get count of migrated records
-        cur.execute("SELECT COUNT(*) FROM case_numbers")
-        count = cur.fetchone()[0]
+        # 2. Cases table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS cases (
+                id SERIAL PRIMARY KEY,
+                case_name VARCHAR(255) NOT NULL,
+                short_name VARCHAR(100),
+                status VARCHAR(50) NOT NULL DEFAULT 'Signing Up',
+                court_id INTEGER REFERENCES jurisdictions(id),
+                print_code VARCHAR(50),
+                case_summary TEXT,
+                result TEXT,
+                date_of_injury DATE,
+                claim_due DATE,
+                claim_filed_date DATE,
+                complaint_due DATE,
+                complaint_filed_date DATE,
+                trial_date DATE,
+                case_numbers JSONB DEFAULT '[]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
-        # Drop the old table
-        cur.execute("DROP TABLE IF EXISTS case_numbers CASCADE")
+        # 3. Persons table (unified person entity)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS persons (
+                id SERIAL PRIMARY KEY,
+                person_type VARCHAR(50) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                phones JSONB DEFAULT '[]',
+                emails JSONB DEFAULT '[]',
+                address TEXT,
+                organization VARCHAR(255),
+                attributes JSONB DEFAULT '{}',
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                archived BOOLEAN DEFAULT FALSE
+            )
+        """)
 
-        print(f"Migrated {count} case numbers to JSONB and dropped case_numbers table.")
+        # 4. Person types table (extendable enum)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS person_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 5. Expertise types table (extendable enum for experts)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS expertise_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 6. Case persons junction table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS case_persons (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
+                role VARCHAR(100) NOT NULL,
+                side VARCHAR(20),
+                case_attributes JSONB DEFAULT '{}',
+                case_notes TEXT,
+                is_primary BOOLEAN DEFAULT FALSE,
+                contact_via_person_id INTEGER REFERENCES persons(id),
+                assigned_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(case_id, person_id, role)
+            )
+        """)
+
+        # 7. Activities table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS activities (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                date DATE NOT NULL,
+                description TEXT NOT NULL,
+                type VARCHAR(50) NOT NULL,
+                minutes INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 8. Deadlines table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS deadlines (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                date DATE NOT NULL,
+                time TIME,
+                location VARCHAR(255),
+                description TEXT NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
+                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
+                document_link TEXT,
+                calculation_note TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 9. Tasks table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                deadline_id INTEGER REFERENCES deadlines(id) ON DELETE SET NULL,
+                due_date DATE,
+                completion_date DATE,
+                description TEXT NOT NULL,
+                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
+                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 10. Notes table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS notes (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create indexes for better query performance
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
+            CREATE INDEX IF NOT EXISTS idx_cases_court_id ON cases(court_id);
+            CREATE INDEX IF NOT EXISTS idx_persons_name ON persons(name);
+            CREATE INDEX IF NOT EXISTS idx_persons_type ON persons(person_type);
+            CREATE INDEX IF NOT EXISTS idx_persons_archived ON persons(archived);
+            CREATE INDEX IF NOT EXISTS idx_persons_attributes ON persons USING GIN (attributes);
+            CREATE INDEX IF NOT EXISTS idx_case_persons_case_id ON case_persons(case_id);
+            CREATE INDEX IF NOT EXISTS idx_case_persons_person_id ON case_persons(person_id);
+            CREATE INDEX IF NOT EXISTS idx_case_persons_role ON case_persons(role);
+            CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
+            CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+            CREATE INDEX IF NOT EXISTS idx_deadlines_case_id ON deadlines(case_id);
+            CREATE INDEX IF NOT EXISTS idx_deadlines_date ON deadlines(date);
+            CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
+            CREATE INDEX IF NOT EXISTS idx_notes_case_id ON notes(case_id);
+        """)
+
+    print("Database tables initialized.")
+
+
+def seed_jurisdictions():
+    """Seed initial jurisdictions if the table is empty."""
+    with get_cursor() as cur:
+        cur.execute("SELECT COUNT(*) as count FROM jurisdictions")
+        if cur.fetchone()["count"] > 0:
+            return  # Already seeded
+
+        for j in DEFAULT_JURISDICTIONS:
+            cur.execute("""
+                INSERT INTO jurisdictions (name, local_rules_link)
+                VALUES (%s, %s)
+                ON CONFLICT (name) DO NOTHING
+            """, (j["name"], j.get("local_rules_link")))
+    print(f"Seeded {len(DEFAULT_JURISDICTIONS)} jurisdictions.")
 
 
 def seed_expertise_types():
@@ -285,777 +410,211 @@ def seed_person_types():
     print(f"Seeded {len(DEFAULT_PERSON_TYPES)} person types.")
 
 
-def migrate_persons():
-    """
-    Migrate existing clients, contacts, and defendants to the unified persons table.
-    This is a one-time migration for existing databases.
-    """
-    with get_cursor() as cur:
-        # Check if persons table already has data
-        cur.execute("SELECT COUNT(*) as count FROM persons")
-        if cur.fetchone()["count"] > 0:
-            print("Persons table already has data - migration not needed.")
-            return
-
-        # Check if there's data to migrate
-        cur.execute("SELECT COUNT(*) as count FROM clients")
-        clients_count = cur.fetchone()["count"]
-        cur.execute("SELECT COUNT(*) as count FROM contacts")
-        contacts_count = cur.fetchone()["count"]
-        cur.execute("SELECT COUNT(*) as count FROM defendants")
-        defendants_count = cur.fetchone()["count"]
-
-        if clients_count == 0 and contacts_count == 0 and defendants_count == 0:
-            print("No data to migrate to persons table.")
-            return
-
-        # Migrate clients to persons (type='client')
-        cur.execute("""
-            INSERT INTO persons (person_type, name, phone, email, address, notes, created_at)
-            SELECT 'client', name, phone, email, address, notes, created_at
-            FROM clients
-        """)
-
-        # Create mapping of old client_id to new person_id
-        cur.execute("""
-            SELECT c.id as client_id, p.id as person_id
-            FROM clients c
-            JOIN persons p ON p.name = c.name AND p.person_type = 'client'
-                AND COALESCE(p.phone, '') = COALESCE(c.phone, '')
-                AND COALESCE(p.email, '') = COALESCE(c.email, '')
-        """)
-        client_mapping = {row["client_id"]: row["person_id"] for row in cur.fetchall()}
-
-        # Migrate case_clients to case_persons
-        cur.execute("SELECT * FROM case_clients")
-        for row in cur.fetchall():
-            person_id = client_mapping.get(row["client_id"])
-            if person_id:
-                # Handle contact_via_id - will be mapped after contacts migration
-                cur.execute("""
-                    INSERT INTO case_persons (
-                        case_id, person_id, role, side, is_primary,
-                        contact_directly, case_notes, created_at
-                    )
-                    VALUES (%s, %s, 'Client', 'plaintiff', %s, %s, %s, CURRENT_TIMESTAMP)
-                    ON CONFLICT (case_id, person_id, role) DO NOTHING
-                """, (
-                    row["case_id"], person_id, row["is_primary"],
-                    row["contact_directly"], row["notes"]
-                ))
-
-        # Migrate contacts to persons - infer type from roles in case_contacts
-        # First, migrate all contacts
-        cur.execute("""
-            INSERT INTO persons (person_type, name, phone, email, address, organization, notes, created_at)
-            SELECT 'attorney', name, phone, email, address, firm, notes, created_at
-            FROM contacts
-        """)
-
-        # Create mapping of old contact_id to new person_id
-        cur.execute("""
-            SELECT co.id as contact_id, p.id as person_id
-            FROM contacts co
-            JOIN persons p ON p.name = co.name
-                AND COALESCE(p.organization, '') = COALESCE(co.firm, '')
-                AND p.person_type = 'attorney'
-        """)
-        contact_mapping = {row["contact_id"]: row["person_id"] for row in cur.fetchall()}
-
-        # Update person types based on roles they have
-        cur.execute("""
-            SELECT DISTINCT contact_id, role FROM case_contacts
-        """)
-        contact_roles = {}
-        for row in cur.fetchall():
-            if row["contact_id"] not in contact_roles:
-                contact_roles[row["contact_id"]] = []
-            contact_roles[row["contact_id"]].append(row["role"])
-
-        # Map roles to person types
-        role_to_type = {
-            "Judge": "judge",
-            "Magistrate Judge": "judge",
-            "Mediator": "mediator",
-            "Plaintiff Expert": "expert",
-            "Defendant Expert": "expert",
-        }
-
-        for contact_id, roles in contact_roles.items():
-            person_id = contact_mapping.get(contact_id)
-            if person_id:
-                # Pick the most specific type
-                for role in roles:
-                    if role in role_to_type:
-                        cur.execute("""
-                            UPDATE persons SET person_type = %s WHERE id = %s
-                        """, (role_to_type[role], person_id))
-                        break
-
-        # Migrate case_contacts to case_persons
-        cur.execute("SELECT * FROM case_contacts")
-        for row in cur.fetchall():
-            person_id = contact_mapping.get(row["contact_id"])
-            if person_id:
-                # Determine side based on role
-                side = "neutral"
-                role = row["role"]
-                if role in ["Opposing Counsel", "Defendant Expert"]:
-                    side = "defendant"
-                elif role in ["Co-Counsel", "Plaintiff Expert", "Referring Attorney"]:
-                    side = "plaintiff"
-
-                cur.execute("""
-                    INSERT INTO case_persons (
-                        case_id, person_id, role, side, case_notes, created_at
-                    )
-                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    ON CONFLICT (case_id, person_id, role) DO NOTHING
-                """, (row["case_id"], person_id, role, side, row["notes"]))
-
-        # Migrate defendants to persons (type='defendant')
-        cur.execute("""
-            INSERT INTO persons (person_type, name, created_at)
-            SELECT 'defendant', name, CURRENT_TIMESTAMP
-            FROM defendants
-        """)
-
-        # Create mapping of old defendant_id to new person_id
-        cur.execute("""
-            SELECT d.id as defendant_id, p.id as person_id
-            FROM defendants d
-            JOIN persons p ON p.name = d.name AND p.person_type = 'defendant'
-        """)
-        defendant_mapping = {row["defendant_id"]: row["person_id"] for row in cur.fetchall()}
-
-        # Migrate case_defendants to case_persons
-        cur.execute("SELECT * FROM case_defendants")
-        for row in cur.fetchall():
-            person_id = defendant_mapping.get(row["defendant_id"])
-            if person_id:
-                cur.execute("""
-                    INSERT INTO case_persons (
-                        case_id, person_id, role, side, created_at
-                    )
-                    VALUES (%s, %s, 'Defendant', 'defendant', CURRENT_TIMESTAMP)
-                    ON CONFLICT (case_id, person_id, role) DO NOTHING
-                """, (row["case_id"], person_id))
-
-        print(f"Migrated {clients_count} clients, {contacts_count} contacts, "
-              f"{defendants_count} defendants to persons table.")
-
-
-def init_db():
-    """Create tables if they don't exist."""
-    with get_cursor(dict_cursor=False) as cur:
-        # 1. Cases table (case_numbers stored as JSONB)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS cases (
-                id SERIAL PRIMARY KEY,
-                case_name VARCHAR(255) NOT NULL,
-                short_name VARCHAR(100),
-                status VARCHAR(50) NOT NULL DEFAULT 'Signing Up',
-                court VARCHAR(255),
-                print_code VARCHAR(50),
-                case_summary TEXT,
-                date_of_injury DATE,
-                claim_due DATE,
-                claim_filed_date DATE,
-                complaint_due DATE,
-                complaint_filed_date DATE,
-                trial_date DATE,
-                case_numbers JSONB DEFAULT '[]',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 2. Clients table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS clients (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                phone VARCHAR(50),
-                email VARCHAR(255),
-                address TEXT,
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 3. Contacts table (must be created before case_clients for FK reference)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS contacts (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                firm VARCHAR(255),
-                phone VARCHAR(50),
-                email VARCHAR(255),
-                address TEXT,
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 4. Case_clients junction table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_clients (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-                contact_directly BOOLEAN DEFAULT TRUE,
-                contact_via_id INTEGER REFERENCES contacts(id),
-                contact_via_relationship VARCHAR(100),
-                is_primary BOOLEAN DEFAULT FALSE,
-                notes TEXT,
-                UNIQUE(case_id, client_id)
-            )
-        """)
-
-        # 5. Case_numbers table - REMOVED (now stored as JSONB in cases table)
-
-        # 6. Case_contacts junction table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_contacts (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
-                role VARCHAR(50) NOT NULL,
-                notes TEXT,
-                UNIQUE(case_id, contact_id, role)
-            )
-        """)
-
-        # 7. Defendants table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS defendants (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL UNIQUE
-            )
-        """)
-
-        # 8. Case_defendants junction table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_defendants (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                defendant_id INTEGER REFERENCES defendants(id) ON DELETE CASCADE,
-                UNIQUE(case_id, defendant_id)
-            )
-        """)
-
-        # 9. Activities table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS activities (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                date DATE NOT NULL,
-                description TEXT NOT NULL,
-                type VARCHAR(50) NOT NULL,
-                minutes INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 10. Deadlines table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS deadlines (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                date DATE NOT NULL,
-                description TEXT NOT NULL,
-                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
-                document_link TEXT,
-                calculation_note TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 11. Tasks table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS tasks (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                deadline_id INTEGER REFERENCES deadlines(id) ON DELETE SET NULL,
-                due_date DATE,
-                description TEXT NOT NULL,
-                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 12. Notes table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS notes (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                content TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 13. Persons table (unified person entity)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS persons (
-                id SERIAL PRIMARY KEY,
-                person_type VARCHAR(50) NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                phone VARCHAR(50),
-                email VARCHAR(255),
-                address TEXT,
-                organization VARCHAR(255),
-                attributes JSONB DEFAULT '{}',
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                archived BOOLEAN DEFAULT FALSE
-            )
-        """)
-
-        # 14. Expertise types table (extendable enum for experts)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS expertise_types (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL UNIQUE,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 15. Person types table (extendable enum for person types)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS person_types (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL UNIQUE,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 16. Case persons junction table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_persons (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
-                role VARCHAR(100) NOT NULL,
-                side VARCHAR(20),
-                case_attributes JSONB DEFAULT '{}',
-                case_notes TEXT,
-                is_primary BOOLEAN DEFAULT FALSE,
-                contact_directly BOOLEAN DEFAULT TRUE,
-                contact_via_person_id INTEGER REFERENCES persons(id),
-                contact_via_relationship VARCHAR(100),
-                assigned_date DATE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(case_id, person_id, role)
-            )
-        """)
-
-        # Create indexes for better query performance
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_persons_name ON persons(name);
-            CREATE INDEX IF NOT EXISTS idx_persons_type ON persons(person_type);
-            CREATE INDEX IF NOT EXISTS idx_persons_archived ON persons(archived);
-            CREATE INDEX IF NOT EXISTS idx_persons_attributes ON persons USING GIN (attributes);
-            CREATE INDEX IF NOT EXISTS idx_case_persons_case_id ON case_persons(case_id);
-            CREATE INDEX IF NOT EXISTS idx_case_persons_person_id ON case_persons(person_id);
-            CREATE INDEX IF NOT EXISTS idx_case_persons_role ON case_persons(role);
-        """)
-
-    print("Database tables initialized.")
-
-
 def seed_db():
-    """Insert sample data if tables are empty."""
+    """Seed all lookup tables."""
+    seed_jurisdictions()
+    seed_expertise_types()
+    seed_person_types()
+    print("Database seeded with lookup data.")
+
+
+# ===== JURISDICTION OPERATIONS =====
+
+def get_jurisdictions() -> List[dict]:
+    """Get all jurisdictions."""
     with get_cursor() as cur:
-        cur.execute("SELECT COUNT(*) as count FROM cases")
-        result = cur.fetchone()
-        if result["count"] > 0:
-            print("Database already seeded.")
-            return
+        cur.execute("SELECT id, name, local_rules_link, notes FROM jurisdictions ORDER BY name")
+        return [dict(row) for row in cur.fetchall()]
 
-    # Sample data for personal injury practice
+
+def get_jurisdiction_by_id(jurisdiction_id: int) -> Optional[dict]:
+    """Get a jurisdiction by ID."""
     with get_cursor() as cur:
-        # Create sample case with case_numbers as JSONB
-        import json
-        case_numbers_json = json.dumps([{"number": "24STCV12345", "label": "State", "primary": True}])
-        cur.execute("""
-            INSERT INTO cases (case_name, status, court, case_summary, date_of_injury, case_numbers)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (
-            "Martinez v. City of Los Angeles",
-            "Discovery",
-            "Superior Court of California, Los Angeles County",
-            "Police excessive force case. Client injured during traffic stop.",
-            "2024-06-15",
-            case_numbers_json
-        ))
-        case_id = cur.fetchone()["id"]
+        cur.execute("SELECT id, name, local_rules_link, notes FROM jurisdictions WHERE id = %s", (jurisdiction_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
 
-        # Add client
+
+def get_jurisdiction_by_name(name: str) -> Optional[dict]:
+    """Get a jurisdiction by name."""
+    with get_cursor() as cur:
+        cur.execute("SELECT id, name, local_rules_link, notes FROM jurisdictions WHERE name = %s", (name,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def create_jurisdiction(name: str, local_rules_link: str = None, notes: str = None) -> dict:
+    """Create a new jurisdiction."""
+    with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO clients (name, phone, email)
+            INSERT INTO jurisdictions (name, local_rules_link, notes)
             VALUES (%s, %s, %s)
-            RETURNING id
-        """, ("Maria Martinez", "555-123-4567", "mmartinez@email.com"))
-        client_id = cur.fetchone()["id"]
+            RETURNING id, name, local_rules_link, notes
+        """, (name, local_rules_link, notes))
+        return dict(cur.fetchone())
 
-        # Link client to case
-        cur.execute("""
-            INSERT INTO case_clients (case_id, client_id, contact_directly, is_primary)
-            VALUES (%s, %s, %s, %s)
-        """, (case_id, client_id, True, True))
 
-        # Add defendant
-        cur.execute("""
-            INSERT INTO defendants (name)
-            VALUES (%s)
-            ON CONFLICT (name) DO NOTHING
-            RETURNING id
-        """, ("City of Los Angeles",))
-        result = cur.fetchone()
-        if result:
-            defendant_id = result["id"]
-            cur.execute("""
-                INSERT INTO case_defendants (case_id, defendant_id)
-                VALUES (%s, %s)
-            """, (case_id, defendant_id))
+def update_jurisdiction(jurisdiction_id: int, name: str = None, local_rules_link: str = None, notes: str = None) -> Optional[dict]:
+    """Update a jurisdiction."""
+    updates = []
+    params = []
+    if name is not None:
+        updates.append("name = %s")
+        params.append(name)
+    if local_rules_link is not None:
+        updates.append("local_rules_link = %s")
+        params.append(local_rules_link)
+    if notes is not None:
+        updates.append("notes = %s")
+        params.append(notes)
 
-        # Add contact (opposing counsel)
-        cur.execute("""
-            INSERT INTO contacts (name, firm, phone, email)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-        """, ("John Smith", "City Attorney's Office", "555-999-8888", "jsmith@lacity.gov"))
-        contact_id = cur.fetchone()["id"]
+    if not updates:
+        return get_jurisdiction_by_id(jurisdiction_id)
 
-        # Link contact to case
-        cur.execute("""
-            INSERT INTO case_contacts (case_id, contact_id, role)
-            VALUES (%s, %s, %s)
-        """, (case_id, contact_id, "Opposing Counsel"))
-
-        # Add deadline
-        cur.execute("""
-            INSERT INTO deadlines (case_id, date, description, status, urgency, calculation_note)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (case_id, "2025-03-15", "Discovery cutoff", "Pending", 4, "Per Case Management Order"))
-        deadline_id = cur.fetchone()["id"]
-
-        # Add task linked to deadline
-        cur.execute("""
-            INSERT INTO tasks (case_id, deadline_id, due_date, description, status, urgency)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (case_id, deadline_id, "2025-03-01", "Complete deposition summaries", "Pending", 4))
-
-        # Add activity
-        cur.execute("""
-            INSERT INTO activities (case_id, date, description, type, minutes)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (case_id, "2024-12-01", "Reviewed police body cam footage", "Document Review", 180))
-
-        # Add note
-        cur.execute("""
-            INSERT INTO notes (case_id, content)
-            VALUES (%s, %s)
-        """, (case_id, "Need to subpoena additional body cam footage from backup officers."))
-
-    print("Database seeded with sample data.")
+    params.append(jurisdiction_id)
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE jurisdictions SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, name, local_rules_link, notes
+        """, params)
+        row = cur.fetchone()
+        return dict(row) if row else None
 
 
 # ===== CASE OPERATIONS =====
 
-DEFAULT_PAGE_SIZE = 50
-
-
 def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
-                  offset: int = 0) -> dict:
-    """Get cases with optional status filter and pagination."""
+                  offset: int = None) -> dict:
+    """Get all cases with optional status filter."""
+    conditions = []
+    params = []
+
+    if status_filter:
+        validate_case_status(status_filter)
+        conditions.append("c.status = %s")
+        params.append(status_filter)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
     with get_cursor() as cur:
         # Get total count
-        if status_filter:
-            cur.execute("SELECT COUNT(*) as count FROM cases WHERE status = %s", (status_filter,))
-        else:
-            cur.execute("SELECT COUNT(*) as count FROM cases")
-        total = cur.fetchone()["count"]
+        cur.execute(f"SELECT COUNT(*) as total FROM cases c {where_clause}", params)
+        total = cur.fetchone()["total"]
 
-        # Get paginated results
-        query = """
-            SELECT id, case_name, short_name, status, court, print_code
-            FROM cases
+        # Build query with joins for counts and court name
+        query = f"""
+            SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
+                   j.name as court,
+                   (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Client') as client_count,
+                   (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Defendant') as defendant_count,
+                   (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
+                   (SELECT COUNT(*) FROM deadlines d WHERE d.case_id = c.id AND d.status = 'Pending' AND d.date >= CURRENT_DATE) as upcoming_deadline_count
+            FROM cases c
+            LEFT JOIN jurisdictions j ON c.court_id = j.id
+            {where_clause}
+            ORDER BY c.case_name
         """
-        params = []
 
-        if status_filter:
-            query += " WHERE status = %s"
-            params.append(status_filter)
-
-        query += " ORDER BY case_name"
-
-        if limit is not None:
-            query += " LIMIT %s OFFSET %s"
-            params.extend([limit, offset])
+        if limit:
+            query += f" LIMIT {limit}"
+        if offset:
+            query += f" OFFSET {offset}"
 
         cur.execute(query, params)
         cases = [dict(row) for row in cur.fetchall()]
 
-        return {"items": cases, "total": total, "limit": limit, "offset": offset}
+    return {"cases": cases, "total": total}
 
 
 def get_case_by_id(case_id: int) -> Optional[dict]:
-    """Get full case details by ID."""
+    """Get full case details by ID with all related data."""
     with get_cursor() as cur:
         cur.execute("""
-            SELECT * FROM cases WHERE id = %s
+            SELECT c.*, j.name as court, j.local_rules_link
+            FROM cases c
+            LEFT JOIN jurisdictions j ON c.court_id = j.id
+            WHERE c.id = %s
         """, (case_id,))
         case = cur.fetchone()
         if not case:
             return None
 
-        result = dict(case)
+        result = serialize_row(dict(case))
 
-        # case_numbers is now JSONB in the cases table - parse it
+        # Parse case_numbers JSONB
         if result.get("case_numbers"):
-            # Already a list from JSONB, ensure consistent format
             case_nums = result["case_numbers"]
             if isinstance(case_nums, str):
-                import json
                 case_nums = json.loads(case_nums)
             result["case_numbers"] = case_nums
         else:
             result["case_numbers"] = []
 
-        # Get clients with contact info
+        # Get persons assigned to this case
         cur.execute("""
-            SELECT cl.id, cl.name, cl.phone, cl.email,
-                   cc.contact_directly, cc.is_primary,
-                   cc.contact_via_relationship,
-                   co.name as contact_via_name
-            FROM clients cl
-            JOIN case_clients cc ON cl.id = cc.client_id
-            LEFT JOIN contacts co ON cc.contact_via_id = co.id
-            WHERE cc.case_id = %s
+            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
+                   p.attributes, p.notes as person_notes,
+                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
+                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.assigned_date, cp.created_at as assigned_at,
+                   via.name as contact_via_name
+            FROM persons p
+            JOIN case_persons cp ON p.id = cp.person_id
+            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            WHERE cp.case_id = %s
+            ORDER BY
+                CASE cp.role
+                    WHEN 'Client' THEN 1
+                    WHEN 'Defendant' THEN 2
+                    ELSE 3
+                END,
+                p.name
         """, (case_id,))
-        result["clients"] = [dict(row) for row in cur.fetchall()]
-
-        # Get defendants
-        cur.execute("""
-            SELECT d.id, d.name
-            FROM defendants d
-            JOIN case_defendants cd ON d.id = cd.defendant_id
-            WHERE cd.case_id = %s
-        """, (case_id,))
-        result["defendants"] = [dict(row) for row in cur.fetchall()]
-
-        # Get contacts with roles
-        cur.execute("""
-            SELECT co.id, co.name, co.firm, co.phone, co.email, cc.role, cc.notes
-            FROM contacts co
-            JOIN case_contacts cc ON co.id = cc.contact_id
-            WHERE cc.case_id = %s
-        """, (case_id,))
-        result["contacts"] = [dict(row) for row in cur.fetchall()]
+        result["persons"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
         # Get activities
         cur.execute("""
             SELECT id, date, description, type, minutes
             FROM activities WHERE case_id = %s ORDER BY date DESC
         """, (case_id,))
-        result["activities"] = [dict(row) for row in cur.fetchall()]
+        result["activities"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
         # Get deadlines
         cur.execute("""
-            SELECT id, date, description, status, urgency, document_link, calculation_note
+            SELECT id, date, time, location, description, status, urgency, document_link, calculation_note
             FROM deadlines WHERE case_id = %s ORDER BY date
         """, (case_id,))
-        result["deadlines"] = [dict(row) for row in cur.fetchall()]
+        result["deadlines"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
         # Get tasks
         cur.execute("""
-            SELECT t.id, t.due_date, t.description, t.status, t.urgency, t.deadline_id,
+            SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.deadline_id,
                    d.description as deadline_description
             FROM tasks t
             LEFT JOIN deadlines d ON t.deadline_id = d.id
             WHERE t.case_id = %s ORDER BY t.due_date
         """, (case_id,))
-        result["tasks"] = [dict(row) for row in cur.fetchall()]
+        result["tasks"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
         # Get notes
         cur.execute("""
-            SELECT id, content, created_at
+            SELECT id, content, created_at, updated_at
             FROM notes WHERE case_id = %s ORDER BY created_at DESC
         """, (case_id,))
-        result["notes"] = [dict(row) for row in cur.fetchall()]
-
-        # Convert dates to strings
-        for key in ["date_of_injury", "claim_due", "claim_filed_date",
-                    "complaint_due", "complaint_filed_date", "trial_date",
-                    "created_at", "updated_at"]:
-            if result.get(key):
-                result[key] = str(result[key])
-
-        for item in result["activities"]:
-            if item.get("date"):
-                item["date"] = str(item["date"])
-        for item in result["deadlines"]:
-            if item.get("date"):
-                item["date"] = str(item["date"])
-        for item in result["tasks"]:
-            if item.get("due_date"):
-                item["due_date"] = str(item["due_date"])
-        for item in result["notes"]:
-            if item.get("created_at"):
-                item["created_at"] = str(item["created_at"])
+        result["notes"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
         return result
 
 
 def get_case_by_name(case_name: str) -> Optional[dict]:
-    """Get case by name (for backwards compatibility)."""
+    """Get case by name."""
     with get_cursor() as cur:
         cur.execute("SELECT id FROM cases WHERE case_name = %s", (case_name,))
         case = cur.fetchone()
         if not case:
             return None
         return get_case_by_id(case["id"])
-
-
-def create_case(case_name: str, status: str = "Signing Up", court: str = None,
-                print_code: str = None, case_summary: str = None,
-                date_of_injury: str = None, case_numbers: List[dict] = None,
-                clients: List[dict] = None, defendants: List[str] = None,
-                contacts: List[dict] = None, short_name: str = None) -> dict:
-    """
-    Create a new case with optional nested data.
-
-    Args:
-        case_name: Name of the case
-        status: Case status
-        court: Court name
-        print_code: Short code for printing
-        case_summary: Brief description
-        date_of_injury: Date of injury (YYYY-MM-DD)
-        case_numbers: List of case numbers [{"number": "...", "label": "...", "primary": bool}]
-        clients: List of clients to add [{"name": "...", "phone": "...", "is_primary": bool, ...}]
-        defendants: List of defendant names ["City of LA", "LAPD"]
-        contacts: List of contacts to add [{"name": "...", "role": "...", "firm": "..."}]
-        short_name: Short name for the case (defaults to first word of case_name)
-
-    Returns the created case with nested data summary.
-    """
-    import json
-    case_numbers_json = json.dumps(case_numbers) if case_numbers else '[]'
-
-    # Default short_name to first word of case_name
-    if short_name is None:
-        short_name = case_name.split()[0] if case_name else None
-
-    with get_cursor() as cur:
-        # Create the case
-        cur.execute("""
-            INSERT INTO cases (case_name, short_name, status, court, print_code, case_summary, date_of_injury, case_numbers)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (case_name, short_name, status, court, print_code, case_summary, date_of_injury, case_numbers_json))
-        case_id = cur.fetchone()["id"]
-
-    # Add clients (using smart function - outside the cursor context for separate transactions)
-    clients_added = []
-    if clients:
-        for client_data in clients:
-            result = smart_add_client_to_case(
-                case_id=case_id,
-                name=client_data.get("name"),
-                phone=client_data.get("phone"),
-                email=client_data.get("email"),
-                address=client_data.get("address"),
-                contact_directly=client_data.get("contact_directly", True),
-                contact_via=client_data.get("contact_via"),
-                contact_via_relationship=client_data.get("contact_via_relationship"),
-                is_primary=client_data.get("is_primary", False),
-                notes=client_data.get("notes")
-            )
-            clients_added.append({"name": client_data.get("name"), "client_id": result.get("client_id")})
-
-    # Add defendants
-    defendants_added = []
-    if defendants:
-        for defendant_name in defendants:
-            add_defendant_to_case(case_id, defendant_name)
-            defendants_added.append(defendant_name)
-
-    # Add contacts (using smart function)
-    contacts_added = []
-    if contacts:
-        for contact_data in contacts:
-            result = smart_add_contact_to_case(
-                case_id=case_id,
-                name=contact_data.get("name"),
-                role=contact_data.get("role"),
-                firm=contact_data.get("firm"),
-                phone=contact_data.get("phone"),
-                email=contact_data.get("email"),
-                notes=contact_data.get("notes")
-            )
-            contacts_added.append({
-                "name": contact_data.get("name"),
-                "role": contact_data.get("role"),
-                "contact_id": result.get("contact_id")
-            })
-
-    return {
-        "id": case_id,
-        "case_name": case_name,
-        "short_name": short_name,
-        "status": status,
-        "case_numbers": case_numbers or [],
-        "clients_added": clients_added,
-        "defendants_added": defendants_added,
-        "contacts_added": contacts_added
-    }
-
-
-def update_case(case_id: int, **kwargs) -> Optional[dict]:
-    """Update case fields, including case_numbers as JSONB."""
-    import json
-
-    allowed_fields = ["case_name", "short_name", "status", "court", "print_code", "case_summary",
-                      "date_of_injury", "claim_due", "claim_filed_date",
-                      "complaint_due", "complaint_filed_date", "trial_date", "case_numbers"]
-    updates = {k: v for k, v in kwargs.items() if k in allowed_fields and v is not None}
-
-    if not updates:
-        return None
-
-    # Convert case_numbers list to JSON string for storage
-    if "case_numbers" in updates:
-        updates["case_numbers"] = json.dumps(updates["case_numbers"])
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [case_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE cases SET {set_clause}, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-            RETURNING id, case_name, short_name, status, case_numbers
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            # Parse case_numbers back to list
-            if r.get("case_numbers"):
-                if isinstance(r["case_numbers"], str):
-                    r["case_numbers"] = json.loads(r["case_numbers"])
-            else:
-                r["case_numbers"] = []
-            return r
-        return None
 
 
 def get_all_case_names() -> List[str]:
@@ -1065,1746 +624,237 @@ def get_all_case_names() -> List[str]:
         return [row["case_name"] for row in cur.fetchall()]
 
 
-# ===== CLIENT OPERATIONS =====
+def create_case(case_name: str, status: str = "Signing Up", court_id: int = None,
+                print_code: str = None, case_summary: str = None, result: str = None,
+                date_of_injury: str = None, case_numbers: List[dict] = None,
+                short_name: str = None) -> dict:
+    """Create a new case."""
+    validate_case_status(status)
+    validate_date_format(date_of_injury, "date_of_injury")
+    case_numbers_json = json.dumps(case_numbers) if case_numbers else '[]'
 
-def create_client(name: str, phone: str = None, email: str = None,
-                  address: str = None, notes: str = None) -> dict:
-    """Create a new client."""
+    # Default short_name to first word of case_name
+    if short_name is None:
+        short_name = case_name.split()[0] if case_name else None
+
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO clients (name, phone, email, address, notes)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id, name
-        """, (name, phone, email, address, notes))
-        return dict(cur.fetchone())
-
-
-def add_client_to_case(case_id: int, client_id: int, contact_directly: bool = True,
-                       contact_via_id: int = None, contact_via_relationship: str = None,
-                       is_primary: bool = False, notes: str = None) -> dict:
-    """Link a client to a case with contact preferences."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO case_clients (case_id, client_id, contact_directly,
-                                      contact_via_id, contact_via_relationship, is_primary, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (case_id, client_id) DO UPDATE SET
-                contact_directly = EXCLUDED.contact_directly,
-                contact_via_id = EXCLUDED.contact_via_id,
-                contact_via_relationship = EXCLUDED.contact_via_relationship,
-                is_primary = EXCLUDED.is_primary,
-                notes = EXCLUDED.notes
+            INSERT INTO cases (case_name, short_name, status, court_id, print_code, case_summary, result, date_of_injury, case_numbers)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (case_id, client_id, contact_directly, contact_via_id,
-              contact_via_relationship, is_primary, notes))
-        return {"success": True, "id": cur.fetchone()["id"]}
-
-
-# ===== CASE NUMBER OPERATIONS =====
-# NOTE: Case numbers are now stored as JSONB in the cases table.
-# Use update_case(case_id, case_numbers=[...]) to modify case numbers.
-
-
-# ===== SMART ENTITY OPERATIONS =====
-# These functions handle find-or-create logic internally, reducing the number of
-# tool calls Claude needs to make.
-
-def smart_add_client_to_case(case_id: int, name: str, phone: str = None,
-                              email: str = None, address: str = None,
-                              contact_directly: bool = True,
-                              contact_via: str = None,
-                              contact_via_relationship: str = None,
-                              is_primary: bool = False, notes: str = None) -> dict:
-    """
-    Smart client add - finds existing client or creates new, then links to case.
-
-    Search priority:
-    1. Exact name match with matching phone or email
-    2. Exact name match
-    3. Create new client
-    """
-    with get_cursor() as cur:
-        client_id = None
-        client_name = None
-        created_new = False
-
-        # Try to find existing client
-        if phone or email:
-            # First try exact name + phone/email match
-            conditions = ["name ILIKE %s"]
-            params = [name]
-
-            if phone:
-                conditions.append("phone = %s")
-                params.append(phone)
-            if email:
-                conditions.append("email ILIKE %s")
-                params.append(email)
-
-            where = " AND ".join(conditions)
-            cur.execute(f"SELECT id, name FROM clients WHERE {where} LIMIT 1", params)
-            result = cur.fetchone()
-            if result:
-                client_id = result["id"]
-                client_name = result["name"]
-
-        if not client_id:
-            # Try exact name match only
-            cur.execute("SELECT id, name FROM clients WHERE name ILIKE %s LIMIT 1", (name,))
-            result = cur.fetchone()
-            if result:
-                client_id = result["id"]
-                client_name = result["name"]
-
-        if not client_id:
-            # Create new client
-            cur.execute("""
-                INSERT INTO clients (name, phone, email, address, notes)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id, name
-            """, (name, phone, email, address, notes))
-            result = cur.fetchone()
-            client_id = result["id"]
-            client_name = result["name"]
-            created_new = True
-
-        # Handle contact_via (find or create the contact person)
-        contact_via_id = None
-        if not contact_directly and contact_via:
-            cur.execute("SELECT id FROM contacts WHERE name ILIKE %s LIMIT 1", (contact_via,))
-            result = cur.fetchone()
-            if result:
-                contact_via_id = result["id"]
-            else:
-                # Create the contact person
-                cur.execute("""
-                    INSERT INTO contacts (name)
-                    VALUES (%s)
-                    RETURNING id
-                """, (contact_via,))
-                contact_via_id = cur.fetchone()["id"]
-
-        # Link client to case (upsert)
-        cur.execute("""
-            INSERT INTO case_clients (case_id, client_id, contact_directly,
-                                      contact_via_id, contact_via_relationship, is_primary, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (case_id, client_id) DO UPDATE SET
-                contact_directly = EXCLUDED.contact_directly,
-                contact_via_id = EXCLUDED.contact_via_id,
-                contact_via_relationship = EXCLUDED.contact_via_relationship,
-                is_primary = EXCLUDED.is_primary,
-                notes = EXCLUDED.notes
-            RETURNING id
-        """, (case_id, client_id, contact_directly, contact_via_id,
-              contact_via_relationship, is_primary, notes))
-
-        return {
-            "success": True,
-            "client_id": client_id,
-            "client_name": client_name,
-            "created_new": created_new,
-            "contact_method": "direct" if contact_directly else f"via {contact_via} ({contact_via_relationship})"
-        }
-
-
-def smart_add_contact_to_case(case_id: int, name: str, role: str,
-                               firm: str = None, phone: str = None,
-                               email: str = None, notes: str = None) -> dict:
-    """
-    Smart contact add - finds existing contact or creates new, then links to case with role.
-
-    Search priority:
-    1. Exact name match with matching firm
-    2. Exact name match
-    3. Create new contact
-    """
-    with get_cursor() as cur:
-        contact_id = None
-        contact_name = None
-        created_new = False
-
-        # Try to find existing contact
-        if firm:
-            # First try name + firm match
-            cur.execute("""
-                SELECT id, name, firm FROM contacts
-                WHERE name ILIKE %s AND firm ILIKE %s
-                LIMIT 1
-            """, (name, firm))
-            result = cur.fetchone()
-            if result:
-                contact_id = result["id"]
-                contact_name = result["name"]
-
-        if not contact_id:
-            # Try exact name match only
-            cur.execute("SELECT id, name, firm FROM contacts WHERE name ILIKE %s LIMIT 1", (name,))
-            result = cur.fetchone()
-            if result:
-                contact_id = result["id"]
-                contact_name = result["name"]
-
-        if not contact_id:
-            # Create new contact
-            cur.execute("""
-                INSERT INTO contacts (name, firm, phone, email, notes)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id, name
-            """, (name, firm, phone, email, notes))
-            result = cur.fetchone()
-            contact_id = result["id"]
-            contact_name = result["name"]
-            created_new = True
-
-        # Link contact to case with role (upsert)
-        cur.execute("""
-            INSERT INTO case_contacts (case_id, contact_id, role, notes)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (case_id, contact_id, role) DO UPDATE SET notes = EXCLUDED.notes
-            RETURNING id
-        """, (case_id, contact_id, role, notes))
-
-        return {
-            "success": True,
-            "contact_id": contact_id,
-            "contact_name": contact_name,
-            "role": role,
-            "created_new": created_new
-        }
-
-
-def remove_client_from_case_by_name(case_id: int, client_name: str) -> dict:
-    """Remove a client from a case by name (does not delete the client record)."""
-    with get_cursor() as cur:
-        # Find client by name
-        cur.execute("""
-            SELECT cl.id, cl.name
-            FROM clients cl
-            JOIN case_clients cc ON cl.id = cc.client_id
-            WHERE cc.case_id = %s AND cl.name ILIKE %s
-        """, (case_id, f"%{client_name}%"))
-        result = cur.fetchone()
-
-        if not result:
-            return {"success": False, "error": f"Client '{client_name}' not found on this case"}
-
-        client_id = result["id"]
-        actual_name = result["name"]
-
-        cur.execute("""
-            DELETE FROM case_clients WHERE case_id = %s AND client_id = %s
-            RETURNING id
-        """, (case_id, client_id))
-
-        if cur.fetchone():
-            return {"success": True, "message": f"Client '{actual_name}' removed from case"}
-        return {"success": False, "error": "Failed to remove client"}
-
-
-def remove_contact_from_case_by_name(case_id: int, contact_name: str, role: str = None) -> dict:
-    """Remove a contact from a case by name. If role specified, only removes that role."""
-    with get_cursor() as cur:
-        # Find contact by name
-        if role:
-            cur.execute("""
-                SELECT co.id, co.name, cc.role
-                FROM contacts co
-                JOIN case_contacts cc ON co.id = cc.contact_id
-                WHERE cc.case_id = %s AND co.name ILIKE %s AND cc.role = %s
-            """, (case_id, f"%{contact_name}%", role))
-        else:
-            cur.execute("""
-                SELECT co.id, co.name, cc.role
-                FROM contacts co
-                JOIN case_contacts cc ON co.id = cc.contact_id
-                WHERE cc.case_id = %s AND co.name ILIKE %s
-            """, (case_id, f"%{contact_name}%"))
-
-        result = cur.fetchone()
-
-        if not result:
-            return {"success": False, "error": f"Contact '{contact_name}' not found on this case" + (f" with role '{role}'" if role else "")}
-
-        contact_id = result["id"]
-        actual_name = result["name"]
-        actual_role = result["role"]
-
-        if role:
-            cur.execute("""
-                DELETE FROM case_contacts
-                WHERE case_id = %s AND contact_id = %s AND role = %s
-                RETURNING id
-            """, (case_id, contact_id, role))
-        else:
-            cur.execute("""
-                DELETE FROM case_contacts
-                WHERE case_id = %s AND contact_id = %s
-                RETURNING id
-            """, (case_id, contact_id))
-
-        if cur.fetchone():
-            return {"success": True, "message": f"Contact '{actual_name}' ({actual_role}) removed from case"}
-        return {"success": False, "error": "Failed to remove contact"}
-
-
-def remove_defendant_from_case_by_name(case_id: int, defendant_name: str) -> dict:
-    """Remove a defendant from a case by name."""
-    with get_cursor() as cur:
-        # Find defendant by name
-        cur.execute("""
-            SELECT d.id, d.name
-            FROM defendants d
-            JOIN case_defendants cd ON d.id = cd.defendant_id
-            WHERE cd.case_id = %s AND d.name ILIKE %s
-        """, (case_id, f"%{defendant_name}%"))
-        result = cur.fetchone()
-
-        if not result:
-            return {"success": False, "error": f"Defendant '{defendant_name}' not found on this case"}
-
-        defendant_id = result["id"]
-        actual_name = result["name"]
-
-        cur.execute("""
-            DELETE FROM case_defendants WHERE case_id = %s AND defendant_id = %s
-            RETURNING id
-        """, (case_id, defendant_id))
-
-        if cur.fetchone():
-            return {"success": True, "message": f"Defendant '{actual_name}' removed from case"}
-        return {"success": False, "error": "Failed to remove defendant"}
-
-
-# ===== CONTACT OPERATIONS =====
-
-def create_contact(name: str, firm: str = None, phone: str = None,
-                   email: str = None, address: str = None, notes: str = None) -> dict:
-    """Create a new contact."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO contacts (name, firm, phone, email, address, notes)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, name, firm
-        """, (name, firm, phone, email, address, notes))
-        return dict(cur.fetchone())
-
-
-def link_contact_to_case(case_id: int, contact_id: int, role: str, notes: str = None) -> dict:
-    """Link a contact to a case with a specific role."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO case_contacts (case_id, contact_id, role, notes)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (case_id, contact_id, role) DO UPDATE SET notes = EXCLUDED.notes
-            RETURNING id
-        """, (case_id, contact_id, role, notes))
-        return {"success": True, "id": cur.fetchone()["id"], "role": role}
-
-
-def get_contact_by_name(name: str) -> Optional[dict]:
-    """Find a contact by name."""
-    with get_cursor() as cur:
-        cur.execute("SELECT * FROM contacts WHERE name ILIKE %s", (f"%{name}%",))
-        result = cur.fetchone()
-        return dict(result) if result else None
-
-
-# ===== DEFENDANT OPERATIONS =====
-
-def add_defendant_to_case(case_id: int, defendant_name: str) -> dict:
-    """Add a defendant to a case (creates defendant if not exists)."""
-    with get_cursor() as cur:
-        # Get or create defendant
-        cur.execute("""
-            INSERT INTO defendants (name) VALUES (%s)
-            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-            RETURNING id
-        """, (defendant_name,))
-        defendant_id = cur.fetchone()["id"]
-
-        # Link to case
-        cur.execute("""
-            INSERT INTO case_defendants (case_id, defendant_id)
-            VALUES (%s, %s)
-            ON CONFLICT (case_id, defendant_id) DO NOTHING
-            RETURNING id
-        """, (case_id, defendant_id))
-
-        return {"success": True, "defendant_name": defendant_name}
-
-
-def search_cases_by_defendant(defendant_name: str) -> List[dict]:
-    """Find all cases involving a defendant."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT c.id, c.case_name, c.status, d.name as defendant_name
-            FROM cases c
-            JOIN case_defendants cd ON c.id = cd.case_id
-            JOIN defendants d ON cd.defendant_id = d.id
-            WHERE d.name ILIKE %s
-            ORDER BY c.case_name
-        """, (f"%{defendant_name}%",))
-        return [dict(row) for row in cur.fetchall()]
-
-
-# ===== SEARCH OPERATIONS =====
-
-def search_clients(name: str = None, phone: str = None, email: str = None) -> List[dict]:
-    """
-    Search for clients by name, phone, or email.
-    Returns clients with their case associations for disambiguation.
-    """
-    with get_cursor() as cur:
-        # Build WHERE clause based on provided filters
-        conditions = []
-        params = []
-
-        if name:
-            conditions.append("cl.name ILIKE %s")
-            params.append(f"%{name}%")
-        if phone:
-            conditions.append("cl.phone ILIKE %s")
-            params.append(f"%{phone}%")
-        if email:
-            conditions.append("cl.email ILIKE %s")
-            params.append(f"%{email}%")
-
-        if not conditions:
-            return []
-
-        where_clause = " OR ".join(conditions)
-
-        # Get matching clients
-        cur.execute(f"""
-            SELECT DISTINCT cl.id, cl.name, cl.phone, cl.email, cl.address
-            FROM clients cl
-            WHERE {where_clause}
-            ORDER BY cl.name
-        """, params)
-
-        clients = [dict(row) for row in cur.fetchall()]
-
-        # For each client, get their case associations
-        for client in clients:
-            cur.execute("""
-                SELECT c.id, c.case_name, c.status, cc.is_primary
-                FROM cases c
-                JOIN case_clients cc ON c.id = cc.case_id
-                WHERE cc.client_id = %s
-                ORDER BY c.case_name
-            """, (client["id"],))
-            client["cases"] = [dict(row) for row in cur.fetchall()]
-
-        return clients
-
-
-def search_cases(query: str = None, case_number: str = None, defendant: str = None,
-                 client: str = None, contact: str = None, status: str = None) -> List[dict]:
-    """
-    Search for cases with multiple filter options.
-    Returns cases with clients and defendants for context.
-
-    Args:
-        query: Free text search on case name
-        case_number: Search by case number (partial match)
-        defendant: Filter by defendant name (partial match)
-        client: Filter by client/plaintiff name (partial match)
-        contact: Filter by contact name (partial match)
-        status: Filter by exact status match
-
-    All filters are AND conditions (case must match all provided filters).
-    """
-    with get_cursor() as cur:
-        # Build query with JOINs for filtering
-        joins = []
-        conditions = []
-        params = []
-
-        if query:
-            conditions.append("c.case_name ILIKE %s")
-            params.append(f"%{query}%")
-
-        if case_number:
-            # Search within JSONB array for matching case numbers
-            conditions.append("EXISTS (SELECT 1 FROM jsonb_array_elements(c.case_numbers) elem WHERE elem->>'number' ILIKE %s)")
-            params.append(f"%{case_number}%")
-
-        if defendant:
-            joins.append("JOIN case_defendants cd_filter ON c.id = cd_filter.case_id")
-            joins.append("JOIN defendants d_filter ON cd_filter.defendant_id = d_filter.id")
-            conditions.append("d_filter.name ILIKE %s")
-            params.append(f"%{defendant}%")
-
-        if client:
-            joins.append("JOIN case_clients cc_filter ON c.id = cc_filter.case_id")
-            joins.append("JOIN clients cl_filter ON cc_filter.client_id = cl_filter.id")
-            conditions.append("cl_filter.name ILIKE %s")
-            params.append(f"%{client}%")
-
-        if contact:
-            joins.append("JOIN case_contacts cco_filter ON c.id = cco_filter.case_id")
-            joins.append("JOIN contacts co_filter ON cco_filter.contact_id = co_filter.id")
-            conditions.append("co_filter.name ILIKE %s")
-            params.append(f"%{contact}%")
-
-        if status:
-            conditions.append("c.status = %s")
-            params.append(status)
-
-        # If no filters provided, return empty (or could return all)
-        if not conditions:
-            return []
-
-        join_clause = " ".join(joins)
-        where_clause = " AND ".join(conditions)
-
-        # Get matching cases
-        cur.execute(f"""
-            SELECT DISTINCT c.id, c.case_name, c.status, c.court, c.trial_date, c.case_numbers
-            FROM cases c
-            {join_clause}
-            WHERE {where_clause}
-            ORDER BY c.case_name
-        """, params)
-
-        cases = [dict(row) for row in cur.fetchall()]
-
-        # For each case, get clients, defendants, and parse case_numbers
-        for case in cases:
-            if case.get("trial_date"):
-                case["trial_date"] = str(case["trial_date"])
-
-            # Parse case_numbers from JSONB
-            if case.get("case_numbers"):
-                if isinstance(case["case_numbers"], str):
-                    import json
-                    case["case_numbers"] = json.loads(case["case_numbers"])
-            else:
-                case["case_numbers"] = []
-
-            # Get clients
-            cur.execute("""
-                SELECT cl.id, cl.name
-                FROM clients cl
-                JOIN case_clients cc ON cl.id = cc.client_id
-                WHERE cc.case_id = %s
-            """, (case["id"],))
-            case["clients"] = [dict(row) for row in cur.fetchall()]
-
-            # Get defendants
-            cur.execute("""
-                SELECT d.id, d.name
-                FROM defendants d
-                JOIN case_defendants cd ON d.id = cd.defendant_id
-                WHERE cd.case_id = %s
-            """, (case["id"],))
-            case["defendants"] = [dict(row) for row in cur.fetchall()]
-
-            # Get contacts
-            cur.execute("""
-                SELECT co.id, co.name, cc.role
-                FROM contacts co
-                JOIN case_contacts cc ON co.id = cc.contact_id
-                WHERE cc.case_id = %s
-            """, (case["id"],))
-            case["contacts"] = [dict(row) for row in cur.fetchall()]
-
-        return cases
-
-
-def search_contacts(name: str = None, firm: str = None, role: str = None) -> List[dict]:
-    """
-    Search for contacts by name, firm, or role.
-    Returns contacts with their case/role associations for disambiguation.
-    """
-    with get_cursor() as cur:
-        # Build query with optional role filter (requires JOIN)
-        joins = []
-        conditions = []
-        params = []
-
-        if name:
-            conditions.append("co.name ILIKE %s")
-            params.append(f"%{name}%")
-        if firm:
-            conditions.append("co.firm ILIKE %s")
-            params.append(f"%{firm}%")
-        if role:
-            joins.append("JOIN case_contacts cc_filter ON co.id = cc_filter.contact_id")
-            conditions.append("cc_filter.role = %s")
-            params.append(role)
-
-        if not conditions:
-            return []
-
-        join_clause = " ".join(joins)
-        where_clause = " AND ".join(conditions)
-
-        # Get matching contacts
-        cur.execute(f"""
-            SELECT DISTINCT co.id, co.name, co.firm, co.phone, co.email
-            FROM contacts co
-            {join_clause}
-            WHERE {where_clause}
-            ORDER BY co.name
-        """, params)
-
-        contacts = [dict(row) for row in cur.fetchall()]
-
-        # For each contact, get their case/role associations
-        for contact in contacts:
-            cur.execute("""
-                SELECT c.id, c.case_name, cc.role
-                FROM cases c
-                JOIN case_contacts cc ON c.id = cc.case_id
-                WHERE cc.contact_id = %s
-                ORDER BY c.case_name
-            """, (contact["id"],))
-            contact["cases"] = [dict(row) for row in cur.fetchall()]
-
-        return contacts
-
-
-def search_tasks(query: str = None, case_id: int = None, status: str = None,
-                 urgency_min: int = None) -> List[dict]:
-    """
-    Search for tasks by description, case, status, or urgency.
-    """
-    with get_cursor() as cur:
-        conditions = ["1=1"]
-        params = []
-
-        if query:
-            conditions.append("t.description ILIKE %s")
-            params.append(f"%{query}%")
-        if case_id:
-            conditions.append("t.case_id = %s")
-            params.append(case_id)
-        if status:
-            conditions.append("t.status = %s")
-            params.append(status)
-        if urgency_min:
-            conditions.append("t.urgency >= %s")
-            params.append(urgency_min)
-
-        where_clause = " AND ".join(conditions)
-
-        cur.execute(f"""
-            SELECT t.id, t.description, t.status, t.urgency, t.due_date,
-                   c.id as case_id, c.case_name, c.short_name
-            FROM tasks t
-            JOIN cases c ON t.case_id = c.id
-            WHERE {where_clause}
-            ORDER BY t.due_date NULLS LAST, t.urgency DESC
-        """, params)
-
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            if r.get("due_date"):
-                r["due_date"] = str(r["due_date"])
-            results.append(r)
-
-        return results
-
-
-def search_deadlines(query: str = None, case_id: int = None, status: str = None,
-                     urgency_min: int = None) -> List[dict]:
-    """
-    Search for deadlines by description, case, status, or urgency.
-    """
-    with get_cursor() as cur:
-        conditions = ["1=1"]
-        params = []
-
-        if query:
-            conditions.append("d.description ILIKE %s")
-            params.append(f"%{query}%")
-        if case_id:
-            conditions.append("d.case_id = %s")
-            params.append(case_id)
-        if status:
-            conditions.append("d.status = %s")
-            params.append(status)
-        if urgency_min:
-            conditions.append("d.urgency >= %s")
-            params.append(urgency_min)
-
-        where_clause = " AND ".join(conditions)
-
-        cur.execute(f"""
-            SELECT d.id, d.description, d.status, d.urgency, d.date,
-                   d.calculation_note, c.id as case_id, c.case_name, c.short_name
-            FROM deadlines d
-            JOIN cases c ON d.case_id = c.id
-            WHERE {where_clause}
-            ORDER BY d.date, d.urgency DESC
-        """, params)
-
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            if r.get("date"):
-                r["date"] = str(r["date"])
-            results.append(r)
-
-        return results
-
-
-# ===== ACTIVITY OPERATIONS =====
-
-def add_activity(case_id: int, description: str, activity_type: str,
-                 date: str = None, minutes: int = None) -> dict:
-    """Add an activity to a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO activities (case_id, date, description, type, minutes)
-            VALUES (%s, COALESCE(%s, CURRENT_DATE), %s, %s, %s)
-            RETURNING id, date, description, type, minutes
-        """, (case_id, date, description, activity_type, minutes))
-        result = dict(cur.fetchone())
-        result["date"] = str(result["date"])
-        return result
-
-
-# ===== DEADLINE OPERATIONS =====
-
-def add_deadline(case_id: int, date: str, description: str, status: str = "Pending",
-                 urgency: int = 3, document_link: str = None,
-                 calculation_note: str = None) -> dict:
-    """Add a deadline to a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO deadlines (case_id, date, description, status, urgency,
-                                   document_link, calculation_note)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, date, description, status, urgency
-        """, (case_id, date, description, status, urgency, document_link, calculation_note))
-        result = dict(cur.fetchone())
-        result["date"] = str(result["date"])
-        return result
-
-
-def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None,
-                           due_within_days: int = None, case_id: int = None,
-                           limit: int = None, offset: int = 0) -> dict:
-    """Get deadlines with optional filters and pagination."""
-    with get_cursor() as cur:
-        # Build WHERE clause
-        where_parts = ["1=1"]
-        params = []
-
-        if case_id:
-            where_parts.append("d.case_id = %s")
-            params.append(case_id)
-        if urgency_filter:
-            where_parts.append("d.urgency >= %s")
-            params.append(urgency_filter)
-        if status_filter:
-            where_parts.append("d.status = %s")
-            params.append(status_filter)
-        if due_within_days is not None:
-            where_parts.append("d.date <= CURRENT_DATE + INTERVAL '%s days'")
-            params.append(due_within_days)
-            where_parts.append("d.date >= CURRENT_DATE")  # Only future/today
-
-        where_clause = " AND ".join(where_parts)
-
-        # Get total count
-        cur.execute(f"SELECT COUNT(*) as count FROM deadlines d WHERE {where_clause}", params)
-        total = cur.fetchone()["count"]
-
-        # Get paginated results
-        query = f"""
-            SELECT d.id, d.date, d.description, d.status, d.urgency,
-                   d.document_link, d.calculation_note,
-                   c.id as case_id, c.case_name, c.short_name
-            FROM deadlines d
-            JOIN cases c ON d.case_id = c.id
-            WHERE {where_clause}
-            ORDER BY d.date
-        """
-
-        if limit is not None:
-            query += " LIMIT %s OFFSET %s"
-            params.extend([limit, offset])
-
-        cur.execute(query, params)
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            r["date"] = str(r["date"])
-            results.append(r)
-
-        return {"items": results, "total": total, "limit": limit, "offset": offset}
-
-
-def get_calendar(days: int = 30, include_tasks: bool = True,
-                 include_deadlines: bool = True, case_id: int = None) -> dict:
-    """
-    Get a combined calendar view of tasks and deadlines.
-
-    Args:
-        days: Number of days to look ahead (default 30)
-        include_tasks: Include tasks in results (default True)
-        include_deadlines: Include deadlines in results (default True)
-        case_id: Optional filter to specific case
-
-    Returns combined, sorted list with type indicator.
-    """
-    items = []
-
-    with get_cursor() as cur:
-        if include_deadlines:
-            # Get deadlines
-            query = """
-                SELECT d.id, d.date, d.description, d.status, d.urgency,
-                       c.id as case_id, c.case_name, c.short_name,
-                       'deadline' as item_type
-                FROM deadlines d
-                JOIN cases c ON d.case_id = c.id
-                WHERE d.date >= CURRENT_DATE
-                  AND d.date <= CURRENT_DATE + INTERVAL '%s days'
-                  AND d.status = 'Pending'
-            """
-            params = [days]
-
-            if case_id:
-                query += " AND d.case_id = %s"
-                params.append(case_id)
-
-            query += " ORDER BY d.date"
-            cur.execute(query, params)
-
-            for row in cur.fetchall():
-                r = dict(row)
-                r["date"] = str(r["date"])
-                items.append(r)
-
-        if include_tasks:
-            # Get tasks with due dates
-            query = """
-                SELECT t.id, t.due_date as date, t.description, t.status, t.urgency,
-                       c.id as case_id, c.case_name, c.short_name,
-                       'task' as item_type
-                FROM tasks t
-                JOIN cases c ON t.case_id = c.id
-                WHERE t.due_date IS NOT NULL
-                  AND t.due_date >= CURRENT_DATE
-                  AND t.due_date <= CURRENT_DATE + INTERVAL '%s days'
-                  AND t.status NOT IN ('Done')
-            """
-            params = [days]
-
-            if case_id:
-                query += " AND t.case_id = %s"
-                params.append(case_id)
-
-            query += " ORDER BY t.due_date"
-            cur.execute(query, params)
-
-            for row in cur.fetchall():
-                r = dict(row)
-                r["date"] = str(r["date"])
-                items.append(r)
-
-    # Sort combined results by date
-    items.sort(key=lambda x: x["date"])
-
-    # Group by date for easier display
-    from collections import defaultdict
-    by_date = defaultdict(list)
-    for item in items:
-        by_date[item["date"]].append(item)
-
-    return {
-        "items": items,
-        "total": len(items),
-        "days": days,
-        "by_date": dict(by_date)
-    }
-
-
-def update_deadline(deadline_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
-    """Update a deadline's status or urgency."""
-    updates = {}
-    if status:
-        updates["status"] = status
-    if urgency:
-        updates["urgency"] = urgency
+        """, (case_name, short_name, status, court_id, print_code, case_summary, result, date_of_injury, case_numbers_json))
+        case_id = cur.fetchone()["id"]
+
+    return get_case_by_id(case_id)
+
+
+def update_case(case_id: int, **kwargs) -> Optional[dict]:
+    """Update case fields."""
+    allowed_fields = [
+        "case_name", "short_name", "status", "court_id", "print_code",
+        "case_summary", "result", "date_of_injury", "claim_due", "claim_filed_date",
+        "complaint_due", "complaint_filed_date", "trial_date", "case_numbers"
+    ]
+
+    updates = []
+    params = []
+
+    for field, value in kwargs.items():
+        if field not in allowed_fields:
+            continue
+        if value is None:
+            continue
+
+        if field == "status":
+            validate_case_status(value)
+        elif field in ["date_of_injury", "claim_due", "claim_filed_date",
+                       "complaint_due", "complaint_filed_date", "trial_date"]:
+            validate_date_format(value, field)
+        elif field == "case_numbers":
+            value = json.dumps(value) if isinstance(value, list) else value
+
+        updates.append(f"{field} = %s")
+        params.append(value)
 
     if not updates:
-        return None
+        return get_case_by_id(case_id)
 
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [deadline_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE deadlines SET {set_clause}
-            WHERE id = %s
-            RETURNING id, date, description, status, urgency
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            r["date"] = str(r["date"])
-            return r
-        return None
-
-
-# ===== TASK OPERATIONS =====
-
-def add_task(case_id: int, description: str, due_date: str = None,
-             status: str = "Pending", urgency: int = 3,
-             deadline_id: int = None) -> dict:
-    """Add a task to a case, optionally linked to a deadline."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO tasks (case_id, deadline_id, due_date, description, status, urgency)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, due_date, description, status, urgency, deadline_id
-        """, (case_id, deadline_id, due_date, description, status, urgency))
-        result = dict(cur.fetchone())
-        if result.get("due_date"):
-            result["due_date"] = str(result["due_date"])
-        return result
-
-
-def get_tasks(case_id: int = None, status_filter: str = None,
-              urgency_filter: int = None, due_within_days: int = None,
-              limit: int = None, offset: int = 0) -> dict:
-    """Get tasks with optional filters and pagination."""
-    with get_cursor() as cur:
-        # Build WHERE clause
-        where_parts = ["1=1"]
-        params = []
-
-        if case_id:
-            where_parts.append("t.case_id = %s")
-            params.append(case_id)
-        if status_filter:
-            where_parts.append("t.status = %s")
-            params.append(status_filter)
-        if urgency_filter:
-            where_parts.append("t.urgency >= %s")
-            params.append(urgency_filter)
-        if due_within_days is not None:
-            where_parts.append("t.due_date <= CURRENT_DATE + INTERVAL '%s days'")
-            params.append(due_within_days)
-            where_parts.append("t.due_date >= CURRENT_DATE")  # Only future/today
-
-        where_clause = " AND ".join(where_parts)
-
-        # Get total count
-        cur.execute(f"SELECT COUNT(*) as count FROM tasks t WHERE {where_clause}", params)
-        total = cur.fetchone()["count"]
-
-        # Get paginated results
-        query = f"""
-            SELECT t.id, t.due_date, t.description, t.status, t.urgency,
-                   t.deadline_id, c.id as case_id, c.case_name, c.short_name,
-                   d.description as deadline_description, d.date as deadline_date
-            FROM tasks t
-            JOIN cases c ON t.case_id = c.id
-            LEFT JOIN deadlines d ON t.deadline_id = d.id
-            WHERE {where_clause}
-            ORDER BY t.due_date NULLS LAST
-        """
-
-        if limit is not None:
-            query += " LIMIT %s OFFSET %s"
-            params.extend([limit, offset])
-
-        cur.execute(query, params)
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            if r.get("due_date"):
-                r["due_date"] = str(r["due_date"])
-            if r.get("deadline_date"):
-                r["deadline_date"] = str(r["deadline_date"])
-            results.append(r)
-
-        return {"items": results, "total": total, "limit": limit, "offset": offset}
-
-
-def update_task(task_id: int, status: str = None, urgency: int = None,
-                due_date: str = None) -> Optional[dict]:
-    """Update a task's status, urgency, or due date."""
-    updates = {}
-    if status:
-        updates["status"] = status
-    if urgency:
-        updates["urgency"] = urgency
-    if due_date:
-        updates["due_date"] = due_date
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [task_id]
+    updates.append("updated_at = CURRENT_TIMESTAMP")
+    params.append(case_id)
 
     with get_cursor() as cur:
         cur.execute(f"""
-            UPDATE tasks SET {set_clause}
+            UPDATE cases SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, due_date, description, status, urgency
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            if r.get("due_date"):
-                r["due_date"] = str(r["due_date"])
-            return r
-        return None
+            RETURNING id
+        """, params)
+        row = cur.fetchone()
+        if not row:
+            return None
 
-
-def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
-    """Update multiple tasks to the same status."""
-    if not task_ids:
-        return {"success": False, "error": "No task IDs provided", "updated": 0}
-
-    with get_cursor() as cur:
-        # Use ANY to match multiple IDs
-        cur.execute("""
-            UPDATE tasks SET status = %s
-            WHERE id = ANY(%s)
-            RETURNING id, description, status
-        """, (status, task_ids))
-        updated = [dict(row) for row in cur.fetchall()]
-
-    return {
-        "success": True,
-        "updated": len(updated),
-        "tasks": updated
-    }
-
-
-def bulk_update_deadlines(deadline_ids: List[int], status: str) -> dict:
-    """Update multiple deadlines to the same status."""
-    if not deadline_ids:
-        return {"success": False, "error": "No deadline IDs provided", "updated": 0}
-
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE deadlines SET status = %s
-            WHERE id = ANY(%s)
-            RETURNING id, description, status
-        """, (status, deadline_ids))
-        updated = [dict(row) for row in cur.fetchall()]
-
-    return {
-        "success": True,
-        "updated": len(updated),
-        "deadlines": updated
-    }
-
-
-def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
-    """Update all tasks for a case to a new status, optionally filtering by current status."""
-    with get_cursor() as cur:
-        if current_status:
-            cur.execute("""
-                UPDATE tasks SET status = %s
-                WHERE case_id = %s AND status = %s
-                RETURNING id, description, status
-            """, (status, case_id, current_status))
-        else:
-            cur.execute("""
-                UPDATE tasks SET status = %s
-                WHERE case_id = %s
-                RETURNING id, description, status
-            """, (status, case_id))
-        updated = [dict(row) for row in cur.fetchall()]
-
-    return {
-        "success": True,
-        "updated": len(updated),
-        "tasks": updated
-    }
-
-
-# ===== NOTE OPERATIONS =====
-
-def add_note(case_id: int, content: str) -> dict:
-    """Add a note to a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO notes (case_id, content)
-            VALUES (%s, %s)
-            RETURNING id, content, created_at
-        """, (case_id, content))
-        result = dict(cur.fetchone())
-        result["created_at"] = str(result["created_at"])
-        return result
-
-
-# ===== DELETE OPERATIONS =====
-
-def delete_task(task_id: int) -> bool:
-    """Delete a task by ID."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM tasks WHERE id = %s RETURNING id", (task_id,))
-        return cur.fetchone() is not None
-
-
-def delete_deadline(deadline_id: int) -> bool:
-    """Delete a deadline by ID."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM deadlines WHERE id = %s RETURNING id", (deadline_id,))
-        return cur.fetchone() is not None
-
-
-def delete_note(note_id: int) -> bool:
-    """Delete a note by ID."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM notes WHERE id = %s RETURNING id", (note_id,))
-        return cur.fetchone() is not None
+    return get_case_by_id(case_id)
 
 
 def delete_case(case_id: int) -> bool:
-    """Delete a case and all related data (cascades)."""
+    """Delete a case and all related data."""
     with get_cursor() as cur:
-        cur.execute("DELETE FROM cases WHERE id = %s RETURNING id", (case_id,))
-        return cur.fetchone() is not None
+        cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
+        return cur.rowcount > 0
 
 
-# ===== ADDITIONAL GET OPERATIONS =====
+def search_cases(query: str = None, case_number: str = None, person_name: str = None,
+                 status: str = None, court_id: int = None, limit: int = 50) -> List[dict]:
+    """Search cases by various criteria."""
+    conditions = []
+    params = []
 
-def get_all_contacts() -> List[dict]:
-    """Get all contacts."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, name, firm, phone, email, address, notes, created_at
-            FROM contacts ORDER BY name
+    if query:
+        conditions.append("(c.case_name ILIKE %s OR c.case_summary ILIKE %s)")
+        params.extend([f"%{query}%", f"%{query}%"])
+
+    if case_number:
+        conditions.append("c.case_numbers::text ILIKE %s")
+        params.append(f"%{case_number}%")
+
+    if person_name:
+        conditions.append("""
+            EXISTS (
+                SELECT 1 FROM case_persons cp
+                JOIN persons p ON cp.person_id = p.id
+                WHERE cp.case_id = c.id AND p.name ILIKE %s
+            )
         """)
+        params.append(f"%{person_name}%")
+
+    if status:
+        validate_case_status(status)
+        conditions.append("c.status = %s")
+        params.append(status)
+
+    if court_id:
+        conditions.append("c.court_id = %s")
+        params.append(court_id)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            SELECT c.id, c.case_name, c.short_name, c.status, c.case_summary,
+                   j.name as court, c.case_numbers
+            FROM cases c
+            LEFT JOIN jurisdictions j ON c.court_id = j.id
+            {where_clause}
+            ORDER BY c.case_name
+            LIMIT %s
+        """, params + [limit])
+
         results = []
         for row in cur.fetchall():
             r = dict(row)
-            if r.get("created_at"):
-                r["created_at"] = str(r["created_at"])
+            if r.get("case_numbers") and isinstance(r["case_numbers"], str):
+                r["case_numbers"] = json.loads(r["case_numbers"])
             results.append(r)
         return results
-
-
-def get_all_activities(case_id: int = None) -> List[dict]:
-    """Get all activities, optionally filtered by case."""
-    with get_cursor() as cur:
-        if case_id:
-            cur.execute("""
-                SELECT a.id, a.date, a.description, a.type, a.minutes,
-                       c.id as case_id, c.case_name
-                FROM activities a
-                JOIN cases c ON a.case_id = c.id
-                WHERE a.case_id = %s
-                ORDER BY a.date DESC
-            """, (case_id,))
-        else:
-            cur.execute("""
-                SELECT a.id, a.date, a.description, a.type, a.minutes,
-                       c.id as case_id, c.case_name
-                FROM activities a
-                JOIN cases c ON a.case_id = c.id
-                ORDER BY a.date DESC
-            """)
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            if r.get("date"):
-                r["date"] = str(r["date"])
-            results.append(r)
-        return results
-
-
-def get_dashboard_stats() -> dict:
-    """Get statistics for dashboard."""
-    with get_cursor() as cur:
-        # Total cases
-        cur.execute("SELECT COUNT(*) as count FROM cases")
-        total_cases = cur.fetchone()["count"]
-
-        # Total cases by status
-        cur.execute("""
-            SELECT status, COUNT(*) as count
-            FROM cases
-            GROUP BY status
-        """)
-        cases_by_status = {row["status"]: row["count"] for row in cur.fetchall()}
-
-        # Active cases (not Closed or Settl. Pend.)
-        cur.execute("""
-            SELECT COUNT(*) as count
-            FROM cases
-            WHERE status NOT IN ('Closed', 'Settl. Pend.')
-        """)
-        active_cases = cur.fetchone()["count"]
-
-        # Pending tasks
-        cur.execute("""
-            SELECT COUNT(*) as count
-            FROM tasks
-            WHERE status IN ('Pending', 'Active')
-        """)
-        pending_tasks = cur.fetchone()["count"]
-
-        # Upcoming deadlines (next 30 days)
-        cur.execute("""
-            SELECT COUNT(*) as count
-            FROM deadlines
-            WHERE status = 'Pending'
-            AND date <= CURRENT_DATE + INTERVAL '30 days'
-        """)
-        upcoming_deadlines = cur.fetchone()["count"]
-
-        # Urgent items (urgency >= 4)
-        cur.execute("""
-            SELECT COUNT(*) as count
-            FROM tasks
-            WHERE urgency >= 4 AND status NOT IN ('Done')
-        """)
-        urgent_tasks = cur.fetchone()["count"]
-
-        cur.execute("""
-            SELECT COUNT(*) as count
-            FROM deadlines
-            WHERE urgency >= 4 AND status = 'Pending'
-        """)
-        urgent_deadlines = cur.fetchone()["count"]
-
-        return {
-            "total_cases": total_cases,
-            "active_cases": active_cases,
-            "cases_by_status": cases_by_status,
-            "pending_tasks": pending_tasks,
-            "upcoming_deadlines": upcoming_deadlines,
-            "urgent_tasks": urgent_tasks,
-            "urgent_deadlines": urgent_deadlines
-        }
-
-
-def update_deadline_full(deadline_id: int, date: str = None, description: str = None,
-                         status: str = None, urgency: int = None,
-                         document_link: str = None, calculation_note: str = None) -> Optional[dict]:
-    """Update a deadline with all fields."""
-    updates = {}
-    if date is not None:
-        updates["date"] = date
-    if description is not None:
-        updates["description"] = description
-    if status is not None:
-        updates["status"] = status
-    if urgency is not None:
-        updates["urgency"] = urgency
-    if document_link is not None:
-        updates["document_link"] = document_link
-    if calculation_note is not None:
-        updates["calculation_note"] = calculation_note
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [deadline_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE deadlines SET {set_clause}
-            WHERE id = %s
-            RETURNING id, date, description, status, urgency, document_link, calculation_note
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            r["date"] = str(r["date"])
-            return r
-        return None
-
-
-def update_task_full(task_id: int, description: str = None, due_date: str = None,
-                     status: str = None, urgency: int = None) -> Optional[dict]:
-    """Update a task with all fields."""
-    updates = {}
-    if description is not None:
-        updates["description"] = description
-    if due_date is not None:
-        updates["due_date"] = due_date
-    if status is not None:
-        updates["status"] = status
-    if urgency is not None:
-        updates["urgency"] = urgency
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [task_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE tasks SET {set_clause}
-            WHERE id = %s
-            RETURNING id, due_date, description, status, urgency, case_id
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            if r.get("due_date"):
-                r["due_date"] = str(r["due_date"])
-            return r
-        return None
-
-
-# ===== CLIENT UPDATE/DELETE =====
-
-def get_all_clients() -> List[dict]:
-    """Get all clients."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, name, phone, email, address, notes, created_at
-            FROM clients ORDER BY name
-        """)
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            if r.get("created_at"):
-                r["created_at"] = str(r["created_at"])
-            results.append(r)
-        return results
-
-
-def get_all_defendants() -> List[dict]:
-    """Get all defendants."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, name FROM defendants ORDER BY name
-        """)
-        return [dict(row) for row in cur.fetchall()]
-
-
-def update_client(client_id: int, name: str = None, phone: str = None,
-                  email: str = None, address: str = None, notes: str = None) -> Optional[dict]:
-    """Update a client's information."""
-    updates = {}
-    if name is not None:
-        updates["name"] = name
-    if phone is not None:
-        updates["phone"] = phone
-    if email is not None:
-        updates["email"] = email
-    if address is not None:
-        updates["address"] = address
-    if notes is not None:
-        updates["notes"] = notes
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [client_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE clients SET {set_clause}
-            WHERE id = %s
-            RETURNING id, name, phone, email, address, notes
-        """, values)
-        result = cur.fetchone()
-        return dict(result) if result else None
-
-
-def remove_client_from_case(case_id: int, client_id: int) -> bool:
-    """Remove a client from a case (does not delete the client)."""
-    with get_cursor() as cur:
-        cur.execute("""
-            DELETE FROM case_clients WHERE case_id = %s AND client_id = %s
-            RETURNING id
-        """, (case_id, client_id))
-        return cur.fetchone() is not None
-
-
-# ===== CONTACT UPDATE/DELETE =====
-
-def update_contact(contact_id: int, name: str = None, firm: str = None,
-                   phone: str = None, email: str = None, address: str = None,
-                   notes: str = None) -> Optional[dict]:
-    """Update a contact's information."""
-    updates = {}
-    if name is not None:
-        updates["name"] = name
-    if firm is not None:
-        updates["firm"] = firm
-    if phone is not None:
-        updates["phone"] = phone
-    if email is not None:
-        updates["email"] = email
-    if address is not None:
-        updates["address"] = address
-    if notes is not None:
-        updates["notes"] = notes
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [contact_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE contacts SET {set_clause}
-            WHERE id = %s
-            RETURNING id, name, firm, phone, email, address, notes
-        """, values)
-        result = cur.fetchone()
-        return dict(result) if result else None
-
-
-def remove_contact_from_case(case_id: int, contact_id: int, role: str = None) -> bool:
-    """Remove a contact from a case. If role specified, only removes that role."""
-    with get_cursor() as cur:
-        if role:
-            cur.execute("""
-                DELETE FROM case_contacts
-                WHERE case_id = %s AND contact_id = %s AND role = %s
-                RETURNING id
-            """, (case_id, contact_id, role))
-        else:
-            cur.execute("""
-                DELETE FROM case_contacts
-                WHERE case_id = %s AND contact_id = %s
-                RETURNING id
-            """, (case_id, contact_id))
-        return cur.fetchone() is not None
-
-
-# ===== ACTIVITY UPDATE/DELETE =====
-
-def update_activity(activity_id: int, date: str = None, description: str = None,
-                    activity_type: str = None, minutes: int = None) -> Optional[dict]:
-    """Update an activity."""
-    updates = {}
-    if date is not None:
-        updates["date"] = date
-    if description is not None:
-        updates["description"] = description
-    if activity_type is not None:
-        updates["type"] = activity_type
-    if minutes is not None:
-        updates["minutes"] = minutes
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [activity_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE activities SET {set_clause}
-            WHERE id = %s
-            RETURNING id, date, description, type, minutes
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            r["date"] = str(r["date"])
-            return r
-        return None
-
-
-def delete_activity(activity_id: int) -> bool:
-    """Delete an activity by ID."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM activities WHERE id = %s RETURNING id", (activity_id,))
-        return cur.fetchone() is not None
-
-
-# ===== NOTE UPDATE =====
-
-def update_note(note_id: int, content: str) -> Optional[dict]:
-    """Update a note's content."""
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE notes SET content = %s
-            WHERE id = %s
-            RETURNING id, content, created_at
-        """, (content, note_id))
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            r["created_at"] = str(r["created_at"])
-            return r
-        return None
-
-
-# ===== CASE NUMBER DELETE =====
-# NOTE: Case numbers are now stored as JSONB in the cases table.
-# Use update_case(case_id, case_numbers=[...]) to modify case numbers.
-
-
-# ===== DEFENDANT DELETE =====
-
-def remove_defendant_from_case(case_id: int, defendant_id: int) -> bool:
-    """Remove a defendant from a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            DELETE FROM case_defendants WHERE case_id = %s AND defendant_id = %s
-            RETURNING id
-        """, (case_id, defendant_id))
-        return cur.fetchone() is not None
-
-
-# ===== ADDITIONAL OPERATIONS (NEW) =====
-
-def link_existing_client_to_case(case_id: int, client_id: int, contact_directly: bool = True,
-                                  contact_via_id: int = None, contact_via_relationship: str = None,
-                                  is_primary: bool = False, notes: str = None) -> Optional[dict]:
-    """Link an existing client to a case (without creating a new client)."""
-    with get_cursor() as cur:
-        # Verify client exists
-        cur.execute("SELECT id, name FROM clients WHERE id = %s", (client_id,))
-        client = cur.fetchone()
-        if not client:
-            return None
-
-        # Link to case
-        cur.execute("""
-            INSERT INTO case_clients (case_id, client_id, contact_directly,
-                                      contact_via_id, contact_via_relationship, is_primary, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (case_id, client_id) DO UPDATE SET
-                contact_directly = EXCLUDED.contact_directly,
-                contact_via_id = EXCLUDED.contact_via_id,
-                contact_via_relationship = EXCLUDED.contact_via_relationship,
-                is_primary = EXCLUDED.is_primary,
-                notes = EXCLUDED.notes
-            RETURNING id
-        """, (case_id, client_id, contact_directly, contact_via_id,
-              contact_via_relationship, is_primary, notes))
-        link = cur.fetchone()
-        return {"id": link["id"], "client_id": client_id, "client_name": client["name"]}
-
-
-def update_client_case_link(case_id: int, client_id: int, contact_directly: bool = None,
-                            contact_via_id: int = None, contact_via_relationship: str = None,
-                            is_primary: bool = None, notes: str = None) -> Optional[dict]:
-    """Update the client-case link (contact preferences)."""
-    updates = {}
-    if contact_directly is not None:
-        updates["contact_directly"] = contact_directly
-    if contact_via_id is not None:
-        updates["contact_via_id"] = contact_via_id
-    if contact_via_relationship is not None:
-        updates["contact_via_relationship"] = contact_via_relationship
-    if is_primary is not None:
-        updates["is_primary"] = is_primary
-    if notes is not None:
-        updates["notes"] = notes
-
-    if not updates:
-        return None
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [case_id, client_id]
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE case_clients SET {set_clause}
-            WHERE case_id = %s AND client_id = %s
-            RETURNING id, case_id, client_id, contact_directly, contact_via_id,
-                      contact_via_relationship, is_primary, notes
-        """, values)
-        result = cur.fetchone()
-        return dict(result) if result else None
-
-
-def update_defendant(defendant_id: int, name: str) -> Optional[dict]:
-    """Update a defendant's name."""
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE defendants SET name = %s
-            WHERE id = %s
-            RETURNING id, name
-        """, (name, defendant_id))
-        result = cur.fetchone()
-        return dict(result) if result else None
-
-
-def get_client_by_id(client_id: int) -> Optional[dict]:
-    """Get a client by ID."""
-    with get_cursor() as cur:
-        cur.execute("SELECT * FROM clients WHERE id = %s", (client_id,))
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            if r.get("created_at"):
-                r["created_at"] = str(r["created_at"])
-            return r
-        return None
 
 
 # ===== PERSON OPERATIONS =====
 
-def validate_person_type(person_type: str) -> str:
-    """Validate person type is a non-empty string. Any type is allowed."""
-    if not person_type or not person_type.strip():
-        raise ValidationError("Person type cannot be empty")
-    return person_type.strip()
-
-
-def validate_person_side(side: str) -> str:
-    """Validate person side against allowed values."""
-    if side and side not in PERSON_SIDES:
-        raise ValidationError(f"Invalid side '{side}'. Must be one of: {', '.join(PERSON_SIDES)}")
-    return side
-
-
-def create_person(person_type: str, name: str, phone: str = None, email: str = None,
-                  address: str = None, organization: str = None, attributes: dict = None,
+def create_person(person_type: str, name: str, phones: List[dict] = None,
+                  emails: List[dict] = None, address: str = None,
+                  organization: str = None, attributes: dict = None,
                   notes: str = None) -> dict:
-    """
-    Create a new person.
-
-    Args:
-        person_type: Type of person (client, attorney, judge, expert, mediator, defendant, other)
-        name: Full name
-        phone: Phone number
-        email: Email address
-        address: Physical address
-        organization: Firm, court, or company name
-        attributes: Type-specific attributes (JSONB)
-        notes: General notes
-
-    Returns the created person.
-    """
-    import json
+    """Create a new person."""
     validate_person_type(person_type)
+    phones_json = json.dumps(phones) if phones else '[]'
+    emails_json = json.dumps(emails) if emails else '[]'
     attributes_json = json.dumps(attributes) if attributes else '{}'
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO persons (person_type, name, phone, email, address, organization,
-                                 attributes, notes)
+            INSERT INTO persons (person_type, name, phones, emails, address, organization, attributes, notes)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, person_type, name, phone, email, address, organization,
-                      attributes, notes, created_at, updated_at, archived
-        """, (person_type, name, phone, email, address, organization, attributes_json, notes))
-        result = cur.fetchone()
-        r = dict(result)
-        for key in ["created_at", "updated_at"]:
-            if r.get(key):
-                r[key] = str(r[key])
-        return r
+            RETURNING id, person_type, name, phones, emails, address, organization, attributes, notes, created_at, updated_at, archived
+        """, (person_type, name, phones_json, emails_json, address, organization, attributes_json, notes))
+        return serialize_row(dict(cur.fetchone()))
 
 
 def get_person_by_id(person_id: int) -> Optional[dict]:
-    """
-    Get a person by ID, including their expertises and case assignments.
-    """
+    """Get person by ID with their case assignments."""
     with get_cursor() as cur:
-        cur.execute("SELECT * FROM persons WHERE id = %s", (person_id,))
-        result = cur.fetchone()
-        if not result:
+        cur.execute("""
+            SELECT id, person_type, name, phones, emails, address, organization,
+                   attributes, notes, created_at, updated_at, archived
+            FROM persons WHERE id = %s
+        """, (person_id,))
+        person = cur.fetchone()
+        if not person:
             return None
 
-        r = dict(result)
+        result = serialize_row(dict(person))
 
         # Get case assignments
         cur.execute("""
-            SELECT cp.id, cp.case_id, c.case_name, c.short_name, cp.role, cp.side,
-                   cp.case_attributes, cp.case_notes, cp.is_primary, cp.contact_directly,
-                   cp.contact_via_person_id, cp.contact_via_relationship, cp.assigned_date,
-                   cp.created_at,
-                   via.name as contact_via_name
+            SELECT cp.id as assignment_id, cp.case_id, c.case_name, c.short_name,
+                   cp.role, cp.side, cp.case_attributes, cp.case_notes,
+                   cp.is_primary, cp.contact_via_person_id,
+                   via.name as contact_via_name, cp.assigned_date, cp.created_at
             FROM case_persons cp
             JOIN cases c ON cp.case_id = c.id
             LEFT JOIN persons via ON cp.contact_via_person_id = via.id
             WHERE cp.person_id = %s
             ORDER BY c.case_name
         """, (person_id,))
-        r["case_assignments"] = [dict(row) for row in cur.fetchall()]
+        result["case_assignments"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
-        # Convert dates
-        for key in ["created_at", "updated_at"]:
-            if r.get(key):
-                r[key] = str(r[key])
-        for assignment in r["case_assignments"]:
-            for key in ["assigned_date", "created_at"]:
-                if assignment.get(key):
-                    assignment[key] = str(assignment[key])
-
-        return r
+        return result
 
 
 def update_person(person_id: int, **kwargs) -> Optional[dict]:
-    """
-    Update a person's fields.
+    """Update person fields."""
+    allowed_fields = ["name", "person_type", "phones", "emails", "address",
+                      "organization", "attributes", "notes", "archived"]
+    updates = []
+    params = []
 
-    Allowed fields: name, phone, email, address, organization, attributes, notes,
-                    person_type, archived
-    """
-    import json
-    allowed_fields = ["name", "phone", "email", "address", "organization",
-                      "attributes", "notes", "person_type", "archived"]
-    updates = {k: v for k, v in kwargs.items() if k in allowed_fields and v is not None}
+    for field, value in kwargs.items():
+        if field not in allowed_fields:
+            continue
+        if value is None:
+            continue
+
+        if field == "person_type":
+            validate_person_type(value)
+        elif field in ["phones", "emails", "attributes"]:
+            value = json.dumps(value) if isinstance(value, (list, dict)) else value
+
+        updates.append(f"{field} = %s")
+        params.append(value)
 
     if not updates:
-        return None
+        return get_person_by_id(person_id)
 
-    # Validate person_type if being updated
-    if "person_type" in updates:
-        validate_person_type(updates["person_type"])
-
-    # Convert attributes to JSON
-    if "attributes" in updates:
-        updates["attributes"] = json.dumps(updates["attributes"])
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [person_id]
+    updates.append("updated_at = CURRENT_TIMESTAMP")
+    params.append(person_id)
 
     with get_cursor() as cur:
         cur.execute(f"""
-            UPDATE persons SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+            UPDATE persons SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, person_type, name, phone, email, address, organization,
-                      attributes, notes, created_at, updated_at, archived
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            for key in ["created_at", "updated_at"]:
-                if r.get(key):
-                    r[key] = str(r[key])
-            return r
-        return None
+            RETURNING id
+        """, params)
+        row = cur.fetchone()
+        if not row:
+            return None
+
+    return get_person_by_id(person_id)
 
 
 def search_persons(name: str = None, person_type: str = None, organization: str = None,
                    email: str = None, phone: str = None, case_id: int = None,
-                   include_archived: bool = False, limit: int = 50, offset: int = 0) -> dict:
-    """
-    Search persons with various filters.
-
-    Args:
-        name: Name to search (partial match)
-        person_type: Filter by type
-        organization: Organization to search (partial match)
-        email: Email to search (partial match)
-        phone: Phone to search (partial match)
-        case_id: Filter by case assignment
-        include_archived: Include archived persons
-        limit: Max results
-        offset: Pagination offset
-
-    Returns paginated results with total count.
-    """
-    conditions = []
-    params = []
-
-    if not include_archived:
-        conditions.append("p.archived = FALSE")
+                   archived: bool = False, limit: int = 50, offset: int = 0) -> dict:
+    """Search persons by various criteria."""
+    conditions = ["p.archived = %s"]
+    params = [archived]
 
     if name:
         conditions.append("p.name ILIKE %s")
@@ -2820,64 +870,33 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
         params.append(f"%{organization}%")
 
     if email:
-        conditions.append("p.email ILIKE %s")
+        conditions.append("p.emails::text ILIKE %s")
         params.append(f"%{email}%")
 
     if phone:
-        conditions.append("p.phone ILIKE %s")
+        conditions.append("p.phones::text ILIKE %s")
         params.append(f"%{phone}%")
 
-    where_clause = " AND ".join(conditions) if conditions else "TRUE"
+    if case_id:
+        conditions.append("EXISTS (SELECT 1 FROM case_persons cp WHERE cp.person_id = p.id AND cp.case_id = %s)")
+        params.append(case_id)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}"
 
     with get_cursor() as cur:
-        # Handle case_id filter with a join
-        if case_id:
-            # Count query
-            cur.execute(f"""
-                SELECT COUNT(DISTINCT p.id) as count
-                FROM persons p
-                JOIN case_persons cp ON p.id = cp.person_id
-                WHERE {where_clause} AND cp.case_id = %s
-            """, params + [case_id])
-            total = cur.fetchone()["count"]
+        cur.execute(f"SELECT COUNT(*) as total FROM persons p {where_clause}", params)
+        total = cur.fetchone()["total"]
 
-            # Data query
-            cur.execute(f"""
-                SELECT DISTINCT p.id, p.person_type, p.name, p.phone, p.email,
-                       p.organization, p.attributes, p.notes, p.archived,
-                       p.created_at, p.updated_at
-                FROM persons p
-                JOIN case_persons cp ON p.id = cp.person_id
-                WHERE {where_clause} AND cp.case_id = %s
-                ORDER BY p.name
-                LIMIT %s OFFSET %s
-            """, params + [case_id, limit, offset])
-        else:
-            # Count query
-            cur.execute(f"""
-                SELECT COUNT(*) as count FROM persons p WHERE {where_clause}
-            """, params)
-            total = cur.fetchone()["count"]
+        cur.execute(f"""
+            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
+                   p.attributes, p.notes, p.archived
+            FROM persons p
+            {where_clause}
+            ORDER BY p.name
+            LIMIT %s OFFSET %s
+        """, params + [limit, offset])
 
-            # Data query
-            cur.execute(f"""
-                SELECT id, person_type, name, phone, email, organization,
-                       attributes, notes, archived, created_at, updated_at
-                FROM persons p
-                WHERE {where_clause}
-                ORDER BY name
-                LIMIT %s OFFSET %s
-            """, params + [limit, offset])
-
-        persons = []
-        for row in cur.fetchall():
-            r = dict(row)
-            for key in ["created_at", "updated_at"]:
-                if r.get(key):
-                    r[key] = str(r[key])
-            persons.append(r)
-
-        return {"items": persons, "total": total, "limit": limit, "offset": offset}
+        return {"persons": [dict(row) for row in cur.fetchall()], "total": total}
 
 
 def archive_person(person_id: int) -> Optional[dict]:
@@ -2888,156 +907,127 @@ def archive_person(person_id: int) -> Optional[dict]:
 def delete_person(person_id: int) -> bool:
     """Permanently delete a person."""
     with get_cursor() as cur:
-        cur.execute("DELETE FROM persons WHERE id = %s RETURNING id", (person_id,))
-        return cur.fetchone() is not None
+        cur.execute("DELETE FROM persons WHERE id = %s", (person_id,))
+        return cur.rowcount > 0
 
 
 # ===== CASE-PERSON OPERATIONS =====
 
 def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = None,
                           case_attributes: dict = None, case_notes: str = None,
-                          is_primary: bool = False, contact_directly: bool = True,
-                          contact_via_person_id: int = None,
-                          contact_via_relationship: str = None,
+                          is_primary: bool = False, contact_via_person_id: int = None,
                           assigned_date: str = None) -> dict:
-    """
-    Assign a person to a case with a specific role.
-
-    Args:
-        case_id: ID of the case
-        person_id: ID of the person
-        role: Role in the case (e.g., 'Opposing Counsel', 'Judge', 'Expert - Plaintiff')
-        side: 'plaintiff', 'defendant', or 'neutral'
-        case_attributes: Case-specific attributes (JSONB)
-        case_notes: Case-specific notes
-        is_primary: Whether this is the primary person in this role
-        contact_directly: Whether to contact this person directly
-        contact_via_person_id: ID of person to contact through
-        contact_via_relationship: Relationship to contact_via person
-        assigned_date: Date assigned to case (YYYY-MM-DD)
-
-    Returns the created assignment.
-    """
-    import json
+    """Assign a person to a case with a specific role."""
     if side:
         validate_person_side(side)
-    if assigned_date:
-        validate_date_format(assigned_date, "assigned_date")
+    validate_date_format(assigned_date, "assigned_date")
 
-    case_attributes_json = json.dumps(case_attributes) if case_attributes else '{}'
+    case_attrs_json = json.dumps(case_attributes) if case_attributes else '{}'
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO case_persons (
-                case_id, person_id, role, side, case_attributes, case_notes,
-                is_primary, contact_directly, contact_via_person_id,
-                contact_via_relationship, assigned_date
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO case_persons (case_id, person_id, role, side, case_attributes,
+                                      case_notes, is_primary, contact_via_person_id, assigned_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (case_id, person_id, role) DO UPDATE SET
                 side = EXCLUDED.side,
                 case_attributes = EXCLUDED.case_attributes,
                 case_notes = EXCLUDED.case_notes,
                 is_primary = EXCLUDED.is_primary,
-                contact_directly = EXCLUDED.contact_directly,
                 contact_via_person_id = EXCLUDED.contact_via_person_id,
-                contact_via_relationship = EXCLUDED.contact_via_relationship,
                 assigned_date = EXCLUDED.assigned_date
-            RETURNING id, case_id, person_id, role, side, case_attributes, case_notes,
-                      is_primary, contact_directly, contact_via_person_id,
-                      contact_via_relationship, assigned_date, created_at
-        """, (case_id, person_id, role, side, case_attributes_json, case_notes,
-              is_primary, contact_directly, contact_via_person_id,
-              contact_via_relationship, assigned_date))
-        result = cur.fetchone()
-        r = dict(result)
-        for key in ["assigned_date", "created_at"]:
-            if r.get(key):
-                r[key] = str(r[key])
-        return r
+            RETURNING id
+        """, (case_id, person_id, role, side, case_attrs_json, case_notes,
+              is_primary, contact_via_person_id, assigned_date))
+        assignment_id = cur.fetchone()["id"]
+
+        # Return full assignment details
+        cur.execute("""
+            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
+                   p.attributes, p.notes as person_notes,
+                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
+                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.assigned_date, cp.created_at as assigned_at,
+                   via.name as contact_via_name
+            FROM persons p
+            JOIN case_persons cp ON p.id = cp.person_id
+            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            WHERE cp.id = %s
+        """, (assignment_id,))
+        return serialize_row(dict(cur.fetchone()))
 
 
 def update_case_assignment(case_id: int, person_id: int, role: str, **kwargs) -> Optional[dict]:
-    """
-    Update a case-person assignment.
-
-    Allowed fields: side, case_attributes, case_notes, is_primary, contact_directly,
-                    contact_via_person_id, contact_via_relationship, assigned_date
-    """
-    import json
+    """Update a case-person assignment."""
     allowed_fields = ["side", "case_attributes", "case_notes", "is_primary",
-                      "contact_directly", "contact_via_person_id",
-                      "contact_via_relationship", "assigned_date"]
-    updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+                      "contact_via_person_id", "assigned_date"]
+    updates = []
+    params = []
+
+    for field, value in kwargs.items():
+        if field not in allowed_fields:
+            continue
+
+        if field == "side" and value:
+            validate_person_side(value)
+        elif field == "assigned_date" and value:
+            validate_date_format(value, "assigned_date")
+        elif field == "case_attributes":
+            value = json.dumps(value) if isinstance(value, dict) else value
+
+        updates.append(f"{field} = %s")
+        params.append(value)
 
     if not updates:
         return None
 
-    # Validate side if provided
-    if "side" in updates and updates["side"]:
-        validate_person_side(updates["side"])
-
-    # Validate date if provided
-    if "assigned_date" in updates and updates["assigned_date"]:
-        validate_date_format(updates["assigned_date"], "assigned_date")
-
-    # Convert case_attributes to JSON
-    if "case_attributes" in updates and updates["case_attributes"]:
-        updates["case_attributes"] = json.dumps(updates["case_attributes"])
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-    values = list(updates.values()) + [case_id, person_id, role]
+    params.extend([case_id, person_id, role])
 
     with get_cursor() as cur:
         cur.execute(f"""
-            UPDATE case_persons SET {set_clause}
+            UPDATE case_persons SET {', '.join(updates)}
             WHERE case_id = %s AND person_id = %s AND role = %s
-            RETURNING id, case_id, person_id, role, side, case_attributes, case_notes,
-                      is_primary, contact_directly, contact_via_person_id,
-                      contact_via_relationship, assigned_date, created_at
-        """, values)
-        result = cur.fetchone()
-        if result:
-            r = dict(result)
-            for key in ["assigned_date", "created_at"]:
-                if r.get(key):
-                    r[key] = str(r[key])
-            return r
-        return None
+            RETURNING id
+        """, params)
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        assignment_id = row["id"]
+        cur.execute("""
+            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
+                   p.attributes, p.notes as person_notes,
+                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
+                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.assigned_date, cp.created_at as assigned_at,
+                   via.name as contact_via_name
+            FROM persons p
+            JOIN case_persons cp ON p.id = cp.person_id
+            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            WHERE cp.id = %s
+        """, (assignment_id,))
+        return serialize_row(dict(cur.fetchone()))
 
 
 def remove_person_from_case(case_id: int, person_id: int, role: str = None) -> bool:
-    """
-    Remove a person from a case.
-
-    Args:
-        case_id: ID of the case
-        person_id: ID of the person
-        role: Specific role to remove (if None, removes all roles)
-
-    Returns True if any rows were deleted.
-    """
+    """Remove a person from a case."""
     with get_cursor() as cur:
         if role:
             cur.execute("""
                 DELETE FROM case_persons
                 WHERE case_id = %s AND person_id = %s AND role = %s
-                RETURNING id
             """, (case_id, person_id, role))
         else:
             cur.execute("""
                 DELETE FROM case_persons
                 WHERE case_id = %s AND person_id = %s
-                RETURNING id
             """, (case_id, person_id))
-        return cur.fetchone() is not None
+        return cur.rowcount > 0
 
 
 def get_case_persons(case_id: int, person_type: str = None, role: str = None,
                      side: str = None) -> List[dict]:
-    """
-    Get all persons assigned to a case with optional filters.
-    """
+    """Get all persons assigned to a case with optional filters."""
     conditions = ["cp.case_id = %s"]
     params = [case_id]
 
@@ -3059,11 +1049,10 @@ def get_case_persons(case_id: int, person_type: str = None, role: str = None,
 
     with get_cursor() as cur:
         cur.execute(f"""
-            SELECT p.id, p.person_type, p.name, p.phone, p.email, p.organization,
+            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
                    p.attributes, p.notes as person_notes,
                    cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                   cp.case_notes, cp.is_primary, cp.contact_directly,
-                   cp.contact_via_person_id, cp.contact_via_relationship,
+                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
                    cp.assigned_date, cp.created_at as assigned_at,
                    via.name as contact_via_name
             FROM persons p
@@ -3073,14 +1062,7 @@ def get_case_persons(case_id: int, person_type: str = None, role: str = None,
             ORDER BY cp.role, p.name
         """, params)
 
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            for key in ["assigned_date", "assigned_at"]:
-                if r.get(key):
-                    r[key] = str(r[key])
-            results.append(r)
-        return results
+        return [dict(row) for row in cur.fetchall()]
 
 
 # ===== EXPERTISE TYPE OPERATIONS =====
@@ -3123,103 +1105,608 @@ def create_person_type(name: str, description: str = None) -> dict:
         return dict(cur.fetchone())
 
 
-# ===== SMART PERSON OPERATIONS =====
+# ===== TASK OPERATIONS =====
 
-def smart_add_person_to_case(case_id: int, person_type: str, name: str, role: str,
-                             side: str = None, phone: str = None, email: str = None,
-                             organization: str = None, attributes: dict = None,
-                             notes: str = None, case_attributes: dict = None,
-                             case_notes: str = None, is_primary: bool = False,
-                             contact_directly: bool = True,
-                             contact_via_person_id: int = None,
-                             contact_via_relationship: str = None) -> dict:
-    """
-    Smart function to find or create a person and assign to a case.
-
-    Searches for existing person by name (and optionally phone/email/organization).
-    Creates new person if not found. Assigns to case with the given role.
-
-    Returns:
-        {success, person_id, person_name, created_new, role, case_id}
-    """
-    validate_person_type(person_type)
-    if side:
-        validate_person_side(side)
+def add_task(case_id: int, description: str, due_date: str = None,
+             status: str = "Pending", urgency: int = 3, deadline_id: int = None) -> dict:
+    """Add a task to a case."""
+    validate_task_status(status)
+    validate_urgency(urgency)
+    validate_date_format(due_date, "due_date")
 
     with get_cursor() as cur:
-        # Try to find existing person
-        # First, try exact match on name + unique identifier (phone or email)
-        person = None
-        if phone:
-            cur.execute("""
-                SELECT id, name FROM persons
-                WHERE name = %s AND phone = %s AND archived = FALSE
-                LIMIT 1
-            """, (name, phone))
-            person = cur.fetchone()
-        elif email:
-            cur.execute("""
-                SELECT id, name FROM persons
-                WHERE name = %s AND email = %s AND archived = FALSE
-                LIMIT 1
-            """, (name, email))
-            person = cur.fetchone()
+        cur.execute("""
+            INSERT INTO tasks (case_id, description, due_date, status, urgency, deadline_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, created_at
+        """, (case_id, description, due_date, status, urgency, deadline_id))
+        return serialize_row(dict(cur.fetchone()))
 
-        # Fall back to name + organization match
-        if not person and organization:
-            cur.execute("""
-                SELECT id, name FROM persons
-                WHERE name = %s AND organization = %s AND archived = FALSE
-                LIMIT 1
-            """, (name, organization))
-            person = cur.fetchone()
 
-        # Fall back to name-only match (same type)
-        if not person:
-            cur.execute("""
-                SELECT id, name FROM persons
-                WHERE name = %s AND person_type = %s AND archived = FALSE
-                LIMIT 1
-            """, (name, person_type))
-            person = cur.fetchone()
+def get_tasks(case_id: int = None, status_filter: str = None,
+              urgency_filter: int = None, limit: int = None, offset: int = None) -> dict:
+    """Get tasks with optional filters."""
+    conditions = []
+    params = []
 
-        created_new = False
-        if person:
-            person_id = person["id"]
+    if case_id:
+        conditions.append("t.case_id = %s")
+        params.append(case_id)
+
+    if status_filter:
+        validate_task_status(status_filter)
+        conditions.append("t.status = %s")
+        params.append(status_filter)
+
+    if urgency_filter:
+        validate_urgency(urgency_filter)
+        conditions.append("t.urgency = %s")
+        params.append(urgency_filter)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) as total FROM tasks t {where_clause}", params)
+        total = cur.fetchone()["total"]
+
+        query = f"""
+            SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
+                   t.due_date, t.completion_date, t.status, t.urgency, t.deadline_id, t.created_at
+            FROM tasks t
+            JOIN cases c ON t.case_id = c.id
+            {where_clause}
+            ORDER BY t.due_date NULLS LAST, t.urgency DESC
+        """
+        if limit:
+            query += f" LIMIT {limit}"
+        if offset:
+            query += f" OFFSET {offset}"
+
+        cur.execute(query, params)
+        return {"tasks": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
+
+
+def update_task(task_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
+    """Update task status and/or urgency."""
+    updates = []
+    params = []
+
+    if status:
+        validate_task_status(status)
+        updates.append("status = %s")
+        params.append(status)
+        # Auto-set completion_date when marking as Done
+        if status == "Done":
+            updates.append("completion_date = CURRENT_DATE")
+
+    if urgency:
+        validate_urgency(urgency)
+        updates.append("urgency = %s")
+        params.append(urgency)
+
+    if not updates:
+        return None
+
+    params.append(task_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE tasks SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, created_at
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def update_task_full(task_id: int, description: str = None, due_date: str = None,
+                     completion_date: str = None, status: str = None, urgency: int = None) -> Optional[dict]:
+    """Update all task fields."""
+    updates = []
+    params = []
+
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+
+    if due_date is not None:
+        validate_date_format(due_date, "due_date")
+        updates.append("due_date = %s")
+        params.append(due_date if due_date else None)
+
+    if completion_date is not None:
+        validate_date_format(completion_date, "completion_date")
+        updates.append("completion_date = %s")
+        params.append(completion_date if completion_date else None)
+
+    if status is not None:
+        validate_task_status(status)
+        updates.append("status = %s")
+        params.append(status)
+
+    if urgency is not None:
+        validate_urgency(urgency)
+        updates.append("urgency = %s")
+        params.append(urgency)
+
+    if not updates:
+        return None
+
+    params.append(task_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE tasks SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, created_at
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def delete_task(task_id: int) -> bool:
+    """Delete a task."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
+        return cur.rowcount > 0
+
+
+def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
+    """Update status for multiple tasks."""
+    validate_task_status(status)
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE tasks SET status = %s
+            WHERE id = ANY(%s)
+        """, (status, task_ids))
+        return {"updated": cur.rowcount}
+
+
+def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
+    """Update all tasks for a case, optionally filtering by current status."""
+    validate_task_status(status)
+    with get_cursor() as cur:
+        if current_status:
+            validate_task_status(current_status)
+            cur.execute("""
+                UPDATE tasks SET status = %s
+                WHERE case_id = %s AND status = %s
+            """, (status, case_id, current_status))
         else:
-            # Create new person
-            new_person = create_person(
-                person_type=person_type,
-                name=name,
-                phone=phone,
-                email=email,
-                organization=organization,
-                attributes=attributes,
-                notes=notes
-            )
-            person_id = new_person["id"]
-            created_new = True
+            cur.execute("""
+                UPDATE tasks SET status = %s
+                WHERE case_id = %s
+            """, (status, case_id))
+        return {"updated": cur.rowcount}
 
-    # Assign to case (separate transaction)
-    assignment = assign_person_to_case(
-        case_id=case_id,
-        person_id=person_id,
-        role=role,
-        side=side,
-        case_attributes=case_attributes,
-        case_notes=case_notes,
-        is_primary=is_primary,
-        contact_directly=contact_directly,
-        contact_via_person_id=contact_via_person_id,
-        contact_via_relationship=contact_via_relationship
-    )
 
-    return {
-        "success": True,
-        "person_id": person_id,
-        "person_name": name,
-        "created_new": created_new,
-        "role": role,
-        "case_id": case_id,
-        "assignment_id": assignment["id"]
-    }
+def search_tasks(query: str = None, case_id: int = None, status: str = None,
+                 urgency: int = None, limit: int = 50) -> List[dict]:
+    """Search tasks by various criteria."""
+    conditions = []
+    params = []
+
+    if query:
+        conditions.append("t.description ILIKE %s")
+        params.append(f"%{query}%")
+
+    if case_id:
+        conditions.append("t.case_id = %s")
+        params.append(case_id)
+
+    if status:
+        validate_task_status(status)
+        conditions.append("t.status = %s")
+        params.append(status)
+
+    if urgency:
+        validate_urgency(urgency)
+        conditions.append("t.urgency = %s")
+        params.append(urgency)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
+                   t.due_date, t.completion_date, t.status, t.urgency
+            FROM tasks t
+            JOIN cases c ON t.case_id = c.id
+            {where_clause}
+            ORDER BY t.due_date NULLS LAST, t.urgency DESC
+            LIMIT %s
+        """, params + [limit])
+        return [dict(row) for row in cur.fetchall()]
+
+
+# ===== DEADLINE OPERATIONS =====
+
+def add_deadline(case_id: int, date: str, description: str, status: str = "Pending",
+                 urgency: int = 3, document_link: str = None, calculation_note: str = None,
+                 time: str = None, location: str = None) -> dict:
+    """Add a deadline to a case."""
+    validate_date_format(date, "date")
+    validate_time_format(time, "time")
+    validate_urgency(urgency)
+
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO deadlines (case_id, date, time, location, description, status, urgency, document_link, calculation_note)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, case_id, date, time, location, description, status, urgency, document_link, calculation_note, created_at
+        """, (case_id, date, time, location, description, status, urgency, document_link, calculation_note))
+        return serialize_row(dict(cur.fetchone()))
+
+
+def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None,
+                           limit: int = None, offset: int = None) -> dict:
+    """Get upcoming deadlines."""
+    conditions = ["d.date >= CURRENT_DATE"]
+    params = []
+
+    if urgency_filter:
+        validate_urgency(urgency_filter)
+        conditions.append("d.urgency = %s")
+        params.append(urgency_filter)
+
+    if status_filter:
+        conditions.append("d.status = %s")
+        params.append(status_filter)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}"
+
+    with get_cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) as total FROM deadlines d {where_clause}", params)
+        total = cur.fetchone()["total"]
+
+        query = f"""
+            SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
+                   d.description, d.status, d.urgency, d.document_link, d.calculation_note
+            FROM deadlines d
+            JOIN cases c ON d.case_id = c.id
+            {where_clause}
+            ORDER BY d.date, d.urgency DESC
+        """
+        if limit:
+            query += f" LIMIT {limit}"
+        if offset:
+            query += f" OFFSET {offset}"
+
+        cur.execute(query, params)
+        return {"deadlines": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
+
+
+def update_deadline(deadline_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
+    """Update deadline status and/or urgency."""
+    updates = []
+    params = []
+
+    if status:
+        updates.append("status = %s")
+        params.append(status)
+
+    if urgency:
+        validate_urgency(urgency)
+        updates.append("urgency = %s")
+        params.append(urgency)
+
+    if not updates:
+        return None
+
+    params.append(deadline_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE deadlines SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, date, time, location, description, status, urgency, document_link, calculation_note
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def update_deadline_full(deadline_id: int, date: str = None, description: str = None,
+                         status: str = None, urgency: int = None, document_link: str = None,
+                         calculation_note: str = None, time: str = None, location: str = None) -> Optional[dict]:
+    """Update all deadline fields."""
+    updates = []
+    params = []
+
+    if date is not None:
+        validate_date_format(date, "date")
+        updates.append("date = %s")
+        params.append(date)
+
+    if time is not None:
+        validate_time_format(time, "time")
+        updates.append("time = %s")
+        params.append(time if time else None)
+
+    if location is not None:
+        updates.append("location = %s")
+        params.append(location if location else None)
+
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+
+    if status is not None:
+        updates.append("status = %s")
+        params.append(status)
+
+    if urgency is not None:
+        validate_urgency(urgency)
+        updates.append("urgency = %s")
+        params.append(urgency)
+
+    if document_link is not None:
+        updates.append("document_link = %s")
+        params.append(document_link if document_link else None)
+
+    if calculation_note is not None:
+        updates.append("calculation_note = %s")
+        params.append(calculation_note if calculation_note else None)
+
+    if not updates:
+        return None
+
+    params.append(deadline_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE deadlines SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, date, time, location, description, status, urgency, document_link, calculation_note
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def delete_deadline(deadline_id: int) -> bool:
+    """Delete a deadline."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM deadlines WHERE id = %s", (deadline_id,))
+        return cur.rowcount > 0
+
+
+def bulk_update_deadlines(deadline_ids: List[int], status: str) -> dict:
+    """Update status for multiple deadlines."""
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE deadlines SET status = %s
+            WHERE id = ANY(%s)
+        """, (status, deadline_ids))
+        return {"updated": cur.rowcount}
+
+
+def search_deadlines(query: str = None, case_id: int = None, status: str = None,
+                     urgency: int = None, limit: int = 50) -> List[dict]:
+    """Search deadlines by various criteria."""
+    conditions = []
+    params = []
+
+    if query:
+        conditions.append("d.description ILIKE %s")
+        params.append(f"%{query}%")
+
+    if case_id:
+        conditions.append("d.case_id = %s")
+        params.append(case_id)
+
+    if status:
+        conditions.append("d.status = %s")
+        params.append(status)
+
+    if urgency:
+        validate_urgency(urgency)
+        conditions.append("d.urgency = %s")
+        params.append(urgency)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
+                   d.description, d.status, d.urgency
+            FROM deadlines d
+            JOIN cases c ON d.case_id = c.id
+            {where_clause}
+            ORDER BY d.date, d.urgency DESC
+            LIMIT %s
+        """, params + [limit])
+        return [dict(row) for row in cur.fetchall()]
+
+
+# ===== NOTE OPERATIONS =====
+
+def add_note(case_id: int, content: str) -> dict:
+    """Add a note to a case."""
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO notes (case_id, content)
+            VALUES (%s, %s)
+            RETURNING id, case_id, content, created_at, updated_at
+        """, (case_id, content))
+        return serialize_row(dict(cur.fetchone()))
+
+
+def update_note(note_id: int, content: str) -> Optional[dict]:
+    """Update a note's content."""
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE notes SET content = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            RETURNING id, case_id, content, created_at, updated_at
+        """, (content, note_id))
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def delete_note(note_id: int) -> bool:
+    """Delete a note."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM notes WHERE id = %s", (note_id,))
+        return cur.rowcount > 0
+
+
+# ===== ACTIVITY OPERATIONS =====
+
+def add_activity(case_id: int, description: str, activity_type: str,
+                 date: str, minutes: int = None) -> dict:
+    """Add an activity to a case."""
+    validate_date_format(date, "date")
+
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO activities (case_id, description, type, date, minutes)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id, case_id, description, type, date, minutes, created_at
+        """, (case_id, description, activity_type, date, minutes))
+        return serialize_row(dict(cur.fetchone()))
+
+
+def get_all_activities(case_id: int = None) -> List[dict]:
+    """Get all activities, optionally filtered by case."""
+    with get_cursor() as cur:
+        if case_id:
+            cur.execute("""
+                SELECT a.id, a.case_id, c.case_name, a.description, a.type, a.date, a.minutes
+                FROM activities a
+                JOIN cases c ON a.case_id = c.id
+                WHERE a.case_id = %s
+                ORDER BY a.date DESC
+            """, (case_id,))
+        else:
+            cur.execute("""
+                SELECT a.id, a.case_id, c.case_name, a.description, a.type, a.date, a.minutes
+                FROM activities a
+                JOIN cases c ON a.case_id = c.id
+                ORDER BY a.date DESC
+            """)
+        return [dict(row) for row in cur.fetchall()]
+
+
+def update_activity(activity_id: int, date: str = None, description: str = None,
+                    activity_type: str = None, minutes: int = None) -> Optional[dict]:
+    """Update an activity."""
+    updates = []
+    params = []
+
+    if date is not None:
+        validate_date_format(date, "date")
+        updates.append("date = %s")
+        params.append(date)
+
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+
+    if activity_type is not None:
+        updates.append("type = %s")
+        params.append(activity_type)
+
+    if minutes is not None:
+        updates.append("minutes = %s")
+        params.append(minutes)
+
+    if not updates:
+        return None
+
+    params.append(activity_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE activities SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, description, type, date, minutes
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def delete_activity(activity_id: int) -> bool:
+    """Delete an activity."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM activities WHERE id = %s", (activity_id,))
+        return cur.rowcount > 0
+
+
+# ===== CALENDAR OPERATIONS =====
+
+def get_calendar(days: int = 30, include_tasks: bool = True,
+                 include_deadlines: bool = True) -> List[dict]:
+    """Get calendar items for the next N days."""
+    items = []
+
+    with get_cursor() as cur:
+        if include_deadlines:
+            cur.execute("""
+                SELECT d.id, d.date, d.time, d.location, d.description, d.status, d.urgency,
+                       d.case_id, c.case_name, c.short_name, 'deadline' as item_type
+                FROM deadlines d
+                JOIN cases c ON d.case_id = c.id
+                WHERE d.date >= CURRENT_DATE AND d.date <= CURRENT_DATE + %s
+                ORDER BY d.date, d.time NULLS LAST
+            """, (days,))
+            items.extend([dict(row) for row in cur.fetchall()])
+
+        if include_tasks:
+            cur.execute("""
+                SELECT t.id, t.due_date as date, NULL as time, NULL as location,
+                       t.description, t.status, t.urgency,
+                       t.case_id, c.case_name, c.short_name, 'task' as item_type
+                FROM tasks t
+                JOIN cases c ON t.case_id = c.id
+                WHERE t.due_date IS NOT NULL
+                  AND t.due_date >= CURRENT_DATE AND t.due_date <= CURRENT_DATE + %s
+                  AND t.status != 'Done'
+                ORDER BY t.due_date
+            """, (days,))
+            items.extend([dict(row) for row in cur.fetchall()])
+
+    # Sort by date
+    items.sort(key=lambda x: (str(x.get("date") or "9999-99-99"), str(x.get("time") or "99:99")))
+    return items
+
+
+# ===== DASHBOARD STATS =====
+
+def get_dashboard_stats() -> dict:
+    """Get dashboard statistics."""
+    with get_cursor() as cur:
+        # Total cases
+        cur.execute("SELECT COUNT(*) as total FROM cases")
+        total_cases = cur.fetchone()["total"]
+
+        # Active cases (not Closed or Settl. Pend.)
+        cur.execute("""
+            SELECT COUNT(*) as active FROM cases
+            WHERE status NOT IN ('Closed', 'Settl. Pend.')
+        """)
+        active_cases = cur.fetchone()["active"]
+
+        # Pending tasks
+        cur.execute("SELECT COUNT(*) as pending FROM tasks WHERE status = 'Pending'")
+        pending_tasks = cur.fetchone()["pending"]
+
+        # Upcoming deadlines (next 30 days)
+        cur.execute("""
+            SELECT COUNT(*) as upcoming FROM deadlines
+            WHERE status = 'Pending' AND date >= CURRENT_DATE AND date <= CURRENT_DATE + 30
+        """)
+        upcoming_deadlines = cur.fetchone()["upcoming"]
+
+        # Cases by status
+        cur.execute("""
+            SELECT status, COUNT(*) as count FROM cases
+            GROUP BY status ORDER BY count DESC
+        """)
+        cases_by_status = {row["status"]: row["count"] for row in cur.fetchall()}
+
+        return {
+            "total_cases": total_cases,
+            "active_cases": active_cases,
+            "pending_tasks": pending_tasks,
+            "upcoming_deadlines": upcoming_deadlines,
+            "cases_by_status": cases_by_status
+        }
