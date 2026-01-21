@@ -391,23 +391,41 @@ def seed_db():
 
 # ===== CASE OPERATIONS =====
 
-def get_all_cases(status_filter: Optional[str] = None) -> List[dict]:
-    """Get all cases, optionally filtered by status."""
+DEFAULT_PAGE_SIZE = 50
+
+
+def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
+                  offset: int = 0) -> dict:
+    """Get cases with optional status filter and pagination."""
     with get_cursor() as cur:
+        # Get total count
         if status_filter:
-            cur.execute("""
-                SELECT id, case_name, status, court, print_code
-                FROM cases
-                WHERE status = %s
-                ORDER BY case_name
-            """, (status_filter,))
+            cur.execute("SELECT COUNT(*) as count FROM cases WHERE status = %s", (status_filter,))
         else:
-            cur.execute("""
-                SELECT id, case_name, status, court, print_code
-                FROM cases
-                ORDER BY case_name
-            """)
-        return [dict(row) for row in cur.fetchall()]
+            cur.execute("SELECT COUNT(*) as count FROM cases")
+        total = cur.fetchone()["count"]
+
+        # Get paginated results
+        query = """
+            SELECT id, case_name, status, court, print_code
+            FROM cases
+        """
+        params = []
+
+        if status_filter:
+            query += " WHERE status = %s"
+            params.append(status_filter)
+
+        query += " ORDER BY case_name"
+
+        if limit is not None:
+            query += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
+
+        cur.execute(query, params)
+        cases = [dict(row) for row in cur.fetchall()]
+
+        return {"items": cases, "total": total, "limit": limit, "offset": offset}
 
 
 def get_case_by_id(case_id: int) -> Optional[dict]:
@@ -893,27 +911,41 @@ def add_deadline(case_id: int, date: str, description: str, status: str = "Pendi
         return result
 
 
-def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None) -> List[dict]:
-    """Get deadlines, optionally filtered by urgency or status."""
+def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None,
+                           limit: int = None, offset: int = 0) -> dict:
+    """Get deadlines with optional filters and pagination."""
     with get_cursor() as cur:
-        query = """
+        # Build WHERE clause
+        where_parts = ["1=1"]
+        params = []
+
+        if urgency_filter:
+            where_parts.append("d.urgency >= %s")
+            params.append(urgency_filter)
+        if status_filter:
+            where_parts.append("d.status = %s")
+            params.append(status_filter)
+
+        where_clause = " AND ".join(where_parts)
+
+        # Get total count
+        cur.execute(f"SELECT COUNT(*) as count FROM deadlines d WHERE {where_clause}", params)
+        total = cur.fetchone()["count"]
+
+        # Get paginated results
+        query = f"""
             SELECT d.id, d.date, d.description, d.status, d.urgency,
                    d.document_link, d.calculation_note,
                    c.id as case_id, c.case_name
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
-            WHERE 1=1
+            WHERE {where_clause}
+            ORDER BY d.date
         """
-        params = []
 
-        if urgency_filter:
-            query += " AND d.urgency >= %s"
-            params.append(urgency_filter)
-        if status_filter:
-            query += " AND d.status = %s"
-            params.append(status_filter)
-
-        query += " ORDER BY d.date"
+        if limit is not None:
+            query += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
 
         cur.execute(query, params)
         results = []
@@ -921,7 +953,8 @@ def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None
             r = dict(row)
             r["date"] = str(r["date"])
             results.append(r)
-        return results
+
+        return {"items": results, "total": total, "limit": limit, "offset": offset}
 
 
 def update_deadline(deadline_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
@@ -971,31 +1004,44 @@ def add_task(case_id: int, description: str, due_date: str = None,
 
 
 def get_tasks(case_id: int = None, status_filter: str = None,
-              urgency_filter: int = None) -> List[dict]:
-    """Get tasks, optionally filtered by case, status, or urgency."""
+              urgency_filter: int = None, limit: int = None, offset: int = 0) -> dict:
+    """Get tasks with optional filters and pagination."""
     with get_cursor() as cur:
-        query = """
+        # Build WHERE clause
+        where_parts = ["1=1"]
+        params = []
+
+        if case_id:
+            where_parts.append("t.case_id = %s")
+            params.append(case_id)
+        if status_filter:
+            where_parts.append("t.status = %s")
+            params.append(status_filter)
+        if urgency_filter:
+            where_parts.append("t.urgency >= %s")
+            params.append(urgency_filter)
+
+        where_clause = " AND ".join(where_parts)
+
+        # Get total count
+        cur.execute(f"SELECT COUNT(*) as count FROM tasks t WHERE {where_clause}", params)
+        total = cur.fetchone()["count"]
+
+        # Get paginated results
+        query = f"""
             SELECT t.id, t.due_date, t.description, t.status, t.urgency,
                    t.deadline_id, c.id as case_id, c.case_name,
                    d.description as deadline_description, d.date as deadline_date
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             LEFT JOIN deadlines d ON t.deadline_id = d.id
-            WHERE 1=1
+            WHERE {where_clause}
+            ORDER BY t.due_date NULLS LAST
         """
-        params = []
 
-        if case_id:
-            query += " AND t.case_id = %s"
-            params.append(case_id)
-        if status_filter:
-            query += " AND t.status = %s"
-            params.append(status_filter)
-        if urgency_filter:
-            query += " AND t.urgency >= %s"
-            params.append(urgency_filter)
-
-        query += " ORDER BY t.due_date NULLS LAST"
+        if limit is not None:
+            query += " LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
 
         cur.execute(query, params)
         results = []
@@ -1006,7 +1052,8 @@ def get_tasks(case_id: int = None, status_filter: str = None,
             if r.get("deadline_date"):
                 r["deadline_date"] = str(r["deadline_date"])
             results.append(r)
-        return results
+
+        return {"items": results, "total": total, "limit": limit, "offset": offset}
 
 
 def update_task(task_id: int, status: str = None, urgency: int = None,

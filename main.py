@@ -125,8 +125,8 @@ def list_cases(status_filter: Optional[str] = None) -> dict:
 
     Returns list of cases with id, name, status, court.
     """
-    cases = db.get_all_cases(status_filter)
-    return {"cases": cases, "total": len(cases), "filter": status_filter}
+    result = db.get_all_cases(status_filter)
+    return {"cases": result["items"], "total": result["total"], "filter": status_filter}
 
 
 @mcp.tool()
@@ -588,8 +588,8 @@ def get_deadlines(
 
     Returns list of deadlines with case information.
     """
-    deadlines = db.get_upcoming_deadlines(urgency_filter, status_filter)
-    return {"deadlines": deadlines, "total": len(deadlines)}
+    result = db.get_upcoming_deadlines(urgency_filter, status_filter)
+    return {"deadlines": result["items"], "total": result["total"]}
 
 
 # ===== TASK TOOLS =====
@@ -644,8 +644,8 @@ def get_tasks(
 
     Returns list of tasks with case and deadline information.
     """
-    tasks = db.get_tasks(case_id, status_filter, urgency_filter)
-    return {"tasks": tasks, "total": len(tasks)}
+    result = db.get_tasks(case_id, status_filter, urgency_filter)
+    return {"tasks": result["items"], "total": result["total"]}
 
 
 @mcp.tool()
@@ -1105,8 +1105,17 @@ async def api_stats(request):
 @mcp.custom_route("/api/v1/cases", methods=["GET"])
 async def api_list_cases(request):
     status = request.query_params.get("status")
-    cases = db.get_all_cases(status)
-    return JSONResponse({"cases": cases, "total": len(cases)})
+    limit = request.query_params.get("limit")
+    offset = request.query_params.get("offset", "0")
+    limit = int(limit) if limit else db.DEFAULT_PAGE_SIZE
+    offset = int(offset)
+    result = db.get_all_cases(status, limit=limit, offset=offset)
+    return JSONResponse({
+        "cases": result["items"],
+        "total": result["total"],
+        "limit": result["limit"],
+        "offset": result["offset"]
+    })
 
 @mcp.custom_route("/api/v1/cases/{case_id}", methods=["GET"])
 async def api_get_case(request):
@@ -1150,12 +1159,23 @@ async def api_list_tasks(request):
     case_id = request.query_params.get("case_id")
     status = request.query_params.get("status")
     urgency = request.query_params.get("urgency")
-    tasks = db.get_tasks(
+    limit = request.query_params.get("limit")
+    offset = request.query_params.get("offset", "0")
+    limit = int(limit) if limit else db.DEFAULT_PAGE_SIZE
+    offset = int(offset)
+    result = db.get_tasks(
         int(case_id) if case_id else None,
         status,
-        int(urgency) if urgency else None
+        int(urgency) if urgency else None,
+        limit=limit,
+        offset=offset
     )
-    return JSONResponse({"tasks": tasks, "total": len(tasks)})
+    return JSONResponse({
+        "tasks": result["items"],
+        "total": result["total"],
+        "limit": result["limit"],
+        "offset": result["offset"]
+    })
 
 @mcp.custom_route("/api/v1/tasks", methods=["POST"])
 async def api_create_task(request):
@@ -1190,11 +1210,22 @@ async def api_delete_task(request):
 async def api_list_deadlines(request):
     urgency = request.query_params.get("urgency")
     status = request.query_params.get("status")
-    deadlines = db.get_upcoming_deadlines(
+    limit = request.query_params.get("limit")
+    offset = request.query_params.get("offset", "0")
+    limit = int(limit) if limit else db.DEFAULT_PAGE_SIZE
+    offset = int(offset)
+    result = db.get_upcoming_deadlines(
         int(urgency) if urgency else None,
-        status
+        status,
+        limit=limit,
+        offset=offset
     )
-    return JSONResponse({"deadlines": deadlines, "total": len(deadlines)})
+    return JSONResponse({
+        "deadlines": result["items"],
+        "total": result["total"],
+        "limit": result["limit"],
+        "offset": result["offset"]
+    })
 
 @mcp.custom_route("/api/v1/deadlines", methods=["POST"])
 async def api_create_deadline(request):
