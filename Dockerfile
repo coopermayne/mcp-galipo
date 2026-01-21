@@ -13,7 +13,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py database.py tools.py routes.py ./
+COPY main.py database.py tools.py routes.py auth.py ./
 COPY static/ ./static/
 COPY templates/ ./templates/
 
