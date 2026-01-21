@@ -191,6 +191,316 @@ def drop_all_tables():
     print("All tables dropped.")
 
 
+def migrate_db():
+    """Migrate existing database schema to new version.
+
+    This function handles incremental schema changes for production databases
+    that already have data. It should be idempotent (safe to run multiple times).
+    """
+    with get_cursor(dict_cursor=False) as cur:
+        # Check if we need to migrate by looking for old schema indicators
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'cases'
+            ) as cases_exists
+        """)
+        cases_exists = cur.fetchone()[0]
+
+        if not cases_exists:
+            # Fresh install, no migration needed
+            print("No existing tables found, skipping migration.")
+            return
+
+        print("Running database migrations...")
+
+        # 1. Create jurisdictions table if it doesn't exist
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS jurisdictions (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                local_rules_link TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 2. Seed jurisdictions from old court values if empty
+        cur.execute("SELECT COUNT(*) FROM jurisdictions")
+        if cur.fetchone()[0] == 0:
+            # Get unique court values from cases and create jurisdictions
+            cur.execute("SELECT DISTINCT court FROM cases WHERE court IS NOT NULL AND court != ''")
+            courts = [row[0] for row in cur.fetchall()]
+            for court_name in courts:
+                cur.execute(
+                    "INSERT INTO jurisdictions (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
+                    (court_name,)
+                )
+            # Also add default jurisdictions
+            for j in DEFAULT_JURISDICTIONS:
+                cur.execute(
+                    "INSERT INTO jurisdictions (name, local_rules_link) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING",
+                    (j["name"], j.get("local_rules_link"))
+                )
+
+        # 3. Add court_id column to cases if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'court_id'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE cases ADD COLUMN court_id INTEGER REFERENCES jurisdictions(id)")
+            # Migrate court string to court_id
+            cur.execute("""
+                UPDATE cases c
+                SET court_id = j.id
+                FROM jurisdictions j
+                WHERE c.court = j.name AND c.court_id IS NULL
+            """)
+            print("  - Added court_id column to cases")
+
+        # 4. Add result column to cases if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'result'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE cases ADD COLUMN result TEXT")
+            print("  - Added result column to cases")
+
+        # 5. Add short_name column to cases if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'short_name'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE cases ADD COLUMN short_name VARCHAR(100)")
+            print("  - Added short_name column to cases")
+
+        # 6. Create persons table if it doesn't exist
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS persons (
+                id SERIAL PRIMARY KEY,
+                person_type VARCHAR(50) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                phones JSONB DEFAULT '[]',
+                emails JSONB DEFAULT '[]',
+                address TEXT,
+                organization VARCHAR(255),
+                attributes JSONB DEFAULT '{}',
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                archived BOOLEAN DEFAULT FALSE
+            )
+        """)
+
+        # 7. Create case_persons junction table if it doesn't exist
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS case_persons (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
+                role VARCHAR(100) NOT NULL,
+                side VARCHAR(20) DEFAULT 'neutral',
+                case_attributes JSONB DEFAULT '{}',
+                case_notes TEXT,
+                is_primary BOOLEAN DEFAULT FALSE,
+                contact_via_person_id INTEGER REFERENCES persons(id),
+                assigned_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(case_id, person_id, role)
+            )
+        """)
+
+        # 8. Create person_types table if it doesn't exist
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS person_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 9. Create expertise_types table if it doesn't exist
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS expertise_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 10. Add time and location columns to deadlines if they don't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'deadlines' AND column_name = 'time'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE deadlines ADD COLUMN time TIME")
+            print("  - Added time column to deadlines")
+
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'deadlines' AND column_name = 'location'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE deadlines ADD COLUMN location TEXT")
+            print("  - Added location column to deadlines")
+
+        # 11. Add completion_date column to tasks if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'tasks' AND column_name = 'completion_date'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE tasks ADD COLUMN completion_date DATE")
+            print("  - Added completion_date column to tasks")
+
+        # 12. Migrate old clients table to persons if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'clients'
+            )
+        """)
+        if cur.fetchone()[0]:
+            cur.execute("""
+                INSERT INTO persons (person_type, name, phones, emails, notes, created_at)
+                SELECT
+                    'client',
+                    name,
+                    CASE WHEN phone IS NOT NULL AND phone != ''
+                        THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true))
+                        ELSE '[]'::jsonb
+                    END,
+                    CASE WHEN email IS NOT NULL AND email != ''
+                        THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true))
+                        ELSE '[]'::jsonb
+                    END,
+                    notes,
+                    COALESCE(created_at, CURRENT_TIMESTAMP)
+                FROM clients
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM persons p WHERE p.name = clients.name AND p.person_type = 'client'
+                )
+            """)
+            # Migrate client-case relationships
+            cur.execute("""
+                INSERT INTO case_persons (case_id, person_id, role, side, is_primary)
+                SELECT
+                    c.case_id,
+                    p.id,
+                    'Client',
+                    'plaintiff',
+                    c.is_primary
+                FROM clients c
+                JOIN persons p ON p.name = c.name AND p.person_type = 'client'
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM case_persons cp
+                    WHERE cp.case_id = c.case_id AND cp.person_id = p.id AND cp.role = 'Client'
+                )
+            """)
+            print("  - Migrated clients to persons table")
+
+        # 13. Migrate old defendants table to persons if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'defendants'
+            )
+        """)
+        if cur.fetchone()[0]:
+            cur.execute("""
+                INSERT INTO persons (person_type, name, created_at)
+                SELECT
+                    'defendant',
+                    name,
+                    COALESCE(created_at, CURRENT_TIMESTAMP)
+                FROM defendants
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM persons p WHERE p.name = defendants.name AND p.person_type = 'defendant'
+                )
+            """)
+            # Migrate defendant-case relationships
+            cur.execute("""
+                INSERT INTO case_persons (case_id, person_id, role, side)
+                SELECT
+                    d.case_id,
+                    p.id,
+                    'Defendant',
+                    'defendant'
+                FROM defendants d
+                JOIN persons p ON p.name = d.name AND p.person_type = 'defendant'
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM case_persons cp
+                    WHERE cp.case_id = d.case_id AND cp.person_id = p.id AND cp.role = 'Defendant'
+                )
+            """)
+            print("  - Migrated defendants to persons table")
+
+        # 14. Migrate old contacts table to persons if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'contacts'
+            )
+        """)
+        if cur.fetchone()[0]:
+            cur.execute("""
+                INSERT INTO persons (person_type, name, phones, emails, organization, created_at)
+                SELECT
+                    'attorney',
+                    name,
+                    CASE WHEN phone IS NOT NULL AND phone != ''
+                        THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true))
+                        ELSE '[]'::jsonb
+                    END,
+                    CASE WHEN email IS NOT NULL AND email != ''
+                        THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true))
+                        ELSE '[]'::jsonb
+                    END,
+                    firm,
+                    COALESCE(created_at, CURRENT_TIMESTAMP)
+                FROM contacts
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM persons p WHERE p.name = contacts.name
+                )
+            """)
+            # Migrate contact-case relationships
+            cur.execute("""
+                INSERT INTO case_persons (case_id, person_id, role, side)
+                SELECT
+                    c.case_id,
+                    p.id,
+                    COALESCE(c.role, 'Contact'),
+                    'neutral'
+                FROM contacts c
+                JOIN persons p ON p.name = c.name
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM case_persons cp
+                    WHERE cp.case_id = c.case_id AND cp.person_id = p.id
+                )
+            """)
+            print("  - Migrated contacts to persons table")
+
+        print("Database migration complete.")
+
+
 def init_db():
     """Create tables if they don't exist."""
     with get_cursor(dict_cursor=False) as cur:
