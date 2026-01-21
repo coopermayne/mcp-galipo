@@ -138,7 +138,9 @@ def register_routes(mcp):
             "case_statuses": db.CASE_STATUSES,
             "contact_roles": db.CONTACT_ROLES,
             "task_statuses": db.TASK_STATUSES,
-            "courts": db.COURT_OPTIONS
+            "courts": db.COURT_OPTIONS,
+            "person_types": db.PERSON_TYPES,
+            "person_sides": db.PERSON_SIDES
         })
 
     # ===== CASE ROUTES =====
@@ -535,6 +537,267 @@ def register_routes(mcp):
         if db.remove_contact_from_case(case_id, contact_id, role):
             return JSONResponse({"success": True})
         return api_error("Contact not linked to case", "NOT_FOUND", 404)
+
+    # ===== PERSON ROUTES =====
+
+    @mcp.custom_route("/api/v1/persons", methods=["GET"])
+    async def api_list_persons(request):
+        """List/search persons with optional filters."""
+        if err := auth.require_auth(request):
+            return err
+        name = request.query_params.get("name")
+        person_type = request.query_params.get("type")
+        organization = request.query_params.get("organization")
+        email = request.query_params.get("email")
+        phone = request.query_params.get("phone")
+        case_id = request.query_params.get("case_id")
+        include_archived = request.query_params.get("archived", "false").lower() == "true"
+        limit = int(request.query_params.get("limit", 50))
+        offset = int(request.query_params.get("offset", 0))
+
+        result = db.search_persons(
+            name=name,
+            person_type=person_type,
+            organization=organization,
+            email=email,
+            phone=phone,
+            case_id=int(case_id) if case_id else None,
+            include_archived=include_archived,
+            limit=limit,
+            offset=offset
+        )
+        return JSONResponse({
+            "persons": result["items"],
+            "total": result["total"],
+            "limit": result["limit"],
+            "offset": result["offset"]
+        })
+
+    @mcp.custom_route("/api/v1/persons", methods=["POST"])
+    async def api_create_person(request):
+        """Create a new person."""
+        if err := auth.require_auth(request):
+            return err
+        data = await request.json()
+        if not data.get("name"):
+            return api_error("Name is required", "VALIDATION_ERROR", 400)
+        if not data.get("person_type"):
+            return api_error("person_type is required", "VALIDATION_ERROR", 400)
+        try:
+            db.validate_person_type(data["person_type"])
+        except db.ValidationError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
+        result = db.create_person(
+            person_type=data["person_type"],
+            name=data["name"],
+            phone=data.get("phone"),
+            email=data.get("email"),
+            address=data.get("address"),
+            organization=data.get("organization"),
+            attributes=data.get("attributes"),
+            notes=data.get("notes")
+        )
+
+        return JSONResponse({"success": True, "person": result})
+
+    @mcp.custom_route("/api/v1/persons/{person_id}", methods=["GET"])
+    async def api_get_person(request):
+        """Get a person by ID with all details."""
+        if err := auth.require_auth(request):
+            return err
+        person_id = int(request.path_params["person_id"])
+        result = db.get_person_by_id(person_id)
+        if not result:
+            return api_error("Person not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "person": result})
+
+    @mcp.custom_route("/api/v1/persons/{person_id}", methods=["PUT"])
+    async def api_update_person(request):
+        """Update a person."""
+        if err := auth.require_auth(request):
+            return err
+        person_id = int(request.path_params["person_id"])
+        data = await request.json()
+
+        if data.get("person_type"):
+            try:
+                db.validate_person_type(data["person_type"])
+            except db.ValidationError as e:
+                return api_error(str(e), "VALIDATION_ERROR", 400)
+
+        result = db.update_person(
+            person_id,
+            name=data.get("name"),
+            person_type=data.get("person_type"),
+            phone=data.get("phone"),
+            email=data.get("email"),
+            address=data.get("address"),
+            organization=data.get("organization"),
+            attributes=data.get("attributes"),
+            notes=data.get("notes"),
+            archived=data.get("archived")
+        )
+        if not result:
+            return api_error("Person not found", "NOT_FOUND", 404)
+
+        return JSONResponse({"success": True, "person": result})
+
+    @mcp.custom_route("/api/v1/persons/{person_id}", methods=["DELETE"])
+    async def api_delete_person(request):
+        """Archive (soft delete) a person."""
+        if err := auth.require_auth(request):
+            return err
+        person_id = int(request.path_params["person_id"])
+        # Check if permanent delete requested
+        permanent = request.query_params.get("permanent", "false").lower() == "true"
+        if permanent:
+            if db.delete_person(person_id):
+                return JSONResponse({"success": True, "action": "deleted"})
+        else:
+            if db.archive_person(person_id):
+                return JSONResponse({"success": True, "action": "archived"})
+        return api_error("Person not found", "NOT_FOUND", 404)
+
+    # Case-Person assignments
+    @mcp.custom_route("/api/v1/cases/{case_id}/persons", methods=["GET"])
+    async def api_get_case_persons(request):
+        """List all persons assigned to a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        person_type = request.query_params.get("type")
+        role = request.query_params.get("role")
+        side = request.query_params.get("side")
+
+        result = db.get_case_persons(case_id, person_type, role, side)
+        return JSONResponse({"success": True, "persons": result, "total": len(result)})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/persons", methods=["POST"])
+    async def api_assign_person_to_case(request):
+        """Assign a person to a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        data = await request.json()
+
+        if not data.get("person_id"):
+            return api_error("person_id is required", "VALIDATION_ERROR", 400)
+        if not data.get("role"):
+            return api_error("role is required", "VALIDATION_ERROR", 400)
+
+        try:
+            if data.get("side"):
+                db.validate_person_side(data["side"])
+            if data.get("assigned_date"):
+                db.validate_date_format(data["assigned_date"], "assigned_date")
+        except db.ValidationError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
+        result = db.assign_person_to_case(
+            case_id=case_id,
+            person_id=data["person_id"],
+            role=data["role"],
+            side=data.get("side"),
+            case_attributes=data.get("case_attributes"),
+            case_notes=data.get("case_notes"),
+            is_primary=data.get("is_primary", False),
+            contact_directly=data.get("contact_directly", True),
+            contact_via_person_id=data.get("contact_via_person_id"),
+            contact_via_relationship=data.get("contact_via_relationship"),
+            assigned_date=data.get("assigned_date")
+        )
+        return JSONResponse({"success": True, "assignment": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/persons/{person_id}", methods=["PUT"])
+    async def api_update_case_assignment(request):
+        """Update a case-person assignment."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        person_id = int(request.path_params["person_id"])
+        data = await request.json()
+
+        if not data.get("role"):
+            return api_error("role is required to identify the assignment", "VALIDATION_ERROR", 400)
+
+        try:
+            if data.get("side"):
+                db.validate_person_side(data["side"])
+            if data.get("assigned_date"):
+                db.validate_date_format(data["assigned_date"], "assigned_date")
+        except db.ValidationError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
+        result = db.update_case_assignment(
+            case_id=case_id,
+            person_id=person_id,
+            role=data["role"],
+            side=data.get("side"),
+            case_attributes=data.get("case_attributes"),
+            case_notes=data.get("case_notes"),
+            is_primary=data.get("is_primary"),
+            contact_directly=data.get("contact_directly"),
+            contact_via_person_id=data.get("contact_via_person_id"),
+            contact_via_relationship=data.get("contact_via_relationship"),
+            assigned_date=data.get("assigned_date")
+        )
+        if not result:
+            return api_error("Assignment not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "assignment": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/persons/{person_id}", methods=["DELETE"])
+    async def api_remove_person_from_case(request):
+        """Remove a person from a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        person_id = int(request.path_params["person_id"])
+        role = request.query_params.get("role")
+
+        if db.remove_person_from_case(case_id, person_id, role):
+            return JSONResponse({"success": True})
+        return api_error("Assignment not found", "NOT_FOUND", 404)
+
+    # Expertise Types
+    @mcp.custom_route("/api/v1/expertise-types", methods=["GET"])
+    async def api_list_expertise_types(request):
+        """List all expertise types."""
+        if err := auth.require_auth(request):
+            return err
+        result = db.get_expertise_types()
+        return JSONResponse({"success": True, "expertise_types": result, "total": len(result)})
+
+    @mcp.custom_route("/api/v1/expertise-types", methods=["POST"])
+    async def api_create_expertise_type(request):
+        """Create a new expertise type."""
+        if err := auth.require_auth(request):
+            return err
+        data = await request.json()
+        if not data.get("name"):
+            return api_error("Name is required", "VALIDATION_ERROR", 400)
+        result = db.create_expertise_type(data["name"], data.get("description"))
+        return JSONResponse({"success": True, "expertise_type": result})
+
+    # Person Types
+    @mcp.custom_route("/api/v1/person-types", methods=["GET"])
+    async def api_list_person_types(request):
+        """List all person types."""
+        if err := auth.require_auth(request):
+            return err
+        result = db.get_person_types()
+        return JSONResponse({"success": True, "person_types": result, "total": len(result)})
+
+    @mcp.custom_route("/api/v1/person-types", methods=["POST"])
+    async def api_create_person_type(request):
+        """Create a new person type."""
+        if err := auth.require_auth(request):
+            return err
+        data = await request.json()
+        if not data.get("name"):
+            return api_error("Name is required", "VALIDATION_ERROR", 400)
+        result = db.create_person_type(data["name"], data.get("description"))
+        return JSONResponse({"success": True, "person_type": result})
 
     # ===== REACT SPA ROUTES (must be last!) =====
 

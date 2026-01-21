@@ -176,6 +176,8 @@ export interface Constants {
   contact_roles: string[];
   task_statuses: string[];
   courts: string[];
+  person_types?: string[];
+  person_sides?: string[];
 }
 
 // Calendar item type
@@ -255,4 +257,160 @@ export interface UpdateDeadlineInput {
   urgency?: number;
   document_link?: string;
   calculation_note?: string;
+}
+
+// Person types (unified person management)
+// PersonType is extensible - any string is allowed. Common types include:
+// client, attorney, judge, expert, mediator, defendant, witness, lien_holder, interpreter, etc.
+export type PersonType = string;
+export type PersonSide = 'plaintiff' | 'defendant' | 'neutral';
+
+// Expertise types for experts (used as lookup/dropdown values)
+export interface ExpertiseType {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+// Person types (used as lookup/dropdown values)
+export interface PersonTypeRecord {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+// Type-specific attributes (stored in JSONB)
+export interface JudgeAttributes {
+  status?: string;
+  jurisdiction?: string;
+  chambers?: string;
+  courtroom_number?: string;
+  appointed_by?: string;
+  initials?: string;
+  tenure?: string;
+}
+
+export interface ExpertAttributes {
+  hourly_rate?: number;
+  deposition_rate?: number;
+  trial_rate?: number;
+  expertises?: string[];  // Array of expertise names stored in JSONB
+}
+
+export interface AttorneyAttributes {
+  bar_number?: string;
+}
+
+export interface MediatorAttributes {
+  half_day_rate?: number;
+  full_day_rate?: number;
+  style?: string;
+}
+
+export interface ClientAttributes {
+  date_of_birth?: string;
+  preferred_language?: string;
+  emergency_contact?: string;
+}
+
+export type PersonAttributes = JudgeAttributes | ExpertAttributes | AttorneyAttributes | MediatorAttributes | ClientAttributes | Record<string, unknown>;
+
+export interface Person {
+  id: number;
+  person_type: PersonType;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  organization?: string;
+  attributes: PersonAttributes;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  archived: boolean;
+  case_assignments?: CasePersonAssignment[];
+}
+
+export interface CasePersonAssignment {
+  id: number;
+  case_id: number;
+  case_name?: string;
+  short_name?: string;
+  person_id: number;
+  role: string;
+  side?: PersonSide;
+  case_attributes: Record<string, unknown>;
+  case_notes?: string;
+  is_primary: boolean;
+  contact_directly: boolean;
+  contact_via_person_id?: number;
+  contact_via_name?: string;
+  contact_via_relationship?: string;
+  assigned_date?: string;
+  created_at: string;
+}
+
+export interface CasePerson extends Person {
+  assignment_id: number;
+  role: string;
+  side?: PersonSide;
+  case_attributes: Record<string, unknown>;
+  case_notes?: string;
+  is_primary: boolean;
+  contact_directly: boolean;
+  contact_via_person_id?: number;
+  contact_via_name?: string;
+  contact_via_relationship?: string;
+  assigned_date?: string;
+  assigned_at: string;
+  person_notes?: string;
+}
+
+// Person API input types
+export interface CreatePersonInput {
+  person_type: PersonType;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  organization?: string;
+  attributes?: PersonAttributes;
+  notes?: string;
+}
+
+export interface UpdatePersonInput {
+  name?: string;
+  person_type?: PersonType;
+  phone?: string;
+  email?: string;
+  address?: string;
+  organization?: string;
+  attributes?: PersonAttributes;
+  notes?: string;
+  archived?: boolean;
+}
+
+export interface AssignPersonInput {
+  person_id: number;
+  role: string;
+  side?: PersonSide;
+  case_attributes?: Record<string, unknown>;
+  case_notes?: string;
+  is_primary?: boolean;
+  contact_directly?: boolean;
+  contact_via_person_id?: number;
+  contact_via_relationship?: string;
+  assigned_date?: string;
+}
+
+export interface UpdateAssignmentInput {
+  role: string;
+  side?: PersonSide;
+  case_attributes?: Record<string, unknown>;
+  case_notes?: string;
+  is_primary?: boolean;
+  contact_directly?: boolean;
+  contact_via_person_id?: number;
+  contact_via_relationship?: string;
+  assigned_date?: string;
 }
