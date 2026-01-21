@@ -81,10 +81,15 @@ def register_tools(mcp):
         court: Optional[str] = None,
         print_code: Optional[str] = None,
         case_summary: Optional[str] = None,
-        date_of_injury: Optional[str] = None
+        date_of_injury: Optional[str] = None,
+        case_numbers: Optional[list] = None,
+        clients: Optional[list] = None,
+        defendants: Optional[list] = None
     ) -> dict:
         """
-        Create a new case.
+        Create a new case with optional nested clients, defendants, and case numbers.
+
+        This tool can create a complete case in a single call, including all related entities.
 
         Args:
             case_name: Name of the case (e.g., "Jones v. LAPD")
@@ -93,8 +98,25 @@ def register_tools(mcp):
             print_code: Short code for printing/filing
             case_summary: Brief description of the case
             date_of_injury: Date of injury (YYYY-MM-DD format)
+            case_numbers: List of case numbers
+                          Format: [{"number": "24STCV12345", "label": "State", "primary": true}]
+            clients: List of clients/plaintiffs to add
+                     Format: [{"name": "Maria Martinez", "phone": "555-1234", "is_primary": true}]
+                     Optional fields: email, address, contact_directly, contact_via, contact_via_relationship, notes
+            defendants: List of defendant names
+                        Format: ["City of Los Angeles", "LAPD"]
 
-        Returns the created case with its ID.
+        Returns the created case with IDs and summary of added entities.
+
+        Example:
+            create_case(
+                case_name="Martinez v. City of LA",
+                status="Signing Up",
+                court="LA Superior Court",
+                clients=[{"name": "Maria Martinez", "phone": "555-1234", "is_primary": true}],
+                defendants=["City of Los Angeles", "LAPD"],
+                case_numbers=[{"number": "24STCV12345", "label": "State", "primary": true}]
+            )
         """
         try:
             db.validate_case_status(status)
@@ -103,7 +125,10 @@ def register_tools(mcp):
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.create_case(case_name, status, court, print_code, case_summary, date_of_injury)
+        result = db.create_case(
+            case_name, status, court, print_code, case_summary,
+            date_of_injury, case_numbers, clients, defendants
+        )
         return {"success": True, "message": f"Case '{case_name}' created", "case": result}
 
     @mcp.tool()
@@ -119,7 +144,8 @@ def register_tools(mcp):
         claim_filed_date: Optional[str] = None,
         complaint_due: Optional[str] = None,
         complaint_filed_date: Optional[str] = None,
-        trial_date: Optional[str] = None
+        trial_date: Optional[str] = None,
+        case_numbers: Optional[list] = None
     ) -> dict:
         """
         Update case fields.
@@ -137,6 +163,8 @@ def register_tools(mcp):
             complaint_due: Complaint due date (YYYY-MM-DD)
             complaint_filed_date: Date complaint was filed (YYYY-MM-DD)
             trial_date: Trial date (YYYY-MM-DD)
+            case_numbers: List of case numbers (replaces entire list).
+                          Format: [{"number": "24STCV12345", "label": "State", "primary": true}]
 
         Returns updated case info.
         """
@@ -158,7 +186,8 @@ def register_tools(mcp):
             print_code=print_code, case_summary=case_summary,
             date_of_injury=date_of_injury, claim_due=claim_due,
             claim_filed_date=claim_filed_date, complaint_due=complaint_due,
-            complaint_filed_date=complaint_filed_date, trial_date=trial_date
+            complaint_filed_date=complaint_filed_date, trial_date=trial_date,
+            case_numbers=case_numbers
         )
         if not result:
             return not_found_error("Case or no updates provided")
@@ -167,233 +196,94 @@ def register_tools(mcp):
     # ===== CLIENT TOOLS =====
 
     @mcp.tool()
-    def add_client(
+    def add_client_to_case(
         case_id: int,
         name: str,
         phone: Optional[str] = None,
         email: Optional[str] = None,
         address: Optional[str] = None,
         contact_directly: bool = True,
-        contact_via_name: Optional[str] = None,
+        contact_via: Optional[str] = None,
         contact_via_relationship: Optional[str] = None,
         is_primary: bool = False,
         notes: Optional[str] = None
     ) -> dict:
         """
-        Add a client to a case. Creates the client and links to case.
+        Add a client to a case. Automatically finds existing client or creates new.
+
+        This smart tool:
+        - Searches for existing client by name (+ phone/email if provided)
+        - If found, links existing client to case
+        - If not found, creates new client and links to case
+        - Handles contact preferences (direct or via guardian/family member)
 
         Args:
             case_id: ID of the case
-            name: Client's full name
-            phone: Phone number
-            email: Email address
+            name: Client's full name (e.g., "Maria Martinez")
+            phone: Phone number (helps match existing clients)
+            email: Email address (helps match existing clients)
             address: Mailing address
             contact_directly: Whether to contact client directly (default True)
-            contact_via_name: If not direct, name of contact person (e.g., "Rosa Martinez")
-            contact_via_relationship: Relationship of contact person (e.g., "Mother", "Guardian")
-            is_primary: Whether this is the primary client
-            notes: Additional notes
+            contact_via: If not direct, name of contact person (e.g., "Rosa Martinez")
+            contact_via_relationship: Relationship (e.g., "Mother", "Guardian", "Spouse")
+            is_primary: Whether this is the primary plaintiff
+            notes: Additional notes about this client
 
-        Returns confirmation of client addition.
+        Returns confirmation with client_id and whether a new client was created.
         """
-        # Create the client
-        client = db.create_client(name, phone, email, address, notes)
-
-        # If contacting via someone, find or create that contact
-        contact_via_id = None
-        if not contact_directly and contact_via_name:
-            existing = db.get_contact_by_name(contact_via_name)
-            if existing:
-                contact_via_id = existing["id"]
-            else:
-                new_contact = db.create_contact(contact_via_name)
-                contact_via_id = new_contact["id"]
-
-        # Link client to case
-        db.add_client_to_case(
-            case_id, client["id"], contact_directly,
-            contact_via_id, contact_via_relationship, is_primary, notes
+        result = db.smart_add_client_to_case(
+            case_id, name, phone, email, address,
+            contact_directly, contact_via, contact_via_relationship,
+            is_primary, notes
         )
-
-        return {
-            "success": True,
-            "message": f"Client '{name}' added to case",
-            "client_id": client["id"],
-            "contact_method": "direct" if contact_directly else f"via {contact_via_name} ({contact_via_relationship})"
-        }
-
-    @mcp.tool()
-    def link_existing_client(
-        case_id: int,
-        client_id: int,
-        contact_directly: bool = True,
-        contact_via_id: Optional[int] = None,
-        contact_via_relationship: Optional[str] = None,
-        is_primary: bool = False,
-        notes: Optional[str] = None
-    ) -> dict:
-        """
-        Link an existing client to a case (use when client already exists in system).
-
-        Use search_clients first to find the client ID.
-
-        Args:
-            case_id: ID of the case
-            client_id: ID of the existing client
-            contact_directly: Whether to contact client directly (default True)
-            contact_via_id: ID of contact person (use search_contacts to find)
-            contact_via_relationship: Relationship of contact person (e.g., "Mother", "Guardian")
-            is_primary: Whether this is the primary client
-            notes: Additional notes
-
-        Returns confirmation of link.
-        """
-        result = db.link_existing_client_to_case(
-            case_id, client_id, contact_directly,
-            contact_via_id, contact_via_relationship, is_primary, notes
-        )
-        if not result:
-            return not_found_error("Client")
-        return {
-            "success": True,
-            "message": f"Client '{result['client_name']}' linked to case",
-            "client_id": result["client_id"],
-            "contact_method": "direct" if contact_directly else f"via contact {contact_via_id} ({contact_via_relationship})"
-        }
-
-    @mcp.tool()
-    def update_client_case_link(
-        case_id: int,
-        client_id: int,
-        contact_directly: Optional[bool] = None,
-        contact_via_id: Optional[int] = None,
-        contact_via_relationship: Optional[str] = None,
-        is_primary: Optional[bool] = None,
-        notes: Optional[str] = None
-    ) -> dict:
-        """
-        Update the contact preferences for a client-case relationship.
-
-        Args:
-            case_id: ID of the case
-            client_id: ID of the client
-            contact_directly: Whether to contact client directly
-            contact_via_id: ID of contact person
-            contact_via_relationship: Relationship of contact person
-            is_primary: Whether this is the primary client
-            notes: Additional notes
-
-        Returns updated link info.
-        """
-        result = db.update_client_case_link(
-            case_id, client_id, contact_directly,
-            contact_via_id, contact_via_relationship, is_primary, notes
-        )
-        if not result:
-            return not_found_error("Client-case link or no updates provided")
-        return {"success": True, "link": result}
+        return result
 
     # ===== CASE NUMBER TOOLS =====
-
-    @mcp.tool()
-    def update_case_number(
-        case_number_id: int,
-        case_number: Optional[str] = None,
-        label: Optional[str] = None,
-        is_primary: Optional[bool] = None
-    ) -> dict:
-        """
-        Update a case number.
-
-        Args:
-            case_number_id: ID of the case number record
-            case_number: New case number value
-            label: New label (e.g., "State", "Federal", "Appeal")
-            is_primary: Whether this is the primary case number
-
-        Returns updated case number.
-        """
-        result = db.update_case_number(case_number_id, case_number, label, is_primary)
-        if not result:
-            return not_found_error("Case number or no updates provided")
-        return {"success": True, "case_number": result}
-
-    @mcp.tool()
-    def add_case_number(
-        case_id: int,
-        case_number: str,
-        label: Optional[str] = None,
-        is_primary: bool = False
-    ) -> dict:
-        """
-        Add a case number to a case.
-
-        Args:
-            case_id: ID of the case
-            case_number: The case number (e.g., "24STCV12345")
-            label: Type of case number (e.g., "State", "Federal", "Appeal")
-            is_primary: Whether this is the primary case number
-
-        Returns the created case number.
-        """
-        result = db.add_case_number(case_id, case_number, label, is_primary)
-        return {"success": True, "case_number": result}
+    # NOTE: Case numbers are now managed via update_case(case_id, case_numbers=[...])
+    # The individual add_case_number, update_case_number, delete_case_number tools
+    # have been removed as part of the interface simplification (Phase 1).
 
     # ===== CONTACT TOOLS =====
 
     @mcp.tool()
-    def add_contact(
+    def add_contact_to_case(
+        case_id: int,
         name: str,
+        role: str,
         firm: Optional[str] = None,
         phone: Optional[str] = None,
         email: Optional[str] = None,
-        address: Optional[str] = None,
         notes: Optional[str] = None
     ) -> dict:
         """
-        Create a new contact (opposing counsel, expert, etc).
+        Add a contact to a case with a specific role. Automatically finds existing or creates new.
 
-        Args:
-            name: Contact's full name
-            firm: Firm or organization name
-            phone: Phone number
-            email: Email address
-            address: Mailing address
-            notes: Additional notes
-
-        Returns the created contact with ID.
-        """
-        result = db.create_contact(name, firm, phone, email, address, notes)
-        return {"success": True, "contact": result}
-
-    @mcp.tool()
-    def link_contact(
-        case_id: int,
-        contact_id: int,
-        role: str,
-        notes: Optional[str] = None
-    ) -> dict:
-        """
-        Link an existing contact to a case with a specific role.
+        This smart tool:
+        - Searches for existing contact by name (+ firm if provided)
+        - If found, links existing contact to case with the specified role
+        - If not found, creates new contact and links to case
 
         Args:
             case_id: ID of the case
-            contact_id: ID of the contact
+            name: Contact's full name (e.g., "John Smith", "Hon. Garcia")
             role: Role in this case. Valid roles: Opposing Counsel, Co-Counsel,
                   Referring Attorney, Mediator, Judge, Magistrate Judge,
                   Plaintiff Expert, Defendant Expert, Witness, Client Contact,
                   Guardian Ad Litem, Family Contact
+            firm: Firm or organization (e.g., "City Attorney's Office")
+            phone: Phone number
+            email: Email address
             notes: Notes specific to this case/role
 
-        Returns confirmation of the link.
+        Returns confirmation with contact_id and whether a new contact was created.
         """
         try:
             db.validate_contact_role(role)
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.link_contact_to_case(case_id, contact_id, role, notes)
-        return {"success": True, "message": f"Contact linked as {role}", "result": result}
+        result = db.smart_add_contact_to_case(case_id, name, role, firm, phone, email, notes)
+        return result
 
     # ===== DEFENDANT TOOLS =====
 
@@ -411,90 +301,53 @@ def register_tools(mcp):
         db.add_defendant_to_case(case_id, defendant_name)
         return {"success": True, "message": f"Defendant '{defendant_name}' added to case"}
 
-    @mcp.tool()
-    def update_defendant(defendant_id: int, name: str) -> dict:
-        """
-        Update a defendant's name.
+    # update_defendant REMOVED - rarely needed; remove and re-add defendant instead
 
-        Args:
-            defendant_id: ID of the defendant
-            name: New name for the defendant
-
-        Returns updated defendant.
-        """
-        result = db.update_defendant(defendant_id, name)
-        if not result:
-            return not_found_error("Defendant")
-        return {"success": True, "defendant": result}
-
-    @mcp.tool()
-    def search_cases_by_defendant(defendant_name: str) -> dict:
-        """
-        Search for all cases involving a defendant.
-
-        Args:
-            defendant_name: Full or partial defendant name to search
-
-        Returns list of matching cases.
-        """
-        cases = db.search_cases_by_defendant(defendant_name)
-        return {"cases": cases, "total": len(cases), "search": defendant_name}
+    # search_cases_by_defendant REMOVED - use search_cases(defendant="...") instead
 
     # ===== SEARCH TOOLS =====
 
-    @mcp.tool()
-    def search_clients(
-        name: Optional[str] = None,
-        phone: Optional[str] = None,
-        email: Optional[str] = None
-    ) -> dict:
-        """
-        Search for clients/plaintiffs by name, phone, or email (partial match).
-
-        Use this to find a client before updating their info or to disambiguate
-        when multiple clients might match. Returns clients with their case
-        associations so you can identify the right person.
-
-        Args:
-            name: Full or partial client name (e.g., "Martinez")
-            phone: Full or partial phone number
-            email: Full or partial email address
-
-        At least one search parameter must be provided.
-
-        Returns matching clients with their case associations:
-        [{id, name, phone, email, cases: [{id, case_name, status}]}]
-        """
-        if not any([name, phone, email]):
-            return validation_error("Provide at least one search parameter (name, phone, or email)")
-
-        clients = db.search_clients(name, phone, email)
-        return {"clients": clients, "total": len(clients)}
+    # search_clients REMOVED - add_client_to_case handles lookup internally
+    # Use search_cases(client="...") to find cases by client name
 
     @mcp.tool()
     def search_cases(
-        name: Optional[str] = None,
-        case_number: Optional[str] = None
+        query: Optional[str] = None,
+        case_number: Optional[str] = None,
+        defendant: Optional[str] = None,
+        client: Optional[str] = None,
+        contact: Optional[str] = None,
+        status: Optional[str] = None
     ) -> dict:
         """
-        Search for cases by name or case number (partial match).
+        Search for cases with multiple filter options.
 
-        Use this to find a case before performing operations on it.
-        Returns cases with their clients and defendants for context.
+        All provided filters are combined with AND logic (case must match all filters).
+        This replaces the need for separate search_cases_by_defendant tool.
 
         Args:
-            name: Full or partial case name (e.g., "Martinez", "City of LA")
-            case_number: Full or partial case number (e.g., "24STCV", "12345")
+            query: Free text search on case name (e.g., "Martinez", "City of LA")
+            case_number: Search by case number (e.g., "24STCV", "12345")
+            defendant: Filter by defendant name (e.g., "City of Los Angeles")
+            client: Filter by client/plaintiff name (e.g., "Martinez")
+            contact: Filter by contact name (e.g., "Smith")
+            status: Filter by exact status (e.g., "Discovery", "Pre-trial")
 
         At least one search parameter must be provided.
 
-        Returns matching cases with context:
-        [{id, case_name, status, clients: [{id, name}], defendants: [{id, name}], case_numbers: [...]}]
-        """
-        if not any([name, case_number]):
-            return validation_error("Provide at least one search parameter (name or case_number)")
+        Returns matching cases with full context:
+        [{id, case_name, status, court, clients, defendants, contacts, case_numbers}]
 
-        cases = db.search_cases(name, case_number)
+        Examples:
+            - search_cases(query="Martinez") - find cases with "Martinez" in the name
+            - search_cases(defendant="LAPD") - find all cases against LAPD
+            - search_cases(status="Discovery") - find all cases in Discovery phase
+            - search_cases(defendant="City", status="Pre-trial") - cases against "City" in Pre-trial
+        """
+        if not any([query, case_number, defendant, client, contact, status]):
+            return validation_error("Provide at least one search parameter")
+
+        cases = db.search_cases(query, case_number, defendant, client, contact, status)
         return {"cases": cases, "total": len(cases)}
 
     @mcp.tool()
@@ -592,20 +445,60 @@ def register_tools(mcp):
 
     @mcp.tool()
     def get_deadlines(
+        case_id: Optional[int] = None,
         urgency_filter: Optional[int] = None,
-        status_filter: Optional[str] = None
+        status_filter: Optional[str] = None,
+        due_within_days: Optional[int] = None
     ) -> dict:
         """
-        Get deadlines across all cases, optionally filtered.
+        Get deadlines, optionally filtered by case, urgency, status, or due date.
 
         Args:
+            case_id: Filter by specific case
             urgency_filter: Minimum urgency level (1-5). E.g., 4 returns urgency 4 and 5.
             status_filter: Filter by status (e.g., "Pending")
+            due_within_days: Only deadlines due within N days from today
 
         Returns list of deadlines with case information.
+
+        Examples:
+            - get_deadlines(due_within_days=7) - deadlines due this week
+            - get_deadlines(status_filter="Pending", urgency_filter=5) - critical pending deadlines
+            - get_deadlines(case_id=5) - all deadlines for case 5
         """
-        result = db.get_upcoming_deadlines(urgency_filter, status_filter)
+        result = db.get_upcoming_deadlines(urgency_filter, status_filter, due_within_days, case_id)
         return {"deadlines": result["items"], "total": result["total"]}
+
+    @mcp.tool()
+    def get_calendar(
+        days: int = 30,
+        include_tasks: bool = True,
+        include_deadlines: bool = True,
+        case_id: Optional[int] = None
+    ) -> dict:
+        """
+        Get a combined calendar view of tasks and deadlines.
+
+        This tool provides a unified view of everything due in the specified time period,
+        sorted by date. Great for answering questions like "What's on my calendar this week?"
+
+        Args:
+            days: Number of days to look ahead (default 30)
+            include_tasks: Include tasks in results (default True)
+            include_deadlines: Include deadlines in results (default True)
+            case_id: Optional filter to specific case
+
+        Returns combined list sorted by date, with items grouped by date.
+        Each item includes: id, date, description, status, urgency, case_id, case_name, item_type
+
+        Examples:
+            - get_calendar(days=7) - everything due this week
+            - get_calendar(days=1) - what's due today
+            - get_calendar(case_id=5, days=30) - calendar for specific case
+            - get_calendar(include_tasks=False) - deadlines only
+        """
+        result = db.get_calendar(days, include_tasks, include_deadlines, case_id)
+        return result
 
     # ===== TASK TOOLS =====
 
@@ -646,19 +539,26 @@ def register_tools(mcp):
     def get_tasks(
         case_id: Optional[int] = None,
         status_filter: Optional[str] = None,
-        urgency_filter: Optional[int] = None
+        urgency_filter: Optional[int] = None,
+        due_within_days: Optional[int] = None
     ) -> dict:
         """
-        Get tasks, optionally filtered by case, status, or urgency.
+        Get tasks, optionally filtered by case, status, urgency, or due date.
 
         Args:
             case_id: Filter by specific case
             status_filter: Filter by status (Pending, Active, Done, etc.)
-            urgency_filter: Minimum urgency level (1-5)
+            urgency_filter: Minimum urgency level (1-5). E.g., 4 returns urgency 4 and 5.
+            due_within_days: Only tasks due within N days from today
 
         Returns list of tasks with case and deadline information.
+
+        Examples:
+            - get_tasks(due_within_days=7) - tasks due this week
+            - get_tasks(status_filter="Pending", urgency_filter=4) - urgent pending tasks
+            - get_tasks(case_id=5) - all tasks for case 5
         """
-        result = db.get_tasks(case_id, status_filter, urgency_filter)
+        result = db.get_tasks(case_id, status_filter, urgency_filter, due_within_days)
         return {"tasks": result["items"], "total": result["total"]}
 
     @mcp.tool()
@@ -712,21 +612,7 @@ def register_tools(mcp):
         result = db.add_note(case_id, content)
         return {"success": True, "note": result}
 
-    @mcp.tool()
-    def update_note(note_id: int, content: str) -> dict:
-        """
-        Update a note's content.
-
-        Args:
-            note_id: ID of the note
-            content: New content
-
-        Returns updated note.
-        """
-        result = db.update_note(note_id, content)
-        if not result:
-            return not_found_error("Note")
-        return {"success": True, "note": result}
+    # update_note REMOVED - rarely needed; delete and re-add note instead
 
     @mcp.tool()
     def delete_note(note_id: int) -> dict:
@@ -786,68 +672,14 @@ def register_tools(mcp):
             return {"success": True, "message": "Case and all related data deleted"}
         return not_found_error("Case")
 
-    @mcp.tool()
-    def delete_activity(activity_id: int) -> dict:
-        """
-        Delete an activity/time entry.
-
-        Args:
-            activity_id: ID of the activity to delete
-
-        Returns confirmation.
-        """
-        if db.delete_activity(activity_id):
-            return {"success": True, "message": "Activity deleted"}
-        return not_found_error("Activity")
-
-    @mcp.tool()
-    def delete_case_number(case_number_id: int) -> dict:
-        """
-        Delete a case number.
-
-        Args:
-            case_number_id: ID of the case number to delete
-
-        Returns confirmation.
-        """
-        if db.delete_case_number(case_number_id):
-            return {"success": True, "message": "Case number deleted"}
-        return not_found_error("Case number")
+    # delete_activity REMOVED - rarely needed; activities are typically kept for audit trail
 
     # ===== LIST TOOLS =====
 
-    @mcp.tool()
-    def list_clients() -> dict:
-        """
-        List all clients in the system.
-
-        Returns list of clients with contact information.
-        """
-        clients = db.get_all_clients()
-        return {"clients": clients, "total": len(clients)}
-
-    @mcp.tool()
-    def list_contacts() -> dict:
-        """
-        List all contacts in the system (opposing counsel, experts, judges, etc.).
-
-        Returns list of contacts with firm and contact information.
-        """
-        contacts = db.get_all_contacts()
-        return {"contacts": contacts, "total": len(contacts)}
-
-    @mcp.tool()
-    def list_activities(case_id: Optional[int] = None) -> dict:
-        """
-        List activities/time entries, optionally filtered by case.
-
-        Args:
-            case_id: Optional case ID to filter by
-
-        Returns list of activities.
-        """
-        activities = db.get_all_activities(case_id)
-        return {"activities": activities, "total": len(activities)}
+    # LIST TOOLS REMOVED (Phase 5 cleanup):
+    # - list_clients: Use search_cases(client="...") or get_case() to see clients
+    # - list_contacts: Use search_contacts() instead
+    # - list_activities: Activities are included in get_case() response
 
     # ===== UPDATE TOOLS =====
 
@@ -889,32 +721,7 @@ def register_tools(mcp):
             return not_found_error("Deadline or no updates provided")
         return {"success": True, "deadline": result}
 
-    @mcp.tool()
-    def update_client(
-        client_id: int,
-        name: Optional[str] = None,
-        phone: Optional[str] = None,
-        email: Optional[str] = None,
-        address: Optional[str] = None,
-        notes: Optional[str] = None
-    ) -> dict:
-        """
-        Update a client's information.
-
-        Args:
-            client_id: ID of the client
-            name: New name
-            phone: New phone
-            email: New email
-            address: New address
-            notes: New notes
-
-        Returns updated client.
-        """
-        result = db.update_client(client_id, name, phone, email, address, notes)
-        if not result:
-            return not_found_error("Client or no updates provided")
-        return {"success": True, "client": result}
+    # update_client REMOVED - rarely needed; client info typically set once
 
     @mcp.tool()
     def update_contact(
@@ -945,85 +752,53 @@ def register_tools(mcp):
             return not_found_error("Contact or no updates provided")
         return {"success": True, "contact": result}
 
-    @mcp.tool()
-    def update_activity(
-        activity_id: int,
-        date: Optional[str] = None,
-        description: Optional[str] = None,
-        activity_type: Optional[str] = None,
-        minutes: Optional[int] = None
-    ) -> dict:
-        """
-        Update an activity/time entry.
-
-        Args:
-            activity_id: ID of the activity
-            date: New date (YYYY-MM-DD)
-            description: New description
-            activity_type: New type
-            minutes: New minutes
-
-        Returns updated activity.
-        """
-        try:
-            if date:
-                db.validate_date_format(date, "date")
-        except ValidationError as e:
-            return validation_error(str(e))
-
-        result = db.update_activity(activity_id, date, description, activity_type, minutes)
-        if not result:
-            return not_found_error("Activity or no updates provided")
-        return {"success": True, "activity": result}
+    # update_activity REMOVED - rarely needed; activities are typically immutable time entries
 
     # ===== REMOVE/UNLINK TOOLS =====
 
     @mcp.tool()
-    def remove_client_from_case(case_id: int, client_id: int) -> dict:
+    def remove_client_from_case(case_id: int, client_name: str) -> dict:
         """
-        Remove a client from a case (does not delete the client record).
+        Remove a client from a case by name (does not delete the client record).
 
         Args:
             case_id: ID of the case
-            client_id: ID of the client to remove
+            client_name: Name of the client to remove (partial match supported)
 
         Returns confirmation.
         """
-        if db.remove_client_from_case(case_id, client_id):
-            return {"success": True, "message": "Client removed from case"}
-        return not_found_error("Client-case link")
+        result = db.remove_client_from_case_by_name(case_id, client_name)
+        return result
 
     @mcp.tool()
     def remove_contact_from_case(
         case_id: int,
-        contact_id: int,
+        contact_name: str,
         role: Optional[str] = None
     ) -> dict:
         """
-        Remove a contact from a case (does not delete the contact record).
+        Remove a contact from a case by name (does not delete the contact record).
 
         Args:
             case_id: ID of the case
-            contact_id: ID of the contact to remove
+            contact_name: Name of the contact to remove (partial match supported)
             role: Optional specific role to remove (if contact has multiple roles)
 
         Returns confirmation.
         """
-        if db.remove_contact_from_case(case_id, contact_id, role):
-            return {"success": True, "message": "Contact removed from case"}
-        return not_found_error("Contact-case link")
+        result = db.remove_contact_from_case_by_name(case_id, contact_name, role)
+        return result
 
     @mcp.tool()
-    def remove_defendant_from_case(case_id: int, defendant_id: int) -> dict:
+    def remove_defendant_from_case(case_id: int, defendant_name: str) -> dict:
         """
-        Remove a defendant from a case (does not delete the defendant record).
+        Remove a defendant from a case by name (does not delete the defendant record).
 
         Args:
             case_id: ID of the case
-            defendant_id: ID of the defendant to remove
+            defendant_name: Name of the defendant to remove (partial match supported)
 
         Returns confirmation.
         """
-        if db.remove_defendant_from_case(case_id, defendant_id):
-            return {"success": True, "message": "Defendant removed from case"}
-        return not_found_error("Defendant-case link")
+        result = db.remove_defendant_from_case_by_name(case_id, defendant_name)
+        return result

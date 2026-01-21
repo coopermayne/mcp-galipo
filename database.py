@@ -125,10 +125,70 @@ def drop_all_tables():
     print("All tables dropped.")
 
 
+def migrate_case_numbers_to_jsonb():
+    """
+    Migrate case_numbers from separate table to JSONB column in cases.
+    This is a one-time migration for existing databases.
+    """
+    with get_cursor(dict_cursor=False) as cur:
+        # Check if old case_numbers table exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'case_numbers'
+            )
+        """)
+        table_exists = cur.fetchone()[0]
+
+        if not table_exists:
+            print("No case_numbers table found - migration not needed.")
+            return
+
+        # Check if cases table has case_numbers column
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'case_numbers'
+            )
+        """)
+        column_exists = cur.fetchone()[0]
+
+        if not column_exists:
+            # Add the JSONB column
+            cur.execute("ALTER TABLE cases ADD COLUMN case_numbers JSONB DEFAULT '[]'")
+            print("Added case_numbers JSONB column to cases table.")
+
+        # Migrate data from case_numbers table to JSONB column
+        cur.execute("""
+            UPDATE cases c
+            SET case_numbers = COALESCE(
+                (SELECT json_agg(
+                    json_build_object(
+                        'number', cn.case_number,
+                        'label', cn.label,
+                        'primary', cn.is_primary
+                    )
+                )
+                FROM case_numbers cn
+                WHERE cn.case_id = c.id),
+                '[]'::json
+            )
+        """)
+
+        # Get count of migrated records
+        cur.execute("SELECT COUNT(*) FROM case_numbers")
+        count = cur.fetchone()[0]
+
+        # Drop the old table
+        cur.execute("DROP TABLE IF EXISTS case_numbers CASCADE")
+
+        print(f"Migrated {count} case numbers to JSONB and dropped case_numbers table.")
+
+
 def init_db():
     """Create tables if they don't exist."""
     with get_cursor(dict_cursor=False) as cur:
-        # 1. Cases table
+        # 1. Cases table (case_numbers stored as JSONB)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS cases (
                 id SERIAL PRIMARY KEY,
@@ -143,6 +203,7 @@ def init_db():
                 complaint_due DATE,
                 complaint_filed_date DATE,
                 trial_date DATE,
+                case_numbers JSONB DEFAULT '[]',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -190,16 +251,7 @@ def init_db():
             )
         """)
 
-        # 5. Case_numbers table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_numbers (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                case_number VARCHAR(100) NOT NULL,
-                label VARCHAR(50),
-                is_primary BOOLEAN DEFAULT FALSE
-            )
-        """)
+        # 5. Case_numbers table - REMOVED (now stored as JSONB in cases table)
 
         # 6. Case_contacts junction table
         cur.execute("""
@@ -297,25 +349,22 @@ def seed_db():
 
     # Sample data for personal injury practice
     with get_cursor() as cur:
-        # Create sample case
+        # Create sample case with case_numbers as JSONB
+        import json
+        case_numbers_json = json.dumps([{"number": "24STCV12345", "label": "State", "primary": True}])
         cur.execute("""
-            INSERT INTO cases (case_name, status, court, case_summary, date_of_injury)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO cases (case_name, status, court, case_summary, date_of_injury, case_numbers)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             "Martinez v. City of Los Angeles",
             "Discovery",
             "Superior Court of California, Los Angeles County",
             "Police excessive force case. Client injured during traffic stop.",
-            "2024-06-15"
+            "2024-06-15",
+            case_numbers_json
         ))
         case_id = cur.fetchone()["id"]
-
-        # Add case number
-        cur.execute("""
-            INSERT INTO case_numbers (case_id, case_number, label, is_primary)
-            VALUES (%s, %s, %s, %s)
-        """, (case_id, "24STCV12345", "State", True))
 
         # Add client
         cur.execute("""
@@ -440,12 +489,16 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
 
         result = dict(case)
 
-        # Get case numbers
-        cur.execute("""
-            SELECT case_number, label, is_primary
-            FROM case_numbers WHERE case_id = %s
-        """, (case_id,))
-        result["case_numbers"] = [dict(row) for row in cur.fetchall()]
+        # case_numbers is now JSONB in the cases table - parse it
+        if result.get("case_numbers"):
+            # Already a list from JSONB, ensure consistent format
+            case_nums = result["case_numbers"]
+            if isinstance(case_nums, str):
+                import json
+                case_nums = json.loads(case_nums)
+            result["case_numbers"] = case_nums
+        else:
+            result["case_numbers"] = []
 
         # Get clients with contact info
         cur.execute("""
@@ -544,27 +597,86 @@ def get_case_by_name(case_name: str) -> Optional[dict]:
 
 def create_case(case_name: str, status: str = "Signing Up", court: str = None,
                 print_code: str = None, case_summary: str = None,
-                date_of_injury: str = None) -> dict:
-    """Create a new case."""
+                date_of_injury: str = None, case_numbers: List[dict] = None,
+                clients: List[dict] = None, defendants: List[str] = None) -> dict:
+    """
+    Create a new case with optional nested data.
+
+    Args:
+        case_name: Name of the case
+        status: Case status
+        court: Court name
+        print_code: Short code for printing
+        case_summary: Brief description
+        date_of_injury: Date of injury (YYYY-MM-DD)
+        case_numbers: List of case numbers [{"number": "...", "label": "...", "primary": bool}]
+        clients: List of clients to add [{"name": "...", "phone": "...", "is_primary": bool, ...}]
+        defendants: List of defendant names ["City of LA", "LAPD"]
+
+    Returns the created case with nested data summary.
+    """
+    import json
+    case_numbers_json = json.dumps(case_numbers) if case_numbers else '[]'
+
     with get_cursor() as cur:
+        # Create the case
         cur.execute("""
-            INSERT INTO cases (case_name, status, court, print_code, case_summary, date_of_injury)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO cases (case_name, status, court, print_code, case_summary, date_of_injury, case_numbers)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (case_name, status, court, print_code, case_summary, date_of_injury))
+        """, (case_name, status, court, print_code, case_summary, date_of_injury, case_numbers_json))
         case_id = cur.fetchone()["id"]
-        return {"id": case_id, "case_name": case_name, "status": status}
+
+    # Add clients (using smart function - outside the cursor context for separate transactions)
+    clients_added = []
+    if clients:
+        for client_data in clients:
+            result = smart_add_client_to_case(
+                case_id=case_id,
+                name=client_data.get("name"),
+                phone=client_data.get("phone"),
+                email=client_data.get("email"),
+                address=client_data.get("address"),
+                contact_directly=client_data.get("contact_directly", True),
+                contact_via=client_data.get("contact_via"),
+                contact_via_relationship=client_data.get("contact_via_relationship"),
+                is_primary=client_data.get("is_primary", False),
+                notes=client_data.get("notes")
+            )
+            clients_added.append({"name": client_data.get("name"), "client_id": result.get("client_id")})
+
+    # Add defendants
+    defendants_added = []
+    if defendants:
+        for defendant_name in defendants:
+            add_defendant_to_case(case_id, defendant_name)
+            defendants_added.append(defendant_name)
+
+    return {
+        "id": case_id,
+        "case_name": case_name,
+        "status": status,
+        "case_numbers": case_numbers or [],
+        "clients_added": clients_added,
+        "defendants_added": defendants_added
+    }
 
 
 def update_case(case_id: int, **kwargs) -> Optional[dict]:
-    """Update case fields."""
+    """Update case fields, including case_numbers as JSONB."""
+    import json
+
     allowed_fields = ["case_name", "status", "court", "print_code", "case_summary",
                       "date_of_injury", "claim_due", "claim_filed_date",
-                      "complaint_due", "complaint_filed_date", "trial_date"]
+                      "complaint_due", "complaint_filed_date", "trial_date", "case_numbers"]
     updates = {k: v for k, v in kwargs.items() if k in allowed_fields and v is not None}
 
     if not updates:
         return None
+
+    # Convert case_numbers list to JSON string for storage
+    if "case_numbers" in updates:
+        updates["case_numbers"] = json.dumps(updates["case_numbers"])
 
     set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
     values = list(updates.values()) + [case_id]
@@ -573,10 +685,19 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         cur.execute(f"""
             UPDATE cases SET {set_clause}, updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
-            RETURNING id, case_name, status
+            RETURNING id, case_name, status, case_numbers
         """, values)
         result = cur.fetchone()
-        return dict(result) if result else None
+        if result:
+            r = dict(result)
+            # Parse case_numbers back to list
+            if r.get("case_numbers"):
+                if isinstance(r["case_numbers"], str):
+                    r["case_numbers"] = json.loads(r["case_numbers"])
+            else:
+                r["case_numbers"] = []
+            return r
+        return None
 
 
 def get_all_case_names() -> List[str]:
@@ -622,23 +743,279 @@ def add_client_to_case(case_id: int, client_id: int, contact_directly: bool = Tr
 
 
 # ===== CASE NUMBER OPERATIONS =====
+# NOTE: Case numbers are now stored as JSONB in the cases table.
+# Use update_case(case_id, case_numbers=[...]) to modify case numbers.
 
-def add_case_number(case_id: int, case_number: str, label: str = None,
-                    is_primary: bool = False) -> dict:
-    """Add a case number to a case."""
+
+# ===== SMART ENTITY OPERATIONS =====
+# These functions handle find-or-create logic internally, reducing the number of
+# tool calls Claude needs to make.
+
+def smart_add_client_to_case(case_id: int, name: str, phone: str = None,
+                              email: str = None, address: str = None,
+                              contact_directly: bool = True,
+                              contact_via: str = None,
+                              contact_via_relationship: str = None,
+                              is_primary: bool = False, notes: str = None) -> dict:
+    """
+    Smart client add - finds existing client or creates new, then links to case.
+
+    Search priority:
+    1. Exact name match with matching phone or email
+    2. Exact name match
+    3. Create new client
+    """
     with get_cursor() as cur:
-        # If this is primary, unset any existing primary
-        if is_primary:
+        client_id = None
+        client_name = None
+        created_new = False
+
+        # Try to find existing client
+        if phone or email:
+            # First try exact name + phone/email match
+            conditions = ["name ILIKE %s"]
+            params = [name]
+
+            if phone:
+                conditions.append("phone = %s")
+                params.append(phone)
+            if email:
+                conditions.append("email ILIKE %s")
+                params.append(email)
+
+            where = " AND ".join(conditions)
+            cur.execute(f"SELECT id, name FROM clients WHERE {where} LIMIT 1", params)
+            result = cur.fetchone()
+            if result:
+                client_id = result["id"]
+                client_name = result["name"]
+
+        if not client_id:
+            # Try exact name match only
+            cur.execute("SELECT id, name FROM clients WHERE name ILIKE %s LIMIT 1", (name,))
+            result = cur.fetchone()
+            if result:
+                client_id = result["id"]
+                client_name = result["name"]
+
+        if not client_id:
+            # Create new client
             cur.execute("""
-                UPDATE case_numbers SET is_primary = FALSE WHERE case_id = %s
-            """, (case_id,))
+                INSERT INTO clients (name, phone, email, address, notes)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, name
+            """, (name, phone, email, address, notes))
+            result = cur.fetchone()
+            client_id = result["id"]
+            client_name = result["name"]
+            created_new = True
+
+        # Handle contact_via (find or create the contact person)
+        contact_via_id = None
+        if not contact_directly and contact_via:
+            cur.execute("SELECT id FROM contacts WHERE name ILIKE %s LIMIT 1", (contact_via,))
+            result = cur.fetchone()
+            if result:
+                contact_via_id = result["id"]
+            else:
+                # Create the contact person
+                cur.execute("""
+                    INSERT INTO contacts (name)
+                    VALUES (%s)
+                    RETURNING id
+                """, (contact_via,))
+                contact_via_id = cur.fetchone()["id"]
+
+        # Link client to case (upsert)
+        cur.execute("""
+            INSERT INTO case_clients (case_id, client_id, contact_directly,
+                                      contact_via_id, contact_via_relationship, is_primary, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (case_id, client_id) DO UPDATE SET
+                contact_directly = EXCLUDED.contact_directly,
+                contact_via_id = EXCLUDED.contact_via_id,
+                contact_via_relationship = EXCLUDED.contact_via_relationship,
+                is_primary = EXCLUDED.is_primary,
+                notes = EXCLUDED.notes
+            RETURNING id
+        """, (case_id, client_id, contact_directly, contact_via_id,
+              contact_via_relationship, is_primary, notes))
+
+        return {
+            "success": True,
+            "client_id": client_id,
+            "client_name": client_name,
+            "created_new": created_new,
+            "contact_method": "direct" if contact_directly else f"via {contact_via} ({contact_via_relationship})"
+        }
+
+
+def smart_add_contact_to_case(case_id: int, name: str, role: str,
+                               firm: str = None, phone: str = None,
+                               email: str = None, notes: str = None) -> dict:
+    """
+    Smart contact add - finds existing contact or creates new, then links to case with role.
+
+    Search priority:
+    1. Exact name match with matching firm
+    2. Exact name match
+    3. Create new contact
+    """
+    with get_cursor() as cur:
+        contact_id = None
+        contact_name = None
+        created_new = False
+
+        # Try to find existing contact
+        if firm:
+            # First try name + firm match
+            cur.execute("""
+                SELECT id, name, firm FROM contacts
+                WHERE name ILIKE %s AND firm ILIKE %s
+                LIMIT 1
+            """, (name, firm))
+            result = cur.fetchone()
+            if result:
+                contact_id = result["id"]
+                contact_name = result["name"]
+
+        if not contact_id:
+            # Try exact name match only
+            cur.execute("SELECT id, name, firm FROM contacts WHERE name ILIKE %s LIMIT 1", (name,))
+            result = cur.fetchone()
+            if result:
+                contact_id = result["id"]
+                contact_name = result["name"]
+
+        if not contact_id:
+            # Create new contact
+            cur.execute("""
+                INSERT INTO contacts (name, firm, phone, email, notes)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, name
+            """, (name, firm, phone, email, notes))
+            result = cur.fetchone()
+            contact_id = result["id"]
+            contact_name = result["name"]
+            created_new = True
+
+        # Link contact to case with role (upsert)
+        cur.execute("""
+            INSERT INTO case_contacts (case_id, contact_id, role, notes)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (case_id, contact_id, role) DO UPDATE SET notes = EXCLUDED.notes
+            RETURNING id
+        """, (case_id, contact_id, role, notes))
+
+        return {
+            "success": True,
+            "contact_id": contact_id,
+            "contact_name": contact_name,
+            "role": role,
+            "created_new": created_new
+        }
+
+
+def remove_client_from_case_by_name(case_id: int, client_name: str) -> dict:
+    """Remove a client from a case by name (does not delete the client record)."""
+    with get_cursor() as cur:
+        # Find client by name
+        cur.execute("""
+            SELECT cl.id, cl.name
+            FROM clients cl
+            JOIN case_clients cc ON cl.id = cc.client_id
+            WHERE cc.case_id = %s AND cl.name ILIKE %s
+        """, (case_id, f"%{client_name}%"))
+        result = cur.fetchone()
+
+        if not result:
+            return {"success": False, "error": f"Client '{client_name}' not found on this case"}
+
+        client_id = result["id"]
+        actual_name = result["name"]
 
         cur.execute("""
-            INSERT INTO case_numbers (case_id, case_number, label, is_primary)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, case_number, label, is_primary
-        """, (case_id, case_number, label, is_primary))
-        return dict(cur.fetchone())
+            DELETE FROM case_clients WHERE case_id = %s AND client_id = %s
+            RETURNING id
+        """, (case_id, client_id))
+
+        if cur.fetchone():
+            return {"success": True, "message": f"Client '{actual_name}' removed from case"}
+        return {"success": False, "error": "Failed to remove client"}
+
+
+def remove_contact_from_case_by_name(case_id: int, contact_name: str, role: str = None) -> dict:
+    """Remove a contact from a case by name. If role specified, only removes that role."""
+    with get_cursor() as cur:
+        # Find contact by name
+        if role:
+            cur.execute("""
+                SELECT co.id, co.name, cc.role
+                FROM contacts co
+                JOIN case_contacts cc ON co.id = cc.contact_id
+                WHERE cc.case_id = %s AND co.name ILIKE %s AND cc.role = %s
+            """, (case_id, f"%{contact_name}%", role))
+        else:
+            cur.execute("""
+                SELECT co.id, co.name, cc.role
+                FROM contacts co
+                JOIN case_contacts cc ON co.id = cc.contact_id
+                WHERE cc.case_id = %s AND co.name ILIKE %s
+            """, (case_id, f"%{contact_name}%"))
+
+        result = cur.fetchone()
+
+        if not result:
+            return {"success": False, "error": f"Contact '{contact_name}' not found on this case" + (f" with role '{role}'" if role else "")}
+
+        contact_id = result["id"]
+        actual_name = result["name"]
+        actual_role = result["role"]
+
+        if role:
+            cur.execute("""
+                DELETE FROM case_contacts
+                WHERE case_id = %s AND contact_id = %s AND role = %s
+                RETURNING id
+            """, (case_id, contact_id, role))
+        else:
+            cur.execute("""
+                DELETE FROM case_contacts
+                WHERE case_id = %s AND contact_id = %s
+                RETURNING id
+            """, (case_id, contact_id))
+
+        if cur.fetchone():
+            return {"success": True, "message": f"Contact '{actual_name}' ({actual_role}) removed from case"}
+        return {"success": False, "error": "Failed to remove contact"}
+
+
+def remove_defendant_from_case_by_name(case_id: int, defendant_name: str) -> dict:
+    """Remove a defendant from a case by name."""
+    with get_cursor() as cur:
+        # Find defendant by name
+        cur.execute("""
+            SELECT d.id, d.name
+            FROM defendants d
+            JOIN case_defendants cd ON d.id = cd.defendant_id
+            WHERE cd.case_id = %s AND d.name ILIKE %s
+        """, (case_id, f"%{defendant_name}%"))
+        result = cur.fetchone()
+
+        if not result:
+            return {"success": False, "error": f"Defendant '{defendant_name}' not found on this case"}
+
+        defendant_id = result["id"]
+        actual_name = result["name"]
+
+        cur.execute("""
+            DELETE FROM case_defendants WHERE case_id = %s AND defendant_id = %s
+            RETURNING id
+        """, (case_id, defendant_id))
+
+        if cur.fetchone():
+            return {"success": True, "message": f"Defendant '{actual_name}' removed from case"}
+        return {"success": False, "error": "Failed to remove defendant"}
 
 
 # ===== CONTACT OPERATIONS =====
@@ -764,43 +1141,89 @@ def search_clients(name: str = None, phone: str = None, email: str = None) -> Li
         return clients
 
 
-def search_cases(name: str = None, case_number: str = None) -> List[dict]:
+def search_cases(query: str = None, case_number: str = None, defendant: str = None,
+                 client: str = None, contact: str = None, status: str = None) -> List[dict]:
     """
-    Search for cases by name or case number (partial match).
+    Search for cases with multiple filter options.
     Returns cases with clients and defendants for context.
+
+    Args:
+        query: Free text search on case name
+        case_number: Search by case number (partial match)
+        defendant: Filter by defendant name (partial match)
+        client: Filter by client/plaintiff name (partial match)
+        contact: Filter by contact name (partial match)
+        status: Filter by exact status match
+
+    All filters are AND conditions (case must match all provided filters).
     """
     with get_cursor() as cur:
-        # Build query based on provided filters
+        # Build query with JOINs for filtering
+        joins = []
         conditions = []
         params = []
 
-        if name:
+        if query:
             conditions.append("c.case_name ILIKE %s")
-            params.append(f"%{name}%")
+            params.append(f"%{query}%")
+
         if case_number:
-            conditions.append("cn.case_number ILIKE %s")
+            # Search within JSONB array for matching case numbers
+            conditions.append("EXISTS (SELECT 1 FROM jsonb_array_elements(c.case_numbers) elem WHERE elem->>'number' ILIKE %s)")
             params.append(f"%{case_number}%")
 
+        if defendant:
+            joins.append("JOIN case_defendants cd_filter ON c.id = cd_filter.case_id")
+            joins.append("JOIN defendants d_filter ON cd_filter.defendant_id = d_filter.id")
+            conditions.append("d_filter.name ILIKE %s")
+            params.append(f"%{defendant}%")
+
+        if client:
+            joins.append("JOIN case_clients cc_filter ON c.id = cc_filter.case_id")
+            joins.append("JOIN clients cl_filter ON cc_filter.client_id = cl_filter.id")
+            conditions.append("cl_filter.name ILIKE %s")
+            params.append(f"%{client}%")
+
+        if contact:
+            joins.append("JOIN case_contacts cco_filter ON c.id = cco_filter.case_id")
+            joins.append("JOIN contacts co_filter ON cco_filter.contact_id = co_filter.id")
+            conditions.append("co_filter.name ILIKE %s")
+            params.append(f"%{contact}%")
+
+        if status:
+            conditions.append("c.status = %s")
+            params.append(status)
+
+        # If no filters provided, return empty (or could return all)
         if not conditions:
             return []
 
-        where_clause = " OR ".join(conditions)
+        join_clause = " ".join(joins)
+        where_clause = " AND ".join(conditions)
 
         # Get matching cases
         cur.execute(f"""
-            SELECT DISTINCT c.id, c.case_name, c.status, c.court, c.trial_date
+            SELECT DISTINCT c.id, c.case_name, c.status, c.court, c.trial_date, c.case_numbers
             FROM cases c
-            LEFT JOIN case_numbers cn ON c.id = cn.case_id
+            {join_clause}
             WHERE {where_clause}
             ORDER BY c.case_name
         """, params)
 
         cases = [dict(row) for row in cur.fetchall()]
 
-        # For each case, get clients, defendants, and case numbers
+        # For each case, get clients, defendants, and parse case_numbers
         for case in cases:
             if case.get("trial_date"):
                 case["trial_date"] = str(case["trial_date"])
+
+            # Parse case_numbers from JSONB
+            if case.get("case_numbers"):
+                if isinstance(case["case_numbers"], str):
+                    import json
+                    case["case_numbers"] = json.loads(case["case_numbers"])
+            else:
+                case["case_numbers"] = []
 
             # Get clients
             cur.execute("""
@@ -820,13 +1243,14 @@ def search_cases(name: str = None, case_number: str = None) -> List[dict]:
             """, (case["id"],))
             case["defendants"] = [dict(row) for row in cur.fetchall()]
 
-            # Get case numbers
+            # Get contacts
             cur.execute("""
-                SELECT case_number, label, is_primary
-                FROM case_numbers
-                WHERE case_id = %s
+                SELECT co.id, co.name, cc.role
+                FROM contacts co
+                JOIN case_contacts cc ON co.id = cc.contact_id
+                WHERE cc.case_id = %s
             """, (case["id"],))
-            case["case_numbers"] = [dict(row) for row in cur.fetchall()]
+            case["contacts"] = [dict(row) for row in cur.fetchall()]
 
         return cases
 
@@ -912,6 +1336,7 @@ def add_deadline(case_id: int, date: str, description: str, status: str = "Pendi
 
 
 def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None,
+                           due_within_days: int = None, case_id: int = None,
                            limit: int = None, offset: int = 0) -> dict:
     """Get deadlines with optional filters and pagination."""
     with get_cursor() as cur:
@@ -919,12 +1344,19 @@ def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None
         where_parts = ["1=1"]
         params = []
 
+        if case_id:
+            where_parts.append("d.case_id = %s")
+            params.append(case_id)
         if urgency_filter:
             where_parts.append("d.urgency >= %s")
             params.append(urgency_filter)
         if status_filter:
             where_parts.append("d.status = %s")
             params.append(status_filter)
+        if due_within_days is not None:
+            where_parts.append("d.date <= CURRENT_DATE + INTERVAL '%s days'")
+            params.append(due_within_days)
+            where_parts.append("d.date >= CURRENT_DATE")  # Only future/today
 
         where_clause = " AND ".join(where_parts)
 
@@ -955,6 +1387,92 @@ def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None
             results.append(r)
 
         return {"items": results, "total": total, "limit": limit, "offset": offset}
+
+
+def get_calendar(days: int = 30, include_tasks: bool = True,
+                 include_deadlines: bool = True, case_id: int = None) -> dict:
+    """
+    Get a combined calendar view of tasks and deadlines.
+
+    Args:
+        days: Number of days to look ahead (default 30)
+        include_tasks: Include tasks in results (default True)
+        include_deadlines: Include deadlines in results (default True)
+        case_id: Optional filter to specific case
+
+    Returns combined, sorted list with type indicator.
+    """
+    items = []
+
+    with get_cursor() as cur:
+        if include_deadlines:
+            # Get deadlines
+            query = """
+                SELECT d.id, d.date, d.description, d.status, d.urgency,
+                       c.id as case_id, c.case_name,
+                       'deadline' as item_type
+                FROM deadlines d
+                JOIN cases c ON d.case_id = c.id
+                WHERE d.date >= CURRENT_DATE
+                  AND d.date <= CURRENT_DATE + INTERVAL '%s days'
+                  AND d.status = 'Pending'
+            """
+            params = [days]
+
+            if case_id:
+                query += " AND d.case_id = %s"
+                params.append(case_id)
+
+            query += " ORDER BY d.date"
+            cur.execute(query, params)
+
+            for row in cur.fetchall():
+                r = dict(row)
+                r["date"] = str(r["date"])
+                items.append(r)
+
+        if include_tasks:
+            # Get tasks with due dates
+            query = """
+                SELECT t.id, t.due_date as date, t.description, t.status, t.urgency,
+                       c.id as case_id, c.case_name,
+                       'task' as item_type
+                FROM tasks t
+                JOIN cases c ON t.case_id = c.id
+                WHERE t.due_date IS NOT NULL
+                  AND t.due_date >= CURRENT_DATE
+                  AND t.due_date <= CURRENT_DATE + INTERVAL '%s days'
+                  AND t.status NOT IN ('Done')
+            """
+            params = [days]
+
+            if case_id:
+                query += " AND t.case_id = %s"
+                params.append(case_id)
+
+            query += " ORDER BY t.due_date"
+            cur.execute(query, params)
+
+            for row in cur.fetchall():
+                r = dict(row)
+                r["date"] = str(r["date"])
+                items.append(r)
+
+    # Sort combined results by date
+    items.sort(key=lambda x: x["date"])
+
+    # Group by date for easier display
+    from collections import defaultdict
+    by_date = defaultdict(list)
+    for item in items:
+        by_date[item["date"]].append(item)
+
+    return {
+        "items": items,
+        "total": len(items),
+        "days": days,
+        "by_date": dict(by_date)
+    }
 
 
 def update_deadline(deadline_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
@@ -1004,7 +1522,8 @@ def add_task(case_id: int, description: str, due_date: str = None,
 
 
 def get_tasks(case_id: int = None, status_filter: str = None,
-              urgency_filter: int = None, limit: int = None, offset: int = 0) -> dict:
+              urgency_filter: int = None, due_within_days: int = None,
+              limit: int = None, offset: int = 0) -> dict:
     """Get tasks with optional filters and pagination."""
     with get_cursor() as cur:
         # Build WHERE clause
@@ -1020,6 +1539,10 @@ def get_tasks(case_id: int = None, status_filter: str = None,
         if urgency_filter:
             where_parts.append("t.urgency >= %s")
             params.append(urgency_filter)
+        if due_within_days is not None:
+            where_parts.append("t.due_date <= CURRENT_DATE + INTERVAL '%s days'")
+            params.append(due_within_days)
+            where_parts.append("t.due_date >= CURRENT_DATE")  # Only future/today
 
         where_clause = " AND ".join(where_parts)
 
@@ -1487,12 +2010,8 @@ def update_note(note_id: int, content: str) -> Optional[dict]:
 
 
 # ===== CASE NUMBER DELETE =====
-
-def delete_case_number(case_number_id: int) -> bool:
-    """Delete a case number by ID."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM case_numbers WHERE id = %s RETURNING id", (case_number_id,))
-        return cur.fetchone() is not None
+# NOTE: Case numbers are now stored as JSONB in the cases table.
+# Use update_case(case_id, case_numbers=[...]) to modify case numbers.
 
 
 # ===== DEFENDANT DELETE =====
@@ -1579,44 +2098,6 @@ def update_defendant(defendant_id: int, name: str) -> Optional[dict]:
             WHERE id = %s
             RETURNING id, name
         """, (name, defendant_id))
-        result = cur.fetchone()
-        return dict(result) if result else None
-
-
-def update_case_number(case_number_id: int, case_number: str = None,
-                       label: str = None, is_primary: bool = None) -> Optional[dict]:
-    """Update a case number."""
-    updates = {}
-    if case_number is not None:
-        updates["case_number"] = case_number
-    if label is not None:
-        updates["label"] = label
-    if is_primary is not None:
-        updates["is_primary"] = is_primary
-
-    if not updates:
-        return None
-
-    # If setting as primary, unset other primaries first
-    with get_cursor() as cur:
-        if is_primary:
-            cur.execute("""
-                SELECT case_id FROM case_numbers WHERE id = %s
-            """, (case_number_id,))
-            row = cur.fetchone()
-            if row:
-                cur.execute("""
-                    UPDATE case_numbers SET is_primary = FALSE WHERE case_id = %s
-                """, (row["case_id"],))
-
-        set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
-        values = list(updates.values()) + [case_number_id]
-
-        cur.execute(f"""
-            UPDATE case_numbers SET {set_clause}
-            WHERE id = %s
-            RETURNING id, case_id, case_number, label, is_primary
-        """, values)
         result = cur.fetchone()
         return dict(result) if result else None
 

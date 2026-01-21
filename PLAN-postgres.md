@@ -29,64 +29,51 @@ CASES (central entity)
 └── NOTES
 ```
 
-## MCP Tools (40 total)
+## MCP Tools (26 total - SIMPLIFIED)
 
-### Search Tools (for finding IDs)
-- [x] `search_clients(name, phone, email)` — returns clients with case associations
-- [x] `search_cases(name, case_number)` — returns cases with clients/defendants
-- [x] `search_contacts(name, firm)` — returns contacts with case/role associations
-- [x] `search_cases_by_defendant(defendant_name)` — find cases by defendant
-
-### Case CRUD
-- [x] `list_cases(status_filter)`
+### Case Management (6 tools)
+- [x] `list_cases(status_filter)` — list all cases
 - [x] `get_case(case_id, case_name)` — full details with all related data
-- [x] `create_case(...)`
-- [x] `update_case(case_id, ...)`
-- [x] `delete_case(case_id)` — cascades
+- [x] `create_case(...)` — create with nested clients, defendants, case_numbers
+- [x] `update_case(case_id, ...)` — update including case_numbers array
+- [x] `delete_case(case_id)` — cascades all related data
+- [x] `search_cases(query, defendant, client, contact, status)` — multi-field search
 
-### Client CRUD
-- [x] `add_client(case_id, ...)` — creates and links to case
-- [x] `update_client(client_id, ...)`
-- [x] `remove_client_from_case(case_id, client_id)`
-- [x] `list_clients()`
+### Client Management (2 tools)
+- [x] `add_client_to_case(case_id, name, ...)` — smart find-or-create, links to case
+- [x] `remove_client_from_case(case_id, client_name)` — remove by name
 
-### Contact CRUD
-- [x] `add_contact(...)` — creates contact
-- [x] `link_contact(case_id, contact_id, role)` — links to case with role
-- [x] `update_contact(contact_id, ...)`
-- [x] `remove_contact_from_case(case_id, contact_id, role)`
-- [x] `list_contacts()`
+### Contact Management (3 tools)
+- [x] `add_contact_to_case(case_id, name, role, ...)` — smart find-or-create, links with role
+- [x] `remove_contact_from_case(case_id, contact_name, role)` — remove by name
+- [x] `update_contact(contact_id, ...)` — update shared contact info
+- [x] `search_contacts(name, firm)` — find contacts across system
 
-### Defendant CRUD
-- [x] `add_defendant(case_id, defendant_name)`
-- [x] `remove_defendant_from_case(case_id, defendant_id)`
+### Defendant Management (2 tools)
+- [x] `add_defendant(case_id, defendant_name)` — find-or-create, links to case
+- [x] `remove_defendant_from_case(case_id, defendant_name)` — remove by name
 
-### Task CRUD
+### Task Management (4 tools)
 - [x] `add_task(case_id, ...)`
-- [x] `get_tasks(case_id, status_filter, urgency_filter)`
-- [x] `update_task(task_id, status, urgency, due_date)` — NOTE: missing description
+- [x] `get_tasks(case_id, status_filter, urgency_filter, due_within_days)`
+- [x] `update_task(task_id, description, status, urgency, due_date)`
 - [x] `delete_task(task_id)`
 
-### Deadline CRUD
+### Deadline Management (4 tools)
 - [x] `add_deadline(case_id, ...)`
-- [x] `get_deadlines(urgency_filter, status_filter)`
+- [x] `get_deadlines(case_id, urgency_filter, status_filter, due_within_days)`
 - [x] `update_deadline(deadline_id, ...)`
 - [x] `delete_deadline(deadline_id)`
 
-### Note CRUD
+### Calendar (1 tool)
+- [x] `get_calendar(days, include_tasks, include_deadlines, case_id)` — combined view
+
+### Notes (2 tools)
 - [x] `add_note(case_id, content)`
-- [x] `update_note(note_id, content)`
 - [x] `delete_note(note_id)`
 
-### Activity CRUD
-- [x] `log_activity(case_id, ...)`
-- [x] `list_activities(case_id)`
-- [x] `update_activity(activity_id, ...)`
-- [x] `delete_activity(activity_id)`
-
-### Case Number CRUD
-- [x] `add_case_number(case_id, case_number, label, is_primary)`
-- [x] `delete_case_number(case_number_id)`
+### Activity (1 tool)
+- [x] `log_activity(case_id, ...)` — time tracking
 
 ## Known Gaps / Future Work
 
@@ -393,31 +380,56 @@ log_activity(
 
 ### Implementation Phases
 
-#### Phase 1: Schema Migration
-1. Add `case_numbers` JSONB column to `cases` table
-2. Migrate existing case_numbers data
-3. Drop `case_numbers` table
-4. Update `get_case` to include case_numbers from JSONB
+#### Phase 1: Schema Migration ✅ COMPLETE
+1. ✅ Add `case_numbers` JSONB column to `cases` table
+2. ✅ Migrate existing case_numbers data (via `migrate_case_numbers_to_jsonb()`)
+3. ✅ Drop `case_numbers` table (done in migration)
+4. ✅ Update `get_case` to include case_numbers from JSONB
+5. ✅ Update `create_case` and `update_case` to accept case_numbers parameter
+6. ✅ Remove `add_case_number`, `update_case_number`, `delete_case_number` tools (now 38 tools)
 
-#### Phase 2: Smart Entity Tools
-1. Implement `add_client_to_case` with find-or-create logic
-2. Implement `add_contact_to_case` with find-or-create logic
-3. Implement `remove_*_from_case` tools that accept names (not just IDs)
-4. Update `add_defendant_to_case` to accept name-based removal
+#### Phase 2: Smart Entity Tools ✅ COMPLETE
+1. ✅ Implement `add_client_to_case` with find-or-create logic (replaces add_client + link_existing_client + update_client_case_link)
+2. ✅ Implement `add_contact_to_case` with find-or-create logic (replaces add_contact + link_contact)
+3. ✅ Implement `remove_*_from_case` tools that accept names (not just IDs)
+4. ✅ `add_defendant_to_case` already had find-or-create logic (no change needed)
 
-#### Phase 3: Consolidate Case Tools
-1. Update `create_case` to accept nested clients/defendants/contacts
-2. Update `update_case` to handle case_numbers array
-3. Enhance `search_cases` with multi-field filtering
+**Tools removed:** add_client, link_existing_client, update_client_case_link, add_contact, link_contact
+**Tools added:** add_client_to_case, add_contact_to_case
+**Current tool count:** 35 tools (down from 38)
 
-#### Phase 4: Cross-Case Query Tools
-1. Implement `get_calendar` combining tasks and deadlines
-2. Add `due_within_days` parameter to `get_tasks` and `get_deadlines`
+#### Phase 3: Consolidate Case Tools ✅ COMPLETE
+1. ✅ Update `create_case` to accept nested clients/defendants (+ case_numbers from Phase 1)
+2. ✅ `update_case` already handles case_numbers array (from Phase 1)
+3. ✅ Enhance `search_cases` with multi-field filtering (query, defendant, client, contact, status)
+4. ✅ Remove `search_cases_by_defendant` (now redundant - use search_cases(defendant="..."))
 
-#### Phase 5: Cleanup
-1. Remove deprecated tools
-2. Update frontend to use new API structure
-3. Update documentation
+**Current tool count:** 34 tools (down from 35)
+
+#### Phase 4: Cross-Case Query Tools ✅ COMPLETE
+1. ✅ Implement `get_calendar` combining tasks and deadlines (NEW TOOL)
+2. ✅ Add `due_within_days` parameter to `get_tasks`
+3. ✅ Add `due_within_days` and `case_id` parameters to `get_deadlines`
+
+**Current tool count:** 35 tools (added get_calendar)
+
+#### Phase 5: Cleanup ✅ COMPLETE
+1. ✅ Remove deprecated tools (9 tools removed)
+2. ✅ Frontend uses existing API structure (no changes needed)
+3. ✅ Documentation updated below
+
+**Tools removed in Phase 5:**
+- `list_clients` - use search_cases(client="...") instead
+- `search_clients` - add_client_to_case handles lookup internally
+- `list_contacts` - use search_contacts instead
+- `list_activities` - included in get_case response
+- `update_defendant` - rarely needed; remove and re-add instead
+- `update_note` - rarely needed; delete and re-add instead
+- `update_activity` - rarely needed
+- `delete_activity` - rarely needed
+- `update_client` - rarely needed
+
+**FINAL TOOL COUNT: 26 tools (down from 41 original)**
 
 ### Example: Before vs After
 
