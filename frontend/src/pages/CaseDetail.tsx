@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Header } from '../components/layout';
+import { Header, PageContent } from '../components/layout';
 import {
   EditableText,
   EditableSelect,
@@ -202,25 +202,31 @@ export function CaseDetail() {
         </nav>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === 'overview' && (
+      {activeTab === 'overview' && (
+        <PageContent variant="full">
           <OverviewTab
             caseData={caseData}
             caseId={caseId}
             constants={constants}
             onUpdateField={handleUpdateField}
           />
-        )}
-        {activeTab === 'tasks' && (
+        </PageContent>
+      )}
+      {activeTab === 'tasks' && (
+        <PageContent variant="wide">
           <TasksTab caseId={caseId} tasks={caseData.tasks || []} constants={constants} />
-        )}
-        {activeTab === 'deadlines' && (
+        </PageContent>
+      )}
+      {activeTab === 'deadlines' && (
+        <PageContent variant="wide">
           <DeadlinesTab caseId={caseId} deadlines={caseData.deadlines || []} />
-        )}
-        {activeTab === 'notes' && (
+        </PageContent>
+      )}
+      {activeTab === 'notes' && (
+        <PageContent variant="narrow">
           <NotesTab caseId={caseId} notes={caseData.notes || []} />
-        )}
-      </div>
+        </PageContent>
+      )}
     </>
   );
 }
