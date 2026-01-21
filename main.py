@@ -651,15 +651,17 @@ def get_tasks(
 @mcp.tool()
 def update_task(
     task_id: int,
+    description: Optional[str] = None,
     status: Optional[str] = None,
     urgency: Optional[int] = None,
     due_date: Optional[str] = None
 ) -> dict:
     """
-    Update a task's status, urgency, or due date.
+    Update a task's description, status, urgency, or due date.
 
     Args:
         task_id: ID of the task
+        description: New description
         status: New status (Pending, Active, Done, Partially Complete, Blocked, Awaiting Atty Review)
         urgency: New urgency (1-5)
         due_date: New due date (YYYY-MM-DD)
@@ -676,7 +678,7 @@ def update_task(
     except ValidationError as e:
         return {"error": str(e)}
 
-    result = db.update_task(task_id, status, urgency, due_date)
+    result = db.update_task_full(task_id, description, due_date, status, urgency)
     if not result:
         return {"error": "Task not found or no updates provided"}
     return {"success": True, "task": result}
