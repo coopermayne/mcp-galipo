@@ -598,7 +598,8 @@ def get_case_by_name(case_name: str) -> Optional[dict]:
 def create_case(case_name: str, status: str = "Signing Up", court: str = None,
                 print_code: str = None, case_summary: str = None,
                 date_of_injury: str = None, case_numbers: List[dict] = None,
-                clients: List[dict] = None, defendants: List[str] = None) -> dict:
+                clients: List[dict] = None, defendants: List[str] = None,
+                contacts: List[dict] = None) -> dict:
     """
     Create a new case with optional nested data.
 
@@ -612,6 +613,7 @@ def create_case(case_name: str, status: str = "Signing Up", court: str = None,
         case_numbers: List of case numbers [{"number": "...", "label": "...", "primary": bool}]
         clients: List of clients to add [{"name": "...", "phone": "...", "is_primary": bool, ...}]
         defendants: List of defendant names ["City of LA", "LAPD"]
+        contacts: List of contacts to add [{"name": "...", "role": "...", "firm": "..."}]
 
     Returns the created case with nested data summary.
     """
@@ -652,13 +654,33 @@ def create_case(case_name: str, status: str = "Signing Up", court: str = None,
             add_defendant_to_case(case_id, defendant_name)
             defendants_added.append(defendant_name)
 
+    # Add contacts (using smart function)
+    contacts_added = []
+    if contacts:
+        for contact_data in contacts:
+            result = smart_add_contact_to_case(
+                case_id=case_id,
+                name=contact_data.get("name"),
+                role=contact_data.get("role"),
+                firm=contact_data.get("firm"),
+                phone=contact_data.get("phone"),
+                email=contact_data.get("email"),
+                notes=contact_data.get("notes")
+            )
+            contacts_added.append({
+                "name": contact_data.get("name"),
+                "role": contact_data.get("role"),
+                "contact_id": result.get("contact_id")
+            })
+
     return {
         "id": case_id,
         "case_name": case_name,
         "status": status,
         "case_numbers": case_numbers or [],
         "clients_added": clients_added,
-        "defendants_added": defendants_added
+        "defendants_added": defendants_added,
+        "contacts_added": contacts_added
     }
 
 
@@ -1255,13 +1277,14 @@ def search_cases(query: str = None, case_number: str = None, defendant: str = No
         return cases
 
 
-def search_contacts(name: str = None, firm: str = None) -> List[dict]:
+def search_contacts(name: str = None, firm: str = None, role: str = None) -> List[dict]:
     """
-    Search for contacts by name or firm.
+    Search for contacts by name, firm, or role.
     Returns contacts with their case/role associations for disambiguation.
     """
     with get_cursor() as cur:
-        # Build WHERE clause based on provided filters
+        # Build query with optional role filter (requires JOIN)
+        joins = []
         conditions = []
         params = []
 
@@ -1271,16 +1294,22 @@ def search_contacts(name: str = None, firm: str = None) -> List[dict]:
         if firm:
             conditions.append("co.firm ILIKE %s")
             params.append(f"%{firm}%")
+        if role:
+            joins.append("JOIN case_contacts cc_filter ON co.id = cc_filter.contact_id")
+            conditions.append("cc_filter.role = %s")
+            params.append(role)
 
         if not conditions:
             return []
 
-        where_clause = " OR ".join(conditions)
+        join_clause = " ".join(joins)
+        where_clause = " AND ".join(conditions)
 
         # Get matching contacts
         cur.execute(f"""
             SELECT DISTINCT co.id, co.name, co.firm, co.phone, co.email
             FROM contacts co
+            {join_clause}
             WHERE {where_clause}
             ORDER BY co.name
         """, params)
@@ -1299,6 +1328,92 @@ def search_contacts(name: str = None, firm: str = None) -> List[dict]:
             contact["cases"] = [dict(row) for row in cur.fetchall()]
 
         return contacts
+
+
+def search_tasks(query: str = None, case_id: int = None, status: str = None,
+                 urgency_min: int = None) -> List[dict]:
+    """
+    Search for tasks by description, case, status, or urgency.
+    """
+    with get_cursor() as cur:
+        conditions = ["1=1"]
+        params = []
+
+        if query:
+            conditions.append("t.description ILIKE %s")
+            params.append(f"%{query}%")
+        if case_id:
+            conditions.append("t.case_id = %s")
+            params.append(case_id)
+        if status:
+            conditions.append("t.status = %s")
+            params.append(status)
+        if urgency_min:
+            conditions.append("t.urgency >= %s")
+            params.append(urgency_min)
+
+        where_clause = " AND ".join(conditions)
+
+        cur.execute(f"""
+            SELECT t.id, t.description, t.status, t.urgency, t.due_date,
+                   c.id as case_id, c.case_name
+            FROM tasks t
+            JOIN cases c ON t.case_id = c.id
+            WHERE {where_clause}
+            ORDER BY t.due_date NULLS LAST, t.urgency DESC
+        """, params)
+
+        results = []
+        for row in cur.fetchall():
+            r = dict(row)
+            if r.get("due_date"):
+                r["due_date"] = str(r["due_date"])
+            results.append(r)
+
+        return results
+
+
+def search_deadlines(query: str = None, case_id: int = None, status: str = None,
+                     urgency_min: int = None) -> List[dict]:
+    """
+    Search for deadlines by description, case, status, or urgency.
+    """
+    with get_cursor() as cur:
+        conditions = ["1=1"]
+        params = []
+
+        if query:
+            conditions.append("d.description ILIKE %s")
+            params.append(f"%{query}%")
+        if case_id:
+            conditions.append("d.case_id = %s")
+            params.append(case_id)
+        if status:
+            conditions.append("d.status = %s")
+            params.append(status)
+        if urgency_min:
+            conditions.append("d.urgency >= %s")
+            params.append(urgency_min)
+
+        where_clause = " AND ".join(conditions)
+
+        cur.execute(f"""
+            SELECT d.id, d.description, d.status, d.urgency, d.date,
+                   d.calculation_note, c.id as case_id, c.case_name
+            FROM deadlines d
+            JOIN cases c ON d.case_id = c.id
+            WHERE {where_clause}
+            ORDER BY d.date, d.urgency DESC
+        """, params)
+
+        results = []
+        for row in cur.fetchall():
+            r = dict(row)
+            if r.get("date"):
+                r["date"] = str(r["date"])
+            results.append(r)
+
+        return results
 
 
 # ===== ACTIVITY OPERATIONS =====
@@ -1609,6 +1724,71 @@ def update_task(task_id: int, status: str = None, urgency: int = None,
                 r["due_date"] = str(r["due_date"])
             return r
         return None
+
+
+def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
+    """Update multiple tasks to the same status."""
+    if not task_ids:
+        return {"success": False, "error": "No task IDs provided", "updated": 0}
+
+    with get_cursor() as cur:
+        # Use ANY to match multiple IDs
+        cur.execute("""
+            UPDATE tasks SET status = %s
+            WHERE id = ANY(%s)
+            RETURNING id, description, status
+        """, (status, task_ids))
+        updated = [dict(row) for row in cur.fetchall()]
+
+    return {
+        "success": True,
+        "updated": len(updated),
+        "tasks": updated
+    }
+
+
+def bulk_update_deadlines(deadline_ids: List[int], status: str) -> dict:
+    """Update multiple deadlines to the same status."""
+    if not deadline_ids:
+        return {"success": False, "error": "No deadline IDs provided", "updated": 0}
+
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE deadlines SET status = %s
+            WHERE id = ANY(%s)
+            RETURNING id, description, status
+        """, (status, deadline_ids))
+        updated = [dict(row) for row in cur.fetchall()]
+
+    return {
+        "success": True,
+        "updated": len(updated),
+        "deadlines": updated
+    }
+
+
+def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
+    """Update all tasks for a case to a new status, optionally filtering by current status."""
+    with get_cursor() as cur:
+        if current_status:
+            cur.execute("""
+                UPDATE tasks SET status = %s
+                WHERE case_id = %s AND status = %s
+                RETURNING id, description, status
+            """, (status, case_id, current_status))
+        else:
+            cur.execute("""
+                UPDATE tasks SET status = %s
+                WHERE case_id = %s
+                RETURNING id, description, status
+            """, (status, case_id))
+        updated = [dict(row) for row in cur.fetchall()]
+
+    return {
+        "success": True,
+        "updated": len(updated),
+        "tasks": updated
+    }
 
 
 # ===== NOTE OPERATIONS =====

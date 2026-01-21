@@ -84,10 +84,11 @@ def register_tools(mcp):
         date_of_injury: Optional[str] = None,
         case_numbers: Optional[list] = None,
         clients: Optional[list] = None,
-        defendants: Optional[list] = None
+        defendants: Optional[list] = None,
+        contacts: Optional[list] = None
     ) -> dict:
         """
-        Create a new case with optional nested clients, defendants, and case numbers.
+        Create a new case with optional nested clients, defendants, contacts, and case numbers.
 
         This tool can create a complete case in a single call, including all related entities.
 
@@ -105,6 +106,9 @@ def register_tools(mcp):
                      Optional fields: email, address, contact_directly, contact_via, contact_via_relationship, notes
             defendants: List of defendant names
                         Format: ["City of Los Angeles", "LAPD"]
+            contacts: List of contacts to add (opposing counsel, judge, experts, etc.)
+                      Format: [{"name": "John Smith", "role": "Opposing Counsel", "firm": "City Attorney's Office"}]
+                      Optional fields: phone, email, notes
 
         Returns the created case with IDs and summary of added entities.
 
@@ -115,6 +119,7 @@ def register_tools(mcp):
                 court="LA Superior Court",
                 clients=[{"name": "Maria Martinez", "phone": "555-1234", "is_primary": true}],
                 defendants=["City of Los Angeles", "LAPD"],
+                contacts=[{"name": "John Smith", "role": "Opposing Counsel", "firm": "City Attorney"}],
                 case_numbers=[{"number": "24STCV12345", "label": "State", "primary": true}]
             )
         """
@@ -122,12 +127,17 @@ def register_tools(mcp):
             db.validate_case_status(status)
             if date_of_injury:
                 db.validate_date_format(date_of_injury, "date_of_injury")
+            # Validate contact roles if provided
+            if contacts:
+                for contact in contacts:
+                    if contact.get("role"):
+                        db.validate_contact_role(contact["role"])
         except ValidationError as e:
             return validation_error(str(e))
 
         result = db.create_case(
             case_name, status, court, print_code, case_summary,
-            date_of_injury, case_numbers, clients, defendants
+            date_of_injury, case_numbers, clients, defendants, contacts
         )
         return {"success": True, "message": f"Case '{case_name}' created", "case": result}
 
@@ -353,29 +363,91 @@ def register_tools(mcp):
     @mcp.tool()
     def search_contacts(
         name: Optional[str] = None,
-        firm: Optional[str] = None
+        firm: Optional[str] = None,
+        role: Optional[str] = None
     ) -> dict:
         """
-        Search for contacts by name or firm (partial match).
+        Search for contacts by name, firm, or role.
 
         Contacts include opposing counsel, experts, judges, mediators, etc.
-        Use this to find a contact before updating their info or linking to a case.
         Returns contacts with their case/role associations.
 
         Args:
             name: Full or partial contact name (e.g., "Smith", "Dr. Johnson")
             firm: Full or partial firm name (e.g., "City Attorney")
+            role: Filter by role (e.g., "Judge", "Opposing Counsel", "Plaintiff Expert")
 
         At least one search parameter must be provided.
 
         Returns matching contacts with their case associations:
         [{id, name, firm, phone, email, cases: [{id, case_name, role}]}]
-        """
-        if not any([name, firm]):
-            return validation_error("Provide at least one search parameter (name or firm)")
 
-        contacts = db.search_contacts(name, firm)
+        Examples:
+            - search_contacts(role="Judge") - find all judges
+            - search_contacts(name="Smith", role="Opposing Counsel") - find opposing counsel named Smith
+        """
+        if not any([name, firm, role]):
+            return validation_error("Provide at least one search parameter (name, firm, or role)")
+
+        contacts = db.search_contacts(name, firm, role)
         return {"contacts": contacts, "total": len(contacts)}
+
+    @mcp.tool()
+    def search_tasks(
+        query: Optional[str] = None,
+        case_id: Optional[int] = None,
+        status: Optional[str] = None,
+        urgency_min: Optional[int] = None
+    ) -> dict:
+        """
+        Search for tasks by description, case, status, or urgency.
+
+        Args:
+            query: Search in task descriptions (partial match)
+            case_id: Filter to specific case
+            status: Filter by status (Pending, Active, Done, etc.)
+            urgency_min: Minimum urgency level (1-5)
+
+        At least one parameter must be provided.
+
+        Examples:
+            - search_tasks(query="deposition") - find tasks mentioning "deposition"
+            - search_tasks(status="Blocked") - find all blocked tasks
+            - search_tasks(urgency_min=4) - find high-urgency tasks
+        """
+        if not any([query, case_id, status, urgency_min]):
+            return validation_error("Provide at least one search parameter")
+
+        tasks = db.search_tasks(query, case_id, status, urgency_min)
+        return {"tasks": tasks, "total": len(tasks)}
+
+    @mcp.tool()
+    def search_deadlines(
+        query: Optional[str] = None,
+        case_id: Optional[int] = None,
+        status: Optional[str] = None,
+        urgency_min: Optional[int] = None
+    ) -> dict:
+        """
+        Search for deadlines by description, case, status, or urgency.
+
+        Args:
+            query: Search in deadline descriptions (partial match)
+            case_id: Filter to specific case
+            status: Filter by status (Pending, Met, Missed, etc.)
+            urgency_min: Minimum urgency level (1-5)
+
+        At least one parameter must be provided.
+
+        Examples:
+            - search_deadlines(query="discovery") - find deadlines mentioning "discovery"
+            - search_deadlines(urgency_min=5) - find critical deadlines
+        """
+        if not any([query, case_id, status, urgency_min]):
+            return validation_error("Provide at least one search parameter")
+
+        deadlines = db.search_deadlines(query, case_id, status, urgency_min)
+        return {"deadlines": deadlines, "total": len(deadlines)}
 
     # ===== ACTIVITY TOOLS =====
 
@@ -595,6 +667,87 @@ def register_tools(mcp):
         if not result:
             return not_found_error("Task or no updates provided")
         return {"success": True, "task": result}
+
+    @mcp.tool()
+    def bulk_update_tasks(
+        task_ids: list,
+        status: str
+    ) -> dict:
+        """
+        Update multiple tasks to the same status at once.
+
+        Useful for marking several tasks as Done, or changing status of multiple tasks.
+
+        Args:
+            task_ids: List of task IDs to update
+            status: New status for all tasks (Pending, Active, Done, Partially Complete, Blocked, Awaiting Atty Review)
+
+        Returns count of updated tasks and their details.
+
+        Example:
+            bulk_update_tasks(task_ids=[1, 2, 3], status="Done")
+        """
+        try:
+            db.validate_task_status(status)
+        except ValidationError as e:
+            return validation_error(str(e))
+
+        result = db.bulk_update_tasks(task_ids, status)
+        return result
+
+    @mcp.tool()
+    def bulk_update_deadlines(
+        deadline_ids: list,
+        status: str
+    ) -> dict:
+        """
+        Update multiple deadlines to the same status at once.
+
+        Useful for marking several deadlines as met/complete.
+
+        Args:
+            deadline_ids: List of deadline IDs to update
+            status: New status for all deadlines (e.g., "Pending", "Met", "Missed")
+
+        Returns count of updated deadlines and their details.
+
+        Example:
+            bulk_update_deadlines(deadline_ids=[1, 2], status="Met")
+        """
+        result = db.bulk_update_deadlines(deadline_ids, status)
+        return result
+
+    @mcp.tool()
+    def bulk_update_case_tasks(
+        case_id: int,
+        new_status: str,
+        current_status: Optional[str] = None
+    ) -> dict:
+        """
+        Update all tasks for a case to a new status.
+
+        Useful for "mark all pending tasks on this case as done" type operations.
+
+        Args:
+            case_id: ID of the case
+            new_status: New status for tasks
+            current_status: Only update tasks with this current status (optional filter)
+
+        Returns count of updated tasks.
+
+        Examples:
+            - bulk_update_case_tasks(case_id=5, new_status="Done") - mark ALL tasks done
+            - bulk_update_case_tasks(case_id=5, new_status="Done", current_status="Pending") - only pending→done
+        """
+        try:
+            db.validate_task_status(new_status)
+            if current_status:
+                db.validate_task_status(current_status)
+        except ValidationError as e:
+            return validation_error(str(e))
+
+        result = db.bulk_update_tasks_for_case(case_id, new_status, current_status)
+        return result
 
     # ===== NOTE TOOLS =====
 
