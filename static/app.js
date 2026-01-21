@@ -79,9 +79,9 @@ function getUrgencyClass(urgency) {
 // Dashboard
 async function renderDashboard() {
     const [stats, tasksRes, deadlinesRes] = await Promise.all([
-        API.get('/api/stats'),
-        API.get('/api/tasks?status=Pending'),
-        API.get('/api/deadlines?status=Pending')
+        API.get('/api/v1/stats'),
+        API.get('/api/v1/tasks?status=Pending'),
+        API.get('/api/v1/deadlines?status=Pending')
     ]);
 
     const content = document.getElementById('main-content');
@@ -179,7 +179,7 @@ async function renderDashboard() {
 
 // Cases List
 async function renderCases() {
-    const { cases } = await API.get('/api/cases');
+    const { cases } = await API.get('/api/v1/cases');
     const content = document.getElementById('main-content');
 
     content.innerHTML = `
@@ -430,7 +430,7 @@ function showTab(tabId, el) {
 
 // Tasks List
 async function renderTasks() {
-    const { tasks } = await API.get('/api/tasks');
+    const { tasks } = await API.get('/api/v1/tasks');
     const content = document.getElementById('main-content');
 
     content.innerHTML = `
@@ -489,7 +489,7 @@ function filterTasks() {
 
 // Deadlines List
 async function renderDeadlines() {
-    const { deadlines } = await API.get('/api/deadlines');
+    const { deadlines } = await API.get('/api/v1/deadlines');
     const content = document.getElementById('main-content');
 
     content.innerHTML = `
@@ -643,7 +643,7 @@ async function saveCase() {
         await API.put(`/api/cases/${id}`, data);
         showToast('Case updated');
     } else {
-        await API.post('/api/cases', data);
+        await API.post('/api/v1/cases', data);
         showToast('Case created');
     }
     closeModal();
@@ -726,7 +726,7 @@ async function saveTask() {
         showToast('Task updated');
     } else {
         data.case_id = parseInt(caseId);
-        await API.post('/api/tasks', data);
+        await API.post('/api/v1/tasks', data);
         showToast('Task created');
     }
     closeModal();
@@ -815,7 +815,7 @@ async function saveDeadline() {
         showToast('Deadline updated');
     } else {
         data.case_id = parseInt(caseId);
-        await API.post('/api/deadlines', data);
+        await API.post('/api/v1/deadlines', data);
         showToast('Deadline created');
     }
     closeModal();
@@ -858,7 +858,7 @@ function openNoteModal(caseId) {
 
 async function saveNote() {
     const caseId = document.getElementById('note-case-id').value;
-    await API.post('/api/notes', {
+    await API.post('/api/v1/notes', {
         case_id: parseInt(caseId),
         content: document.getElementById('note-content').value
     });
@@ -877,7 +877,7 @@ async function deleteNote(id, caseId) {
 
 // Initialize
 async function init() {
-    constants = await API.get('/api/constants');
+    constants = await API.get('/api/v1/constants');
     navigate('dashboard');
 }
 

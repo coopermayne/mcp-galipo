@@ -1097,18 +1097,18 @@ class NoteCreate(BaseModel):
     content: str
 
 # API Routes
-@mcp.custom_route("/api/stats", methods=["GET"])
+@mcp.custom_route("/api/v1/stats", methods=["GET"])
 async def api_stats(request):
     stats = db.get_dashboard_stats()
     return JSONResponse(stats)
 
-@mcp.custom_route("/api/cases", methods=["GET"])
+@mcp.custom_route("/api/v1/cases", methods=["GET"])
 async def api_list_cases(request):
     status = request.query_params.get("status")
     cases = db.get_all_cases(status)
     return JSONResponse({"cases": cases, "total": len(cases)})
 
-@mcp.custom_route("/api/cases/{case_id}", methods=["GET"])
+@mcp.custom_route("/api/v1/cases/{case_id}", methods=["GET"])
 async def api_get_case(request):
     case_id = int(request.path_params["case_id"])
     case = db.get_case_by_id(case_id)
@@ -1116,7 +1116,7 @@ async def api_get_case(request):
         return JSONResponse({"error": "Case not found"}, status_code=404)
     return JSONResponse(case)
 
-@mcp.custom_route("/api/cases", methods=["POST"])
+@mcp.custom_route("/api/v1/cases", methods=["POST"])
 async def api_create_case(request):
     data = await request.json()
     result = db.create_case(
@@ -1129,7 +1129,7 @@ async def api_create_case(request):
     )
     return JSONResponse({"success": True, "case": result})
 
-@mcp.custom_route("/api/cases/{case_id}", methods=["PUT"])
+@mcp.custom_route("/api/v1/cases/{case_id}", methods=["PUT"])
 async def api_update_case(request):
     case_id = int(request.path_params["case_id"])
     data = await request.json()
@@ -1138,14 +1138,14 @@ async def api_update_case(request):
         return JSONResponse({"error": "Case not found"}, status_code=404)
     return JSONResponse({"success": True, "case": result})
 
-@mcp.custom_route("/api/cases/{case_id}", methods=["DELETE"])
+@mcp.custom_route("/api/v1/cases/{case_id}", methods=["DELETE"])
 async def api_delete_case(request):
     case_id = int(request.path_params["case_id"])
     if db.delete_case(case_id):
         return JSONResponse({"success": True})
     return JSONResponse({"error": "Case not found"}, status_code=404)
 
-@mcp.custom_route("/api/tasks", methods=["GET"])
+@mcp.custom_route("/api/v1/tasks", methods=["GET"])
 async def api_list_tasks(request):
     case_id = request.query_params.get("case_id")
     status = request.query_params.get("status")
@@ -1157,7 +1157,7 @@ async def api_list_tasks(request):
     )
     return JSONResponse({"tasks": tasks, "total": len(tasks)})
 
-@mcp.custom_route("/api/tasks", methods=["POST"])
+@mcp.custom_route("/api/v1/tasks", methods=["POST"])
 async def api_create_task(request):
     data = await request.json()
     result = db.add_task(
@@ -1170,7 +1170,7 @@ async def api_create_task(request):
     )
     return JSONResponse({"success": True, "task": result})
 
-@mcp.custom_route("/api/tasks/{task_id}", methods=["PUT"])
+@mcp.custom_route("/api/v1/tasks/{task_id}", methods=["PUT"])
 async def api_update_task(request):
     task_id = int(request.path_params["task_id"])
     data = await request.json()
@@ -1179,14 +1179,14 @@ async def api_update_task(request):
         return JSONResponse({"error": "Task not found"}, status_code=404)
     return JSONResponse({"success": True, "task": result})
 
-@mcp.custom_route("/api/tasks/{task_id}", methods=["DELETE"])
+@mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
 async def api_delete_task(request):
     task_id = int(request.path_params["task_id"])
     if db.delete_task(task_id):
         return JSONResponse({"success": True})
     return JSONResponse({"error": "Task not found"}, status_code=404)
 
-@mcp.custom_route("/api/deadlines", methods=["GET"])
+@mcp.custom_route("/api/v1/deadlines", methods=["GET"])
 async def api_list_deadlines(request):
     urgency = request.query_params.get("urgency")
     status = request.query_params.get("status")
@@ -1196,7 +1196,7 @@ async def api_list_deadlines(request):
     )
     return JSONResponse({"deadlines": deadlines, "total": len(deadlines)})
 
-@mcp.custom_route("/api/deadlines", methods=["POST"])
+@mcp.custom_route("/api/v1/deadlines", methods=["POST"])
 async def api_create_deadline(request):
     data = await request.json()
     result = db.add_deadline(
@@ -1210,7 +1210,7 @@ async def api_create_deadline(request):
     )
     return JSONResponse({"success": True, "deadline": result})
 
-@mcp.custom_route("/api/deadlines/{deadline_id}", methods=["PUT"])
+@mcp.custom_route("/api/v1/deadlines/{deadline_id}", methods=["PUT"])
 async def api_update_deadline(request):
     deadline_id = int(request.path_params["deadline_id"])
     data = await request.json()
@@ -1219,27 +1219,27 @@ async def api_update_deadline(request):
         return JSONResponse({"error": "Deadline not found"}, status_code=404)
     return JSONResponse({"success": True, "deadline": result})
 
-@mcp.custom_route("/api/deadlines/{deadline_id}", methods=["DELETE"])
+@mcp.custom_route("/api/v1/deadlines/{deadline_id}", methods=["DELETE"])
 async def api_delete_deadline(request):
     deadline_id = int(request.path_params["deadline_id"])
     if db.delete_deadline(deadline_id):
         return JSONResponse({"success": True})
     return JSONResponse({"error": "Deadline not found"}, status_code=404)
 
-@mcp.custom_route("/api/notes", methods=["POST"])
+@mcp.custom_route("/api/v1/notes", methods=["POST"])
 async def api_create_note(request):
     data = await request.json()
     result = db.add_note(data["case_id"], data["content"])
     return JSONResponse({"success": True, "note": result})
 
-@mcp.custom_route("/api/notes/{note_id}", methods=["DELETE"])
+@mcp.custom_route("/api/v1/notes/{note_id}", methods=["DELETE"])
 async def api_delete_note(request):
     note_id = int(request.path_params["note_id"])
     if db.delete_note(note_id):
         return JSONResponse({"success": True})
     return JSONResponse({"error": "Note not found"}, status_code=404)
 
-@mcp.custom_route("/api/constants", methods=["GET"])
+@mcp.custom_route("/api/v1/constants", methods=["GET"])
 async def api_constants(request):
     return JSONResponse({
         "case_statuses": db.CASE_STATUSES,
