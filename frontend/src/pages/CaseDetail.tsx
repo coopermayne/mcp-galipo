@@ -484,11 +484,11 @@ function OverviewTab({
         />
       </div>
 
-      {/* Important Dates */}
+      {/* Important Dates & Starred Deadlines */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-4 h-4 text-slate-400" />
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Important Dates</h3>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Key Dates</h3>
         </div>
         <div className="space-y-3">
           <Field label="Date of Injury">
@@ -498,41 +498,8 @@ function OverviewTab({
               placeholder="Select date"
             />
           </Field>
-          <Field label="Claim Due">
-            <EditableDate
-              value={caseData.claim_due || null}
-              onSave={(value) => onUpdateField('claim_due', value)}
-              placeholder="Select date"
-            />
-          </Field>
-          <Field label="Claim Filed">
-            <EditableDate
-              value={caseData.claim_filed_date || null}
-              onSave={(value) => onUpdateField('claim_filed_date', value)}
-              placeholder="Select date"
-            />
-          </Field>
-          <Field label="Complaint Due">
-            <EditableDate
-              value={caseData.complaint_due || null}
-              onSave={(value) => onUpdateField('complaint_due', value)}
-              placeholder="Select date"
-            />
-          </Field>
-          <Field label="Complaint Filed">
-            <EditableDate
-              value={caseData.complaint_filed_date || null}
-              onSave={(value) => onUpdateField('complaint_filed_date', value)}
-              placeholder="Select date"
-            />
-          </Field>
-          <Field label="Trial Date">
-            <EditableDate
-              value={caseData.trial_date || null}
-              onSave={(value) => onUpdateField('trial_date', value)}
-              placeholder="Select date"
-            />
-          </Field>
+          {/* Starred Deadlines */}
+          <StarredDeadlines deadlines={caseData.deadlines || []} />
         </div>
       </div>
 
@@ -1019,7 +986,7 @@ function DeadlinesTab({
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [newDeadline, setNewDeadline] = useState({ date: '', description: '', calculation_note: '' });
+  const [newDeadline, setNewDeadline] = useState({ date: '', description: '', calculation_note: '', starred: false });
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -1028,10 +995,11 @@ function DeadlinesTab({
         date: newDeadline.date,
         description: newDeadline.description,
         calculation_note: newDeadline.calculation_note || undefined,
+        starred: newDeadline.starred,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setNewDeadline({ date: '', description: '', calculation_note: '' });
+      setNewDeadline({ date: '', description: '', calculation_note: '', starred: false });
       setIsAdding(false);
     },
   });
@@ -1095,6 +1063,18 @@ function DeadlinesTab({
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm"
               />
             </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={newDeadline.starred}
+                  onChange={(e) => setNewDeadline({ ...newDeadline, starred: e.target.checked })}
+                  className="rounded border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-700"
+                />
+                <Star className="w-3 h-3 text-amber-500" />
+                Show in Key Dates
+              </label>
+            </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -1141,6 +1121,15 @@ function DeadlinesTab({
                     <ChevronDown className="w-4 h-4" />
                   )}
                 </button>
+                <button
+                  onClick={() =>
+                    updateMutation.mutate({ id: deadline.id, data: { starred: !deadline.starred } })
+                  }
+                  className={`p-1 ${deadline.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                  title={deadline.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
+                >
+                  <Star className={`w-4 h-4 ${deadline.starred ? 'fill-amber-500' : ''}`} />
+                </button>
                 <EditableDate
                   value={deadline.date}
                   onSave={(value) =>
@@ -1157,7 +1146,6 @@ function DeadlinesTab({
                   />
                 </div>
                 <StatusBadge status={deadline.status} />
-                <UrgencyBadge urgency={deadline.urgency} />
                 {deadline.document_link && (
                   <a
                     href={deadline.document_link}
@@ -1549,6 +1537,45 @@ function CaseNumbersSection({
         </div>
       )}
     </div>
+  );
+}
+
+// Starred Deadlines Component - shows starred deadlines in the Key Dates section
+function StarredDeadlines({
+  deadlines,
+}: {
+  deadlines: Deadline[];
+}) {
+  const starredDeadlines = useMemo(
+    () => deadlines.filter(d => d.starred),
+    [deadlines]
+  );
+
+  if (starredDeadlines.length === 0) {
+    return null;
+  }
+
+  const formatDate = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    return isValid(date) ? format(date, 'MMM d, yyyy') : dateStr;
+  };
+
+  return (
+    <>
+      {starredDeadlines.map((deadline) => (
+        <div key={deadline.id} className="flex items-center gap-4">
+          <span className="text-sm text-slate-400 w-32 shrink-0 flex items-center gap-1">
+            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+            {deadline.description.length > 20
+              ? deadline.description.substring(0, 20) + '...'
+              : deadline.description}
+          </span>
+          <span className="text-sm text-slate-900 dark:text-slate-100">
+            {formatDate(deadline.date)}
+          </span>
+        </div>
+      ))}
+    </>
   );
 }
 

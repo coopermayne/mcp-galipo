@@ -549,6 +549,41 @@ def migrate_db():
                     """)
                 print("  - Migrated contacts to persons table")
 
+        # 15. Add starred column to deadlines if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'deadlines' AND column_name = 'starred'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE deadlines ADD COLUMN starred BOOLEAN DEFAULT FALSE")
+            print("  - Added starred column to deadlines")
+
+        # 16. Drop obsolete date columns from cases if they exist
+        obsolete_columns = ['claim_due', 'claim_filed_date', 'complaint_due', 'complaint_filed_date', 'trial_date']
+        for col in obsolete_columns:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'cases' AND column_name = %s
+                )
+            """, (col,))
+            if cur.fetchone()[0]:
+                cur.execute(f"ALTER TABLE cases DROP COLUMN {col}")
+                print(f"  - Dropped {col} column from cases")
+
+        # 17. Drop urgency column from deadlines if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'deadlines' AND column_name = 'urgency'
+            )
+        """)
+        if cur.fetchone()[0]:
+            cur.execute("ALTER TABLE deadlines DROP COLUMN urgency")
+            print("  - Dropped urgency column from deadlines")
+
         print("Database migration complete.")
 
 
@@ -578,11 +613,6 @@ def init_db():
                 case_summary TEXT,
                 result TEXT,
                 date_of_injury DATE,
-                claim_due DATE,
-                claim_filed_date DATE,
-                complaint_due DATE,
-                complaint_filed_date DATE,
-                trial_date DATE,
                 case_numbers JSONB DEFAULT '[]',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -668,9 +698,9 @@ def init_db():
                 location VARCHAR(255),
                 description TEXT NOT NULL,
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
                 document_link TEXT,
                 calculation_note TEXT,
+                starred BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -943,7 +973,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
 
         # Get deadlines
         cur.execute("""
-            SELECT id, date, time, location, description, status, urgency, document_link, calculation_note
+            SELECT id, date, time, location, description, status, document_link, calculation_note, starred
             FROM deadlines WHERE case_id = %s ORDER BY date
         """, (case_id,))
         result["deadlines"] = serialize_rows([dict(row) for row in cur.fetchall()])
@@ -1013,8 +1043,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
     """Update case fields."""
     allowed_fields = [
         "case_name", "short_name", "status", "court_id", "print_code",
-        "case_summary", "result", "date_of_injury", "claim_due", "claim_filed_date",
-        "complaint_due", "complaint_filed_date", "trial_date", "case_numbers"
+        "case_summary", "result", "date_of_injury", "case_numbers"
     ]
 
     updates = []
@@ -1028,8 +1057,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
 
         if field == "status":
             validate_case_status(value)
-        elif field in ["date_of_injury", "claim_due", "claim_filed_date",
-                       "complaint_due", "complaint_filed_date", "trial_date"]:
+        elif field == "date_of_injury":
             validate_date_format(value, field)
         elif field == "case_numbers":
             value = json.dumps(value) if isinstance(value, list) else value
@@ -1683,32 +1711,26 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
 # ===== DEADLINE OPERATIONS =====
 
 def add_deadline(case_id: int, date: str, description: str, status: str = "Pending",
-                 urgency: int = 3, document_link: str = None, calculation_note: str = None,
-                 time: str = None, location: str = None) -> dict:
+                 document_link: str = None, calculation_note: str = None,
+                 time: str = None, location: str = None, starred: bool = False) -> dict:
     """Add a deadline to a case."""
     validate_date_format(date, "date")
     validate_time_format(time, "time")
-    validate_urgency(urgency)
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO deadlines (case_id, date, time, location, description, status, urgency, document_link, calculation_note)
+            INSERT INTO deadlines (case_id, date, time, location, description, status, document_link, calculation_note, starred)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, date, time, location, description, status, urgency, document_link, calculation_note, created_at
-        """, (case_id, date, time, location, description, status, urgency, document_link, calculation_note))
+            RETURNING id, case_id, date, time, location, description, status, document_link, calculation_note, starred, created_at
+        """, (case_id, date, time, location, description, status, document_link, calculation_note, starred))
         return serialize_row(dict(cur.fetchone()))
 
 
-def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None,
+def get_upcoming_deadlines(status_filter: str = None,
                            limit: int = None, offset: int = None) -> dict:
     """Get upcoming deadlines."""
     conditions = ["d.date >= CURRENT_DATE"]
     params = []
-
-    if urgency_filter:
-        validate_urgency(urgency_filter)
-        conditions.append("d.urgency = %s")
-        params.append(urgency_filter)
 
     if status_filter:
         conditions.append("d.status = %s")
@@ -1722,11 +1744,11 @@ def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None
 
         query = f"""
             SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
-                   d.description, d.status, d.urgency, d.document_link, d.calculation_note
+                   d.description, d.status, d.document_link, d.calculation_note, d.starred
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
             {where_clause}
-            ORDER BY d.date, d.urgency DESC
+            ORDER BY d.date
         """
         if limit:
             query += f" LIMIT {limit}"
@@ -1737,19 +1759,14 @@ def get_upcoming_deadlines(urgency_filter: int = None, status_filter: str = None
         return {"deadlines": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
 
 
-def update_deadline(deadline_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
-    """Update deadline status and/or urgency."""
+def update_deadline(deadline_id: int, status: str = None) -> Optional[dict]:
+    """Update deadline status."""
     updates = []
     params = []
 
     if status:
         updates.append("status = %s")
         params.append(status)
-
-    if urgency:
-        validate_urgency(urgency)
-        updates.append("urgency = %s")
-        params.append(urgency)
 
     if not updates:
         return None
@@ -1760,15 +1777,16 @@ def update_deadline(deadline_id: int, status: str = None, urgency: int = None) -
         cur.execute(f"""
             UPDATE deadlines SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, date, time, location, description, status, urgency, document_link, calculation_note
+            RETURNING id, case_id, date, time, location, description, status, document_link, calculation_note, starred
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
 
 
 def update_deadline_full(deadline_id: int, date: str = None, description: str = None,
-                         status: str = None, urgency: int = None, document_link: str = None,
-                         calculation_note: str = None, time: str = None, location: str = None) -> Optional[dict]:
+                         status: str = None, document_link: str = None,
+                         calculation_note: str = None, time: str = None, location: str = None,
+                         starred: bool = None) -> Optional[dict]:
     """Update all deadline fields."""
     updates = []
     params = []
@@ -1795,11 +1813,6 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
         updates.append("status = %s")
         params.append(status)
 
-    if urgency is not None:
-        validate_urgency(urgency)
-        updates.append("urgency = %s")
-        params.append(urgency)
-
     if document_link is not None:
         updates.append("document_link = %s")
         params.append(document_link if document_link else None)
@@ -1807,6 +1820,10 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
     if calculation_note is not None:
         updates.append("calculation_note = %s")
         params.append(calculation_note if calculation_note else None)
+
+    if starred is not None:
+        updates.append("starred = %s")
+        params.append(starred)
 
     if not updates:
         return None
@@ -1817,7 +1834,7 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
         cur.execute(f"""
             UPDATE deadlines SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, date, time, location, description, status, urgency, document_link, calculation_note
+            RETURNING id, case_id, date, time, location, description, status, document_link, calculation_note, starred
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -1841,7 +1858,7 @@ def bulk_update_deadlines(deadline_ids: List[int], status: str) -> dict:
 
 
 def search_deadlines(query: str = None, case_id: int = None, status: str = None,
-                     urgency: int = None, limit: int = 50) -> List[dict]:
+                     limit: int = 50) -> List[dict]:
     """Search deadlines by various criteria."""
     conditions = []
     params = []
@@ -1858,21 +1875,16 @@ def search_deadlines(query: str = None, case_id: int = None, status: str = None,
         conditions.append("d.status = %s")
         params.append(status)
 
-    if urgency:
-        validate_urgency(urgency)
-        conditions.append("d.urgency = %s")
-        params.append(urgency)
-
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
         cur.execute(f"""
             SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
-                   d.description, d.status, d.urgency
+                   d.description, d.status, d.starred
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
             {where_clause}
-            ORDER BY d.date, d.urgency DESC
+            ORDER BY d.date
             LIMIT %s
         """, params + [limit])
         return [dict(row) for row in cur.fetchall()]
@@ -2002,7 +2014,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
     with get_cursor() as cur:
         if include_deadlines:
             cur.execute("""
-                SELECT d.id, d.date, d.time, d.location, d.description, d.status, d.urgency,
+                SELECT d.id, d.date, d.time, d.location, d.description, d.status,
                        d.case_id, c.case_name, c.short_name, 'deadline' as item_type
                 FROM deadlines d
                 JOIN cases c ON d.case_id = c.id
