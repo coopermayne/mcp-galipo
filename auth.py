@@ -19,7 +19,7 @@ SESSION_EXPIRY = 24 * 60 * 60
 
 # Environment variables with dev defaults
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
-AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "changeme")
+AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "asdf")
 
 
 def authenticate(username: str, password: str) -> Optional[str]:

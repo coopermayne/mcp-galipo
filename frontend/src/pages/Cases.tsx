@@ -96,7 +96,14 @@ export function Cases() {
         accessorKey: 'case_name',
         header: 'Case Name',
         cell: ({ row }) => (
-          <span className="font-medium text-slate-100">{row.original.case_name}</span>
+          <div>
+            <span className="font-medium text-slate-100">
+              {row.original.short_name || row.original.case_name}
+            </span>
+            {row.original.short_name && (
+              <span className="block text-xs text-slate-400">{row.original.case_name}</span>
+            )}
+          </div>
         ),
       },
       {

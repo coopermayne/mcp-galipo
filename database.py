@@ -469,7 +469,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
 
         # Get paginated results
         query = """
-            SELECT id, case_name, status, court, print_code
+            SELECT id, case_name, short_name, status, court, print_code
             FROM cases
         """
         params = []
