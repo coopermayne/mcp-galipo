@@ -105,9 +105,9 @@ export function EditableText({
           onBlur={handleBlur}
           maxLength={maxLength}
           className={`
-            flex-1 min-w-0 px-2 py-1 rounded border border-primary-500 bg-slate-800 text-slate-100
+            flex-1 min-w-0 px-2 py-1 rounded border border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
             focus:border-primary-400 focus:ring-1 focus:ring-primary-500
-            outline-none
+            outline-none transition-colors
             ${multiline ? 'resize-y min-h-[60px]' : ''}
             ${inputClassName}
           `}
@@ -123,9 +123,9 @@ export function EditableText({
       <span
         onClick={handleStartEdit}
         className={`
-          flex-1 min-w-0 px-2 py-1 rounded cursor-pointer text-slate-100
-          hover:bg-slate-700/50 transition-colors
-          ${!value ? 'text-slate-500 italic' : ''}
+          flex-1 min-w-0 px-2 py-1 rounded cursor-pointer text-slate-900 dark:text-slate-100
+          hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors
+          ${!value ? 'text-slate-400 dark:text-slate-500 italic' : ''}
           ${disabled ? 'cursor-default hover:bg-transparent' : ''}
         `}
       >

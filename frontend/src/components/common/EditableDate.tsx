@@ -100,8 +100,8 @@ export function EditableDate({
         disabled={disabled}
         className={`
           inline-flex items-center gap-1.5 px-2 py-1 rounded
-          hover:bg-slate-700 transition-colors text-sm text-slate-100
-          ${!isValidDate ? 'text-slate-500 italic' : ''}
+          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm text-slate-900 dark:text-slate-100
+          ${!isValidDate ? 'text-slate-400 dark:text-slate-500 italic' : ''}
           ${disabled ? 'cursor-default hover:bg-transparent opacity-60' : 'cursor-pointer'}
         `}
       >
@@ -109,7 +109,7 @@ export function EditableDate({
         <span>{displayValue}</span>
         {clearable && value && !disabled && (
           <X
-            className="w-3 h-3 text-slate-500 hover:text-slate-300"
+            className="w-3 h-3 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
             onClick={handleClear}
           />
         )}
@@ -120,19 +120,19 @@ export function EditableDate({
         <div
           className="
             absolute z-50 mt-1
-            bg-slate-700 border border-slate-600 rounded-lg shadow-lg
-            p-2
+            bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg
+            p-2 transition-colors
           "
         >
           <DayPicker
             mode="single"
             selected={isValidDate ? dateValue : undefined}
             onSelect={handleSelect}
-            className="text-sm text-slate-100"
+            className="text-sm text-slate-900 dark:text-slate-100"
             classNames={{
-              day: 'w-8 h-8 rounded hover:bg-slate-600 text-slate-100',
+              day: 'w-8 h-8 rounded hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100',
               selected: 'bg-primary-500 text-white hover:bg-primary-600',
-              today: 'font-bold text-primary-400',
+              today: 'font-bold text-primary-600 dark:text-primary-400',
             }}
           />
         </div>
