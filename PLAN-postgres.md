@@ -11,17 +11,16 @@ MCP server for personal injury litigation case management. Designed to work with
 ## Architecture Philosophy
 
 - **Claude is the smart layer** — parses natural language, decides which tools to call, handles ambiguity
-- **MCP tools are simple CRUD** — dumb, precise, ID-based operations
+- **MCP tools are simple but smart** — handle lookups internally, reduce multi-step operations to single calls
 - **Search tools bridge the gap** — let Claude find IDs from partial names before doing CRUD
 
-## Current Schema (12 tables)
+## Current Schema (11 tables)
 
 ```
-CASES (central entity)
+CASES (central entity, includes case_numbers as JSONB)
 ├── CLIENTS (plaintiffs, via case_clients junction)
 ├── DEFENDANTS (via case_defendants junction)
 ├── CONTACTS (opposing counsel, experts, via case_contacts junction with roles)
-├── CASE_NUMBERS (multiple per case, e.g., state, federal, appeal)
 ├── ACTIVITIES (time tracking)
 ├── DEADLINES (court-imposed)
 │   └── linked to TASKS
@@ -29,62 +28,60 @@ CASES (central entity)
 └── NOTES
 ```
 
-## MCP Tools (26 total - SIMPLIFIED)
+## MCP Tools (31 total)
 
 ### Case Management (6 tools)
-- [x] `list_cases(status_filter)` — list all cases
-- [x] `get_case(case_id, case_name)` — full details with all related data
-- [x] `create_case(...)` — create with nested clients, defendants, case_numbers
-- [x] `update_case(case_id, ...)` — update including case_numbers array
-- [x] `delete_case(case_id)` — cascades all related data
-- [x] `search_cases(query, defendant, client, contact, status)` — multi-field search
+- `list_cases(status_filter)` — list all cases
+- `get_case(case_id, case_name)` — full details with all related data
+- `create_case(...)` — create with nested clients, defendants, contacts, case_numbers
+- `update_case(case_id, ...)` — update including case_numbers array
+- `delete_case(case_id)` — cascades all related data
+- `search_cases(query, defendant, client, contact, status)` — multi-field search
 
 ### Client Management (2 tools)
-- [x] `add_client_to_case(case_id, name, ...)` — smart find-or-create, links to case
-- [x] `remove_client_from_case(case_id, client_name)` — remove by name
+- `add_client_to_case(case_id, name, ...)` — smart find-or-create, links to case
+- `remove_client_from_case(case_id, client_name)` — remove by name
 
 ### Contact Management (3 tools)
-- [x] `add_contact_to_case(case_id, name, role, ...)` — smart find-or-create, links with role
-- [x] `remove_contact_from_case(case_id, contact_name, role)` — remove by name
-- [x] `update_contact(contact_id, ...)` — update shared contact info
-- [x] `search_contacts(name, firm)` — find contacts across system
+- `add_contact_to_case(case_id, name, role, ...)` — smart find-or-create, links with role
+- `remove_contact_from_case(case_id, contact_name, role)` — remove by name
+- `search_contacts(name, firm, role)` — find contacts across system
 
 ### Defendant Management (2 tools)
-- [x] `add_defendant(case_id, defendant_name)` — find-or-create, links to case
-- [x] `remove_defendant_from_case(case_id, defendant_name)` — remove by name
+- `add_defendant(case_id, defendant_name)` — find-or-create, links to case
+- `remove_defendant_from_case(case_id, defendant_name)` — remove by name
 
-### Task Management (4 tools)
-- [x] `add_task(case_id, ...)`
-- [x] `get_tasks(case_id, status_filter, urgency_filter, due_within_days)`
-- [x] `update_task(task_id, description, status, urgency, due_date)`
-- [x] `delete_task(task_id)`
+### Task Management (6 tools)
+- `add_task(case_id, ...)`
+- `get_tasks(case_id, status_filter, urgency_filter, due_within_days)`
+- `update_task(task_id, description, status, urgency, due_date)`
+- `delete_task(task_id)`
+- `search_tasks(query, case_id, status, urgency_min)` — flexible search
+- `bulk_update_tasks(task_ids, status)` — batch status updates
 
-### Deadline Management (4 tools)
-- [x] `add_deadline(case_id, ...)`
-- [x] `get_deadlines(case_id, urgency_filter, status_filter, due_within_days)`
-- [x] `update_deadline(deadline_id, ...)`
-- [x] `delete_deadline(deadline_id)`
+### Deadline Management (6 tools)
+- `add_deadline(case_id, ...)`
+- `get_deadlines(case_id, urgency_filter, status_filter, due_within_days)`
+- `update_deadline(deadline_id, ...)`
+- `delete_deadline(deadline_id)`
+- `search_deadlines(query, case_id, status, urgency_min)` — flexible search
+- `bulk_update_deadlines(deadline_ids, status)` — batch status updates
+
+### Bulk Operations (1 tool)
+- `bulk_update_case_tasks(case_id, status, current_status)` — update all tasks for a case
 
 ### Calendar (1 tool)
-- [x] `get_calendar(days, include_tasks, include_deadlines, case_id)` — combined view
+- `get_calendar(days, include_tasks, include_deadlines, case_id)` — combined view
 
 ### Notes (2 tools)
-- [x] `add_note(case_id, content)`
-- [x] `delete_note(note_id)`
+- `add_note(case_id, content)`
+- `delete_note(note_id)`
 
 ### Activity (1 tool)
-- [x] `log_activity(case_id, ...)` — time tracking
+- `log_activity(case_id, ...)` — time tracking
 
-## Known Gaps / Future Work
-
-### Should Fix
-- [ ] `update_task` — add `description` parameter (database supports it, MCP tool doesn't expose it)
-- [ ] Add `link_existing_client_to_case()` — currently `add_client` always creates new; can't link same client to multiple cases
-- [ ] Add `update_client_case_link()` — for changing contact preferences (direct vs via guardian)
-
-### Nice to Have
-- [ ] `update_defendant` — rename a defendant
-- [ ] `update_case_number` — currently must delete and re-add
+### Contact Updates (1 tool)
+- `update_contact(contact_id, ...)` — update shared contact info
 
 ## Deployment
 
@@ -95,9 +92,10 @@ CASES (central entity)
 
 ## Web Dashboard
 
-SPA frontend at root path (`/`) with:
+Current: Vanilla JS SPA at root path (`/`) with:
 - Dashboard view (stats)
 - Cases view (list/manage)
+- Case Detail view
 - Tasks view
 - Deadlines view
 
@@ -105,335 +103,30 @@ Static files served from `/static/`.
 
 ---
 
-## Implementation Plan: Interface Simplification
+## Backend Simplification — COMPLETE
 
-### Problem Statement
+Reduced MCP interface from 41 tools to 31 tools while adding more functionality.
 
-The current implementation has 40 MCP tools that expose the relational database structure directly to Claude. This creates unnecessary complexity:
+### Key Changes Made
 
-- Claude must understand junction tables, IDs, and linking operations
-- Operations like "add Maria Martinez to the Jones case" require multiple tool calls
-- The abstraction level is wrong — Claude sees database operations, not case management operations
+1. **Schema Migration**: Moved `case_numbers` from separate table to JSONB column in `cases`
+2. **Smart Entity Tools**: `add_client_to_case` and `add_contact_to_case` with find-or-create logic
+3. **Consolidated Case Tools**: `create_case` accepts nested clients, defendants, contacts; `search_cases` has multi-field filtering
+4. **Cross-Case Queries**: `get_calendar` combining tasks/deadlines; `due_within_days` parameter on queries
+5. **Bulk Operations**: `bulk_update_tasks`, `bulk_update_deadlines`, `bulk_update_case_tasks`
+6. **Search Tools**: `search_tasks`, `search_deadlines` for flexible querying
 
-### Design Principles
-
-1. **Keep relational database** — Cross-case queries (tasks due this week, all cases with Judge X) require relational structure
-2. **Simplify MCP interface** — Reduce from ~40 tools to ~15 tools
-3. **Hide relational complexity** — Claude shouldn't know about junction tables
-4. **Smart tools** — Tools should handle lookups and linking internally
-
-### Schema Changes
-
-#### 1. Merge `case_numbers` into `cases` table
-
-**Current:**
-```sql
-CREATE TABLE case_numbers (
-    id SERIAL PRIMARY KEY,
-    case_id INTEGER REFERENCES cases(id),
-    case_number VARCHAR(100),
-    label VARCHAR(50),
-    is_primary BOOLEAN
-);
-```
-
-**New:**
-```sql
--- Add to cases table:
-case_numbers JSONB DEFAULT '[]'
--- Format: [{"number": "24STCV12345", "label": "State", "primary": true}, ...]
-```
-
-**Migration:**
-1. Add `case_numbers` JSONB column to `cases`
-2. Migrate existing data from `case_numbers` table
-3. Drop `case_numbers` table
-4. Remove `add_case_number`, `update_case_number`, `delete_case_number` tools
-
-#### 2. Keep all other tables
-
-These tables serve real relational purposes:
-
-| Table | Why Keep It |
-|-------|-------------|
-| `clients` | Shared across cases (same client, multiple cases) |
-| `contacts` | Shared across cases (same judge/counsel in many cases) |
-| `defendants` | Shared across cases (same defendant sued multiple times) |
-| `tasks` | Cross-case queries: "tasks due this week" |
-| `deadlines` | Cross-case queries: "deadlines next 30 days" |
-| `activities` | Cross-case queries: time reporting |
-| `notes` | Case-specific, but simple |
-| `case_clients` | Junction table (hidden from Claude) |
-| `case_contacts` | Junction table (hidden from Claude) |
-| `case_defendants` | Junction table (hidden from Claude) |
-
-### New MCP Tool Design (~15 tools)
-
-#### Case Management (6 tools)
-
-```python
-# Get case with ALL related data (clients, contacts, tasks, etc.)
-get_case(case_id: int = None, case_name: str = None) -> dict
-
-# Create case with optional nested data
-create_case(
-    case_name: str,
-    status: str = "Signing Up",
-    # ... basic fields ...
-    clients: List[dict] = None,      # [{"name": "...", "phone": "..."}]
-    defendants: List[str] = None,    # ["City of LA", "LAPD"]
-    case_numbers: List[dict] = None  # [{"number": "...", "label": "..."}]
-) -> dict
-
-# Smart update - handles nested data
-update_case(
-    case_id: int,
-    # Basic fields (optional)
-    case_name: str = None,
-    status: str = None,
-    # ... other basic fields ...
-    # Nested updates (optional)
-    case_numbers: List[dict] = None  # Replaces entire list
-) -> dict
-
-delete_case(case_id: int) -> dict
-
-list_cases(status_filter: str = None, limit: int = 50, offset: int = 0) -> dict
-
-search_cases(
-    query: str = None,           # Free text search
-    defendant: str = None,       # Filter by defendant name
-    client: str = None,          # Filter by client name
-    contact: str = None,         # Filter by contact name
-    status: str = None
-) -> dict
-```
-
-#### Case Entity Management (5 tools)
-
-These handle adding/removing entities to/from cases. They're smart about finding or creating entities.
-
-```python
-# Smart client add - finds existing client by name/phone/email or creates new
-add_client_to_case(
-    case_id: int,
-    name: str,
-    phone: str = None,
-    email: str = None,
-    address: str = None,
-    # Contact preferences
-    contact_directly: bool = True,
-    contact_via: str = None,           # Name of guardian/contact
-    contact_via_relationship: str = None,  # "Mother", "Guardian", etc.
-    is_primary: bool = False,
-    notes: str = None
-) -> dict
-# Internally: searches for existing client, creates if not found, links to case
-
-remove_client_from_case(case_id: int, client_name: str) -> dict
-# Internally: finds client by name, removes link
-
-# Smart contact add - finds existing or creates, links with role
-add_contact_to_case(
-    case_id: int,
-    name: str,
-    role: str,                    # "Opposing Counsel", "Judge", etc.
-    firm: str = None,
-    phone: str = None,
-    email: str = None,
-    notes: str = None
-) -> dict
-
-remove_contact_from_case(case_id: int, contact_name: str, role: str = None) -> dict
-
-# Smart defendant add - finds existing or creates, links
-add_defendant_to_case(case_id: int, defendant_name: str) -> dict
-
-remove_defendant_from_case(case_id: int, defendant_name: str) -> dict
-```
-
-#### Cross-Case Queries (3 tools)
-
-```python
-# Tasks across all cases
-get_tasks(
-    case_id: int = None,         # Filter to specific case
-    status: str = None,          # "Pending", "Active", etc.
-    due_within_days: int = None, # Tasks due within N days
-    urgency_min: int = None      # Minimum urgency (1-5)
-) -> dict
-
-# Deadlines across all cases
-get_deadlines(
-    case_id: int = None,
-    status: str = None,
-    due_within_days: int = None,
-    urgency_min: int = None
-) -> dict
-
-# Combined calendar view
-get_calendar(
-    days: int = 30,              # Look ahead N days
-    include_tasks: bool = True,
-    include_deadlines: bool = True
-) -> dict
-```
-
-#### Task & Deadline Management (4 tools)
-
-```python
-add_task(
-    case_id: int,
-    description: str,
-    due_date: str = None,
-    urgency: int = 3,
-    status: str = "Pending"
-) -> dict
-
-update_task(
-    task_id: int,
-    description: str = None,
-    due_date: str = None,
-    urgency: int = None,
-    status: str = None
-) -> dict
-
-add_deadline(
-    case_id: int,
-    date: str,
-    description: str,
-    urgency: int = 3,
-    status: str = "Pending",
-    calculation_note: str = None
-) -> dict
-
-update_deadline(
-    deadline_id: int,
-    date: str = None,
-    description: str = None,
-    urgency: int = None,
-    status: str = None
-) -> dict
-```
-
-#### Shared Entity Management (2 tools)
-
-For updating contact info that spans multiple cases:
-
-```python
-# Update a contact's info (reflects in all cases)
-update_contact(
-    contact_id: int = None,
-    contact_name: str = None,    # Can find by name instead of ID
-    name: str = None,
-    firm: str = None,
-    phone: str = None,
-    email: str = None
-) -> dict
-
-# Search contacts across system
-search_contacts(
-    name: str = None,
-    firm: str = None,
-    role: str = None             # Filter by role type
-) -> dict
-```
-
-#### Simple Operations (3 tools)
-
-```python
-add_note(case_id: int, content: str) -> dict
-delete_note(note_id: int) -> dict
-
-log_activity(
-    case_id: int,
-    description: str,
-    activity_type: str,
-    minutes: int = None,
-    date: str = None
-) -> dict
-```
-
-### Tools Removed (25 tools → consolidated)
-
-| Removed Tool | Replaced By |
-|--------------|-------------|
-| `link_existing_client` | `add_client_to_case` (auto-detects existing) |
-| `update_client_case_link` | `add_client_to_case` (upserts) |
-| `update_client` | Rarely needed; use `update_contact` for shared contacts |
-| `list_clients` | `search_cases` with client filter |
-| `search_clients` | `add_client_to_case` handles lookup internally |
-| `add_contact` | `add_contact_to_case` (creates if needed) |
-| `link_contact` | `add_contact_to_case` |
-| `list_contacts` | `search_contacts` |
-| `update_defendant` | Rarely needed; just remove and re-add |
-| `search_cases_by_defendant` | `search_cases(defendant="...")` |
-| `add_case_number` | `update_case(case_numbers=[...])` |
-| `update_case_number` | `update_case(case_numbers=[...])` |
-| `delete_case_number` | `update_case(case_numbers=[...])` |
-| `delete_task` | Keep but lower priority |
-| `delete_deadline` | Keep but lower priority |
-| `update_note` | Rarely needed |
-| `list_activities` | Part of `get_case` response |
-| `update_activity` | Rarely needed |
-| `delete_activity` | Rarely needed |
-
-### Implementation Phases
-
-#### Phase 1: Schema Migration ✅ COMPLETE
-1. ✅ Add `case_numbers` JSONB column to `cases` table
-2. ✅ Migrate existing case_numbers data (via `migrate_case_numbers_to_jsonb()`)
-3. ✅ Drop `case_numbers` table (done in migration)
-4. ✅ Update `get_case` to include case_numbers from JSONB
-5. ✅ Update `create_case` and `update_case` to accept case_numbers parameter
-6. ✅ Remove `add_case_number`, `update_case_number`, `delete_case_number` tools (now 38 tools)
-
-#### Phase 2: Smart Entity Tools ✅ COMPLETE
-1. ✅ Implement `add_client_to_case` with find-or-create logic (replaces add_client + link_existing_client + update_client_case_link)
-2. ✅ Implement `add_contact_to_case` with find-or-create logic (replaces add_contact + link_contact)
-3. ✅ Implement `remove_*_from_case` tools that accept names (not just IDs)
-4. ✅ `add_defendant_to_case` already had find-or-create logic (no change needed)
-
-**Tools removed:** add_client, link_existing_client, update_client_case_link, add_contact, link_contact
-**Tools added:** add_client_to_case, add_contact_to_case
-**Current tool count:** 35 tools (down from 38)
-
-#### Phase 3: Consolidate Case Tools ✅ COMPLETE
-1. ✅ Update `create_case` to accept nested clients/defendants (+ case_numbers from Phase 1)
-2. ✅ `update_case` already handles case_numbers array (from Phase 1)
-3. ✅ Enhance `search_cases` with multi-field filtering (query, defendant, client, contact, status)
-4. ✅ Remove `search_cases_by_defendant` (now redundant - use search_cases(defendant="..."))
-
-**Current tool count:** 34 tools (down from 35)
-
-#### Phase 4: Cross-Case Query Tools ✅ COMPLETE
-1. ✅ Implement `get_calendar` combining tasks and deadlines (NEW TOOL)
-2. ✅ Add `due_within_days` parameter to `get_tasks`
-3. ✅ Add `due_within_days` and `case_id` parameters to `get_deadlines`
-
-**Current tool count:** 35 tools (added get_calendar)
-
-#### Phase 5: Cleanup ✅ COMPLETE
-1. ✅ Remove deprecated tools (9 tools removed)
-2. ✅ Frontend uses existing API structure (no changes needed)
-3. ✅ Documentation updated below
-
-**Tools removed in Phase 5:**
-- `list_clients` - use search_cases(client="...") instead
-- `search_clients` - add_client_to_case handles lookup internally
-- `list_contacts` - use search_contacts instead
-- `list_activities` - included in get_case response
-- `update_defendant` - rarely needed; remove and re-add instead
-- `update_note` - rarely needed; delete and re-add instead
-- `update_activity` - rarely needed
-- `delete_activity` - rarely needed
-- `update_client` - rarely needed
-
-**FINAL TOOL COUNT: 26 tools (down from 41 original)**
+### Tools Removed (17 tools consolidated)
+- `add_case_number`, `update_case_number`, `delete_case_number` → use `update_case(case_numbers=[...])`
+- `add_client`, `link_existing_client`, `update_client_case_link` → use `add_client_to_case`
+- `add_contact`, `link_contact` → use `add_contact_to_case`
+- `search_cases_by_defendant` → use `search_cases(defendant="...")`
+- `list_clients`, `search_clients`, `list_contacts`, `list_activities`
+- `update_defendant`, `update_note`, `update_activity`, `delete_activity`, `update_client`
 
 ### Example: Before vs After
 
-**Before (current):**
+**Before:**
 ```
 User: "Add Maria Martinez as a client to the Jones case"
 
@@ -443,7 +136,7 @@ Claude must:
 3. If not found: add_client(case_id=5, name="Maria Martinez", ...)
 ```
 
-**After (new):**
+**After:**
 ```
 User: "Add Maria Martinez as a client to the Jones case"
 
@@ -452,35 +145,13 @@ Claude:
    → Tool internally finds or creates client, links to case
 ```
 
-**Before:**
-```
-User: "What's on my calendar this week?"
-
-Claude must:
-1. get_tasks(status_filter="Pending")
-2. get_deadlines(status_filter="Pending")
-3. Manually filter and combine by date
-```
-
-**After:**
-```
-User: "What's on my calendar this week?"
-
-Claude:
-1. get_calendar(days=7)
-   → Returns combined, sorted list of tasks and deadlines
-```
-
-### Success Metrics
-
-- Reduce from ~40 tools to ~15 tools
-- Average tool calls per user request: reduce from 2-3 to 1-2
-- Claude success rate on common operations: improve
-- Code complexity: reduce (fewer tools to maintain)
-
 ---
 
-## Frontend Redesign Plan
+## Frontend Redesign — NOT STARTED
+
+### Current State
+- Vanilla JS SPA (~983 lines JS, ~1014 lines CSS)
+- Functional but no inline editing, auto-save, or modern UX patterns
 
 ### Design Goals
 
@@ -498,244 +169,6 @@ Claude:
 5. **Keyboard navigation** — Tab between fields, Enter to confirm, Escape to cancel
 6. **Batch operations** — Select multiple items, bulk actions
 
-### Component Architecture
-
-```
-src/
-├── components/
-│   ├── common/
-│   │   ├── EditableText.tsx      # Click-to-edit text field
-│   │   ├── EditableSelect.tsx    # Click-to-edit dropdown
-│   │   ├── EditableDate.tsx      # Click-to-edit date picker
-│   │   ├── Badge.tsx             # Status/urgency badges
-│   │   ├── DataTable.tsx         # Sortable, filterable table
-│   │   └── SaveIndicator.tsx     # Saving/saved/error states
-│   ├── cases/
-│   │   ├── CaseList.tsx          # Main case list view
-│   │   ├── CaseRow.tsx           # Inline-editable case row
-│   │   ├── CaseDetail.tsx        # Full case view
-│   │   ├── ClientList.tsx        # Editable client list
-│   │   ├── ContactList.tsx       # Editable contacts with roles
-│   │   └── DefendantList.tsx     # Editable defendant chips
-│   ├── tasks/
-│   │   ├── TaskList.tsx          # Cross-case task view
-│   │   ├── TaskRow.tsx           # Inline-editable task
-│   │   └── TaskQuickAdd.tsx      # Quick add input at top
-│   ├── deadlines/
-│   │   ├── DeadlineList.tsx      # Cross-case deadline view
-│   │   └── DeadlineRow.tsx       # Inline-editable deadline
-│   ├── calendar/
-│   │   └── CalendarView.tsx      # Combined tasks + deadlines
-│   └── layout/
-│       ├── Sidebar.tsx           # Navigation
-│       ├── Header.tsx            # Search, user menu
-│       └── Layout.tsx            # Main layout wrapper
-├── hooks/
-│   ├── useAutoSave.ts            # Debounced auto-save logic
-│   ├── useOptimistic.ts          # Optimistic update pattern
-│   └── useKeyboard.ts            # Keyboard shortcuts
-├── api/
-│   └── client.ts                 # API client with error handling
-├── store/
-│   └── store.ts                  # Zustand or React Query for state
-└── App.tsx
-```
-
-### Key Components
-
-#### EditableText
-
-```tsx
-// Click to edit, auto-saves on blur or Enter
-<EditableText
-  value={case.case_name}
-  onSave={(value) => updateCase(case.id, { case_name: value })}
-  placeholder="Case name..."
-  className="text-lg font-semibold"
-/>
-```
-
-**Behavior:**
-- Display mode: Shows text with subtle hover indicator
-- Edit mode: Input field, focused automatically
-- Enter or blur: Saves and exits edit mode
-- Escape: Cancels and reverts
-- Shows tiny spinner while saving
-
-#### EditableSelect (Status/Role dropdowns)
-
-```tsx
-<EditableSelect
-  value={case.status}
-  options={CASE_STATUSES}
-  onSave={(value) => updateCase(case.id, { status: value })}
-  renderValue={(v) => <Badge status={v} />}
-/>
-```
-
-**Behavior:**
-- Click badge to open dropdown
-- Single click selects and saves
-- Click outside to cancel
-
-#### DataTable
-
-```tsx
-<DataTable
-  data={cases}
-  columns={[
-    { key: 'case_name', header: 'Case', editable: true, component: EditableText },
-    { key: 'status', header: 'Status', editable: true, component: EditableSelect },
-    { key: 'court', header: 'Court', editable: true },
-    { key: 'next_deadline', header: 'Next Deadline', sortable: true },
-  ]}
-  sortable
-  filterable
-  selectable
-  onRowClick={(case) => navigate(`/cases/${case.id}`)}
-/>
-```
-
-**Features:**
-- Column sorting (click header)
-- Column filtering (dropdown in header)
-- Row selection (checkbox column)
-- Bulk actions toolbar (appears when rows selected)
-- Inline editing without leaving the table
-
-### Views
-
-#### 1. Dashboard
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  [Stats Cards: Active Cases | Pending Tasks | Due This Week | Urgent]  │
-├─────────────────────────────────────────────────────────────┤
-│  Due This Week                              Quick Add Task  │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │ ☐ Discovery responses due    Martinez v. LAPD    Fri   ││
-│  │ ☐ File MSJ                   Jones v. City       Thu   ││
-│  │ ☐ Depo prep                  Smith v. County     Wed   ││
-│  └─────────────────────────────────────────────────────────┘│
-├─────────────────────────────────────────────────────────────┤
-│  Recent Activity                                            │
-│  • Status changed to Discovery — Martinez v. LAPD — 2h ago │
-│  • Deadline added — Jones v. City — 5h ago                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### 2. Cases List
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Cases                                    [+ New Case] [⚙]   │
-├─────────────────────────────────────────────────────────────┤
-│ [Search...]  Status: [All ▼]  Court: [All ▼]               │
-├─────────────────────────────────────────────────────────────┤
-│ ☐ │ Case Name          │ Status      │ Court    │ Next Due │
-│───┼────────────────────┼─────────────┼──────────┼──────────│
-│ ☐ │ Martinez v. LAPD   │ [Discovery] │ LA Super │ Jan 25   │
-│ ☐ │ Jones v. City      │ [Pre-trial] │ Federal  │ Feb 3    │
-│ ☐ │ Smith v. County    │ [Pleadings] │ LA Super │ Feb 10   │
-└─────────────────────────────────────────────────────────────┘
-  ↑ Click any cell to edit inline
-```
-
-#### 3. Case Detail
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ ← Cases    Martinez v. LAPD                    [Discovery ▼]│
-├─────────────────────────────────────────────────────────────┤
-│ Court: [LA Superior]  Case #: [24STCV12345]  DOI: [1/15/24]│
-├────────────────┬────────────────────────────────────────────┤
-│ Clients        │ Maria Martinez (Primary)        [+ Add]   │
-│                │   ↳ Contact via: Rosa Martinez (Mother)   │
-├────────────────┼────────────────────────────────────────────┤
-│ Defendants     │ [City of Los Angeles] [LAPD]    [+ Add]   │
-├────────────────┼────────────────────────────────────────────┤
-│ Contacts       │ John Smith — Opposing Counsel   [+ Add]   │
-│                │ Hon. Garcia — Judge                        │
-├────────────────┴────────────────────────────────────────────┤
-│ [Tasks] [Deadlines] [Notes] [Activity]                      │
-├─────────────────────────────────────────────────────────────┤
-│ Tasks                                      [+ Add task...]  │
-│ ☐ Discovery responses due          Jan 25  [Urgent 4]      │
-│ ☐ Review defendant docs            Jan 28  [Normal 3]      │
-│ ☑ File proof of service            Jan 20  [Done]          │
-└─────────────────────────────────────────────────────────────┘
-  ↑ Everything is editable. Click status badge, date, urgency, etc.
-```
-
-#### 4. Tasks View (Cross-case)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Tasks                                                       │
-├─────────────────────────────────────────────────────────────┤
-│ [+ Add task...]                                             │
-│ Show: [Pending ▼]  Due: [This week ▼]  Urgency: [All ▼]    │
-├─────────────────────────────────────────────────────────────┤
-│ TODAY                                                       │
-│ ☐ Call expert witness         Martinez v. LAPD    [4]      │
-├─────────────────────────────────────────────────────────────┤
-│ TOMORROW                                                    │
-│ ☐ File MSJ opposition         Jones v. City       [5] 🔴   │
-├─────────────────────────────────────────────────────────────┤
-│ THIS WEEK                                                   │
-│ ☐ Discovery responses         Martinez v. LAPD    [4]      │
-│ ☐ Depo prep                   Smith v. County     [3]      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Interaction Patterns
-
-#### Auto-save Flow
-
-```
-User clicks field
-    ↓
-Field becomes editable (input/select)
-    ↓
-User types/selects
-    ↓
-[Debounce 300ms]
-    ↓
-Show "Saving..." indicator (subtle, inline)
-    ↓
-API call (optimistic update already applied)
-    ↓
-Success: Show "Saved" briefly, then hide
-Error: Show error, revert optimistic update, keep field editable
-```
-
-#### Quick Add Pattern
-
-```
-[+ Add task...]  ← Placeholder text, looks like a row
-    ↓
-User clicks
-    ↓
-Transforms into input row with focus
-    ↓
-User types "Call Martinez re: depo"
-    ↓
-Enter: Creates task, clears input, ready for next
-Tab: Creates task, moves to next field (due date)
-Escape: Cancels, reverts to placeholder
-```
-
-#### Bulk Actions
-
-```
-User checks multiple rows
-    ↓
-Toolbar appears at bottom:
-┌─────────────────────────────────────────────────────────────┐
-│ 3 selected    [Mark Done] [Change Status ▼] [Delete] [✕]   │
-└─────────────────────────────────────────────────────────────┘
-```
-
 ### Technical Stack
 
 | Layer | Choice | Reason |
@@ -748,54 +181,51 @@ Toolbar appears at bottom:
 | Date picker | react-day-picker | Lightweight, accessible |
 | Icons | Lucide React | Clean, consistent icon set |
 
-### API Integration
+### Component Architecture
 
-```typescript
-// api/client.ts
-const api = {
-  cases: {
-    list: (params) => fetch('/api/v1/cases?' + qs(params)).then(r => r.json()),
-    get: (id) => fetch(`/api/v1/cases/${id}`).then(r => r.json()),
-    update: (id, data) => fetch(`/api/v1/cases/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    }).then(r => r.json()),
-    // ...
-  },
-  tasks: { /* ... */ },
-  deadlines: { /* ... */ },
-};
-
-// hooks/useCases.ts
-function useCases(filters) {
-  return useQuery({
-    queryKey: ['cases', filters],
-    queryFn: () => api.cases.list(filters),
-  });
-}
-
-function useUpdateCase() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => api.cases.update(id, data),
-    onMutate: async ({ id, data }) => {
-      // Optimistic update
-      await queryClient.cancelQueries(['cases']);
-      const previous = queryClient.getQueryData(['cases']);
-      queryClient.setQueryData(['cases'], old =>
-        old.map(c => c.id === id ? { ...c, ...data } : c)
-      );
-      return { previous };
-    },
-    onError: (err, vars, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['cases'], context.previous);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries(['cases']);
-    },
-  });
-}
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── EditableText.tsx      # Click-to-edit text field
+│   │   │   ├── EditableSelect.tsx    # Click-to-edit dropdown
+│   │   │   ├── EditableDate.tsx      # Click-to-edit date picker
+│   │   │   ├── Badge.tsx             # Status/urgency badges
+│   │   │   ├── DataTable.tsx         # Sortable, filterable table
+│   │   │   └── SaveIndicator.tsx     # Saving/saved/error states
+│   │   ├── cases/
+│   │   │   ├── CaseList.tsx          # Main case list view
+│   │   │   ├── CaseRow.tsx           # Inline-editable case row
+│   │   │   ├── CaseDetail.tsx        # Full case view
+│   │   │   ├── ClientList.tsx        # Editable client list
+│   │   │   ├── ContactList.tsx       # Editable contacts with roles
+│   │   │   └── DefendantList.tsx     # Editable defendant chips
+│   │   ├── tasks/
+│   │   │   ├── TaskList.tsx          # Cross-case task view
+│   │   │   ├── TaskRow.tsx           # Inline-editable task
+│   │   │   └── TaskQuickAdd.tsx      # Quick add input at top
+│   │   ├── deadlines/
+│   │   │   ├── DeadlineList.tsx
+│   │   │   └── DeadlineRow.tsx
+│   │   ├── calendar/
+│   │   │   └── CalendarView.tsx      # Combined tasks + deadlines
+│   │   └── layout/
+│   │       ├── Sidebar.tsx
+│   │       ├── Header.tsx
+│   │       └── Layout.tsx
+│   ├── hooks/
+│   │   ├── useAutoSave.ts            # Debounced auto-save logic
+│   │   ├── useOptimistic.ts          # Optimistic update pattern
+│   │   └── useKeyboard.ts            # Keyboard shortcuts
+│   ├── api/
+│   │   └── client.ts                 # API client with error handling
+│   └── pages/
+│       ├── Dashboard.tsx
+│       ├── Cases.tsx
+│       ├── CaseDetail.tsx
+│       ├── Tasks.tsx
+│       └── Deadlines.tsx
 ```
 
 ### Implementation Phases
@@ -830,44 +260,6 @@ function useUpdateCase() {
 3. Add keyboard shortcuts
 4. Add bulk actions
 5. Polish animations and transitions
-
-### File Structure (Final)
-
-```
-frontend/
-├── index.html
-├── package.json
-├── vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── index.css
-│   ├── api/
-│   │   └── client.ts
-│   ├── hooks/
-│   │   ├── useCases.ts
-│   │   ├── useTasks.ts
-│   │   ├── useDeadlines.ts
-│   │   └── useAutoSave.ts
-│   ├── components/
-│   │   ├── common/
-│   │   ├── cases/
-│   │   ├── tasks/
-│   │   ├── deadlines/
-│   │   └── layout/
-│   ├── pages/
-│   │   ├── Dashboard.tsx
-│   │   ├── Cases.tsx
-│   │   ├── CaseDetail.tsx
-│   │   ├── Tasks.tsx
-│   │   └── Deadlines.tsx
-│   └── lib/
-│       ├── constants.ts
-│       └── utils.ts
-└── public/
-```
 
 ### Migration Strategy
 
