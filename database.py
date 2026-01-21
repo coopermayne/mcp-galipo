@@ -137,6 +137,40 @@ def drop_all_tables():
     print("All tables dropped.")
 
 
+def migrate_add_short_name():
+    """
+    Add short_name column to cases table if it doesn't exist.
+    This is a one-time migration for existing databases.
+    """
+    with get_cursor(dict_cursor=False) as cur:
+        # Check if short_name column exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'short_name'
+            )
+        """)
+        column_exists = cur.fetchone()[0]
+
+        if column_exists:
+            print("short_name column already exists - migration not needed.")
+            return
+
+        # Add the column
+        cur.execute("ALTER TABLE cases ADD COLUMN short_name VARCHAR(100)")
+        print("Added short_name column to cases table.")
+
+        # Optionally populate with first word of case_name for existing cases
+        cur.execute("""
+            UPDATE cases
+            SET short_name = split_part(case_name, ' ', 1)
+            WHERE short_name IS NULL
+        """)
+        cur.execute("SELECT COUNT(*) FROM cases WHERE short_name IS NOT NULL")
+        count = cur.fetchone()[0]
+        print(f"Populated short_name for {count} existing cases.")
+
+
 def migrate_case_numbers_to_jsonb():
     """
     Migrate case_numbers from separate table to JSONB column in cases.
