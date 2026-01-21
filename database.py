@@ -371,7 +371,15 @@ def migrate_db():
             cur.execute("ALTER TABLE tasks ADD COLUMN completion_date DATE")
             print("  - Added completion_date column to tasks")
 
-        # 12. Migrate old clients table to persons if it exists
+        # 12. Migrate old clients table to persons if it exists and has expected structure
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'clients' AND column_name = 'case_id'
+            )
+        """)
+        clients_has_case_id = cur.fetchone()[0]
+
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.tables
@@ -379,45 +387,63 @@ def migrate_db():
             )
         """)
         if cur.fetchone()[0]:
+            # Check what columns exist in clients table
             cur.execute("""
-                INSERT INTO persons (person_type, name, phones, emails, notes, created_at)
-                SELECT
-                    'client',
-                    name,
-                    CASE WHEN phone IS NOT NULL AND phone != ''
-                        THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true))
-                        ELSE '[]'::jsonb
-                    END,
-                    CASE WHEN email IS NOT NULL AND email != ''
-                        THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true))
-                        ELSE '[]'::jsonb
-                    END,
-                    notes,
-                    COALESCE(created_at, CURRENT_TIMESTAMP)
-                FROM clients
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM persons p WHERE p.name = clients.name AND p.person_type = 'client'
-                )
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'clients'
             """)
-            # Migrate client-case relationships
-            cur.execute("""
-                INSERT INTO case_persons (case_id, person_id, role, side, is_primary)
-                SELECT
-                    c.case_id,
-                    p.id,
-                    'Client',
-                    'plaintiff',
-                    c.is_primary
-                FROM clients c
-                JOIN persons p ON p.name = c.name AND p.person_type = 'client'
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM case_persons cp
-                    WHERE cp.case_id = c.case_id AND cp.person_id = p.id AND cp.role = 'Client'
-                )
-            """)
-            print("  - Migrated clients to persons table")
+            client_cols = {row[0] for row in cur.fetchall()}
+
+            # Build dynamic insert based on available columns
+            if 'name' in client_cols:
+                phone_expr = "CASE WHEN phone IS NOT NULL AND phone != '' THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true)) ELSE '[]'::jsonb END" if 'phone' in client_cols else "'[]'::jsonb"
+                email_expr = "CASE WHEN email IS NOT NULL AND email != '' THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true)) ELSE '[]'::jsonb END" if 'email' in client_cols else "'[]'::jsonb"
+                notes_expr = "notes" if 'notes' in client_cols else "NULL"
+
+                cur.execute(f"""
+                    INSERT INTO persons (person_type, name, phones, emails, notes, created_at)
+                    SELECT
+                        'client',
+                        name,
+                        {phone_expr},
+                        {email_expr},
+                        {notes_expr},
+                        COALESCE(created_at, CURRENT_TIMESTAMP)
+                    FROM clients
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM persons p WHERE p.name = clients.name AND p.person_type = 'client'
+                    )
+                """)
+
+                # Only migrate relationships if case_id column exists
+                if clients_has_case_id:
+                    is_primary_expr = "c.is_primary" if 'is_primary' in client_cols else "false"
+                    cur.execute(f"""
+                        INSERT INTO case_persons (case_id, person_id, role, side, is_primary)
+                        SELECT
+                            c.case_id,
+                            p.id,
+                            'Client',
+                            'plaintiff',
+                            {is_primary_expr}
+                        FROM clients c
+                        JOIN persons p ON p.name = c.name AND p.person_type = 'client'
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM case_persons cp
+                            WHERE cp.case_id = c.case_id AND cp.person_id = p.id AND cp.role = 'Client'
+                        )
+                    """)
+                print("  - Migrated clients to persons table")
 
         # 13. Migrate old defendants table to persons if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'defendants' AND column_name = 'case_id'
+            )
+        """)
+        defendants_has_case_id = cur.fetchone()[0]
+
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.tables
@@ -426,34 +452,50 @@ def migrate_db():
         """)
         if cur.fetchone()[0]:
             cur.execute("""
-                INSERT INTO persons (person_type, name, created_at)
-                SELECT
-                    'defendant',
-                    name,
-                    COALESCE(created_at, CURRENT_TIMESTAMP)
-                FROM defendants
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM persons p WHERE p.name = defendants.name AND p.person_type = 'defendant'
-                )
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'defendants'
             """)
-            # Migrate defendant-case relationships
-            cur.execute("""
-                INSERT INTO case_persons (case_id, person_id, role, side)
-                SELECT
-                    d.case_id,
-                    p.id,
-                    'Defendant',
-                    'defendant'
-                FROM defendants d
-                JOIN persons p ON p.name = d.name AND p.person_type = 'defendant'
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM case_persons cp
-                    WHERE cp.case_id = d.case_id AND cp.person_id = p.id AND cp.role = 'Defendant'
-                )
-            """)
-            print("  - Migrated defendants to persons table")
+            defendant_cols = {row[0] for row in cur.fetchall()}
+
+            if 'name' in defendant_cols:
+                cur.execute("""
+                    INSERT INTO persons (person_type, name, created_at)
+                    SELECT
+                        'defendant',
+                        name,
+                        COALESCE(created_at, CURRENT_TIMESTAMP)
+                    FROM defendants
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM persons p WHERE p.name = defendants.name AND p.person_type = 'defendant'
+                    )
+                """)
+
+                if defendants_has_case_id:
+                    cur.execute("""
+                        INSERT INTO case_persons (case_id, person_id, role, side)
+                        SELECT
+                            d.case_id,
+                            p.id,
+                            'Defendant',
+                            'defendant'
+                        FROM defendants d
+                        JOIN persons p ON p.name = d.name AND p.person_type = 'defendant'
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM case_persons cp
+                            WHERE cp.case_id = d.case_id AND cp.person_id = p.id AND cp.role = 'Defendant'
+                        )
+                    """)
+                print("  - Migrated defendants to persons table")
 
         # 14. Migrate old contacts table to persons if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'contacts' AND column_name = 'case_id'
+            )
+        """)
+        contacts_has_case_id = cur.fetchone()[0]
+
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.tables
@@ -462,41 +504,48 @@ def migrate_db():
         """)
         if cur.fetchone()[0]:
             cur.execute("""
-                INSERT INTO persons (person_type, name, phones, emails, organization, created_at)
-                SELECT
-                    'attorney',
-                    name,
-                    CASE WHEN phone IS NOT NULL AND phone != ''
-                        THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true))
-                        ELSE '[]'::jsonb
-                    END,
-                    CASE WHEN email IS NOT NULL AND email != ''
-                        THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true))
-                        ELSE '[]'::jsonb
-                    END,
-                    firm,
-                    COALESCE(created_at, CURRENT_TIMESTAMP)
-                FROM contacts
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM persons p WHERE p.name = contacts.name
-                )
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'contacts'
             """)
-            # Migrate contact-case relationships
-            cur.execute("""
-                INSERT INTO case_persons (case_id, person_id, role, side)
-                SELECT
-                    c.case_id,
-                    p.id,
-                    COALESCE(c.role, 'Contact'),
-                    'neutral'
-                FROM contacts c
-                JOIN persons p ON p.name = c.name
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM case_persons cp
-                    WHERE cp.case_id = c.case_id AND cp.person_id = p.id
-                )
-            """)
-            print("  - Migrated contacts to persons table")
+            contact_cols = {row[0] for row in cur.fetchall()}
+
+            if 'name' in contact_cols:
+                phone_expr = "CASE WHEN phone IS NOT NULL AND phone != '' THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true)) ELSE '[]'::jsonb END" if 'phone' in contact_cols else "'[]'::jsonb"
+                email_expr = "CASE WHEN email IS NOT NULL AND email != '' THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true)) ELSE '[]'::jsonb END" if 'email' in contact_cols else "'[]'::jsonb"
+                firm_expr = "firm" if 'firm' in contact_cols else "NULL"
+
+                cur.execute(f"""
+                    INSERT INTO persons (person_type, name, phones, emails, organization, created_at)
+                    SELECT
+                        'attorney',
+                        name,
+                        {phone_expr},
+                        {email_expr},
+                        {firm_expr},
+                        COALESCE(created_at, CURRENT_TIMESTAMP)
+                    FROM contacts
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM persons p WHERE p.name = contacts.name
+                    )
+                """)
+
+                if contacts_has_case_id:
+                    role_expr = "COALESCE(c.role, 'Contact')" if 'role' in contact_cols else "'Contact'"
+                    cur.execute(f"""
+                        INSERT INTO case_persons (case_id, person_id, role, side)
+                        SELECT
+                            c.case_id,
+                            p.id,
+                            {role_expr},
+                            'neutral'
+                        FROM contacts c
+                        JOIN persons p ON p.name = c.name
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM case_persons cp
+                            WHERE cp.case_id = c.case_id AND cp.person_id = p.id
+                        )
+                    """)
+                print("  - Migrated contacts to persons table")
 
         print("Database migration complete.")
 
