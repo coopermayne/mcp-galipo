@@ -87,7 +87,7 @@ export function EditableSelect({
         disabled={disabled}
         className={`
           inline-flex items-center gap-1 px-2 py-1 rounded
-          hover:bg-slate-700 transition-colors text-sm text-slate-100
+          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm text-slate-900 dark:text-slate-100
           ${disabled ? 'cursor-default hover:bg-transparent opacity-60' : 'cursor-pointer'}
         `}
       >
@@ -100,8 +100,8 @@ export function EditableSelect({
         <div
           className="
             absolute z-50 mt-1 min-w-[160px] max-h-[240px] overflow-auto
-            bg-slate-700 border border-slate-600 rounded-lg shadow-lg
-            py-1
+            bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg
+            py-1 transition-colors
           "
         >
           {options.map((option) => (
@@ -110,9 +110,9 @@ export function EditableSelect({
               type="button"
               onClick={() => handleSelect(option.value)}
               className={`
-                w-full text-left px-3 py-1.5 text-sm text-slate-100
-                hover:bg-slate-600 transition-colors
-                ${option.value === value ? 'bg-primary-900/50 text-primary-300' : ''}
+                w-full text-left px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100
+                hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors
+                ${option.value === value ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300' : ''}
               `}
             >
               {renderValue ? renderValue(option.value) : option.label}

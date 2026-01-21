@@ -9,17 +9,18 @@ import {
   StatusBadge,
   UrgencyBadge,
   ListPanel,
+  ConfirmModal,
 } from '../components/common';
 import { getDeadlines, updateDeadline, deleteDeadline } from '../api/client';
 import type { Deadline } from '../types';
-import { Trash2, ExternalLink, Filter, AlertTriangle, Search } from 'lucide-react';
-import { parseISO, differenceInDays, isValid } from 'date-fns';
+import { Trash2, ExternalLink, Filter, Search } from 'lucide-react';
 
 export function Deadlines() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const { data: deadlinesData, isLoading } = useQuery({
     queryKey: ['deadlines', { status: statusFilter || undefined, urgency: urgencyFilter ? parseInt(urgencyFilter) : undefined }],
@@ -71,12 +72,17 @@ export function Deadlines() {
 
   const handleDelete = useCallback(
     (deadlineId: number) => {
-      if (confirm('Are you sure you want to delete this deadline?')) {
-        deleteMutation.mutate(deadlineId);
-      }
+      setDeleteTarget(deadlineId);
     },
-    [deleteMutation]
+    []
   );
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   // Filter and group deadlines by date
   const groupedDeadlines = useMemo(() => {
@@ -138,28 +144,18 @@ export function Deadlines() {
   };
 
   const groupColors: Record<string, string> = {
-    overdue: 'text-red-400 bg-red-900/30',
-    today: 'text-amber-400 bg-amber-900/30',
-    thisWeek: 'text-blue-400 bg-blue-900/30',
-    thisMonth: 'text-slate-300 bg-slate-700',
-    later: 'text-slate-400 bg-slate-700',
-  };
-
-  const getDaysUntil = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (!isValid(date)) return null;
-    const days = differenceInDays(date, new Date());
-    if (days < 0) return `${Math.abs(days)} days overdue`;
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    return `${days} days`;
+    overdue: 'text-red-600',
+    today: 'text-amber-600',
+    thisWeek: 'text-blue-600',
+    thisMonth: 'text-slate-600',
+    later: 'text-slate-500',
   };
 
   return (
     <>
       <Header
-        title="Deadlines"
-        subtitle={`${deadlinesData?.total ?? 0} deadlines`}
+        title="Deadlines & Events"
+        subtitle="Important dates and court events"
       />
 
       <PageContent>
@@ -173,17 +169,17 @@ export function Deadlines() {
                 placeholder="Search deadlines or cases..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
-            <div className="h-6 w-px bg-slate-600" />
+            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
             <Filter className="w-4 h-4 text-slate-400" />
             <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-400">Status:</label>
+              <label className="text-sm text-slate-500 dark:text-slate-400">Status:</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               >
                 <option value="">All</option>
                 {statusOptions.map((opt) => (
@@ -194,11 +190,11 @@ export function Deadlines() {
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-400">Min Urgency:</label>
+              <label className="text-sm text-slate-500 dark:text-slate-400">Min Urgency:</label>
               <select
                 value={urgencyFilter}
                 onChange={(e) => setUrgencyFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               >
                 <option value="">All</option>
                 {urgencyOptions.map((opt) => (
@@ -226,23 +222,13 @@ export function Deadlines() {
               ([group, deadlines]) =>
                 deadlines.length > 0 && (
                   <div key={group}>
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold mb-2 ${groupColors[group]}`}>
-                      {group === 'overdue' && <AlertTriangle className="w-4 h-4" />}
+                    <h2 className={`text-sm font-semibold mb-2 ${groupColors[group]}`}>
                       {groupLabels[group]} ({deadlines.length})
-                    </div>
+                    </h2>
                     <ListPanel>
                       <ListPanel.Body>
                         {deadlines.map((deadline) => (
                           <ListPanel.Row key={deadline.id} highlight={group === 'overdue'}>
-                            <div className="w-28 shrink-0">
-                              <EditableDate
-                                value={deadline.date}
-                                onSave={(value) => handleUpdate(deadline.id, 'date', value)}
-                              />
-                              <p className={`text-xs mt-0.5 ${group === 'overdue' ? 'text-red-400 font-medium' : 'text-slate-500'}`}>
-                                {getDaysUntil(deadline.date)}
-                              </p>
-                            </div>
                             <div className="flex-1 min-w-0">
                               <EditableText
                                 value={deadline.description}
@@ -251,12 +237,16 @@ export function Deadlines() {
                               />
                               <Link
                                 to={`/cases/${deadline.case_id}`}
-                                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-1"
+                                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-0.5"
                               >
                                 {deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
                                 <ExternalLink className="w-3 h-3" />
                               </Link>
                             </div>
+                            <EditableDate
+                              value={deadline.date}
+                              onSave={(value) => handleUpdate(deadline.id, 'date', value)}
+                            />
                             <EditableSelect
                               value={deadline.status}
                               options={statusOptions}
@@ -285,6 +275,17 @@ export function Deadlines() {
           </div>
         )}
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Deadline"
+        message="Are you sure you want to delete this deadline?"
+        confirmText="Delete Deadline"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </>
   );
 }

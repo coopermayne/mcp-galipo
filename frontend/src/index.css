@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Colors - Legal/Professional palette */
   --color-primary-50: #f0f5ff;
@@ -39,9 +41,43 @@
   --color-surface-800: #f1f5f9;
   --color-surface-900: #f8fafc;
 
+  /* Semantic theme colors - these change based on light/dark mode */
+  --color-bg-base: var(--theme-bg-base);
+  --color-bg-surface: var(--theme-bg-surface);
+  --color-bg-elevated: var(--theme-bg-elevated);
+  --color-bg-hover: var(--theme-bg-hover);
+  --color-border: var(--theme-border);
+  --color-text: var(--theme-text);
+  --color-text-secondary: var(--theme-text-secondary);
+  --color-text-muted: var(--theme-text-muted);
+
   /* Fonts */
   --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-family-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Light theme (default) */
+:root {
+  --theme-bg-base: #f8fafc;
+  --theme-bg-surface: #ffffff;
+  --theme-bg-elevated: #ffffff;
+  --theme-bg-hover: #f1f5f9;
+  --theme-border: #e2e8f0;
+  --theme-text: #0f172a;
+  --theme-text-secondary: #475569;
+  --theme-text-muted: #94a3b8;
+}
+
+/* Dark theme */
+:root.dark {
+  --theme-bg-base: #0f172a;
+  --theme-bg-surface: #1e293b;
+  --theme-bg-elevated: #334155;
+  --theme-bg-hover: #334155;
+  --theme-border: #334155;
+  --theme-text: #f1f5f9;
+  --theme-text-secondary: #cbd5e1;
+  --theme-text-muted: #64748b;
 }
 
 /* Base styles */
@@ -50,31 +86,35 @@ html {
 }
 
 body {
-  @apply bg-slate-900 text-slate-100 antialiased;
+  background-color: var(--theme-bg-base);
+  color: var(--theme-text);
+  @apply antialiased;
   margin: 0;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Custom scrollbar - dark theme */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-800;
+  background-color: var(--theme-bg-surface);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-600 rounded;
+  background-color: var(--theme-text-muted);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-500;
+  background-color: var(--theme-text-secondary);
 }
 
 /* Focus styles for accessibility */

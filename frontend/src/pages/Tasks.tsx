@@ -9,6 +9,7 @@ import {
   StatusBadge,
   UrgencyBadge,
   ListPanel,
+  ConfirmModal,
 } from '../components/common';
 import { getTasks, getConstants, updateTask, deleteTask } from '../api/client';
 import type { Task } from '../types';
@@ -19,6 +20,7 @@ export function Tasks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [urgencyFilter, setUrgencyFilter] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
 
   const { data: tasksData, isLoading } = useQuery({
     queryKey: ['tasks', { status: statusFilter || undefined, urgency: urgencyFilter ? parseInt(urgencyFilter) : undefined }],
@@ -76,13 +78,18 @@ export function Tasks() {
   );
 
   const handleDelete = useCallback(
-    (taskId: number) => {
-      if (confirm('Are you sure you want to delete this task?')) {
-        deleteMutation.mutate(taskId);
-      }
+    (taskId: number, description: string) => {
+      setDeleteTarget({ id: taskId, description });
     },
-    [deleteMutation]
+    []
   );
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   // Filter and group tasks by date
   const groupedTasks = useMemo(() => {
@@ -163,7 +170,7 @@ export function Tasks() {
     <>
       <Header
         title="Tasks"
-        subtitle={`${tasksData?.total ?? 0} tasks`}
+        subtitle="Track your to-dos"
       />
 
       <PageContent>
@@ -177,17 +184,17 @@ export function Tasks() {
                 placeholder="Search tasks or cases..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
-            <div className="h-6 w-px bg-slate-600" />
+            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
             <Filter className="w-4 h-4 text-slate-400" />
             <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-400">Status:</label>
+              <label className="text-sm text-slate-500 dark:text-slate-400">Status:</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               >
                 <option value="">All</option>
                 {constants?.task_statuses.map((status) => (
@@ -198,11 +205,11 @@ export function Tasks() {
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-400">Min Urgency:</label>
+              <label className="text-sm text-slate-500 dark:text-slate-400">Min Urgency:</label>
               <select
                 value={urgencyFilter}
                 onChange={(e) => setUrgencyFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               >
                 <option value="">All</option>
                 {urgencyOptions.map((opt) => (
@@ -269,7 +276,7 @@ export function Tasks() {
                               renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
                             />
                             <button
-                              onClick={() => handleDelete(task.id)}
+                              onClick={() => handleDelete(task.id, task.description)}
                               className="p-1 text-slate-500 hover:text-red-400"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -284,6 +291,17 @@ export function Tasks() {
           </div>
         )}
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Task"
+        message={`Are you sure you want to delete this task?`}
+        confirmText="Delete Task"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
@@ -9,6 +9,7 @@ import {
   EditableSelect,
   EditableDate,
   ListPanel,
+  ConfirmModal,
 } from '../components/common';
 import { getStats, getTasks, getDeadlines, getConstants, updateTask, deleteTask, updateDeadline, deleteDeadline } from '../api/client';
 import type { Task, Deadline } from '../types';
@@ -21,10 +22,12 @@ import {
   Trash2,
   ExternalLink,
 } from 'lucide-react';
-import { parseISO, isValid, differenceInDays } from 'date-fns';
+import { parseISO, isValid } from 'date-fns';
 
 export function Dashboard() {
   const queryClient = useQueryClient();
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
+  const [deleteDeadlineTarget, setDeleteDeadlineTarget] = useState<number | null>(null);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
@@ -91,12 +94,17 @@ export function Dashboard() {
 
   const handleDeleteTask = useCallback(
     (taskId: number) => {
-      if (confirm('Delete this task?')) {
-        deleteTaskMutation.mutate(taskId);
-      }
+      setDeleteTaskTarget(taskId);
     },
-    [deleteTaskMutation]
+    []
   );
+
+  const confirmDeleteTask = useCallback(() => {
+    if (deleteTaskTarget) {
+      deleteTaskMutation.mutate(deleteTaskTarget);
+      setDeleteTaskTarget(null);
+    }
+  }, [deleteTaskTarget, deleteTaskMutation]);
 
   const handleUpdateDeadline = useCallback(
     async (deadlineId: number, field: string, value: any) => {
@@ -107,12 +115,17 @@ export function Dashboard() {
 
   const handleDeleteDeadline = useCallback(
     (deadlineId: number) => {
-      if (confirm('Delete this deadline?')) {
-        deleteDeadlineMutation.mutate(deadlineId);
-      }
+      setDeleteDeadlineTarget(deadlineId);
     },
-    [deleteDeadlineMutation]
+    []
   );
+
+  const confirmDeleteDeadline = useCallback(() => {
+    if (deleteDeadlineTarget) {
+      deleteDeadlineMutation.mutate(deleteDeadlineTarget);
+      setDeleteDeadlineTarget(null);
+    }
+  }, [deleteDeadlineTarget, deleteDeadlineMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map((s) => ({
     value: s,
@@ -133,16 +146,6 @@ export function Dashboard() {
     { value: '4', label: '4' },
     { value: '5', label: '5 - Critical' },
   ];
-
-  const getDaysUntil = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (!isValid(date)) return null;
-    const days = differenceInDays(date, new Date());
-    if (days < 0) return `${Math.abs(days)}d overdue`;
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    return `${days}d`;
-  };
 
   // Filter to only show non-completed tasks
   const pendingTasks = tasksData?.tasks.filter(t => t.status !== 'Done') || [];
@@ -200,10 +203,10 @@ export function Dashboard() {
           {/* Pending Tasks */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-100">Tasks</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Tasks</h2>
               <Link
                 to="/tasks"
-                className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
               >
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
@@ -264,10 +267,10 @@ export function Dashboard() {
           {/* Upcoming Deadlines */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-100">Deadlines</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Deadlines</h2>
               <Link
                 to="/deadlines"
-                className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
               >
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
@@ -281,15 +284,6 @@ export function Dashboard() {
                 <ListPanel.Body>
                   {pendingDeadlines.slice(0, 8).map((deadline) => (
                     <ListPanel.Row key={deadline.id}>
-                      <div className="w-28 shrink-0">
-                        <EditableDate
-                          value={deadline.date}
-                          onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
-                        />
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {getDaysUntil(deadline.date)}
-                        </p>
-                      </div>
                       <div className="flex-1 min-w-0">
                         <EditableText
                           value={deadline.description}
@@ -304,6 +298,10 @@ export function Dashboard() {
                           <ExternalLink className="w-3 h-3" />
                         </Link>
                       </div>
+                      <EditableDate
+                        value={deadline.date}
+                        onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
+                      />
                       <EditableSelect
                         value={deadline.status}
                         options={deadlineStatusOptions}
@@ -330,6 +328,28 @@ export function Dashboard() {
           </div>
         </div>
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTaskTarget}
+        onClose={() => setDeleteTaskTarget(null)}
+        onConfirm={confirmDeleteTask}
+        title="Delete Task"
+        message="Are you sure you want to delete this task?"
+        confirmText="Delete Task"
+        variant="danger"
+        isLoading={deleteTaskMutation.isPending}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteDeadlineTarget}
+        onClose={() => setDeleteDeadlineTarget(null)}
+        onConfirm={confirmDeleteDeadline}
+        title="Delete Deadline"
+        message="Are you sure you want to delete this deadline?"
+        confirmText="Delete Deadline"
+        variant="danger"
+        isLoading={deleteDeadlineMutation.isPending}
+      />
     </>
   );
 }
@@ -352,18 +372,18 @@ function StatCard({
   variant = 'default',
 }: StatCardProps) {
   const variantStyles = {
-    default: 'bg-slate-700 text-slate-300',
-    primary: 'bg-primary-900/50 text-primary-400',
-    warning: 'bg-amber-900/50 text-amber-400',
-    danger: 'bg-red-900/50 text-red-400',
+    default: 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+    primary: 'bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400',
+    warning: 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400',
+    danger: 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400',
   };
 
   const content = (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 shadow-sm p-4 hover:border-slate-600 transition-colors">
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm p-4 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-slate-400">{title}</p>
-          <p className="text-2xl font-semibold text-slate-100 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
+          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : value}
           </p>
         </div>
