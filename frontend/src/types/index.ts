@@ -107,6 +107,7 @@ export interface Case {
 export interface CaseSummary {
   id: number;
   case_name: string;
+  short_name?: string;
   status: CaseStatus;
   court?: string;
   print_code?: string;
