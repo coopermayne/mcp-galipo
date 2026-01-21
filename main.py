@@ -97,10 +97,16 @@ async def serve_static(request: Request):
     return HTMLResponse("Not found", status_code=404)
 
 
-# Initialize database on startup (drop and recreate for migration)
-db.drop_all_tables()
-db.init_db()
-db.seed_db()
+# Initialize database on startup
+# Only drop/recreate tables if RESET_DB=true (for development/testing)
+if os.environ.get("RESET_DB", "").lower() == "true":
+    print("RESET_DB=true: Dropping and recreating all tables...")
+    db.drop_all_tables()
+    db.init_db()
+    db.seed_db()
+else:
+    # Just ensure tables exist (safe for production)
+    db.init_db()
 
 
 # ===== CASE TOOLS =====
