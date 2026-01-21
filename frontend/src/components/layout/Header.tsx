@@ -20,22 +20,22 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
   });
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4">
+    <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1 text-sm text-slate-500 mb-2">
-          <Link to="/" className="hover:text-slate-700 transition-colors">
+        <nav className="flex items-center gap-1 text-sm text-slate-400 mb-2">
+          <Link to="/" className="hover:text-slate-200 transition-colors">
             <Home className="w-4 h-4" />
           </Link>
           {breadcrumbs.map((crumb) => (
             <span key={crumb.path} className="flex items-center gap-1">
               <ChevronRight className="w-4 h-4" />
               {crumb.isLast ? (
-                <span className="text-slate-900 font-medium">{crumb.label}</span>
+                <span className="text-slate-100 font-medium">{crumb.label}</span>
               ) : (
                 <Link
                   to={crumb.path}
-                  className="hover:text-slate-700 transition-colors"
+                  className="hover:text-slate-200 transition-colors"
                 >
                   {crumb.label}
                 </Link>
@@ -48,8 +48,8 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
       {/* Title and actions */}
       <div className="flex items-center justify-between">
         <div>
-          {title && <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>}
-          {subtitle && <p className="text-slate-500 mt-0.5">{subtitle}</p>}
+          {title && <h1 className="text-2xl font-semibold text-slate-100">{title}</h1>}
+          {subtitle && <p className="text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>

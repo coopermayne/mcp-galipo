@@ -96,7 +96,7 @@ export function Cases() {
         accessorKey: 'case_name',
         header: 'Case Name',
         cell: ({ row }) => (
-          <span className="font-medium text-slate-900">{row.original.case_name}</span>
+          <span className="font-medium text-slate-100">{row.original.case_name}</span>
         ),
       },
       {
@@ -115,14 +115,14 @@ export function Cases() {
         accessorKey: 'court',
         header: 'Court',
         cell: ({ row }) => (
-          <span className="text-slate-600">{row.original.court || '-'}</span>
+          <span className="text-slate-300">{row.original.court || '-'}</span>
         ),
       },
       {
         accessorKey: 'print_code',
         header: 'Code',
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-slate-500">
+          <span className="font-mono text-xs text-slate-400">
             {row.original.print_code || '-'}
           </span>
         ),
@@ -133,7 +133,7 @@ export function Cases() {
         cell: ({ row }) => (
           <button
             onClick={(e) => handleDeleteCase(e, row.original.id)}
-            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+            className="p-1 text-slate-500 hover:text-red-400 transition-colors"
             title="Delete case"
           >
             <Trash2 className="w-4 h-4" />
@@ -175,13 +175,13 @@ export function Cases() {
       <div className="flex-1 overflow-auto p-6">
         {/* Status Filter */}
         <div className="mb-4 flex items-center gap-4">
-          <label className="text-sm text-slate-600">Filter by status:</label>
+          <label className="text-sm text-slate-400">Filter by status:</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="
-              px-3 py-1.5 rounded-lg border border-slate-200
-              text-sm bg-white
+              px-3 py-1.5 rounded-lg border border-slate-600
+              text-sm bg-slate-700 text-slate-100
               focus:border-primary-500 focus:ring-1 focus:ring-primary-500
               outline-none
             "
@@ -197,7 +197,7 @@ export function Cases() {
 
         {/* Quick Add Form */}
         {isCreating && (
-          <div className="mb-4 bg-white rounded-lg border border-slate-200 p-4">
+          <div className="mb-4 bg-slate-800 rounded-lg border border-slate-700 p-4">
             <form onSubmit={handleCreateCase} className="flex items-center gap-3">
               <input
                 type="text"
@@ -205,7 +205,8 @@ export function Cases() {
                 onChange={(e) => setNewCaseName(e.target.value)}
                 placeholder="Enter case name (e.g., Martinez v. City of LA)"
                 className="
-                  flex-1 px-3 py-2 rounded-lg border border-slate-200
+                  flex-1 px-3 py-2 rounded-lg border border-slate-600
+                  bg-slate-700 text-slate-100 placeholder-slate-400
                   focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                   outline-none text-sm
                 "
@@ -231,8 +232,8 @@ export function Cases() {
                   setNewCaseName('');
                 }}
                 className="
-                  px-4 py-2 text-slate-600 rounded-lg
-                  hover:bg-slate-100 transition-colors
+                  px-4 py-2 text-slate-300 rounded-lg
+                  hover:bg-slate-700 transition-colors
                   text-sm font-medium
                 "
               >

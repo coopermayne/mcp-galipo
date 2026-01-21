@@ -76,7 +76,8 @@ export function DataTable<T>({
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="
                 w-full pl-9 pr-4 py-2 rounded-lg
-                border border-slate-200 bg-white
+                border border-slate-600 bg-slate-700 text-slate-100
+                placeholder-slate-400
                 focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                 outline-none text-sm
               "
@@ -86,16 +87,16 @@ export function DataTable<T>({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-x-auto rounded-lg border border-slate-700">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
+          <thead className="bg-slate-800 border-b border-slate-700">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     className={`
-                      px-4 py-3 text-left font-medium text-slate-700
+                      px-4 py-3 text-left font-medium text-slate-300
                       ${header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
                     `}
                     onClick={header.column.getToggleSortingHandler()}
@@ -103,7 +104,7 @@ export function DataTable<T>({
                     <div className="flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span className="text-slate-400">
+                        <span className="text-slate-500">
                           {{
                             asc: <ChevronUp className="w-4 h-4" />,
                             desc: <ChevronDown className="w-4 h-4" />,
@@ -118,12 +119,12 @@ export function DataTable<T>({
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody className="bg-slate-800">
             {table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-8 text-center text-slate-500"
+                  className="px-4 py-8 text-center text-slate-400"
                 >
                   {emptyMessage}
                 </td>
@@ -134,8 +135,8 @@ export function DataTable<T>({
                   key={row.id}
                   onClick={() => handleRowClick(row.original)}
                   className={`
-                    border-b border-slate-100 last:border-0
-                    hover:bg-slate-50 transition-colors
+                    border-b border-slate-700 last:border-0
+                    hover:bg-slate-700 transition-colors
                     ${onRowClick ? 'cursor-pointer' : ''}
                     ${rowClassName ? rowClassName(row) : ''}
                   `}

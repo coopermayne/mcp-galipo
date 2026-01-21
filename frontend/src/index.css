@@ -27,6 +27,18 @@
   --color-status-done: #22c55e;
   --color-status-blocked: #ef4444;
 
+  /* Dark theme surface colors */
+  --color-surface-50: #1e293b;
+  --color-surface-100: #1e293b;
+  --color-surface-200: #334155;
+  --color-surface-300: #475569;
+  --color-surface-400: #64748b;
+  --color-surface-500: #94a3b8;
+  --color-surface-600: #cbd5e1;
+  --color-surface-700: #e2e8f0;
+  --color-surface-800: #f1f5f9;
+  --color-surface-900: #f8fafc;
+
   /* Fonts */
   --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-family-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -38,7 +50,7 @@ html {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-slate-900 text-slate-100 antialiased;
   margin: 0;
   min-height: 100vh;
 }
@@ -47,22 +59,22 @@ body {
   min-height: 100vh;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - dark theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100;
+  @apply bg-slate-800;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded;
+  @apply bg-slate-600 rounded;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400;
+  @apply bg-slate-500;
 }
 
 /* Focus styles for accessibility */
