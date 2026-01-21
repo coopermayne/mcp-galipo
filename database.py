@@ -1505,3 +1505,130 @@ def remove_defendant_from_case(case_id: int, defendant_id: int) -> bool:
             RETURNING id
         """, (case_id, defendant_id))
         return cur.fetchone() is not None
+
+
+# ===== ADDITIONAL OPERATIONS (NEW) =====
+
+def link_existing_client_to_case(case_id: int, client_id: int, contact_directly: bool = True,
+                                  contact_via_id: int = None, contact_via_relationship: str = None,
+                                  is_primary: bool = False, notes: str = None) -> Optional[dict]:
+    """Link an existing client to a case (without creating a new client)."""
+    with get_cursor() as cur:
+        # Verify client exists
+        cur.execute("SELECT id, name FROM clients WHERE id = %s", (client_id,))
+        client = cur.fetchone()
+        if not client:
+            return None
+
+        # Link to case
+        cur.execute("""
+            INSERT INTO case_clients (case_id, client_id, contact_directly,
+                                      contact_via_id, contact_via_relationship, is_primary, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (case_id, client_id) DO UPDATE SET
+                contact_directly = EXCLUDED.contact_directly,
+                contact_via_id = EXCLUDED.contact_via_id,
+                contact_via_relationship = EXCLUDED.contact_via_relationship,
+                is_primary = EXCLUDED.is_primary,
+                notes = EXCLUDED.notes
+            RETURNING id
+        """, (case_id, client_id, contact_directly, contact_via_id,
+              contact_via_relationship, is_primary, notes))
+        link = cur.fetchone()
+        return {"id": link["id"], "client_id": client_id, "client_name": client["name"]}
+
+
+def update_client_case_link(case_id: int, client_id: int, contact_directly: bool = None,
+                            contact_via_id: int = None, contact_via_relationship: str = None,
+                            is_primary: bool = None, notes: str = None) -> Optional[dict]:
+    """Update the client-case link (contact preferences)."""
+    updates = {}
+    if contact_directly is not None:
+        updates["contact_directly"] = contact_directly
+    if contact_via_id is not None:
+        updates["contact_via_id"] = contact_via_id
+    if contact_via_relationship is not None:
+        updates["contact_via_relationship"] = contact_via_relationship
+    if is_primary is not None:
+        updates["is_primary"] = is_primary
+    if notes is not None:
+        updates["notes"] = notes
+
+    if not updates:
+        return None
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [case_id, client_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE case_clients SET {set_clause}
+            WHERE case_id = %s AND client_id = %s
+            RETURNING id, case_id, client_id, contact_directly, contact_via_id,
+                      contact_via_relationship, is_primary, notes
+        """, values)
+        result = cur.fetchone()
+        return dict(result) if result else None
+
+
+def update_defendant(defendant_id: int, name: str) -> Optional[dict]:
+    """Update a defendant's name."""
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE defendants SET name = %s
+            WHERE id = %s
+            RETURNING id, name
+        """, (name, defendant_id))
+        result = cur.fetchone()
+        return dict(result) if result else None
+
+
+def update_case_number(case_number_id: int, case_number: str = None,
+                       label: str = None, is_primary: bool = None) -> Optional[dict]:
+    """Update a case number."""
+    updates = {}
+    if case_number is not None:
+        updates["case_number"] = case_number
+    if label is not None:
+        updates["label"] = label
+    if is_primary is not None:
+        updates["is_primary"] = is_primary
+
+    if not updates:
+        return None
+
+    # If setting as primary, unset other primaries first
+    with get_cursor() as cur:
+        if is_primary:
+            cur.execute("""
+                SELECT case_id FROM case_numbers WHERE id = %s
+            """, (case_number_id,))
+            row = cur.fetchone()
+            if row:
+                cur.execute("""
+                    UPDATE case_numbers SET is_primary = FALSE WHERE case_id = %s
+                """, (row["case_id"],))
+
+        set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+        values = list(updates.values()) + [case_number_id]
+
+        cur.execute(f"""
+            UPDATE case_numbers SET {set_clause}
+            WHERE id = %s
+            RETURNING id, case_id, case_number, label, is_primary
+        """, values)
+        result = cur.fetchone()
+        return dict(result) if result else None
+
+
+def get_client_by_id(client_id: int) -> Optional[dict]:
+    """Get a client by ID."""
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM clients WHERE id = %s", (client_id,))
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            if r.get("created_at"):
+                r["created_at"] = str(r["created_at"])
+            return r
+        return None
