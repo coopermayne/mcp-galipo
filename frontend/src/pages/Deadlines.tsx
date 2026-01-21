@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Header } from '../components/layout';
+import { Header, PageContent } from '../components/layout';
 import {
   EditableText,
   EditableSelect,
@@ -148,7 +148,7 @@ export function Deadlines() {
         subtitle={`${deadlinesData?.total ?? 0} deadlines`}
       />
 
-      <div className="flex-1 overflow-auto p-6">
+      <PageContent variant="wide">
         {/* Filters */}
         <div className="mb-6 flex items-center gap-4 bg-slate-800 rounded-lg border border-slate-700 p-4">
           <Filter className="w-4 h-4 text-slate-400" />
@@ -260,7 +260,7 @@ export function Deadlines() {
             )}
           </div>
         )}
-      </div>
+      </PageContent>
     </>
   );
 }

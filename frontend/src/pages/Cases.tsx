@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Header } from '../components/layout';
+import { Header, PageContent } from '../components/layout';
 import { DataTable, StatusBadge, EditableSelect } from '../components/common';
 import { getCases, getConstants, createCase, updateCase, deleteCase } from '../api/client';
 import type { CaseSummary, CaseStatus } from '../types';
@@ -172,7 +172,7 @@ export function Cases() {
         }
       />
 
-      <div className="flex-1 overflow-auto p-6">
+      <PageContent variant="wide">
         {/* Status Filter */}
         <div className="mb-4 flex items-center gap-4">
           <label className="text-sm text-slate-400">Filter by status:</label>
@@ -258,7 +258,7 @@ export function Cases() {
             emptyMessage="No cases found"
           />
         )}
-      </div>
+      </PageContent>
     </>
   );
 }
