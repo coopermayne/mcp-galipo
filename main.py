@@ -29,7 +29,9 @@ if os.environ.get("RESET_DB", "").lower() == "true":
     db.init_db()
     db.seed_db()
 else:
-    # Just ensure tables exist (safe for production)
+    # Run migrations first (handles schema upgrades for existing databases)
+    db.migrate_db()
+    # Then ensure all tables exist (safe for production)
     db.init_db()
     # Seed lookup tables (idempotent - only inserts if empty)
     db.seed_db()
