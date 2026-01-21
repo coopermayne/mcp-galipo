@@ -95,7 +95,7 @@ export function EditableText({
   if (isEditing) {
     const InputComponent = multiline ? 'textarea' : 'input';
     return (
-      <div className={`relative inline-flex items-center gap-1 ${className}`}>
+      <div className={`relative flex items-center gap-1 w-full ${className}`}>
         <InputComponent
           ref={inputRef as any}
           type="text"
@@ -105,10 +105,10 @@ export function EditableText({
           onBlur={handleBlur}
           maxLength={maxLength}
           className={`
-            px-2 py-1 rounded border border-primary-500 bg-slate-700 text-slate-100
+            flex-1 min-w-0 px-2 py-1 rounded border border-primary-500 bg-slate-800 text-slate-100
             focus:border-primary-400 focus:ring-1 focus:ring-primary-500
-            text-sm outline-none
-            ${multiline ? 'resize-none min-h-[60px]' : ''}
+            outline-none
+            ${multiline ? 'resize-y min-h-[60px]' : ''}
             ${inputClassName}
           `}
           rows={multiline ? 3 : undefined}
@@ -119,12 +119,12 @@ export function EditableText({
   }
 
   return (
-    <div className={`group relative inline-flex items-center gap-1 ${className}`}>
+    <div className={`group relative flex items-center gap-1 w-full ${className}`}>
       <span
         onClick={handleStartEdit}
         className={`
-          px-2 py-1 rounded cursor-pointer text-slate-100
-          hover:bg-slate-700 transition-colors
+          flex-1 min-w-0 px-2 py-1 rounded cursor-pointer text-slate-100
+          hover:bg-slate-700/50 transition-colors
           ${!value ? 'text-slate-500 italic' : ''}
           ${disabled ? 'cursor-default hover:bg-transparent' : ''}
         `}
