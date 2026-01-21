@@ -248,6 +248,62 @@ def register_tools(mcp):
         )
         return result
 
+    @mcp.tool()
+    def update_client(
+        client_id: int,
+        name: Optional[str] = None,
+        phone: Optional[str] = None,
+        email: Optional[str] = None,
+        address: Optional[str] = None
+    ) -> dict:
+        """
+        Update a client's information.
+
+        Args:
+            client_id: ID of the client to update
+            name: New name
+            phone: New phone number
+            email: New email address
+            address: New mailing address
+
+        Returns updated client info.
+        """
+        result = db.update_client(client_id, name, phone, email, address)
+        if not result:
+            return not_found_error("Client or no updates provided")
+        return {"success": True, "client": result}
+
+    @mcp.tool()
+    def search_clients(
+        name: Optional[str] = None,
+        phone: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> dict:
+        """
+        Search for clients by name, phone, or email.
+
+        Returns clients with their case associations.
+
+        Args:
+            name: Full or partial client name
+            phone: Full or partial phone number
+            email: Full or partial email address
+
+        At least one search parameter must be provided.
+
+        Returns matching clients with their case associations:
+        [{id, name, phone, email, address, cases: [{id, case_name, is_primary}]}]
+
+        Examples:
+            - search_clients(name="Martinez") - find clients named Martinez
+            - search_clients(email="@gmail.com") - find clients with gmail addresses
+        """
+        if not any([name, phone, email]):
+            return validation_error("Provide at least one search parameter (name, phone, or email)")
+
+        clients = db.search_clients(name, phone, email)
+        return {"clients": clients, "total": len(clients)}
+
     # ===== CASE NUMBER TOOLS =====
     # NOTE: Case numbers are now managed via update_case(case_id, case_numbers=[...])
     # The individual add_case_number, update_case_number, delete_case_number tools
@@ -311,14 +367,49 @@ def register_tools(mcp):
         db.add_defendant_to_case(case_id, defendant_name)
         return {"success": True, "message": f"Defendant '{defendant_name}' added to case"}
 
-    # update_defendant REMOVED - rarely needed; remove and re-add defendant instead
+    @mcp.tool()
+    def update_defendant(defendant_id: int, name: str) -> dict:
+        """
+        Update a defendant's name.
 
-    # search_cases_by_defendant REMOVED - use search_cases(defendant="...") instead
+        Args:
+            defendant_id: ID of the defendant to update
+            name: New name for the defendant
+
+        Returns updated defendant info.
+        """
+        result = db.update_defendant(defendant_id, name)
+        if not result:
+            return not_found_error("Defendant")
+        return {"success": True, "defendant": result}
+
+    @mcp.tool()
+    def search_defendants(name: Optional[str] = None) -> dict:
+        """
+        Search for defendants by name, or list all defendants if no filter provided.
+
+        Returns defendants with their case associations.
+
+        Args:
+            name: Full or partial defendant name (optional - if not provided, returns all)
+
+        Returns matching defendants with their case associations:
+        [{id, name, cases: [{id, case_name}]}]
+
+        Examples:
+            - search_defendants() - list all defendants
+            - search_defendants(name="City") - find defendants with "City" in name
+        """
+        defendants = db.get_all_defendants()
+
+        # Filter by name if provided
+        if name:
+            name_lower = name.lower()
+            defendants = [d for d in defendants if name_lower in d["name"].lower()]
+
+        return {"defendants": defendants, "total": len(defendants)}
 
     # ===== SEARCH TOOLS =====
-
-    # search_clients REMOVED - add_client_to_case handles lookup internally
-    # Use search_cases(client="...") to find cases by client name
 
     @mcp.tool()
     def search_cases(
@@ -479,6 +570,51 @@ def register_tools(mcp):
 
         result = db.add_activity(case_id, description, activity_type, date, minutes)
         return {"success": True, "activity": result}
+
+    @mcp.tool()
+    def update_activity(
+        activity_id: int,
+        date: Optional[str] = None,
+        description: Optional[str] = None,
+        activity_type: Optional[str] = None,
+        minutes: Optional[int] = None
+    ) -> dict:
+        """
+        Update an activity/time entry.
+
+        Args:
+            activity_id: ID of the activity to update
+            date: New date (YYYY-MM-DD)
+            description: New description
+            activity_type: New type (e.g., "Meeting", "Filing", "Research")
+            minutes: New time spent in minutes
+
+        Returns updated activity.
+        """
+        try:
+            if date:
+                db.validate_date_format(date, "date")
+        except ValidationError as e:
+            return validation_error(str(e))
+
+        result = db.update_activity(activity_id, date, description, activity_type, minutes)
+        if not result:
+            return not_found_error("Activity or no updates provided")
+        return {"success": True, "activity": result}
+
+    @mcp.tool()
+    def delete_activity(activity_id: int) -> dict:
+        """
+        Delete an activity/time entry.
+
+        Args:
+            activity_id: ID of the activity to delete
+
+        Returns confirmation.
+        """
+        if db.delete_activity(activity_id):
+            return {"success": True, "message": "Activity deleted"}
+        return not_found_error("Activity")
 
     # ===== DEADLINE TOOLS =====
 
@@ -765,7 +901,21 @@ def register_tools(mcp):
         result = db.add_note(case_id, content)
         return {"success": True, "note": result}
 
-    # update_note REMOVED - rarely needed; delete and re-add note instead
+    @mcp.tool()
+    def update_note(note_id: int, content: str) -> dict:
+        """
+        Update a note's content.
+
+        Args:
+            note_id: ID of the note to update
+            content: New content for the note
+
+        Returns updated note.
+        """
+        result = db.update_note(note_id, content)
+        if not result:
+            return not_found_error("Note")
+        return {"success": True, "note": result}
 
     @mcp.tool()
     def delete_note(note_id: int) -> dict:
@@ -825,15 +975,6 @@ def register_tools(mcp):
             return {"success": True, "message": "Case and all related data deleted"}
         return not_found_error("Case")
 
-    # delete_activity REMOVED - rarely needed; activities are typically kept for audit trail
-
-    # ===== LIST TOOLS =====
-
-    # LIST TOOLS REMOVED (Phase 5 cleanup):
-    # - list_clients: Use search_cases(client="...") or get_case() to see clients
-    # - list_contacts: Use search_contacts() instead
-    # - list_activities: Activities are included in get_case() response
-
     # ===== UPDATE TOOLS =====
 
     @mcp.tool()
@@ -874,8 +1015,6 @@ def register_tools(mcp):
             return not_found_error("Deadline or no updates provided")
         return {"success": True, "deadline": result}
 
-    # update_client REMOVED - rarely needed; client info typically set once
-
     @mcp.tool()
     def update_contact(
         contact_id: int,
@@ -904,8 +1043,6 @@ def register_tools(mcp):
         if not result:
             return not_found_error("Contact or no updates provided")
         return {"success": True, "contact": result}
-
-    # update_activity REMOVED - rarely needed; activities are typically immutable time entries
 
     # ===== REMOVE/UNLINK TOOLS =====
 
