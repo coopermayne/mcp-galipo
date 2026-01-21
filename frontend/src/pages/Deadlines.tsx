@@ -137,11 +137,11 @@ export function Deadlines() {
   };
 
   const groupColors: Record<string, string> = {
-    overdue: 'text-red-400 bg-red-900/30',
-    today: 'text-amber-400 bg-amber-900/30',
-    thisWeek: 'text-blue-400 bg-blue-900/30',
-    thisMonth: 'text-slate-300 bg-slate-700',
-    later: 'text-slate-400 bg-slate-700',
+    overdue: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30',
+    today: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30',
+    thisWeek: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30',
+    thisMonth: 'text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-700',
+    later: 'text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700',
   };
 
   return (
