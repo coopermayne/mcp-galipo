@@ -13,6 +13,7 @@ import type {
   CreateDeadlineInput,
   UpdateDeadlineInput,
 } from '../types';
+import { getAuthToken, clearAuthToken } from '../context/AuthContext';
 
 const API_BASE = '/api/v1';
 
@@ -32,10 +33,12 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const token = getAuthToken();
   const config: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   };
@@ -44,6 +47,11 @@ async function request<T>(
   const data = await response.json();
 
   if (!response.ok) {
+    // Handle 401 by clearing token and redirecting to login
+    if (response.status === 401) {
+      clearAuthToken();
+      window.location.href = '/login';
+    }
     const error = data.error || { message: 'Unknown error', code: 'UNKNOWN' };
     throw new ApiError(error.message, error.code, response.status);
   }
