@@ -458,12 +458,13 @@ def migrate_db():
             defendant_cols = {row[0] for row in cur.fetchall()}
 
             if 'name' in defendant_cols:
-                cur.execute("""
+                created_at_expr = "COALESCE(created_at, CURRENT_TIMESTAMP)" if 'created_at' in defendant_cols else "CURRENT_TIMESTAMP"
+                cur.execute(f"""
                     INSERT INTO persons (person_type, name, created_at)
                     SELECT
                         'defendant',
                         name,
-                        COALESCE(created_at, CURRENT_TIMESTAMP)
+                        {created_at_expr}
                     FROM defendants
                     WHERE NOT EXISTS (
                         SELECT 1 FROM persons p WHERE p.name = defendants.name AND p.person_type = 'defendant'
@@ -513,6 +514,7 @@ def migrate_db():
                 phone_expr = "CASE WHEN phone IS NOT NULL AND phone != '' THEN jsonb_build_array(jsonb_build_object('value', phone, 'primary', true)) ELSE '[]'::jsonb END" if 'phone' in contact_cols else "'[]'::jsonb"
                 email_expr = "CASE WHEN email IS NOT NULL AND email != '' THEN jsonb_build_array(jsonb_build_object('value', email, 'primary', true)) ELSE '[]'::jsonb END" if 'email' in contact_cols else "'[]'::jsonb"
                 firm_expr = "firm" if 'firm' in contact_cols else "NULL"
+                created_at_expr = "COALESCE(created_at, CURRENT_TIMESTAMP)" if 'created_at' in contact_cols else "CURRENT_TIMESTAMP"
 
                 cur.execute(f"""
                     INSERT INTO persons (person_type, name, phones, emails, organization, created_at)
@@ -522,7 +524,7 @@ def migrate_db():
                         {phone_expr},
                         {email_expr},
                         {firm_expr},
-                        COALESCE(created_at, CURRENT_TIMESTAMP)
+                        {created_at_expr}
                     FROM contacts
                     WHERE NOT EXISTS (
                         SELECT 1 FROM persons p WHERE p.name = contacts.name
