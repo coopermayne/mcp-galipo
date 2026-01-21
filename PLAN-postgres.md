@@ -28,7 +28,7 @@ CASES (central entity, includes case_numbers as JSONB)
 └── NOTES
 ```
 
-## MCP Tools (31 total)
+## MCP Tools (38 total)
 
 ### Case Management (6 tools)
 - `list_cases(status_filter)` — list all cases
@@ -38,8 +38,10 @@ CASES (central entity, includes case_numbers as JSONB)
 - `delete_case(case_id)` — cascades all related data
 - `search_cases(query, defendant, client, contact, status)` — multi-field search
 
-### Client Management (2 tools)
+### Client Management (4 tools)
 - `add_client_to_case(case_id, name, ...)` — smart find-or-create, links to case
+- `update_client(client_id, name, phone, email, address)` — update client info
+- `search_clients(name, phone, email)` — search clients with case associations
 - `remove_client_from_case(case_id, client_name)` — remove by name
 
 ### Contact Management (3 tools)
@@ -47,8 +49,10 @@ CASES (central entity, includes case_numbers as JSONB)
 - `remove_contact_from_case(case_id, contact_name, role)` — remove by name
 - `search_contacts(name, firm, role)` — find contacts across system
 
-### Defendant Management (2 tools)
+### Defendant Management (4 tools)
 - `add_defendant(case_id, defendant_name)` — find-or-create, links to case
+- `update_defendant(defendant_id, name)` — update defendant name
+- `search_defendants(name)` — search/list defendants with case associations
 - `remove_defendant_from_case(case_id, defendant_name)` — remove by name
 
 ### Task Management (6 tools)
@@ -73,12 +77,15 @@ CASES (central entity, includes case_numbers as JSONB)
 ### Calendar (1 tool)
 - `get_calendar(days, include_tasks, include_deadlines, case_id)` — combined view
 
-### Notes (2 tools)
+### Notes (3 tools)
 - `add_note(case_id, content)`
+- `update_note(note_id, content)` — update note content
 - `delete_note(note_id)`
 
-### Activity (1 tool)
+### Activity (3 tools)
 - `log_activity(case_id, ...)` — time tracking
+- `update_activity(activity_id, date, description, activity_type, minutes)` — update entry
+- `delete_activity(activity_id)` — delete entry
 
 ### Contact Updates (1 tool)
 - `update_contact(contact_id, ...)` — update shared contact info
@@ -106,6 +113,7 @@ Static files served from `/static/`.
 ## Backend Simplification — COMPLETE
 
 Reduced MCP interface from 41 tools to 31 tools while adding more functionality.
+Later re-added 7 CRUD tools for complete coverage (now 38 tools total).
 
 ### Key Changes Made
 
@@ -116,13 +124,18 @@ Reduced MCP interface from 41 tools to 31 tools while adding more functionality.
 5. **Bulk Operations**: `bulk_update_tasks`, `bulk_update_deadlines`, `bulk_update_case_tasks`
 6. **Search Tools**: `search_tasks`, `search_deadlines` for flexible querying
 
-### Tools Removed (17 tools consolidated)
+### Tools Removed (10 tools consolidated)
 - `add_case_number`, `update_case_number`, `delete_case_number` → use `update_case(case_numbers=[...])`
 - `add_client`, `link_existing_client`, `update_client_case_link` → use `add_client_to_case`
 - `add_contact`, `link_contact` → use `add_contact_to_case`
 - `search_cases_by_defendant` → use `search_cases(defendant="...")`
-- `list_clients`, `search_clients`, `list_contacts`, `list_activities`
-- `update_defendant`, `update_note`, `update_activity`, `delete_activity`, `update_client`
+- `list_contacts`, `list_activities` → use `search_contacts()` or `get_case()`
+
+### Tools Re-added (7 tools for full CRUD coverage)
+- `update_client`, `search_clients` — client management
+- `update_defendant`, `search_defendants` — defendant management
+- `update_note` — note editing
+- `update_activity`, `delete_activity` — activity management
 
 ### Example: Before vs After
 
