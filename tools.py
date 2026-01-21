@@ -5,6 +5,7 @@ All MCP tool definitions for querying and managing legal cases.
 """
 
 from typing import Optional
+from mcp.server.fastmcp import Context
 import database as db
 from database import ValidationError
 
@@ -32,17 +33,20 @@ def register_tools(mcp):
     # ===== JURISDICTION TOOLS =====
 
     @mcp.tool()
-    def list_jurisdictions() -> dict:
+    def list_jurisdictions(context: Context) -> dict:
         """
         List all jurisdictions (courts).
 
         Returns list of jurisdictions with id, name, local_rules_link, and notes.
         """
+        context.info("Fetching all jurisdictions")
         jurisdictions = db.get_jurisdictions()
+        context.info(f"Found {len(jurisdictions)} jurisdictions")
         return {"success": True, "jurisdictions": jurisdictions, "total": len(jurisdictions)}
 
     @mcp.tool()
     def manage_jurisdiction(
+        context: Context,
         name: str,
         jurisdiction_id: Optional[int] = None,
         local_rules_link: Optional[str] = None,
@@ -60,18 +64,22 @@ def register_tools(mcp):
         Returns the created/updated jurisdiction.
         """
         if jurisdiction_id:
+            context.info(f"Updating jurisdiction {jurisdiction_id}: {name}")
             result = db.update_jurisdiction(jurisdiction_id, name, local_rules_link, notes)
             if not result:
                 return not_found_error("Jurisdiction")
+            context.info(f"Jurisdiction {jurisdiction_id} updated successfully")
             return {"success": True, "jurisdiction": result, "action": "updated"}
         else:
+            context.info(f"Creating new jurisdiction: {name}")
             result = db.create_jurisdiction(name, local_rules_link, notes)
+            context.info(f"Jurisdiction created with ID {result.get('id')}")
             return {"success": True, "jurisdiction": result, "action": "created"}
 
     # ===== CASE TOOLS =====
 
     @mcp.tool()
-    def list_cases(status_filter: Optional[str] = None) -> dict:
+    def list_cases(context: Context, status_filter: Optional[str] = None) -> dict:
         """
         List all cases with optional status filter.
 
@@ -83,11 +91,13 @@ def register_tools(mcp):
 
         Returns list of cases with id, name, short_name, status, court.
         """
+        context.info(f"Listing cases{' with status=' + status_filter if status_filter else ''}")
         result = db.get_all_cases(status_filter)
+        context.info(f"Found {result['total']} cases")
         return {"cases": result["cases"], "total": result["total"], "filter": status_filter}
 
     @mcp.tool()
-    def get_case(case_id: Optional[int] = None, case_name: Optional[str] = None) -> dict:
+    def get_case(context: Context, case_id: Optional[int] = None, case_name: Optional[str] = None) -> dict:
         """
         Get full details for a specific case by ID or name.
 
@@ -99,22 +109,27 @@ def register_tools(mcp):
         case numbers, activities, deadlines, tasks, and notes.
         """
         if case_id:
+            context.info(f"Fetching case by ID: {case_id}")
             case = db.get_case_by_id(case_id)
         elif case_name:
+            context.info(f"Fetching case by name: {case_name}")
             case = db.get_case_by_name(case_name)
         else:
             return validation_error("Provide either case_id or case_name")
 
         if not case:
+            context.info("Case not found")
             available = db.get_all_case_names()
             result = not_found_error("Case")
             result["available_cases"] = available
             return result
 
+        context.info(f"Retrieved case: {case.get('case_name', 'Unknown')}")
         return case
 
     @mcp.tool()
     def create_case(
+        context: Context,
         case_name: str,
         status: str = "Signing Up",
         court_id: Optional[int] = None,
@@ -153,6 +168,7 @@ def register_tools(mcp):
                 case_numbers=[{"number": "24STCV12345", "label": "State", "primary": true}]
             )
         """
+        context.info(f"Creating new case: {case_name}")
         try:
             db.validate_case_status(status)
             if date_of_injury:
@@ -164,10 +180,12 @@ def register_tools(mcp):
             case_name, status, court_id, print_code, case_summary, result,
             date_of_injury, case_numbers, short_name
         )
+        context.info(f"Case created with ID {case.get('id')}")
         return {"success": True, "message": f"Case '{case_name}' created", "case": case}
 
     @mcp.tool()
     def update_case(
+        context: Context,
         case_id: int,
         case_name: Optional[str] = None,
         short_name: Optional[str] = None,
@@ -207,6 +225,7 @@ def register_tools(mcp):
 
         Returns updated case info.
         """
+        context.info(f"Updating case {case_id}")
         try:
             if status:
                 db.validate_case_status(status)
@@ -230,10 +249,11 @@ def register_tools(mcp):
         )
         if not updated:
             return not_found_error("Case or no updates provided")
+        context.info(f"Case {case_id} updated successfully")
         return {"success": True, "case": updated}
 
     @mcp.tool()
-    def delete_case(case_id: int) -> dict:
+    def delete_case(context: Context, case_id: int) -> dict:
         """
         Delete a case and all related data (persons, deadlines, tasks, notes, etc. are CASCADE deleted).
 
@@ -242,7 +262,9 @@ def register_tools(mcp):
 
         Returns confirmation.
         """
+        context.info(f"Deleting case {case_id} and all related data")
         if db.delete_case(case_id):
+            context.info(f"Case {case_id} deleted successfully")
             return {"success": True, "message": "Case and all related data deleted"}
         return not_found_error("Case")
 
@@ -250,6 +272,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def search_cases(
+        context: Context,
         query: Optional[str] = None,
         case_number: Optional[str] = None,
         person_name: Optional[str] = None,
@@ -282,11 +305,15 @@ def register_tools(mcp):
         if not any([query, case_number, person_name, status, court_id]):
             return validation_error("Provide at least one search parameter")
 
+        filters = [f for f in [query, case_number, person_name, status, court_id] if f]
+        context.info(f"Searching cases with {len(filters)} filter(s)")
         cases = db.search_cases(query, case_number, person_name, status, court_id)
+        context.info(f"Found {len(cases)} matching cases")
         return {"cases": cases, "total": len(cases)}
 
     @mcp.tool()
     def search_tasks(
+        context: Context,
         query: Optional[str] = None,
         case_id: Optional[int] = None,
         status: Optional[str] = None,
@@ -311,11 +338,14 @@ def register_tools(mcp):
         if not any([query, case_id, status, urgency]):
             return validation_error("Provide at least one search parameter")
 
+        context.info(f"Searching tasks{' for query=' + query if query else ''}{' status=' + status if status else ''}")
         tasks = db.search_tasks(query, case_id, status, urgency)
+        context.info(f"Found {len(tasks)} matching tasks")
         return {"tasks": tasks, "total": len(tasks)}
 
     @mcp.tool()
     def search_deadlines(
+        context: Context,
         query: Optional[str] = None,
         case_id: Optional[int] = None,
         status: Optional[str] = None,
@@ -339,13 +369,16 @@ def register_tools(mcp):
         if not any([query, case_id, status, urgency]):
             return validation_error("Provide at least one search parameter")
 
+        context.info(f"Searching deadlines{' for query=' + query if query else ''}{' status=' + status if status else ''}")
         deadlines = db.search_deadlines(query, case_id, status, urgency)
+        context.info(f"Found {len(deadlines)} matching deadlines")
         return {"deadlines": deadlines, "total": len(deadlines)}
 
     # ===== ACTIVITY TOOLS =====
 
     @mcp.tool()
     def log_activity(
+        context: Context,
         case_id: int,
         description: str,
         activity_type: str,
@@ -364,6 +397,7 @@ def register_tools(mcp):
 
         Returns the logged activity.
         """
+        context.info(f"Logging {activity_type} activity for case {case_id}")
         try:
             if date:
                 db.validate_date_format(date, "date")
@@ -376,10 +410,12 @@ def register_tools(mcp):
             date = dt_date.today().isoformat()
 
         result = db.add_activity(case_id, description, activity_type, date, minutes)
+        context.info(f"Activity logged with ID {result.get('id')}")
         return {"success": True, "activity": result}
 
     @mcp.tool()
     def update_activity(
+        context: Context,
         activity_id: int,
         date: Optional[str] = None,
         description: Optional[str] = None,
@@ -398,6 +434,7 @@ def register_tools(mcp):
 
         Returns updated activity.
         """
+        context.info(f"Updating activity {activity_id}")
         try:
             if date:
                 db.validate_date_format(date, "date")
@@ -407,10 +444,11 @@ def register_tools(mcp):
         result = db.update_activity(activity_id, date, description, activity_type, minutes)
         if not result:
             return not_found_error("Activity or no updates provided")
+        context.info(f"Activity {activity_id} updated successfully")
         return {"success": True, "activity": result}
 
     @mcp.tool()
-    def delete_activity(activity_id: int) -> dict:
+    def delete_activity(context: Context, activity_id: int) -> dict:
         """
         Delete an activity/time entry.
 
@@ -419,7 +457,9 @@ def register_tools(mcp):
 
         Returns confirmation.
         """
+        context.info(f"Deleting activity {activity_id}")
         if db.delete_activity(activity_id):
+            context.info(f"Activity {activity_id} deleted successfully")
             return {"success": True, "message": "Activity deleted"}
         return not_found_error("Activity")
 
@@ -427,6 +467,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def add_deadline(
+        context: Context,
         case_id: int,
         date: str,
         description: str,
@@ -438,12 +479,18 @@ def register_tools(mcp):
         calculation_note: Optional[str] = None
     ) -> dict:
         """
-        Add a court-imposed deadline to a case.
+        Add a deadline or event to a case - anything that HAS to happen on a specific date.
+
+        This includes filing deadlines, depositions, hearings, trial dates, mediations,
+        expert report due dates, discovery cutoffs, CMCs, MSJ hearings, etc.
+        If it's on the calendar and must happen, it's a deadline.
+
+        Key heuristic: Deadline = it's happening whether you're ready or not.
 
         Args:
             case_id: ID of the case
             date: Deadline date (YYYY-MM-DD)
-            description: What is due (e.g., "MSJ due", "Discovery cutoff")
+            description: What is due/happening (e.g., "MSJ due", "Discovery cutoff", "Deposition of Dr. Smith")
             urgency: 1-5 scale (1=low, 5=critical), default 3
             status: Status (default "Pending")
             time: Time of deadline (HH:MM format, 24-hour)
@@ -453,6 +500,7 @@ def register_tools(mcp):
 
         Returns the created deadline with ID.
         """
+        context.info(f"Adding deadline for case {case_id}: {description}")
         try:
             db.validate_date_format(date, "date")
             db.validate_time_format(time, "time")
@@ -462,10 +510,12 @@ def register_tools(mcp):
 
         result = db.add_deadline(case_id, date, description, status, urgency,
                                   document_link, calculation_note, time, location)
+        context.info(f"Deadline created with ID {result.get('id')}")
         return {"success": True, "deadline": result}
 
     @mcp.tool()
     def get_deadlines(
+        context: Context,
         case_id: Optional[int] = None,
         urgency_filter: Optional[int] = None,
         status_filter: Optional[str] = None
@@ -484,6 +534,7 @@ def register_tools(mcp):
             - get_deadlines(status_filter="Pending", urgency_filter=5) - critical pending deadlines
             - get_deadlines(case_id=5) - all deadlines for case 5
         """
+        context.info(f"Fetching deadlines{' for case ' + str(case_id) if case_id else ''}")
         result = db.get_upcoming_deadlines(urgency_filter, status_filter)
 
         # Filter by case_id if provided (since db function doesn't support it directly)
@@ -491,10 +542,12 @@ def register_tools(mcp):
             result["deadlines"] = [d for d in result["deadlines"] if d["case_id"] == case_id]
             result["total"] = len(result["deadlines"])
 
+        context.info(f"Found {result['total']} deadlines")
         return {"deadlines": result["deadlines"], "total": result["total"]}
 
     @mcp.tool()
     def update_deadline(
+        context: Context,
         deadline_id: int,
         date: Optional[str] = None,
         description: Optional[str] = None,
@@ -521,6 +574,7 @@ def register_tools(mcp):
 
         Returns updated deadline.
         """
+        context.info(f"Updating deadline {deadline_id}")
         try:
             if date:
                 db.validate_date_format(date, "date")
@@ -536,10 +590,11 @@ def register_tools(mcp):
                                           time, location)
         if not result:
             return not_found_error("Deadline or no updates provided")
+        context.info(f"Deadline {deadline_id} updated successfully")
         return {"success": True, "deadline": result}
 
     @mcp.tool()
-    def delete_deadline(deadline_id: int) -> dict:
+    def delete_deadline(context: Context, deadline_id: int) -> dict:
         """
         Delete a deadline.
 
@@ -548,12 +603,15 @@ def register_tools(mcp):
 
         Returns confirmation.
         """
+        context.info(f"Deleting deadline {deadline_id}")
         if db.delete_deadline(deadline_id):
+            context.info(f"Deadline {deadline_id} deleted successfully")
             return {"success": True, "message": "Deadline deleted"}
         return not_found_error("Deadline")
 
     @mcp.tool()
     def get_calendar(
+        context: Context,
         days: int = 30,
         include_tasks: bool = True,
         include_deadlines: bool = True
@@ -578,13 +636,16 @@ def register_tools(mcp):
             - get_calendar(days=1) - what's due today
             - get_calendar(include_tasks=False) - deadlines only
         """
+        context.info(f"Fetching calendar for next {days} days")
         items = db.get_calendar(days, include_tasks, include_deadlines)
+        context.info(f"Found {len(items)} calendar items")
         return {"items": items, "total": len(items), "days": days}
 
     # ===== TASK TOOLS =====
 
     @mcp.tool()
     def add_task(
+        context: Context,
         case_id: int,
         description: str,
         due_date: Optional[str] = None,
@@ -593,7 +654,12 @@ def register_tools(mcp):
         deadline_id: Optional[int] = None
     ) -> dict:
         """
-        Add an internal task/to-do to a case.
+        Add an internal task/to-do to a case - work items with self-imposed deadlines to prepare for deadlines and events.
+
+        Examples: draft complaint, prepare depo outline, review discovery, propound written discovery,
+        schedule expert call. These are things YOU need to do, not things that are happening.
+
+        Key heuristic: Task = work you need to do to get ready.
 
         Args:
             case_id: ID of the case
@@ -601,10 +667,11 @@ def register_tools(mcp):
             due_date: Due date (YYYY-MM-DD)
             urgency: 1-5 scale (1=low, 5=critical), default 3
             status: Status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
-            deadline_id: Optional ID of deadline this task is linked to
+            deadline_id: Optional ID of deadline this task is linked to (for tasks that support a specific deadline)
 
         Returns the created task with ID.
         """
+        context.info(f"Adding task for case {case_id}: {description[:50]}...")
         try:
             db.validate_task_status(status)
             db.validate_urgency(urgency)
@@ -614,10 +681,12 @@ def register_tools(mcp):
             return validation_error(str(e))
 
         result = db.add_task(case_id, description, due_date, status, urgency, deadline_id)
+        context.info(f"Task created with ID {result.get('id')}")
         return {"success": True, "task": result}
 
     @mcp.tool()
     def get_tasks(
+        context: Context,
         case_id: Optional[int] = None,
         status_filter: Optional[str] = None,
         urgency_filter: Optional[int] = None
@@ -636,11 +705,14 @@ def register_tools(mcp):
             - get_tasks(status_filter="Pending", urgency_filter=4) - urgent pending tasks
             - get_tasks(case_id=5) - all tasks for case 5
         """
+        context.info(f"Fetching tasks{' for case ' + str(case_id) if case_id else ''}")
         result = db.get_tasks(case_id, status_filter, urgency_filter)
+        context.info(f"Found {result['total']} tasks")
         return {"tasks": result["tasks"], "total": result["total"]}
 
     @mcp.tool()
     def update_task(
+        context: Context,
         task_id: int,
         description: Optional[str] = None,
         status: Optional[str] = None,
@@ -661,6 +733,7 @@ def register_tools(mcp):
 
         Returns updated task.
         """
+        context.info(f"Updating task {task_id}")
         try:
             if status:
                 db.validate_task_status(status)
@@ -676,10 +749,11 @@ def register_tools(mcp):
         result = db.update_task_full(task_id, description, due_date, completion_date, status, urgency)
         if not result:
             return not_found_error("Task or no updates provided")
+        context.info(f"Task {task_id} updated successfully")
         return {"success": True, "task": result}
 
     @mcp.tool()
-    def delete_task(task_id: int) -> dict:
+    def delete_task(context: Context, task_id: int) -> dict:
         """
         Delete a task.
 
@@ -688,12 +762,15 @@ def register_tools(mcp):
 
         Returns confirmation.
         """
+        context.info(f"Deleting task {task_id}")
         if db.delete_task(task_id):
+            context.info(f"Task {task_id} deleted successfully")
             return {"success": True, "message": "Task deleted"}
         return not_found_error("Task")
 
     @mcp.tool()
     def bulk_update_tasks(
+        context: Context,
         task_ids: list,
         status: str
     ) -> dict:
@@ -711,16 +788,19 @@ def register_tools(mcp):
         Example:
             bulk_update_tasks(task_ids=[1, 2, 3], status="Done")
         """
+        context.info(f"Bulk updating {len(task_ids)} tasks to status '{status}'")
         try:
             db.validate_task_status(status)
         except ValidationError as e:
             return validation_error(str(e))
 
         result = db.bulk_update_tasks(task_ids, status)
+        context.info(f"Updated {result['updated']} tasks")
         return {"success": True, "updated": result["updated"]}
 
     @mcp.tool()
     def bulk_update_deadlines(
+        context: Context,
         deadline_ids: list,
         status: str
     ) -> dict:
@@ -738,11 +818,14 @@ def register_tools(mcp):
         Example:
             bulk_update_deadlines(deadline_ids=[1, 2], status="Met")
         """
+        context.info(f"Bulk updating {len(deadline_ids)} deadlines to status '{status}'")
         result = db.bulk_update_deadlines(deadline_ids, status)
+        context.info(f"Updated {result['updated']} deadlines")
         return {"success": True, "updated": result["updated"]}
 
     @mcp.tool()
     def bulk_update_case_tasks(
+        context: Context,
         case_id: int,
         new_status: str,
         current_status: Optional[str] = None
@@ -763,6 +846,7 @@ def register_tools(mcp):
             - bulk_update_case_tasks(case_id=5, new_status="Done") - mark ALL tasks done
             - bulk_update_case_tasks(case_id=5, new_status="Done", current_status="Pending") - only pending→done
         """
+        context.info(f"Bulk updating tasks for case {case_id} to status '{new_status}'")
         try:
             db.validate_task_status(new_status)
             if current_status:
@@ -771,12 +855,13 @@ def register_tools(mcp):
             return validation_error(str(e))
 
         result = db.bulk_update_tasks_for_case(case_id, new_status, current_status)
+        context.info(f"Updated {result['updated']} tasks for case {case_id}")
         return {"success": True, "updated": result["updated"]}
 
     # ===== NOTE TOOLS =====
 
     @mcp.tool()
-    def add_note(case_id: int, content: str) -> dict:
+    def add_note(context: Context, case_id: int, content: str) -> dict:
         """
         Add a note to a case.
 
@@ -786,11 +871,13 @@ def register_tools(mcp):
 
         Returns the created note with timestamp.
         """
+        context.info(f"Adding note to case {case_id}")
         result = db.add_note(case_id, content)
+        context.info(f"Note created with ID {result.get('id')}")
         return {"success": True, "note": result}
 
     @mcp.tool()
-    def update_note(note_id: int, content: str) -> dict:
+    def update_note(context: Context, note_id: int, content: str) -> dict:
         """
         Update a note's content.
 
@@ -800,13 +887,15 @@ def register_tools(mcp):
 
         Returns updated note.
         """
+        context.info(f"Updating note {note_id}")
         result = db.update_note(note_id, content)
         if not result:
             return not_found_error("Note")
+        context.info(f"Note {note_id} updated successfully")
         return {"success": True, "note": result}
 
     @mcp.tool()
-    def delete_note(note_id: int) -> dict:
+    def delete_note(context: Context, note_id: int) -> dict:
         """
         Delete a note.
 
@@ -815,7 +904,9 @@ def register_tools(mcp):
 
         Returns confirmation.
         """
+        context.info(f"Deleting note {note_id}")
         if db.delete_note(note_id):
+            context.info(f"Note {note_id} deleted successfully")
             return {"success": True, "message": "Note deleted"}
         return not_found_error("Note")
 
@@ -823,6 +914,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def manage_person(
+        context: Context,
         name: str,
         person_type: str,
         person_id: Optional[int] = None,
@@ -879,6 +971,7 @@ def register_tools(mcp):
 
         if person_id:
             # Update existing person
+            context.info(f"Updating person {person_id}: {name}")
             result = db.update_person(
                 person_id,
                 name=name,
@@ -894,9 +987,11 @@ def register_tools(mcp):
             if not result:
                 return not_found_error("Person")
 
+            context.info(f"Person {person_id} updated successfully")
             return {"success": True, "person": result, "action": "updated"}
         else:
             # Create new person
+            context.info(f"Creating new {person_type}: {name}")
             result = db.create_person(
                 person_type=person_type,
                 name=name,
@@ -908,10 +1003,12 @@ def register_tools(mcp):
                 notes=notes
             )
 
+            context.info(f"Person created with ID {result.get('id')}")
             return {"success": True, "person": result, "action": "created"}
 
     @mcp.tool()
     def search_persons(
+        context: Context,
         name: Optional[str] = None,
         person_type: Optional[str] = None,
         organization: Optional[str] = None,
@@ -941,6 +1038,7 @@ def register_tools(mcp):
             search_persons(name="Smith", person_type="attorney")
             search_persons(case_id=5)
         """
+        context.info(f"Searching persons{' type=' + person_type if person_type else ''}{' name=' + name if name else ''}")
         result = db.search_persons(
             name=name,
             person_type=person_type,
@@ -951,6 +1049,7 @@ def register_tools(mcp):
             archived=include_archived,
             limit=limit
         )
+        context.info(f"Found {result['total']} matching persons")
         return {
             "success": True,
             "persons": result["persons"],
@@ -964,7 +1063,7 @@ def register_tools(mcp):
         }
 
     @mcp.tool()
-    def get_person(person_id: int) -> dict:
+    def get_person(context: Context, person_id: int) -> dict:
         """
         Get full details for a person including all case assignments.
 
@@ -976,13 +1075,16 @@ def register_tools(mcp):
         - Type-specific attributes (in JSONB)
         - All case assignments with roles
         """
+        context.info(f"Fetching person {person_id}")
         result = db.get_person_by_id(person_id)
         if not result:
             return not_found_error("Person")
+        context.info(f"Retrieved person: {result.get('name', 'Unknown')}")
         return {"success": True, "person": result}
 
     @mcp.tool()
     def assign_person_to_case(
+        context: Context,
         case_id: int,
         person_id: int,
         role: str,
@@ -1022,6 +1124,7 @@ def register_tools(mcp):
             assign_person_to_case(case_id=1, person_id=2, role="Client",
                                  contact_via_person_id=3)  # Contact through person 3
         """
+        context.info(f"Assigning person {person_id} to case {case_id} as {role}")
         try:
             if side:
                 db.validate_person_side(side)
@@ -1041,10 +1144,12 @@ def register_tools(mcp):
             contact_via_person_id=contact_via_person_id,
             assigned_date=assigned_date
         )
+        context.info(f"Person {person_id} assigned to case {case_id} successfully")
         return {"success": True, "assignment": result}
 
     @mcp.tool()
     def update_case_assignment(
+        context: Context,
         case_id: int,
         person_id: int,
         role: str,
@@ -1071,6 +1176,7 @@ def register_tools(mcp):
 
         Returns the updated assignment.
         """
+        context.info(f"Updating assignment for person {person_id} in case {case_id}")
         try:
             if side:
                 db.validate_person_side(side)
@@ -1092,10 +1198,12 @@ def register_tools(mcp):
         )
         if not result:
             return not_found_error("Case assignment")
+        context.info(f"Assignment updated successfully")
         return {"success": True, "assignment": result}
 
     @mcp.tool()
     def remove_person_from_case(
+        context: Context,
         case_id: int,
         person_id: int,
         role: Optional[str] = None
@@ -1110,9 +1218,11 @@ def register_tools(mcp):
 
         Returns confirmation.
         """
+        context.info(f"Removing person {person_id} from case {case_id}{' role=' + role if role else ''}")
         result = db.remove_person_from_case(case_id, person_id, role)
         if not result:
             return not_found_error("Case assignment")
+        context.info(f"Person {person_id} removed from case {case_id}")
         return {
             "success": True,
             "message": f"Person {person_id} removed from case {case_id}" +
@@ -1121,6 +1231,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     def manage_expertise_type(
+        context: Context,
         name: str = "",
         description: Optional[str] = None,
         list_all: bool = False
@@ -1143,17 +1254,22 @@ def register_tools(mcp):
             manage_expertise_type(name="Digital Forensics", description="Computer and phone forensics")
         """
         if list_all:
+            context.info("Fetching all expertise types")
             types = db.get_expertise_types()
+            context.info(f"Found {len(types)} expertise types")
             return {"success": True, "expertise_types": types, "total": len(types)}
 
         if not name:
             return validation_error("Name is required when not listing")
 
+        context.info(f"Creating expertise type: {name}")
         result = db.create_expertise_type(name, description)
+        context.info(f"Expertise type created")
         return {"success": True, "expertise_type": result, "action": "created"}
 
     @mcp.tool()
     def manage_person_type(
+        context: Context,
         name: str = "",
         description: Optional[str] = None,
         list_all: bool = False
@@ -1176,11 +1292,15 @@ def register_tools(mcp):
             manage_person_type(name="paralegal", description="Paralegal or legal assistant")
         """
         if list_all:
+            context.info("Fetching all person types")
             types = db.get_person_types()
+            context.info(f"Found {len(types)} person types")
             return {"success": True, "person_types": types, "total": len(types)}
 
         if not name:
             return validation_error("Name is required when not listing")
 
+        context.info(f"Creating person type: {name}")
         result = db.create_person_type(name, description)
+        context.info(f"Person type created")
         return {"success": True, "person_type": result, "action": "created"}
