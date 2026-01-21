@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
@@ -9,6 +9,7 @@ import {
   EditableSelect,
   EditableDate,
   ListPanel,
+  ConfirmModal,
 } from '../components/common';
 import { getStats, getTasks, getDeadlines, getConstants, updateTask, deleteTask, updateDeadline, deleteDeadline } from '../api/client';
 import type { Task, Deadline } from '../types';
@@ -25,6 +26,8 @@ import { parseISO, isValid } from 'date-fns';
 
 export function Dashboard() {
   const queryClient = useQueryClient();
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
+  const [deleteDeadlineTarget, setDeleteDeadlineTarget] = useState<number | null>(null);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
@@ -91,12 +94,17 @@ export function Dashboard() {
 
   const handleDeleteTask = useCallback(
     (taskId: number) => {
-      if (confirm('Delete this task?')) {
-        deleteTaskMutation.mutate(taskId);
-      }
+      setDeleteTaskTarget(taskId);
     },
-    [deleteTaskMutation]
+    []
   );
+
+  const confirmDeleteTask = useCallback(() => {
+    if (deleteTaskTarget) {
+      deleteTaskMutation.mutate(deleteTaskTarget);
+      setDeleteTaskTarget(null);
+    }
+  }, [deleteTaskTarget, deleteTaskMutation]);
 
   const handleUpdateDeadline = useCallback(
     async (deadlineId: number, field: string, value: any) => {
@@ -107,12 +115,17 @@ export function Dashboard() {
 
   const handleDeleteDeadline = useCallback(
     (deadlineId: number) => {
-      if (confirm('Delete this deadline?')) {
-        deleteDeadlineMutation.mutate(deadlineId);
-      }
+      setDeleteDeadlineTarget(deadlineId);
     },
-    [deleteDeadlineMutation]
+    []
   );
+
+  const confirmDeleteDeadline = useCallback(() => {
+    if (deleteDeadlineTarget) {
+      deleteDeadlineMutation.mutate(deleteDeadlineTarget);
+      setDeleteDeadlineTarget(null);
+    }
+  }, [deleteDeadlineTarget, deleteDeadlineMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map((s) => ({
     value: s,
@@ -315,6 +328,28 @@ export function Dashboard() {
           </div>
         </div>
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTaskTarget}
+        onClose={() => setDeleteTaskTarget(null)}
+        onConfirm={confirmDeleteTask}
+        title="Delete Task"
+        message="Are you sure you want to delete this task?"
+        confirmText="Delete Task"
+        variant="danger"
+        isLoading={deleteTaskMutation.isPending}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteDeadlineTarget}
+        onClose={() => setDeleteDeadlineTarget(null)}
+        onConfirm={confirmDeleteDeadline}
+        title="Delete Deadline"
+        message="Are you sure you want to delete this deadline?"
+        confirmText="Delete Deadline"
+        variant="danger"
+        isLoading={deleteDeadlineMutation.isPending}
+      />
     </>
   );
 }
