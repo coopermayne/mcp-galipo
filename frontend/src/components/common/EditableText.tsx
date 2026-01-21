@@ -105,8 +105,8 @@ export function EditableText({
           onBlur={handleBlur}
           maxLength={maxLength}
           className={`
-            px-2 py-1 rounded border border-primary-300 bg-white
-            focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+            px-2 py-1 rounded border border-primary-500 bg-slate-700 text-slate-100
+            focus:border-primary-400 focus:ring-1 focus:ring-primary-500
             text-sm outline-none
             ${multiline ? 'resize-none min-h-[60px]' : ''}
             ${inputClassName}
@@ -123,9 +123,9 @@ export function EditableText({
       <span
         onClick={handleStartEdit}
         className={`
-          px-2 py-1 rounded cursor-pointer
-          hover:bg-slate-100 transition-colors
-          ${!value ? 'text-slate-400 italic' : ''}
+          px-2 py-1 rounded cursor-pointer text-slate-100
+          hover:bg-slate-700 transition-colors
+          ${!value ? 'text-slate-500 italic' : ''}
           ${disabled ? 'cursor-default hover:bg-transparent' : ''}
         `}
       >

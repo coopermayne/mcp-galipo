@@ -124,11 +124,11 @@ export function Deadlines() {
   };
 
   const groupColors: Record<string, string> = {
-    overdue: 'text-red-600 bg-red-50',
-    today: 'text-amber-600 bg-amber-50',
-    thisWeek: 'text-blue-600 bg-blue-50',
-    thisMonth: 'text-slate-600 bg-slate-50',
-    later: 'text-slate-500 bg-slate-50',
+    overdue: 'text-red-400 bg-red-900/30',
+    today: 'text-amber-400 bg-amber-900/30',
+    thisWeek: 'text-blue-400 bg-blue-900/30',
+    thisMonth: 'text-slate-300 bg-slate-700',
+    later: 'text-slate-400 bg-slate-700',
   };
 
   const getDaysUntil = (dateStr: string) => {
@@ -150,14 +150,14 @@ export function Deadlines() {
 
       <div className="flex-1 overflow-auto p-6">
         {/* Filters */}
-        <div className="mb-6 flex items-center gap-4 bg-white rounded-lg border border-slate-200 p-4">
+        <div className="mb-6 flex items-center gap-4 bg-slate-800 rounded-lg border border-slate-700 p-4">
           <Filter className="w-4 h-4 text-slate-400" />
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-600">Status:</label>
+            <label className="text-sm text-slate-400">Status:</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm bg-white"
+              className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
             >
               <option value="">All</option>
               {statusOptions.map((opt) => (
@@ -168,11 +168,11 @@ export function Deadlines() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-600">Min Urgency:</label>
+            <label className="text-sm text-slate-400">Min Urgency:</label>
             <select
               value={urgencyFilter}
               onChange={(e) => setUrgencyFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm bg-white"
+              className="px-3 py-1.5 rounded-lg border border-slate-600 text-sm bg-slate-700 text-slate-100"
             >
               <option value="">All</option>
               {urgencyOptions.map((opt) => (
@@ -190,7 +190,7 @@ export function Deadlines() {
             <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
           </div>
         ) : deadlinesData?.deadlines.length === 0 ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-8 text-center text-slate-500">
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-8 text-center text-slate-400">
             No deadlines found
           </div>
         ) : (
@@ -203,12 +203,12 @@ export function Deadlines() {
                       {group === 'overdue' && <AlertTriangle className="w-4 h-4" />}
                       {groupLabels[group]} ({deadlines.length})
                     </div>
-                    <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100">
+                    <div className="bg-slate-800 rounded-lg border border-slate-700 divide-y divide-slate-700">
                       {deadlines.map((deadline) => (
                         <div
                           key={deadline.id}
-                          className={`px-4 py-3 flex items-center gap-4 hover:bg-slate-50 ${
-                            group === 'overdue' ? 'bg-red-50/50' : ''
+                          className={`px-4 py-3 flex items-center gap-4 hover:bg-slate-700 ${
+                            group === 'overdue' ? 'bg-red-900/20' : ''
                           }`}
                         >
                           <div className="w-24 shrink-0">
@@ -216,7 +216,7 @@ export function Deadlines() {
                               value={deadline.date}
                               onSave={(value) => handleUpdate(deadline.id, 'date', value)}
                             />
-                            <p className={`text-xs mt-0.5 ${group === 'overdue' ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
+                            <p className={`text-xs mt-0.5 ${group === 'overdue' ? 'text-red-400 font-medium' : 'text-slate-500'}`}>
                               {getDaysUntil(deadline.date)}
                             </p>
                           </div>
@@ -228,7 +228,7 @@ export function Deadlines() {
                             />
                             <Link
                               to={`/cases/${deadline.case_id}`}
-                              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-primary-600 mt-1"
+                              className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-1"
                             >
                               {deadline.case_name || `Case #${deadline.case_id}`}
                               <ExternalLink className="w-3 h-3" />
@@ -248,7 +248,7 @@ export function Deadlines() {
                           />
                           <button
                             onClick={() => handleDelete(deadline.id)}
-                            className="p-1 text-slate-400 hover:text-red-500"
+                            className="p-1 text-slate-500 hover:text-red-400"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
