@@ -1,5 +1,6 @@
 import { useLocation, Link } from 'react-router-dom';
-import { ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, Home, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
   title?: React.ReactNode;
@@ -9,6 +10,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, actions }: HeaderProps) {
   const location = useLocation();
+  const { logout } = useAuth();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
   const breadcrumbs = pathSegments.map((segment, index) => {
@@ -51,7 +53,16 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
           {title && <h1 className="text-2xl font-semibold text-slate-100">{title}</h1>}
           {subtitle && <p className="text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        <div className="flex items-center gap-2">
+          {actions}
+          <button
+            onClick={logout}
+            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-lg transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </header>
   );

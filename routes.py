@@ -7,6 +7,7 @@ HTTP endpoints that power the web UI.
 from pathlib import Path
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 import database as db
+import auth
 
 # Static directories for both frontends
 STATIC_DIR = Path(__file__).parent / "static"  # Legacy vanilla JS
@@ -83,17 +84,56 @@ def register_routes(mcp):
             return FileResponse(file_path, media_type=content_type)
         return HTMLResponse("Not found", status_code=404)
 
+    # ===== AUTH ROUTES =====
+
+    @mcp.custom_route("/api/v1/auth/login", methods=["POST"])
+    async def api_auth_login(request):
+        """Authenticate user and return session token."""
+        data = await request.json()
+        username = data.get("username", "")
+        password = data.get("password", "")
+        token = auth.authenticate(username, password)
+        if token:
+            return JSONResponse({"success": True, "token": token})
+        return JSONResponse(
+            {"success": False, "error": {"message": "Invalid credentials", "code": "INVALID_CREDENTIALS"}},
+            status_code=401
+        )
+
+    @mcp.custom_route("/api/v1/auth/logout", methods=["POST"])
+    async def api_auth_logout(request):
+        """Invalidate session token."""
+        token = auth.get_token_from_request(request)
+        if token:
+            auth.invalidate_session(token)
+        return JSONResponse({"success": True})
+
+    @mcp.custom_route("/api/v1/auth/verify", methods=["GET"])
+    async def api_auth_verify(request):
+        """Check if token is valid."""
+        token = auth.get_token_from_request(request)
+        if token and auth.validate_session(token):
+            return JSONResponse({"success": True, "valid": True})
+        return JSONResponse(
+            {"success": False, "error": {"message": "Invalid or expired token", "code": "UNAUTHORIZED"}},
+            status_code=401
+        )
+
     # ===== API ROUTES =====
 
     @mcp.custom_route("/api/v1/stats", methods=["GET"])
     async def api_stats(request):
         """Get dashboard statistics."""
+        if err := auth.require_auth(request):
+            return err
         stats = db.get_dashboard_stats()
         return JSONResponse(stats)
 
     @mcp.custom_route("/api/v1/constants", methods=["GET"])
     async def api_constants(request):
         """Get system constants (statuses, roles, courts, etc.)."""
+        if err := auth.require_auth(request):
+            return err
         return JSONResponse({
             "case_statuses": db.CASE_STATUSES,
             "contact_roles": db.CONTACT_ROLES,
@@ -106,6 +146,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases", methods=["GET"])
     async def api_list_cases(request):
         """List all cases with optional filtering and pagination."""
+        if err := auth.require_auth(request):
+            return err
         status = request.query_params.get("status")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
@@ -122,6 +164,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["GET"])
     async def api_get_case(request):
         """Get a specific case by ID."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         case = db.get_case_by_id(case_id)
         if not case:
@@ -131,6 +175,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases", methods=["POST"])
     async def api_create_case(request):
         """Create a new case."""
+        if err := auth.require_auth(request):
+            return err
         data = await request.json()
         result = db.create_case(
             data["case_name"],
@@ -145,6 +191,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["PUT"])
     async def api_update_case(request):
         """Update an existing case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         data = await request.json()
         result = db.update_case(case_id, **data)
@@ -155,6 +203,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["DELETE"])
     async def api_delete_case(request):
         """Delete a case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         if db.delete_case(case_id):
             return JSONResponse({"success": True})
@@ -165,6 +215,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/tasks", methods=["GET"])
     async def api_list_tasks(request):
         """List tasks with optional filtering and pagination."""
+        if err := auth.require_auth(request):
+            return err
         case_id = request.query_params.get("case_id")
         status = request.query_params.get("status")
         urgency = request.query_params.get("urgency")
@@ -189,6 +241,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/tasks", methods=["POST"])
     async def api_create_task(request):
         """Create a new task."""
+        if err := auth.require_auth(request):
+            return err
         data = await request.json()
         result = db.add_task(
             data["case_id"],
@@ -203,6 +257,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["PUT"])
     async def api_update_task(request):
         """Update an existing task."""
+        if err := auth.require_auth(request):
+            return err
         task_id = int(request.path_params["task_id"])
         data = await request.json()
         result = db.update_task_full(task_id, **data)
@@ -213,6 +269,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
     async def api_delete_task(request):
         """Delete a task."""
+        if err := auth.require_auth(request):
+            return err
         task_id = int(request.path_params["task_id"])
         if db.delete_task(task_id):
             return JSONResponse({"success": True})
@@ -223,6 +281,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/deadlines", methods=["GET"])
     async def api_list_deadlines(request):
         """List deadlines with optional filtering and pagination."""
+        if err := auth.require_auth(request):
+            return err
         urgency = request.query_params.get("urgency")
         status = request.query_params.get("status")
         limit = request.query_params.get("limit")
@@ -245,6 +305,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/deadlines", methods=["POST"])
     async def api_create_deadline(request):
         """Create a new deadline."""
+        if err := auth.require_auth(request):
+            return err
         data = await request.json()
         result = db.add_deadline(
             data["case_id"],
@@ -260,6 +322,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/deadlines/{deadline_id}", methods=["PUT"])
     async def api_update_deadline(request):
         """Update an existing deadline."""
+        if err := auth.require_auth(request):
+            return err
         deadline_id = int(request.path_params["deadline_id"])
         data = await request.json()
         result = db.update_deadline_full(deadline_id, **data)
@@ -270,6 +334,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/deadlines/{deadline_id}", methods=["DELETE"])
     async def api_delete_deadline(request):
         """Delete a deadline."""
+        if err := auth.require_auth(request):
+            return err
         deadline_id = int(request.path_params["deadline_id"])
         if db.delete_deadline(deadline_id):
             return JSONResponse({"success": True})
@@ -280,6 +346,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/notes", methods=["POST"])
     async def api_create_note(request):
         """Create a new note."""
+        if err := auth.require_auth(request):
+            return err
         data = await request.json()
         result = db.add_note(data["case_id"], data["content"])
         return JSONResponse({"success": True, "note": result})
@@ -287,6 +355,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/notes/{note_id}", methods=["DELETE"])
     async def api_delete_note(request):
         """Delete a note."""
+        if err := auth.require_auth(request):
+            return err
         note_id = int(request.path_params["note_id"])
         if db.delete_note(note_id):
             return JSONResponse({"success": True})
@@ -298,12 +368,16 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/clients", methods=["GET"])
     async def api_list_clients(request):
         """List all clients."""
+        if err := auth.require_auth(request):
+            return err
         result = db.get_all_clients()
         return JSONResponse({"clients": result})
 
     @mcp.custom_route("/api/v1/clients", methods=["POST"])
     async def api_create_client(request):
         """Create a new client."""
+        if err := auth.require_auth(request):
+            return err
         data = await request.json()
         result = db.create_client(
             data["name"],
@@ -317,6 +391,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}/clients", methods=["POST"])
     async def api_link_client_to_case(request):
         """Link a client to a case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         data = await request.json()
         # If client_id provided, link existing client
@@ -352,6 +428,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}/clients/{client_id}", methods=["DELETE"])
     async def api_unlink_client_from_case(request):
         """Remove a client from a case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         client_id = int(request.path_params["client_id"])
         if db.remove_client_from_case(case_id, client_id):
@@ -362,12 +440,16 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/defendants", methods=["GET"])
     async def api_list_defendants(request):
         """List all defendants."""
+        if err := auth.require_auth(request):
+            return err
         result = db.get_all_defendants()
         return JSONResponse({"defendants": result})
 
     @mcp.custom_route("/api/v1/cases/{case_id}/defendants", methods=["POST"])
     async def api_add_defendant_to_case(request):
         """Add a defendant to a case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         data = await request.json()
         result = db.add_defendant_to_case(case_id, data["name"])
@@ -376,6 +458,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}/defendants/{defendant_id}", methods=["DELETE"])
     async def api_remove_defendant_from_case(request):
         """Remove a defendant from a case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         defendant_id = int(request.path_params["defendant_id"])
         if db.remove_defendant_from_case(case_id, defendant_id):
@@ -386,12 +470,16 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/contacts", methods=["GET"])
     async def api_list_contacts(request):
         """List all contacts."""
+        if err := auth.require_auth(request):
+            return err
         result = db.get_all_contacts()
         return JSONResponse({"contacts": result})
 
     @mcp.custom_route("/api/v1/contacts", methods=["POST"])
     async def api_create_contact(request):
         """Create a new contact."""
+        if err := auth.require_auth(request):
+            return err
         data = await request.json()
         result = db.create_contact(
             data["name"],
@@ -406,6 +494,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}/contacts", methods=["POST"])
     async def api_link_contact_to_case(request):
         """Link a contact to a case with a role."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         data = await request.json()
         # If contact_id provided, link existing contact
@@ -436,6 +526,8 @@ def register_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}/contacts/{contact_id}", methods=["DELETE"])
     async def api_unlink_contact_from_case(request):
         """Remove a contact from a case."""
+        if err := auth.require_auth(request):
+            return err
         case_id = int(request.path_params["case_id"])
         contact_id = int(request.path_params["contact_id"])
         role = request.query_params.get("role")
