@@ -25,12 +25,23 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
     return { path, label, isLast };
   });
 
+  // Show title for top-level pages (when title is provided)
+  // Show breadcrumbs only for nested pages (e.g., /cases/123)
+  const showTitle = !!title;
+  const showBreadcrumbs = !showTitle && breadcrumbs.length > 1;
+
   return (
     <header className="h-16 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 flex items-center justify-between transition-colors">
-      {/* Left side: breadcrumbs or title */}
+      {/* Left side: title or breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
-        {breadcrumbs.length > 0 ? (
-          /* Breadcrumbs for nested pages */
+        {showTitle ? (
+          /* Title + subtitle for main pages */
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
+            {subtitle && <span className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</span>}
+          </div>
+        ) : showBreadcrumbs ? (
+          /* Breadcrumbs for nested pages (e.g., /cases/123) */
           <nav className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
             <Link to="/" className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
               <Home className="w-4 h-4" />
@@ -51,13 +62,7 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
               </span>
             ))}
           </nav>
-        ) : (
-          /* Title + subtitle for root pages */
-          <div className="flex items-baseline gap-3">
-            {title && <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>}
-            {subtitle && <span className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</span>}
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* Right side: actions + theme toggle + logout */}
