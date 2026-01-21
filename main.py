@@ -28,19 +28,11 @@ if os.environ.get("RESET_DB", "").lower() == "true":
     db.drop_all_tables()
     db.init_db()
     db.seed_db()
-    db.seed_expertise_types()
-    db.seed_person_types()
 else:
     # Just ensure tables exist (safe for production)
     db.init_db()
-    # Run migrations for existing databases
-    db.migrate_case_numbers_to_jsonb()
-    db.migrate_add_short_name()
-    # Seed lookup tables (idempotent)
-    db.seed_expertise_types()
-    db.seed_person_types()
-    # Migrate existing clients/contacts/defendants to persons table
-    db.migrate_persons()
+    # Seed lookup tables (idempotent - only inserts if empty)
+    db.seed_db()
 
 
 if __name__ == "__main__":
