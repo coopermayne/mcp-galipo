@@ -1,6 +1,7 @@
 import { useLocation, Link } from 'react-router-dom';
-import { ChevronRight, Home, LogOut } from 'lucide-react';
+import { ChevronRight, Home, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface HeaderProps {
   title?: React.ReactNode;
@@ -11,6 +12,7 @@ interface HeaderProps {
 export function Header({ title, subtitle, actions }: HeaderProps) {
   const location = useLocation();
   const { logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
   const breadcrumbs = pathSegments.map((segment, index) => {
@@ -22,47 +24,57 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
   });
 
   return (
-    <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
-      {/* Breadcrumbs */}
-      {breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1 text-sm text-slate-400 mb-2">
-          <Link to="/" className="hover:text-slate-200 transition-colors">
-            <Home className="w-4 h-4" />
-          </Link>
-          {breadcrumbs.map((crumb) => (
-            <span key={crumb.path} className="flex items-center gap-1">
-              <ChevronRight className="w-4 h-4" />
-              {crumb.isLast ? (
-                <span className="text-slate-100 font-medium">{crumb.label}</span>
-              ) : (
-                <Link
-                  to={crumb.path}
-                  className="hover:text-slate-200 transition-colors"
-                >
-                  {crumb.label}
-                </Link>
-              )}
-            </span>
-          ))}
-        </nav>
-      )}
+    <header className="h-16 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 flex items-center justify-between transition-colors">
+      {/* Left side: breadcrumbs or title */}
+      <div className="flex items-center gap-3 min-w-0">
+        {breadcrumbs.length > 0 ? (
+          /* Breadcrumbs for nested pages */
+          <nav className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+            <Link to="/" className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+              <Home className="w-4 h-4" />
+            </Link>
+            {breadcrumbs.map((crumb) => (
+              <span key={crumb.path} className="flex items-center gap-1">
+                <ChevronRight className="w-4 h-4" />
+                {crumb.isLast ? (
+                  <span className="text-slate-900 dark:text-slate-100 font-medium">{crumb.label}</span>
+                ) : (
+                  <Link
+                    to={crumb.path}
+                    className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                  >
+                    {crumb.label}
+                  </Link>
+                )}
+              </span>
+            ))}
+          </nav>
+        ) : (
+          /* Title + subtitle for root pages */
+          <div className="flex items-baseline gap-3">
+            {title && <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>}
+            {subtitle && <span className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</span>}
+          </div>
+        )}
+      </div>
 
-      {/* Title and actions */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          {title && <div className="text-2xl font-semibold text-slate-100">{title}</div>}
-          {subtitle && <div className="text-slate-400 mt-0.5">{subtitle}</div>}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {actions}
-          <button
-            onClick={logout}
-            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-lg transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
+      {/* Right side: actions + theme toggle + logout */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {actions}
+        <button
+          onClick={toggleTheme}
+          className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+        <button
+          onClick={logout}
+          className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          title="Sign out"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
       </div>
     </header>
   );

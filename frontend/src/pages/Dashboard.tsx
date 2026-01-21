@@ -200,10 +200,10 @@ export function Dashboard() {
           {/* Pending Tasks */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-100">Tasks</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Tasks</h2>
               <Link
                 to="/tasks"
-                className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
               >
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
@@ -264,10 +264,10 @@ export function Dashboard() {
           {/* Upcoming Deadlines */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-100">Deadlines</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Deadlines</h2>
               <Link
                 to="/deadlines"
-                className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1"
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
               >
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
@@ -352,18 +352,18 @@ function StatCard({
   variant = 'default',
 }: StatCardProps) {
   const variantStyles = {
-    default: 'bg-slate-700 text-slate-300',
-    primary: 'bg-primary-900/50 text-primary-400',
-    warning: 'bg-amber-900/50 text-amber-400',
-    danger: 'bg-red-900/50 text-red-400',
+    default: 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+    primary: 'bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400',
+    warning: 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400',
+    danger: 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400',
   };
 
   const content = (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 shadow-sm p-4 hover:border-slate-600 transition-colors">
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm p-4 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-slate-400">{title}</p>
-          <p className="text-2xl font-semibold text-slate-100 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
+          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : value}
           </p>
         </div>

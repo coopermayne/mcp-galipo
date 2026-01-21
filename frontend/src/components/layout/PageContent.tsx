@@ -16,7 +16,7 @@ export function PageContent({ children, variant = 'constrained', className = '' 
   };
 
   return (
-    <div className={`flex-1 overflow-auto p-6 ${variantClasses[variant]} ${className}`}>
+    <div className={`flex-1 overflow-auto p-6 bg-slate-100 dark:bg-slate-900 transition-colors ${variantClasses[variant]} ${className}`}>
       {children}
     </div>
   );
