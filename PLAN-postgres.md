@@ -147,11 +147,23 @@ Claude:
 
 ---
 
-## Frontend Redesign — NOT STARTED
+## Frontend Redesign — COMPLETE
 
-### Current State
-- Vanilla JS SPA (~983 lines JS, ~1014 lines CSS)
-- Functional but no inline editing, auto-save, or modern UX patterns
+### What Was Built
+- React 18 + TypeScript + Vite
+- Tailwind CSS for styling
+- TanStack Query for server state management
+- TanStack Table for sortable/filterable tables
+- Inline editing with auto-save and optimistic updates
+- Full CRUD for cases, tasks, deadlines, and notes
+
+### Routes
+- `/` — Dashboard (stats, recent tasks, deadlines)
+- `/cases` — Cases list with inline status editing
+- `/cases/:id` — Case detail with tabbed interface (Overview, Tasks, Deadlines, Notes)
+- `/tasks` — Cross-case task list grouped by due date
+- `/deadlines` — Cross-case deadline list grouped by due date
+- `/legacy` — Access to the original vanilla JS frontend
 
 ### Design Goals
 
@@ -261,10 +273,10 @@ frontend/
 4. Add bulk actions
 5. Polish animations and transitions
 
-### Migration Strategy
+### Migration Strategy — COMPLETE
 
-1. Build new React frontend in `/frontend` directory
-2. Keep existing vanilla JS frontend working during development
-3. Serve React app from `/app` route initially for testing
-4. Once stable, replace root route with React app
-5. Remove old `/static` vanilla JS files
+1. ~~Build new React frontend in `/frontend` directory~~ DONE
+2. ~~Keep existing vanilla JS frontend working during development~~ DONE (available at `/legacy`)
+3. ~~Serve React app from `/app` route initially for testing~~ DONE (served at root `/`)
+4. ~~Once stable, replace root route with React app~~ DONE
+5. Legacy frontend kept at `/legacy` for backward compatibility
