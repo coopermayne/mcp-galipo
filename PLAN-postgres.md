@@ -465,3 +465,402 @@ Claude:
 - Average tool calls per user request: reduce from 2-3 to 1-2
 - Claude success rate on common operations: improve
 - Code complexity: reduce (fewer tools to maintain)
+
+---
+
+## Frontend Redesign Plan
+
+### Design Goals
+
+- **Framework**: React (with Vite for fast dev/build)
+- **Interaction**: Inline editing — click any field to edit, auto-saves
+- **Visual style**: Dense/productive (Jira-like) — maximize information density
+- **Feel**: App-like, not form-like — immediate feedback, no submit buttons
+
+### Core UX Principles
+
+1. **Click to edit** — Any text field becomes editable on click
+2. **Auto-save** — Changes save automatically with debounce (300ms)
+3. **Optimistic updates** — UI updates immediately, syncs in background
+4. **Visual feedback** — Subtle saving/saved indicators, not blocking
+5. **Keyboard navigation** — Tab between fields, Enter to confirm, Escape to cancel
+6. **Batch operations** — Select multiple items, bulk actions
+
+### Component Architecture
+
+```
+src/
+├── components/
+│   ├── common/
+│   │   ├── EditableText.tsx      # Click-to-edit text field
+│   │   ├── EditableSelect.tsx    # Click-to-edit dropdown
+│   │   ├── EditableDate.tsx      # Click-to-edit date picker
+│   │   ├── Badge.tsx             # Status/urgency badges
+│   │   ├── DataTable.tsx         # Sortable, filterable table
+│   │   └── SaveIndicator.tsx     # Saving/saved/error states
+│   ├── cases/
+│   │   ├── CaseList.tsx          # Main case list view
+│   │   ├── CaseRow.tsx           # Inline-editable case row
+│   │   ├── CaseDetail.tsx        # Full case view
+│   │   ├── ClientList.tsx        # Editable client list
+│   │   ├── ContactList.tsx       # Editable contacts with roles
+│   │   └── DefendantList.tsx     # Editable defendant chips
+│   ├── tasks/
+│   │   ├── TaskList.tsx          # Cross-case task view
+│   │   ├── TaskRow.tsx           # Inline-editable task
+│   │   └── TaskQuickAdd.tsx      # Quick add input at top
+│   ├── deadlines/
+│   │   ├── DeadlineList.tsx      # Cross-case deadline view
+│   │   └── DeadlineRow.tsx       # Inline-editable deadline
+│   ├── calendar/
+│   │   └── CalendarView.tsx      # Combined tasks + deadlines
+│   └── layout/
+│       ├── Sidebar.tsx           # Navigation
+│       ├── Header.tsx            # Search, user menu
+│       └── Layout.tsx            # Main layout wrapper
+├── hooks/
+│   ├── useAutoSave.ts            # Debounced auto-save logic
+│   ├── useOptimistic.ts          # Optimistic update pattern
+│   └── useKeyboard.ts            # Keyboard shortcuts
+├── api/
+│   └── client.ts                 # API client with error handling
+├── store/
+│   └── store.ts                  # Zustand or React Query for state
+└── App.tsx
+```
+
+### Key Components
+
+#### EditableText
+
+```tsx
+// Click to edit, auto-saves on blur or Enter
+<EditableText
+  value={case.case_name}
+  onSave={(value) => updateCase(case.id, { case_name: value })}
+  placeholder="Case name..."
+  className="text-lg font-semibold"
+/>
+```
+
+**Behavior:**
+- Display mode: Shows text with subtle hover indicator
+- Edit mode: Input field, focused automatically
+- Enter or blur: Saves and exits edit mode
+- Escape: Cancels and reverts
+- Shows tiny spinner while saving
+
+#### EditableSelect (Status/Role dropdowns)
+
+```tsx
+<EditableSelect
+  value={case.status}
+  options={CASE_STATUSES}
+  onSave={(value) => updateCase(case.id, { status: value })}
+  renderValue={(v) => <Badge status={v} />}
+/>
+```
+
+**Behavior:**
+- Click badge to open dropdown
+- Single click selects and saves
+- Click outside to cancel
+
+#### DataTable
+
+```tsx
+<DataTable
+  data={cases}
+  columns={[
+    { key: 'case_name', header: 'Case', editable: true, component: EditableText },
+    { key: 'status', header: 'Status', editable: true, component: EditableSelect },
+    { key: 'court', header: 'Court', editable: true },
+    { key: 'next_deadline', header: 'Next Deadline', sortable: true },
+  ]}
+  sortable
+  filterable
+  selectable
+  onRowClick={(case) => navigate(`/cases/${case.id}`)}
+/>
+```
+
+**Features:**
+- Column sorting (click header)
+- Column filtering (dropdown in header)
+- Row selection (checkbox column)
+- Bulk actions toolbar (appears when rows selected)
+- Inline editing without leaving the table
+
+### Views
+
+#### 1. Dashboard
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [Stats Cards: Active Cases | Pending Tasks | Due This Week | Urgent]  │
+├─────────────────────────────────────────────────────────────┤
+│  Due This Week                              Quick Add Task  │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ ☐ Discovery responses due    Martinez v. LAPD    Fri   ││
+│  │ ☐ File MSJ                   Jones v. City       Thu   ││
+│  │ ☐ Depo prep                  Smith v. County     Wed   ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│  Recent Activity                                            │
+│  • Status changed to Discovery — Martinez v. LAPD — 2h ago │
+│  • Deadline added — Jones v. City — 5h ago                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 2. Cases List
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Cases                                    [+ New Case] [⚙]   │
+├─────────────────────────────────────────────────────────────┤
+│ [Search...]  Status: [All ▼]  Court: [All ▼]               │
+├─────────────────────────────────────────────────────────────┤
+│ ☐ │ Case Name          │ Status      │ Court    │ Next Due │
+│───┼────────────────────┼─────────────┼──────────┼──────────│
+│ ☐ │ Martinez v. LAPD   │ [Discovery] │ LA Super │ Jan 25   │
+│ ☐ │ Jones v. City      │ [Pre-trial] │ Federal  │ Feb 3    │
+│ ☐ │ Smith v. County    │ [Pleadings] │ LA Super │ Feb 10   │
+└─────────────────────────────────────────────────────────────┘
+  ↑ Click any cell to edit inline
+```
+
+#### 3. Case Detail
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ← Cases    Martinez v. LAPD                    [Discovery ▼]│
+├─────────────────────────────────────────────────────────────┤
+│ Court: [LA Superior]  Case #: [24STCV12345]  DOI: [1/15/24]│
+├────────────────┬────────────────────────────────────────────┤
+│ Clients        │ Maria Martinez (Primary)        [+ Add]   │
+│                │   ↳ Contact via: Rosa Martinez (Mother)   │
+├────────────────┼────────────────────────────────────────────┤
+│ Defendants     │ [City of Los Angeles] [LAPD]    [+ Add]   │
+├────────────────┼────────────────────────────────────────────┤
+│ Contacts       │ John Smith — Opposing Counsel   [+ Add]   │
+│                │ Hon. Garcia — Judge                        │
+├────────────────┴────────────────────────────────────────────┤
+│ [Tasks] [Deadlines] [Notes] [Activity]                      │
+├─────────────────────────────────────────────────────────────┤
+│ Tasks                                      [+ Add task...]  │
+│ ☐ Discovery responses due          Jan 25  [Urgent 4]      │
+│ ☐ Review defendant docs            Jan 28  [Normal 3]      │
+│ ☑ File proof of service            Jan 20  [Done]          │
+└─────────────────────────────────────────────────────────────┘
+  ↑ Everything is editable. Click status badge, date, urgency, etc.
+```
+
+#### 4. Tasks View (Cross-case)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Tasks                                                       │
+├─────────────────────────────────────────────────────────────┤
+│ [+ Add task...]                                             │
+│ Show: [Pending ▼]  Due: [This week ▼]  Urgency: [All ▼]    │
+├─────────────────────────────────────────────────────────────┤
+│ TODAY                                                       │
+│ ☐ Call expert witness         Martinez v. LAPD    [4]      │
+├─────────────────────────────────────────────────────────────┤
+│ TOMORROW                                                    │
+│ ☐ File MSJ opposition         Jones v. City       [5] 🔴   │
+├─────────────────────────────────────────────────────────────┤
+│ THIS WEEK                                                   │
+│ ☐ Discovery responses         Martinez v. LAPD    [4]      │
+│ ☐ Depo prep                   Smith v. County     [3]      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Interaction Patterns
+
+#### Auto-save Flow
+
+```
+User clicks field
+    ↓
+Field becomes editable (input/select)
+    ↓
+User types/selects
+    ↓
+[Debounce 300ms]
+    ↓
+Show "Saving..." indicator (subtle, inline)
+    ↓
+API call (optimistic update already applied)
+    ↓
+Success: Show "Saved" briefly, then hide
+Error: Show error, revert optimistic update, keep field editable
+```
+
+#### Quick Add Pattern
+
+```
+[+ Add task...]  ← Placeholder text, looks like a row
+    ↓
+User clicks
+    ↓
+Transforms into input row with focus
+    ↓
+User types "Call Martinez re: depo"
+    ↓
+Enter: Creates task, clears input, ready for next
+Tab: Creates task, moves to next field (due date)
+Escape: Cancels, reverts to placeholder
+```
+
+#### Bulk Actions
+
+```
+User checks multiple rows
+    ↓
+Toolbar appears at bottom:
+┌─────────────────────────────────────────────────────────────┐
+│ 3 selected    [Mark Done] [Change Status ▼] [Delete] [✕]   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Technical Stack
+
+| Layer | Choice | Reason |
+|-------|--------|--------|
+| Framework | React 18 | Industry standard, good ecosystem |
+| Build | Vite | Fast dev server, good React support |
+| State | TanStack Query | Server state, caching, optimistic updates |
+| Styling | Tailwind CSS | Utility-first, fast iteration, dense layouts |
+| Tables | TanStack Table | Headless, flexible, sorting/filtering built-in |
+| Date picker | react-day-picker | Lightweight, accessible |
+| Icons | Lucide React | Clean, consistent icon set |
+
+### API Integration
+
+```typescript
+// api/client.ts
+const api = {
+  cases: {
+    list: (params) => fetch('/api/v1/cases?' + qs(params)).then(r => r.json()),
+    get: (id) => fetch(`/api/v1/cases/${id}`).then(r => r.json()),
+    update: (id, data) => fetch(`/api/v1/cases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }).then(r => r.json()),
+    // ...
+  },
+  tasks: { /* ... */ },
+  deadlines: { /* ... */ },
+};
+
+// hooks/useCases.ts
+function useCases(filters) {
+  return useQuery({
+    queryKey: ['cases', filters],
+    queryFn: () => api.cases.list(filters),
+  });
+}
+
+function useUpdateCase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => api.cases.update(id, data),
+    onMutate: async ({ id, data }) => {
+      // Optimistic update
+      await queryClient.cancelQueries(['cases']);
+      const previous = queryClient.getQueryData(['cases']);
+      queryClient.setQueryData(['cases'], old =>
+        old.map(c => c.id === id ? { ...c, ...data } : c)
+      );
+      return { previous };
+    },
+    onError: (err, vars, context) => {
+      // Rollback on error
+      queryClient.setQueryData(['cases'], context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries(['cases']);
+    },
+  });
+}
+```
+
+### Implementation Phases
+
+#### Phase 1: Setup & Core Components
+1. Set up Vite + React + Tailwind
+2. Build `EditableText`, `EditableSelect`, `EditableDate`
+3. Build `SaveIndicator`, `Badge`
+4. Set up TanStack Query with API client
+
+#### Phase 2: Cases List
+1. Build `DataTable` with sorting/filtering
+2. Build `CaseRow` with inline editing
+3. Build `CaseList` view
+4. Add quick-add case functionality
+
+#### Phase 3: Case Detail
+1. Build case header with editable fields
+2. Build `ClientList`, `ContactList`, `DefendantList`
+3. Build tabbed content (Tasks, Deadlines, Notes)
+4. Wire up all inline editing
+
+#### Phase 4: Tasks & Deadlines
+1. Build cross-case `TaskList` view
+2. Build cross-case `DeadlineList` view
+3. Add grouping by date (Today, Tomorrow, This Week)
+4. Add quick-add functionality
+
+#### Phase 5: Dashboard & Polish
+1. Build dashboard with stats cards
+2. Add "Due This Week" combined view
+3. Add keyboard shortcuts
+4. Add bulk actions
+5. Polish animations and transitions
+
+### File Structure (Final)
+
+```
+frontend/
+├── index.html
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── index.css
+│   ├── api/
+│   │   └── client.ts
+│   ├── hooks/
+│   │   ├── useCases.ts
+│   │   ├── useTasks.ts
+│   │   ├── useDeadlines.ts
+│   │   └── useAutoSave.ts
+│   ├── components/
+│   │   ├── common/
+│   │   ├── cases/
+│   │   ├── tasks/
+│   │   ├── deadlines/
+│   │   └── layout/
+│   ├── pages/
+│   │   ├── Dashboard.tsx
+│   │   ├── Cases.tsx
+│   │   ├── CaseDetail.tsx
+│   │   ├── Tasks.tsx
+│   │   └── Deadlines.tsx
+│   └── lib/
+│       ├── constants.ts
+│       └── utils.ts
+└── public/
+```
+
+### Migration Strategy
+
+1. Build new React frontend in `/frontend` directory
+2. Keep existing vanilla JS frontend working during development
+3. Serve React app from `/app` route initially for testing
+4. Once stable, replace root route with React app
+5. Remove old `/static` vanilla JS files
