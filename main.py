@@ -18,6 +18,32 @@ from database import ValidationError
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+
+# ===== STANDARD ERROR RESPONSES =====
+
+def error_response(message: str, code: str) -> dict:
+    """Create a standardized error response for MCP tools."""
+    return {"success": False, "error": {"message": message, "code": code}}
+
+
+def validation_error(message: str) -> dict:
+    """Create a validation error response."""
+    return error_response(message, "VALIDATION_ERROR")
+
+
+def not_found_error(resource: str) -> dict:
+    """Create a not found error response."""
+    return error_response(f"{resource} not found", "NOT_FOUND")
+
+
+def api_error(message: str, code: str, status_code: int = 400):
+    """Create a standardized API error response."""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        {"success": False, "error": {"message": message, "code": code}},
+        status_code=status_code
+    )
+
 # Initialize the MCP server
 mcp = FastMCP("Legal Case Management")
 
@@ -146,11 +172,13 @@ def get_case(case_id: Optional[int] = None, case_name: Optional[str] = None) -> 
     elif case_name:
         case = db.get_case_by_name(case_name)
     else:
-        return {"error": "Provide either case_id or case_name"}
+        return validation_error("Provide either case_id or case_name")
 
     if not case:
         available = db.get_all_case_names()
-        return {"error": "Case not found", "available_cases": available}
+        result = not_found_error("Case")
+        result["available_cases"] = available
+        return result
 
     return case
 
@@ -182,7 +210,7 @@ def create_case(
         if date_of_injury:
             db.validate_date_format(date_of_injury, "date_of_injury")
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.create_case(case_name, status, court, print_code, case_summary, date_of_injury)
     return {"success": True, "message": f"Case '{case_name}' created", "case": result}
@@ -233,7 +261,7 @@ def update_case(
             if value:
                 db.validate_date_format(value, field_name)
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.update_case(
         case_id, case_name=case_name, status=status, court=court,
@@ -243,7 +271,7 @@ def update_case(
         complaint_filed_date=complaint_filed_date, trial_date=trial_date
     )
     if not result:
-        return {"error": "Case not found or no updates provided"}
+        return not_found_error("Case or no updates provided")
     return {"success": True, "case": result}
 
 
@@ -382,7 +410,7 @@ def link_contact(
     try:
         db.validate_contact_role(role)
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.link_contact_to_case(case_id, contact_id, role, notes)
     return {"success": True, "message": f"Contact linked as {role}", "result": result}
@@ -445,7 +473,7 @@ def search_clients(
     [{id, name, phone, email, cases: [{id, case_name, status}]}]
     """
     if not any([name, phone, email]):
-        return {"error": "Provide at least one search parameter (name, phone, or email)"}
+        return validation_error("Provide at least one search parameter (name, phone, or email)")
 
     clients = db.search_clients(name, phone, email)
     return {"clients": clients, "total": len(clients)}
@@ -472,7 +500,7 @@ def search_cases(
     [{id, case_name, status, clients: [{id, name}], defendants: [{id, name}], case_numbers: [...]}]
     """
     if not any([name, case_number]):
-        return {"error": "Provide at least one search parameter (name or case_number)"}
+        return validation_error("Provide at least one search parameter (name or case_number)")
 
     cases = db.search_cases(name, case_number)
     return {"cases": cases, "total": len(cases)}
@@ -500,7 +528,7 @@ def search_contacts(
     [{id, name, firm, phone, email, cases: [{id, case_name, role}]}]
     """
     if not any([name, firm]):
-        return {"error": "Provide at least one search parameter (name or firm)"}
+        return validation_error("Provide at least one search parameter (name or firm)")
 
     contacts = db.search_contacts(name, firm)
     return {"contacts": contacts, "total": len(contacts)}
@@ -532,7 +560,7 @@ def log_activity(
         if date:
             db.validate_date_format(date, "date")
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.add_activity(case_id, description, activity_type, date, minutes)
     return {"success": True, "activity": result}
@@ -568,7 +596,7 @@ def add_deadline(
         db.validate_date_format(date, "date")
         db.validate_urgency(urgency)
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.add_deadline(case_id, date, description, status, urgency, document_link, calculation_note)
     return {"success": True, "deadline": result}
@@ -622,7 +650,7 @@ def add_task(
         if due_date:
             db.validate_date_format(due_date, "due_date")
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.add_task(case_id, description, due_date, status, urgency, deadline_id)
     return {"success": True, "task": result}
@@ -676,11 +704,11 @@ def update_task(
         if due_date:
             db.validate_date_format(due_date, "due_date")
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.update_task_full(task_id, description, due_date, status, urgency)
     if not result:
-        return {"error": "Task not found or no updates provided"}
+        return not_found_error("Task or no updates provided")
     return {"success": True, "task": result}
 
 
@@ -714,7 +742,7 @@ def update_note(note_id: int, content: str) -> dict:
     """
     result = db.update_note(note_id, content)
     if not result:
-        return {"error": "Note not found"}
+        return not_found_error("Note")
     return {"success": True, "note": result}
 
 
@@ -730,7 +758,7 @@ def delete_note(note_id: int) -> dict:
     """
     if db.delete_note(note_id):
         return {"success": True, "message": "Note deleted"}
-    return {"error": "Note not found"}
+    return not_found_error("Note")
 
 
 # ===== DELETE TOOLS =====
@@ -747,7 +775,7 @@ def delete_task(task_id: int) -> dict:
     """
     if db.delete_task(task_id):
         return {"success": True, "message": "Task deleted"}
-    return {"error": "Task not found"}
+    return not_found_error("Task")
 
 
 @mcp.tool()
@@ -762,7 +790,7 @@ def delete_deadline(deadline_id: int) -> dict:
     """
     if db.delete_deadline(deadline_id):
         return {"success": True, "message": "Deadline deleted"}
-    return {"error": "Deadline not found"}
+    return not_found_error("Deadline")
 
 
 @mcp.tool()
@@ -777,7 +805,7 @@ def delete_case(case_id: int) -> dict:
     """
     if db.delete_case(case_id):
         return {"success": True, "message": "Case and all related data deleted"}
-    return {"error": "Case not found"}
+    return not_found_error("Case")
 
 
 @mcp.tool()
@@ -792,7 +820,7 @@ def delete_activity(activity_id: int) -> dict:
     """
     if db.delete_activity(activity_id):
         return {"success": True, "message": "Activity deleted"}
-    return {"error": "Activity not found"}
+    return not_found_error("Activity")
 
 
 @mcp.tool()
@@ -807,7 +835,7 @@ def delete_case_number(case_number_id: int) -> dict:
     """
     if db.delete_case_number(case_number_id):
         return {"success": True, "message": "Case number deleted"}
-    return {"error": "Case number not found"}
+    return not_found_error("Case number")
 
 
 # ===== LIST TOOLS =====
@@ -880,12 +908,12 @@ def update_deadline(
         if urgency is not None:
             db.validate_urgency(urgency)
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.update_deadline_full(deadline_id, date, description, status,
                                       urgency, document_link, calculation_note)
     if not result:
-        return {"error": "Deadline not found or no updates provided"}
+        return not_found_error("Deadline or no updates provided")
     return {"success": True, "deadline": result}
 
 
@@ -913,7 +941,7 @@ def update_client(
     """
     result = db.update_client(client_id, name, phone, email, address, notes)
     if not result:
-        return {"error": "Client not found or no updates provided"}
+        return not_found_error("Client or no updates provided")
     return {"success": True, "client": result}
 
 
@@ -943,7 +971,7 @@ def update_contact(
     """
     result = db.update_contact(contact_id, name, firm, phone, email, address, notes)
     if not result:
-        return {"error": "Contact not found or no updates provided"}
+        return not_found_error("Contact or no updates provided")
     return {"success": True, "contact": result}
 
 
@@ -971,11 +999,11 @@ def update_activity(
         if date:
             db.validate_date_format(date, "date")
     except ValidationError as e:
-        return {"error": str(e)}
+        return validation_error(str(e))
 
     result = db.update_activity(activity_id, date, description, activity_type, minutes)
     if not result:
-        return {"error": "Activity not found or no updates provided"}
+        return not_found_error("Activity or no updates provided")
     return {"success": True, "activity": result}
 
 
@@ -994,7 +1022,7 @@ def remove_client_from_case(case_id: int, client_id: int) -> dict:
     """
     if db.remove_client_from_case(case_id, client_id):
         return {"success": True, "message": "Client removed from case"}
-    return {"error": "Client-case link not found"}
+    return not_found_error("Client-case link")
 
 
 @mcp.tool()
@@ -1015,7 +1043,7 @@ def remove_contact_from_case(
     """
     if db.remove_contact_from_case(case_id, contact_id, role):
         return {"success": True, "message": "Contact removed from case"}
-    return {"error": "Contact-case link not found"}
+    return not_found_error("Contact-case link")
 
 
 @mcp.tool()
@@ -1031,7 +1059,7 @@ def remove_defendant_from_case(case_id: int, defendant_id: int) -> dict:
     """
     if db.remove_defendant_from_case(case_id, defendant_id):
         return {"success": True, "message": "Defendant removed from case"}
-    return {"error": "Defendant-case link not found"}
+    return not_found_error("Defendant-case link")
 
 
 # ===== REST API ENDPOINTS FOR FRONTEND =====
@@ -1122,7 +1150,7 @@ async def api_get_case(request):
     case_id = int(request.path_params["case_id"])
     case = db.get_case_by_id(case_id)
     if not case:
-        return JSONResponse({"error": "Case not found"}, status_code=404)
+        return api_error("Case not found", "NOT_FOUND", 404)
     return JSONResponse(case)
 
 @mcp.custom_route("/api/v1/cases", methods=["POST"])
@@ -1144,7 +1172,7 @@ async def api_update_case(request):
     data = await request.json()
     result = db.update_case(case_id, **data)
     if not result:
-        return JSONResponse({"error": "Case not found"}, status_code=404)
+        return api_error("Case not found", "NOT_FOUND", 404)
     return JSONResponse({"success": True, "case": result})
 
 @mcp.custom_route("/api/v1/cases/{case_id}", methods=["DELETE"])
@@ -1152,7 +1180,7 @@ async def api_delete_case(request):
     case_id = int(request.path_params["case_id"])
     if db.delete_case(case_id):
         return JSONResponse({"success": True})
-    return JSONResponse({"error": "Case not found"}, status_code=404)
+    return api_error("Case not found", "NOT_FOUND", 404)
 
 @mcp.custom_route("/api/v1/tasks", methods=["GET"])
 async def api_list_tasks(request):
@@ -1196,7 +1224,7 @@ async def api_update_task(request):
     data = await request.json()
     result = db.update_task_full(task_id, **data)
     if not result:
-        return JSONResponse({"error": "Task not found"}, status_code=404)
+        return api_error("Task not found", "NOT_FOUND", 404)
     return JSONResponse({"success": True, "task": result})
 
 @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
@@ -1204,7 +1232,7 @@ async def api_delete_task(request):
     task_id = int(request.path_params["task_id"])
     if db.delete_task(task_id):
         return JSONResponse({"success": True})
-    return JSONResponse({"error": "Task not found"}, status_code=404)
+    return api_error("Task not found", "NOT_FOUND", 404)
 
 @mcp.custom_route("/api/v1/deadlines", methods=["GET"])
 async def api_list_deadlines(request):
@@ -1247,7 +1275,7 @@ async def api_update_deadline(request):
     data = await request.json()
     result = db.update_deadline_full(deadline_id, **data)
     if not result:
-        return JSONResponse({"error": "Deadline not found"}, status_code=404)
+        return api_error("Deadline not found", "NOT_FOUND", 404)
     return JSONResponse({"success": True, "deadline": result})
 
 @mcp.custom_route("/api/v1/deadlines/{deadline_id}", methods=["DELETE"])
@@ -1255,7 +1283,7 @@ async def api_delete_deadline(request):
     deadline_id = int(request.path_params["deadline_id"])
     if db.delete_deadline(deadline_id):
         return JSONResponse({"success": True})
-    return JSONResponse({"error": "Deadline not found"}, status_code=404)
+    return api_error("Deadline not found", "NOT_FOUND", 404)
 
 @mcp.custom_route("/api/v1/notes", methods=["POST"])
 async def api_create_note(request):
@@ -1268,7 +1296,7 @@ async def api_delete_note(request):
     note_id = int(request.path_params["note_id"])
     if db.delete_note(note_id):
         return JSONResponse({"success": True})
-    return JSONResponse({"error": "Note not found"}, status_code=404)
+    return api_error("Note not found", "NOT_FOUND", 404)
 
 @mcp.custom_route("/api/v1/constants", methods=["GET"])
 async def api_constants(request):
