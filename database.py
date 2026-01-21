@@ -47,6 +47,24 @@ ACTIVITY_TYPES = [
     "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
 ]
 
+# Default person types (seeded into person_types table)
+DEFAULT_PERSON_TYPES = [
+    "client", "attorney", "judge", "expert", "mediator", "defendant",
+    "witness", "lien_holder", "interpreter", "court_reporter",
+    "process_server", "investigator", "insurance_adjuster", "guardian"
+]
+
+# Sides in a case
+PERSON_SIDES = ["plaintiff", "defendant", "neutral"]
+
+# Default expertise types for experts (can be extended via expertise_types table)
+DEFAULT_EXPERTISE_TYPES = [
+    "Biomechanics", "Accident Reconstruction", "Medical - Orthopedic",
+    "Medical - Neurology", "Medical - General", "Economics/Damages",
+    "Vocational Rehabilitation", "Life Care Planning", "Forensic Accounting",
+    "Engineering", "Human Factors", "Toxicology", "Psychiatry", "Psychology"
+]
+
 
 class ValidationError(Exception):
     """Raised when input validation fails."""
@@ -132,6 +150,10 @@ def drop_all_tables():
             DROP TABLE IF EXISTS case_numbers CASCADE;
             DROP TABLE IF EXISTS case_clients CASCADE;
             DROP TABLE IF EXISTS clients CASCADE;
+            DROP TABLE IF EXISTS case_persons CASCADE;
+            DROP TABLE IF EXISTS expertise_types CASCADE;
+            DROP TABLE IF EXISTS person_types CASCADE;
+            DROP TABLE IF EXISTS persons CASCADE;
             DROP TABLE IF EXISTS cases CASCADE;
         """)
     print("All tables dropped.")
@@ -229,6 +251,198 @@ def migrate_case_numbers_to_jsonb():
         cur.execute("DROP TABLE IF EXISTS case_numbers CASCADE")
 
         print(f"Migrated {count} case numbers to JSONB and dropped case_numbers table.")
+
+
+def seed_expertise_types():
+    """Seed initial expertise types if the table is empty."""
+    with get_cursor() as cur:
+        cur.execute("SELECT COUNT(*) as count FROM expertise_types")
+        if cur.fetchone()["count"] > 0:
+            return  # Already seeded
+
+        for name in DEFAULT_EXPERTISE_TYPES:
+            cur.execute("""
+                INSERT INTO expertise_types (name)
+                VALUES (%s)
+                ON CONFLICT (name) DO NOTHING
+            """, (name,))
+    print(f"Seeded {len(DEFAULT_EXPERTISE_TYPES)} expertise types.")
+
+
+def seed_person_types():
+    """Seed initial person types if the table is empty."""
+    with get_cursor() as cur:
+        cur.execute("SELECT COUNT(*) as count FROM person_types")
+        if cur.fetchone()["count"] > 0:
+            return  # Already seeded
+
+        for name in DEFAULT_PERSON_TYPES:
+            cur.execute("""
+                INSERT INTO person_types (name)
+                VALUES (%s)
+                ON CONFLICT (name) DO NOTHING
+            """, (name,))
+    print(f"Seeded {len(DEFAULT_PERSON_TYPES)} person types.")
+
+
+def migrate_persons():
+    """
+    Migrate existing clients, contacts, and defendants to the unified persons table.
+    This is a one-time migration for existing databases.
+    """
+    with get_cursor() as cur:
+        # Check if persons table already has data
+        cur.execute("SELECT COUNT(*) as count FROM persons")
+        if cur.fetchone()["count"] > 0:
+            print("Persons table already has data - migration not needed.")
+            return
+
+        # Check if there's data to migrate
+        cur.execute("SELECT COUNT(*) as count FROM clients")
+        clients_count = cur.fetchone()["count"]
+        cur.execute("SELECT COUNT(*) as count FROM contacts")
+        contacts_count = cur.fetchone()["count"]
+        cur.execute("SELECT COUNT(*) as count FROM defendants")
+        defendants_count = cur.fetchone()["count"]
+
+        if clients_count == 0 and contacts_count == 0 and defendants_count == 0:
+            print("No data to migrate to persons table.")
+            return
+
+        # Migrate clients to persons (type='client')
+        cur.execute("""
+            INSERT INTO persons (person_type, name, phone, email, address, notes, created_at)
+            SELECT 'client', name, phone, email, address, notes, created_at
+            FROM clients
+        """)
+
+        # Create mapping of old client_id to new person_id
+        cur.execute("""
+            SELECT c.id as client_id, p.id as person_id
+            FROM clients c
+            JOIN persons p ON p.name = c.name AND p.person_type = 'client'
+                AND COALESCE(p.phone, '') = COALESCE(c.phone, '')
+                AND COALESCE(p.email, '') = COALESCE(c.email, '')
+        """)
+        client_mapping = {row["client_id"]: row["person_id"] for row in cur.fetchall()}
+
+        # Migrate case_clients to case_persons
+        cur.execute("SELECT * FROM case_clients")
+        for row in cur.fetchall():
+            person_id = client_mapping.get(row["client_id"])
+            if person_id:
+                # Handle contact_via_id - will be mapped after contacts migration
+                cur.execute("""
+                    INSERT INTO case_persons (
+                        case_id, person_id, role, side, is_primary,
+                        contact_directly, case_notes, created_at
+                    )
+                    VALUES (%s, %s, 'Client', 'plaintiff', %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (case_id, person_id, role) DO NOTHING
+                """, (
+                    row["case_id"], person_id, row["is_primary"],
+                    row["contact_directly"], row["notes"]
+                ))
+
+        # Migrate contacts to persons - infer type from roles in case_contacts
+        # First, migrate all contacts
+        cur.execute("""
+            INSERT INTO persons (person_type, name, phone, email, address, organization, notes, created_at)
+            SELECT 'attorney', name, phone, email, address, firm, notes, created_at
+            FROM contacts
+        """)
+
+        # Create mapping of old contact_id to new person_id
+        cur.execute("""
+            SELECT co.id as contact_id, p.id as person_id
+            FROM contacts co
+            JOIN persons p ON p.name = co.name
+                AND COALESCE(p.organization, '') = COALESCE(co.firm, '')
+                AND p.person_type = 'attorney'
+        """)
+        contact_mapping = {row["contact_id"]: row["person_id"] for row in cur.fetchall()}
+
+        # Update person types based on roles they have
+        cur.execute("""
+            SELECT DISTINCT contact_id, role FROM case_contacts
+        """)
+        contact_roles = {}
+        for row in cur.fetchall():
+            if row["contact_id"] not in contact_roles:
+                contact_roles[row["contact_id"]] = []
+            contact_roles[row["contact_id"]].append(row["role"])
+
+        # Map roles to person types
+        role_to_type = {
+            "Judge": "judge",
+            "Magistrate Judge": "judge",
+            "Mediator": "mediator",
+            "Plaintiff Expert": "expert",
+            "Defendant Expert": "expert",
+        }
+
+        for contact_id, roles in contact_roles.items():
+            person_id = contact_mapping.get(contact_id)
+            if person_id:
+                # Pick the most specific type
+                for role in roles:
+                    if role in role_to_type:
+                        cur.execute("""
+                            UPDATE persons SET person_type = %s WHERE id = %s
+                        """, (role_to_type[role], person_id))
+                        break
+
+        # Migrate case_contacts to case_persons
+        cur.execute("SELECT * FROM case_contacts")
+        for row in cur.fetchall():
+            person_id = contact_mapping.get(row["contact_id"])
+            if person_id:
+                # Determine side based on role
+                side = "neutral"
+                role = row["role"]
+                if role in ["Opposing Counsel", "Defendant Expert"]:
+                    side = "defendant"
+                elif role in ["Co-Counsel", "Plaintiff Expert", "Referring Attorney"]:
+                    side = "plaintiff"
+
+                cur.execute("""
+                    INSERT INTO case_persons (
+                        case_id, person_id, role, side, case_notes, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (case_id, person_id, role) DO NOTHING
+                """, (row["case_id"], person_id, role, side, row["notes"]))
+
+        # Migrate defendants to persons (type='defendant')
+        cur.execute("""
+            INSERT INTO persons (person_type, name, created_at)
+            SELECT 'defendant', name, CURRENT_TIMESTAMP
+            FROM defendants
+        """)
+
+        # Create mapping of old defendant_id to new person_id
+        cur.execute("""
+            SELECT d.id as defendant_id, p.id as person_id
+            FROM defendants d
+            JOIN persons p ON p.name = d.name AND p.person_type = 'defendant'
+        """)
+        defendant_mapping = {row["defendant_id"]: row["person_id"] for row in cur.fetchall()}
+
+        # Migrate case_defendants to case_persons
+        cur.execute("SELECT * FROM case_defendants")
+        for row in cur.fetchall():
+            person_id = defendant_mapping.get(row["defendant_id"])
+            if person_id:
+                cur.execute("""
+                    INSERT INTO case_persons (
+                        case_id, person_id, role, side, created_at
+                    )
+                    VALUES (%s, %s, 'Defendant', 'defendant', CURRENT_TIMESTAMP)
+                    ON CONFLICT (case_id, person_id, role) DO NOTHING
+                """, (row["case_id"], person_id))
+
+        print(f"Migrated {clients_count} clients, {contacts_count} contacts, "
+              f"{defendants_count} defendants to persons table.")
 
 
 def init_db():
@@ -380,6 +594,75 @@ def init_db():
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """)
+
+        # 13. Persons table (unified person entity)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS persons (
+                id SERIAL PRIMARY KEY,
+                person_type VARCHAR(50) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                phone VARCHAR(50),
+                email VARCHAR(255),
+                address TEXT,
+                organization VARCHAR(255),
+                attributes JSONB DEFAULT '{}',
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                archived BOOLEAN DEFAULT FALSE
+            )
+        """)
+
+        # 14. Expertise types table (extendable enum for experts)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS expertise_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 15. Person types table (extendable enum for person types)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS person_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 16. Case persons junction table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS case_persons (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
+                role VARCHAR(100) NOT NULL,
+                side VARCHAR(20),
+                case_attributes JSONB DEFAULT '{}',
+                case_notes TEXT,
+                is_primary BOOLEAN DEFAULT FALSE,
+                contact_directly BOOLEAN DEFAULT TRUE,
+                contact_via_person_id INTEGER REFERENCES persons(id),
+                contact_via_relationship VARCHAR(100),
+                assigned_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(case_id, person_id, role)
+            )
+        """)
+
+        # Create indexes for better query performance
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_persons_name ON persons(name);
+            CREATE INDEX IF NOT EXISTS idx_persons_type ON persons(person_type);
+            CREATE INDEX IF NOT EXISTS idx_persons_archived ON persons(archived);
+            CREATE INDEX IF NOT EXISTS idx_persons_attributes ON persons USING GIN (attributes);
+            CREATE INDEX IF NOT EXISTS idx_case_persons_case_id ON case_persons(case_id);
+            CREATE INDEX IF NOT EXISTS idx_case_persons_person_id ON case_persons(person_id);
+            CREATE INDEX IF NOT EXISTS idx_case_persons_role ON case_persons(role);
         """)
 
     print("Database tables initialized.")
@@ -2360,3 +2643,583 @@ def get_client_by_id(client_id: int) -> Optional[dict]:
                 r["created_at"] = str(r["created_at"])
             return r
         return None
+
+
+# ===== PERSON OPERATIONS =====
+
+def validate_person_type(person_type: str) -> str:
+    """Validate person type is a non-empty string. Any type is allowed."""
+    if not person_type or not person_type.strip():
+        raise ValidationError("Person type cannot be empty")
+    return person_type.strip()
+
+
+def validate_person_side(side: str) -> str:
+    """Validate person side against allowed values."""
+    if side and side not in PERSON_SIDES:
+        raise ValidationError(f"Invalid side '{side}'. Must be one of: {', '.join(PERSON_SIDES)}")
+    return side
+
+
+def create_person(person_type: str, name: str, phone: str = None, email: str = None,
+                  address: str = None, organization: str = None, attributes: dict = None,
+                  notes: str = None) -> dict:
+    """
+    Create a new person.
+
+    Args:
+        person_type: Type of person (client, attorney, judge, expert, mediator, defendant, other)
+        name: Full name
+        phone: Phone number
+        email: Email address
+        address: Physical address
+        organization: Firm, court, or company name
+        attributes: Type-specific attributes (JSONB)
+        notes: General notes
+
+    Returns the created person.
+    """
+    import json
+    validate_person_type(person_type)
+    attributes_json = json.dumps(attributes) if attributes else '{}'
+
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO persons (person_type, name, phone, email, address, organization,
+                                 attributes, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, person_type, name, phone, email, address, organization,
+                      attributes, notes, created_at, updated_at, archived
+        """, (person_type, name, phone, email, address, organization, attributes_json, notes))
+        result = cur.fetchone()
+        r = dict(result)
+        for key in ["created_at", "updated_at"]:
+            if r.get(key):
+                r[key] = str(r[key])
+        return r
+
+
+def get_person_by_id(person_id: int) -> Optional[dict]:
+    """
+    Get a person by ID, including their expertises and case assignments.
+    """
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM persons WHERE id = %s", (person_id,))
+        result = cur.fetchone()
+        if not result:
+            return None
+
+        r = dict(result)
+
+        # Get case assignments
+        cur.execute("""
+            SELECT cp.id, cp.case_id, c.case_name, c.short_name, cp.role, cp.side,
+                   cp.case_attributes, cp.case_notes, cp.is_primary, cp.contact_directly,
+                   cp.contact_via_person_id, cp.contact_via_relationship, cp.assigned_date,
+                   cp.created_at,
+                   via.name as contact_via_name
+            FROM case_persons cp
+            JOIN cases c ON cp.case_id = c.id
+            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            WHERE cp.person_id = %s
+            ORDER BY c.case_name
+        """, (person_id,))
+        r["case_assignments"] = [dict(row) for row in cur.fetchall()]
+
+        # Convert dates
+        for key in ["created_at", "updated_at"]:
+            if r.get(key):
+                r[key] = str(r[key])
+        for assignment in r["case_assignments"]:
+            for key in ["assigned_date", "created_at"]:
+                if assignment.get(key):
+                    assignment[key] = str(assignment[key])
+
+        return r
+
+
+def update_person(person_id: int, **kwargs) -> Optional[dict]:
+    """
+    Update a person's fields.
+
+    Allowed fields: name, phone, email, address, organization, attributes, notes,
+                    person_type, archived
+    """
+    import json
+    allowed_fields = ["name", "phone", "email", "address", "organization",
+                      "attributes", "notes", "person_type", "archived"]
+    updates = {k: v for k, v in kwargs.items() if k in allowed_fields and v is not None}
+
+    if not updates:
+        return None
+
+    # Validate person_type if being updated
+    if "person_type" in updates:
+        validate_person_type(updates["person_type"])
+
+    # Convert attributes to JSON
+    if "attributes" in updates:
+        updates["attributes"] = json.dumps(updates["attributes"])
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [person_id]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE persons SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            RETURNING id, person_type, name, phone, email, address, organization,
+                      attributes, notes, created_at, updated_at, archived
+        """, values)
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            for key in ["created_at", "updated_at"]:
+                if r.get(key):
+                    r[key] = str(r[key])
+            return r
+        return None
+
+
+def search_persons(name: str = None, person_type: str = None, organization: str = None,
+                   email: str = None, phone: str = None, case_id: int = None,
+                   include_archived: bool = False, limit: int = 50, offset: int = 0) -> dict:
+    """
+    Search persons with various filters.
+
+    Args:
+        name: Name to search (partial match)
+        person_type: Filter by type
+        organization: Organization to search (partial match)
+        email: Email to search (partial match)
+        phone: Phone to search (partial match)
+        case_id: Filter by case assignment
+        include_archived: Include archived persons
+        limit: Max results
+        offset: Pagination offset
+
+    Returns paginated results with total count.
+    """
+    conditions = []
+    params = []
+
+    if not include_archived:
+        conditions.append("p.archived = FALSE")
+
+    if name:
+        conditions.append("p.name ILIKE %s")
+        params.append(f"%{name}%")
+
+    if person_type:
+        validate_person_type(person_type)
+        conditions.append("p.person_type = %s")
+        params.append(person_type)
+
+    if organization:
+        conditions.append("p.organization ILIKE %s")
+        params.append(f"%{organization}%")
+
+    if email:
+        conditions.append("p.email ILIKE %s")
+        params.append(f"%{email}%")
+
+    if phone:
+        conditions.append("p.phone ILIKE %s")
+        params.append(f"%{phone}%")
+
+    where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+    with get_cursor() as cur:
+        # Handle case_id filter with a join
+        if case_id:
+            # Count query
+            cur.execute(f"""
+                SELECT COUNT(DISTINCT p.id) as count
+                FROM persons p
+                JOIN case_persons cp ON p.id = cp.person_id
+                WHERE {where_clause} AND cp.case_id = %s
+            """, params + [case_id])
+            total = cur.fetchone()["count"]
+
+            # Data query
+            cur.execute(f"""
+                SELECT DISTINCT p.id, p.person_type, p.name, p.phone, p.email,
+                       p.organization, p.attributes, p.notes, p.archived,
+                       p.created_at, p.updated_at
+                FROM persons p
+                JOIN case_persons cp ON p.id = cp.person_id
+                WHERE {where_clause} AND cp.case_id = %s
+                ORDER BY p.name
+                LIMIT %s OFFSET %s
+            """, params + [case_id, limit, offset])
+        else:
+            # Count query
+            cur.execute(f"""
+                SELECT COUNT(*) as count FROM persons p WHERE {where_clause}
+            """, params)
+            total = cur.fetchone()["count"]
+
+            # Data query
+            cur.execute(f"""
+                SELECT id, person_type, name, phone, email, organization,
+                       attributes, notes, archived, created_at, updated_at
+                FROM persons p
+                WHERE {where_clause}
+                ORDER BY name
+                LIMIT %s OFFSET %s
+            """, params + [limit, offset])
+
+        persons = []
+        for row in cur.fetchall():
+            r = dict(row)
+            for key in ["created_at", "updated_at"]:
+                if r.get(key):
+                    r[key] = str(r[key])
+            persons.append(r)
+
+        return {"items": persons, "total": total, "limit": limit, "offset": offset}
+
+
+def archive_person(person_id: int) -> Optional[dict]:
+    """Archive a person (soft delete)."""
+    return update_person(person_id, archived=True)
+
+
+def delete_person(person_id: int) -> bool:
+    """Permanently delete a person."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM persons WHERE id = %s RETURNING id", (person_id,))
+        return cur.fetchone() is not None
+
+
+# ===== CASE-PERSON OPERATIONS =====
+
+def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = None,
+                          case_attributes: dict = None, case_notes: str = None,
+                          is_primary: bool = False, contact_directly: bool = True,
+                          contact_via_person_id: int = None,
+                          contact_via_relationship: str = None,
+                          assigned_date: str = None) -> dict:
+    """
+    Assign a person to a case with a specific role.
+
+    Args:
+        case_id: ID of the case
+        person_id: ID of the person
+        role: Role in the case (e.g., 'Opposing Counsel', 'Judge', 'Expert - Plaintiff')
+        side: 'plaintiff', 'defendant', or 'neutral'
+        case_attributes: Case-specific attributes (JSONB)
+        case_notes: Case-specific notes
+        is_primary: Whether this is the primary person in this role
+        contact_directly: Whether to contact this person directly
+        contact_via_person_id: ID of person to contact through
+        contact_via_relationship: Relationship to contact_via person
+        assigned_date: Date assigned to case (YYYY-MM-DD)
+
+    Returns the created assignment.
+    """
+    import json
+    if side:
+        validate_person_side(side)
+    if assigned_date:
+        validate_date_format(assigned_date, "assigned_date")
+
+    case_attributes_json = json.dumps(case_attributes) if case_attributes else '{}'
+
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO case_persons (
+                case_id, person_id, role, side, case_attributes, case_notes,
+                is_primary, contact_directly, contact_via_person_id,
+                contact_via_relationship, assigned_date
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (case_id, person_id, role) DO UPDATE SET
+                side = EXCLUDED.side,
+                case_attributes = EXCLUDED.case_attributes,
+                case_notes = EXCLUDED.case_notes,
+                is_primary = EXCLUDED.is_primary,
+                contact_directly = EXCLUDED.contact_directly,
+                contact_via_person_id = EXCLUDED.contact_via_person_id,
+                contact_via_relationship = EXCLUDED.contact_via_relationship,
+                assigned_date = EXCLUDED.assigned_date
+            RETURNING id, case_id, person_id, role, side, case_attributes, case_notes,
+                      is_primary, contact_directly, contact_via_person_id,
+                      contact_via_relationship, assigned_date, created_at
+        """, (case_id, person_id, role, side, case_attributes_json, case_notes,
+              is_primary, contact_directly, contact_via_person_id,
+              contact_via_relationship, assigned_date))
+        result = cur.fetchone()
+        r = dict(result)
+        for key in ["assigned_date", "created_at"]:
+            if r.get(key):
+                r[key] = str(r[key])
+        return r
+
+
+def update_case_assignment(case_id: int, person_id: int, role: str, **kwargs) -> Optional[dict]:
+    """
+    Update a case-person assignment.
+
+    Allowed fields: side, case_attributes, case_notes, is_primary, contact_directly,
+                    contact_via_person_id, contact_via_relationship, assigned_date
+    """
+    import json
+    allowed_fields = ["side", "case_attributes", "case_notes", "is_primary",
+                      "contact_directly", "contact_via_person_id",
+                      "contact_via_relationship", "assigned_date"]
+    updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+
+    if not updates:
+        return None
+
+    # Validate side if provided
+    if "side" in updates and updates["side"]:
+        validate_person_side(updates["side"])
+
+    # Validate date if provided
+    if "assigned_date" in updates and updates["assigned_date"]:
+        validate_date_format(updates["assigned_date"], "assigned_date")
+
+    # Convert case_attributes to JSON
+    if "case_attributes" in updates and updates["case_attributes"]:
+        updates["case_attributes"] = json.dumps(updates["case_attributes"])
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates.keys())
+    values = list(updates.values()) + [case_id, person_id, role]
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE case_persons SET {set_clause}
+            WHERE case_id = %s AND person_id = %s AND role = %s
+            RETURNING id, case_id, person_id, role, side, case_attributes, case_notes,
+                      is_primary, contact_directly, contact_via_person_id,
+                      contact_via_relationship, assigned_date, created_at
+        """, values)
+        result = cur.fetchone()
+        if result:
+            r = dict(result)
+            for key in ["assigned_date", "created_at"]:
+                if r.get(key):
+                    r[key] = str(r[key])
+            return r
+        return None
+
+
+def remove_person_from_case(case_id: int, person_id: int, role: str = None) -> bool:
+    """
+    Remove a person from a case.
+
+    Args:
+        case_id: ID of the case
+        person_id: ID of the person
+        role: Specific role to remove (if None, removes all roles)
+
+    Returns True if any rows were deleted.
+    """
+    with get_cursor() as cur:
+        if role:
+            cur.execute("""
+                DELETE FROM case_persons
+                WHERE case_id = %s AND person_id = %s AND role = %s
+                RETURNING id
+            """, (case_id, person_id, role))
+        else:
+            cur.execute("""
+                DELETE FROM case_persons
+                WHERE case_id = %s AND person_id = %s
+                RETURNING id
+            """, (case_id, person_id))
+        return cur.fetchone() is not None
+
+
+def get_case_persons(case_id: int, person_type: str = None, role: str = None,
+                     side: str = None) -> List[dict]:
+    """
+    Get all persons assigned to a case with optional filters.
+    """
+    conditions = ["cp.case_id = %s"]
+    params = [case_id]
+
+    if person_type:
+        validate_person_type(person_type)
+        conditions.append("p.person_type = %s")
+        params.append(person_type)
+
+    if role:
+        conditions.append("cp.role = %s")
+        params.append(role)
+
+    if side:
+        validate_person_side(side)
+        conditions.append("cp.side = %s")
+        params.append(side)
+
+    where_clause = " AND ".join(conditions)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            SELECT p.id, p.person_type, p.name, p.phone, p.email, p.organization,
+                   p.attributes, p.notes as person_notes,
+                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
+                   cp.case_notes, cp.is_primary, cp.contact_directly,
+                   cp.contact_via_person_id, cp.contact_via_relationship,
+                   cp.assigned_date, cp.created_at as assigned_at,
+                   via.name as contact_via_name
+            FROM persons p
+            JOIN case_persons cp ON p.id = cp.person_id
+            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            WHERE {where_clause}
+            ORDER BY cp.role, p.name
+        """, params)
+
+        results = []
+        for row in cur.fetchall():
+            r = dict(row)
+            for key in ["assigned_date", "assigned_at"]:
+                if r.get(key):
+                    r[key] = str(r[key])
+            results.append(r)
+        return results
+
+
+# ===== EXPERTISE TYPE OPERATIONS =====
+
+def get_expertise_types() -> List[dict]:
+    """Get all expertise types."""
+    with get_cursor() as cur:
+        cur.execute("SELECT id, name, description FROM expertise_types ORDER BY name")
+        return [dict(row) for row in cur.fetchall()]
+
+
+def create_expertise_type(name: str, description: str = None) -> dict:
+    """Create a new expertise type."""
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO expertise_types (name, description)
+            VALUES (%s, %s)
+            RETURNING id, name, description
+        """, (name, description))
+        return dict(cur.fetchone())
+
+
+# ===== PERSON TYPE OPERATIONS =====
+
+def get_person_types() -> List[dict]:
+    """Get all person types."""
+    with get_cursor() as cur:
+        cur.execute("SELECT id, name, description FROM person_types ORDER BY name")
+        return [dict(row) for row in cur.fetchall()]
+
+
+def create_person_type(name: str, description: str = None) -> dict:
+    """Create a new person type."""
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO person_types (name, description)
+            VALUES (%s, %s)
+            RETURNING id, name, description
+        """, (name, description))
+        return dict(cur.fetchone())
+
+
+# ===== SMART PERSON OPERATIONS =====
+
+def smart_add_person_to_case(case_id: int, person_type: str, name: str, role: str,
+                             side: str = None, phone: str = None, email: str = None,
+                             organization: str = None, attributes: dict = None,
+                             notes: str = None, case_attributes: dict = None,
+                             case_notes: str = None, is_primary: bool = False,
+                             contact_directly: bool = True,
+                             contact_via_person_id: int = None,
+                             contact_via_relationship: str = None) -> dict:
+    """
+    Smart function to find or create a person and assign to a case.
+
+    Searches for existing person by name (and optionally phone/email/organization).
+    Creates new person if not found. Assigns to case with the given role.
+
+    Returns:
+        {success, person_id, person_name, created_new, role, case_id}
+    """
+    validate_person_type(person_type)
+    if side:
+        validate_person_side(side)
+
+    with get_cursor() as cur:
+        # Try to find existing person
+        # First, try exact match on name + unique identifier (phone or email)
+        person = None
+        if phone:
+            cur.execute("""
+                SELECT id, name FROM persons
+                WHERE name = %s AND phone = %s AND archived = FALSE
+                LIMIT 1
+            """, (name, phone))
+            person = cur.fetchone()
+        elif email:
+            cur.execute("""
+                SELECT id, name FROM persons
+                WHERE name = %s AND email = %s AND archived = FALSE
+                LIMIT 1
+            """, (name, email))
+            person = cur.fetchone()
+
+        # Fall back to name + organization match
+        if not person and organization:
+            cur.execute("""
+                SELECT id, name FROM persons
+                WHERE name = %s AND organization = %s AND archived = FALSE
+                LIMIT 1
+            """, (name, organization))
+            person = cur.fetchone()
+
+        # Fall back to name-only match (same type)
+        if not person:
+            cur.execute("""
+                SELECT id, name FROM persons
+                WHERE name = %s AND person_type = %s AND archived = FALSE
+                LIMIT 1
+            """, (name, person_type))
+            person = cur.fetchone()
+
+        created_new = False
+        if person:
+            person_id = person["id"]
+        else:
+            # Create new person
+            new_person = create_person(
+                person_type=person_type,
+                name=name,
+                phone=phone,
+                email=email,
+                organization=organization,
+                attributes=attributes,
+                notes=notes
+            )
+            person_id = new_person["id"]
+            created_new = True
+
+    # Assign to case (separate transaction)
+    assignment = assign_person_to_case(
+        case_id=case_id,
+        person_id=person_id,
+        role=role,
+        side=side,
+        case_attributes=case_attributes,
+        case_notes=case_notes,
+        is_primary=is_primary,
+        contact_directly=contact_directly,
+        contact_via_person_id=contact_via_person_id,
+        contact_via_relationship=contact_via_relationship
+    )
+
+    return {
+        "success": True,
+        "person_id": person_id,
+        "person_name": name,
+        "created_new": created_new,
+        "role": role,
+        "case_id": case_id,
+        "assignment_id": assignment["id"]
+    }
