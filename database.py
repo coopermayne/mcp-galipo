@@ -30,6 +30,54 @@ TASK_STATUSES = [
     "Pending", "Active", "Done", "Partially Complete", "Blocked", "Awaiting Atty Review"
 ]
 
+ACTIVITY_TYPES = [
+    "Meeting", "Filing", "Research", "Drafting", "Document Review",
+    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+]
+
+
+class ValidationError(Exception):
+    """Raised when input validation fails."""
+    pass
+
+
+def validate_case_status(status: str) -> str:
+    """Validate case status against allowed values."""
+    if status not in CASE_STATUSES:
+        raise ValidationError(f"Invalid case status '{status}'. Must be one of: {', '.join(CASE_STATUSES)}")
+    return status
+
+
+def validate_contact_role(role: str) -> str:
+    """Validate contact role against allowed values."""
+    if role not in CONTACT_ROLES:
+        raise ValidationError(f"Invalid contact role '{role}'. Must be one of: {', '.join(CONTACT_ROLES)}")
+    return role
+
+
+def validate_task_status(status: str) -> str:
+    """Validate task status against allowed values."""
+    if status not in TASK_STATUSES:
+        raise ValidationError(f"Invalid task status '{status}'. Must be one of: {', '.join(TASK_STATUSES)}")
+    return status
+
+
+def validate_urgency(urgency: int) -> int:
+    """Validate urgency is between 1 and 5."""
+    if not isinstance(urgency, int) or urgency < 1 or urgency > 5:
+        raise ValidationError(f"Invalid urgency '{urgency}'. Must be an integer between 1 and 5.")
+    return urgency
+
+
+def validate_date_format(date_str: str, field_name: str = "date") -> str:
+    """Validate date string is in YYYY-MM-DD format."""
+    if date_str is None:
+        return None
+    import re
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
+        raise ValidationError(f"Invalid {field_name} format '{date_str}'. Must be YYYY-MM-DD.")
+    return date_str
+
 
 @contextmanager
 def get_connection():

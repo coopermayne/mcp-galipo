@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pathlib import Path
 
 import database as db
+from database import ValidationError
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -176,6 +177,13 @@ def create_case(
 
     Returns the created case with its ID.
     """
+    try:
+        db.validate_case_status(status)
+        if date_of_injury:
+            db.validate_date_format(date_of_injury, "date_of_injury")
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.create_case(case_name, status, court, print_code, case_summary, date_of_injury)
     return {"success": True, "message": f"Case '{case_name}' created", "case": result}
 
@@ -214,6 +222,19 @@ def update_case(
 
     Returns updated case info.
     """
+    try:
+        if status:
+            db.validate_case_status(status)
+        for field_name, value in [
+            ("date_of_injury", date_of_injury), ("claim_due", claim_due),
+            ("claim_filed_date", claim_filed_date), ("complaint_due", complaint_due),
+            ("complaint_filed_date", complaint_filed_date), ("trial_date", trial_date)
+        ]:
+            if value:
+                db.validate_date_format(value, field_name)
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.update_case(
         case_id, case_name=case_name, status=status, court=court,
         print_code=print_code, case_summary=case_summary,
@@ -358,6 +379,11 @@ def link_contact(
 
     Returns confirmation of the link.
     """
+    try:
+        db.validate_contact_role(role)
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.link_contact_to_case(case_id, contact_id, role, notes)
     return {"success": True, "message": f"Contact linked as {role}", "result": result}
 
@@ -502,6 +528,12 @@ def log_activity(
 
     Returns the logged activity.
     """
+    try:
+        if date:
+            db.validate_date_format(date, "date")
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.add_activity(case_id, description, activity_type, date, minutes)
     return {"success": True, "activity": result}
 
@@ -532,6 +564,12 @@ def add_deadline(
 
     Returns the created deadline with ID.
     """
+    try:
+        db.validate_date_format(date, "date")
+        db.validate_urgency(urgency)
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.add_deadline(case_id, date, description, status, urgency, document_link, calculation_note)
     return {"success": True, "deadline": result}
 
@@ -578,6 +616,14 @@ def add_task(
 
     Returns the created task with ID.
     """
+    try:
+        db.validate_task_status(status)
+        db.validate_urgency(urgency)
+        if due_date:
+            db.validate_date_format(due_date, "due_date")
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.add_task(case_id, description, due_date, status, urgency, deadline_id)
     return {"success": True, "task": result}
 
@@ -620,6 +666,16 @@ def update_task(
 
     Returns updated task.
     """
+    try:
+        if status:
+            db.validate_task_status(status)
+        if urgency is not None:
+            db.validate_urgency(urgency)
+        if due_date:
+            db.validate_date_format(due_date, "due_date")
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.update_task(task_id, status, urgency, due_date)
     if not result:
         return {"error": "Task not found or no updates provided"}
@@ -816,6 +872,14 @@ def update_deadline(
 
     Returns updated deadline.
     """
+    try:
+        if date:
+            db.validate_date_format(date, "date")
+        if urgency is not None:
+            db.validate_urgency(urgency)
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.update_deadline_full(deadline_id, date, description, status,
                                       urgency, document_link, calculation_note)
     if not result:
@@ -901,6 +965,12 @@ def update_activity(
 
     Returns updated activity.
     """
+    try:
+        if date:
+            db.validate_date_format(date, "date")
+    except ValidationError as e:
+        return {"error": str(e)}
+
     result = db.update_activity(activity_id, date, description, activity_type, minutes)
     if not result:
         return {"error": "Activity not found or no updates provided"}
