@@ -8,6 +8,7 @@ import {
   EditableDate,
   StatusBadge,
   UrgencyBadge,
+  ConfirmModal,
 } from '../components/common';
 import {
   getCase,
@@ -47,16 +48,20 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Settings,
+  AlertTriangle,
+  Activity,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 
-type TabType = 'overview' | 'tasks' | 'deadlines' | 'notes';
+type TabType = 'overview' | 'tasks' | 'deadlines' | 'notes' | 'settings';
 
 export function CaseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const caseId = parseInt(id || '0', 10);
 
@@ -96,9 +101,12 @@ export function CaseDetail() {
   );
 
   const handleDelete = useCallback(() => {
-    if (confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
-      deleteCaseMutation.mutate();
-    }
+    setShowDeleteModal(true);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    deleteCaseMutation.mutate();
+    setShowDeleteModal(false);
   }, [deleteCaseMutation]);
 
   const statusOptions = useMemo(
@@ -131,28 +139,28 @@ export function CaseDetail() {
     { id: 'tasks' as TabType, label: 'Tasks', icon: CheckSquare, count: caseData.tasks?.length },
     { id: 'deadlines' as TabType, label: 'Deadlines', icon: Clock, count: caseData.deadlines?.length },
     { id: 'notes' as TabType, label: 'Notes', icon: StickyNote, count: caseData.notes?.length },
+    { id: 'settings' as TabType, label: 'Settings', icon: Settings },
   ];
 
   return (
     <>
-      <Header
-        title={
-          <div>
-            <EditableText
-              value={caseData.case_name}
-              onSave={(value) => handleUpdateField('case_name', value)}
-              className="text-2xl font-semibold"
-            />
-            <EditableText
-              value={caseData.short_name || ''}
-              onSave={(value) => handleUpdateField('short_name', value || null)}
-              placeholder="Set short name..."
-              className="text-sm text-slate-400 mt-0.5"
-            />
-          </div>
-        }
-        subtitle={
-          <div className="flex items-center gap-3 mt-1">
+      <Header breadcrumbLabel={caseData.short_name || caseData.case_name} />
+
+      {/* Case Title Section */}
+      <div className="px-6 py-4">
+        <div className="flex-1 min-w-0">
+          <EditableText
+            value={caseData.case_name}
+            onSave={(value) => handleUpdateField('case_name', value)}
+            className="text-2xl font-semibold"
+          />
+          <EditableText
+            value={caseData.short_name || ''}
+            onSave={(value) => handleUpdateField('short_name', value || null)}
+            placeholder="Set short name..."
+            className="text-sm text-slate-500 dark:text-slate-400 mt-1"
+          />
+          <div className="flex items-center gap-3 mt-2">
             <EditableSelect
               value={caseData.status}
               options={statusOptions}
@@ -160,28 +168,14 @@ export function CaseDetail() {
               renderValue={(value) => <StatusBadge status={value} />}
             />
             {caseData.court && (
-              <span className="text-slate-500">{caseData.court}</span>
+              <span className="text-slate-500 dark:text-slate-400 text-sm">{caseData.court}</span>
             )}
           </div>
-        }
-        actions={
-          <button
-            onClick={handleDelete}
-            className="
-              inline-flex items-center gap-2 px-4 py-2
-              text-red-400 border border-red-800 rounded-lg
-              hover:bg-red-900/30 transition-colors
-              text-sm font-medium
-            "
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
-        }
-      />
+        </div>
+      </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-700 bg-slate-800 px-6">
+      <div className="border-b border-slate-200 dark:border-slate-700 px-6">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -191,15 +185,15 @@ export function CaseDetail() {
                 flex items-center gap-2 py-3 border-b-2 text-sm font-medium transition-colors
                 ${
                   activeTab === tab.id
-                    ? 'border-primary-400 text-primary-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }
               `}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="px-1.5 py-0.5 text-xs bg-slate-700 rounded-full">
+                <span className="px-1.5 py-0.5 text-xs bg-slate-200 dark:bg-slate-700 rounded-full">
                   {tab.count}
                 </span>
               )}
@@ -233,6 +227,27 @@ export function CaseDetail() {
           <NotesTab caseId={caseId} notes={caseData.notes || []} />
         </PageContent>
       )}
+      {activeTab === 'settings' && (
+        <PageContent>
+          <SettingsTab
+            caseId={caseId}
+            caseName={caseData.case_name}
+            activities={caseData.activities || []}
+            onDelete={handleDelete}
+          />
+        </PageContent>
+      )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={confirmDelete}
+        title="Delete Case"
+        message={`Are you sure you want to delete "${caseData.case_name}"? This will permanently remove the case and all associated tasks, deadlines, and notes. This action cannot be undone.`}
+        confirmText="Delete Case"
+        variant="danger"
+        isLoading={deleteCaseMutation.isPending}
+      />
     </>
   );
 }
@@ -422,8 +437,8 @@ function OverviewTab({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Case Details */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-        <h3 className="font-semibold text-slate-100 mb-4">Case Details</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Case Details</h3>
         <div className="space-y-3">
           <Field label="Court">
             <div className="flex items-center gap-2">
@@ -470,10 +485,10 @@ function OverviewTab({
       </div>
 
       {/* Important Dates */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-4 h-4 text-slate-400" />
-          <h3 className="font-semibold text-slate-100">Important Dates</h3>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Important Dates</h3>
         </div>
         <div className="space-y-3">
           <Field label="Date of Injury">
@@ -522,8 +537,8 @@ function OverviewTab({
       </div>
 
       {/* Case Summary */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 lg:col-span-2">
-        <h3 className="font-semibold text-slate-100 mb-4">Case Summary</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 lg:col-span-2">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Case Summary</h3>
         <EditableText
           value={caseData.case_summary || ''}
           onSave={(value) => onUpdateField('case_summary', value || null)}
@@ -535,15 +550,15 @@ function OverviewTab({
       </div>
 
       {/* Clients/Plaintiffs */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-slate-400" />
-            <h3 className="font-semibold text-slate-100">Clients/Plaintiffs</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Clients/Plaintiffs</h3>
           </div>
           <button
             onClick={() => setShowAddClient(!showAddClient)}
-            className="text-sm text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
+            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
             Add
@@ -562,14 +577,14 @@ function OverviewTab({
                 });
               }
             }}
-            className="mb-4 p-3 bg-slate-700 rounded-lg space-y-2"
+            className="mb-4 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg space-y-2"
           >
             <input
               type="text"
               value={newClient.name}
               onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
               placeholder="Client name *"
-              className="w-full px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              className="w-full px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
             />
             <div className="grid grid-cols-2 gap-2">
               <input
@@ -577,22 +592,22 @@ function OverviewTab({
                 value={newClient.phone}
                 onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
                 placeholder="Phone"
-                className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
               <input
                 type="email"
                 value={newClient.email}
                 onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
                 placeholder="Email"
-                className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={newClient.is_primary}
                 onChange={(e) => setNewClient({ ...newClient, is_primary: e.target.checked })}
-                className="rounded border-slate-500 bg-slate-700"
+                className="rounded border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-700"
               />
               Primary plaintiff
             </label>
@@ -600,7 +615,7 @@ function OverviewTab({
               <button
                 type="button"
                 onClick={() => setShowAddClient(false)}
-                className="px-3 py-1.5 text-slate-300 text-sm"
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-300 text-sm"
               >
                 Cancel
               </button>
@@ -621,7 +636,7 @@ function OverviewTab({
             {clients.map((client) => (
               <div
                 key={client.assignment_id}
-                className="p-3 bg-slate-700 rounded-lg group relative"
+                className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg group relative"
               >
                 <button
                   onClick={() => removeClientMutation.mutate(client.id)}
@@ -630,7 +645,7 @@ function OverviewTab({
                   <Trash2 className="w-3 h-3" />
                 </button>
                 <div className="flex items-center gap-2">
-                  <p className="font-medium text-sm text-slate-100">{client.name}</p>
+                  <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{client.name}</p>
                   {client.is_primary && (
                     <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                   )}
@@ -661,15 +676,15 @@ function OverviewTab({
       </div>
 
       {/* Defendants */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-slate-400" />
-            <h3 className="font-semibold text-slate-100">Defendants</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Defendants</h3>
           </div>
           <button
             onClick={() => setShowAddDefendant(!showAddDefendant)}
-            className="text-sm text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
+            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
             Add
@@ -688,7 +703,7 @@ function OverviewTab({
               value={newDefendantName}
               onChange={(e) => setNewDefendantName(e.target.value)}
               placeholder="Defendant name"
-              className="flex-1 px-3 py-1.5 rounded border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              className="flex-1 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
             />
             <button
               type="submit"
@@ -706,7 +721,7 @@ function OverviewTab({
             {defendants.map((defendant) => (
               <span
                 key={defendant.assignment_id}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-slate-700 text-slate-200 rounded-full text-sm group"
+                className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full text-sm group"
               >
                 {defendant.name}
                 <button
@@ -722,15 +737,15 @@ function OverviewTab({
       </div>
 
       {/* Contacts */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 lg:col-span-2">
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 lg:col-span-2">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <UserCog className="w-4 h-4 text-slate-400" />
-            <h3 className="font-semibold text-slate-100">Contacts</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Contacts</h3>
           </div>
           <button
             onClick={() => setShowAddContact(!showAddContact)}
-            className="text-sm text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
+            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
             Add
@@ -750,7 +765,7 @@ function OverviewTab({
                 });
               }
             }}
-            className="mb-4 p-3 bg-slate-700 rounded-lg"
+            className="mb-4 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <input
@@ -758,12 +773,12 @@ function OverviewTab({
                 value={newContact.name}
                 onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
                 placeholder="Contact name *"
-                className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
               <select
                 value={newContact.role}
                 onChange={(e) => setNewContact({ ...newContact, role: e.target.value })}
-                className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               >
                 {contactRoleOptions.map((opt) => (
                   <option key={opt} value={opt}>
@@ -776,28 +791,28 @@ function OverviewTab({
                 value={newContact.organization}
                 onChange={(e) => setNewContact({ ...newContact, organization: e.target.value })}
                 placeholder="Firm / Organization"
-                className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
               <input
                 type="tel"
                 value={newContact.phone}
                 onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
                 placeholder="Phone"
-                className="px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
               <input
                 type="email"
                 value={newContact.email}
                 onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
                 placeholder="Email"
-                className="md:col-span-2 px-3 py-1.5 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="md:col-span-2 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowAddContact(false)}
-                className="px-3 py-1.5 text-slate-300 text-sm"
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-300 text-sm"
               >
                 Cancel
               </button>
@@ -818,7 +833,7 @@ function OverviewTab({
             {contacts.map((contact) => (
               <div
                 key={contact.assignment_id}
-                className="p-3 bg-slate-700 rounded-lg group relative"
+                className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg group relative"
               >
                 <button
                   onClick={() => removeContactMutation.mutate({ personId: contact.id, role: contact.role })}
@@ -826,24 +841,24 @@ function OverviewTab({
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
-                <p className="font-medium text-sm text-slate-100">{contact.name}</p>
+                <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{contact.name}</p>
                 {contact.role && (
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-slate-600 text-slate-300 rounded text-xs">
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300 rounded text-xs">
                     {contact.role}
                   </span>
                 )}
                 {contact.organization && (
-                  <p className="text-xs text-slate-400 mt-1">{contact.organization}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{contact.organization}</p>
                 )}
                 <div className="mt-1 space-y-0.5">
                   {getPrimaryPhone(contact.phones) && (
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                       <Phone className="w-3 h-3" />
                       {getPrimaryPhone(contact.phones)}
                     </p>
                   )}
                   {getPrimaryEmail(contact.emails) && (
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                       <Mail className="w-3 h-3" />
                       {getPrimaryEmail(contact.emails)}
                     </p>
@@ -912,9 +927,9 @@ function TasksTab({
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700">
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
       {/* Quick Add */}
-      <form onSubmit={handleCreate} className="p-4 border-b border-slate-700">
+      <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3">
           <input
             type="text"
@@ -922,8 +937,8 @@ function TasksTab({
             onChange={(e) => setNewTask(e.target.value)}
             placeholder="Add a new task..."
             className="
-              flex-1 px-3 py-2 rounded-lg border border-slate-600
-              bg-slate-700 text-slate-100 placeholder-slate-400
+              flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+              bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
               focus:border-primary-500 focus:ring-1 focus:ring-primary-500
               outline-none text-sm
             "
@@ -945,14 +960,14 @@ function TasksTab({
       </form>
 
       {/* Task List */}
-      <div className="divide-y divide-slate-700">
+      <div className="divide-y divide-slate-200 dark:divide-slate-700">
         {tasks.length === 0 ? (
           <div className="p-8 text-center text-slate-400">No tasks</div>
         ) : (
           tasks.map((task) => (
             <div
               key={task.id}
-              className="px-4 py-3 flex items-center gap-4 hover:bg-slate-700"
+              className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <div className="flex-1 min-w-0">
                 <EditableText
@@ -1044,47 +1059,47 @@ function DeadlinesTab({
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700">
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
       {/* Add Button or Form */}
-      <div className="p-4 border-b border-slate-700">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-700">
         {isAdding ? (
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="flex items-end gap-3">
               <div className="flex-1">
-                <label className="block text-xs text-slate-400 mb-1">Date *</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Date *</label>
                 <input
                   type="date"
                   value={newDeadline.date}
                   onChange={(e) => setNewDeadline({ ...newDeadline, date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 text-sm"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm"
                 />
               </div>
               <div className="flex-[2]">
-                <label className="block text-xs text-slate-400 mb-1">Description *</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Description *</label>
                 <input
                   type="text"
                   value={newDeadline.description}
                   onChange={(e) => setNewDeadline({ ...newDeadline, description: e.target.value })}
                   placeholder="e.g., Discovery cutoff"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 text-sm"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Calculation Note</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Calculation Note</label>
               <input
                 type="text"
                 value={newDeadline.calculation_note}
                 onChange={(e) => setNewDeadline({ ...newDeadline, calculation_note: e.target.value })}
                 placeholder="e.g., 30 days from service date"
-                className="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-slate-100 placeholder-slate-400 text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm"
               />
             </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="px-4 py-2 text-slate-300 rounded-lg text-sm"
+                className="px-4 py-2 text-slate-600 dark:text-slate-300 rounded-lg text-sm"
               >
                 Cancel
               </button>
@@ -1100,7 +1115,7 @@ function DeadlinesTab({
         ) : (
           <button
             onClick={() => setIsAdding(true)}
-            className="inline-flex items-center gap-2 text-sm text-primary-400 hover:text-primary-300"
+            className="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
           >
             <Plus className="w-4 h-4" />
             Add Deadline
@@ -1109,12 +1124,12 @@ function DeadlinesTab({
       </div>
 
       {/* Deadline List */}
-      <div className="divide-y divide-slate-700">
+      <div className="divide-y divide-slate-200 dark:divide-slate-700">
         {deadlines.length === 0 ? (
           <div className="p-8 text-center text-slate-400">No deadlines</div>
         ) : (
           deadlines.map((deadline) => (
-            <div key={deadline.id} className="hover:bg-slate-700">
+            <div key={deadline.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
               <div className="px-4 py-3 flex items-center gap-4">
                 <button
                   onClick={() => setExpandedId(expandedId === deadline.id ? null : deadline.id)}
@@ -1229,16 +1244,16 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700">
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
       {/* Add Note */}
-      <form onSubmit={handleCreate} className="p-4 border-b border-slate-700">
+      <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
         <textarea
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
           placeholder="Add a note..."
           className="
-            w-full px-3 py-2 rounded-lg border border-slate-600
-            bg-slate-700 text-slate-100 placeholder-slate-400
+            w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+            bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
             focus:border-primary-500 focus:ring-1 focus:ring-primary-500
             outline-none text-sm resize-none min-h-[80px]
           "
@@ -1261,15 +1276,15 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
       </form>
 
       {/* Notes List */}
-      <div className="divide-y divide-slate-700">
+      <div className="divide-y divide-slate-200 dark:divide-slate-700">
         {notes.length === 0 ? (
           <div className="p-8 text-center text-slate-400">No notes</div>
         ) : (
           notes.map((note) => (
-            <div key={note.id} className="p-4 hover:bg-slate-700">
+            <div key={note.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <p className="text-sm text-slate-100 whitespace-pre-wrap">
+                  <p className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap">
                     {note.content}
                   </p>
                   <p className="text-xs text-slate-500 mt-2">
@@ -1286,6 +1301,103 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+}
+
+// Settings Tab Component
+function SettingsTab({
+  caseId: _caseId,
+  caseName,
+  activities,
+  onDelete,
+}: {
+  caseId: number;
+  caseName: string;
+  activities: import('../types').Activity[];
+  onDelete: () => void;
+}) {
+  const formatDate = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    return isValid(date) ? format(date, 'MMM d, yyyy h:mm a') : dateStr;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Activity Log */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            <h3 className="font-medium text-slate-900 dark:text-slate-100">Activity Log</h3>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Recent activities and time entries for this case
+          </p>
+        </div>
+        <div className="divide-y divide-slate-200 dark:divide-slate-700">
+          {activities.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+              No activities recorded
+            </div>
+          ) : (
+            activities.slice(0, 20).map((activity) => (
+              <div key={activity.id} className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-900 dark:text-slate-100">{activity.description}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatDate(activity.date)}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded">
+                        {activity.type}
+                      </span>
+                      {activity.minutes && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {activity.minutes} min
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-red-200 dark:border-red-900/50">
+        <div className="px-4 py-3 border-b border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <h3 className="font-medium text-red-600 dark:text-red-400">Danger Zone</h3>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">Delete this case</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Permanently delete "{caseName}" and all associated data. This action cannot be undone.
+              </p>
+            </div>
+            <button
+              onClick={onDelete}
+              className="
+                inline-flex items-center gap-2 px-4 py-2
+                bg-red-600 text-white rounded-lg
+                hover:bg-red-700 transition-colors
+                text-sm font-medium
+              "
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Case
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1334,15 +1446,15 @@ function CaseNumbersSection({
   };
 
   return (
-    <div className="mt-4 pt-4 border-t border-slate-700">
+    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Hash className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-300">Case Numbers</span>
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Case Numbers</span>
         </div>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="text-xs text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
+          className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
         >
           <Plus className="w-3 h-3" />
           Add
@@ -1350,30 +1462,30 @@ function CaseNumbersSection({
       </div>
 
       {showAdd && (
-        <form onSubmit={handleAdd} className="mb-3 p-2 bg-slate-700 rounded-lg space-y-2">
+        <form onSubmit={handleAdd} className="mb-3 p-2 bg-slate-100 dark:bg-slate-700 rounded-lg space-y-2">
           <div className="flex gap-2">
             <input
               type="text"
               value={newNumber.number}
               onChange={(e) => setNewNumber({ ...newNumber, number: e.target.value })}
               placeholder="Case number *"
-              className="flex-1 px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
+              className="flex-1 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
             />
             <input
               type="text"
               value={newNumber.label}
               onChange={(e) => setNewNumber({ ...newNumber, label: e.target.value })}
               placeholder="Label (e.g., State)"
-              className="w-28 px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
+              className="w-28 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
             />
           </div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1 text-xs text-slate-300">
+            <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={newNumber.primary}
                 onChange={(e) => setNewNumber({ ...newNumber, primary: e.target.checked })}
-                className="rounded border-slate-500 bg-slate-700"
+                className="rounded border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-700"
               />
               Primary
             </label>
@@ -1381,7 +1493,7 @@ function CaseNumbersSection({
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
-                className="px-2 py-1 text-xs text-slate-400"
+                className="px-2 py-1 text-xs text-slate-500 dark:text-slate-400"
               >
                 Cancel
               </button>
@@ -1404,10 +1516,10 @@ function CaseNumbersSection({
           {caseNumbers.map((cn, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-1.5 bg-slate-700 rounded group text-sm"
+              className="flex items-center justify-between p-1.5 bg-slate-100 dark:bg-slate-700 rounded group text-sm"
             >
               <div className="flex items-center gap-2">
-                <span className="font-mono text-slate-200">{cn.number}</span>
+                <span className="font-mono text-slate-700 dark:text-slate-200">{cn.number}</span>
                 {cn.label && (
                   <span className="text-xs text-slate-500">({cn.label})</span>
                 )}

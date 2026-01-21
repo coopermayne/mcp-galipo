@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Header, PageContent } from '../components/layout';
-import { DataTable, StatusBadge, EditableSelect } from '../components/common';
+import { DataTable, StatusBadge, EditableSelect, ConfirmModal } from '../components/common';
 import { getCases, getConstants, createCase, updateCase, deleteCase } from '../api/client';
 import type { CaseSummary, CaseStatus } from '../types';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
@@ -14,6 +14,7 @@ export function Cases() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const { data: casesData, isLoading } = useQuery({
     queryKey: ['cases', { status: statusFilter || undefined }],
@@ -72,14 +73,19 @@ export function Cases() {
   );
 
   const handleDeleteCase = useCallback(
-    (e: React.MouseEvent, caseId: number) => {
+    (e: React.MouseEvent, caseId: number, caseName: string) => {
       e.stopPropagation();
-      if (confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
-        deleteMutation.mutate(caseId);
-      }
+      setDeleteTarget({ id: caseId, name: caseName });
     },
-    [deleteMutation]
+    []
   );
+
+  const confirmDeleteCase = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   const statusOptions = useMemo(
     () =>
@@ -97,11 +103,11 @@ export function Cases() {
         header: 'Case Name',
         cell: ({ row }) => (
           <div>
-            <span className="font-medium text-slate-100">
+            <span className="font-medium text-slate-900 dark:text-slate-100">
               {row.original.short_name || row.original.case_name}
             </span>
             {row.original.short_name && (
-              <span className="block text-xs text-slate-400">{row.original.case_name}</span>
+              <span className="block text-xs text-slate-500 dark:text-slate-400">{row.original.case_name}</span>
             )}
           </div>
         ),
@@ -122,14 +128,14 @@ export function Cases() {
         accessorKey: 'court',
         header: 'Court',
         cell: ({ row }) => (
-          <span className="text-slate-300">{row.original.court || '-'}</span>
+          <span className="text-slate-600 dark:text-slate-300">{row.original.court || '-'}</span>
         ),
       },
       {
         accessorKey: 'print_code',
         header: 'Code',
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-slate-400">
+          <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
             {row.original.print_code || '-'}
           </span>
         ),
@@ -139,7 +145,7 @@ export function Cases() {
         header: '',
         cell: ({ row }) => (
           <button
-            onClick={(e) => handleDeleteCase(e, row.original.id)}
+            onClick={(e) => handleDeleteCase(e, row.original.id, row.original.case_name)}
             className="p-1 text-slate-500 hover:text-red-400 transition-colors"
             title="Delete case"
           >
@@ -161,8 +167,8 @@ export function Cases() {
   return (
     <>
       <Header
-        title="Cases"
-        subtitle={`${casesData?.total ?? 0} cases`}
+        title="Case Files"
+        subtitle="All your active and archived matters"
         actions={
           <button
             onClick={() => setIsCreating(true)}
@@ -182,15 +188,15 @@ export function Cases() {
       <PageContent>
         {/* Status Filter */}
         <div className="mb-4 flex items-center gap-4">
-          <label className="text-sm text-slate-400">Filter by status:</label>
+          <label className="text-sm text-slate-500 dark:text-slate-400">Filter by status:</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="
-              px-3 py-1.5 rounded-lg border border-slate-600
-              text-sm bg-slate-700 text-slate-100
+              px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
+              text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
               focus:border-primary-500 focus:ring-1 focus:ring-primary-500
-              outline-none
+              outline-none transition-colors
             "
           >
             <option value="">All Statuses</option>
@@ -204,7 +210,7 @@ export function Cases() {
 
         {/* Quick Add Form */}
         {isCreating && (
-          <div className="mb-4 bg-slate-800 rounded-lg border border-slate-700 p-4">
+          <div className="mb-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm transition-colors">
             <form onSubmit={handleCreateCase} className="flex items-center gap-3">
               <input
                 type="text"
@@ -212,10 +218,10 @@ export function Cases() {
                 onChange={(e) => setNewCaseName(e.target.value)}
                 placeholder="Enter case name (e.g., Martinez v. City of LA)"
                 className="
-                  flex-1 px-3 py-2 rounded-lg border border-slate-600
-                  bg-slate-700 text-slate-100 placeholder-slate-400
+                  flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                  bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
                   focus:border-primary-500 focus:ring-1 focus:ring-primary-500
-                  outline-none text-sm
+                  outline-none text-sm transition-colors
                 "
                 autoFocus
               />
@@ -239,8 +245,8 @@ export function Cases() {
                   setNewCaseName('');
                 }}
                 className="
-                  px-4 py-2 text-slate-300 rounded-lg
-                  hover:bg-slate-700 transition-colors
+                  px-4 py-2 text-slate-600 dark:text-slate-300 rounded-lg
+                  hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
                   text-sm font-medium
                 "
               >
@@ -253,7 +259,7 @@ export function Cases() {
         {/* Cases Table */}
         {isLoading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+            <Loader2 className="w-8 h-8 animate-spin text-slate-500 dark:text-slate-400" />
           </div>
         ) : (
           <DataTable
@@ -266,6 +272,17 @@ export function Cases() {
           />
         )}
       </PageContent>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteCase}
+        title="Delete Case"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This will permanently remove the case and all associated data. This action cannot be undone.`}
+        confirmText="Delete Case"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </>
   );
 }
