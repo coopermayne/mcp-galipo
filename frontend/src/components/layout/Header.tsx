@@ -48,12 +48,12 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
       )}
 
       {/* Title and actions */}
-      <div className="flex items-center justify-between">
-        <div>
-          {title && <h1 className="text-2xl font-semibold text-slate-100">{title}</h1>}
-          {subtitle && <p className="text-slate-400 mt-0.5">{subtitle}</p>}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          {title && <div className="text-2xl font-semibold text-slate-100">{title}</div>}
+          {subtitle && <div className="text-slate-400 mt-0.5">{subtitle}</div>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {actions}
           <button
             onClick={logout}
