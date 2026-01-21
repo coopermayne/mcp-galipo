@@ -31,6 +31,36 @@ const API = {
 let constants = { case_statuses: [], task_statuses: [], contact_roles: [] };
 let currentView = 'dashboard';
 
+// Human-readable date formatting
+function formatDate(dateStr) {
+    if (!dateStr) return null;
+    const date = new Date(dateStr + 'T00:00:00');
+    const now = new Date();
+    const diffTime = date - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+    const formatted = date.toLocaleDateString('en-US', options);
+
+    // Add relative indicator for upcoming dates
+    if (diffDays === 0) return `${formatted} (Today)`;
+    if (diffDays === 1) return `${formatted} (Tomorrow)`;
+    if (diffDays === -1) return `${formatted} (Yesterday)`;
+    if (diffDays > 0 && diffDays <= 7) return `${formatted} (in ${diffDays} days)`;
+    if (diffDays < 0 && diffDays >= -7) return `${formatted} (${Math.abs(diffDays)} days ago)`;
+
+    return formatted;
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+    });
+}
+
 // Toast notifications
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -67,9 +97,16 @@ function getStatusBadge(status) {
         'Pre-trial': 'yellow', 'Trial': 'red', 'Post-Trial': 'purple',
         'Appeal': 'purple', 'Settl. Pend.': 'purple', 'Stayed': 'gray', 'Closed': 'gray',
         'Pending': 'yellow', 'Active': 'blue', 'Done': 'green',
-        'Partially Complete': 'yellow', 'Blocked': 'red', 'Awaiting Atty Review': 'purple'
+        'Partially Complete': 'yellow', 'Blocked': 'red', 'Awaiting Atty Review': 'purple',
+        'Complete': 'green'
     };
     return `<span class="badge badge-${colors[status] || 'gray'}">${status}</span>`;
+}
+
+function getUrgencyBadge(urgency) {
+    const labels = { 1: 'Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Critical' };
+    const colors = { 1: 'green', 2: 'green', 3: 'yellow', 4: 'red', 5: 'red' };
+    return `<span class="badge badge-${colors[urgency]}">${labels[urgency]}</span>`;
 }
 
 function getUrgencyClass(urgency) {
@@ -78,20 +115,22 @@ function getUrgencyClass(urgency) {
 
 // Dashboard
 async function renderDashboard() {
-    const [stats, tasksRes, deadlinesRes] = await Promise.all([
+    const [stats, tasksRes, deadlinesRes, casesRes] = await Promise.all([
         API.get('/api/v1/stats'),
         API.get('/api/v1/tasks?status=Pending'),
-        API.get('/api/v1/deadlines?status=Pending')
+        API.get('/api/v1/deadlines?status=Pending'),
+        API.get('/api/v1/cases')
     ]);
 
     const content = document.getElementById('main-content');
     content.innerHTML = `
         <div class="page-header">
             <h2>Dashboard</h2>
+            <button class="btn btn-primary" onclick="openCaseModal()">+ New Case</button>
         </div>
 
         <div class="stats-grid">
-            <div class="stat-card">
+            <div class="stat-card" onclick="navigate('cases')" style="cursor:pointer">
                 <div class="stat-icon blue">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 </div>
@@ -100,7 +139,7 @@ async function renderDashboard() {
                     <div class="stat-label">Active Cases</div>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" onclick="navigate('tasks')" style="cursor:pointer">
                 <div class="stat-icon yellow">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
                 </div>
@@ -109,7 +148,7 @@ async function renderDashboard() {
                     <div class="stat-label">Pending Tasks</div>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" onclick="navigate('deadlines')" style="cursor:pointer">
                 <div class="stat-icon green">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 </div>
@@ -118,7 +157,7 @@ async function renderDashboard() {
                     <div class="stat-label">Upcoming Deadlines</div>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card urgent">
                 <div class="stat-icon red">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 </div>
@@ -129,48 +168,78 @@ async function renderDashboard() {
             </div>
         </div>
 
-        <div class="section-grid">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Recent Tasks</h3>
-                    <button class="btn btn-sm btn-secondary" onclick="navigate('tasks')">View All</button>
-                </div>
-                <div class="card-body">
-                    ${tasksRes.tasks.length ? `
-                        <table>
-                            <tbody>
-                                ${tasksRes.tasks.slice(0, 5).map(t => `
-                                    <tr class="${getUrgencyClass(t.urgency)} clickable-row" onclick="navigate('case', {id: ${t.case_id}})">
-                                        <td><strong>${t.description}</strong><br><small class="text-muted">${t.case_name}</small></td>
-                                        <td>${t.due_date || '-'}</td>
-                                        <td>${getStatusBadge(t.status)}</td>
-                                    </tr>
+        <div class="dashboard-grid">
+            <div class="dashboard-main">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Pending Tasks</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="navigate('tasks')">View All</button>
+                    </div>
+                    <div class="card-body no-padding">
+                        ${tasksRes.tasks.length ? `
+                            <div class="list-view">
+                                ${tasksRes.tasks.slice(0, 8).map(t => `
+                                    <div class="list-item ${getUrgencyClass(t.urgency)}" onclick="navigate('case', {id: ${t.case_id}})">
+                                        <div class="list-item-main">
+                                            <div class="list-item-title">${t.description}</div>
+                                            <div class="list-item-meta">
+                                                <span class="meta-case">${t.case_name}</span>
+                                                ${t.due_date ? `<span class="meta-date">${formatDate(t.due_date)}</span>` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="list-item-side">
+                                            ${getUrgencyBadge(t.urgency)}
+                                        </div>
+                                    </div>
                                 `).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<div class="empty-state"><p>No pending tasks</p></div>'}
+                            </div>
+                        ` : '<div class="empty-state"><p>No pending tasks</p></div>'}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Upcoming Deadlines</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="navigate('deadlines')">View All</button>
+                    </div>
+                    <div class="card-body no-padding">
+                        ${deadlinesRes.deadlines.length ? `
+                            <div class="list-view">
+                                ${deadlinesRes.deadlines.slice(0, 8).map(d => `
+                                    <div class="list-item ${getUrgencyClass(d.urgency)}" onclick="navigate('case', {id: ${d.case_id}})">
+                                        <div class="list-item-main">
+                                            <div class="list-item-title">${d.description}</div>
+                                            <div class="list-item-meta">
+                                                <span class="meta-case">${d.case_name}</span>
+                                                <span class="meta-date">${formatDate(d.date)}</span>
+                                            </div>
+                                        </div>
+                                        <div class="list-item-side">
+                                            ${getUrgencyBadge(d.urgency)}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<div class="empty-state"><p>No upcoming deadlines</p></div>'}
+                    </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h3>Upcoming Deadlines</h3>
-                    <button class="btn btn-sm btn-secondary" onclick="navigate('deadlines')">View All</button>
-                </div>
-                <div class="card-body">
-                    ${deadlinesRes.deadlines.length ? `
-                        <table>
-                            <tbody>
-                                ${deadlinesRes.deadlines.slice(0, 5).map(d => `
-                                    <tr class="${getUrgencyClass(d.urgency)} clickable-row" onclick="navigate('case', {id: ${d.case_id}})">
-                                        <td><strong>${d.description}</strong><br><small class="text-muted">${d.case_name}</small></td>
-                                        <td>${d.date}</td>
-                                        <td>${getStatusBadge(d.status)}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<div class="empty-state"><p>No upcoming deadlines</p></div>'}
+            <div class="dashboard-sidebar">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Recent Cases</h3>
+                    </div>
+                    <div class="card-body no-padding">
+                        <div class="case-list">
+                            ${casesRes.cases.slice(0, 6).map(c => `
+                                <div class="case-list-item" onclick="navigate('case', {id: ${c.id}})">
+                                    <div class="case-list-name">${c.case_name}</div>
+                                    <div class="case-list-status">${getStatusBadge(c.status)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -199,40 +268,29 @@ async function renderCases() {
             </select>
         </div>
 
-        <div class="card">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Case Name</th>
-                            <th>Status</th>
-                            <th>Court</th>
-                            <th>Print Code</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cases-table">
-                        ${cases.map(c => `
-                            <tr class="clickable-row case-row" data-name="${c.case_name.toLowerCase()}" data-status="${c.status}">
-                                <td onclick="navigate('case', {id: ${c.id}})"><strong>${c.case_name}</strong></td>
-                                <td onclick="navigate('case', {id: ${c.id}})">${getStatusBadge(c.status)}</td>
-                                <td onclick="navigate('case', {id: ${c.id}})">${c.court || '-'}</td>
-                                <td onclick="navigate('case', {id: ${c.id}})">${c.print_code || '-'}</td>
-                                <td>
-                                    <div class="actions">
-                                        <button class="action-btn" onclick="event.stopPropagation(); openCaseModal(${c.id})" title="Edit">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                        </button>
-                                        <button class="action-btn delete" onclick="event.stopPropagation(); deleteCase(${c.id})" title="Delete">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
+        <div class="cases-grid">
+            ${cases.map(c => `
+                <div class="case-card case-row" data-name="${c.case_name.toLowerCase()}" data-status="${c.status}" onclick="navigate('case', {id: ${c.id}})">
+                    <div class="case-card-header">
+                        <h3 class="case-card-title">${c.case_name}</h3>
+                        <div class="case-card-actions" onclick="event.stopPropagation()">
+                            <button class="action-btn" onclick="openCaseModal(${c.id})" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <button class="action-btn delete" onclick="deleteCase(${c.id})" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="case-card-body">
+                        <div class="case-card-meta">
+                            ${getStatusBadge(c.status)}
+                            ${c.court ? `<span class="meta-court">${c.court}</span>` : ''}
+                        </div>
+                        ${c.print_code ? `<div class="case-card-code">Code: ${c.print_code}</div>` : ''}
+                    </div>
+                </div>
+            `).join('')}
         </div>
     `;
 }
@@ -247,185 +305,212 @@ function filterCases() {
     });
 }
 
-// Case Detail
+// Case Detail - All sections visible, no tabs
 async function renderCaseDetail(caseId) {
     const caseData = await API.get(`/api/cases/${caseId}`);
     const content = document.getElementById('main-content');
 
     content.innerHTML = `
-        <div class="case-header">
-            <div>
-                <button class="btn btn-sm btn-secondary" onclick="navigate('cases')" style="margin-bottom: 1rem;">
+        <div class="case-detail">
+            <div class="case-detail-header">
+                <button class="btn btn-sm btn-secondary back-btn" onclick="navigate('cases')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                    Back to Cases
+                    Back
                 </button>
-                <h2 class="case-title">${caseData.case_name}</h2>
-                <div class="case-meta">
-                    <span>${getStatusBadge(caseData.status)}</span>
-                    <span>${caseData.court || 'No court assigned'}</span>
-                    ${caseData.print_code ? `<span>Code: ${caseData.print_code}</span>` : ''}
+                <div class="case-detail-title-row">
+                    <div>
+                        <h1 class="case-detail-title">${caseData.case_name}</h1>
+                        <div class="case-detail-meta">
+                            ${getStatusBadge(caseData.status)}
+                            ${caseData.court ? `<span class="meta-item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg> ${caseData.court}</span>` : ''}
+                            ${caseData.print_code ? `<span class="meta-item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> ${caseData.print_code}</span>` : ''}
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="openCaseModal(${caseId})">Edit Case</button>
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="openCaseModal(${caseId})">Edit Case</button>
-        </div>
 
-        ${caseData.case_summary ? `<div class="card" style="margin-bottom: 1.5rem;"><div class="card-body"><strong>Summary:</strong> ${caseData.case_summary}</div></div>` : ''}
+            ${caseData.case_summary ? `
+                <div class="case-summary">
+                    <h4>Summary</h4>
+                    <p>${caseData.case_summary}</p>
+                </div>
+            ` : ''}
 
-        <div class="card" style="margin-bottom: 1.5rem;">
-            <div class="card-body">
-                <div class="form-row">
-                    <div><strong>Date of Injury:</strong> ${caseData.date_of_injury || '-'}</div>
-                    <div><strong>Claim Due:</strong> ${caseData.claim_due || '-'}</div>
-                    <div><strong>Complaint Due:</strong> ${caseData.complaint_due || '-'}</div>
-                    <div><strong>Trial Date:</strong> ${caseData.trial_date || '-'}</div>
+            <div class="key-dates-grid">
+                <div class="key-date ${getDueDateClass(caseData.date_of_injury)}">
+                    <div class="key-date-label">Date of Injury</div>
+                    <div class="key-date-value">${formatDate(caseData.date_of_injury) || 'Not set'}</div>
+                </div>
+                <div class="key-date ${getDueDateClass(caseData.claim_due)}">
+                    <div class="key-date-label">Claim Due</div>
+                    <div class="key-date-value">${formatDate(caseData.claim_due) || 'Not set'}</div>
+                </div>
+                <div class="key-date ${getDueDateClass(caseData.complaint_due)}">
+                    <div class="key-date-label">Complaint Due</div>
+                    <div class="key-date-value">${formatDate(caseData.complaint_due) || 'Not set'}</div>
+                </div>
+                <div class="key-date ${getDueDateClass(caseData.trial_date)}">
+                    <div class="key-date-label">Trial Date</div>
+                    <div class="key-date-value">${formatDate(caseData.trial_date) || 'Not set'}</div>
                 </div>
             </div>
-        </div>
 
-        <div class="tabs">
-            <div class="tab active" onclick="showTab('tasks-tab', this)">Tasks (${caseData.tasks?.length || 0})</div>
-            <div class="tab" onclick="showTab('deadlines-tab', this)">Deadlines (${caseData.deadlines?.length || 0})</div>
-            <div class="tab" onclick="showTab('clients-tab', this)">Clients (${caseData.clients?.length || 0})</div>
-            <div class="tab" onclick="showTab('contacts-tab', this)">Contacts (${caseData.contacts?.length || 0})</div>
-            <div class="tab" onclick="showTab('notes-tab', this)">Notes (${caseData.notes?.length || 0})</div>
-        </div>
-
-        <div id="tasks-tab" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Tasks</h3>
+            <!-- Tasks Section -->
+            <section class="case-section">
+                <div class="section-header">
+                    <h2>Tasks <span class="count">${caseData.tasks?.length || 0}</span></h2>
                     <button class="btn btn-sm btn-primary" onclick="openTaskModal(${caseId})">+ Add Task</button>
                 </div>
-                <div class="card-body">
-                    ${caseData.tasks?.length ? `
-                        <table>
-                            <thead><tr><th>Description</th><th>Due Date</th><th>Status</th><th>Urgency</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                ${caseData.tasks.map(t => `
-                                    <tr class="${getUrgencyClass(t.urgency)}">
-                                        <td>${t.description}</td>
-                                        <td>${t.due_date || '-'}</td>
-                                        <td>${getStatusBadge(t.status)}</td>
-                                        <td>${t.urgency}</td>
-                                        <td>
-                                            <div class="actions">
-                                                <button class="action-btn" onclick="openTaskModal(${caseId}, ${t.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
-                                                <button class="action-btn delete" onclick="deleteTask(${t.id}, ${caseId})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<div class="empty-state"><p>No tasks yet</p></div>'}
-                </div>
-            </div>
-        </div>
+                ${caseData.tasks?.length ? `
+                    <div class="section-content">
+                        ${caseData.tasks.map(t => `
+                            <div class="item-card ${getUrgencyClass(t.urgency)}">
+                                <div class="item-card-main">
+                                    <div class="item-card-title">${t.description}</div>
+                                    <div class="item-card-details">
+                                        ${t.due_date ? `<span class="detail-date">${formatDate(t.due_date)}</span>` : '<span class="detail-date no-date">No due date</span>'}
+                                        ${getStatusBadge(t.status)}
+                                        ${getUrgencyBadge(t.urgency)}
+                                    </div>
+                                </div>
+                                <div class="item-card-actions">
+                                    <button class="action-btn" onclick="openTaskModal(${caseId}, ${t.id})" title="Edit">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    </button>
+                                    <button class="action-btn delete" onclick="deleteTask(${t.id}, ${caseId})" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="empty-section">No tasks yet</div>'}
+            </section>
 
-        <div id="deadlines-tab" class="tab-content" style="display:none;">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Deadlines</h3>
+            <!-- Deadlines Section -->
+            <section class="case-section">
+                <div class="section-header">
+                    <h2>Deadlines <span class="count">${caseData.deadlines?.length || 0}</span></h2>
                     <button class="btn btn-sm btn-primary" onclick="openDeadlineModal(${caseId})">+ Add Deadline</button>
                 </div>
-                <div class="card-body">
-                    ${caseData.deadlines?.length ? `
-                        <table>
-                            <thead><tr><th>Description</th><th>Date</th><th>Status</th><th>Urgency</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                ${caseData.deadlines.map(d => `
-                                    <tr class="${getUrgencyClass(d.urgency)}">
-                                        <td>${d.description}${d.calculation_note ? `<br><small style="color: var(--text-muted);">${d.calculation_note}</small>` : ''}</td>
-                                        <td>${d.date}</td>
-                                        <td>${getStatusBadge(d.status)}</td>
-                                        <td>${d.urgency}</td>
-                                        <td>
-                                            <div class="actions">
-                                                <button class="action-btn" onclick="openDeadlineModal(${caseId}, ${d.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
-                                                <button class="action-btn delete" onclick="deleteDeadline(${d.id}, ${caseId})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<div class="empty-state"><p>No deadlines yet</p></div>'}
-                </div>
-            </div>
-        </div>
+                ${caseData.deadlines?.length ? `
+                    <div class="section-content">
+                        ${caseData.deadlines.map(d => `
+                            <div class="item-card ${getUrgencyClass(d.urgency)}">
+                                <div class="item-card-main">
+                                    <div class="item-card-title">${d.description}</div>
+                                    ${d.calculation_note ? `<div class="item-card-note">${d.calculation_note}</div>` : ''}
+                                    <div class="item-card-details">
+                                        <span class="detail-date">${formatDate(d.date)}</span>
+                                        ${getStatusBadge(d.status)}
+                                        ${getUrgencyBadge(d.urgency)}
+                                    </div>
+                                </div>
+                                <div class="item-card-actions">
+                                    <button class="action-btn" onclick="openDeadlineModal(${caseId}, ${d.id})" title="Edit">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    </button>
+                                    <button class="action-btn delete" onclick="deleteDeadline(${d.id}, ${caseId})" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="empty-section">No deadlines yet</div>'}
+            </section>
 
-        <div id="clients-tab" class="tab-content" style="display:none;">
-            <div class="card">
-                <div class="card-header"><h3>Clients</h3></div>
-                <div class="card-body">
-                    ${caseData.clients?.length ? `
-                        <table>
-                            <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Contact Method</th></tr></thead>
-                            <tbody>
-                                ${caseData.clients.map(c => `
-                                    <tr>
-                                        <td>${c.name}${c.is_primary ? ' <span class="badge badge-blue">Primary</span>' : ''}</td>
-                                        <td>${c.phone || '-'}</td>
-                                        <td>${c.email || '-'}</td>
-                                        <td>${c.contact_directly ? 'Direct' : `Via ${c.contact_via_name} (${c.contact_via_relationship})`}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<div class="empty-state"><p>No clients yet</p></div>'}
+            <!-- Clients Section -->
+            <section class="case-section">
+                <div class="section-header">
+                    <h2>Clients <span class="count">${caseData.clients?.length || 0}</span></h2>
                 </div>
-            </div>
-        </div>
+                ${caseData.clients?.length ? `
+                    <div class="people-grid">
+                        ${caseData.clients.map(c => `
+                            <div class="person-card">
+                                <div class="person-avatar">${c.name.charAt(0).toUpperCase()}</div>
+                                <div class="person-info">
+                                    <div class="person-name">
+                                        ${c.name}
+                                        ${c.is_primary ? '<span class="badge badge-blue">Primary</span>' : ''}
+                                    </div>
+                                    <div class="person-details">
+                                        ${c.phone ? `<div class="person-detail"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${c.phone}</div>` : ''}
+                                        ${c.email ? `<div class="person-detail"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${c.email}</div>` : ''}
+                                        <div class="person-contact-method">
+                                            ${c.contact_directly ? 'Contact directly' : `Contact via ${c.contact_via_name} (${c.contact_via_relationship})`}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="empty-section">No clients yet</div>'}
+            </section>
 
-        <div id="contacts-tab" class="tab-content" style="display:none;">
-            <div class="card">
-                <div class="card-header"><h3>Contacts</h3></div>
-                <div class="card-body">
-                    ${caseData.contacts?.length ? `
-                        <table>
-                            <thead><tr><th>Name</th><th>Firm</th><th>Role</th><th>Phone</th><th>Email</th></tr></thead>
-                            <tbody>
-                                ${caseData.contacts.map(c => `
-                                    <tr>
-                                        <td>${c.name}</td>
-                                        <td>${c.firm || '-'}</td>
-                                        <td>${getStatusBadge(c.role)}</td>
-                                        <td>${c.phone || '-'}</td>
-                                        <td>${c.email || '-'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<div class="empty-state"><p>No contacts yet</p></div>'}
+            <!-- Contacts Section -->
+            <section class="case-section">
+                <div class="section-header">
+                    <h2>Contacts <span class="count">${caseData.contacts?.length || 0}</span></h2>
                 </div>
-            </div>
-        </div>
+                ${caseData.contacts?.length ? `
+                    <div class="people-grid">
+                        ${caseData.contacts.map(c => `
+                            <div class="person-card">
+                                <div class="person-avatar contact">${c.name.charAt(0).toUpperCase()}</div>
+                                <div class="person-info">
+                                    <div class="person-name">
+                                        ${c.name}
+                                        ${getStatusBadge(c.role)}
+                                    </div>
+                                    ${c.firm ? `<div class="person-firm">${c.firm}</div>` : ''}
+                                    <div class="person-details">
+                                        ${c.phone ? `<div class="person-detail"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${c.phone}</div>` : ''}
+                                        ${c.email ? `<div class="person-detail"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${c.email}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="empty-section">No contacts yet</div>'}
+            </section>
 
-        <div id="notes-tab" class="tab-content" style="display:none;">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Notes</h3>
+            <!-- Notes Section -->
+            <section class="case-section">
+                <div class="section-header">
+                    <h2>Notes <span class="count">${caseData.notes?.length || 0}</span></h2>
                     <button class="btn btn-sm btn-primary" onclick="openNoteModal(${caseId})">+ Add Note</button>
                 </div>
-                <div class="card-body">
-                    ${caseData.notes?.length ? caseData.notes.map(n => `
-                        <div class="note-item">
-                            <div class="note-date">${n.created_at}</div>
-                            <div class="note-content">${n.content}</div>
-                            <button class="action-btn delete" style="margin-top: 0.5rem;" onclick="deleteNote(${n.id}, ${caseId})">Delete</button>
-                        </div>
-                    `).join('') : '<div class="empty-state"><p>No notes yet</p></div>'}
-                </div>
-            </div>
+                ${caseData.notes?.length ? `
+                    <div class="notes-list">
+                        ${caseData.notes.map(n => `
+                            <div class="note-card">
+                                <div class="note-header">
+                                    <span class="note-date">${formatDateTime(n.created_at)}</span>
+                                    <button class="action-btn delete" onclick="deleteNote(${n.id}, ${caseId})" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>
+                                </div>
+                                <div class="note-content">${n.content}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<div class="empty-section">No notes yet</div>'}
+            </section>
         </div>
     `;
 }
 
-function showTab(tabId, el) {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(tabId).style.display = 'block';
-    el.classList.add('active');
+function getDueDateClass(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    const now = new Date();
+    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 7) return 'soon';
+    return '';
 }
 
 // Tasks List
@@ -445,34 +530,36 @@ async function renderTasks() {
             </select>
             <select class="form-control" id="task-urgency-filter" onchange="filterTasks()">
                 <option value="">All Urgencies</option>
-                <option value="4">High (4-5)</option>
+                <option value="5">Critical (5)</option>
+                <option value="4">High+ (4-5)</option>
                 <option value="3">Medium+ (3-5)</option>
             </select>
         </div>
 
-        <div class="card">
-            <div class="table-container">
-                <table>
-                    <thead><tr><th>Description</th><th>Case</th><th>Due Date</th><th>Status</th><th>Urgency</th><th>Actions</th></tr></thead>
-                    <tbody id="tasks-table">
-                        ${tasks.map(t => `
-                            <tr class="${getUrgencyClass(t.urgency)} task-row" data-status="${t.status}" data-urgency="${t.urgency}">
-                                <td>${t.description}</td>
-                                <td><a href="#" onclick="navigate('case', {id: ${t.case_id}}); return false;">${t.case_name}</a></td>
-                                <td>${t.due_date || '-'}</td>
-                                <td>${getStatusBadge(t.status)}</td>
-                                <td>${t.urgency}</td>
-                                <td>
-                                    <div class="actions">
-                                        <button class="action-btn" onclick="openTaskModal(${t.case_id}, ${t.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
-                                        <button class="action-btn delete" onclick="deleteTask(${t.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
+        <div class="list-view card">
+            ${tasks.length ? tasks.map(t => `
+                <div class="list-item ${getUrgencyClass(t.urgency)} task-row" data-status="${t.status}" data-urgency="${t.urgency}">
+                    <div class="list-item-main">
+                        <div class="list-item-title">${t.description}</div>
+                        <div class="list-item-meta">
+                            <a href="#" class="meta-case" onclick="navigate('case', {id: ${t.case_id}}); return false;">${t.case_name}</a>
+                            ${t.due_date ? `<span class="meta-date">${formatDate(t.due_date)}</span>` : '<span class="meta-date no-date">No due date</span>'}
+                        </div>
+                    </div>
+                    <div class="list-item-side">
+                        ${getStatusBadge(t.status)}
+                        ${getUrgencyBadge(t.urgency)}
+                        <div class="actions">
+                            <button class="action-btn" onclick="openTaskModal(${t.case_id}, ${t.id})" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <button class="action-btn delete" onclick="deleteTask(${t.id})" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('') : '<div class="empty-state"><p>No tasks</p></div>'}
         </div>
     `;
 }
@@ -505,34 +592,37 @@ async function renderDeadlines() {
             </select>
             <select class="form-control" id="deadline-urgency-filter" onchange="filterDeadlines()">
                 <option value="">All Urgencies</option>
-                <option value="4">High (4-5)</option>
+                <option value="5">Critical (5)</option>
+                <option value="4">High+ (4-5)</option>
                 <option value="3">Medium+ (3-5)</option>
             </select>
         </div>
 
-        <div class="card">
-            <div class="table-container">
-                <table>
-                    <thead><tr><th>Description</th><th>Case</th><th>Date</th><th>Status</th><th>Urgency</th><th>Actions</th></tr></thead>
-                    <tbody id="deadlines-table">
-                        ${deadlines.map(d => `
-                            <tr class="${getUrgencyClass(d.urgency)} deadline-row" data-status="${d.status}" data-urgency="${d.urgency}">
-                                <td>${d.description}${d.calculation_note ? `<br><small style="color: var(--text-muted);">${d.calculation_note}</small>` : ''}</td>
-                                <td><a href="#" onclick="navigate('case', {id: ${d.case_id}}); return false;">${d.case_name}</a></td>
-                                <td>${d.date}</td>
-                                <td>${getStatusBadge(d.status)}</td>
-                                <td>${d.urgency}</td>
-                                <td>
-                                    <div class="actions">
-                                        <button class="action-btn" onclick="openDeadlineModal(${d.case_id}, ${d.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
-                                        <button class="action-btn delete" onclick="deleteDeadline(${d.id})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
+        <div class="list-view card">
+            ${deadlines.length ? deadlines.map(d => `
+                <div class="list-item ${getUrgencyClass(d.urgency)} deadline-row" data-status="${d.status}" data-urgency="${d.urgency}">
+                    <div class="list-item-main">
+                        <div class="list-item-title">${d.description}</div>
+                        ${d.calculation_note ? `<div class="list-item-note">${d.calculation_note}</div>` : ''}
+                        <div class="list-item-meta">
+                            <a href="#" class="meta-case" onclick="navigate('case', {id: ${d.case_id}}); return false;">${d.case_name}</a>
+                            <span class="meta-date">${formatDate(d.date)}</span>
+                        </div>
+                    </div>
+                    <div class="list-item-side">
+                        ${getStatusBadge(d.status)}
+                        ${getUrgencyBadge(d.urgency)}
+                        <div class="actions">
+                            <button class="action-btn" onclick="openDeadlineModal(${d.case_id}, ${d.id})" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <button class="action-btn delete" onclick="deleteDeadline(${d.id})" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('') : '<div class="empty-state"><p>No deadlines</p></div>'}
         </div>
     `;
 }
@@ -689,9 +779,13 @@ async function openTaskModal(caseId, taskId = null) {
                         <input type="date" class="form-control" id="task-due-date" value="${taskData.due_date || ''}">
                     </div>
                     <div class="form-group">
-                        <label>Urgency (1-5)</label>
+                        <label>Urgency</label>
                         <select class="form-control" id="task-urgency">
-                            ${[1,2,3,4,5].map(u => `<option value="${u}" ${(taskData.urgency || 3) === u ? 'selected' : ''}>${u}</option>`).join('')}
+                            <option value="1" ${(taskData.urgency || 3) === 1 ? 'selected' : ''}>1 - Low</option>
+                            <option value="2" ${(taskData.urgency || 3) === 2 ? 'selected' : ''}>2 - Low</option>
+                            <option value="3" ${(taskData.urgency || 3) === 3 ? 'selected' : ''}>3 - Medium</option>
+                            <option value="4" ${(taskData.urgency || 3) === 4 ? 'selected' : ''}>4 - High</option>
+                            <option value="5" ${(taskData.urgency || 3) === 5 ? 'selected' : ''}>5 - Critical</option>
                         </select>
                     </div>
                 </div>
@@ -770,9 +864,13 @@ async function openDeadlineModal(caseId, deadlineId = null) {
                         <input type="date" class="form-control" id="deadline-date" value="${deadlineData.date || ''}" required>
                     </div>
                     <div class="form-group">
-                        <label>Urgency (1-5)</label>
+                        <label>Urgency</label>
                         <select class="form-control" id="deadline-urgency">
-                            ${[1,2,3,4,5].map(u => `<option value="${u}" ${(deadlineData.urgency || 3) === u ? 'selected' : ''}>${u}</option>`).join('')}
+                            <option value="1" ${(deadlineData.urgency || 3) === 1 ? 'selected' : ''}>1 - Low</option>
+                            <option value="2" ${(deadlineData.urgency || 3) === 2 ? 'selected' : ''}>2 - Low</option>
+                            <option value="3" ${(deadlineData.urgency || 3) === 3 ? 'selected' : ''}>3 - Medium</option>
+                            <option value="4" ${(deadlineData.urgency || 3) === 4 ? 'selected' : ''}>4 - High</option>
+                            <option value="5" ${(deadlineData.urgency || 3) === 5 ? 'selected' : ''}>5 - Critical</option>
                         </select>
                     </div>
                 </div>
