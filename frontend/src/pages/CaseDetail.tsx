@@ -22,8 +22,14 @@ import {
   deleteDeadline,
   createNote,
   deleteNote,
+  addClientToCase,
+  removeClientFromCase,
+  addDefendantToCase,
+  removeDefendantFromCase,
+  addContactToCase,
+  removeContactFromCase,
 } from '../api/client';
-import type { Case, Task, Deadline, Note, TaskStatus } from '../types';
+import type { Case, Task, Deadline, Note, TaskStatus, Constants, ContactRole, CaseNumber } from '../types';
 import {
   Loader2,
   Trash2,
@@ -35,6 +41,14 @@ import {
   CheckSquare,
   Clock,
   StickyNote,
+  Phone,
+  Mail,
+  Calendar,
+  Star,
+  Hash,
+  Link,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 
@@ -192,6 +206,8 @@ export function CaseDetail() {
         {activeTab === 'overview' && (
           <OverviewTab
             caseData={caseData}
+            caseId={caseId}
+            constants={constants}
             onUpdateField={handleUpdateField}
           />
         )}
@@ -212,11 +228,92 @@ export function CaseDetail() {
 // Overview Tab Component
 function OverviewTab({
   caseData,
+  caseId,
+  constants,
   onUpdateField,
 }: {
   caseData: Case;
+  caseId: number;
+  constants: Constants | undefined;
   onUpdateField: (field: string, value: string | null) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [showAddDefendant, setShowAddDefendant] = useState(false);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newClient, setNewClient] = useState({ name: '', phone: '', email: '', is_primary: false });
+  const [newDefendantName, setNewDefendantName] = useState('');
+  const [newContact, setNewContact] = useState({ name: '', role: 'Co-Counsel' as ContactRole, firm: '', phone: '', email: '' });
+
+  const courtOptions = useMemo(
+    () =>
+      (constants?.courts || []).map((c) => ({
+        value: c,
+        label: c,
+      })),
+    [constants]
+  );
+
+  const contactRoleOptions = useMemo(
+    () =>
+      (constants?.contact_roles || []).map((r) => ({
+        value: r,
+        label: r,
+      })),
+    [constants]
+  );
+
+  const addClientMutation = useMutation({
+    mutationFn: (data: { name: string; phone?: string; email?: string; is_primary?: boolean }) =>
+      addClientToCase(caseId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setNewClient({ name: '', phone: '', email: '', is_primary: false });
+      setShowAddClient(false);
+    },
+  });
+
+  const removeClientMutation = useMutation({
+    mutationFn: (clientId: number) => removeClientFromCase(caseId, clientId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+    },
+  });
+
+  const addDefendantMutation = useMutation({
+    mutationFn: (name: string) => addDefendantToCase(caseId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setNewDefendantName('');
+      setShowAddDefendant(false);
+    },
+  });
+
+  const removeDefendantMutation = useMutation({
+    mutationFn: (defendantId: number) => removeDefendantFromCase(caseId, defendantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+    },
+  });
+
+  const addContactMutation = useMutation({
+    mutationFn: (data: { name: string; role: string; firm?: string; phone?: string; email?: string }) =>
+      addContactToCase(caseId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setNewContact({ name: '', role: 'Co-Counsel', firm: '', phone: '', email: '' });
+      setShowAddContact(false);
+    },
+  });
+
+  const removeContactMutation = useMutation({
+    mutationFn: ({ contactId, role }: { contactId: number; role?: string }) =>
+      removeContactFromCase(caseId, contactId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+    },
+  });
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Case Details */}
@@ -224,10 +321,10 @@ function OverviewTab({
         <h3 className="font-semibold text-slate-900 mb-4">Case Details</h3>
         <div className="space-y-3">
           <Field label="Court">
-            <EditableText
+            <EditableSelect
               value={caseData.court || ''}
+              options={courtOptions}
               onSave={(value) => onUpdateField('court', value || null)}
-              placeholder="Enter court"
             />
           </Field>
           <Field label="Print Code">
@@ -238,10 +335,54 @@ function OverviewTab({
               inputClassName="font-mono"
             />
           </Field>
+        </div>
+
+        {/* Case Numbers */}
+        <CaseNumbersSection
+          caseId={caseId}
+          caseNumbers={caseData.case_numbers}
+        />
+      </div>
+
+      {/* Important Dates */}
+      <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-4 h-4 text-slate-500" />
+          <h3 className="font-semibold text-slate-900">Important Dates</h3>
+        </div>
+        <div className="space-y-3">
           <Field label="Date of Injury">
             <EditableDate
               value={caseData.date_of_injury || null}
               onSave={(value) => onUpdateField('date_of_injury', value)}
+              placeholder="Select date"
+            />
+          </Field>
+          <Field label="Claim Due">
+            <EditableDate
+              value={caseData.claim_due || null}
+              onSave={(value) => onUpdateField('claim_due', value)}
+              placeholder="Select date"
+            />
+          </Field>
+          <Field label="Claim Filed">
+            <EditableDate
+              value={caseData.claim_filed_date || null}
+              onSave={(value) => onUpdateField('claim_filed_date', value)}
+              placeholder="Select date"
+            />
+          </Field>
+          <Field label="Complaint Due">
+            <EditableDate
+              value={caseData.complaint_due || null}
+              onSave={(value) => onUpdateField('complaint_due', value)}
+              placeholder="Select date"
+            />
+          </Field>
+          <Field label="Complaint Filed">
+            <EditableDate
+              value={caseData.complaint_filed_date || null}
+              onSave={(value) => onUpdateField('complaint_filed_date', value)}
               placeholder="Select date"
             />
           </Field>
@@ -256,7 +397,7 @@ function OverviewTab({
       </div>
 
       {/* Case Summary */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 lg:col-span-2">
         <h3 className="font-semibold text-slate-900 mb-4">Case Summary</h3>
         <EditableText
           value={caseData.case_summary || ''}
@@ -264,34 +405,129 @@ function OverviewTab({
           placeholder="Enter case summary..."
           multiline
           className="w-full"
-          inputClassName="w-full min-h-[120px]"
+          inputClassName="w-full min-h-[100px]"
         />
       </div>
 
-      {/* Clients */}
+      {/* Clients/Plaintiffs */}
       <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="w-4 h-4 text-slate-500" />
-          <h3 className="font-semibold text-slate-900">Clients/Plaintiffs</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-slate-500" />
+            <h3 className="font-semibold text-slate-900">Clients/Plaintiffs</h3>
+          </div>
+          <button
+            onClick={() => setShowAddClient(!showAddClient)}
+            className="text-sm text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            Add
+          </button>
         </div>
-        {caseData.clients.length === 0 ? (
+        {showAddClient && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newClient.name.trim()) {
+                addClientMutation.mutate({
+                  name: newClient.name.trim(),
+                  phone: newClient.phone || undefined,
+                  email: newClient.email || undefined,
+                  is_primary: newClient.is_primary,
+                });
+              }
+            }}
+            className="mb-4 p-3 bg-slate-50 rounded-lg space-y-2"
+          >
+            <input
+              type="text"
+              value={newClient.name}
+              onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+              placeholder="Client name *"
+              className="w-full px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="tel"
+                value={newClient.phone}
+                onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                placeholder="Phone"
+                className="px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+              <input
+                type="email"
+                value={newClient.email}
+                onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                placeholder="Email"
+                className="px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={newClient.is_primary}
+                onChange={(e) => setNewClient({ ...newClient, is_primary: e.target.checked })}
+                className="rounded border-slate-300"
+              />
+              Primary plaintiff
+            </label>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddClient(false)}
+                className="px-3 py-1.5 text-slate-600 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={addClientMutation.isPending || !newClient.name.trim()}
+                className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
+              >
+                Add Client
+              </button>
+            </div>
+          </form>
+        )}
+        {caseData.clients.length === 0 && !showAddClient ? (
           <p className="text-sm text-slate-500">No clients linked</p>
         ) : (
           <div className="space-y-2">
             {caseData.clients.map((client) => (
               <div
                 key={client.id}
-                className="flex items-center justify-between p-2 bg-slate-50 rounded-lg"
+                className="p-3 bg-slate-50 rounded-lg group relative"
               >
-                <div>
-                  <p className="font-medium text-sm">
-                    {client.name}
-                    {client.is_primary && (
-                      <span className="ml-2 text-xs text-primary-600">(Primary)</span>
-                    )}
-                  </p>
+                <button
+                  onClick={() => removeClientMutation.mutate(client.id)}
+                  className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm">{client.name}</p>
+                  {client.is_primary && (
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                  )}
+                </div>
+                <div className="mt-1 space-y-0.5">
                   {client.phone && (
-                    <p className="text-xs text-slate-500">{client.phone}</p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {client.phone}
+                    </p>
+                  )}
+                  {client.email && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      <Mail className="w-3 h-3" />
+                      {client.email}
+                    </p>
+                  )}
+                  {!client.contact_directly && client.contact_via && (
+                    <p className="text-xs text-slate-400 italic">
+                      Contact via: {client.contact_via}
+                      {client.contact_via_relationship && ` (${client.contact_via_relationship})`}
+                    </p>
                   )}
                 </div>
               </div>
@@ -302,20 +538,59 @@ function OverviewTab({
 
       {/* Defendants */}
       <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Building2 className="w-4 h-4 text-slate-500" />
-          <h3 className="font-semibold text-slate-900">Defendants</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-slate-500" />
+            <h3 className="font-semibold text-slate-900">Defendants</h3>
+          </div>
+          <button
+            onClick={() => setShowAddDefendant(!showAddDefendant)}
+            className="text-sm text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            Add
+          </button>
         </div>
-        {caseData.defendants.length === 0 ? (
+        {showAddDefendant && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newDefendantName.trim()) addDefendantMutation.mutate(newDefendantName.trim());
+            }}
+            className="mb-3 flex gap-2"
+          >
+            <input
+              type="text"
+              value={newDefendantName}
+              onChange={(e) => setNewDefendantName(e.target.value)}
+              placeholder="Defendant name"
+              className="flex-1 px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+            />
+            <button
+              type="submit"
+              disabled={addDefendantMutation.isPending}
+              className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
+            >
+              Add
+            </button>
+          </form>
+        )}
+        {caseData.defendants.length === 0 && !showAddDefendant ? (
           <p className="text-sm text-slate-500">No defendants linked</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {caseData.defendants.map((defendant) => (
               <span
                 key={defendant.id}
-                className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm"
+                className="inline-flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm group"
               >
                 {defendant.name}
+                <button
+                  onClick={() => removeDefendantMutation.mutate(defendant.id)}
+                  className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               </span>
             ))}
           </div>
@@ -324,19 +599,109 @@ function OverviewTab({
 
       {/* Contacts */}
       <div className="bg-white rounded-lg border border-slate-200 p-4 lg:col-span-2">
-        <div className="flex items-center gap-2 mb-4">
-          <UserCog className="w-4 h-4 text-slate-500" />
-          <h3 className="font-semibold text-slate-900">Contacts</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <UserCog className="w-4 h-4 text-slate-500" />
+            <h3 className="font-semibold text-slate-900">Contacts</h3>
+          </div>
+          <button
+            onClick={() => setShowAddContact(!showAddContact)}
+            className="text-sm text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            Add
+          </button>
         </div>
-        {caseData.contacts.length === 0 ? (
+        {showAddContact && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newContact.name.trim() && newContact.role) {
+                addContactMutation.mutate({
+                  name: newContact.name.trim(),
+                  role: newContact.role,
+                  firm: newContact.firm || undefined,
+                  phone: newContact.phone || undefined,
+                  email: newContact.email || undefined,
+                });
+              }
+            }}
+            className="mb-4 p-3 bg-slate-50 rounded-lg"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={newContact.name}
+                onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                placeholder="Contact name *"
+                className="px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+              <select
+                value={newContact.role}
+                onChange={(e) => setNewContact({ ...newContact, role: e.target.value as ContactRole })}
+                className="px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              >
+                {contactRoleOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={newContact.firm}
+                onChange={(e) => setNewContact({ ...newContact, firm: e.target.value })}
+                placeholder="Firm"
+                className="px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+              <input
+                type="tel"
+                value={newContact.phone}
+                onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                placeholder="Phone"
+                className="px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+              <input
+                type="email"
+                value={newContact.email}
+                onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                placeholder="Email"
+                className="md:col-span-2 px-3 py-1.5 rounded border border-slate-200 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddContact(false)}
+                className="px-3 py-1.5 text-slate-600 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={addContactMutation.isPending || !newContact.name.trim()}
+                className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
+              >
+                Add Contact
+              </button>
+            </div>
+          </form>
+        )}
+        {caseData.contacts.length === 0 && !showAddContact ? (
           <p className="text-sm text-slate-500">No contacts linked</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {caseData.contacts.map((contact) => (
               <div
                 key={`${contact.id}-${contact.role}`}
-                className="p-3 bg-slate-50 rounded-lg"
+                className="p-3 bg-slate-50 rounded-lg group relative"
               >
+                <button
+                  onClick={() => removeContactMutation.mutate({ contactId: contact.id, role: contact.role })}
+                  className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
                 <p className="font-medium text-sm">{contact.name}</p>
                 {contact.role && (
                   <span className="inline-block mt-1 px-2 py-0.5 bg-slate-200 text-slate-600 rounded text-xs">
@@ -346,6 +711,20 @@ function OverviewTab({
                 {contact.firm && (
                   <p className="text-xs text-slate-500 mt-1">{contact.firm}</p>
                 )}
+                <div className="mt-1 space-y-0.5">
+                  {contact.phone && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {contact.phone}
+                    </p>
+                  )}
+                  {contact.email && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      <Mail className="w-3 h-3" />
+                      {contact.email}
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -499,7 +878,8 @@ function DeadlinesTab({
 }) {
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
-  const [newDeadline, setNewDeadline] = useState({ date: '', description: '' });
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [newDeadline, setNewDeadline] = useState({ date: '', description: '', calculation_note: '' });
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -507,10 +887,11 @@ function DeadlinesTab({
         case_id: caseId,
         date: newDeadline.date,
         description: newDeadline.description,
+        calculation_note: newDeadline.calculation_note || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setNewDeadline({ date: '', description: '' });
+      setNewDeadline({ date: '', description: '', calculation_note: '' });
       setIsAdding(false);
     },
   });
@@ -542,40 +923,54 @@ function DeadlinesTab({
       {/* Add Button or Form */}
       <div className="p-4 border-b border-slate-200">
         {isAdding ? (
-          <form onSubmit={handleCreate} className="flex items-end gap-3">
-            <div className="flex-1">
-              <label className="block text-xs text-slate-500 mb-1">Date</label>
-              <input
-                type="date"
-                value={newDeadline.date}
-                onChange={(e) => setNewDeadline({ ...newDeadline, date: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
-              />
+          <form onSubmit={handleCreate} className="space-y-3">
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-slate-500 mb-1">Date *</label>
+                <input
+                  type="date"
+                  value={newDeadline.date}
+                  onChange={(e) => setNewDeadline({ ...newDeadline, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                />
+              </div>
+              <div className="flex-[2]">
+                <label className="block text-xs text-slate-500 mb-1">Description *</label>
+                <input
+                  type="text"
+                  value={newDeadline.description}
+                  onChange={(e) => setNewDeadline({ ...newDeadline, description: e.target.value })}
+                  placeholder="e.g., Discovery cutoff"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                />
+              </div>
             </div>
-            <div className="flex-[2]">
-              <label className="block text-xs text-slate-500 mb-1">Description</label>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Calculation Note</label>
               <input
                 type="text"
-                value={newDeadline.description}
-                onChange={(e) => setNewDeadline({ ...newDeadline, description: e.target.value })}
-                placeholder="e.g., Discovery cutoff"
+                value={newDeadline.calculation_note}
+                onChange={(e) => setNewDeadline({ ...newDeadline, calculation_note: e.target.value })}
+                placeholder="e.g., 30 days from service date"
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
               />
             </div>
-            <button
-              type="submit"
-              disabled={createMutation.isPending || !newDeadline.date || !newDeadline.description.trim()}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-            >
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsAdding(false)}
-              className="px-4 py-2 text-slate-600 rounded-lg text-sm"
-            >
-              Cancel
-            </button>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAdding(false)}
+                className="px-4 py-2 text-slate-600 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending || !newDeadline.date || !newDeadline.description.trim()}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                Add Deadline
+              </button>
+            </div>
           </form>
         ) : (
           <button
@@ -594,33 +989,80 @@ function DeadlinesTab({
           <div className="p-8 text-center text-slate-500">No deadlines</div>
         ) : (
           deadlines.map((deadline) => (
-            <div
-              key={deadline.id}
-              className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50"
-            >
-              <EditableDate
-                value={deadline.date}
-                onSave={(value) =>
-                  updateMutation.mutateAsync({ id: deadline.id, data: { date: value || undefined } })
-                }
-              />
-              <div className="flex-1 min-w-0">
-                <EditableText
-                  value={deadline.description}
+            <div key={deadline.id} className="hover:bg-slate-50">
+              <div className="px-4 py-3 flex items-center gap-4">
+                <button
+                  onClick={() => setExpandedId(expandedId === deadline.id ? null : deadline.id)}
+                  className="p-1 text-slate-400 hover:text-slate-600"
+                >
+                  {expandedId === deadline.id ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
+                <EditableDate
+                  value={deadline.date}
                   onSave={(value) =>
-                    updateMutation.mutateAsync({ id: deadline.id, data: { description: value } })
+                    updateMutation.mutateAsync({ id: deadline.id, data: { date: value || undefined } })
                   }
-                  className="text-sm"
                 />
+                <div className="flex-1 min-w-0">
+                  <EditableText
+                    value={deadline.description}
+                    onSave={(value) =>
+                      updateMutation.mutateAsync({ id: deadline.id, data: { description: value } })
+                    }
+                    className="text-sm"
+                  />
+                </div>
+                <StatusBadge status={deadline.status} />
+                <UrgencyBadge urgency={deadline.urgency} />
+                {deadline.document_link && (
+                  <a
+                    href={deadline.document_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 text-primary-500 hover:text-primary-600"
+                    title="View document"
+                  >
+                    <Link className="w-4 h-4" />
+                  </a>
+                )}
+                <button
+                  onClick={() => deleteMutation.mutate(deadline.id)}
+                  className="p-1 text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <StatusBadge status={deadline.status} />
-              <UrgencyBadge urgency={deadline.urgency} />
-              <button
-                onClick={() => deleteMutation.mutate(deadline.id)}
-                className="p-1 text-slate-400 hover:text-red-500"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {/* Expanded Details */}
+              {expandedId === deadline.id && (
+                <div className="px-4 pb-3 pl-12 space-y-2">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Document Link</label>
+                    <EditableText
+                      value={deadline.document_link || ''}
+                      onSave={(value) =>
+                        updateMutation.mutateAsync({ id: deadline.id, data: { document_link: value || undefined } })
+                      }
+                      placeholder="Enter URL to related document"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Calculation Note</label>
+                    <EditableText
+                      value={deadline.calculation_note || ''}
+                      onSave={(value) =>
+                        updateMutation.mutateAsync({ id: deadline.id, data: { calculation_note: value || undefined } })
+                      }
+                      placeholder="e.g., 30 days from service date"
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -719,6 +1161,155 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+// Case Numbers Section Component
+function CaseNumbersSection({
+  caseId,
+  caseNumbers,
+}: {
+  caseId: number;
+  caseNumbers: CaseNumber[];
+}) {
+  const queryClient = useQueryClient();
+  const [showAdd, setShowAdd] = useState(false);
+  const [newNumber, setNewNumber] = useState({ number: '', label: '', primary: false });
+
+  const updateMutation = useMutation({
+    mutationFn: (numbers: CaseNumber[]) => updateCase(caseId, { case_numbers: numbers }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+    },
+  });
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newNumber.number.trim()) {
+      const updated = [
+        ...caseNumbers.map((n) => (newNumber.primary ? { ...n, primary: false } : n)),
+        { number: newNumber.number.trim(), label: newNumber.label.trim() || 'Case No.', primary: newNumber.primary },
+      ];
+      updateMutation.mutate(updated);
+      setNewNumber({ number: '', label: '', primary: false });
+      setShowAdd(false);
+    }
+  };
+
+  const handleRemove = (index: number) => {
+    const updated = caseNumbers.filter((_, i) => i !== index);
+    updateMutation.mutate(updated);
+  };
+
+  const handleSetPrimary = (index: number) => {
+    const updated = caseNumbers.map((n, i) => ({ ...n, primary: i === index }));
+    updateMutation.mutate(updated);
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-slate-100">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Hash className="w-4 h-4 text-slate-500" />
+          <span className="text-sm font-medium text-slate-700">Case Numbers</span>
+        </div>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3" />
+          Add
+        </button>
+      </div>
+
+      {showAdd && (
+        <form onSubmit={handleAdd} className="mb-3 p-2 bg-slate-50 rounded-lg space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newNumber.number}
+              onChange={(e) => setNewNumber({ ...newNumber, number: e.target.value })}
+              placeholder="Case number *"
+              className="flex-1 px-2 py-1 rounded border border-slate-200 text-sm focus:border-primary-500 outline-none"
+            />
+            <input
+              type="text"
+              value={newNumber.label}
+              onChange={(e) => setNewNumber({ ...newNumber, label: e.target.value })}
+              placeholder="Label (e.g., State)"
+              className="w-28 px-2 py-1 rounded border border-slate-200 text-sm focus:border-primary-500 outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={newNumber.primary}
+                onChange={(e) => setNewNumber({ ...newNumber, primary: e.target.checked })}
+                className="rounded border-slate-300"
+              />
+              Primary
+            </label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                className="px-2 py-1 text-xs text-slate-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending || !newNumber.number.trim()}
+                className="px-2 py-1 bg-primary-600 text-white rounded text-xs disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {caseNumbers.length === 0 && !showAdd ? (
+        <p className="text-xs text-slate-400">No case numbers</p>
+      ) : (
+        <div className="space-y-1">
+          {caseNumbers.map((cn, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between p-1.5 bg-slate-50 rounded group text-sm"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-slate-700">{cn.number}</span>
+                {cn.label && (
+                  <span className="text-xs text-slate-400">({cn.label})</span>
+                )}
+                {cn.primary && (
+                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                )}
+              </div>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!cn.primary && (
+                  <button
+                    onClick={() => handleSetPrimary(index)}
+                    title="Set as primary"
+                    className="p-0.5 text-slate-400 hover:text-amber-500"
+                  >
+                    <Star className="w-3 h-3" />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleRemove(index)}
+                  className="p-0.5 text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

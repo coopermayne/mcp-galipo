@@ -27,7 +27,19 @@ CONTACT_ROLES = [
 ]
 
 TASK_STATUSES = [
-    "Pending", "Active", "Done", "Partially Complete", "Blocked", "Awaiting Atty Review"
+    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+]
+
+COURT_OPTIONS = [
+    # California Federal Courts
+    "C.D. Cal.", "E.D. Cal.", "N.D. Cal.", "S.D. Cal.",
+    # California State Courts
+    "Superior Court - Los Angeles", "Superior Court - Orange", "Superior Court - San Diego",
+    "Superior Court - Riverside", "Superior Court - San Bernardino", "Superior Court - Ventura",
+    "Superior Court - Santa Barbara", "Superior Court - Kern", "Superior Court - San Francisco",
+    "Superior Court - Alameda", "Superior Court - Santa Clara", "Superior Court - Sacramento",
+    # Other
+    "Other"
 ]
 
 ACTIVITY_TYPES = [
@@ -2032,6 +2044,15 @@ def get_all_clients() -> List[dict]:
                 r["created_at"] = str(r["created_at"])
             results.append(r)
         return results
+
+
+def get_all_defendants() -> List[dict]:
+    """Get all defendants."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT id, name FROM defendants ORDER BY name
+        """)
+        return [dict(row) for row in cur.fetchall()]
 
 
 def update_client(client_id: int, name: str = None, phone: str = None,

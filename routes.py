@@ -93,11 +93,12 @@ def register_routes(mcp):
 
     @mcp.custom_route("/api/v1/constants", methods=["GET"])
     async def api_constants(request):
-        """Get system constants (statuses, roles, etc.)."""
+        """Get system constants (statuses, roles, courts, etc.)."""
         return JSONResponse({
             "case_statuses": db.CASE_STATUSES,
             "contact_roles": db.CONTACT_ROLES,
-            "task_statuses": db.TASK_STATUSES
+            "task_statuses": db.TASK_STATUSES,
+            "courts": db.COURT_OPTIONS
         })
 
     # ===== CASE ROUTES =====
@@ -290,6 +291,157 @@ def register_routes(mcp):
         if db.delete_note(note_id):
             return JSONResponse({"success": True})
         return api_error("Note not found", "NOT_FOUND", 404)
+
+    # ===== CASE RELATIONSHIP ROUTES =====
+
+    # --- Clients ---
+    @mcp.custom_route("/api/v1/clients", methods=["GET"])
+    async def api_list_clients(request):
+        """List all clients."""
+        result = db.get_all_clients()
+        return JSONResponse({"clients": result})
+
+    @mcp.custom_route("/api/v1/clients", methods=["POST"])
+    async def api_create_client(request):
+        """Create a new client."""
+        data = await request.json()
+        result = db.create_client(
+            data["name"],
+            data.get("phone"),
+            data.get("email"),
+            data.get("address"),
+            data.get("notes")
+        )
+        return JSONResponse({"success": True, "client": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/clients", methods=["POST"])
+    async def api_link_client_to_case(request):
+        """Link a client to a case."""
+        case_id = int(request.path_params["case_id"])
+        data = await request.json()
+        # If client_id provided, link existing client
+        if data.get("client_id"):
+            result = db.link_existing_client_to_case(
+                case_id,
+                data["client_id"],
+                data.get("contact_directly", True),
+                data.get("contact_via_id"),
+                data.get("contact_via_relationship"),
+                data.get("is_primary", False),
+                data.get("notes")
+            )
+        else:
+            # Create new client and link
+            client = db.create_client(
+                data["name"],
+                data.get("phone"),
+                data.get("email"),
+                data.get("address"),
+                data.get("notes")
+            )
+            result = db.add_client_to_case(
+                case_id,
+                client["id"],
+                data.get("contact_directly", True),
+                data.get("contact_via_id"),
+                data.get("contact_via_relationship"),
+                data.get("is_primary", False)
+            )
+        return JSONResponse({"success": True, "result": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/clients/{client_id}", methods=["DELETE"])
+    async def api_unlink_client_from_case(request):
+        """Remove a client from a case."""
+        case_id = int(request.path_params["case_id"])
+        client_id = int(request.path_params["client_id"])
+        if db.remove_client_from_case(case_id, client_id):
+            return JSONResponse({"success": True})
+        return api_error("Client not linked to case", "NOT_FOUND", 404)
+
+    # --- Defendants ---
+    @mcp.custom_route("/api/v1/defendants", methods=["GET"])
+    async def api_list_defendants(request):
+        """List all defendants."""
+        result = db.get_all_defendants()
+        return JSONResponse({"defendants": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/defendants", methods=["POST"])
+    async def api_add_defendant_to_case(request):
+        """Add a defendant to a case."""
+        case_id = int(request.path_params["case_id"])
+        data = await request.json()
+        result = db.add_defendant_to_case(case_id, data["name"])
+        return JSONResponse({"success": True, "defendant": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/defendants/{defendant_id}", methods=["DELETE"])
+    async def api_remove_defendant_from_case(request):
+        """Remove a defendant from a case."""
+        case_id = int(request.path_params["case_id"])
+        defendant_id = int(request.path_params["defendant_id"])
+        if db.remove_defendant_from_case(case_id, defendant_id):
+            return JSONResponse({"success": True})
+        return api_error("Defendant not linked to case", "NOT_FOUND", 404)
+
+    # --- Contacts ---
+    @mcp.custom_route("/api/v1/contacts", methods=["GET"])
+    async def api_list_contacts(request):
+        """List all contacts."""
+        result = db.get_all_contacts()
+        return JSONResponse({"contacts": result})
+
+    @mcp.custom_route("/api/v1/contacts", methods=["POST"])
+    async def api_create_contact(request):
+        """Create a new contact."""
+        data = await request.json()
+        result = db.create_contact(
+            data["name"],
+            data.get("firm"),
+            data.get("phone"),
+            data.get("email"),
+            data.get("address"),
+            data.get("notes")
+        )
+        return JSONResponse({"success": True, "contact": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/contacts", methods=["POST"])
+    async def api_link_contact_to_case(request):
+        """Link a contact to a case with a role."""
+        case_id = int(request.path_params["case_id"])
+        data = await request.json()
+        # If contact_id provided, link existing contact
+        if data.get("contact_id"):
+            result = db.link_contact_to_case(
+                case_id,
+                data["contact_id"],
+                data["role"],
+                data.get("notes")
+            )
+        else:
+            # Create new contact and link
+            contact = db.create_contact(
+                data["name"],
+                data.get("firm"),
+                data.get("phone"),
+                data.get("email"),
+                data.get("address"),
+                data.get("notes")
+            )
+            result = db.link_contact_to_case(
+                case_id,
+                contact["id"],
+                data["role"]
+            )
+        return JSONResponse({"success": True, "result": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/contacts/{contact_id}", methods=["DELETE"])
+    async def api_unlink_contact_from_case(request):
+        """Remove a contact from a case."""
+        case_id = int(request.path_params["case_id"])
+        contact_id = int(request.path_params["contact_id"])
+        role = request.query_params.get("role")
+        if db.remove_contact_from_case(case_id, contact_id, role):
+            return JSONResponse({"success": True})
+        return api_error("Contact not linked to case", "NOT_FOUND", 404)
 
     # ===== REACT SPA ROUTES (must be last!) =====
 

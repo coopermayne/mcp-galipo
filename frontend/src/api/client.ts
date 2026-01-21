@@ -200,5 +200,79 @@ export async function deleteNote(noteId: number): Promise<{ success: boolean }> 
   });
 }
 
+// Clients
+export async function getClients(): Promise<{ clients: { id: number; name: string; phone?: string; email?: string }[] }> {
+  return request('/clients');
+}
+
+export async function addClientToCase(
+  caseId: number,
+  data: { name: string; phone?: string; email?: string; is_primary?: boolean } | { client_id: number; is_primary?: boolean }
+): Promise<{ success: boolean }> {
+  return request(`/cases/${caseId}/clients`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeClientFromCase(
+  caseId: number,
+  clientId: number
+): Promise<{ success: boolean }> {
+  return request(`/cases/${caseId}/clients/${clientId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Defendants
+export async function getDefendants(): Promise<{ defendants: { id: number; name: string }[] }> {
+  return request('/defendants');
+}
+
+export async function addDefendantToCase(
+  caseId: number,
+  name: string
+): Promise<{ success: boolean; defendant: { id: number; name: string } }> {
+  return request(`/cases/${caseId}/defendants`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function removeDefendantFromCase(
+  caseId: number,
+  defendantId: number
+): Promise<{ success: boolean }> {
+  return request(`/cases/${caseId}/defendants/${defendantId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Contacts
+export async function getContacts(): Promise<{ contacts: { id: number; name: string; firm?: string; phone?: string; email?: string }[] }> {
+  return request('/contacts');
+}
+
+export async function addContactToCase(
+  caseId: number,
+  data: { name: string; firm?: string; phone?: string; email?: string; role: string } | { contact_id: number; role: string }
+): Promise<{ success: boolean }> {
+  return request(`/cases/${caseId}/contacts`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeContactFromCase(
+  caseId: number,
+  contactId: number,
+  role?: string
+): Promise<{ success: boolean }> {
+  const query = role ? `?role=${encodeURIComponent(role)}` : '';
+  return request(`/cases/${caseId}/contacts/${contactId}${query}`, {
+    method: 'DELETE',
+  });
+}
+
 // Export error class for type checking
 export { ApiError };
