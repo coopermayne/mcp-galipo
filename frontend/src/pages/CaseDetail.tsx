@@ -2181,11 +2181,6 @@ function StarredDeadlines({
     return null;
   }
 
-  const formatDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return isValid(date) ? format(date, 'MMM d, yyyy') : dateStr;
-  };
-
   return (
     <>
       {starredDeadlines.map((deadline) => (
@@ -2196,9 +2191,12 @@ function StarredDeadlines({
               ? deadline.description.substring(0, 20) + '...'
               : deadline.description}
           </span>
-          <span className="text-sm text-slate-900 dark:text-slate-100">
-            {formatDate(deadline.date)}
-          </span>
+          <EditableDate
+            value={deadline.date}
+            onSave={async () => {}}
+            disabled
+            className="text-sm"
+          />
         </div>
       ))}
     </>
