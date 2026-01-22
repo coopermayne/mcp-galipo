@@ -29,16 +29,16 @@ import {
   updateTask,
   deleteTask,
   reorderTask,
-  createDeadline,
-  updateDeadline,
-  deleteDeadline,
+  createEvent,
+  updateEvent,
+  deleteEvent,
   createNote,
   deleteNote,
   createPerson,
   assignPersonToCase,
   removePersonFromCase,
 } from '../api/client';
-import type { Case, Task, Deadline, Note, Constants, CaseNumber, Jurisdiction, TaskStatus } from '../types';
+import type { Case, Task, Event, Note, Constants, CaseNumber, Jurisdiction, TaskStatus } from '../types';
 import {
   Loader2,
   Trash2,
@@ -65,7 +65,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 
-type TabType = 'overview' | 'tasks' | 'deadlines' | 'notes' | 'settings';
+type TabType = 'overview' | 'tasks' | 'events' | 'notes' | 'settings';
 
 export function CaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -148,7 +148,7 @@ export function CaseDetail() {
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: FileText },
     { id: 'tasks' as TabType, label: 'Tasks', icon: CheckSquare, count: caseData.tasks?.length },
-    { id: 'deadlines' as TabType, label: 'Deadlines', icon: Clock, count: caseData.deadlines?.length },
+    { id: 'events' as TabType, label: 'Events', icon: Clock, count: caseData.events?.length },
     { id: 'notes' as TabType, label: 'Notes', icon: StickyNote, count: caseData.notes?.length },
     { id: 'settings' as TabType, label: 'Settings', icon: Settings },
   ];
@@ -229,9 +229,9 @@ export function CaseDetail() {
           <TasksTab caseId={caseId} tasks={caseData.tasks || []} constants={constants} />
         </PageContent>
       )}
-      {activeTab === 'deadlines' && (
+      {activeTab === 'events' && (
         <PageContent>
-          <DeadlinesTab caseId={caseId} deadlines={caseData.deadlines || []} />
+          <EventsTab caseId={caseId} events={caseData.events || []} />
         </PageContent>
       )}
       {activeTab === 'notes' && (
@@ -255,7 +255,7 @@ export function CaseDetail() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDelete}
         title="Delete Case"
-        message={`Are you sure you want to delete "${caseData.case_name}"? This will permanently remove the case and all associated tasks, deadlines, and notes. This action cannot be undone.`}
+        message={`Are you sure you want to delete "${caseData.case_name}"? This will permanently remove the case and all associated tasks, events, and notes. This action cannot be undone.`}
         confirmText="Delete Case"
         variant="danger"
         isLoading={deleteCaseMutation.isPending}
@@ -569,14 +569,14 @@ function OverviewTab({
         />
       </div>
 
-      {/* Important Dates & Starred Deadlines */}
+      {/* Important Dates & Starred Events */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-4 h-4 text-slate-400" />
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">Key Dates</h3>
         </div>
         <div className="space-y-3">
-          {/* Date of Injury - styled like starred deadlines */}
+          {/* Date of Injury - styled like starred events */}
           <div className="flex items-center gap-4">
             <span className="text-sm text-slate-400 w-32 shrink-0">Date of Injury</span>
             <EditableDate
@@ -586,8 +586,8 @@ function OverviewTab({
               className="text-sm"
             />
           </div>
-          {/* Starred Deadlines */}
-          <StarredDeadlines deadlines={caseData.deadlines || []} />
+          {/* Starred Events */}
+          <StarredEvents events={caseData.events || []} />
         </div>
       </div>
 
@@ -1535,54 +1535,54 @@ function DroppableTaskGroup({
   );
 }
 
-// Deadlines Tab Component
-function DeadlinesTab({
+// Events Tab Component
+function EventsTab({
   caseId,
-  deadlines,
+  events,
 }: {
   caseId: number;
-  deadlines: Deadline[];
+  events: Event[];
 }) {
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [newDeadline, setNewDeadline] = useState({ date: '', description: '', calculation_note: '', starred: false });
+  const [newEvent, setNewEvent] = useState({ date: '', description: '', calculation_note: '', starred: false });
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createDeadline({
+      createEvent({
         case_id: caseId,
-        date: newDeadline.date,
-        description: newDeadline.description,
-        calculation_note: newDeadline.calculation_note || undefined,
-        starred: newDeadline.starred,
+        date: newEvent.date,
+        description: newEvent.description,
+        calculation_note: newEvent.calculation_note || undefined,
+        starred: newEvent.starred,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setNewDeadline({ date: '', description: '', calculation_note: '', starred: false });
+      setNewEvent({ date: '', description: '', calculation_note: '', starred: false });
       setIsAdding(false);
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Deadline> }) =>
-      updateDeadline(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) =>
+      updateEvent(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteDeadline(id),
+    mutationFn: (id: number) => deleteEvent(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       setDeleteTarget(null);
     },
   });
 
-  const handleDelete = useCallback((deadline: Deadline) => {
-    setDeleteTarget({ id: deadline.id, description: deadline.description });
+  const handleDelete = useCallback((event: Event) => {
+    setDeleteTarget({ id: event.id, description: event.description });
   }, []);
 
   const confirmDelete = useCallback(() => {
@@ -1593,7 +1593,7 @@ function DeadlinesTab({
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newDeadline.date && newDeadline.description.trim()) {
+    if (newEvent.date && newEvent.description.trim()) {
       createMutation.mutate();
     }
   };
@@ -1609,8 +1609,8 @@ function DeadlinesTab({
                 <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Date *</label>
                 <input
                   type="date"
-                  value={newDeadline.date}
-                  onChange={(e) => setNewDeadline({ ...newDeadline, date: e.target.value })}
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm"
                 />
               </div>
@@ -1618,8 +1618,8 @@ function DeadlinesTab({
                 <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Description *</label>
                 <input
                   type="text"
-                  value={newDeadline.description}
-                  onChange={(e) => setNewDeadline({ ...newDeadline, description: e.target.value })}
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
                   placeholder="e.g., Discovery cutoff"
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm"
                 />
@@ -1629,8 +1629,8 @@ function DeadlinesTab({
               <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Calculation Note</label>
               <input
                 type="text"
-                value={newDeadline.calculation_note}
-                onChange={(e) => setNewDeadline({ ...newDeadline, calculation_note: e.target.value })}
+                value={newEvent.calculation_note}
+                onChange={(e) => setNewEvent({ ...newEvent, calculation_note: e.target.value })}
                 placeholder="e.g., 30 days from service date"
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm"
               />
@@ -1639,8 +1639,8 @@ function DeadlinesTab({
               <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <input
                   type="checkbox"
-                  checked={newDeadline.starred}
-                  onChange={(e) => setNewDeadline({ ...newDeadline, starred: e.target.checked })}
+                  checked={newEvent.starred}
+                  onChange={(e) => setNewEvent({ ...newEvent, starred: e.target.checked })}
                   className="rounded border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-700"
                 />
                 <Star className="w-3 h-3 text-amber-500" />
@@ -1657,10 +1657,10 @@ function DeadlinesTab({
               </button>
               <button
                 type="submit"
-                disabled={createMutation.isPending || !newDeadline.date || !newDeadline.description.trim()}
+                disabled={createMutation.isPending || !newEvent.date || !newEvent.description.trim()}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
               >
-                Add Deadline
+                Add Event
               </button>
             </div>
           </form>
@@ -1670,24 +1670,24 @@ function DeadlinesTab({
             className="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
           >
             <Plus className="w-4 h-4" />
-            Add Deadline
+            Add Event
           </button>
         )}
       </div>
 
-      {/* Deadline List */}
+      {/* Event List */}
       <div className="divide-y divide-slate-200 dark:divide-slate-700">
-        {deadlines.length === 0 ? (
-          <div className="p-8 text-center text-slate-400">No deadlines</div>
+        {events.length === 0 ? (
+          <div className="p-8 text-center text-slate-400">No events</div>
         ) : (
-          deadlines.map((deadline) => (
-            <div key={deadline.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+          events.map((event) => (
+            <div key={event.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
               <div className="px-4 py-3 flex items-center gap-4">
                 <button
-                  onClick={() => setExpandedId(expandedId === deadline.id ? null : deadline.id)}
+                  onClick={() => setExpandedId(expandedId === event.id ? null : event.id)}
                   className="p-1 text-slate-500 hover:text-slate-300"
                 >
-                  {expandedId === deadline.id ? (
+                  {expandedId === event.id ? (
                     <ChevronUp className="w-4 h-4" />
                   ) : (
                     <ChevronDown className="w-4 h-4" />
@@ -1695,31 +1695,31 @@ function DeadlinesTab({
                 </button>
                 <button
                   onClick={() =>
-                    updateMutation.mutate({ id: deadline.id, data: { starred: !deadline.starred } })
+                    updateMutation.mutate({ id: event.id, data: { starred: !event.starred } })
                   }
-                  className={`p-1 ${deadline.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                  title={deadline.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
+                  className={`p-1 ${event.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                  title={event.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
                 >
-                  <Star className={`w-4 h-4 ${deadline.starred ? 'fill-amber-500' : ''}`} />
+                  <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
                 </button>
                 <EditableDate
-                  value={deadline.date}
+                  value={event.date}
                   onSave={(value) =>
-                    updateMutation.mutateAsync({ id: deadline.id, data: { date: value || undefined } })
+                    updateMutation.mutateAsync({ id: event.id, data: { date: value || undefined } })
                   }
                 />
                 <div className="flex-1 min-w-0">
                   <EditableText
-                    value={deadline.description}
+                    value={event.description}
                     onSave={(value) =>
-                      updateMutation.mutateAsync({ id: deadline.id, data: { description: value } })
+                      updateMutation.mutateAsync({ id: event.id, data: { description: value } })
                     }
                     className="text-sm"
                   />
                 </div>
-                {deadline.document_link && (
+                {event.document_link && (
                   <a
-                    href={deadline.document_link}
+                    href={event.document_link}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1 text-primary-400 hover:text-primary-300"
@@ -1729,21 +1729,21 @@ function DeadlinesTab({
                   </a>
                 )}
                 <button
-                  onClick={() => handleDelete(deadline)}
+                  onClick={() => handleDelete(event)}
                   className="p-1 text-slate-500 hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
               {/* Expanded Details */}
-              {expandedId === deadline.id && (
+              {expandedId === event.id && (
                 <div className="px-4 pb-3 pl-12 space-y-2">
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Document Link</label>
                     <EditableText
-                      value={deadline.document_link || ''}
+                      value={event.document_link || ''}
                       onSave={(value) =>
-                        updateMutation.mutateAsync({ id: deadline.id, data: { document_link: value || undefined } })
+                        updateMutation.mutateAsync({ id: event.id, data: { document_link: value || undefined } })
                       }
                       placeholder="Enter URL to related document"
                       className="text-sm"
@@ -1752,9 +1752,9 @@ function DeadlinesTab({
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Calculation Note</label>
                     <EditableText
-                      value={deadline.calculation_note || ''}
+                      value={event.calculation_note || ''}
                       onSave={(value) =>
-                        updateMutation.mutateAsync({ id: deadline.id, data: { calculation_note: value || undefined } })
+                        updateMutation.mutateAsync({ id: event.id, data: { calculation_note: value || undefined } })
                       }
                       placeholder="e.g., 30 days from service date"
                       className="text-sm"
@@ -1771,9 +1771,9 @@ function DeadlinesTab({
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Delete Deadline"
+        title="Delete Event"
         message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
-        confirmText="Delete Deadline"
+        confirmText="Delete Event"
         variant="danger"
         isLoading={deleteMutation.isPending}
       />
@@ -2164,33 +2164,33 @@ function CaseNumbersSection({
   );
 }
 
-// Starred Deadlines Component - shows starred deadlines in the Key Dates section
-function StarredDeadlines({
-  deadlines,
+// Starred Events Component - shows starred events in the Key Dates section
+function StarredEvents({
+  events,
 }: {
-  deadlines: Deadline[];
+  events: Event[];
 }) {
-  const starredDeadlines = useMemo(
-    () => deadlines.filter(d => d.starred),
-    [deadlines]
+  const starredEvents = useMemo(
+    () => events.filter(e => e.starred),
+    [events]
   );
 
-  if (starredDeadlines.length === 0) {
+  if (starredEvents.length === 0) {
     return null;
   }
 
   return (
     <>
-      {starredDeadlines.map((deadline) => (
-        <div key={deadline.id} className="flex items-center gap-4">
+      {starredEvents.map((event) => (
+        <div key={event.id} className="flex items-center gap-4">
           <span className="text-sm text-slate-400 w-32 shrink-0 flex items-center gap-1">
             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-            {deadline.description.length > 20
-              ? deadline.description.substring(0, 20) + '...'
-              : deadline.description}
+            {event.description.length > 20
+              ? event.description.substring(0, 20) + '...'
+              : event.description}
           </span>
           <EditableDate
-            value={deadline.date}
+            value={event.date}
             onSave={async () => {}}
             disabled
             className="text-sm"

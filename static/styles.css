@@ -694,7 +694,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     gap: 0.5rem;
 }
 
-/* Item Cards (Tasks, Deadlines) */
+/* Item Cards (Tasks, Events) */
 .item-card {
     background: var(--card-bg);
     border-radius: var(--radius);

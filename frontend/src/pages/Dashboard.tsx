@@ -11,8 +11,8 @@ import {
   ListPanel,
   ConfirmModal,
 } from '../components/common';
-import { getStats, getTasks, getDeadlines, getConstants, updateTask, deleteTask, updateDeadline, deleteDeadline } from '../api/client';
-import type { Task, Deadline } from '../types';
+import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent } from '../api/client';
+import type { Task, Event } from '../types';
 import {
   Briefcase,
   CheckSquare,
@@ -40,7 +40,7 @@ const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColo
 export function Dashboard() {
   const queryClient = useQueryClient();
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
-  const [deleteDeadlineTarget, setDeleteDeadlineTarget] = useState<number | null>(null);
+  const [deleteEventTarget, setDeleteEventTarget] = useState<number | null>(null);
 
   // Test dates for date format testing (remove after testing)
   const [testDate1, setTestDate1] = useState<string | null>('2026-02-16');
@@ -57,9 +57,9 @@ export function Dashboard() {
     queryFn: () => getTasks({ limit: 10 }),
   });
 
-  const { data: deadlinesData, isLoading: deadlinesLoading } = useQuery({
-    queryKey: ['dashboard-deadlines'],
-    queryFn: () => getDeadlines({ limit: 10 }),
+  const { data: eventsData, isLoading: eventsLoading } = useQuery({
+    queryKey: ['dashboard-events'],
+    queryFn: () => getEvents({ limit: 10 }),
   });
 
   const { data: constants } = useQuery({
@@ -85,20 +85,20 @@ export function Dashboard() {
     },
   });
 
-  const updateDeadlineMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Deadline> }) => updateDeadline(id, data),
+  const updateEventMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-deadlines'] });
-      queryClient.invalidateQueries({ queryKey: ['deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 
-  const deleteDeadlineMutation = useMutation({
-    mutationFn: (id: number) => deleteDeadline(id),
+  const deleteEventMutation = useMutation({
+    mutationFn: (id: number) => deleteEvent(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-deadlines'] });
-      queryClient.invalidateQueries({ queryKey: ['deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
@@ -124,26 +124,26 @@ export function Dashboard() {
     }
   }, [deleteTaskTarget, deleteTaskMutation]);
 
-  const handleUpdateDeadline = useCallback(
-    async (deadlineId: number, field: string, value: any) => {
-      await updateDeadlineMutation.mutateAsync({ id: deadlineId, data: { [field]: value } });
+  const handleUpdateEvent = useCallback(
+    async (eventId: number, field: string, value: any) => {
+      await updateEventMutation.mutateAsync({ id: eventId, data: { [field]: value } });
     },
-    [updateDeadlineMutation]
+    [updateEventMutation]
   );
 
-  const handleDeleteDeadline = useCallback(
-    (deadlineId: number) => {
-      setDeleteDeadlineTarget(deadlineId);
+  const handleDeleteEvent = useCallback(
+    (eventId: number) => {
+      setDeleteEventTarget(eventId);
     },
     []
   );
 
-  const confirmDeleteDeadline = useCallback(() => {
-    if (deleteDeadlineTarget) {
-      deleteDeadlineMutation.mutate(deleteDeadlineTarget);
-      setDeleteDeadlineTarget(null);
+  const confirmDeleteEvent = useCallback(() => {
+    if (deleteEventTarget) {
+      deleteEventMutation.mutate(deleteEventTarget);
+      setDeleteEventTarget(null);
     }
-  }, [deleteDeadlineTarget, deleteDeadlineMutation]);
+  }, [deleteEventTarget, deleteEventMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map((s) => ({
     value: s,
@@ -160,12 +160,12 @@ export function Dashboard() {
   // Filter to only show non-completed tasks
   const pendingTasks = tasksData?.tasks.filter(t => t.status !== 'Done') || [];
 
-  // Filter to only show upcoming deadlines (not overdue)
+  // Filter to only show upcoming events (not overdue)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcomingDeadlines = deadlinesData?.deadlines.filter(d => {
-    const deadlineDate = parseISO(d.date);
-    return isValid(deadlineDate) && deadlineDate >= today;
+  const upcomingEvents = eventsData?.events.filter(e => {
+    const eventDate = parseISO(e.date);
+    return isValid(eventDate) && eventDate >= today;
   }) || [];
 
   return (
@@ -199,11 +199,11 @@ export function Dashboard() {
             variant="warning"
           />
           <StatCard
-            title="Upcoming Deadlines"
-            value={stats?.upcoming_deadlines ?? '-'}
+            title="Upcoming Events"
+            value={stats?.upcoming_events ?? '-'}
             icon={Clock}
             loading={statsLoading}
-            href="/deadlines"
+            href="/calendar"
             variant="danger"
           />
         </div>
@@ -354,46 +354,46 @@ export function Dashboard() {
             </ListPanel>
           </div>
 
-          {/* Upcoming Deadlines */}
+          {/* Upcoming Events */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Deadlines</h2>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Events</h2>
               <Link
-                to="/deadlines"
+                to="/calendar"
                 className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
               >
                 View all <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
             <ListPanel>
-              {deadlinesLoading ? (
+              {eventsLoading ? (
                 <ListPanel.Loading />
-              ) : upcomingDeadlines.length === 0 ? (
-                <ListPanel.Empty message="No upcoming deadlines" />
+              ) : upcomingEvents.length === 0 ? (
+                <ListPanel.Empty message="No upcoming events" />
               ) : (
                 <ListPanel.Body>
-                  {upcomingDeadlines.slice(0, 8).map((deadline) => (
-                    <ListPanel.Row key={deadline.id}>
+                  {upcomingEvents.slice(0, 8).map((event) => (
+                    <ListPanel.Row key={event.id}>
                       <Link
-                        to={`/cases/${deadline.case_id}`}
-                        className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(deadline.case_id)}`}
-                        title={deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
+                        to={`/cases/${event.case_id}`}
+                        className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(event.case_id)}`}
+                        title={event.short_name || event.case_name || `Case #${event.case_id}`}
                       >
-                        {deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
+                        {event.short_name || event.case_name || `Case #${event.case_id}`}
                       </Link>
                       <div className="flex-1 min-w-0">
                         <EditableText
-                          value={deadline.description}
-                          onSave={(value) => handleUpdateDeadline(deadline.id, 'description', value)}
+                          value={event.description}
+                          onSave={(value) => handleUpdateEvent(event.id, 'description', value)}
                           className="text-sm"
                         />
                       </div>
                       <EditableDate
-                        value={deadline.date}
-                        onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
+                        value={event.date}
+                        onSave={(value) => handleUpdateEvent(event.id, 'date', value)}
                       />
                       <button
-                        onClick={() => handleDeleteDeadline(deadline.id)}
+                        onClick={() => handleDeleteEvent(event.id)}
                         className="p-1 text-slate-500 hover:text-red-400"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -419,14 +419,14 @@ export function Dashboard() {
       />
 
       <ConfirmModal
-        isOpen={!!deleteDeadlineTarget}
-        onClose={() => setDeleteDeadlineTarget(null)}
-        onConfirm={confirmDeleteDeadline}
-        title="Delete Deadline"
-        message="Are you sure you want to delete this deadline?"
-        confirmText="Delete Deadline"
+        isOpen={!!deleteEventTarget}
+        onClose={() => setDeleteEventTarget(null)}
+        onConfirm={confirmDeleteEvent}
+        title="Delete Event"
+        message="Are you sure you want to delete this event?"
+        confirmText="Delete Event"
         variant="danger"
-        isLoading={deleteDeadlineMutation.isPending}
+        isLoading={deleteEventMutation.isPending}
       />
     </>
   );

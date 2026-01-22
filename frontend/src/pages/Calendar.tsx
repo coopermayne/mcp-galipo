@@ -8,8 +8,8 @@ import {
   ListPanel,
   ConfirmModal,
 } from '../components/common';
-import { getDeadlines, updateDeadline, deleteDeadline } from '../api/client';
-import type { Deadline } from '../types';
+import { getEvents, updateEvent, deleteEvent } from '../api/client';
+import type { Event } from '../types';
 import { Trash2, Search, Star } from 'lucide-react';
 
 // Deterministic color mapping for case badges
@@ -26,43 +26,43 @@ const caseColorClasses = [
 
 const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColorClasses.length];
 
-export function Deadlines() {
+export function Calendar() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
-  const { data: deadlinesData, isLoading } = useQuery({
-    queryKey: ['deadlines'],
-    queryFn: () => getDeadlines(),
+  const { data: eventsData, isLoading } = useQuery({
+    queryKey: ['events'],
+    queryFn: () => getEvents(),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Deadline> }) =>
-      updateDeadline(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) =>
+      updateEvent(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteDeadline(id),
+    mutationFn: (id: number) => deleteEvent(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 
   const handleUpdate = useCallback(
-    async (deadlineId: number, field: string, value: any) => {
-      await updateMutation.mutateAsync({ id: deadlineId, data: { [field]: value } });
+    async (eventId: number, field: string, value: any) => {
+      await updateMutation.mutateAsync({ id: eventId, data: { [field]: value } });
     },
     [updateMutation]
   );
 
   const handleDelete = useCallback(
-    (deadlineId: number) => {
-      setDeleteTarget(deadlineId);
+    (eventId: number) => {
+      setDeleteTarget(eventId);
     },
     []
   );
@@ -74,23 +74,23 @@ export function Deadlines() {
     }
   }, [deleteTarget, deleteMutation]);
 
-  // Filter and group deadlines by date
-  const groupedDeadlines = useMemo(() => {
-    if (!deadlinesData?.deadlines) return {};
+  // Filter and group events by date
+  const groupedEvents = useMemo(() => {
+    if (!eventsData?.events) return {};
 
     // Filter by search query (description, case name, or short name)
-    const filteredDeadlines = searchQuery
-      ? deadlinesData.deadlines.filter((deadline) => {
+    const filteredEvents = searchQuery
+      ? eventsData.events.filter((event) => {
           const query = searchQuery.toLowerCase();
           return (
-            deadline.description.toLowerCase().includes(query) ||
-            (deadline.case_name && deadline.case_name.toLowerCase().includes(query)) ||
-            (deadline.short_name && deadline.short_name.toLowerCase().includes(query))
+            event.description.toLowerCase().includes(query) ||
+            (event.case_name && event.case_name.toLowerCase().includes(query)) ||
+            (event.short_name && event.short_name.toLowerCase().includes(query))
           );
         })
-      : deadlinesData.deadlines;
+      : eventsData.events;
 
-    const groups: Record<string, Deadline[]> = {
+    const groups: Record<string, Event[]> = {
       overdue: [],
       today: [],
       thisWeek: [],
@@ -105,25 +105,25 @@ export function Deadlines() {
     const monthEnd = new Date(today);
     monthEnd.setDate(monthEnd.getDate() + 30);
 
-    filteredDeadlines.forEach((deadline) => {
-      const dueDate = new Date(deadline.date);
+    filteredEvents.forEach((event) => {
+      const dueDate = new Date(event.date);
       dueDate.setHours(0, 0, 0, 0);
 
       if (dueDate < today) {
-        groups.overdue.push(deadline);
+        groups.overdue.push(event);
       } else if (dueDate.getTime() === today.getTime()) {
-        groups.today.push(deadline);
+        groups.today.push(event);
       } else if (dueDate < weekEnd) {
-        groups.thisWeek.push(deadline);
+        groups.thisWeek.push(event);
       } else if (dueDate < monthEnd) {
-        groups.thisMonth.push(deadline);
+        groups.thisMonth.push(event);
       } else {
-        groups.later.push(deadline);
+        groups.later.push(event);
       }
     });
 
     return groups;
-  }, [deadlinesData?.deadlines, searchQuery]);
+  }, [eventsData?.events, searchQuery]);
 
   const groupLabels: Record<string, string> = {
     overdue: 'Overdue',
@@ -144,8 +144,8 @@ export function Deadlines() {
   return (
     <>
       <Header
-        title="Deadlines & Events"
-        subtitle="Important dates and court events"
+        title="Calendar"
+        subtitle="Hearings, depositions, and important dates"
       />
 
       <PageContent>
@@ -156,7 +156,7 @@ export function Deadlines() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search deadlines or cases..."
+                placeholder="Search events or cases..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
@@ -165,55 +165,55 @@ export function Deadlines() {
           </div>
         </ListPanel>
 
-        {/* Deadline List */}
+        {/* Event List */}
         {isLoading ? (
           <ListPanel>
             <ListPanel.Loading />
           </ListPanel>
-        ) : deadlinesData?.deadlines.length === 0 ? (
+        ) : eventsData?.events.length === 0 ? (
           <ListPanel>
-            <ListPanel.Empty message="No deadlines found" />
+            <ListPanel.Empty message="No events found" />
           </ListPanel>
         ) : (
           <div className="space-y-6">
-            {Object.entries(groupedDeadlines).map(
-              ([group, deadlines]) =>
-                deadlines.length > 0 && (
+            {Object.entries(groupedEvents).map(
+              ([group, events]) =>
+                events.length > 0 && (
                   <div key={group}>
                     <h2 className={`text-sm font-semibold mb-2 ${groupColors[group]}`}>
-                      {groupLabels[group]} ({deadlines.length})
+                      {groupLabels[group]} ({events.length})
                     </h2>
                     <ListPanel>
                       <ListPanel.Body>
-                        {deadlines.map((deadline) => (
-                          <ListPanel.Row key={deadline.id} highlight={group === 'overdue'}>
+                        {events.map((event) => (
+                          <ListPanel.Row key={event.id} highlight={group === 'overdue'}>
                             <button
-                              onClick={() => handleUpdate(deadline.id, 'starred', !deadline.starred)}
-                              className={`p-1 ${deadline.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                              title={deadline.starred ? 'Unstar' : 'Star'}
+                              onClick={() => handleUpdate(event.id, 'starred', !event.starred)}
+                              className={`p-1 ${event.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                              title={event.starred ? 'Unstar' : 'Star'}
                             >
-                              <Star className={`w-4 h-4 ${deadline.starred ? 'fill-amber-500' : ''}`} />
+                              <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
                             </button>
                             <Link
-                              to={`/cases/${deadline.case_id}`}
-                              className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(deadline.case_id)}`}
-                              title={deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
+                              to={`/cases/${event.case_id}`}
+                              className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(event.case_id)}`}
+                              title={event.short_name || event.case_name || `Case #${event.case_id}`}
                             >
-                              {deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
+                              {event.short_name || event.case_name || `Case #${event.case_id}`}
                             </Link>
                             <div className="flex-1 min-w-0">
                               <EditableText
-                                value={deadline.description}
-                                onSave={(value) => handleUpdate(deadline.id, 'description', value)}
+                                value={event.description}
+                                onSave={(value) => handleUpdate(event.id, 'description', value)}
                                 className="text-sm"
                               />
                             </div>
                             <EditableDate
-                              value={deadline.date}
-                              onSave={(value) => handleUpdate(deadline.id, 'date', value)}
+                              value={event.date}
+                              onSave={(value) => handleUpdate(event.id, 'date', value)}
                             />
                             <button
-                              onClick={() => handleDelete(deadline.id)}
+                              onClick={() => handleDelete(event.id)}
                               className="p-1 text-slate-500 hover:text-red-400"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -233,9 +233,9 @@ export function Deadlines() {
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Delete Deadline"
-        message="Are you sure you want to delete this deadline?"
-        confirmText="Delete Deadline"
+        title="Delete Event"
+        message="Are you sure you want to delete this event?"
+        confirmText="Delete Event"
         variant="danger"
         isLoading={deleteMutation.isPending}
       />

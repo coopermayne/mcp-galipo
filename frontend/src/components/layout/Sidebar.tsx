@@ -11,7 +11,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Cases', href: '/cases', icon: Briefcase },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { name: 'Deadlines', href: '/deadlines', icon: Clock },
+  { name: 'Calendar', href: '/calendar', icon: Clock },
 ];
 
 export function Sidebar() {

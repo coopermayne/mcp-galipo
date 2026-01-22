@@ -2,7 +2,7 @@ import type {
   Case,
   CaseSummary,
   Task,
-  Deadline,
+  Event,
   Note,
   DashboardStats,
   Constants,
@@ -10,8 +10,8 @@ import type {
   UpdateCaseInput,
   CreateTaskInput,
   UpdateTaskInput,
-  CreateDeadlineInput,
-  UpdateDeadlineInput,
+  CreateEventInput,
+  UpdateEventInput,
   Person,
   CasePerson,
   PersonType,
@@ -199,39 +199,39 @@ export async function reorderTask(
   });
 }
 
-// Deadlines
-export async function getDeadlines(params?: {
+// Events (Calendar items: hearings, depositions, filing deadlines, etc.)
+export async function getEvents(params?: {
   limit?: number;
   offset?: number;
-}): Promise<{ deadlines: Deadline[]; total: number }> {
+}): Promise<{ events: Event[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();
-  return request(`/deadlines${query ? `?${query}` : ''}`);
+  return request(`/events${query ? `?${query}` : ''}`);
 }
 
-export async function createDeadline(
-  data: CreateDeadlineInput
-): Promise<{ success: boolean; deadline: Deadline }> {
-  return request('/deadlines', {
+export async function createEvent(
+  data: CreateEventInput
+): Promise<{ success: boolean; event: Event }> {
+  return request('/events', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateDeadline(
-  deadlineId: number,
-  data: UpdateDeadlineInput
-): Promise<{ success: boolean; deadline: Deadline }> {
-  return request(`/deadlines/${deadlineId}`, {
+export async function updateEvent(
+  eventId: number,
+  data: UpdateEventInput
+): Promise<{ success: boolean; event: Event }> {
+  return request(`/events/${eventId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
-export async function deleteDeadline(deadlineId: number): Promise<{ success: boolean }> {
-  return request(`/deadlines/${deadlineId}`, {
+export async function deleteEvent(eventId: number): Promise<{ success: boolean }> {
+  return request(`/events/${eventId}`, {
     method: 'DELETE',
   });
 }
