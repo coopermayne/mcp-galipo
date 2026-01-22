@@ -432,9 +432,11 @@ export function Tasks() {
                 ))}
               </div>
             ) : (
-              // Case View - grouped by case
+              // Case View - grouped by case (sorted alphabetically by short_name)
               <div>
-                {Object.entries(tasksByCase).map(([caseId, group]) => (
+                {Object.entries(tasksByCase)
+                  .sort(([, a], [, b]) => (a.shortName || a.caseName).localeCompare(b.shortName || b.caseName))
+                  .map(([caseId, group]) => (
                   <CaseGroup
                     key={caseId}
                     caseId={parseInt(caseId)}
