@@ -70,3 +70,10 @@ export type {
   AssignPersonInput,
   UpdateAssignmentInput,
 } from './person';
+
+// Proceeding types
+export type {
+  Proceeding,
+  CreateProceedingInput,
+  UpdateProceedingInput,
+} from './proceeding';

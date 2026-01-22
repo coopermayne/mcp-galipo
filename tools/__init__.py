@@ -12,6 +12,7 @@ from tools.events import register_event_tools
 from tools.activities import register_activity_tools
 from tools.notes import register_note_tools
 from tools.types import register_type_tools
+from tools.proceedings import register_proceeding_tools
 
 # Re-export utility functions for backwards compatibility
 from tools.utils import error_response, validation_error, not_found_error
@@ -34,6 +35,7 @@ def register_tools(mcp):
     register_activity_tools(mcp)
     register_note_tools(mcp)
     register_type_tools(mcp)
+    register_proceeding_tools(mcp)
 
 
 __all__ = [
@@ -49,6 +51,7 @@ __all__ = [
     'register_activity_tools',
     'register_note_tools',
     'register_type_tools',
+    'register_proceeding_tools',
 
     # Utility functions
     'error_response',

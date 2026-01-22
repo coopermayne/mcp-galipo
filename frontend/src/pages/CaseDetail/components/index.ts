@@ -1,4 +1,4 @@
 export { ContactCard } from './ContactCard';
 export { StarredEvents } from './StarredEvents';
-export { CaseNumbersSection } from './CaseNumbersSection';
+export { ProceedingsSection } from './ProceedingsSection';
 export { DroppableTaskGroup } from './DroppableTaskGroup';

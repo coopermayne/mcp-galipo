@@ -65,3 +65,12 @@ export {
 
 // Activities (placeholder for future use)
 export {} from './activities';
+
+// Proceedings
+export {
+  getProceedings,
+  getProceeding,
+  createProceeding,
+  updateProceeding,
+  deleteProceeding,
+} from './proceedings';

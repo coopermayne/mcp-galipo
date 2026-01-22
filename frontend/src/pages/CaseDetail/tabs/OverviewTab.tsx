@@ -24,7 +24,7 @@ import {
   removePersonFromCase,
 } from '../../../api';
 import type { Case, Constants, Jurisdiction } from '../../../types';
-import { ContactCard, StarredEvents, CaseNumbersSection } from '../components';
+import { ContactCard, StarredEvents, ProceedingsSection } from '../components';
 import { getPrimaryPhone, getPrimaryEmail } from '../utils';
 
 interface OverviewTabProps {
@@ -378,8 +378,13 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           )}
         </div>
 
-        {/* Case Numbers */}
-        <CaseNumbersSection caseId={caseId} caseNumbers={caseData.case_numbers} />
+        {/* Court Proceedings */}
+        <ProceedingsSection
+          caseId={caseId}
+          proceedings={caseData.proceedings || []}
+          jurisdictions={constants?.jurisdictions}
+          judges={caseData.persons || []}
+        />
       </div>
 
       {/* Important Dates & Starred Events */}
