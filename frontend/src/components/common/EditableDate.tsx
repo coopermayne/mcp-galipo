@@ -4,7 +4,7 @@ import { format, parse, isValid } from 'date-fns';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { formatSmartDate, type DateFormatOptions } from '../../utils/dateFormat';
 import { Check, AlertCircle, Loader2, Calendar, X } from 'lucide-react';
-import 'react-day-picker/style.css';
+import 'react-day-picker/src/style.css';
 
 interface EditableDateProps extends DateFormatOptions {
   value: string | null;
@@ -63,16 +63,6 @@ export function EditableDate({
     [value, save]
   );
 
-  const handleClear = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (value) {
-        save(null);
-      }
-    },
-    [value, save]
-  );
-
   const handleToggle = useCallback(() => {
     if (!disabled) {
       setIsOpen(!isOpen);
@@ -112,10 +102,17 @@ export function EditableDate({
         <Calendar className="w-3.5 h-3.5" />
         <span>{displayValue}</span>
         {clearable && value && !disabled && (
-          <X
-            className="w-3 h-3 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-            onClick={handleClear}
-          />
+          <span
+            role="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              save(null);
+            }}
+            className="w-3 h-3 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </span>
         )}
         {statusIcon()}
       </button>
@@ -132,6 +129,7 @@ export function EditableDate({
             mode="single"
             selected={isValidDate ? dateValue : undefined}
             onSelect={handleSelect}
+            defaultMonth={isValidDate ? dateValue : undefined}
             className="text-sm text-slate-900 dark:text-slate-100"
             classNames={{
               day: 'w-8 h-8 rounded hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100',

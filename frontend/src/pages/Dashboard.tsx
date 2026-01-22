@@ -42,6 +42,11 @@ export function Dashboard() {
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
   const [deleteDeadlineTarget, setDeleteDeadlineTarget] = useState<number | null>(null);
 
+  // Test dates for date format testing (remove after testing)
+  const [testDate1, setTestDate1] = useState<string | null>('2026-02-16');
+  const [testDate2, setTestDate2] = useState<string | null>('2026-02-16');
+  const [testDate3, setTestDate3] = useState<string | null>(null);
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: getStats,
@@ -262,23 +267,23 @@ export function Dashboard() {
               <div className="space-y-1 pl-2">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 w-40">Enabled (click me):</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} />
+                  <EditableDate value={testDate1} onSave={async (v) => setTestDate1(v)} />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 w-40">Disabled:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} disabled />
+                  <EditableDate value={testDate1} onSave={async () => {}} disabled />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 w-40">Enabled + clearable:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} clearable />
+                  <EditableDate value={testDate2} onSave={async (v) => setTestDate2(v)} clearable />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 w-40">Enabled no clear:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} clearable={false} />
+                  <EditableDate value={testDate2} onSave={async (v) => setTestDate2(v)} clearable={false} />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500 w-40">No value:</span>
-                  <EditableDate value={null} onSave={async () => {}} />
+                  <EditableDate value={testDate3} onSave={async (v) => setTestDate3(v)} />
                 </div>
               </div>
             </div>
