@@ -1621,8 +1621,8 @@ def add_task(case_id: int, description: str, due_date: str = None,
 
     with get_cursor() as cur:
         # Get max sort_order and add 1000 for new task
-        cur.execute("SELECT COALESCE(MAX(sort_order), 0) + 1000 FROM tasks")
-        new_sort_order = cur.fetchone()[0]
+        cur.execute("SELECT COALESCE(MAX(sort_order), 0) + 1000 AS next_sort_order FROM tasks")
+        new_sort_order = cur.fetchone()["next_sort_order"]
 
         cur.execute("""
             INSERT INTO tasks (case_id, description, due_date, status, urgency, deadline_id, sort_order)
