@@ -9,7 +9,7 @@ import {
   ListPanel,
   ConfirmModal,
 } from '../components/common';
-import { getEvents, updateEvent, deleteEvent } from '../api/client';
+import { getEvents, updateEvent, deleteEvent } from '../api';
 import type { Event } from '../types';
 import { Trash2, Search, Star } from 'lucide-react';
 
