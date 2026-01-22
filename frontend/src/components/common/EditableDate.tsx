@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, parse, isValid } from 'date-fns';
 import { useAutoSave } from '../../hooks/useAutoSave';
-import { formatSmartDate } from '../../utils/dateFormat';
+import { formatSmartDate, type DateFormatOptions } from '../../utils/dateFormat';
 import { Check, AlertCircle, Loader2, Calendar, X } from 'lucide-react';
 import 'react-day-picker/style.css';
 
-interface EditableDateProps {
+interface EditableDateProps extends DateFormatOptions {
   value: string | null;
   onSave: (value: string | null) => Promise<unknown>;
   placeholder?: string;
@@ -22,6 +22,9 @@ export function EditableDate({
   className = '',
   disabled = false,
   clearable = true,
+  showDayOfWeek = true,
+  alwaysShowYear = false,
+  numeric = false,
 }: EditableDateProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,7 +93,7 @@ export function EditableDate({
   };
 
   const displayValue = isValidDate
-    ? formatSmartDate(dateValue!)
+    ? formatSmartDate(dateValue!, { showDayOfWeek, alwaysShowYear, numeric })
     : placeholder;
 
   return (
