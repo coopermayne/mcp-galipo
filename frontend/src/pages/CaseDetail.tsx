@@ -989,13 +989,12 @@ function OverviewTab({
   );
 }
 
-// Urgency and Status config for task groups
+// Urgency and Status config for task groups (1-4 scale: Low, Medium, High, Urgent)
 const urgencyConfig: Record<number, { label: string; color: string; bgColor: string }> = {
-  5: { label: 'Critical', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' },
-  4: { label: 'High', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/20' },
-  3: { label: 'Medium', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
-  2: { label: 'Low', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
-  1: { label: 'Lowest', color: 'text-slate-500 dark:text-slate-400', bgColor: 'bg-slate-50 dark:bg-slate-800/50' },
+  4: { label: 'Urgent', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' },
+  3: { label: 'High', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/20' },
+  2: { label: 'Medium', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
+  1: { label: 'Low', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/20' },
 };
 
 const statusConfig: Record<string, { color: string; bgColor: string }> = {
@@ -1085,21 +1084,20 @@ function TasksTab({
   );
 
   const urgencyOptions = [
-    { value: '1', label: '1 - Lowest' },
-    { value: '2', label: '2 - Low' },
-    { value: '3', label: '3 - Medium' },
-    { value: '4', label: '4 - High' },
-    { value: '5', label: '5 - Critical' },
+    { value: '1', label: '1 - Low' },
+    { value: '2', label: '2 - Medium' },
+    { value: '3', label: '3 - High' },
+    { value: '4', label: '4 - Urgent' },
   ];
 
   // Group tasks by urgency
   const tasksByUrgency = useMemo(() => {
-    const groups: Record<number, Task[]> = { 5: [], 4: [], 3: [], 2: [], 1: [] };
+    const groups: Record<number, Task[]> = { 4: [], 3: [], 2: [], 1: [] };
     tasks.forEach((task) => {
       if (groups[task.urgency]) {
         groups[task.urgency].push(task);
       } else {
-        groups[3].push(task);
+        groups[2].push(task);
       }
     });
     return groups;
@@ -1389,7 +1387,7 @@ function TasksTab({
       >
         {view === 'by-urgency' ? (
           <div>
-            {[5, 4, 3, 2, 1].map((urgency) =>
+            {[4, 3, 2, 1].map((urgency) =>
               renderTaskGroup(
                 String(urgency),
                 tasksByUrgency[urgency],

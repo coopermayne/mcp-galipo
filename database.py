@@ -107,9 +107,9 @@ def validate_task_status(status: str) -> str:
 
 
 def validate_urgency(urgency: int) -> int:
-    """Validate urgency is between 1 and 5."""
-    if not isinstance(urgency, int) or urgency < 1 or urgency > 5:
-        raise ValidationError(f"Invalid urgency '{urgency}'. Must be an integer between 1 and 5.")
+    """Validate urgency is between 1 and 4 (Low, Medium, High, Urgent)."""
+    if not isinstance(urgency, int) or urgency < 1 or urgency > 4:
+        raise ValidationError(f"Invalid urgency '{urgency}'. Must be an integer between 1 and 4.")
     return urgency
 
 
@@ -608,6 +608,35 @@ def migrate_db():
             cur.execute("UPDATE tasks SET sort_order = id * 1000 WHERE sort_order = 0 OR sort_order IS NULL")
             print("  - Added sort_order column to tasks")
 
+        # 17. Migrate urgency from 1-5 scale to 1-4 scale (Low, Medium, High, Urgent)
+        # First check if any tasks have urgency=5 (indicating we haven't migrated yet)
+        cur.execute("SELECT COUNT(*) FROM tasks WHERE urgency = 5")
+        if cur.fetchone()[0] > 0:
+            # Convert urgency=5 to urgency=4
+            cur.execute("UPDATE tasks SET urgency = 4 WHERE urgency = 5")
+            print("  - Migrated urgency=5 tasks to urgency=4")
+
+        # Check and update the CHECK constraint on urgency column
+        cur.execute("""
+            SELECT constraint_name
+            FROM information_schema.check_constraints
+            WHERE constraint_name LIKE 'tasks_urgency_check%'
+        """)
+        old_constraint = cur.fetchone()
+        if old_constraint:
+            # Check if the current constraint allows 5 (needs migration)
+            cur.execute("""
+                SELECT check_clause
+                FROM information_schema.check_constraints
+                WHERE constraint_name = %s
+            """, (old_constraint[0],))
+            check_clause = cur.fetchone()
+            if check_clause and '5' in check_clause[0]:
+                # Drop old constraint and add new one
+                cur.execute(f"ALTER TABLE tasks DROP CONSTRAINT {old_constraint[0]}")
+                cur.execute("ALTER TABLE tasks ADD CONSTRAINT tasks_urgency_check CHECK (urgency >= 1 AND urgency <= 4)")
+                print("  - Updated urgency constraint from 1-5 to 1-4")
+
         print("Database migration complete.")
 
 
@@ -738,7 +767,7 @@ def init_db():
                 completion_date DATE,
                 description TEXT NOT NULL,
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
+                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
                 sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -1613,7 +1642,7 @@ def delete_person_type(person_type_id: int) -> bool:
 # ===== TASK OPERATIONS =====
 
 def add_task(case_id: int, description: str, due_date: str = None,
-             status: str = "Pending", urgency: int = 3, deadline_id: int = None) -> dict:
+             status: str = "Pending", urgency: int = 2, deadline_id: int = None) -> dict:
     """Add a task to a case."""
     validate_task_status(status)
     validate_urgency(urgency)
@@ -1834,7 +1863,7 @@ def reorder_task(task_id: int, new_sort_order: int, new_urgency: int = None) -> 
     Args:
         task_id: The ID of the task to reorder
         new_sort_order: The new sort_order value
-        new_urgency: Optional new urgency level (1-5)
+        new_urgency: Optional new urgency level (1-4)
 
     Returns:
         The updated task with new sort_order (and urgency if changed)

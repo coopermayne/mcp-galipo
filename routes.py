@@ -295,7 +295,7 @@ def register_routes(mcp):
             data["description"],
             data.get("due_date"),
             data.get("status", "Pending"),
-            data.get("urgency", 3),
+            data.get("urgency", 2),
             data.get("deadline_id")
         )
         return JSONResponse({"success": True, "task": result})

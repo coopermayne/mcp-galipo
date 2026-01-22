@@ -420,10 +420,10 @@ body {
 .badge-gray { background: #f1f5f9; color: #475569; }
 .badge-purple { background: #ede9fe; color: #5b21b6; }
 
-/* Urgency Indicators */
-.urgency-1, .urgency-2 { border-left: 3px solid var(--success); }
-.urgency-3 { border-left: 3px solid var(--warning); }
-.urgency-4, .urgency-5 { border-left: 3px solid var(--danger); }
+/* Urgency Indicators (1-4 scale: Low, Medium, High, Urgent) */
+.urgency-1 { border-left: 3px solid var(--success); }
+.urgency-2 { border-left: 3px solid var(--warning); }
+.urgency-3, .urgency-4 { border-left: 3px solid var(--danger); }
 
 /* Forms */
 .form-group { margin-bottom: 1rem; }

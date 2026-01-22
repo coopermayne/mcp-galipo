@@ -328,14 +328,14 @@ def register_tools(mcp):
             query: Search in task descriptions (partial match)
             case_id: Filter to specific case
             status: Filter by status (Pending, Active, Done, etc.)
-            urgency: Filter by urgency level (1-5)
+            urgency: Filter by urgency level (1-4)
 
         At least one parameter must be provided.
 
         Examples:
             - search_tasks(query="deposition") - find tasks mentioning "deposition"
             - search_tasks(status="Blocked") - find all blocked tasks
-            - search_tasks(urgency=5) - find critical tasks
+            - search_tasks(urgency=4) - find urgent tasks
         """
         if not any([query, case_id, status, urgency]):
             return validation_error("Provide at least one search parameter")
@@ -655,7 +655,7 @@ def register_tools(mcp):
         case_id: int,
         description: str,
         due_date: Optional[str] = None,
-        urgency: int = 3,
+        urgency: int = 2,
         status: str = "Pending",
         deadline_id: Optional[int] = None
     ) -> dict:
@@ -671,7 +671,7 @@ def register_tools(mcp):
             case_id: ID of the case
             description: What needs to be done
             due_date: Due date (YYYY-MM-DD)
-            urgency: 1-5 scale (1=low, 5=critical), default 3
+            urgency: 1-4 scale (1=Low, 2=Medium, 3=High, 4=Urgent), default 2
             status: Status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
             deadline_id: Optional ID of deadline this task is linked to (for tasks that support a specific deadline)
 
@@ -703,7 +703,7 @@ def register_tools(mcp):
         Args:
             case_id: Filter by specific case
             status_filter: Filter by status (Pending, Active, Done, etc.)
-            urgency_filter: Filter by urgency level (1-5)
+            urgency_filter: Filter by urgency level (1-4)
 
         Returns list of tasks with case and deadline information.
 
@@ -733,7 +733,7 @@ def register_tools(mcp):
             task_id: ID of the task
             description: New description
             status: New status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
-            urgency: New urgency (1-5)
+            urgency: New urgency (1-4)
             due_date: New due date (YYYY-MM-DD)
             completion_date: Date task was completed (YYYY-MM-DD)
 
@@ -790,7 +790,7 @@ def register_tools(mcp):
         Args:
             task_id: ID of the task to reorder
             sort_order: New sort order value (lower = higher in list)
-            urgency: Optional new urgency level (1-5) if moving between urgency groups
+            urgency: Optional new urgency level (1-4) if moving between urgency groups
 
         Returns the updated task.
 

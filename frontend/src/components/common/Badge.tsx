@@ -37,11 +37,10 @@ const statusColors: Record<string, string> = {
 };
 
 const urgencyColors: Record<number, string> = {
-  1: 'bg-green-100 text-green-700',
-  2: 'bg-lime-100 text-lime-700',
-  3: 'bg-yellow-100 text-yellow-700',
-  4: 'bg-orange-100 text-orange-700',
-  5: 'bg-red-100 text-red-700',
+  1: 'bg-green-100 text-green-700',     // Low
+  2: 'bg-yellow-100 text-yellow-700',   // Medium
+  3: 'bg-orange-100 text-orange-700',   // High
+  4: 'bg-red-100 text-red-700',         // Urgent
 };
 
 export function Badge({

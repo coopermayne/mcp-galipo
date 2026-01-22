@@ -16,12 +16,11 @@
   --color-primary-900: #223389;
   --color-primary-950: #172054;
 
-  /* Urgency colors */
-  --color-urgency-1: #22c55e;
-  --color-urgency-2: #84cc16;
-  --color-urgency-3: #eab308;
-  --color-urgency-4: #f97316;
-  --color-urgency-5: #ef4444;
+  /* Urgency colors (1-4 scale: Low, Medium, High, Urgent) */
+  --color-urgency-1: #22c55e;  /* Low - green */
+  --color-urgency-2: #eab308;  /* Medium - yellow */
+  --color-urgency-3: #f97316;  /* High - orange */
+  --color-urgency-4: #ef4444;  /* Urgent - red */
 
   /* Status colors */
   --color-status-pending: #f59e0b;

@@ -104,8 +104,8 @@ function getStatusBadge(status) {
 }
 
 function getUrgencyBadge(urgency) {
-    const labels = { 1: 'Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Critical' };
-    const colors = { 1: 'green', 2: 'green', 3: 'yellow', 4: 'red', 5: 'red' };
+    const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Urgent' };
+    const colors = { 1: 'green', 2: 'yellow', 3: 'red', 4: 'red' };
     return `<span class="badge badge-${colors[urgency]}">${labels[urgency]}</span>`;
 }
 
@@ -531,9 +531,9 @@ async function renderTasks() {
             </select>
             <select class="form-control" id="task-urgency-filter" onchange="filterTasks()">
                 <option value="">All Urgencies</option>
-                <option value="5">Critical (5)</option>
-                <option value="4">High+ (4-5)</option>
-                <option value="3">Medium+ (3-5)</option>
+                <option value="4">Urgent (4)</option>
+                <option value="3">High+ (3-4)</option>
+                <option value="2">Medium+ (2-4)</option>
             </select>
         </div>
 
@@ -759,11 +759,10 @@ async function openTaskModal(caseId, taskId = null) {
                     <div class="form-group">
                         <label>Urgency</label>
                         <select class="form-control" id="task-urgency">
-                            <option value="1" ${(taskData.urgency || 3) === 1 ? 'selected' : ''}>1 - Low</option>
-                            <option value="2" ${(taskData.urgency || 3) === 2 ? 'selected' : ''}>2 - Low</option>
-                            <option value="3" ${(taskData.urgency || 3) === 3 ? 'selected' : ''}>3 - Medium</option>
-                            <option value="4" ${(taskData.urgency || 3) === 4 ? 'selected' : ''}>4 - High</option>
-                            <option value="5" ${(taskData.urgency || 3) === 5 ? 'selected' : ''}>5 - Critical</option>
+                            <option value="1" ${(taskData.urgency || 2) === 1 ? 'selected' : ''}>1 - Low</option>
+                            <option value="2" ${(taskData.urgency || 2) === 2 ? 'selected' : ''}>2 - Medium</option>
+                            <option value="3" ${(taskData.urgency || 2) === 3 ? 'selected' : ''}>3 - High</option>
+                            <option value="4" ${(taskData.urgency || 2) === 4 ? 'selected' : ''}>4 - Urgent</option>
                         </select>
                     </div>
                 </div>

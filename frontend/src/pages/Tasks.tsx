@@ -92,11 +92,10 @@ export function Tasks() {
   );
 
   const urgencyOptions = [
-    { value: '1', label: '1 - Lowest' },
-    { value: '2', label: '2 - Low' },
-    { value: '3', label: '3 - Medium' },
-    { value: '4', label: '4 - High' },
-    { value: '5', label: '5 - Critical' },
+    { value: '1', label: '1 - Low' },
+    { value: '2', label: '2 - Medium' },
+    { value: '3', label: '3 - High' },
+    { value: '4', label: '4 - Urgent' },
   ];
 
   const handleUpdate = useCallback(
@@ -136,12 +135,12 @@ export function Tasks() {
 
   // Group tasks by urgency (for "by urgency" view)
   const tasksByUrgency = useMemo(() => {
-    const groups: Record<number, Task[]> = { 5: [], 4: [], 3: [], 2: [], 1: [] };
+    const groups: Record<number, Task[]> = { 4: [], 3: [], 2: [], 1: [] };
     filteredTasks.forEach((task) => {
       if (groups[task.urgency]) {
         groups[task.urgency].push(task);
       } else {
-        groups[3].push(task); // Default to medium if invalid urgency
+        groups[2].push(task); // Default to medium if invalid urgency
       }
     });
     return groups;
@@ -420,9 +419,9 @@ export function Tasks() {
             onDragOver={handleDragOver}
           >
             {view === 'by-urgency' ? (
-              // Urgency View - groups from Critical (5) to Lowest (1)
+              // Urgency View - groups from Urgent (4) to Low (1)
               <div>
-                {[5, 4, 3, 2, 1].map((urgency) => (
+                {[4, 3, 2, 1].map((urgency) => (
                   <UrgencyGroup
                     key={urgency}
                     urgency={urgency}

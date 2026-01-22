@@ -4,13 +4,12 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { SortableTaskRow } from './SortableTaskRow';
 import type { Task } from '../../types';
 
-// Urgency labels and colors
+// Urgency labels and colors (1-4 scale: Low, Medium, High, Urgent)
 const urgencyConfig: Record<number, { label: string; color: string; bgColor: string }> = {
-  5: { label: 'Critical', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' },
-  4: { label: 'High', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/20' },
-  3: { label: 'Medium', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
-  2: { label: 'Low', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
-  1: { label: 'Lowest', color: 'text-slate-500 dark:text-slate-400', bgColor: 'bg-slate-50 dark:bg-slate-800/50' },
+  4: { label: 'Urgent', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' },
+  3: { label: 'High', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/20' },
+  2: { label: 'Medium', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
+  1: { label: 'Low', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/20' },
 };
 
 interface UrgencyGroupProps {
@@ -41,7 +40,7 @@ export function UrgencyGroup({
     data: { type: 'urgency', urgency },
   });
 
-  const config = urgencyConfig[urgency] || urgencyConfig[3];
+  const config = urgencyConfig[urgency] || urgencyConfig[2];
   // Filter out the active item from SortableContext to avoid conflicts
   const taskIds = tasks.filter((t) => t.id !== activeId).map((t) => t.id);
 
