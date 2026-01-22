@@ -102,6 +102,7 @@ export interface CaseSummary {
   status: CaseStatus;
   court?: string;
   print_code?: string;
+  judge?: string;
   client_count?: number;
   defendant_count?: number;
   pending_task_count?: number;
