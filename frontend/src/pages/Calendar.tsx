@@ -5,6 +5,7 @@ import { Header, PageContent } from '../components/layout';
 import {
   EditableText,
   EditableDate,
+  EditableTime,
   ListPanel,
   ConfirmModal,
 } from '../components/common';
@@ -208,10 +209,17 @@ export function Calendar() {
                                 className="text-sm"
                               />
                             </div>
-                            <EditableDate
-                              value={event.date}
-                              onSave={(value) => handleUpdate(event.id, 'date', value)}
-                            />
+                            <div className="flex items-center gap-0">
+                              <EditableDate
+                                value={event.date}
+                                onSave={(value) => handleUpdate(event.id, 'date', value)}
+                                clearable={false}
+                              />
+                              <EditableTime
+                                value={event.time || null}
+                                onSave={(value) => handleUpdate(event.id, 'time', value)}
+                              />
+                            </div>
                             <button
                               onClick={() => handleDelete(event.id)}
                               className="p-1 text-slate-500 hover:text-red-400"

@@ -16,6 +16,7 @@ import {
   EditableText,
   EditableSelect,
   EditableDate,
+  EditableTime,
   StatusBadge,
   ConfirmModal,
 } from '../components/common';
@@ -1702,12 +1703,21 @@ function EventsTab({
                 >
                   <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
                 </button>
-                <EditableDate
-                  value={event.date}
-                  onSave={(value) =>
-                    updateMutation.mutateAsync({ id: event.id, data: { date: value || undefined } })
-                  }
-                />
+                <div className="flex items-center gap-0">
+                  <EditableDate
+                    value={event.date}
+                    onSave={(value) =>
+                      updateMutation.mutateAsync({ id: event.id, data: { date: value || undefined } })
+                    }
+                    clearable={false}
+                  />
+                  <EditableTime
+                    value={event.time || null}
+                    onSave={(value) =>
+                      updateMutation.mutateAsync({ id: event.id, data: { time: value || undefined } })
+                    }
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <EditableText
                     value={event.description}
@@ -2189,12 +2199,19 @@ function StarredEvents({
               ? event.description.substring(0, 20) + '...'
               : event.description}
           </span>
-          <EditableDate
-            value={event.date}
-            onSave={async () => {}}
-            disabled
-            className="text-sm"
-          />
+          <div className="flex items-center gap-0">
+            <EditableDate
+              value={event.date}
+              onSave={async () => {}}
+              disabled
+              className="text-sm"
+            />
+            <EditableTime
+              value={event.time || null}
+              onSave={async () => {}}
+              disabled
+            />
+          </div>
         </div>
       ))}
     </>
