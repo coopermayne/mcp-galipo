@@ -1,21 +1,23 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
   PointerSensor,
   useSensor,
   useSensors,
-  closestCenter,
   DragOverlay,
+  rectIntersection,
+  pointerWithin,
+  getFirstCollision,
 } from '@dnd-kit/core';
-import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragOverEvent, DragStartEvent, CollisionDetection, UniqueIdentifier } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
-import { ListPanel, ConfirmModal } from '../components/common';
-import { UrgencyGroup, CaseGroup, SortableTaskRow } from '../components/tasks';
+import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
+import { UrgencyGroup, CaseGroup } from '../components/tasks';
 import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api/client';
 import type { Task } from '../types';
-import { Filter, Search, LayoutGrid, List } from 'lucide-react';
+import { Filter, Search, LayoutGrid, List, GripVertical } from 'lucide-react';
 
 type ViewMode = 'by-urgency' | 'by-case';
 
@@ -26,6 +28,12 @@ export function Tasks() {
   const [view, setView] = useState<ViewMode>('by-urgency');
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  // Track the current drag state for cross-container preview
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [overContainer, setOverContainer] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number>(0);
+  const lastOverId = useRef<UniqueIdentifier | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -154,30 +162,23 @@ export function Tasks() {
     return groups;
   }, [filteredTasks]);
 
-  // Calculate new sort_order for insertion between two tasks
-  const calculateNewSortOrder = useCallback((tasks: Task[], oldIndex: number, newIndex: number): number => {
+  // Calculate new sort_order for insertion at a specific index
+  const calculateSortOrderAtIndex = useCallback((tasks: Task[], insertIndex: number): number => {
     if (tasks.length === 0) return 1000;
 
-    // If moving to the beginning
-    if (newIndex === 0) {
+    // If inserting at the beginning
+    if (insertIndex === 0) {
       return (tasks[0]?.sort_order || 1000) - 500;
     }
 
-    // If moving to the end
-    if (newIndex >= tasks.length) {
+    // If inserting at the end
+    if (insertIndex >= tasks.length) {
       return (tasks[tasks.length - 1]?.sort_order || 0) + 1000;
     }
 
-    // Moving between two items
-    const prevTask = tasks[newIndex - 1];
-    const nextTask = tasks[newIndex];
-
-    // Handle case where we're moving down (need to look at next item instead)
-    if (oldIndex < newIndex) {
-      return Math.floor(((nextTask?.sort_order || 0) + (tasks[newIndex + 1]?.sort_order || (nextTask?.sort_order || 0) + 1000)) / 2);
-    }
-
-    // Moving up - insert between prev and current position
+    // Inserting between two items
+    const prevTask = tasks[insertIndex - 1];
+    const nextTask = tasks[insertIndex];
     return Math.floor(((prevTask?.sort_order || 0) + (nextTask?.sort_order || (prevTask?.sort_order || 0) + 1000)) / 2);
   }, []);
 
@@ -185,79 +186,138 @@ export function Tasks() {
     const { active } = event;
     const task = filteredTasks.find((t) => t.id === active.id);
     setActiveTask(task || null);
-  }, [filteredTasks]);
+    setActiveId(active.id);
+
+    // Initialize over container to the task's current urgency
+    if (task) {
+      setOverContainer(task.urgency);
+      const currentIndex = tasksByUrgency[task.urgency].findIndex((t) => t.id === task.id);
+      setOverIndex(currentIndex);
+    }
+  }, [filteredTasks, tasksByUrgency]);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { active, over } = event;
+
+    if (!over || view !== 'by-urgency') return;
+
+    const overId = over.id;
+    const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
+    if (!activeTaskItem) return;
+
+    // Determine the target container
+    let targetContainer: number | null = null;
+    let targetIndex = 0;
+
+    if (typeof overId === 'string' && overId.startsWith('urgency-')) {
+      // Hovering over a container directly (empty area)
+      targetContainer = parseInt(overId.replace('urgency-', ''), 10);
+      // Put at end of container
+      targetIndex = tasksByUrgency[targetContainer].filter((t) => t.id !== active.id).length;
+    } else {
+      // Hovering over a task
+      const overTask = filteredTasks.find((t) => t.id === overId);
+      if (overTask) {
+        targetContainer = overTask.urgency;
+        // Find the index of the task we're hovering over
+        const containerTasks = tasksByUrgency[targetContainer].filter((t) => t.id !== active.id);
+        const overTaskIndex = containerTasks.findIndex((t) => t.id === overId);
+        targetIndex = overTaskIndex >= 0 ? overTaskIndex : containerTasks.length;
+      }
+    }
+
+    if (targetContainer !== null) {
+      // Only update if something changed
+      if (targetContainer !== overContainer || targetIndex !== overIndex) {
+        setOverContainer(targetContainer);
+        setOverIndex(targetIndex);
+      }
+    }
+  }, [filteredTasks, tasksByUrgency, view, overContainer, overIndex]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+
+    // Get the final position before resetting state
+    const finalContainer = overContainer;
+    const finalIndex = overIndex;
+
+    // Reset drag state
     setActiveTask(null);
+    setActiveId(null);
+    setOverContainer(null);
+    setOverIndex(0);
 
-    if (!over) return;
+    if (!over || finalContainer === null) return;
 
-    const activeTask = filteredTasks.find((t) => t.id === active.id);
-    if (!activeTask) return;
+    const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
+    if (!activeTaskItem) return;
 
-    const overId = over.id;
+    if (view === 'by-urgency') {
+      // Get the tasks in the target container (excluding the active task)
+      const targetTasks = tasksByUrgency[finalContainer].filter((t) => t.id !== active.id);
 
-    // Check if dropped on an urgency group
-    if (typeof overId === 'string' && overId.startsWith('urgency-')) {
-      const newUrgency = parseInt(overId.replace('urgency-', ''), 10);
-      if (newUrgency !== activeTask.urgency) {
-        // Get tasks in the target urgency group
-        const targetTasks = tasksByUrgency[newUrgency] || [];
-        // Place at the beginning of the new group
-        const newSortOrder = targetTasks.length > 0
-          ? (targetTasks[0]?.sort_order || 1000) - 500
-          : 1000;
+      // Calculate the new sort order based on the final position
+      const newSortOrder = calculateSortOrderAtIndex(targetTasks, finalIndex);
 
-        reorderMutation.mutate({
-          taskId: activeTask.id,
-          sortOrder: newSortOrder,
-          urgency: newUrgency,
-        });
-      }
-      return;
-    }
+      // Determine if urgency changed
+      const urgencyChanged = finalContainer !== activeTaskItem.urgency;
 
-    // Check if dropped on another task (reordering within group)
-    if (typeof overId === 'number') {
-      const overTask = filteredTasks.find((t) => t.id === overId);
-      if (!overTask) return;
+      reorderMutation.mutate({
+        taskId: activeTaskItem.id,
+        sortOrder: newSortOrder,
+        urgency: urgencyChanged ? finalContainer : undefined,
+      });
+    } else {
+      // By case view - handle within-case reordering
+      const overId = over.id;
+      if (typeof overId === 'number') {
+        const overTask = filteredTasks.find((t) => t.id === overId);
+        if (overTask && overTask.case_id === activeTaskItem.case_id) {
+          const groupTasks = tasksByCase[activeTaskItem.case_id]?.tasks || [];
+          const oldIndex = groupTasks.findIndex((t) => t.id === activeTaskItem.id);
+          const newIndex = groupTasks.findIndex((t) => t.id === overTask.id);
 
-      // Determine which group we're in
-      if (view === 'by-urgency') {
-        const groupTasks = tasksByUrgency[activeTask.urgency];
-        const oldIndex = groupTasks.findIndex((t) => t.id === activeTask.id);
-        const newIndex = groupTasks.findIndex((t) => t.id === overTask.id);
+          if (oldIndex !== newIndex) {
+            const reorderedTasks = arrayMove(groupTasks, oldIndex, newIndex);
+            const targetTasks = reorderedTasks.filter((t) => t.id !== activeTaskItem.id);
+            const insertIdx = reorderedTasks.findIndex((t) => t.id === activeTaskItem.id);
+            const newSortOrder = calculateSortOrderAtIndex(targetTasks, insertIdx);
 
-        if (oldIndex !== newIndex) {
-          const reorderedTasks = arrayMove(groupTasks, oldIndex, newIndex);
-          const newSortOrder = calculateNewSortOrder(reorderedTasks, oldIndex, newIndex);
-
-          reorderMutation.mutate({
-            taskId: activeTask.id,
-            sortOrder: newSortOrder,
-          });
-        }
-      } else {
-        const groupTasks = tasksByCase[activeTask.case_id]?.tasks || [];
-        const oldIndex = groupTasks.findIndex((t) => t.id === activeTask.id);
-        const newIndex = groupTasks.findIndex((t) => t.id === overTask.id);
-
-        if (oldIndex !== newIndex) {
-          const reorderedTasks = arrayMove(groupTasks, oldIndex, newIndex);
-          const newSortOrder = calculateNewSortOrder(reorderedTasks, oldIndex, newIndex);
-
-          reorderMutation.mutate({
-            taskId: activeTask.id,
-            sortOrder: newSortOrder,
-          });
+            reorderMutation.mutate({
+              taskId: activeTaskItem.id,
+              sortOrder: newSortOrder,
+            });
+          }
         }
       }
     }
-  }, [filteredTasks, view, tasksByUrgency, tasksByCase, calculateNewSortOrder, reorderMutation]);
+  }, [filteredTasks, view, tasksByUrgency, tasksByCase, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation]);
 
-  const handleDragOver = useCallback((_event: DragOverEvent) => {
-    // Visual feedback is handled by the UrgencyGroup component
+  // Custom collision detection that prefers items over containers
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    // First, try to find collisions with droppable items (tasks)
+    const pointerCollisions = pointerWithin(args);
+    const collisions = pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+
+    // Get the first collision
+    let overId = getFirstCollision(collisions, 'id');
+
+    if (overId !== null) {
+      // If we're over a container, check if there are items we could be over instead
+      if (typeof overId === 'string' && overId.startsWith('urgency-')) {
+        const containerItems = collisions.filter(
+          (collision) => typeof collision.id === 'number'
+        );
+        if (containerItems.length > 0) {
+          overId = containerItems[0].id;
+        }
+      }
+
+      lastOverId.current = overId;
+    }
+
+    return collisions;
   }, []);
 
   return (
@@ -349,7 +409,7 @@ export function Tasks() {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}
@@ -362,6 +422,8 @@ export function Tasks() {
                     key={urgency}
                     urgency={urgency}
                     tasks={tasksByUrgency[urgency]}
+                    activeId={activeId}
+                    dropTargetIndex={overContainer === urgency ? overIndex : null}
                     taskStatusOptions={taskStatusOptions}
                     urgencyOptions={urgencyOptions}
                     onUpdate={handleUpdate}
@@ -388,19 +450,23 @@ export function Tasks() {
               </div>
             )}
 
-            {/* Drag Overlay */}
-            <DragOverlay>
+            {/* Drag Overlay - shows the item being dragged */}
+            <DragOverlay dropAnimation={null}>
               {activeTask && (
-                <div className="shadow-xl rounded-lg overflow-hidden">
-                  <SortableTaskRow
-                    task={activeTask}
-                    taskStatusOptions={taskStatusOptions}
-                    urgencyOptions={urgencyOptions}
-                    onUpdate={() => {}}
-                    onDelete={() => {}}
-                    showCaseBadge={view === 'by-urgency'}
-                    showUrgency={view === 'by-case'}
-                  />
+                <div className="shadow-xl rounded-lg overflow-hidden bg-white dark:bg-slate-800 px-4 py-3 flex items-center gap-3 border border-primary-500">
+                  <div className="p-1 text-slate-400">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  {view === 'by-urgency' && (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 w-20 truncate text-center">
+                      {activeTask.short_name || activeTask.case_name}
+                    </span>
+                  )}
+                  <div className="flex-1 min-w-0 text-sm text-slate-900 dark:text-slate-100">
+                    {activeTask.description}
+                  </div>
+                  <StatusBadge status={activeTask.status} />
+                  {view === 'by-case' && <UrgencyBadge urgency={activeTask.urgency} />}
                 </div>
               )}
             </DragOverlay>

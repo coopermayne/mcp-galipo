@@ -32,6 +32,7 @@ interface SortableTaskRowProps {
   onDelete: (taskId: number, description: string) => void;
   showCaseBadge?: boolean;
   showUrgency?: boolean;
+  isPreview?: boolean;
 }
 
 export function SortableTaskRow({
@@ -42,6 +43,7 @@ export function SortableTaskRow({
   onDelete,
   showCaseBadge = true,
   showUrgency = true,
+  isPreview = false,
 }: SortableTaskRowProps) {
   const {
     attributes,
@@ -50,7 +52,7 @@ export function SortableTaskRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: task.id, disabled: isPreview });
 
   const style = {
     transform: CSS.Transform.toString(transform),
