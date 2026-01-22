@@ -186,12 +186,10 @@ export async function deleteTask(taskId: number): Promise<{ success: boolean }> 
 
 // Deadlines
 export async function getDeadlines(params?: {
-  status?: string;
   limit?: number;
   offset?: number;
 }): Promise<{ deadlines: Deadline[]; total: number }> {
   const searchParams = new URLSearchParams();
-  if (params?.status) searchParams.set('status', params.status);
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();

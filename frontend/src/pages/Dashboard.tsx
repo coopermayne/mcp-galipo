@@ -132,13 +132,6 @@ export function Dashboard() {
     label: s,
   }));
 
-  const deadlineStatusOptions = [
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Met', label: 'Met' },
-    { value: 'Missed', label: 'Missed' },
-    { value: 'Extended', label: 'Extended' },
-  ];
-
   const urgencyOptions = [
     { value: '1', label: '1 - Low' },
     { value: '2', label: '2' },
@@ -150,11 +143,10 @@ export function Dashboard() {
   // Filter to only show non-completed tasks
   const pendingTasks = tasksData?.tasks.filter(t => t.status !== 'Done') || [];
 
-  // Filter to only show upcoming pending deadlines (not overdue)
+  // Filter to only show upcoming deadlines (not overdue)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const pendingDeadlines = deadlinesData?.deadlines.filter(d => {
-    if (d.status !== 'Pending') return false;
+  const upcomingDeadlines = deadlinesData?.deadlines.filter(d => {
     const deadlineDate = parseISO(d.date);
     return isValid(deadlineDate) && deadlineDate >= today;
   }) || [];
@@ -278,11 +270,11 @@ export function Dashboard() {
             <ListPanel>
               {deadlinesLoading ? (
                 <ListPanel.Loading />
-              ) : pendingDeadlines.length === 0 ? (
-                <ListPanel.Empty message="No pending deadlines" />
+              ) : upcomingDeadlines.length === 0 ? (
+                <ListPanel.Empty message="No upcoming deadlines" />
               ) : (
                 <ListPanel.Body>
-                  {pendingDeadlines.slice(0, 8).map((deadline) => (
+                  {upcomingDeadlines.slice(0, 8).map((deadline) => (
                     <ListPanel.Row key={deadline.id}>
                       <div className="flex-1 min-w-0">
                         <EditableText
@@ -301,12 +293,6 @@ export function Dashboard() {
                       <EditableDate
                         value={deadline.date}
                         onSave={(value) => handleUpdateDeadline(deadline.id, 'date', value)}
-                      />
-                      <EditableSelect
-                        value={deadline.status}
-                        options={deadlineStatusOptions}
-                        onSave={(value) => handleUpdateDeadline(deadline.id, 'status', value)}
-                        renderValue={(value) => <StatusBadge status={value} />}
                       />
                       <button
                         onClick={() => handleDeleteDeadline(deadline.id)}

@@ -584,6 +584,17 @@ def migrate_db():
             cur.execute("ALTER TABLE deadlines DROP COLUMN urgency")
             print("  - Dropped urgency column from deadlines")
 
+        # 18. Drop status column from deadlines if it exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'deadlines' AND column_name = 'status'
+            )
+        """)
+        if cur.fetchone()[0]:
+            cur.execute("ALTER TABLE deadlines DROP COLUMN status")
+            print("  - Dropped status column from deadlines")
+
         print("Database migration complete.")
 
 
@@ -697,7 +708,6 @@ def init_db():
                 time TIME,
                 location VARCHAR(255),
                 description TEXT NOT NULL,
-                status VARCHAR(50) NOT NULL DEFAULT 'Pending',
                 document_link TEXT,
                 calculation_note TEXT,
                 starred BOOLEAN DEFAULT FALSE,
@@ -900,7 +910,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                    (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Client') as client_count,
                    (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Defendant') as defendant_count,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
-                   (SELECT COUNT(*) FROM deadlines d WHERE d.case_id = c.id AND d.status = 'Pending' AND d.date >= CURRENT_DATE) as upcoming_deadline_count
+                   (SELECT COUNT(*) FROM deadlines d WHERE d.case_id = c.id AND d.date >= CURRENT_DATE) as upcoming_deadline_count
             FROM cases c
             LEFT JOIN jurisdictions j ON c.court_id = j.id
             {where_clause}
@@ -973,7 +983,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
 
         # Get deadlines
         cur.execute("""
-            SELECT id, date, time, location, description, status, document_link, calculation_note, starred
+            SELECT id, date, time, location, description, document_link, calculation_note, starred
             FROM deadlines WHERE case_id = %s ORDER BY date
         """, (case_id,))
         result["deadlines"] = serialize_rows([dict(row) for row in cur.fetchall()])
@@ -1710,7 +1720,7 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
 
 # ===== DEADLINE OPERATIONS =====
 
-def add_deadline(case_id: int, date: str, description: str, status: str = "Pending",
+def add_deadline(case_id: int, date: str, description: str,
                  document_link: str = None, calculation_note: str = None,
                  time: str = None, location: str = None, starred: bool = False) -> dict:
     """Add a deadline to a case."""
@@ -1719,22 +1729,17 @@ def add_deadline(case_id: int, date: str, description: str, status: str = "Pendi
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO deadlines (case_id, date, time, location, description, status, document_link, calculation_note, starred)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, date, time, location, description, status, document_link, calculation_note, starred, created_at
-        """, (case_id, date, time, location, description, status, document_link, calculation_note, starred))
+            INSERT INTO deadlines (case_id, date, time, location, description, document_link, calculation_note, starred)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, case_id, date, time, location, description, document_link, calculation_note, starred, created_at
+        """, (case_id, date, time, location, description, document_link, calculation_note, starred))
         return serialize_row(dict(cur.fetchone()))
 
 
-def get_upcoming_deadlines(status_filter: str = None,
-                           limit: int = None, offset: int = None) -> dict:
+def get_upcoming_deadlines(limit: int = None, offset: int = None) -> dict:
     """Get upcoming deadlines."""
     conditions = ["d.date >= CURRENT_DATE"]
     params = []
-
-    if status_filter:
-        conditions.append("d.status = %s")
-        params.append(status_filter)
 
     where_clause = f"WHERE {' AND '.join(conditions)}"
 
@@ -1744,7 +1749,7 @@ def get_upcoming_deadlines(status_filter: str = None,
 
         query = f"""
             SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
-                   d.description, d.status, d.document_link, d.calculation_note, d.starred
+                   d.description, d.document_link, d.calculation_note, d.starred
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
             {where_clause}
@@ -1759,14 +1764,14 @@ def get_upcoming_deadlines(status_filter: str = None,
         return {"deadlines": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
 
 
-def update_deadline(deadline_id: int, status: str = None) -> Optional[dict]:
-    """Update deadline status."""
+def update_deadline(deadline_id: int, starred: bool = None) -> Optional[dict]:
+    """Update deadline starred status."""
     updates = []
     params = []
 
-    if status:
-        updates.append("status = %s")
-        params.append(status)
+    if starred is not None:
+        updates.append("starred = %s")
+        params.append(starred)
 
     if not updates:
         return None
@@ -1777,15 +1782,15 @@ def update_deadline(deadline_id: int, status: str = None) -> Optional[dict]:
         cur.execute(f"""
             UPDATE deadlines SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, date, time, location, description, status, document_link, calculation_note, starred
+            RETURNING id, case_id, date, time, location, description, document_link, calculation_note, starred
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
 
 
 def update_deadline_full(deadline_id: int, date: str = None, description: str = None,
-                         status: str = None, document_link: str = None,
-                         calculation_note: str = None, time: str = None, location: str = None,
+                         document_link: str = None, calculation_note: str = None,
+                         time: str = None, location: str = None,
                          starred: bool = None) -> Optional[dict]:
     """Update all deadline fields."""
     updates = []
@@ -1809,10 +1814,6 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
         updates.append("description = %s")
         params.append(description)
 
-    if status is not None:
-        updates.append("status = %s")
-        params.append(status)
-
     if document_link is not None:
         updates.append("document_link = %s")
         params.append(document_link if document_link else None)
@@ -1834,7 +1835,7 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
         cur.execute(f"""
             UPDATE deadlines SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, date, time, location, description, status, document_link, calculation_note, starred
+            RETURNING id, case_id, date, time, location, description, document_link, calculation_note, starred
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -1847,17 +1848,7 @@ def delete_deadline(deadline_id: int) -> bool:
         return cur.rowcount > 0
 
 
-def bulk_update_deadlines(deadline_ids: List[int], status: str) -> dict:
-    """Update status for multiple deadlines."""
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE deadlines SET status = %s
-            WHERE id = ANY(%s)
-        """, (status, deadline_ids))
-        return {"updated": cur.rowcount}
-
-
-def search_deadlines(query: str = None, case_id: int = None, status: str = None,
+def search_deadlines(query: str = None, case_id: int = None,
                      limit: int = 50) -> List[dict]:
     """Search deadlines by various criteria."""
     conditions = []
@@ -1871,16 +1862,12 @@ def search_deadlines(query: str = None, case_id: int = None, status: str = None,
         conditions.append("d.case_id = %s")
         params.append(case_id)
 
-    if status:
-        conditions.append("d.status = %s")
-        params.append(status)
-
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
         cur.execute(f"""
             SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
-                   d.description, d.status, d.starred
+                   d.description, d.starred
             FROM deadlines d
             JOIN cases c ON d.case_id = c.id
             {where_clause}
@@ -2014,7 +2001,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
     with get_cursor() as cur:
         if include_deadlines:
             cur.execute("""
-                SELECT d.id, d.date, d.time, d.location, d.description, d.status,
+                SELECT d.id, d.date, d.time, d.location, d.description,
                        d.case_id, c.case_name, c.short_name, 'deadline' as item_type
                 FROM deadlines d
                 JOIN cases c ON d.case_id = c.id
@@ -2065,7 +2052,7 @@ def get_dashboard_stats() -> dict:
         # Upcoming deadlines (next 30 days)
         cur.execute("""
             SELECT COUNT(*) as upcoming FROM deadlines
-            WHERE status = 'Pending' AND date >= CURRENT_DATE AND date <= CURRENT_DATE + 30
+            WHERE date >= CURRENT_DATE AND date <= CURRENT_DATE + 30
         """)
         upcoming_deadlines = cur.fetchone()["upcoming"]
 

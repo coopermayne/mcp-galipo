@@ -49,7 +49,6 @@ export interface Deadline {
   time?: string;
   location?: string;
   description: string;
-  status: string;
   document_link?: string;
   calculation_note?: string;
   starred?: boolean;
@@ -165,7 +164,7 @@ export interface CalendarItem {
   time?: string;
   location?: string;
   description: string;
-  status: string;
+  status?: string;  // Only present for tasks
   urgency?: number;  // Only present for tasks
   case_id: number;
   case_name: string;
@@ -219,7 +218,6 @@ export interface CreateDeadlineInput {
   case_id: number;
   date: string;
   description: string;
-  status?: string;
   time?: string;
   location?: string;
   document_link?: string;
@@ -230,7 +228,6 @@ export interface CreateDeadlineInput {
 export interface UpdateDeadlineInput {
   date?: string;
   description?: string;
-  status?: string;
   time?: string;
   location?: string;
   document_link?: string;

@@ -118,7 +118,7 @@ async function renderDashboard() {
     const [stats, tasksRes, deadlinesRes, casesRes] = await Promise.all([
         API.get('/api/v1/stats'),
         API.get('/api/v1/tasks?status=Pending'),
-        API.get('/api/v1/deadlines?status=Pending'),
+        API.get('/api/v1/deadlines'),
         API.get('/api/v1/cases')
     ]);
 
@@ -397,14 +397,15 @@ async function renderCaseDetail(caseId) {
                 ${caseData.deadlines?.length ? `
                     <div class="section-content">
                         ${caseData.deadlines.map(d => `
-                            <div class="item-card ${getUrgencyClass(d.urgency)}">
+                            <div class="item-card">
                                 <div class="item-card-main">
-                                    <div class="item-card-title">${d.description}</div>
+                                    <div class="item-card-title">
+                                        ${d.starred ? '<span class="badge badge-starred">★</span>' : ''}
+                                        ${d.description}
+                                    </div>
                                     ${d.calculation_note ? `<div class="item-card-note">${d.calculation_note}</div>` : ''}
                                     <div class="item-card-details">
                                         <span class="detail-date">${formatDate(d.date)}</span>
-                                        ${getStatusBadge(d.status)}
-                                        ${getUrgencyBadge(d.urgency)}
                                     </div>
                                 </div>
                                 <div class="item-card-actions">
@@ -584,23 +585,9 @@ async function renderDeadlines() {
             <h2>All Deadlines</h2>
         </div>
 
-        <div class="filter-bar">
-            <select class="form-control" id="deadline-status-filter" onchange="filterDeadlines()">
-                <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Complete">Complete</option>
-            </select>
-            <select class="form-control" id="deadline-urgency-filter" onchange="filterDeadlines()">
-                <option value="">All Urgencies</option>
-                <option value="5">Critical (5)</option>
-                <option value="4">High+ (4-5)</option>
-                <option value="3">Medium+ (3-5)</option>
-            </select>
-        </div>
-
         <div class="list-view card">
             ${deadlines.length ? deadlines.map(d => `
-                <div class="list-item ${getUrgencyClass(d.urgency)} deadline-row" data-status="${d.status}" data-urgency="${d.urgency}">
+                <div class="list-item deadline-row">
                     <div class="list-item-main">
                         <div class="list-item-title">${d.description}</div>
                         ${d.calculation_note ? `<div class="list-item-note">${d.calculation_note}</div>` : ''}
@@ -610,8 +597,7 @@ async function renderDeadlines() {
                         </div>
                     </div>
                     <div class="list-item-side">
-                        ${getStatusBadge(d.status)}
-                        ${getUrgencyBadge(d.urgency)}
+                        ${d.starred ? '<span class="badge badge-starred">★</span>' : ''}
                         <div class="actions">
                             <button class="action-btn" onclick="openDeadlineModal(${d.case_id}, ${d.id})" title="Edit">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -627,15 +613,7 @@ async function renderDeadlines() {
     `;
 }
 
-function filterDeadlines() {
-    const status = document.getElementById('deadline-status-filter').value;
-    const urgency = document.getElementById('deadline-urgency-filter').value;
-    document.querySelectorAll('.deadline-row').forEach(row => {
-        const matchStatus = !status || row.dataset.status === status;
-        const matchUrgency = !urgency || parseInt(row.dataset.urgency) >= parseInt(urgency);
-        row.style.display = matchStatus && matchUrgency ? '' : 'none';
-    });
-}
+// filterDeadlines removed - deadlines no longer have status or urgency
 
 // Modal helpers
 function openModal() {
@@ -864,28 +842,15 @@ async function openDeadlineModal(caseId, deadlineId = null) {
                         <input type="date" class="form-control" id="deadline-date" value="${deadlineData.date || ''}" required>
                     </div>
                     <div class="form-group">
-                        <label>Urgency</label>
-                        <select class="form-control" id="deadline-urgency">
-                            <option value="1" ${(deadlineData.urgency || 3) === 1 ? 'selected' : ''}>1 - Low</option>
-                            <option value="2" ${(deadlineData.urgency || 3) === 2 ? 'selected' : ''}>2 - Low</option>
-                            <option value="3" ${(deadlineData.urgency || 3) === 3 ? 'selected' : ''}>3 - Medium</option>
-                            <option value="4" ${(deadlineData.urgency || 3) === 4 ? 'selected' : ''}>4 - High</option>
-                            <option value="5" ${(deadlineData.urgency || 3) === 5 ? 'selected' : ''}>5 - Critical</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select class="form-control" id="deadline-status">
-                            <option value="Pending" ${deadlineData.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                            <option value="Complete" ${deadlineData.status === 'Complete' ? 'selected' : ''}>Complete</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Calculation Note</label>
                         <input type="text" class="form-control" id="deadline-calc" value="${deadlineData.calculation_note || ''}" placeholder="e.g., Filing + 60 days">
                     </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="deadline-starred" ${deadlineData.starred ? 'checked' : ''}>
+                        ★ Show in Key Dates
+                    </label>
                 </div>
             </form>
         </div>
@@ -903,9 +868,8 @@ async function saveDeadline() {
     const data = {
         description: document.getElementById('deadline-description').value,
         date: document.getElementById('deadline-date').value,
-        urgency: parseInt(document.getElementById('deadline-urgency').value),
-        status: document.getElementById('deadline-status').value,
-        calculation_note: document.getElementById('deadline-calc').value || null
+        calculation_note: document.getElementById('deadline-calc').value || null,
+        starred: document.getElementById('deadline-starred').checked
     };
 
     if (id) {

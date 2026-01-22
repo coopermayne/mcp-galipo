@@ -4,28 +4,22 @@ import { Link } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
 import {
   EditableText,
-  EditableSelect,
   EditableDate,
-  StatusBadge,
   ListPanel,
   ConfirmModal,
 } from '../components/common';
 import { getDeadlines, updateDeadline, deleteDeadline } from '../api/client';
 import type { Deadline } from '../types';
-import { Trash2, ExternalLink, Filter, Search } from 'lucide-react';
+import { Trash2, ExternalLink, Search, Star } from 'lucide-react';
 
 export function Deadlines() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const { data: deadlinesData, isLoading } = useQuery({
-    queryKey: ['deadlines', { status: statusFilter || undefined }],
-    queryFn: () =>
-      getDeadlines({
-        status: statusFilter || undefined,
-      }),
+    queryKey: ['deadlines'],
+    queryFn: () => getDeadlines(),
   });
 
   const updateMutation = useMutation({
@@ -44,13 +38,6 @@ export function Deadlines() {
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
-
-  const statusOptions = [
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Met', label: 'Met' },
-    { value: 'Missed', label: 'Missed' },
-    { value: 'Extended', label: 'Extended' },
-  ];
 
   const handleUpdate = useCallback(
     async (deadlineId: number, field: string, value: any) => {
@@ -148,7 +135,7 @@ export function Deadlines() {
       />
 
       <PageContent>
-        {/* Filters */}
+        {/* Search */}
         <ListPanel className="mb-6">
           <div className="px-4 py-3 flex items-center gap-4">
             <div className="relative flex-1 max-w-xs">
@@ -160,23 +147,6 @@ export function Deadlines() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
-            </div>
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
-            <Filter className="w-4 h-4 text-slate-400" />
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-500 dark:text-slate-400">Status:</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-              >
-                <option value="">All</option>
-                {statusOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
         </ListPanel>
@@ -203,6 +173,13 @@ export function Deadlines() {
                       <ListPanel.Body>
                         {deadlines.map((deadline) => (
                           <ListPanel.Row key={deadline.id} highlight={group === 'overdue'}>
+                            <button
+                              onClick={() => handleUpdate(deadline.id, 'starred', !deadline.starred)}
+                              className={`p-1 ${deadline.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                              title={deadline.starred ? 'Unstar' : 'Star'}
+                            >
+                              <Star className={`w-4 h-4 ${deadline.starred ? 'fill-amber-500' : ''}`} />
+                            </button>
                             <div className="flex-1 min-w-0">
                               <EditableText
                                 value={deadline.description}
@@ -220,12 +197,6 @@ export function Deadlines() {
                             <EditableDate
                               value={deadline.date}
                               onSave={(value) => handleUpdate(deadline.id, 'date', value)}
-                            />
-                            <EditableSelect
-                              value={deadline.status}
-                              options={statusOptions}
-                              onSave={(value) => handleUpdate(deadline.id, 'status', value)}
-                              renderValue={(value) => <StatusBadge status={value} />}
                             />
                             <button
                               onClick={() => handleDelete(deadline.id)}
