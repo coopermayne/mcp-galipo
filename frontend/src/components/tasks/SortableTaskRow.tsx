@@ -33,6 +33,7 @@ interface SortableTaskRowProps {
   showCaseBadge?: boolean;
   showUrgency?: boolean;
   isPreview?: boolean;
+  isHighlighted?: boolean;
 }
 
 export function SortableTaskRow({
@@ -44,6 +45,7 @@ export function SortableTaskRow({
   showCaseBadge = true,
   showUrgency = true,
   isPreview = false,
+  isHighlighted = false,
 }: SortableTaskRowProps) {
   const {
     attributes,
@@ -54,11 +56,14 @@ export function SortableTaskRow({
     isDragging,
   } = useSortable({ id: task.id, disabled: isPreview });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1000 : 'auto',
+    ...(isHighlighted ? {
+      animation: 'highlightFade 1.5s ease-out',
+    } : {}),
   };
 
   return (
@@ -71,6 +76,7 @@ export function SortableTaskRow({
         border-b border-slate-200 dark:border-slate-700 last:border-b-0
         hover:bg-slate-50 dark:hover:bg-slate-700/50
         ${isDragging ? 'shadow-lg rounded-lg border border-primary-500' : ''}
+        ${isHighlighted ? 'ring-2 ring-primary-400 ring-opacity-75' : ''}
       `}
     >
       {/* Drag Handle */}

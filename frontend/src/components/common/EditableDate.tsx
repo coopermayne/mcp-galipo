@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, parse, isValid } from 'date-fns';
 import { useAutoSave } from '../../hooks/useAutoSave';
+import { formatSmartDate } from '../../utils/dateFormat';
 import { Check, AlertCircle, Loader2, Calendar, X } from 'lucide-react';
 import 'react-day-picker/style.css';
 
@@ -89,7 +90,7 @@ export function EditableDate({
   };
 
   const displayValue = isValidDate
-    ? format(dateValue!, 'MMM d, yyyy')
+    ? formatSmartDate(dateValue!)
     : placeholder;
 
   return (

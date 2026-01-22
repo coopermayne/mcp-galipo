@@ -22,6 +22,7 @@ interface UrgencyGroupProps {
   urgencyOptions: { value: string; label: string }[];
   onUpdate: (taskId: number, field: string, value: any) => Promise<void> | void;
   onDelete: (taskId: number, description: string) => void;
+  recentlyDroppedId?: number | null;
 }
 
 export function UrgencyGroup({
@@ -33,6 +34,7 @@ export function UrgencyGroup({
   urgencyOptions,
   onUpdate,
   onDelete,
+  recentlyDroppedId,
 }: UrgencyGroupProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `urgency-${urgency}`,
@@ -107,6 +109,7 @@ export function UrgencyGroup({
                     onUpdate={onUpdate}
                     onDelete={onDelete}
                     showUrgency={false}
+                    isHighlighted={task.id === recentlyDroppedId}
                   />
                 </div>
               );

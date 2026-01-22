@@ -121,3 +121,15 @@ body {
 *:focus-visible {
   @apply outline-2 outline-offset-2 outline-primary-500;
 }
+
+/* Highlight fade animation for dropped items */
+@keyframes highlightFade {
+  0% {
+    background-color: rgb(71 113 255 / 0.2);
+    box-shadow: 0 0 0 2px rgb(71 113 255 / 0.5);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}

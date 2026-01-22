@@ -1025,6 +1025,7 @@ function TasksTab({
   const [activeId, setActiveId] = useState<import('@dnd-kit/core').UniqueIdentifier | null>(null);
   const [overContainer, setOverContainer] = useState<string | null>(null);
   const [overIndex, setOverIndex] = useState<number>(0);
+  const [recentlyDroppedId, setRecentlyDroppedId] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1236,6 +1237,10 @@ function TasksTab({
 
     const newSortOrder = calculateSortOrderAtIndex(targetTasks, finalIndex);
 
+    // Highlight the dropped task
+    setRecentlyDroppedId(activeTaskItem.id);
+    setTimeout(() => setRecentlyDroppedId(null), 1500);
+
     if (view === 'by-urgency') {
       const newUrgency = parseInt(finalContainer, 10);
       const urgencyChanged = newUrgency !== activeTaskItem.urgency;
@@ -1336,6 +1341,7 @@ function TasksTab({
             onUpdate={handleUpdate}
             onDelete={handleDelete}
             showUrgency={view === 'by-status'}
+            recentlyDroppedId={recentlyDroppedId}
           />
         )}
       </div>
@@ -1444,6 +1450,7 @@ function DroppableTaskGroup({
   onUpdate,
   onDelete,
   showUrgency,
+  recentlyDroppedId,
 }: {
   groupKey: string;
   tasks: Task[];
@@ -1455,6 +1462,7 @@ function DroppableTaskGroup({
   onUpdate: (taskId: number, field: string, value: any) => Promise<void> | void;
   onDelete: (taskId: number, description: string) => void;
   showUrgency: boolean;
+  recentlyDroppedId: number | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `group-${groupKey}`,
@@ -1509,6 +1517,7 @@ function DroppableTaskGroup({
                     onDelete={onDelete}
                     showCaseBadge={false}
                     showUrgency={showUrgency}
+                    isHighlighted={task.id === recentlyDroppedId}
                   />
                 </div>
               );

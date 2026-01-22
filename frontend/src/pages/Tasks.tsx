@@ -33,6 +33,7 @@ export function Tasks() {
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overContainer, setOverContainer] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number>(0);
+  const [recentlyDroppedId, setRecentlyDroppedId] = useState<number | null>(null);
   const lastOverId = useRef<UniqueIdentifier | null>(null);
 
   const sensors = useSensors(
@@ -253,6 +254,10 @@ export function Tasks() {
     const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
     if (!activeTaskItem) return;
 
+    // Highlight the dropped task
+    setRecentlyDroppedId(activeTaskItem.id);
+    setTimeout(() => setRecentlyDroppedId(null), 1500);
+
     if (view === 'by-urgency') {
       // Get the tasks in the target container (excluding the active task)
       const targetTasks = tasksByUrgency[finalContainer].filter((t) => t.id !== active.id);
@@ -428,6 +433,7 @@ export function Tasks() {
                     urgencyOptions={urgencyOptions}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
+                    recentlyDroppedId={recentlyDroppedId}
                   />
                 ))}
               </div>
@@ -447,6 +453,7 @@ export function Tasks() {
                     urgencyOptions={urgencyOptions}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
+                    recentlyDroppedId={recentlyDroppedId}
                   />
                 ))}
               </div>
