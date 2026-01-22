@@ -15,7 +15,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
 import { UrgencyGroup, CaseGroup } from '../components/tasks';
-import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api/client';
+import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
 import type { Task } from '../types';
 import { Filter, Search, LayoutGrid, List, GripVertical } from 'lucide-react';
 
