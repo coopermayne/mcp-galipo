@@ -133,6 +133,20 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         """, (case_id,))
         result["notes"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
+        # Get proceedings
+        cur.execute("""
+            SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id, p.judge_id,
+                   p.sort_order, p.is_primary, p.notes, p.created_at, p.updated_at,
+                   j.name as jurisdiction_name, j.local_rules_link,
+                   per.name as judge_name
+            FROM proceedings p
+            LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
+            LEFT JOIN persons per ON p.judge_id = per.id
+            WHERE p.case_id = %s
+            ORDER BY p.sort_order, p.id
+        """, (case_id,))
+        result["proceedings"] = serialize_rows([dict(row) for row in cur.fetchall()])
+
         return result
 
 

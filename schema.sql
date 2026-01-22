@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS notes CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS events CASCADE;
 DROP TABLE IF EXISTS activities CASCADE;
+DROP TABLE IF EXISTS proceedings CASCADE;
 DROP TABLE IF EXISTS case_persons CASCADE;
 DROP TABLE IF EXISTS expertise_types CASCADE;
 DROP TABLE IF EXISTS person_types CASCADE;
@@ -135,6 +136,20 @@ CREATE TABLE notes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 11. Proceedings table (court filings within a case)
+CREATE TABLE proceedings (
+    id SERIAL PRIMARY KEY,
+    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+    case_number VARCHAR(100) NOT NULL,
+    jurisdiction_id INTEGER REFERENCES jurisdictions(id),
+    judge_id INTEGER REFERENCES persons(id),
+    sort_order INTEGER DEFAULT 0,
+    is_primary BOOLEAN DEFAULT FALSE,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better query performance
 CREATE INDEX idx_cases_status ON cases(status);
 CREATE INDEX idx_cases_court_id ON cases(court_id);
@@ -152,3 +167,4 @@ CREATE INDEX idx_events_case_id ON events(case_id);
 CREATE INDEX idx_events_date ON events(date);
 CREATE INDEX idx_activities_case_id ON activities(case_id);
 CREATE INDEX idx_notes_case_id ON notes(case_id);
+CREATE INDEX idx_proceedings_case_id ON proceedings(case_id);

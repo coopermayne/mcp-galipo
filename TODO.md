@@ -95,12 +95,12 @@ proceedings (id, case_id, case_number, jurisdiction_id, judge_id, sort_order, is
 ```
 
 **Implementation**
-- [ ] Create proceedings table with migration
+- [x] Create proceedings table with migration
 - [ ] Migrate existing case_numbers data to proceedings
-- [ ] Add proceedings CRUD API endpoints
-- [ ] Update get_case_by_id to include proceedings
-- [ ] Frontend: ProceedingsSection component (replaces CaseNumbersSection)
-- [ ] Frontend: Move judges from case-level to per-proceeding
+- [x] Add proceedings CRUD API endpoints
+- [x] Update get_case_by_id to include proceedings
+- [x] Frontend: ProceedingsSection component (replaces CaseNumbersSection)
+- [x] Frontend: Move judges from case-level to per-proceeding
 - [ ] Remove old case_numbers column after verification
 
 ---

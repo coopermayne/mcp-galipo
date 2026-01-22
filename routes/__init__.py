@@ -24,6 +24,7 @@ from .events import register_event_routes
 from .persons import register_person_routes
 from .notes import register_note_routes
 from .activities import register_activity_routes
+from .proceedings import register_proceeding_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -50,6 +51,7 @@ def register_routes(mcp):
     register_person_routes(mcp)
     register_note_routes(mcp)
     register_activity_routes(mcp)
+    register_proceeding_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     register_static_routes(mcp)
@@ -68,5 +70,6 @@ __all__ = [
     "register_person_routes",
     "register_note_routes",
     "register_activity_routes",
+    "register_proceeding_routes",
     "register_static_routes",
 ]

@@ -138,6 +138,15 @@ from .types import (
     delete_person_type,
 )
 
+# Proceeding operations
+from .proceedings import (
+    add_proceeding,
+    get_proceedings,
+    get_proceeding_by_id,
+    update_proceeding,
+    delete_proceeding,
+)
+
 # Define __all__ for explicit exports
 __all__ = [
     # Validation
@@ -240,4 +249,10 @@ __all__ = [
     "get_person_type_by_id",
     "update_person_type",
     "delete_person_type",
+    # Proceedings
+    "add_proceeding",
+    "get_proceedings",
+    "get_proceeding_by_id",
+    "update_proceeding",
+    "delete_proceeding",
 ]

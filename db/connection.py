@@ -592,6 +592,24 @@ def migrate_db():
                 cur.execute(f"ALTER INDEX {old_name} RENAME TO {new_name}")
                 print(f"  - Renamed index {old_name} to {new_name}")
 
+        # 21. Create proceedings table if it doesn't exist
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS proceedings (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                case_number VARCHAR(100) NOT NULL,
+                jurisdiction_id INTEGER REFERENCES jurisdictions(id),
+                judge_id INTEGER REFERENCES persons(id),
+                sort_order INTEGER DEFAULT 0,
+                is_primary BOOLEAN DEFAULT FALSE,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id)")
+        print("  - Created proceedings table (if not exists)")
+
         print("Database migration complete.")
 
 
@@ -739,6 +757,22 @@ def init_db():
             )
         """)
 
+        # 11. Proceedings table (court filings within a case)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS proceedings (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                case_number VARCHAR(100) NOT NULL,
+                jurisdiction_id INTEGER REFERENCES jurisdictions(id),
+                judge_id INTEGER REFERENCES persons(id),
+                sort_order INTEGER DEFAULT 0,
+                is_primary BOOLEAN DEFAULT FALSE,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Create indexes for better query performance
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
@@ -757,6 +791,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
             CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
             CREATE INDEX IF NOT EXISTS idx_notes_case_id ON notes(case_id);
+            CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id);
         """)
 
     print("Database tables initialized.")

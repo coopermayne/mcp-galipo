@@ -6,6 +6,7 @@ import type { Event } from './event';
 import type { Note } from './note';
 import type { Activity } from './activity';
 import type { CasePerson } from './person';
+import type { Proceeding } from './proceeding';
 
 export interface CaseNumber {
   number: string;
@@ -33,6 +34,7 @@ export interface Case {
   events?: Event[];
   notes?: Note[];
   activities?: Activity[];
+  proceedings?: Proceeding[];
 }
 
 export interface CaseSummary {
