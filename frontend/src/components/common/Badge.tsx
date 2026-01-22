@@ -31,7 +31,7 @@ const statusColors: Record<string, string> = {
   'Partially Complete': 'bg-cyan-100 text-cyan-700',
   'Blocked': 'bg-red-100 text-red-700',
   'Awaiting Atty Review': 'bg-purple-100 text-purple-700',
-  // Deadline statuses
+  // Event statuses
   'Met': 'bg-green-100 text-green-700',
   'Missed': 'bg-red-100 text-red-700',
 };

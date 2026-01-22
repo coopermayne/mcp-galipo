@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/layout';
-import { Dashboard, Cases, CaseDetail, Tasks, Deadlines, Login } from './pages';
+import { Dashboard, Cases, CaseDetail, Tasks, Calendar, Login } from './pages';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -35,7 +35,7 @@ function App() {
               <Route path="cases" element={<Cases />} />
               <Route path="cases/:id" element={<CaseDetail />} />
               <Route path="tasks" element={<Tasks />} />
-              <Route path="deadlines" element={<Deadlines />} />
+              <Route path="calendar" element={<Calendar />} />
             </Route>
           </Routes>
           </BrowserRouter>

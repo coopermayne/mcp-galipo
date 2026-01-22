@@ -85,7 +85,7 @@ function navigate(view, params = {}) {
         case 'cases': renderCases(); break;
         case 'case': renderCaseDetail(params.id); break;
         case 'tasks': renderTasks(); break;
-        case 'deadlines': renderDeadlines(); break;
+        case 'calendar': renderCalendar(); break;
     }
 }
 
@@ -115,10 +115,10 @@ function getUrgencyClass(urgency) {
 
 // Dashboard
 async function renderDashboard() {
-    const [stats, tasksRes, deadlinesRes, casesRes] = await Promise.all([
+    const [stats, tasksRes, eventsRes, casesRes] = await Promise.all([
         API.get('/api/v1/stats'),
         API.get('/api/v1/tasks?status=Pending'),
-        API.get('/api/v1/deadlines'),
+        API.get('/api/v1/events'),
         API.get('/api/v1/cases')
     ]);
 
@@ -148,13 +148,13 @@ async function renderDashboard() {
                     <div class="stat-label">Pending Tasks</div>
                 </div>
             </div>
-            <div class="stat-card" onclick="navigate('deadlines')" style="cursor:pointer">
+            <div class="stat-card" onclick="navigate('calendar')" style="cursor:pointer">
                 <div class="stat-icon green">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 </div>
                 <div class="stat-content">
-                    <div class="stat-value">${stats.upcoming_deadlines}</div>
-                    <div class="stat-label">Upcoming Deadlines</div>
+                    <div class="stat-value">${stats.upcoming_events}</div>
+                    <div class="stat-label">Upcoming Events</div>
                 </div>
             </div>
             <div class="stat-card urgent">
@@ -162,7 +162,7 @@ async function renderDashboard() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 </div>
                 <div class="stat-content">
-                    <div class="stat-value">${stats.urgent_tasks + stats.urgent_deadlines}</div>
+                    <div class="stat-value">${stats.urgent_tasks + stats.urgent_events}</div>
                     <div class="stat-label">Urgent Items</div>
                 </div>
             </div>
@@ -199,28 +199,28 @@ async function renderDashboard() {
 
                 <div class="card">
                     <div class="card-header">
-                        <h3>Upcoming Deadlines</h3>
-                        <button class="btn btn-sm btn-secondary" onclick="navigate('deadlines')">View All</button>
+                        <h3>Upcoming Events</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="navigate('calendar')">View All</button>
                     </div>
                     <div class="card-body no-padding">
-                        ${deadlinesRes.deadlines.length ? `
+                        ${eventsRes.events.length ? `
                             <div class="list-view">
-                                ${deadlinesRes.deadlines.slice(0, 8).map(d => `
-                                    <div class="list-item ${getUrgencyClass(d.urgency)}" onclick="navigate('case', {id: ${d.case_id}})">
+                                ${eventsRes.events.slice(0, 8).map(e => `
+                                    <div class="list-item ${getUrgencyClass(e.urgency)}" onclick="navigate('case', {id: ${e.case_id}})">
                                         <div class="list-item-main">
-                                            <div class="list-item-title">${d.description}</div>
+                                            <div class="list-item-title">${e.description}</div>
                                             <div class="list-item-meta">
-                                                <span class="meta-case">${d.case_name}</span>
-                                                <span class="meta-date">${formatDate(d.date)}</span>
+                                                <span class="meta-case">${e.case_name}</span>
+                                                <span class="meta-date">${formatDate(e.date)}</span>
                                             </div>
                                         </div>
                                         <div class="list-item-side">
-                                            ${getUrgencyBadge(d.urgency)}
+                                            ${getUrgencyBadge(e.urgency)}
                                         </div>
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><p>No upcoming deadlines</p></div>'}
+                        ` : '<div class="empty-state"><p>No upcoming events</p></div>'}
                     </div>
                 </div>
             </div>
@@ -388,38 +388,38 @@ async function renderCaseDetail(caseId) {
                 ` : '<div class="empty-section">No tasks yet</div>'}
             </section>
 
-            <!-- Deadlines Section -->
+            <!-- Events Section -->
             <section class="case-section">
                 <div class="section-header">
-                    <h2>Deadlines <span class="count">${caseData.deadlines?.length || 0}</span></h2>
-                    <button class="btn btn-sm btn-primary" onclick="openDeadlineModal(${caseId})">+ Add Deadline</button>
+                    <h2>Events <span class="count">${caseData.events?.length || 0}</span></h2>
+                    <button class="btn btn-sm btn-primary" onclick="openEventModal(${caseId})">+ Add Event</button>
                 </div>
-                ${caseData.deadlines?.length ? `
+                ${caseData.events?.length ? `
                     <div class="section-content">
-                        ${caseData.deadlines.map(d => `
+                        ${caseData.events.map(e => `
                             <div class="item-card">
                                 <div class="item-card-main">
                                     <div class="item-card-title">
-                                        ${d.starred ? '<span class="badge badge-starred">★</span>' : ''}
-                                        ${d.description}
+                                        ${e.starred ? '<span class="badge badge-starred">★</span>' : ''}
+                                        ${e.description}
                                     </div>
-                                    ${d.calculation_note ? `<div class="item-card-note">${d.calculation_note}</div>` : ''}
+                                    ${e.calculation_note ? `<div class="item-card-note">${e.calculation_note}</div>` : ''}
                                     <div class="item-card-details">
-                                        <span class="detail-date">${formatDate(d.date)}</span>
+                                        <span class="detail-date">${formatDate(e.date)}</span>
                                     </div>
                                 </div>
                                 <div class="item-card-actions">
-                                    <button class="action-btn" onclick="openDeadlineModal(${caseId}, ${d.id})" title="Edit">
+                                    <button class="action-btn" onclick="openEventModal(${caseId}, ${e.id})" title="Edit">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                     </button>
-                                    <button class="action-btn delete" onclick="deleteDeadline(${d.id}, ${caseId})" title="Delete">
+                                    <button class="action-btn delete" onclick="deleteEvent(${e.id}, ${caseId})" title="Delete">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                     </button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
-                ` : '<div class="empty-section">No deadlines yet</div>'}
+                ` : '<div class="empty-section">No events yet</div>'}
             </section>
 
             <!-- Clients Section -->
@@ -575,45 +575,45 @@ function filterTasks() {
     });
 }
 
-// Deadlines List
-async function renderDeadlines() {
-    const { deadlines } = await API.get('/api/v1/deadlines');
+// Calendar (Events) List
+async function renderCalendar() {
+    const { events } = await API.get('/api/v1/events');
     const content = document.getElementById('main-content');
 
     content.innerHTML = `
         <div class="page-header">
-            <h2>All Deadlines</h2>
+            <h2>Calendar</h2>
         </div>
 
         <div class="list-view card">
-            ${deadlines.length ? deadlines.map(d => `
-                <div class="list-item deadline-row">
+            ${events.length ? events.map(e => `
+                <div class="list-item event-row">
                     <div class="list-item-main">
-                        <div class="list-item-title">${d.description}</div>
-                        ${d.calculation_note ? `<div class="list-item-note">${d.calculation_note}</div>` : ''}
+                        <div class="list-item-title">${e.description}</div>
+                        ${e.calculation_note ? `<div class="list-item-note">${e.calculation_note}</div>` : ''}
                         <div class="list-item-meta">
-                            <a href="#" class="meta-case" onclick="navigate('case', {id: ${d.case_id}}); return false;">${d.case_name}</a>
-                            <span class="meta-date">${formatDate(d.date)}</span>
+                            <a href="#" class="meta-case" onclick="navigate('case', {id: ${e.case_id}}); return false;">${e.case_name}</a>
+                            <span class="meta-date">${formatDate(e.date)}</span>
                         </div>
                     </div>
                     <div class="list-item-side">
-                        ${d.starred ? '<span class="badge badge-starred">★</span>' : ''}
+                        ${e.starred ? '<span class="badge badge-starred">★</span>' : ''}
                         <div class="actions">
-                            <button class="action-btn" onclick="openDeadlineModal(${d.case_id}, ${d.id})" title="Edit">
+                            <button class="action-btn" onclick="openEventModal(${e.case_id}, ${e.id})" title="Edit">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
-                            <button class="action-btn delete" onclick="deleteDeadline(${d.id})" title="Delete">
+                            <button class="action-btn delete" onclick="deleteEvent(${e.id})" title="Delete">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                         </div>
                     </div>
                 </div>
-            `).join('') : '<div class="empty-state"><p>No deadlines</p></div>'}
+            `).join('') : '<div class="empty-state"><p>No events</p></div>'}
         </div>
     `;
 }
 
-// filterDeadlines removed - deadlines no longer have status or urgency
+// filterEvents removed - events no longer have status or urgency
 
 // Modal helpers
 function openModal() {
@@ -814,40 +814,40 @@ async function deleteTask(id, caseId = null) {
     }
 }
 
-// Deadline Modal
-async function openDeadlineModal(caseId, deadlineId = null) {
-    let deadlineData = {};
-    if (deadlineId) {
-        const { deadlines } = await API.get(`/api/deadlines`);
-        deadlineData = deadlines.find(d => d.id === deadlineId) || {};
+// Event Modal
+async function openEventModal(caseId, eventId = null) {
+    let eventData = {};
+    if (eventId) {
+        const { events } = await API.get(`/api/events`);
+        eventData = events.find(e => e.id === eventId) || {};
     }
 
     document.getElementById('modal-content').innerHTML = `
         <div class="modal-header">
-            <h3>${deadlineId ? 'Edit Deadline' : 'New Deadline'}</h3>
+            <h3>${eventId ? 'Edit Event' : 'New Event'}</h3>
             <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="deadline-form">
-                <input type="hidden" id="deadline-id" value="${deadlineId || ''}">
-                <input type="hidden" id="deadline-case-id" value="${caseId}">
+            <form id="event-form">
+                <input type="hidden" id="event-id" value="${eventId || ''}">
+                <input type="hidden" id="event-case-id" value="${caseId}">
                 <div class="form-group">
                     <label>Description *</label>
-                    <textarea class="form-control" id="deadline-description" required>${deadlineData.description || ''}</textarea>
+                    <textarea class="form-control" id="event-description" required>${eventData.description || ''}</textarea>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Date *</label>
-                        <input type="date" class="form-control" id="deadline-date" value="${deadlineData.date || ''}" required>
+                        <input type="date" class="form-control" id="event-date" value="${eventData.date || ''}" required>
                     </div>
                     <div class="form-group">
                         <label>Calculation Note</label>
-                        <input type="text" class="form-control" id="deadline-calc" value="${deadlineData.calculation_note || ''}" placeholder="e.g., Filing + 60 days">
+                        <input type="text" class="form-control" id="event-calc" value="${eventData.calculation_note || ''}" placeholder="e.g., Filing + 60 days">
                     </div>
                 </div>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" id="deadline-starred" ${deadlineData.starred ? 'checked' : ''}>
+                        <input type="checkbox" id="event-starred" ${eventData.starred ? 'checked' : ''}>
                         ★ Show in Key Dates
                     </label>
                 </div>
@@ -855,41 +855,41 @@ async function openDeadlineModal(caseId, deadlineId = null) {
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="saveDeadline()">Save</button>
+            <button class="btn btn-primary" onclick="saveEvent()">Save</button>
         </div>
     `;
     openModal();
 }
 
-async function saveDeadline() {
-    const id = document.getElementById('deadline-id').value;
-    const caseId = document.getElementById('deadline-case-id').value;
+async function saveEvent() {
+    const id = document.getElementById('event-id').value;
+    const caseId = document.getElementById('event-case-id').value;
     const data = {
-        description: document.getElementById('deadline-description').value,
-        date: document.getElementById('deadline-date').value,
-        calculation_note: document.getElementById('deadline-calc').value || null,
-        starred: document.getElementById('deadline-starred').checked
+        description: document.getElementById('event-description').value,
+        date: document.getElementById('event-date').value,
+        calculation_note: document.getElementById('event-calc').value || null,
+        starred: document.getElementById('event-starred').checked
     };
 
     if (id) {
-        await API.put(`/api/deadlines/${id}`, data);
-        showToast('Deadline updated');
+        await API.put(`/api/events/${id}`, data);
+        showToast('Event updated');
     } else {
         data.case_id = parseInt(caseId);
-        await API.post('/api/v1/deadlines', data);
-        showToast('Deadline created');
+        await API.post('/api/v1/events', data);
+        showToast('Event created');
     }
     closeModal();
     if (currentView === 'case') renderCaseDetail(caseId);
-    else renderDeadlines();
+    else renderCalendar();
 }
 
-async function deleteDeadline(id, caseId = null) {
-    if (confirm('Delete this deadline?')) {
-        await API.delete(`/api/deadlines/${id}`);
-        showToast('Deadline deleted');
+async function deleteEvent(id, caseId = null) {
+    if (confirm('Delete this event?')) {
+        await API.delete(`/api/events/${id}`);
+        showToast('Event deleted');
         if (caseId) renderCaseDetail(caseId);
-        else renderDeadlines();
+        else renderCalendar();
     }
 }
 

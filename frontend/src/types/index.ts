@@ -36,12 +36,13 @@ export interface Task {
   status: TaskStatus;
   urgency: number;
   sort_order: number;
-  deadline_id?: number;
-  deadline_description?: string;
+  event_id?: number;
+  event_description?: string;
   created_at: string;
 }
 
-export interface Deadline {
+// Event represents calendar items: hearings, depositions, filing deadlines, etc.
+export interface Event {
   id: number;
   case_id: number;
   case_name?: string;
@@ -91,7 +92,7 @@ export interface Case {
   case_numbers: CaseNumber[];
   persons: CasePerson[];
   tasks?: Task[];
-  deadlines?: Deadline[];
+  events?: Event[];
   notes?: Note[];
   activities?: Activity[];
 }
@@ -107,7 +108,7 @@ export interface CaseSummary {
   client_count?: number;
   defendant_count?: number;
   pending_task_count?: number;
-  upcoming_deadline_count?: number;
+  upcoming_event_count?: number;
 }
 
 // Status types
@@ -146,7 +147,7 @@ export interface DashboardStats {
   total_cases: number;
   active_cases: number;
   pending_tasks: number;
-  upcoming_deadlines: number;
+  upcoming_events: number;
   cases_by_status: Record<string, number>;
 }
 
@@ -171,7 +172,7 @@ export interface CalendarItem {
   case_id: number;
   case_name: string;
   short_name?: string;
-  item_type: 'task' | 'deadline';
+  item_type: 'task' | 'event';
 }
 
 // Create/update types
@@ -205,7 +206,7 @@ export interface CreateTaskInput {
   due_date?: string;
   status?: TaskStatus;
   urgency?: number;
-  deadline_id?: number;
+  event_id?: number;
 }
 
 export interface UpdateTaskInput {
@@ -216,7 +217,7 @@ export interface UpdateTaskInput {
   urgency?: number;
 }
 
-export interface CreateDeadlineInput {
+export interface CreateEventInput {
   case_id: number;
   date: string;
   description: string;
@@ -227,7 +228,7 @@ export interface CreateDeadlineInput {
   starred?: boolean;
 }
 
-export interface UpdateDeadlineInput {
+export interface UpdateEventInput {
   date?: string;
   description?: string;
   time?: string;

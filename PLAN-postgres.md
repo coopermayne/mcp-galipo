@@ -63,19 +63,19 @@ CASES (central entity, includes case_numbers as JSONB)
 - `search_tasks(query, case_id, status, urgency_min)` — flexible search
 - `bulk_update_tasks(task_ids, status)` — batch status updates
 
-### Deadline Management (6 tools)
-- `add_deadline(case_id, ...)`
-- `get_deadlines(case_id, urgency_filter, status_filter, due_within_days)`
-- `update_deadline(deadline_id, ...)`
-- `delete_deadline(deadline_id)`
-- `search_deadlines(query, case_id, status, urgency_min)` — flexible search
-- `bulk_update_deadlines(deadline_ids, status)` — batch status updates
+### Event Management (6 tools)
+- `add_event(case_id, ...)`
+- `get_events(case_id, urgency_filter, status_filter, due_within_days)`
+- `update_event(event_id, ...)`
+- `delete_event(event_id)`
+- `search_events(query, case_id, status, urgency_min)` — flexible search
+- `bulk_update_events(event_ids, status)` — batch status updates
 
 ### Bulk Operations (1 tool)
 - `bulk_update_case_tasks(case_id, status, current_status)` — update all tasks for a case
 
 ### Calendar (1 tool)
-- `get_calendar(days, include_tasks, include_deadlines, case_id)` — combined view
+- `get_calendar(days, include_tasks, include_events, case_id)` — combined view
 
 ### Notes (3 tools)
 - `add_note(case_id, content)`

@@ -125,7 +125,7 @@ def register_tools(mcp):
             case_name: The name of the case (e.g., "Martinez v. City of Los Angeles")
 
         Returns complete case information including persons (clients, defendants, contacts),
-        case numbers, activities, deadlines, tasks, and notes.
+        case numbers, activities, events, tasks, and notes.
         """
         if case_id:
             context.info(f"Fetching case by ID: {case_id}")
@@ -257,7 +257,7 @@ def register_tools(mcp):
     @mcp.tool()
     def delete_case(context: Context, case_id: int) -> dict:
         """
-        Delete a case and all related data (persons, deadlines, tasks, notes, etc. are CASCADE deleted).
+        Delete a case and all related data (persons, events, tasks, notes, etc. are CASCADE deleted).
 
         Args:
             case_id: ID of the case to delete
@@ -346,31 +346,31 @@ def register_tools(mcp):
         return {"tasks": tasks, "total": len(tasks)}
 
     @mcp.tool()
-    def search_deadlines(
+    def search_events(
         context: Context,
         query: Optional[str] = None,
         case_id: Optional[int] = None
     ) -> dict:
         """
-        Search for deadlines by description or case.
+        Search for events by description or case.
 
         Args:
-            query: Search in deadline descriptions (partial match)
+            query: Search in event descriptions (partial match)
             case_id: Filter to specific case
 
         At least one parameter must be provided.
 
         Examples:
-            - search_deadlines(query="discovery") - find deadlines mentioning "discovery"
-            - search_deadlines(case_id=5) - find all deadlines for case 5
+            - search_events(query="discovery") - find events mentioning "discovery"
+            - search_events(case_id=5) - find all events for case 5
         """
         if not any([query, case_id]):
             return validation_error("Provide at least one search parameter")
 
-        context.info(f"Searching deadlines{' for query=' + query if query else ''}")
-        deadlines = db.search_deadlines(query, case_id)
-        context.info(f"Found {len(deadlines)} matching deadlines")
-        return {"deadlines": deadlines, "total": len(deadlines)}
+        context.info(f"Searching events{' for query=' + query if query else ''}")
+        events = db.search_events(query, case_id)
+        context.info(f"Found {len(events)} matching events")
+        return {"events": events, "total": len(events)}
 
     # ===== ACTIVITY TOOLS =====
 
@@ -480,10 +480,10 @@ def register_tools(mcp):
             return {"success": True, "message": "Activity deleted"}
         return not_found_error("Activity")
 
-    # ===== DEADLINE TOOLS =====
+    # ===== EVENT TOOLS (Calendar events: hearings, depositions, filing deadlines, etc.) =====
 
     @mcp.tool()
-    def add_deadline(
+    def add_event(
         context: Context,
         case_id: int,
         date: str,
@@ -495,70 +495,70 @@ def register_tools(mcp):
         starred: bool = False
     ) -> dict:
         """
-        Add a deadline or event to a case - anything that HAS to happen on a specific date.
+        Add an event to a case - anything that HAS to happen on a specific date.
 
         This includes filing deadlines, depositions, hearings, trial dates, mediations,
         expert report due dates, discovery cutoffs, CMCs, MSJ hearings, etc.
-        If it's on the calendar and must happen, it's a deadline.
+        If it's on the calendar and must happen, it's an event.
 
-        Key heuristic: Deadline = it's happening whether you're ready or not.
+        Key heuristic: Event = it's happening whether you're ready or not.
 
         Args:
             case_id: ID of the case
-            date: Deadline date (YYYY-MM-DD)
+            date: Event date (YYYY-MM-DD)
             description: What is due/happening (e.g., "MSJ due", "Discovery cutoff", "Deposition of Dr. Smith")
-            time: Time of deadline (HH:MM format, 24-hour)
+            time: Time of event (HH:MM format, 24-hour)
             location: Location (e.g., courtroom, address)
             document_link: URL to related document
-            calculation_note: How the deadline was calculated (e.g., "Filing date + 60 days")
-            starred: Whether to star/highlight this deadline in case overview (default False)
+            calculation_note: How the date was calculated (e.g., "Filing date + 60 days")
+            starred: Whether to star/highlight this event in case overview (default False)
 
-        Returns the created deadline with ID.
+        Returns the created event with ID.
         """
-        context.info(f"Adding deadline for case {case_id}: {description}")
+        context.info(f"Adding event for case {case_id}: {description}")
         try:
             db.validate_date_format(date, "date")
             db.validate_time_format(time, "time")
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.add_deadline(case_id, date, description,
-                                  document_link, calculation_note, time, location, starred)
-        context.info(f"Deadline created with ID {result.get('id')}")
-        return {"success": True, "deadline": result}
+        result = db.add_event(case_id, date, description,
+                              document_link, calculation_note, time, location, starred)
+        context.info(f"Event created with ID {result.get('id')}")
+        return {"success": True, "event": result}
 
     @mcp.tool()
-    def get_deadlines(
+    def get_events(
         context: Context,
         case_id: Optional[int] = None
     ) -> dict:
         """
-        Get upcoming deadlines, optionally filtered by case.
+        Get upcoming events, optionally filtered by case.
 
         Args:
             case_id: Filter by specific case
 
-        Returns list of deadlines with case information.
+        Returns list of events with case information.
 
         Examples:
-            - get_deadlines() - all upcoming deadlines
-            - get_deadlines(case_id=5) - all deadlines for case 5
+            - get_events() - all upcoming events
+            - get_events(case_id=5) - all events for case 5
         """
-        context.info(f"Fetching deadlines{' for case ' + str(case_id) if case_id else ''}")
-        result = db.get_upcoming_deadlines()
+        context.info(f"Fetching events{' for case ' + str(case_id) if case_id else ''}")
+        result = db.get_upcoming_events()
 
         # Filter by case_id if provided (since db function doesn't support it directly)
         if case_id:
-            result["deadlines"] = [d for d in result["deadlines"] if d["case_id"] == case_id]
-            result["total"] = len(result["deadlines"])
+            result["events"] = [e for e in result["events"] if e["case_id"] == case_id]
+            result["total"] = len(result["events"])
 
-        context.info(f"Found {result['total']} deadlines")
-        return {"deadlines": result["deadlines"], "total": result["total"]}
+        context.info(f"Found {result['total']} events")
+        return {"events": result["events"], "total": result["total"]}
 
     @mcp.tool()
-    def update_deadline(
+    def update_event(
         context: Context,
-        deadline_id: int,
+        event_id: int,
         date: Optional[str] = None,
         description: Optional[str] = None,
         time: Optional[str] = None,
@@ -568,21 +568,21 @@ def register_tools(mcp):
         starred: Optional[bool] = None
     ) -> dict:
         """
-        Update a deadline.
+        Update an event.
 
         Args:
-            deadline_id: ID of the deadline
+            event_id: ID of the event
             date: New date (YYYY-MM-DD)
             description: New description
             time: New time (HH:MM format)
             location: New location
             document_link: New document link
             calculation_note: New calculation note
-            starred: Whether to star/highlight this deadline in case overview
+            starred: Whether to star/highlight this event in case overview
 
-        Returns updated deadline.
+        Returns updated event.
         """
-        context.info(f"Updating deadline {deadline_id}")
+        context.info(f"Updating event {event_id}")
         try:
             if date:
                 db.validate_date_format(date, "date")
@@ -591,39 +591,39 @@ def register_tools(mcp):
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.update_deadline_full(deadline_id, date, description,
-                                          document_link, calculation_note,
-                                          time, location, starred)
+        result = db.update_event_full(event_id, date, description,
+                                      document_link, calculation_note,
+                                      time, location, starred)
         if not result:
-            return not_found_error("Deadline or no updates provided")
-        context.info(f"Deadline {deadline_id} updated successfully")
-        return {"success": True, "deadline": result}
+            return not_found_error("Event or no updates provided")
+        context.info(f"Event {event_id} updated successfully")
+        return {"success": True, "event": result}
 
     @mcp.tool()
-    def delete_deadline(context: Context, deadline_id: int) -> dict:
+    def delete_event(context: Context, event_id: int) -> dict:
         """
-        Delete a deadline.
+        Delete an event.
 
         Args:
-            deadline_id: ID of the deadline to delete
+            event_id: ID of the event to delete
 
         Returns confirmation.
         """
-        context.info(f"Deleting deadline {deadline_id}")
-        if db.delete_deadline(deadline_id):
-            context.info(f"Deadline {deadline_id} deleted successfully")
-            return {"success": True, "message": "Deadline deleted"}
-        return not_found_error("Deadline")
+        context.info(f"Deleting event {event_id}")
+        if db.delete_event(event_id):
+            context.info(f"Event {event_id} deleted successfully")
+            return {"success": True, "message": "Event deleted"}
+        return not_found_error("Event")
 
     @mcp.tool()
     def get_calendar(
         context: Context,
         days: int = 30,
         include_tasks: bool = True,
-        include_deadlines: bool = True
+        include_events: bool = True
     ) -> dict:
         """
-        Get a combined calendar view of tasks and deadlines.
+        Get a combined calendar view of tasks and events.
 
         This tool provides a unified view of everything due in the specified time period,
         sorted by date. Great for answering questions like "What's on my calendar this week?"
@@ -631,7 +631,7 @@ def register_tools(mcp):
         Args:
             days: Number of days to look ahead (default 30)
             include_tasks: Include tasks in results (default True)
-            include_deadlines: Include deadlines in results (default True)
+            include_events: Include events in results (default True)
 
         Returns combined list sorted by date.
         Each item includes: id, date, time, location, description, status,
@@ -640,10 +640,10 @@ def register_tools(mcp):
         Examples:
             - get_calendar(days=7) - everything due this week
             - get_calendar(days=1) - what's due today
-            - get_calendar(include_tasks=False) - deadlines only
+            - get_calendar(include_tasks=False) - events only
         """
         context.info(f"Fetching calendar for next {days} days")
-        items = db.get_calendar(days, include_tasks, include_deadlines)
+        items = db.get_calendar(days, include_tasks, include_events)
         context.info(f"Found {len(items)} calendar items")
         return {"items": items, "total": len(items), "days": days}
 
@@ -657,10 +657,10 @@ def register_tools(mcp):
         due_date: Optional[str] = None,
         urgency: int = 2,
         status: str = "Pending",
-        deadline_id: Optional[int] = None
+        event_id: Optional[int] = None
     ) -> dict:
         """
-        Add an internal task/to-do to a case - work items with self-imposed deadlines to prepare for deadlines and events.
+        Add an internal task/to-do to a case - work items with self-imposed deadlines to prepare for events.
 
         Examples: draft complaint, prepare depo outline, review discovery, propound written discovery,
         schedule expert call. These are things YOU need to do, not things that are happening.
@@ -673,7 +673,7 @@ def register_tools(mcp):
             due_date: Due date (YYYY-MM-DD)
             urgency: 1-4 scale (1=Low, 2=Medium, 3=High, 4=Urgent), default 2
             status: Status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
-            deadline_id: Optional ID of deadline this task is linked to (for tasks that support a specific deadline)
+            event_id: Optional ID of event this task is linked to (for tasks that support a specific event)
 
         Returns the created task with ID.
         """
@@ -686,7 +686,7 @@ def register_tools(mcp):
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.add_task(case_id, description, due_date, status, urgency, deadline_id)
+        result = db.add_task(case_id, description, due_date, status, urgency, event_id)
         context.info(f"Task created with ID {result.get('id')}")
         return {"success": True, "task": result}
 
@@ -705,7 +705,7 @@ def register_tools(mcp):
             status_filter: Filter by status (Pending, Active, Done, etc.)
             urgency_filter: Filter by urgency level (1-4)
 
-        Returns list of tasks with case and deadline information.
+        Returns list of tasks with case and event information.
 
         Examples:
             - get_tasks(status_filter="Pending", urgency_filter=4) - urgent pending tasks

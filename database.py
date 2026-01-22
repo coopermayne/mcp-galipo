@@ -179,6 +179,7 @@ def drop_all_tables():
         cur.execute("""
             DROP TABLE IF EXISTS notes CASCADE;
             DROP TABLE IF EXISTS tasks CASCADE;
+            DROP TABLE IF EXISTS events CASCADE;
             DROP TABLE IF EXISTS deadlines CASCADE;
             DROP TABLE IF EXISTS activities CASCADE;
             DROP TABLE IF EXISTS case_persons CASCADE;
@@ -339,26 +340,36 @@ def migrate_db():
             )
         """)
 
-        # 10. Add time and location columns to deadlines if they don't exist
+        # 10. Add time and location columns to deadlines/events if they don't exist
+        # Check if deadlines table still exists (not yet renamed to events)
         cur.execute("""
             SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'deadlines' AND column_name = 'time'
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'deadlines'
             )
         """)
-        if not cur.fetchone()[0]:
-            cur.execute("ALTER TABLE deadlines ADD COLUMN time TIME")
-            print("  - Added time column to deadlines")
+        deadlines_table_exists = cur.fetchone()[0]
 
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'deadlines' AND column_name = 'location'
-            )
-        """)
-        if not cur.fetchone()[0]:
-            cur.execute("ALTER TABLE deadlines ADD COLUMN location TEXT")
-            print("  - Added location column to deadlines")
+        if deadlines_table_exists:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'deadlines' AND column_name = 'time'
+                )
+            """)
+            if not cur.fetchone()[0]:
+                cur.execute("ALTER TABLE deadlines ADD COLUMN time TIME")
+                print("  - Added time column to deadlines")
+
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'deadlines' AND column_name = 'location'
+                )
+            """)
+            if not cur.fetchone()[0]:
+                cur.execute("ALTER TABLE deadlines ADD COLUMN location TEXT")
+                print("  - Added location column to deadlines")
 
         # 11. Add completion_date column to tasks if it doesn't exist
         cur.execute("""
@@ -550,15 +561,23 @@ def migrate_db():
                 print("  - Migrated contacts to persons table")
 
         # 15. Add starred column to deadlines if it doesn't exist
+        # Check if deadlines table still exists (not yet renamed to events)
         cur.execute("""
             SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'deadlines' AND column_name = 'starred'
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'deadlines'
             )
         """)
-        if not cur.fetchone()[0]:
-            cur.execute("ALTER TABLE deadlines ADD COLUMN starred BOOLEAN DEFAULT FALSE")
-            print("  - Added starred column to deadlines")
+        if cur.fetchone()[0]:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'deadlines' AND column_name = 'starred'
+                )
+            """)
+            if not cur.fetchone()[0]:
+                cur.execute("ALTER TABLE deadlines ADD COLUMN starred BOOLEAN DEFAULT FALSE")
+                print("  - Added starred column to deadlines")
 
         # 16. Drop obsolete date columns from cases if they exist
         obsolete_columns = ['claim_due', 'claim_filed_date', 'complaint_due', 'complaint_filed_date', 'trial_date']
@@ -574,26 +593,34 @@ def migrate_db():
                 print(f"  - Dropped {col} column from cases")
 
         # 17. Drop urgency column from deadlines if it exists
+        # Check if deadlines table still exists (not yet renamed to events)
         cur.execute("""
             SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'deadlines' AND column_name = 'urgency'
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'deadlines'
             )
         """)
         if cur.fetchone()[0]:
-            cur.execute("ALTER TABLE deadlines DROP COLUMN urgency")
-            print("  - Dropped urgency column from deadlines")
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'deadlines' AND column_name = 'urgency'
+                )
+            """)
+            if cur.fetchone()[0]:
+                cur.execute("ALTER TABLE deadlines DROP COLUMN urgency")
+                print("  - Dropped urgency column from deadlines")
 
-        # 18. Drop status column from deadlines if it exists
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'deadlines' AND column_name = 'status'
-            )
-        """)
-        if cur.fetchone()[0]:
-            cur.execute("ALTER TABLE deadlines DROP COLUMN status")
-            print("  - Dropped status column from deadlines")
+            # 18. Drop status column from deadlines if it exists
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'deadlines' AND column_name = 'status'
+                )
+            """)
+            if cur.fetchone()[0]:
+                cur.execute("ALTER TABLE deadlines DROP COLUMN status")
+                print("  - Dropped status column from deadlines")
 
         # 19. Add sort_order column to tasks if it doesn't exist
         cur.execute("""
@@ -636,6 +663,40 @@ def migrate_db():
                 cur.execute(f"ALTER TABLE tasks DROP CONSTRAINT {old_constraint[0]}")
                 cur.execute("ALTER TABLE tasks ADD CONSTRAINT tasks_urgency_check CHECK (urgency >= 1 AND urgency <= 4)")
                 print("  - Updated urgency constraint from 1-5 to 1-4")
+
+        # 20. Rename deadlines table to events
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'deadlines'
+            )
+        """)
+        if cur.fetchone()[0]:
+            # Rename the table
+            cur.execute("ALTER TABLE deadlines RENAME TO events")
+            print("  - Renamed deadlines table to events")
+
+            # Rename the foreign key column in tasks
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'tasks' AND column_name = 'deadline_id'
+                )
+            """)
+            if cur.fetchone()[0]:
+                cur.execute("ALTER TABLE tasks RENAME COLUMN deadline_id TO event_id")
+                print("  - Renamed deadline_id column to event_id in tasks table")
+
+            # Rename indexes
+            cur.execute("""
+                SELECT indexname FROM pg_indexes
+                WHERE tablename = 'events' AND indexname LIKE 'idx_deadlines%'
+            """)
+            for row in cur.fetchall():
+                old_name = row[0]
+                new_name = old_name.replace('deadlines', 'events')
+                cur.execute(f"ALTER INDEX {old_name} RENAME TO {new_name}")
+                print(f"  - Renamed index {old_name} to {new_name}")
 
         print("Database migration complete.")
 
@@ -741,9 +802,9 @@ def init_db():
             )
         """)
 
-        # 8. Deadlines table
+        # 8. Events table (calendar events: hearings, depositions, filing deadlines, etc.)
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS deadlines (
+            CREATE TABLE IF NOT EXISTS events (
                 id SERIAL PRIMARY KEY,
                 case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
                 date DATE NOT NULL,
@@ -762,7 +823,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS tasks (
                 id SERIAL PRIMARY KEY,
                 case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                deadline_id INTEGER REFERENCES deadlines(id) ON DELETE SET NULL,
+                event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
                 due_date DATE,
                 completion_date DATE,
                 description TEXT NOT NULL,
@@ -798,8 +859,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
             CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
-            CREATE INDEX IF NOT EXISTS idx_deadlines_case_id ON deadlines(case_id);
-            CREATE INDEX IF NOT EXISTS idx_deadlines_date ON deadlines(date);
+            CREATE INDEX IF NOT EXISTS idx_events_case_id ON events(case_id);
+            CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
             CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
             CREATE INDEX IF NOT EXISTS idx_notes_case_id ON notes(case_id);
         """)
@@ -965,7 +1026,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                    (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Client') as client_count,
                    (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Defendant') as defendant_count,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
-                   (SELECT COUNT(*) FROM deadlines d WHERE d.case_id = c.id AND d.date >= CURRENT_DATE) as upcoming_deadline_count
+                   (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id AND e.date >= CURRENT_DATE) as upcoming_event_count
             FROM cases c
             LEFT JOIN jurisdictions j ON c.court_id = j.id
             {where_clause}
@@ -1036,19 +1097,19 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         """, (case_id,))
         result["activities"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
-        # Get deadlines
+        # Get events (calendar events: hearings, depositions, filing deadlines, etc.)
         cur.execute("""
             SELECT id, date, time, location, description, document_link, calculation_note, starred
-            FROM deadlines WHERE case_id = %s ORDER BY date
+            FROM events WHERE case_id = %s ORDER BY date
         """, (case_id,))
-        result["deadlines"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        result["events"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
         # Get tasks
         cur.execute("""
-            SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.deadline_id, t.sort_order,
-                   d.description as deadline_description
+            SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.event_id, t.sort_order,
+                   e.description as event_description
             FROM tasks t
-            LEFT JOIN deadlines d ON t.deadline_id = d.id
+            LEFT JOIN events e ON t.event_id = e.id
             WHERE t.case_id = %s ORDER BY t.sort_order ASC
         """, (case_id,))
         result["tasks"] = serialize_rows([dict(row) for row in cur.fetchall()])
@@ -1642,7 +1703,7 @@ def delete_person_type(person_type_id: int) -> bool:
 # ===== TASK OPERATIONS =====
 
 def add_task(case_id: int, description: str, due_date: str = None,
-             status: str = "Pending", urgency: int = 2, deadline_id: int = None) -> dict:
+             status: str = "Pending", urgency: int = 2, event_id: int = None) -> dict:
     """Add a task to a case."""
     validate_task_status(status)
     validate_urgency(urgency)
@@ -1654,10 +1715,10 @@ def add_task(case_id: int, description: str, due_date: str = None,
         new_sort_order = cur.fetchone()["next_sort_order"]
 
         cur.execute("""
-            INSERT INTO tasks (case_id, description, due_date, status, urgency, deadline_id, sort_order)
+            INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
-        """, (case_id, description, due_date, status, urgency, deadline_id, new_sort_order))
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
+        """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
         return serialize_row(dict(cur.fetchone()))
 
 
@@ -1689,7 +1750,7 @@ def get_tasks(case_id: int = None, status_filter: str = None,
 
         query = f"""
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency, t.deadline_id, t.sort_order, t.created_at
+                   t.due_date, t.completion_date, t.status, t.urgency, t.event_id, t.sort_order, t.created_at
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             {where_clause}
@@ -1731,7 +1792,7 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -1776,7 +1837,7 @@ def update_task_full(task_id: int, description: str = None, due_date: str = None
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -1882,48 +1943,48 @@ def reorder_task(task_id: int, new_sort_order: int, new_urgency: int = None) -> 
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
 
 
-# ===== DEADLINE OPERATIONS =====
+# ===== EVENT OPERATIONS =====
 
-def add_deadline(case_id: int, date: str, description: str,
-                 document_link: str = None, calculation_note: str = None,
-                 time: str = None, location: str = None, starred: bool = False) -> dict:
-    """Add a deadline to a case."""
+def add_event(case_id: int, date: str, description: str,
+              document_link: str = None, calculation_note: str = None,
+              time: str = None, location: str = None, starred: bool = False) -> dict:
+    """Add an event to a case (hearing, deposition, filing deadline, etc.)."""
     validate_date_format(date, "date")
     validate_time_format(time, "time")
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO deadlines (case_id, date, time, location, description, document_link, calculation_note, starred)
+            INSERT INTO events (case_id, date, time, location, description, document_link, calculation_note, starred)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, case_id, date, time, location, description, document_link, calculation_note, starred, created_at
         """, (case_id, date, time, location, description, document_link, calculation_note, starred))
         return serialize_row(dict(cur.fetchone()))
 
 
-def get_upcoming_deadlines(limit: int = None, offset: int = None) -> dict:
-    """Get upcoming deadlines."""
-    conditions = ["d.date >= CURRENT_DATE"]
+def get_upcoming_events(limit: int = None, offset: int = None) -> dict:
+    """Get upcoming events (hearings, depositions, filing deadlines, etc.)."""
+    conditions = ["e.date >= CURRENT_DATE"]
     params = []
 
     where_clause = f"WHERE {' AND '.join(conditions)}"
 
     with get_cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) as total FROM deadlines d {where_clause}", params)
+        cur.execute(f"SELECT COUNT(*) as total FROM events e {where_clause}", params)
         total = cur.fetchone()["total"]
 
         query = f"""
-            SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
-                   d.description, d.document_link, d.calculation_note, d.starred
-            FROM deadlines d
-            JOIN cases c ON d.case_id = c.id
+            SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
+                   e.description, e.document_link, e.calculation_note, e.starred
+            FROM events e
+            JOIN cases c ON e.case_id = c.id
             {where_clause}
-            ORDER BY d.date
+            ORDER BY e.date
         """
         if limit:
             query += f" LIMIT {limit}"
@@ -1931,11 +1992,11 @@ def get_upcoming_deadlines(limit: int = None, offset: int = None) -> dict:
             query += f" OFFSET {offset}"
 
         cur.execute(query, params)
-        return {"deadlines": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
+        return {"events": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
 
 
-def update_deadline(deadline_id: int, starred: bool = None) -> Optional[dict]:
-    """Update deadline starred status."""
+def update_event(event_id: int, starred: bool = None) -> Optional[dict]:
+    """Update event starred status."""
     updates = []
     params = []
 
@@ -1946,11 +2007,11 @@ def update_deadline(deadline_id: int, starred: bool = None) -> Optional[dict]:
     if not updates:
         return None
 
-    params.append(deadline_id)
+    params.append(event_id)
 
     with get_cursor() as cur:
         cur.execute(f"""
-            UPDATE deadlines SET {', '.join(updates)}
+            UPDATE events SET {', '.join(updates)}
             WHERE id = %s
             RETURNING id, case_id, date, time, location, description, document_link, calculation_note, starred
         """, params)
@@ -1958,11 +2019,11 @@ def update_deadline(deadline_id: int, starred: bool = None) -> Optional[dict]:
         return serialize_row(dict(row)) if row else None
 
 
-def update_deadline_full(deadline_id: int, date: str = None, description: str = None,
-                         document_link: str = None, calculation_note: str = None,
-                         time: str = None, location: str = None,
-                         starred: bool = None) -> Optional[dict]:
-    """Update all deadline fields."""
+def update_event_full(event_id: int, date: str = None, description: str = None,
+                      document_link: str = None, calculation_note: str = None,
+                      time: str = None, location: str = None,
+                      starred: bool = None) -> Optional[dict]:
+    """Update all event fields."""
     updates = []
     params = []
 
@@ -1999,11 +2060,11 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
     if not updates:
         return None
 
-    params.append(deadline_id)
+    params.append(event_id)
 
     with get_cursor() as cur:
         cur.execute(f"""
-            UPDATE deadlines SET {', '.join(updates)}
+            UPDATE events SET {', '.join(updates)}
             WHERE id = %s
             RETURNING id, case_id, date, time, location, description, document_link, calculation_note, starred
         """, params)
@@ -2011,37 +2072,37 @@ def update_deadline_full(deadline_id: int, date: str = None, description: str = 
         return serialize_row(dict(row)) if row else None
 
 
-def delete_deadline(deadline_id: int) -> bool:
-    """Delete a deadline."""
+def delete_event(event_id: int) -> bool:
+    """Delete an event."""
     with get_cursor() as cur:
-        cur.execute("DELETE FROM deadlines WHERE id = %s", (deadline_id,))
+        cur.execute("DELETE FROM events WHERE id = %s", (event_id,))
         return cur.rowcount > 0
 
 
-def search_deadlines(query: str = None, case_id: int = None,
-                     limit: int = 50) -> List[dict]:
-    """Search deadlines by various criteria."""
+def search_events(query: str = None, case_id: int = None,
+                  limit: int = 50) -> List[dict]:
+    """Search events by various criteria."""
     conditions = []
     params = []
 
     if query:
-        conditions.append("d.description ILIKE %s")
+        conditions.append("e.description ILIKE %s")
         params.append(f"%{query}%")
 
     if case_id:
-        conditions.append("d.case_id = %s")
+        conditions.append("e.case_id = %s")
         params.append(case_id)
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
         cur.execute(f"""
-            SELECT d.id, d.case_id, c.case_name, c.short_name, d.date, d.time, d.location,
-                   d.description, d.starred
-            FROM deadlines d
-            JOIN cases c ON d.case_id = c.id
+            SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
+                   e.description, e.starred
+            FROM events e
+            JOIN cases c ON e.case_id = c.id
             {where_clause}
-            ORDER BY d.date
+            ORDER BY e.date
             LIMIT %s
         """, params + [limit])
         return [dict(row) for row in cur.fetchall()]
@@ -2214,19 +2275,19 @@ def delete_activity(activity_id: int) -> bool:
 # ===== CALENDAR OPERATIONS =====
 
 def get_calendar(days: int = 30, include_tasks: bool = True,
-                 include_deadlines: bool = True) -> List[dict]:
+                 include_events: bool = True) -> List[dict]:
     """Get calendar items for the next N days."""
     items = []
 
     with get_cursor() as cur:
-        if include_deadlines:
+        if include_events:
             cur.execute("""
-                SELECT d.id, d.date, d.time, d.location, d.description,
-                       d.case_id, c.case_name, c.short_name, 'deadline' as item_type
-                FROM deadlines d
-                JOIN cases c ON d.case_id = c.id
-                WHERE d.date >= CURRENT_DATE AND d.date <= CURRENT_DATE + %s
-                ORDER BY d.date, d.time NULLS LAST
+                SELECT e.id, e.date, e.time, e.location, e.description,
+                       e.case_id, c.case_name, c.short_name, 'event' as item_type
+                FROM events e
+                JOIN cases c ON e.case_id = c.id
+                WHERE e.date >= CURRENT_DATE AND e.date <= CURRENT_DATE + %s
+                ORDER BY e.date, e.time NULLS LAST
             """, (days,))
             items.extend([dict(row) for row in cur.fetchall()])
 
@@ -2269,12 +2330,12 @@ def get_dashboard_stats() -> dict:
         cur.execute("SELECT COUNT(*) as pending FROM tasks WHERE status = 'Pending'")
         pending_tasks = cur.fetchone()["pending"]
 
-        # Upcoming deadlines (next 30 days)
+        # Upcoming events (next 30 days)
         cur.execute("""
-            SELECT COUNT(*) as upcoming FROM deadlines
+            SELECT COUNT(*) as upcoming FROM events
             WHERE date >= CURRENT_DATE AND date <= CURRENT_DATE + 30
         """)
-        upcoming_deadlines = cur.fetchone()["upcoming"]
+        upcoming_events = cur.fetchone()["upcoming"]
 
         # Cases by status
         cur.execute("""
@@ -2287,6 +2348,6 @@ def get_dashboard_stats() -> dict:
             "total_cases": total_cases,
             "active_cases": active_cases,
             "pending_tasks": pending_tasks,
-            "upcoming_deadlines": upcoming_deadlines,
+            "upcoming_events": upcoming_events,
             "cases_by_status": cases_by_status
         }
