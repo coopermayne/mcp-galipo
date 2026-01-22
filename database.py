@@ -15,6 +15,9 @@ from datetime import datetime, date, time
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# Sentinel value to distinguish "not provided" from "explicitly set to None/null"
+_NOT_PROVIDED = object()
+
 # Valid statuses and roles
 CASE_STATUSES = [
     "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
@@ -2019,41 +2022,43 @@ def update_event(event_id: int, starred: bool = None) -> Optional[dict]:
         return serialize_row(dict(row)) if row else None
 
 
-def update_event_full(event_id: int, date: str = None, description: str = None,
-                      document_link: str = None, calculation_note: str = None,
-                      time: str = None, location: str = None,
-                      starred: bool = None) -> Optional[dict]:
+def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str = _NOT_PROVIDED,
+                      document_link: str = _NOT_PROVIDED, calculation_note: str = _NOT_PROVIDED,
+                      time: str = _NOT_PROVIDED, location: str = _NOT_PROVIDED,
+                      starred: bool = _NOT_PROVIDED) -> Optional[dict]:
     """Update all event fields."""
     updates = []
     params = []
 
-    if date is not None:
-        validate_date_format(date, "date")
+    if date is not _NOT_PROVIDED:
+        if date is not None:
+            validate_date_format(date, "date")
         updates.append("date = %s")
         params.append(date)
 
-    if time is not None:
-        validate_time_format(time, "time")
+    if time is not _NOT_PROVIDED:
+        if time is not None and time != "":
+            validate_time_format(time, "time")
         updates.append("time = %s")
         params.append(time if time else None)
 
-    if location is not None:
+    if location is not _NOT_PROVIDED:
         updates.append("location = %s")
         params.append(location if location else None)
 
-    if description is not None:
+    if description is not _NOT_PROVIDED:
         updates.append("description = %s")
         params.append(description)
 
-    if document_link is not None:
+    if document_link is not _NOT_PROVIDED:
         updates.append("document_link = %s")
         params.append(document_link if document_link else None)
 
-    if calculation_note is not None:
+    if calculation_note is not _NOT_PROVIDED:
         updates.append("calculation_note = %s")
         params.append(calculation_note if calculation_note else None)
 
-    if starred is not None:
+    if starred is not _NOT_PROVIDED:
         updates.append("starred = %s")
         params.append(starred)
 

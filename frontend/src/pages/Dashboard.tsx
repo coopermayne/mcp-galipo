@@ -8,6 +8,7 @@ import {
   EditableText,
   EditableSelect,
   EditableDate,
+  EditableTime,
   ListPanel,
   ConfirmModal,
 } from '../components/common';
@@ -42,10 +43,6 @@ export function Dashboard() {
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
   const [deleteEventTarget, setDeleteEventTarget] = useState<number | null>(null);
 
-  // Test dates for date format testing (remove after testing)
-  const [testDate1, setTestDate1] = useState<string | null>('2026-02-16');
-  const [testDate2, setTestDate2] = useState<string | null>('2026-02-16');
-  const [testDate3, setTestDate3] = useState<string | null>(null);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
@@ -208,87 +205,6 @@ export function Dashboard() {
           />
         </div>
 
-        {/* Date Format Test Section */}
-        <div className="mb-6 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Date Format Test (remove after testing)</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            {/* Current year date */}
-            <div className="space-y-2">
-              <p className="font-medium text-slate-600 dark:text-slate-400">Current Year (2026-02-16):</p>
-              <div className="space-y-1 pl-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">Default:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} disabled />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">numeric:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} disabled numeric />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">showDayOfWeek=false:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} disabled showDayOfWeek={false} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">alwaysShowYear:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} disabled alwaysShowYear />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">numeric + no day:</span>
-                  <EditableDate value="2026-02-16" onSave={async () => {}} disabled numeric showDayOfWeek={false} />
-                </div>
-              </div>
-            </div>
-            {/* Different year date */}
-            <div className="space-y-2">
-              <p className="font-medium text-slate-600 dark:text-slate-400">Different Year (2025-03-15):</p>
-              <div className="space-y-1 pl-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">Default:</span>
-                  <EditableDate value="2025-03-15" onSave={async () => {}} disabled />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">numeric:</span>
-                  <EditableDate value="2025-03-15" onSave={async () => {}} disabled numeric />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">showDayOfWeek=false:</span>
-                  <EditableDate value="2025-03-15" onSave={async () => {}} disabled showDayOfWeek={false} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">numeric + no day:</span>
-                  <EditableDate value="2025-03-15" onSave={async () => {}} disabled numeric showDayOfWeek={false} />
-                </div>
-              </div>
-            </div>
-            {/* Interactive / Disabled comparison */}
-            <div className="space-y-2">
-              <p className="font-medium text-slate-600 dark:text-slate-400">Enabled vs Disabled:</p>
-              <div className="space-y-1 pl-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">Enabled (click me):</span>
-                  <EditableDate value={testDate1} onSave={async (v) => setTestDate1(v)} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">Disabled:</span>
-                  <EditableDate value={testDate1} onSave={async () => {}} disabled />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">Enabled + clearable:</span>
-                  <EditableDate value={testDate2} onSave={async (v) => setTestDate2(v)} clearable />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">Enabled no clear:</span>
-                  <EditableDate value={testDate2} onSave={async (v) => setTestDate2(v)} clearable={false} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 w-40">No value:</span>
-                  <EditableDate value={testDate3} onSave={async (v) => setTestDate3(v)} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Pending Tasks */}
           <div>
@@ -388,10 +304,17 @@ export function Dashboard() {
                           className="text-sm"
                         />
                       </div>
-                      <EditableDate
-                        value={event.date}
-                        onSave={(value) => handleUpdateEvent(event.id, 'date', value)}
-                      />
+                      <div className="flex items-center gap-0">
+                        <EditableDate
+                          value={event.date}
+                          onSave={(value) => handleUpdateEvent(event.id, 'date', value)}
+                          clearable={false}
+                        />
+                        <EditableTime
+                          value={event.time || null}
+                          onSave={(value) => handleUpdateEvent(event.id, 'time', value)}
+                        />
+                      </div>
                       <button
                         onClick={() => handleDeleteEvent(event.id)}
                         className="p-1 text-slate-500 hover:text-red-400"

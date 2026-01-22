@@ -7,11 +7,14 @@ interface UseAutoSaveOptions<T> {
   debounceMs?: number;
 }
 
+// Sentinel to indicate no pending save (distinct from null which is a valid value)
+const NO_PENDING_SAVE = Symbol('NO_PENDING_SAVE');
+
 export function useAutoSave<T>({ onSave, debounceMs = 300 }: UseAutoSaveOptions<T>) {
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingValueRef = useRef<T | null>(null);
+  const pendingValueRef = useRef<T | typeof NO_PENDING_SAVE>(NO_PENDING_SAVE);
 
   const save = useCallback(
     async (value: T) => {
@@ -26,7 +29,7 @@ export function useAutoSave<T>({ onSave, debounceMs = 300 }: UseAutoSaveOptions<
       // Debounce the save
       timeoutRef.current = setTimeout(async () => {
         const valueToSave = pendingValueRef.current;
-        if (valueToSave === null) return;
+        if (valueToSave === NO_PENDING_SAVE) return;
 
         setStatus('saving');
         setError(null);
@@ -50,7 +53,7 @@ export function useAutoSave<T>({ onSave, debounceMs = 300 }: UseAutoSaveOptions<
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    pendingValueRef.current = null;
+    pendingValueRef.current = NO_PENDING_SAVE;
     setStatus('idle');
   }, []);
 
