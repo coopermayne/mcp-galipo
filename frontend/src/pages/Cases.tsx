@@ -132,11 +132,11 @@ export function Cases() {
         ),
       },
       {
-        accessorKey: 'print_code',
-        header: 'Code',
+        accessorKey: 'judge',
+        header: 'Judge',
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-            {row.original.print_code || '-'}
+          <span className="text-slate-600 dark:text-slate-300">
+            {row.original.judge || '-'}
           </span>
         ),
       },

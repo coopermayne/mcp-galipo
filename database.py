@@ -903,10 +903,14 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         cur.execute(f"SELECT COUNT(*) as total FROM cases c {where_clause}", params)
         total = cur.fetchone()["total"]
 
-        # Build query with joins for counts and court name
+        # Build query with joins for counts, court name, and assigned judge
         query = f"""
             SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
                    j.name as court,
+                   (SELECT p.name FROM case_persons cp
+                    JOIN persons p ON cp.person_id = p.id
+                    WHERE cp.case_id = c.id AND cp.role = 'Judge'
+                    LIMIT 1) as judge,
                    (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Client') as client_count,
                    (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Defendant') as defendant_count,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,

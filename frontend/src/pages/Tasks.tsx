@@ -13,7 +13,21 @@ import {
 } from '../components/common';
 import { getTasks, getConstants, updateTask, deleteTask } from '../api/client';
 import type { Task } from '../types';
-import { Trash2, ExternalLink, Filter, Search } from 'lucide-react';
+import { Trash2, Filter, Search } from 'lucide-react';
+
+// Deterministic color mapping for case badges
+const caseColorClasses = [
+  'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+  'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+  'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
+  'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300',
+  'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+];
+
+const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColorClasses.length];
 
 export function Tasks() {
   const queryClient = useQueryClient();
@@ -244,19 +258,18 @@ export function Tasks() {
                       <ListPanel.Body>
                         {tasks.map((task) => (
                           <ListPanel.Row key={task.id}>
+                            <Link
+                              to={`/cases/${task.case_id}`}
+                              className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap hover:opacity-80 ${getCaseColorClass(task.case_id)}`}
+                            >
+                              {task.short_name || task.case_name || `Case #${task.case_id}`}
+                            </Link>
                             <div className="flex-1 min-w-0">
                               <EditableText
                                 value={task.description}
                                 onSave={(value) => handleUpdate(task.id, 'description', value)}
                                 className="text-sm"
                               />
-                              <Link
-                                to={`/cases/${task.case_id}`}
-                                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-primary-400 mt-1"
-                              >
-                                {task.short_name || task.case_name || `Case #${task.case_id}`}
-                                <ExternalLink className="w-3 h-3" />
-                              </Link>
                             </div>
                             <EditableDate
                               value={task.due_date || null}
