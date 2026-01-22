@@ -329,14 +329,12 @@ def register_routes(mcp):
         """List deadlines with optional filtering and pagination."""
         if err := auth.require_auth(request):
             return err
-        status = request.query_params.get("status")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
         offset = int(offset)
 
         result = db.get_upcoming_deadlines(
-            status_filter=status,
             limit=limit,
             offset=offset
         )
@@ -352,7 +350,6 @@ def register_routes(mcp):
             data["case_id"],
             data["date"],
             data["description"],
-            data.get("status", "Pending"),
             data.get("document_link"),
             data.get("calculation_note"),
             data.get("time"),

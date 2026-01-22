@@ -1145,7 +1145,6 @@ function DeadlinesTab({
                     className="text-sm"
                   />
                 </div>
-                <StatusBadge status={deadline.status} />
                 {deadline.document_link && (
                   <a
                     href={deadline.document_link}

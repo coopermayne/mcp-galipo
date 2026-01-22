@@ -330,28 +330,26 @@ def register_tools(mcp):
     def search_deadlines(
         context: Context,
         query: Optional[str] = None,
-        case_id: Optional[int] = None,
-        status: Optional[str] = None
+        case_id: Optional[int] = None
     ) -> dict:
         """
-        Search for deadlines by description, case, or status.
+        Search for deadlines by description or case.
 
         Args:
             query: Search in deadline descriptions (partial match)
             case_id: Filter to specific case
-            status: Filter by status (Pending, Met, Missed, etc.)
 
         At least one parameter must be provided.
 
         Examples:
             - search_deadlines(query="discovery") - find deadlines mentioning "discovery"
-            - search_deadlines(status="Pending") - find pending deadlines
+            - search_deadlines(case_id=5) - find all deadlines for case 5
         """
-        if not any([query, case_id, status]):
+        if not any([query, case_id]):
             return validation_error("Provide at least one search parameter")
 
-        context.info(f"Searching deadlines{' for query=' + query if query else ''}{' status=' + status if status else ''}")
-        deadlines = db.search_deadlines(query, case_id, status)
+        context.info(f"Searching deadlines{' for query=' + query if query else ''}")
+        deadlines = db.search_deadlines(query, case_id)
         context.info(f"Found {len(deadlines)} matching deadlines")
         return {"deadlines": deadlines, "total": len(deadlines)}
 
@@ -452,7 +450,6 @@ def register_tools(mcp):
         case_id: int,
         date: str,
         description: str,
-        status: str = "Pending",
         time: Optional[str] = None,
         location: Optional[str] = None,
         document_link: Optional[str] = None,
@@ -472,7 +469,6 @@ def register_tools(mcp):
             case_id: ID of the case
             date: Deadline date (YYYY-MM-DD)
             description: What is due/happening (e.g., "MSJ due", "Discovery cutoff", "Deposition of Dr. Smith")
-            status: Status (default "Pending")
             time: Time of deadline (HH:MM format, 24-hour)
             location: Location (e.g., courtroom, address)
             document_link: URL to related document
@@ -488,7 +484,7 @@ def register_tools(mcp):
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.add_deadline(case_id, date, description, status,
+        result = db.add_deadline(case_id, date, description,
                                   document_link, calculation_note, time, location, starred)
         context.info(f"Deadline created with ID {result.get('id')}")
         return {"success": True, "deadline": result}
@@ -496,24 +492,22 @@ def register_tools(mcp):
     @mcp.tool()
     def get_deadlines(
         context: Context,
-        case_id: Optional[int] = None,
-        status_filter: Optional[str] = None
+        case_id: Optional[int] = None
     ) -> dict:
         """
-        Get upcoming deadlines, optionally filtered by case or status.
+        Get upcoming deadlines, optionally filtered by case.
 
         Args:
             case_id: Filter by specific case
-            status_filter: Filter by status (e.g., "Pending")
 
         Returns list of deadlines with case information.
 
         Examples:
-            - get_deadlines(status_filter="Pending") - all pending deadlines
+            - get_deadlines() - all upcoming deadlines
             - get_deadlines(case_id=5) - all deadlines for case 5
         """
         context.info(f"Fetching deadlines{' for case ' + str(case_id) if case_id else ''}")
-        result = db.get_upcoming_deadlines(status_filter)
+        result = db.get_upcoming_deadlines()
 
         # Filter by case_id if provided (since db function doesn't support it directly)
         if case_id:
@@ -529,7 +523,6 @@ def register_tools(mcp):
         deadline_id: int,
         date: Optional[str] = None,
         description: Optional[str] = None,
-        status: Optional[str] = None,
         time: Optional[str] = None,
         location: Optional[str] = None,
         document_link: Optional[str] = None,
@@ -543,7 +536,6 @@ def register_tools(mcp):
             deadline_id: ID of the deadline
             date: New date (YYYY-MM-DD)
             description: New description
-            status: New status
             time: New time (HH:MM format)
             location: New location
             document_link: New document link
@@ -561,7 +553,7 @@ def register_tools(mcp):
         except ValidationError as e:
             return validation_error(str(e))
 
-        result = db.update_deadline_full(deadline_id, date, description, status,
+        result = db.update_deadline_full(deadline_id, date, description,
                                           document_link, calculation_note,
                                           time, location, starred)
         if not result:
@@ -772,31 +764,6 @@ def register_tools(mcp):
 
         result = db.bulk_update_tasks(task_ids, status)
         context.info(f"Updated {result['updated']} tasks")
-        return {"success": True, "updated": result["updated"]}
-
-    @mcp.tool()
-    def bulk_update_deadlines(
-        context: Context,
-        deadline_ids: list,
-        status: str
-    ) -> dict:
-        """
-        Update multiple deadlines to the same status at once.
-
-        Useful for marking several deadlines as met/complete.
-
-        Args:
-            deadline_ids: List of deadline IDs to update
-            status: New status for all deadlines (e.g., "Pending", "Met", "Missed")
-
-        Returns count of updated deadlines.
-
-        Example:
-            bulk_update_deadlines(deadline_ids=[1, 2], status="Met")
-        """
-        context.info(f"Bulk updating {len(deadline_ids)} deadlines to status '{status}'")
-        result = db.bulk_update_deadlines(deadline_ids, status)
-        context.info(f"Updated {result['updated']} deadlines")
         return {"success": True, "updated": result["updated"]}
 
     @mcp.tool()
