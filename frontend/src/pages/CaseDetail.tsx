@@ -6,11 +6,11 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCenter,
   DragOverlay,
+  useDroppable,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import {
   EditableText,
@@ -38,7 +38,7 @@ import {
   assignPersonToCase,
   removePersonFromCase,
 } from '../api/client';
-import type { Case, Task, Deadline, Note, Constants, CaseNumber, Jurisdiction } from '../types';
+import type { Case, Task, Deadline, Note, Constants, CaseNumber, Jurisdiction, TaskStatus } from '../types';
 import {
   Loader2,
   Trash2,
@@ -296,6 +296,9 @@ function OverviewTab({
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '', is_primary: false });
   const [newDefendantName, setNewDefendantName] = useState('');
   const [newContact, setNewContact] = useState({ name: '', role: 'Opposing Counsel', organization: '', phone: '', email: '' });
+  const [clientDeleteTarget, setClientDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [defendantDeleteTarget, setDefendantDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [contactDeleteTarget, setContactDeleteTarget] = useState<{ id: number; name: string; role: string } | null>(null);
 
   // Filter persons by role
   const clients = useMemo(
@@ -308,8 +311,43 @@ function OverviewTab({
     [caseData.persons]
   );
 
-  const contacts = useMemo(
-    () => (caseData.persons || []).filter(p => p.role !== 'Client' && p.role !== 'Defendant'),
+  // Group contacts by category
+  const judges = useMemo(
+    () => (caseData.persons || []).filter(p => p.role === 'Judge' || p.role === 'Magistrate Judge'),
+    [caseData.persons]
+  );
+
+  const counsel = useMemo(
+    () => (caseData.persons || []).filter(p =>
+      p.role === 'Opposing Counsel' || p.role === 'Co-Counsel' || p.role === 'Referring Attorney'
+    ),
+    [caseData.persons]
+  );
+
+  const experts = useMemo(
+    () => {
+      const all = (caseData.persons || []).filter(p =>
+        p.role === 'Expert - Plaintiff' || p.role === 'Plaintiff Expert' ||
+        p.role === 'Expert - Defendant' || p.role === 'Defendant Expert'
+      );
+      // Sort so plaintiff experts come first
+      return all.sort((a, b) => {
+        const aIsPlaintiff = a.role?.includes('Plaintiff') ? 0 : 1;
+        const bIsPlaintiff = b.role?.includes('Plaintiff') ? 0 : 1;
+        return aIsPlaintiff - bIsPlaintiff;
+      });
+    },
+    [caseData.persons]
+  );
+
+  const otherContacts = useMemo(
+    () => (caseData.persons || []).filter(p =>
+      p.role !== 'Client' && p.role !== 'Defendant' &&
+      p.role !== 'Judge' && p.role !== 'Magistrate Judge' &&
+      p.role !== 'Opposing Counsel' && p.role !== 'Co-Counsel' && p.role !== 'Referring Attorney' &&
+      p.role !== 'Expert - Plaintiff' && p.role !== 'Plaintiff Expert' &&
+      p.role !== 'Expert - Defendant' && p.role !== 'Defendant Expert'
+    ),
     [caseData.persons]
   );
 
@@ -362,8 +400,19 @@ function OverviewTab({
     mutationFn: (personId: number) => removePersonFromCase(caseId, personId, 'Client'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setClientDeleteTarget(null);
     },
   });
+
+  const handleDeleteClient = useCallback((client: { id: number; name: string }) => {
+    setClientDeleteTarget({ id: client.id, name: client.name });
+  }, []);
+
+  const confirmDeleteClient = useCallback(() => {
+    if (clientDeleteTarget) {
+      removeClientMutation.mutate(clientDeleteTarget.id);
+    }
+  }, [clientDeleteTarget, removeClientMutation]);
 
   const addDefendantMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -389,8 +438,19 @@ function OverviewTab({
     mutationFn: (personId: number) => removePersonFromCase(caseId, personId, 'Defendant'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setDefendantDeleteTarget(null);
     },
   });
+
+  const handleDeleteDefendant = useCallback((defendant: { id: number; name: string }) => {
+    setDefendantDeleteTarget({ id: defendant.id, name: defendant.name });
+  }, []);
+
+  const confirmDeleteDefendant = useCallback(() => {
+    if (defendantDeleteTarget) {
+      removeDefendantMutation.mutate(defendantDeleteTarget.id);
+    }
+  }, [defendantDeleteTarget, removeDefendantMutation]);
 
   const addContactMutation = useMutation({
     mutationFn: async (data: { name: string; role: string; organization?: string; phone?: string; email?: string }) => {
@@ -443,8 +503,19 @@ function OverviewTab({
       removePersonFromCase(caseId, personId, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setContactDeleteTarget(null);
     },
   });
+
+  const handleDeleteContact = useCallback((contact: { id: number; name: string; role?: string }) => {
+    setContactDeleteTarget({ id: contact.id, name: contact.name, role: contact.role || '' });
+  }, []);
+
+  const confirmDeleteContact = useCallback(() => {
+    if (contactDeleteTarget) {
+      removeContactMutation.mutate({ personId: contactDeleteTarget.id, role: contactDeleteTarget.role });
+    }
+  }, [contactDeleteTarget, removeContactMutation]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -480,13 +551,15 @@ function OverviewTab({
               inputClassName="font-mono"
             />
           </Field>
-          <Field label="Result">
-            <EditableText
-              value={caseData.result || ''}
-              onSave={(value) => onUpdateField('result', value || null)}
-              placeholder="e.g., Settled, Verdict"
-            />
-          </Field>
+          {caseData.status === 'Closed' && (
+            <Field label="Result">
+              <EditableText
+                value={caseData.result || ''}
+                onSave={(value) => onUpdateField('result', value || null)}
+                placeholder="e.g., Settled, Verdict"
+              />
+            </Field>
+          )}
         </div>
 
         {/* Case Numbers */}
@@ -618,7 +691,7 @@ function OverviewTab({
                 className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg group relative"
               >
                 <button
-                  onClick={() => removeClientMutation.mutate(client.id)}
+                  onClick={() => handleDeleteClient(client)}
                   className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -704,7 +777,7 @@ function OverviewTab({
               >
                 {defendant.name}
                 <button
-                  onClick={() => removeDefendantMutation.mutate(defendant.id)}
+                  onClick={() => handleDeleteDefendant(defendant)}
                   className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -715,19 +788,95 @@ function OverviewTab({
         )}
       </div>
 
-      {/* Contacts */}
+      {/* Judges */}
+      {judges.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCog className="w-4 h-4 text-slate-400" />
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Judges</h3>
+          </div>
+          <div className="space-y-2">
+            {judges.map((judge) => (
+              <ContactCard
+                key={judge.assignment_id}
+                contact={judge}
+                onRemove={() => handleDeleteContact(judge)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Counsel */}
+      {counsel.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCog className="w-4 h-4 text-slate-400" />
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Counsel</h3>
+          </div>
+          <div className="space-y-2">
+            {counsel.map((person) => (
+              <ContactCard
+                key={person.assignment_id}
+                contact={person}
+                onRemove={() => handleDeleteContact(person)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Experts */}
+      {experts.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCog className="w-4 h-4 text-slate-400" />
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Experts</h3>
+          </div>
+          <div className="space-y-2">
+            {experts.map((expert) => (
+              <ContactCard
+                key={expert.assignment_id}
+                contact={expert}
+                onRemove={() => handleDeleteContact(expert)}
+                highlightSide
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Other Contacts */}
+      {otherContacts.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <UserCog className="w-4 h-4 text-slate-400" />
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Other Contacts</h3>
+          </div>
+          <div className="space-y-2">
+            {otherContacts.map((contact) => (
+              <ContactCard
+                key={contact.assignment_id}
+                contact={contact}
+                onRemove={() => handleDeleteContact(contact)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Contact */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 lg:col-span-2">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <UserCog className="w-4 h-4 text-slate-400" />
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Contacts</h3>
+            <Plus className="w-4 h-4 text-slate-400" />
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Add Contact</h3>
           </div>
           <button
             onClick={() => setShowAddContact(!showAddContact)}
-            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
+            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
           >
-            <Plus className="w-3 h-3" />
-            Add
+            {showAddContact ? 'Cancel' : 'Expand'}
           </button>
         </div>
         {showAddContact && (
@@ -744,7 +893,7 @@ function OverviewTab({
                 });
               }
             }}
-            className="mb-4 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg"
+            className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <input
@@ -787,14 +936,7 @@ function OverviewTab({
                 className="md:col-span-2 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowAddContact(false)}
-                className="px-3 py-1.5 text-slate-600 dark:text-slate-300 text-sm"
-              >
-                Cancel
-              </button>
+            <div className="mt-3 flex justify-end">
               <button
                 type="submit"
                 disabled={addContactMutation.isPending || !newContact.name.trim()}
@@ -805,52 +947,63 @@ function OverviewTab({
             </div>
           </form>
         )}
-        {contacts.length === 0 && !showAddContact ? (
-          <p className="text-sm text-slate-400">No contacts linked</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {contacts.map((contact) => (
-              <div
-                key={contact.assignment_id}
-                className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg group relative"
-              >
-                <button
-                  onClick={() => removeContactMutation.mutate({ personId: contact.id, role: contact.role })}
-                  className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-                <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{contact.name}</p>
-                {contact.role && (
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300 rounded text-xs">
-                    {contact.role}
-                  </span>
-                )}
-                {contact.organization && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{contact.organization}</p>
-                )}
-                <div className="mt-1 space-y-0.5">
-                  {getPrimaryPhone(contact.phones) && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      {getPrimaryPhone(contact.phones)}
-                    </p>
-                  )}
-                  {getPrimaryEmail(contact.emails) && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      {getPrimaryEmail(contact.emails)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Delete Confirmation Modals */}
+      <ConfirmModal
+        isOpen={!!clientDeleteTarget}
+        onClose={() => setClientDeleteTarget(null)}
+        onConfirm={confirmDeleteClient}
+        title="Remove Client"
+        message={`Are you sure you want to remove "${clientDeleteTarget?.name}" from this case?`}
+        confirmText="Remove Client"
+        variant="danger"
+        isLoading={removeClientMutation.isPending}
+      />
+
+      <ConfirmModal
+        isOpen={!!defendantDeleteTarget}
+        onClose={() => setDefendantDeleteTarget(null)}
+        onConfirm={confirmDeleteDefendant}
+        title="Remove Defendant"
+        message={`Are you sure you want to remove "${defendantDeleteTarget?.name}" from this case?`}
+        confirmText="Remove Defendant"
+        variant="danger"
+        isLoading={removeDefendantMutation.isPending}
+      />
+
+      <ConfirmModal
+        isOpen={!!contactDeleteTarget}
+        onClose={() => setContactDeleteTarget(null)}
+        onConfirm={confirmDeleteContact}
+        title="Remove Contact"
+        message={`Are you sure you want to remove "${contactDeleteTarget?.name}"${contactDeleteTarget?.role ? ` (${contactDeleteTarget.role})` : ''} from this case?`}
+        confirmText="Remove Contact"
+        variant="danger"
+        isLoading={removeContactMutation.isPending}
+      />
     </div>
   );
 }
+
+// Urgency and Status config for task groups
+const urgencyConfig: Record<number, { label: string; color: string; bgColor: string }> = {
+  5: { label: 'Critical', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' },
+  4: { label: 'High', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/20' },
+  3: { label: 'Medium', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
+  2: { label: 'Low', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
+  1: { label: 'Lowest', color: 'text-slate-500 dark:text-slate-400', bgColor: 'bg-slate-50 dark:bg-slate-800/50' },
+};
+
+const statusConfig: Record<string, { color: string; bgColor: string }> = {
+  'Pending': { color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-50 dark:bg-slate-800/50' },
+  'Active': { color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20' },
+  'Blocked': { color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' },
+  'Awaiting Atty Review': { color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20' },
+  'Done': { color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/20' },
+};
+
+type TaskViewMode = 'by-urgency' | 'by-status';
 
 // Tasks Tab Component
 function TasksTab({
@@ -863,9 +1016,15 @@ function TasksTab({
   constants: Constants | undefined;
 }) {
   const queryClient = useQueryClient();
-  const [newTask, setNewTask] = useState('');
+  const [view, setView] = useState<TaskViewMode>('by-urgency');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [addingToGroup, setAddingToGroup] = useState<string | null>(null);
+  const [newTaskText, setNewTaskText] = useState('');
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
+  const [activeId, setActiveId] = useState<import('@dnd-kit/core').UniqueIdentifier | null>(null);
+  const [overContainer, setOverContainer] = useState<string | null>(null);
+  const [overIndex, setOverIndex] = useState<number>(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -876,12 +1035,13 @@ function TasksTab({
   );
 
   const createMutation = useMutation({
-    mutationFn: (description: string) =>
-      createTask({ case_id: caseId, description }),
+    mutationFn: (data: { description: string; urgency?: number; status?: TaskStatus }) =>
+      createTask({ case_id: caseId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setNewTask('');
+      setNewTaskText('');
+      setAddingToGroup(null);
     },
   });
 
@@ -903,8 +1063,12 @@ function TasksTab({
   });
 
   const reorderMutation = useMutation({
-    mutationFn: ({ taskId, sortOrder }: { taskId: number; sortOrder: number }) =>
-      reorderTask(taskId, sortOrder),
+    mutationFn: ({ taskId, sortOrder, urgency, status }: { taskId: number; sortOrder: number; urgency?: number; status?: TaskStatus }) =>
+      reorderTask(taskId, sortOrder, urgency).then(() => {
+        if (status !== undefined) {
+          return updateTask(taskId, { status });
+        }
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -912,11 +1076,7 @@ function TasksTab({
   });
 
   const taskStatusOptions = useMemo(
-    () =>
-      (constants?.task_statuses || []).map((s: string) => ({
-        value: s,
-        label: s,
-      })),
+    () => (constants?.task_statuses || []).map((s: string) => ({ value: s, label: s })),
     [constants]
   );
 
@@ -928,14 +1088,46 @@ function TasksTab({
     { value: '5', label: '5 - Critical' },
   ];
 
-  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+  // Group tasks by urgency
+  const tasksByUrgency = useMemo(() => {
+    const groups: Record<number, Task[]> = { 5: [], 4: [], 3: [], 2: [], 1: [] };
+    tasks.forEach((task) => {
+      if (groups[task.urgency]) {
+        groups[task.urgency].push(task);
+      } else {
+        groups[3].push(task);
+      }
+    });
+    return groups;
+  }, [tasks]);
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTask.trim()) {
-      createMutation.mutate(newTask.trim());
-    }
-  };
+  // Group tasks by status
+  const tasksByStatus = useMemo(() => {
+    const statuses = constants?.task_statuses || ['Pending', 'Active', 'Done'];
+    const groups: Record<string, Task[]> = {};
+    statuses.forEach((s) => { groups[s] = []; });
+    tasks.forEach((task) => {
+      if (groups[task.status]) {
+        groups[task.status].push(task);
+      } else {
+        if (!groups['Other']) groups['Other'] = [];
+        groups['Other'].push(task);
+      }
+    });
+    return groups;
+  }, [tasks, constants]);
+
+  const toggleCollapse = useCallback((groupKey: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }, []);
 
   const handleUpdate = useCallback(
     async (taskId: number, field: string, value: any) => {
@@ -944,12 +1136,9 @@ function TasksTab({
     [updateMutation]
   );
 
-  const handleDelete = useCallback(
-    (taskId: number, description: string) => {
-      setDeleteTarget({ id: taskId, description });
-    },
-    []
-  );
+  const handleDelete = useCallback((taskId: number, description: string) => {
+    setDeleteTarget({ id: taskId, description });
+  }, []);
 
   const confirmDelete = useCallback(() => {
     if (deleteTarget) {
@@ -958,30 +1147,22 @@ function TasksTab({
     }
   }, [deleteTarget, deleteMutation]);
 
-  // Calculate new sort_order for insertion between two tasks
-  const calculateNewSortOrder = useCallback((reorderedTasks: Task[], oldIndex: number, newIndex: number): number => {
-    if (reorderedTasks.length === 0) return 1000;
-
-    // If moving to the beginning
-    if (newIndex === 0) {
-      return (reorderedTasks[0]?.sort_order || 1000) - 500;
+  const handleAddToGroup = useCallback((groupKey: string) => {
+    if (!newTaskText.trim()) return;
+    if (view === 'by-urgency') {
+      createMutation.mutate({ description: newTaskText.trim(), urgency: parseInt(groupKey, 10) });
+    } else {
+      createMutation.mutate({ description: newTaskText.trim(), status: groupKey as TaskStatus });
     }
+  }, [newTaskText, view, createMutation]);
 
-    // If moving to the end
-    if (newIndex >= reorderedTasks.length) {
-      return (reorderedTasks[reorderedTasks.length - 1]?.sort_order || 0) + 1000;
-    }
-
-    // Moving between two items
-    const prevTask = reorderedTasks[newIndex - 1];
-    const nextTask = reorderedTasks[newIndex];
-
-    // Handle case where we're moving down
-    if (oldIndex < newIndex) {
-      return Math.floor(((nextTask?.sort_order || 0) + (reorderedTasks[newIndex + 1]?.sort_order || (nextTask?.sort_order || 0) + 1000)) / 2);
-    }
-
-    // Moving up
+  // Calculate new sort_order for insertion at a specific index
+  const calculateSortOrderAtIndex = useCallback((groupTasks: Task[], insertIndex: number): number => {
+    if (groupTasks.length === 0) return 1000;
+    if (insertIndex === 0) return (groupTasks[0]?.sort_order || 1000) - 500;
+    if (insertIndex >= groupTasks.length) return (groupTasks[groupTasks.length - 1]?.sort_order || 0) + 1000;
+    const prevTask = groupTasks[insertIndex - 1];
+    const nextTask = groupTasks[insertIndex];
     return Math.floor(((prevTask?.sort_order || 0) + (nextTask?.sort_order || (prevTask?.sort_order || 0) + 1000)) / 2);
   }, []);
 
@@ -989,113 +1170,253 @@ function TasksTab({
     const { active } = event;
     const task = tasks.find((t) => t.id === active.id);
     setActiveTask(task || null);
-  }, [tasks]);
+    setActiveId(active.id);
+    if (task) {
+      const container = view === 'by-urgency' ? String(task.urgency) : task.status;
+      setOverContainer(container);
+      const groupTasks = view === 'by-urgency' ? tasksByUrgency[task.urgency] : tasksByStatus[task.status];
+      setOverIndex(groupTasks.findIndex((t) => t.id === task.id));
+    }
+  }, [tasks, view, tasksByUrgency, tasksByStatus]);
+
+  const handleDragOver = useCallback((event: import('@dnd-kit/core').DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const overId = over.id;
+    const activeTaskItem = tasks.find((t) => t.id === active.id);
+    if (!activeTaskItem) return;
+
+    let targetContainer: string | null = null;
+    let targetIndex = 0;
+
+    if (typeof overId === 'string' && overId.startsWith('group-')) {
+      targetContainer = overId.replace('group-', '');
+      const groupTasks = view === 'by-urgency'
+        ? tasksByUrgency[parseInt(targetContainer, 10)] || []
+        : tasksByStatus[targetContainer] || [];
+      targetIndex = groupTasks.filter((t) => t.id !== active.id).length;
+    } else {
+      const overTask = tasks.find((t) => t.id === overId);
+      if (overTask) {
+        targetContainer = view === 'by-urgency' ? String(overTask.urgency) : overTask.status;
+        const groupTasks = view === 'by-urgency'
+          ? tasksByUrgency[overTask.urgency] || []
+          : tasksByStatus[overTask.status] || [];
+        const filteredTasks = groupTasks.filter((t) => t.id !== active.id);
+        const overTaskIndex = filteredTasks.findIndex((t) => t.id === overId);
+        targetIndex = overTaskIndex >= 0 ? overTaskIndex : filteredTasks.length;
+      }
+    }
+
+    if (targetContainer !== null && (targetContainer !== overContainer || targetIndex !== overIndex)) {
+      setOverContainer(targetContainer);
+      setOverIndex(targetIndex);
+    }
+  }, [tasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
+    const { active } = event;
+    const finalContainer = overContainer;
+    const finalIndex = overIndex;
 
-    if (!over) return;
-    if (active.id === over.id) return;
+    setActiveTask(null);
+    setActiveId(null);
+    setOverContainer(null);
+    setOverIndex(0);
+
+    if (!finalContainer) return;
 
     const activeTaskItem = tasks.find((t) => t.id === active.id);
-    const overTask = tasks.find((t) => t.id === over.id);
-    if (!activeTaskItem || !overTask) return;
+    if (!activeTaskItem) return;
 
-    const oldIndex = tasks.findIndex((t) => t.id === active.id);
-    const newIndex = tasks.findIndex((t) => t.id === over.id);
+    const targetTasks = view === 'by-urgency'
+      ? (tasksByUrgency[parseInt(finalContainer, 10)] || []).filter((t) => t.id !== active.id)
+      : (tasksByStatus[finalContainer] || []).filter((t) => t.id !== active.id);
 
-    if (oldIndex !== newIndex) {
-      const reorderedTasks = arrayMove(tasks, oldIndex, newIndex);
-      const newSortOrder = calculateNewSortOrder(reorderedTasks, oldIndex, newIndex);
+    const newSortOrder = calculateSortOrderAtIndex(targetTasks, finalIndex);
 
+    if (view === 'by-urgency') {
+      const newUrgency = parseInt(finalContainer, 10);
+      const urgencyChanged = newUrgency !== activeTaskItem.urgency;
       reorderMutation.mutate({
         taskId: activeTaskItem.id,
         sortOrder: newSortOrder,
+        urgency: urgencyChanged ? newUrgency : undefined,
+      });
+    } else {
+      const statusChanged = finalContainer !== activeTaskItem.status;
+      reorderMutation.mutate({
+        taskId: activeTaskItem.id,
+        sortOrder: newSortOrder,
+        status: statusChanged ? finalContainer as TaskStatus : undefined,
       });
     }
-  }, [tasks, calculateNewSortOrder, reorderMutation]);
+  }, [tasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation]);
+
+  const renderTaskGroup = (groupKey: string, groupTasks: Task[], config: { label?: string; color: string; bgColor: string }) => {
+    const isCollapsed = collapsedGroups.has(groupKey);
+    const isAddingHere = addingToGroup === groupKey;
+    const taskIds = groupTasks.filter((t) => t.id !== activeId).map((t) => t.id);
+    const isDropTarget = overContainer === groupKey;
+
+    return (
+      <div key={groupKey} className="mb-4">
+        {/* Group Header */}
+        <div
+          className={`flex items-center gap-2 px-3 py-2 rounded-t-lg cursor-pointer select-none ${config.bgColor}`}
+          onClick={() => toggleCollapse(groupKey)}
+        >
+          <button className="p-0.5">
+            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </button>
+          <span className={`text-sm font-semibold ${config.color}`}>
+            {config.label || groupKey}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">({groupTasks.length})</span>
+          <div className="flex-1" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setAddingToGroup(isAddingHere ? null : groupKey);
+              setNewTaskText('');
+            }}
+            className="p-1 text-slate-500 hover:text-primary-500"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Inline Add Form */}
+        {isAddingHere && (
+          <div className="px-3 py-2 bg-slate-100 dark:bg-slate-700 border-x border-slate-200 dark:border-slate-700">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddToGroup(groupKey);
+              }}
+              className="flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                placeholder="New task description..."
+                autoFocus
+                className="flex-1 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={createMutation.isPending || !newTaskText.trim()}
+                className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddingToGroup(null)}
+                className="px-2 py-1.5 text-slate-500 text-sm"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Task List (collapsible) */}
+        {!isCollapsed && (
+          <DroppableTaskGroup
+            groupKey={groupKey}
+            tasks={groupTasks}
+            taskIds={taskIds}
+            activeId={activeId}
+            dropTargetIndex={isDropTarget ? overIndex : null}
+            taskStatusOptions={taskStatusOptions}
+            urgencyOptions={urgencyOptions}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            showUrgency={view === 'by-status'}
+          />
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-        {/* Quick Add */}
-        <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <input
-              type="text"
-              value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
-              placeholder="Add a new task..."
-              className="
-                flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
-                focus:border-primary-500 focus:ring-1 focus:ring-primary-500
-                outline-none text-sm
-              "
-            />
-            <button
-              type="submit"
-              disabled={createMutation.isPending || !newTask.trim()}
-              className="
-                px-4 py-2 bg-primary-600 text-white rounded-lg
-                hover:bg-primary-700 transition-colors
-                disabled:opacity-50 text-sm font-medium
-                inline-flex items-center gap-2
-              "
-            >
-              <Plus className="w-4 h-4" />
-              Add
-            </button>
-          </div>
-        </form>
-
-        {/* Task List with Drag and Drop */}
-        {tasks.length === 0 ? (
-          <div className="p-8 text-center text-slate-400">No tasks</div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
+      {/* View Toggle */}
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-sm text-slate-500 dark:text-slate-400">Group by:</span>
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
+          <button
+            onClick={() => setView('by-urgency')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              view === 'by-urgency'
+                ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+            }`}
           >
-            <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-              <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                {tasks.map((task) => (
-                  <SortableTaskRow
-                    key={task.id}
-                    task={task}
-                    taskStatusOptions={taskStatusOptions}
-                    urgencyOptions={urgencyOptions}
-                    onUpdate={handleUpdate}
-                    onDelete={handleDelete}
-                    showCaseBadge={false}
-                    showUrgency={true}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-
-            {/* Drag Overlay */}
-            <DragOverlay>
-              {activeTask && (
-                <div className="shadow-xl rounded-lg overflow-hidden">
-                  <SortableTaskRow
-                    task={activeTask}
-                    taskStatusOptions={taskStatusOptions}
-                    urgencyOptions={urgencyOptions}
-                    onUpdate={() => {}}
-                    onDelete={() => {}}
-                    showCaseBadge={false}
-                    showUrgency={true}
-                  />
-                </div>
-              )}
-            </DragOverlay>
-          </DndContext>
-        )}
+            Urgency
+          </button>
+          <button
+            onClick={() => setView('by-status')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              view === 'by-status'
+                ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+            }`}
+          >
+            Status
+          </button>
+        </div>
       </div>
+
+      {/* Task Groups */}
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        {view === 'by-urgency' ? (
+          <div>
+            {[5, 4, 3, 2, 1].map((urgency) =>
+              renderTaskGroup(
+                String(urgency),
+                tasksByUrgency[urgency],
+                { label: `${urgency} - ${urgencyConfig[urgency].label}`, color: urgencyConfig[urgency].color, bgColor: urgencyConfig[urgency].bgColor }
+              )
+            )}
+          </div>
+        ) : (
+          <div>
+            {(constants?.task_statuses || ['Pending', 'Active', 'Done']).map((status) =>
+              renderTaskGroup(
+                status,
+                tasksByStatus[status] || [],
+                statusConfig[status] || { color: 'text-slate-600', bgColor: 'bg-slate-50 dark:bg-slate-800/50' }
+              )
+            )}
+          </div>
+        )}
+
+        {/* Drag Overlay */}
+        <DragOverlay dropAnimation={null}>
+          {activeTask && (
+            <div className="shadow-xl rounded-lg overflow-hidden bg-white dark:bg-slate-800 border border-primary-500">
+              <SortableTaskRow
+                task={activeTask}
+                taskStatusOptions={taskStatusOptions}
+                urgencyOptions={urgencyOptions}
+                onUpdate={() => {}}
+                onDelete={() => {}}
+                showCaseBadge={false}
+                showUrgency={view === 'by-status'}
+              />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       <ConfirmModal
         isOpen={!!deleteTarget}
@@ -1111,6 +1432,99 @@ function TasksTab({
   );
 }
 
+// Droppable Task Group Component
+function DroppableTaskGroup({
+  groupKey,
+  tasks,
+  taskIds,
+  activeId,
+  dropTargetIndex,
+  taskStatusOptions,
+  urgencyOptions,
+  onUpdate,
+  onDelete,
+  showUrgency,
+}: {
+  groupKey: string;
+  tasks: Task[];
+  taskIds: number[];
+  activeId: import('@dnd-kit/core').UniqueIdentifier | null;
+  dropTargetIndex: number | null;
+  taskStatusOptions: { value: string; label: string }[];
+  urgencyOptions: { value: string; label: string }[];
+  onUpdate: (taskId: number, field: string, value: any) => Promise<void> | void;
+  onDelete: (taskId: number, description: string) => void;
+  showUrgency: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `group-${groupKey}`,
+    data: { type: 'group', groupKey },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+        rounded-b-lg border border-t-0 border-slate-200 dark:border-slate-700 overflow-hidden
+        ${isOver ? 'ring-2 ring-primary-500 ring-opacity-50' : ''}
+        ${tasks.length === 0 ? 'min-h-[48px] bg-slate-50 dark:bg-slate-800/50' : ''}
+      `}
+    >
+      {tasks.length === 0 && dropTargetIndex === null ? (
+        <div className="flex items-center justify-center h-[48px] text-sm text-slate-400">
+          Drop tasks here
+        </div>
+      ) : tasks.length === 0 && dropTargetIndex !== null ? (
+        <div className="p-2">
+          <div className="h-10 border-2 border-dashed border-primary-500 rounded-lg bg-primary-50 dark:bg-primary-900/20" />
+        </div>
+      ) : (
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          <div className="divide-y divide-slate-200 dark:divide-slate-700">
+            {tasks.map((task, index) => {
+              const isActiveItem = activeId !== null && task.id === activeId;
+              const visualIndex = tasks.slice(0, index).filter((t) => t.id !== activeId).length;
+              const showDropIndicatorBefore = dropTargetIndex !== null && visualIndex === dropTargetIndex && !isActiveItem;
+
+              if (isActiveItem) {
+                return (
+                  <div key={task.id} className="px-4 py-3 bg-slate-100 dark:bg-slate-700/50 border-2 border-dashed border-slate-300 dark:border-slate-600 opacity-40">
+                    <div className="h-5" />
+                  </div>
+                );
+              }
+
+              return (
+                <div key={task.id}>
+                  {showDropIndicatorBefore && (
+                    <div className="px-2 py-1">
+                      <div className="h-10 border-2 border-dashed border-primary-500 rounded-lg bg-primary-50 dark:bg-primary-900/20" />
+                    </div>
+                  )}
+                  <SortableTaskRow
+                    task={task}
+                    taskStatusOptions={taskStatusOptions}
+                    urgencyOptions={urgencyOptions}
+                    onUpdate={onUpdate}
+                    onDelete={onDelete}
+                    showCaseBadge={false}
+                    showUrgency={showUrgency}
+                  />
+                </div>
+              );
+            })}
+            {dropTargetIndex !== null && dropTargetIndex >= tasks.filter((t) => t.id !== activeId).length && (
+              <div className="px-2 py-1">
+                <div className="h-10 border-2 border-dashed border-primary-500 rounded-lg bg-primary-50 dark:bg-primary-900/20" />
+              </div>
+            )}
+          </div>
+        </SortableContext>
+      )}
+    </div>
+  );
+}
+
 // Deadlines Tab Component
 function DeadlinesTab({
   caseId,
@@ -1123,6 +1537,7 @@ function DeadlinesTab({
   const [isAdding, setIsAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [newDeadline, setNewDeadline] = useState({ date: '', description: '', calculation_note: '', starred: false });
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -1152,8 +1567,19 @@ function DeadlinesTab({
     mutationFn: (id: number) => deleteDeadline(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setDeleteTarget(null);
     },
   });
+
+  const handleDelete = useCallback((deadline: Deadline) => {
+    setDeleteTarget({ id: deadline.id, description: deadline.description });
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1293,7 +1719,7 @@ function DeadlinesTab({
                   </a>
                 )}
                 <button
-                  onClick={() => deleteMutation.mutate(deadline.id)}
+                  onClick={() => handleDelete(deadline)}
                   className="p-1 text-slate-500 hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1330,6 +1756,17 @@ function DeadlinesTab({
           ))
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Deadline"
+        message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
+        confirmText="Delete Deadline"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }
@@ -1338,6 +1775,7 @@ function DeadlinesTab({
 function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
   const queryClient = useQueryClient();
   const [newNote, setNewNote] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; content: string } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (content: string) => createNote(caseId, content),
@@ -1351,8 +1789,19 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
     mutationFn: (id: number) => deleteNote(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setDeleteTarget(null);
     },
   });
+
+  const handleDelete = useCallback((note: Note) => {
+    setDeleteTarget({ id: note.id, content: note.content });
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+    }
+  }, [deleteTarget, deleteMutation]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1415,7 +1864,7 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
                   </p>
                 </div>
                 <button
-                  onClick={() => deleteMutation.mutate(note.id)}
+                  onClick={() => handleDelete(note)}
                   className="p-1 text-slate-500 hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1425,6 +1874,17 @@ function NotesTab({ caseId, notes }: { caseId: number; notes: Note[] }) {
           ))
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Note"
+        message={`Are you sure you want to delete this note? This action cannot be undone.`}
+        confirmText="Delete Note"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }
@@ -1537,11 +1997,13 @@ function CaseNumbersSection({
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [newNumber, setNewNumber] = useState({ number: '', label: '', primary: false });
+  const [deleteTarget, setDeleteTarget] = useState<{ index: number; number: string } | null>(null);
 
   const updateMutation = useMutation({
     mutationFn: (numbers: CaseNumber[]) => updateCase(caseId, { case_numbers: numbers }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setDeleteTarget(null);
     },
   });
 
@@ -1558,10 +2020,16 @@ function CaseNumbersSection({
     }
   };
 
-  const handleRemove = (index: number) => {
-    const updated = caseNumbers.filter((_, i) => i !== index);
-    updateMutation.mutate(updated);
-  };
+  const handleRemove = useCallback((index: number, caseNumber: string) => {
+    setDeleteTarget({ index, number: caseNumber });
+  }, []);
+
+  const confirmRemove = useCallback(() => {
+    if (deleteTarget !== null) {
+      const updated = caseNumbers.filter((_, i) => i !== deleteTarget.index);
+      updateMutation.mutate(updated);
+    }
+  }, [deleteTarget, caseNumbers, updateMutation]);
 
   const handleSetPrimary = (index: number) => {
     const updated = caseNumbers.map((n, i) => ({ ...n, primary: i === index }));
@@ -1661,7 +2129,7 @@ function CaseNumbersSection({
                   </button>
                 )}
                 <button
-                  onClick={() => handleRemove(index)}
+                  onClick={() => handleRemove(index, cn.number)}
                   className="p-0.5 text-slate-500 hover:text-red-400"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -1671,6 +2139,17 @@ function CaseNumbersSection({
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmRemove}
+        title="Remove Case Number"
+        message={`Are you sure you want to remove case number "${deleteTarget?.number}"?`}
+        confirmText="Remove"
+        variant="danger"
+        isLoading={updateMutation.isPending}
+      />
     </div>
   );
 }
@@ -1711,6 +2190,75 @@ function StarredDeadlines({
         </div>
       ))}
     </>
+  );
+}
+
+// Contact Card Component - used in categorized contact sections
+function ContactCard({
+  contact,
+  onRemove,
+  highlightSide = false,
+}: {
+  contact: {
+    assignment_id: number;
+    id: number;
+    name: string;
+    role?: string;
+    organization?: string;
+    phones?: Array<{ value: string; label?: string; primary?: boolean }>;
+    emails?: Array<{ value: string; label?: string; primary?: boolean }>;
+  };
+  onRemove: () => void;
+  highlightSide?: boolean;
+}) {
+  // Determine side coloring for experts
+  const isPlaintiffSide = contact.role?.includes('Plaintiff');
+  const isDefendantSide = contact.role?.includes('Defendant');
+
+  return (
+    <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg group relative flex items-start gap-3">
+      <button
+        onClick={onRemove}
+        className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <Trash2 className="w-3 h-3" />
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-medium text-sm text-slate-900 dark:text-slate-100">{contact.name}</p>
+          {contact.role && (
+            <span className={`
+              inline-block px-2 py-0.5 rounded text-xs
+              ${highlightSide && isPlaintiffSide
+                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                : highlightSide && isDefendantSide
+                ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+                : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
+              }
+            `}>
+              {contact.role}
+            </span>
+          )}
+        </div>
+        {contact.organization && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{contact.organization}</p>
+        )}
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
+          {getPrimaryPhone(contact.phones) && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Phone className="w-3 h-3" />
+              {getPrimaryPhone(contact.phones)}
+            </p>
+          )}
+          {getPrimaryEmail(contact.emails) && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Mail className="w-3 h-3" />
+              {getPrimaryEmail(contact.emails)}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
