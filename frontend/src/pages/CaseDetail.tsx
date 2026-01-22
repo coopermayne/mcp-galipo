@@ -158,6 +158,7 @@ export function CaseDetail() {
             value={caseData.short_name || ''}
             onSave={(value) => handleUpdateField('short_name', value || null)}
             placeholder="Set short name..."
+            maxLength={10}
             className="text-sm text-slate-500 dark:text-slate-400 mt-1"
           />
           <div className="flex items-center gap-3 mt-2">
