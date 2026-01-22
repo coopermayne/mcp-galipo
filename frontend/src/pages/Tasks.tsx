@@ -260,7 +260,8 @@ export function Tasks() {
                           <ListPanel.Row key={task.id}>
                             <Link
                               to={`/cases/${task.case_id}`}
-                              className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap hover:opacity-80 ${getCaseColorClass(task.case_id)}`}
+                              className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-24 truncate text-center ${getCaseColorClass(task.case_id)}`}
+                              title={task.short_name || task.case_name || `Case #${task.case_id}`}
                             >
                               {task.short_name || task.case_name || `Case #${task.case_id}`}
                             </Link>

@@ -196,7 +196,8 @@ export function Deadlines() {
                             </button>
                             <Link
                               to={`/cases/${deadline.case_id}`}
-                              className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap hover:opacity-80 ${getCaseColorClass(deadline.case_id)}`}
+                              className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-24 truncate text-center ${getCaseColorClass(deadline.case_id)}`}
+                              title={deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
                             >
                               {deadline.short_name || deadline.case_name || `Case #${deadline.case_id}`}
                             </Link>
