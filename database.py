@@ -883,6 +883,13 @@ def update_jurisdiction(jurisdiction_id: int, name: str = None, local_rules_link
         return dict(row) if row else None
 
 
+def delete_jurisdiction(jurisdiction_id: int) -> bool:
+    """Delete a jurisdiction. Will fail if cases are still referencing it."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM jurisdictions WHERE id = %s", (jurisdiction_id,))
+        return cur.rowcount > 0
+
+
 # ===== CASE OPERATIONS =====
 
 def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
@@ -1488,6 +1495,46 @@ def create_expertise_type(name: str, description: str = None) -> dict:
         return dict(cur.fetchone())
 
 
+def get_expertise_type_by_id(expertise_type_id: int) -> Optional[dict]:
+    """Get an expertise type by ID."""
+    with get_cursor() as cur:
+        cur.execute("SELECT id, name, description FROM expertise_types WHERE id = %s", (expertise_type_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_expertise_type(expertise_type_id: int, name: str = None, description: str = None) -> Optional[dict]:
+    """Update an expertise type."""
+    updates = []
+    params = []
+    if name is not None:
+        updates.append("name = %s")
+        params.append(name)
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+
+    if not updates:
+        return get_expertise_type_by_id(expertise_type_id)
+
+    params.append(expertise_type_id)
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE expertise_types SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, name, description
+        """, params)
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def delete_expertise_type(expertise_type_id: int) -> bool:
+    """Delete an expertise type."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM expertise_types WHERE id = %s", (expertise_type_id,))
+        return cur.rowcount > 0
+
+
 # ===== PERSON TYPE OPERATIONS =====
 
 def get_person_types() -> List[dict]:
@@ -1506,6 +1553,46 @@ def create_person_type(name: str, description: str = None) -> dict:
             RETURNING id, name, description
         """, (name, description))
         return dict(cur.fetchone())
+
+
+def get_person_type_by_id(person_type_id: int) -> Optional[dict]:
+    """Get a person type by ID."""
+    with get_cursor() as cur:
+        cur.execute("SELECT id, name, description FROM person_types WHERE id = %s", (person_type_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_person_type(person_type_id: int, name: str = None, description: str = None) -> Optional[dict]:
+    """Update a person type."""
+    updates = []
+    params = []
+    if name is not None:
+        updates.append("name = %s")
+        params.append(name)
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+
+    if not updates:
+        return get_person_type_by_id(person_type_id)
+
+    params.append(person_type_id)
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE person_types SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, name, description
+        """, params)
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def delete_person_type(person_type_id: int) -> bool:
+    """Delete a person type."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM person_types WHERE id = %s", (person_type_id,))
+        return cur.rowcount > 0
 
 
 # ===== TASK OPERATIONS =====
@@ -1913,6 +2000,31 @@ def delete_note(note_id: int) -> bool:
         return cur.rowcount > 0
 
 
+def get_notes(case_id: int = None) -> dict:
+    """Get notes, optionally filtered by case."""
+    conditions = []
+    params = []
+
+    if case_id:
+        conditions.append("n.case_id = %s")
+        params.append(case_id)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) as total FROM notes n {where_clause}", params)
+        total = cur.fetchone()["total"]
+
+        cur.execute(f"""
+            SELECT n.id, n.case_id, c.case_name, c.short_name, n.content, n.created_at, n.updated_at
+            FROM notes n
+            JOIN cases c ON n.case_id = c.id
+            {where_clause}
+            ORDER BY n.created_at DESC
+        """, params)
+        return {"notes": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
+
+
 # ===== ACTIVITY OPERATIONS =====
 
 def add_activity(case_id: int, description: str, activity_type: str,
@@ -1948,6 +2060,31 @@ def get_all_activities(case_id: int = None) -> List[dict]:
                 ORDER BY a.date DESC
             """)
         return [dict(row) for row in cur.fetchall()]
+
+
+def get_activities(case_id: int = None) -> dict:
+    """Get activities with total count, optionally filtered by case."""
+    conditions = []
+    params = []
+
+    if case_id:
+        conditions.append("a.case_id = %s")
+        params.append(case_id)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) as total FROM activities a {where_clause}", params)
+        total = cur.fetchone()["total"]
+
+        cur.execute(f"""
+            SELECT a.id, a.case_id, c.case_name, c.short_name, a.description, a.type, a.date, a.minutes, a.created_at
+            FROM activities a
+            JOIN cases c ON a.case_id = c.id
+            {where_clause}
+            ORDER BY a.date DESC
+        """, params)
+        return {"activities": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
 
 
 def update_activity(activity_id: int, date: str = None, description: str = None,
