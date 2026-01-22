@@ -5,3 +5,8 @@ venv/
 .env
 *.db
 frontend/dist/
+
+# Backups (keep directory structure, ignore actual backups)
+backups/*.sql
+backups/*.sql.gz
+!backups/.gitkeep
