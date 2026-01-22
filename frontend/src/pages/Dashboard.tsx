@@ -152,10 +152,9 @@ export function Dashboard() {
 
   const urgencyOptions = [
     { value: '1', label: '1 - Low' },
-    { value: '2', label: '2' },
-    { value: '3', label: '3 - Medium' },
-    { value: '4', label: '4' },
-    { value: '5', label: '5 - Critical' },
+    { value: '2', label: '2 - Medium' },
+    { value: '3', label: '3 - High' },
+    { value: '4', label: '4 - Urgent' },
   ];
 
   // Filter to only show non-completed tasks
