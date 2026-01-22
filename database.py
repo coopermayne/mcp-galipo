@@ -1801,33 +1801,38 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
         return serialize_row(dict(row)) if row else None
 
 
-def update_task_full(task_id: int, description: str = None, due_date: str = None,
-                     completion_date: str = None, status: str = None, urgency: int = None) -> Optional[dict]:
+def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: str = _NOT_PROVIDED,
+                     completion_date: str = _NOT_PROVIDED, status: str = _NOT_PROVIDED,
+                     urgency: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update all task fields."""
     updates = []
     params = []
 
-    if description is not None:
+    if description is not _NOT_PROVIDED:
         updates.append("description = %s")
         params.append(description)
 
-    if due_date is not None:
-        validate_date_format(due_date, "due_date")
+    if due_date is not _NOT_PROVIDED:
+        if due_date is not None and due_date != "":
+            validate_date_format(due_date, "due_date")
         updates.append("due_date = %s")
         params.append(due_date if due_date else None)
 
-    if completion_date is not None:
-        validate_date_format(completion_date, "completion_date")
+    if completion_date is not _NOT_PROVIDED:
+        if completion_date is not None and completion_date != "":
+            validate_date_format(completion_date, "completion_date")
         updates.append("completion_date = %s")
         params.append(completion_date if completion_date else None)
 
-    if status is not None:
-        validate_task_status(status)
+    if status is not _NOT_PROVIDED:
+        if status is not None:
+            validate_task_status(status)
         updates.append("status = %s")
         params.append(status)
 
-    if urgency is not None:
-        validate_urgency(urgency)
+    if urgency is not _NOT_PROVIDED:
+        if urgency is not None:
+            validate_urgency(urgency)
         updates.append("urgency = %s")
         params.append(urgency)
 

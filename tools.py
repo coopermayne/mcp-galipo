@@ -572,30 +572,58 @@ def register_tools(mcp):
 
         Args:
             event_id: ID of the event
-            date: New date (YYYY-MM-DD)
-            description: New description
-            time: New time (HH:MM format)
-            location: New location
-            document_link: New document link
-            calculation_note: New calculation note
+            date: New date (YYYY-MM-DD) - required field, cannot be cleared
+            description: New description - required field, cannot be empty
+            time: New time (HH:MM format), pass "" to clear
+            location: New location, pass "" to clear
+            document_link: New document link, pass "" to clear
+            calculation_note: New calculation note, pass "" to clear
             starred: Whether to star/highlight this event in case overview
 
         Returns updated event.
         """
         context.info(f"Updating event {event_id}")
-        try:
-            if date:
-                db.validate_date_format(date, "date")
-            if time:
-                db.validate_time_format(time, "time")
-        except ValidationError as e:
-            return validation_error(str(e))
 
-        result = db.update_event_full(event_id, date, description,
-                                      document_link, calculation_note,
-                                      time, location, starred)
+        # Build kwargs with only explicitly provided fields
+        # None = not provided (don't update), "" = clear the field, other = set value
+        kwargs = {}
+
+        if date is not None:
+            if date == "":
+                return validation_error("Date cannot be cleared (required field)")
+            db.validate_date_format(date, "date")
+            kwargs['date'] = date
+
+        if description is not None:
+            if description == "":
+                return validation_error("Description cannot be empty")
+            kwargs['description'] = description
+
+        if time is not None:
+            if time == "":
+                kwargs['time'] = None  # Clear the time
+            else:
+                db.validate_time_format(time, "time")
+                kwargs['time'] = time
+
+        if location is not None:
+            kwargs['location'] = location if location != "" else None
+
+        if document_link is not None:
+            kwargs['document_link'] = document_link if document_link != "" else None
+
+        if calculation_note is not None:
+            kwargs['calculation_note'] = calculation_note if calculation_note != "" else None
+
+        if starred is not None:
+            kwargs['starred'] = starred
+
+        if not kwargs:
+            return validation_error("No fields to update")
+
+        result = db.update_event_full(event_id, **kwargs)
         if not result:
-            return not_found_error("Event or no updates provided")
+            return not_found_error("Event not found")
         context.info(f"Event {event_id} updated successfully")
         return {"success": True, "event": result}
 
@@ -731,30 +759,53 @@ def register_tools(mcp):
 
         Args:
             task_id: ID of the task
-            description: New description
+            description: New description - required field, cannot be empty
             status: New status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
             urgency: New urgency (1-4)
-            due_date: New due date (YYYY-MM-DD)
-            completion_date: Date task was completed (YYYY-MM-DD)
+            due_date: New due date (YYYY-MM-DD), pass "" to clear
+            completion_date: Date task was completed (YYYY-MM-DD), pass "" to clear
 
         Returns updated task.
         """
         context.info(f"Updating task {task_id}")
-        try:
-            if status:
-                db.validate_task_status(status)
-            if urgency is not None:
-                db.validate_urgency(urgency)
-            if due_date:
-                db.validate_date_format(due_date, "due_date")
-            if completion_date:
-                db.validate_date_format(completion_date, "completion_date")
-        except ValidationError as e:
-            return validation_error(str(e))
 
-        result = db.update_task_full(task_id, description, due_date, completion_date, status, urgency)
+        # Build kwargs with only explicitly provided fields
+        # None = not provided (don't update), "" = clear the field, other = set value
+        kwargs = {}
+
+        if description is not None:
+            if description == "":
+                return validation_error("Description cannot be empty")
+            kwargs['description'] = description
+
+        if status is not None:
+            db.validate_task_status(status)
+            kwargs['status'] = status
+
+        if urgency is not None:
+            db.validate_urgency(urgency)
+            kwargs['urgency'] = urgency
+
+        if due_date is not None:
+            if due_date == "":
+                kwargs['due_date'] = None  # Clear the date
+            else:
+                db.validate_date_format(due_date, "due_date")
+                kwargs['due_date'] = due_date
+
+        if completion_date is not None:
+            if completion_date == "":
+                kwargs['completion_date'] = None  # Clear the date
+            else:
+                db.validate_date_format(completion_date, "completion_date")
+                kwargs['completion_date'] = completion_date
+
+        if not kwargs:
+            return validation_error("No fields to update")
+
+        result = db.update_task_full(task_id, **kwargs)
         if not result:
-            return not_found_error("Task or no updates provided")
+            return not_found_error("Task not found")
         context.info(f"Task {task_id} updated successfully")
         return {"success": True, "task": result}
 
