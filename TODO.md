@@ -81,6 +81,20 @@ See [PLAN-in-app-chat.md](./PLAN-in-app-chat.md) for full details.
 
 ## Technical Debt
 
+### Code Refactoring
+Large files that should be split into smaller, focused modules:
+
+**Critical (2000+ lines):**
+- [ ] `database.py` (2,363 lines) → Split into `db/cases.py`, `db/persons.py`, `db/tasks.py`, `db/events.py`, `db/activities.py`, `db/notes.py`, `db/types.py`, `db/validation.py`
+- [ ] `CaseDetail.tsx` (2,301 lines) → Extract tabs (`OverviewTab.tsx`, `TasksTab.tsx`, `EventsTab.tsx`, `NotesTab.tsx`, `SettingsTab.tsx`) and components (`ContactCard.tsx`, `StarredEvents.tsx`, `CaseNumbersSection.tsx`)
+- [ ] `tools.py` (1,450 lines) → Split into `tools/cases.py`, `tools/persons.py`, `tools/tasks.py`, `tools/events.py`, etc.
+
+**High Priority (400-700 lines):**
+- [ ] `routes.py` (673 lines) → Split into `routes/cases.py`, `routes/tasks.py`, `routes/persons.py`, `routes/events.py`, etc.
+- [ ] `frontend/src/api/client.ts` (403 lines) → Split into domain-specific API modules with barrel export
+- [ ] `frontend/src/types/index.ts` (386 lines) → Split into `types/case.ts`, `types/person.ts`, `types/task.ts`, etc.
+
+### Testing & Quality
 - [ ] Add comprehensive error handling to all API endpoints
 - [ ] Add input validation on backend (Pydantic models)
 - [ ] Add API rate limiting
