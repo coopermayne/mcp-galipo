@@ -29,6 +29,7 @@ interface CaseGroupProps {
   onUpdate: (taskId: number, field: string, value: any) => void;
   onDelete: (taskId: number, description: string) => void;
   defaultExpanded?: boolean;
+  recentlyDroppedId?: number | null;
 }
 
 export function CaseGroup({
@@ -41,6 +42,7 @@ export function CaseGroup({
   onUpdate,
   onDelete,
   defaultExpanded = true,
+  recentlyDroppedId,
 }: CaseGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { setNodeRef, isOver } = useDroppable({
@@ -106,6 +108,7 @@ export function CaseGroup({
                   onDelete={onDelete}
                   showCaseBadge={false}
                   showUrgency={true}
+                  isHighlighted={task.id === recentlyDroppedId}
                 />
               ))}
             </SortableContext>
