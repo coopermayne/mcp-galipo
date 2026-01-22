@@ -576,13 +576,16 @@ function OverviewTab({
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">Key Dates</h3>
         </div>
         <div className="space-y-3">
-          <Field label="Date of Injury">
+          {/* Date of Injury - styled like starred deadlines */}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-400 w-32 shrink-0">Date of Injury</span>
             <EditableDate
               value={caseData.date_of_injury || null}
               onSave={(value) => onUpdateField('date_of_injury', value)}
               placeholder="Select date"
+              className="text-sm"
             />
-          </Field>
+          </div>
           {/* Starred Deadlines */}
           <StarredDeadlines deadlines={caseData.deadlines || []} />
         </div>
