@@ -46,6 +46,9 @@ else:
     db.seed_db()
 
 
+# Export ASGI app for uvicorn
+app = mcp.http_app()
+
 if __name__ == "__main__":
     # Run the MCP server with SSE transport for remote access
     port = int(os.environ.get("PORT", 8000))
