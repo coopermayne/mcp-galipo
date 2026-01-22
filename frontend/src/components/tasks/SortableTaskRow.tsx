@@ -1,0 +1,130 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Link } from 'react-router-dom';
+import { GripVertical, Trash2 } from 'lucide-react';
+import {
+  EditableText,
+  EditableSelect,
+  StatusBadge,
+  UrgencyBadge,
+} from '../common';
+import type { Task, TaskStatus } from '../../types';
+
+// Deterministic color mapping for case badges
+const caseColorClasses = [
+  'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+  'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+  'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
+  'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300',
+  'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+];
+
+const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColorClasses.length];
+
+interface SortableTaskRowProps {
+  task: Task;
+  taskStatusOptions: { value: string; label: string }[];
+  urgencyOptions: { value: string; label: string }[];
+  onUpdate: (taskId: number, field: string, value: any) => Promise<void> | void;
+  onDelete: (taskId: number, description: string) => void;
+  showCaseBadge?: boolean;
+  showUrgency?: boolean;
+}
+
+export function SortableTaskRow({
+  task,
+  taskStatusOptions,
+  urgencyOptions,
+  onUpdate,
+  onDelete,
+  showCaseBadge = true,
+  showUrgency = true,
+}: SortableTaskRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 'auto',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`
+        px-4 py-3 flex items-center gap-3
+        bg-white dark:bg-slate-800
+        border-b border-slate-200 dark:border-slate-700 last:border-b-0
+        hover:bg-slate-50 dark:hover:bg-slate-700/50
+        ${isDragging ? 'shadow-lg rounded-lg border border-primary-500' : ''}
+      `}
+    >
+      {/* Drag Handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+
+      {/* Case Badge */}
+      {showCaseBadge && (
+        <Link
+          to={`/cases/${task.case_id}`}
+          className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(task.case_id)}`}
+          title={task.short_name || task.case_name || `Case #${task.case_id}`}
+        >
+          {task.short_name || task.case_name || `Case #${task.case_id}`}
+        </Link>
+      )}
+
+      {/* Description */}
+      <div className="flex-1 min-w-0">
+        <EditableText
+          value={task.description}
+          onSave={async (value) => { await onUpdate(task.id, 'description', value); }}
+          className="text-sm"
+        />
+      </div>
+
+      {/* Status */}
+      <EditableSelect
+        value={task.status}
+        options={taskStatusOptions}
+        onSave={async (value) => { await onUpdate(task.id, 'status', value as TaskStatus); }}
+        renderValue={(value) => <StatusBadge status={value} />}
+      />
+
+      {/* Urgency */}
+      {showUrgency && (
+        <EditableSelect
+          value={String(task.urgency)}
+          options={urgencyOptions}
+          onSave={async (value) => { await onUpdate(task.id, 'urgency', parseInt(value)); }}
+          renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
+        />
+      )}
+
+      {/* Delete Button */}
+      <button
+        onClick={() => onDelete(task.id, task.description)}
+        className="p-1 text-slate-500 hover:text-red-400"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}

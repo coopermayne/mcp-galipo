@@ -35,6 +35,7 @@ export interface Task {
   completion_date?: string;
   status: TaskStatus;
   urgency: number;
+  sort_order: number;
   deadline_id?: number;
   deadline_description?: string;
   created_at: string;

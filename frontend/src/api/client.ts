@@ -184,6 +184,21 @@ export async function deleteTask(taskId: number): Promise<{ success: boolean }> 
   });
 }
 
+export async function reorderTask(
+  taskId: number,
+  sortOrder: number,
+  urgency?: number
+): Promise<{ success: boolean; task: Task }> {
+  return request('/tasks/reorder', {
+    method: 'POST',
+    body: JSON.stringify({
+      task_id: taskId,
+      sort_order: sortOrder,
+      urgency: urgency,
+    }),
+  });
+}
+
 // Deadlines
 export async function getDeadlines(params?: {
   limit?: number;
