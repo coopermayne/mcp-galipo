@@ -12,7 +12,7 @@ import {
   ListPanel,
   ConfirmModal,
 } from '../components/common';
-import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent } from '../api/client';
+import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent } from '../api';
 import type { Task, Event } from '../types';
 import {
   Briefcase,

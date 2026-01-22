@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Header, PageContent } from '../components/layout';
 import { DataTable, StatusBadge, EditableSelect, ConfirmModal } from '../components/common';
-import { getCases, getConstants, createCase, updateCase, deleteCase } from '../api/client';
+import { getCases, getConstants, createCase, updateCase, deleteCase } from '../api';
 import type { CaseSummary, CaseStatus } from '../types';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 
