@@ -595,6 +595,19 @@ def migrate_db():
             cur.execute("ALTER TABLE deadlines DROP COLUMN status")
             print("  - Dropped status column from deadlines")
 
+        # 19. Add sort_order column to tasks if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'tasks' AND column_name = 'sort_order'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0")
+            # Initialize sort_order for existing tasks: sort_order = id * 1000
+            cur.execute("UPDATE tasks SET sort_order = id * 1000 WHERE sort_order = 0 OR sort_order IS NULL")
+            print("  - Added sort_order column to tasks")
+
         print("Database migration complete.")
 
 
@@ -726,6 +739,7 @@ def init_db():
                 description TEXT NOT NULL,
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
                 urgency INTEGER CHECK (urgency >= 1 AND urgency <= 5) DEFAULT 3,
+                sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -754,6 +768,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_case_persons_role ON case_persons(role);
             CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+            CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
             CREATE INDEX IF NOT EXISTS idx_deadlines_case_id ON deadlines(case_id);
             CREATE INDEX IF NOT EXISTS idx_deadlines_date ON deadlines(date);
             CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
@@ -1001,11 +1016,11 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
 
         # Get tasks
         cur.execute("""
-            SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.deadline_id,
+            SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.deadline_id, t.sort_order,
                    d.description as deadline_description
             FROM tasks t
             LEFT JOIN deadlines d ON t.deadline_id = d.id
-            WHERE t.case_id = %s ORDER BY t.due_date
+            WHERE t.case_id = %s ORDER BY t.sort_order ASC
         """, (case_id,))
         result["tasks"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
@@ -1605,11 +1620,15 @@ def add_task(case_id: int, description: str, due_date: str = None,
     validate_date_format(due_date, "due_date")
 
     with get_cursor() as cur:
+        # Get max sort_order and add 1000 for new task
+        cur.execute("SELECT COALESCE(MAX(sort_order), 0) + 1000 FROM tasks")
+        new_sort_order = cur.fetchone()[0]
+
         cur.execute("""
-            INSERT INTO tasks (case_id, description, due_date, status, urgency, deadline_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, created_at
-        """, (case_id, description, due_date, status, urgency, deadline_id))
+            INSERT INTO tasks (case_id, description, due_date, status, urgency, deadline_id, sort_order)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
+        """, (case_id, description, due_date, status, urgency, deadline_id, new_sort_order))
         return serialize_row(dict(cur.fetchone()))
 
 
@@ -1641,11 +1660,11 @@ def get_tasks(case_id: int = None, status_filter: str = None,
 
         query = f"""
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency, t.deadline_id, t.created_at
+                   t.due_date, t.completion_date, t.status, t.urgency, t.deadline_id, t.sort_order, t.created_at
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             {where_clause}
-            ORDER BY t.due_date NULLS LAST, t.urgency DESC
+            ORDER BY t.sort_order ASC
         """
         if limit:
             query += f" LIMIT {limit}"
@@ -1683,7 +1702,7 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -1728,7 +1747,7 @@ def update_task_full(task_id: int, description: str = None, due_date: str = None
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -1799,14 +1818,45 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
     with get_cursor() as cur:
         cur.execute(f"""
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency
+                   t.due_date, t.completion_date, t.status, t.urgency, t.sort_order
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             {where_clause}
-            ORDER BY t.due_date NULLS LAST, t.urgency DESC
+            ORDER BY t.sort_order ASC
             LIMIT %s
         """, params + [limit])
         return [dict(row) for row in cur.fetchall()]
+
+
+def reorder_task(task_id: int, new_sort_order: int, new_urgency: int = None) -> Optional[dict]:
+    """Reorder a task and optionally change its urgency.
+
+    Args:
+        task_id: The ID of the task to reorder
+        new_sort_order: The new sort_order value
+        new_urgency: Optional new urgency level (1-5)
+
+    Returns:
+        The updated task with new sort_order (and urgency if changed)
+    """
+    updates = ["sort_order = %s"]
+    params = [new_sort_order]
+
+    if new_urgency is not None:
+        validate_urgency(new_urgency)
+        updates.append("urgency = %s")
+        params.append(new_urgency)
+
+    params.append(task_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE tasks SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, deadline_id, sort_order, created_at
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
 
 
 # ===== DEADLINE OPERATIONS =====

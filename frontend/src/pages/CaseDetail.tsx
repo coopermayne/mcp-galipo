@@ -1,15 +1,25 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  DragOverlay,
+} from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import {
   EditableText,
   EditableSelect,
   EditableDate,
   StatusBadge,
-  UrgencyBadge,
   ConfirmModal,
 } from '../components/common';
+import { SortableTaskRow } from '../components/tasks';
 import {
   getCase,
   getConstants,
@@ -18,6 +28,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  reorderTask,
   createDeadline,
   updateDeadline,
   deleteDeadline,
@@ -27,7 +38,7 @@ import {
   assignPersonToCase,
   removePersonFromCase,
 } from '../api/client';
-import type { Case, Task, Deadline, Note, TaskStatus, Constants, CaseNumber, Jurisdiction } from '../types';
+import type { Case, Task, Deadline, Note, Constants, CaseNumber, Jurisdiction } from '../types';
 import {
   Loader2,
   Trash2,
@@ -853,12 +864,23 @@ function TasksTab({
 }) {
   const queryClient = useQueryClient();
   const [newTask, setNewTask] = useState('');
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const createMutation = useMutation({
     mutationFn: (description: string) =>
       createTask({ case_id: caseId, description }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setNewTask('');
     },
   });
@@ -868,6 +890,7 @@ function TasksTab({
       updateTask(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 
@@ -875,6 +898,16 @@ function TasksTab({
     mutationFn: (id: number) => deleteTask(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: ({ taskId, sortOrder }: { taskId: number; sortOrder: number }) =>
+      reorderTask(taskId, sortOrder),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 
@@ -887,6 +920,16 @@ function TasksTab({
     [constants]
   );
 
+  const urgencyOptions = [
+    { value: '1', label: '1 - Lowest' },
+    { value: '2', label: '2 - Low' },
+    { value: '3', label: '3 - Medium' },
+    { value: '4', label: '4 - High' },
+    { value: '5', label: '5 - Critical' },
+  ];
+
+  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTask.trim()) {
@@ -894,85 +937,177 @@ function TasksTab({
     }
   };
 
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-      {/* Quick Add */}
-      <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            placeholder="Add a new task..."
-            className="
-              flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-              bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
-              focus:border-primary-500 focus:ring-1 focus:ring-primary-500
-              outline-none text-sm
-            "
-          />
-          <button
-            type="submit"
-            disabled={createMutation.isPending || !newTask.trim()}
-            className="
-              px-4 py-2 bg-primary-600 text-white rounded-lg
-              hover:bg-primary-700 transition-colors
-              disabled:opacity-50 text-sm font-medium
-              inline-flex items-center gap-2
-            "
-          >
-            <Plus className="w-4 h-4" />
-            Add
-          </button>
-        </div>
-      </form>
+  const handleUpdate = useCallback(
+    async (taskId: number, field: string, value: any) => {
+      await updateMutation.mutateAsync({ id: taskId, data: { [field]: value } });
+    },
+    [updateMutation]
+  );
 
-      {/* Task List */}
-      <div className="divide-y divide-slate-200 dark:divide-slate-700">
+  const handleDelete = useCallback(
+    (taskId: number, description: string) => {
+      setDeleteTarget({ id: taskId, description });
+    },
+    []
+  );
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, deleteMutation]);
+
+  // Calculate new sort_order for insertion between two tasks
+  const calculateNewSortOrder = useCallback((reorderedTasks: Task[], oldIndex: number, newIndex: number): number => {
+    if (reorderedTasks.length === 0) return 1000;
+
+    // If moving to the beginning
+    if (newIndex === 0) {
+      return (reorderedTasks[0]?.sort_order || 1000) - 500;
+    }
+
+    // If moving to the end
+    if (newIndex >= reorderedTasks.length) {
+      return (reorderedTasks[reorderedTasks.length - 1]?.sort_order || 0) + 1000;
+    }
+
+    // Moving between two items
+    const prevTask = reorderedTasks[newIndex - 1];
+    const nextTask = reorderedTasks[newIndex];
+
+    // Handle case where we're moving down
+    if (oldIndex < newIndex) {
+      return Math.floor(((nextTask?.sort_order || 0) + (reorderedTasks[newIndex + 1]?.sort_order || (nextTask?.sort_order || 0) + 1000)) / 2);
+    }
+
+    // Moving up
+    return Math.floor(((prevTask?.sort_order || 0) + (nextTask?.sort_order || (prevTask?.sort_order || 0) + 1000)) / 2);
+  }, []);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    const task = tasks.find((t) => t.id === active.id);
+    setActiveTask(task || null);
+  }, [tasks]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+    if (active.id === over.id) return;
+
+    const activeTaskItem = tasks.find((t) => t.id === active.id);
+    const overTask = tasks.find((t) => t.id === over.id);
+    if (!activeTaskItem || !overTask) return;
+
+    const oldIndex = tasks.findIndex((t) => t.id === active.id);
+    const newIndex = tasks.findIndex((t) => t.id === over.id);
+
+    if (oldIndex !== newIndex) {
+      const reorderedTasks = arrayMove(tasks, oldIndex, newIndex);
+      const newSortOrder = calculateNewSortOrder(reorderedTasks, oldIndex, newIndex);
+
+      reorderMutation.mutate({
+        taskId: activeTaskItem.id,
+        sortOrder: newSortOrder,
+      });
+    }
+  }, [tasks, calculateNewSortOrder, reorderMutation]);
+
+  return (
+    <>
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+        {/* Quick Add */}
+        <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              placeholder="Add a new task..."
+              className="
+                flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+                focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+                outline-none text-sm
+              "
+            />
+            <button
+              type="submit"
+              disabled={createMutation.isPending || !newTask.trim()}
+              className="
+                px-4 py-2 bg-primary-600 text-white rounded-lg
+                hover:bg-primary-700 transition-colors
+                disabled:opacity-50 text-sm font-medium
+                inline-flex items-center gap-2
+              "
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
+          </div>
+        </form>
+
+        {/* Task List with Drag and Drop */}
         {tasks.length === 0 ? (
           <div className="p-8 text-center text-slate-400">No tasks</div>
         ) : (
-          tasks.map((task) => (
-            <div
-              key={task.id}
-              className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-700"
-            >
-              <div className="flex-1 min-w-0">
-                <EditableText
-                  value={task.description}
-                  onSave={(value) =>
-                    updateMutation.mutateAsync({ id: task.id, data: { description: value } })
-                  }
-                  className="text-sm"
-                />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                {tasks.map((task) => (
+                  <SortableTaskRow
+                    key={task.id}
+                    task={task}
+                    taskStatusOptions={taskStatusOptions}
+                    urgencyOptions={urgencyOptions}
+                    onUpdate={handleUpdate}
+                    onDelete={handleDelete}
+                    showCaseBadge={false}
+                    showUrgency={true}
+                  />
+                ))}
               </div>
-              <EditableDate
-                value={task.due_date || null}
-                onSave={(value) =>
-                  updateMutation.mutateAsync({ id: task.id, data: { due_date: value || undefined } })
-                }
-                placeholder="Due date"
-              />
-              <EditableSelect
-                value={task.status}
-                options={taskStatusOptions}
-                onSave={(value) =>
-                  updateMutation.mutateAsync({ id: task.id, data: { status: value as TaskStatus } })
-                }
-                renderValue={(value) => <StatusBadge status={value} />}
-              />
-              <UrgencyBadge urgency={task.urgency} />
-              <button
-                onClick={() => deleteMutation.mutate(task.id)}
-                className="p-1 text-slate-500 hover:text-red-400"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))
+            </SortableContext>
+
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {activeTask && (
+                <div className="shadow-xl rounded-lg overflow-hidden">
+                  <SortableTaskRow
+                    task={activeTask}
+                    taskStatusOptions={taskStatusOptions}
+                    urgencyOptions={urgencyOptions}
+                    onUpdate={() => {}}
+                    onDelete={() => {}}
+                    showCaseBadge={false}
+                    showUrgency={true}
+                  />
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
-    </div>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Task"
+        message={`Are you sure you want to delete this task?`}
+        confirmText="Delete Task"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
+    </>
   );
 }
 

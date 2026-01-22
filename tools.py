@@ -775,6 +775,43 @@ def register_tools(mcp):
         return not_found_error("Task")
 
     @mcp.tool()
+    def reorder_task(
+        context: Context,
+        task_id: int,
+        sort_order: int,
+        urgency: Optional[int] = None
+    ) -> dict:
+        """
+        Reorder a task and optionally change its urgency.
+
+        Used for drag-and-drop reordering in the UI. The sort_order determines
+        the position of the task in lists - lower values appear first.
+
+        Args:
+            task_id: ID of the task to reorder
+            sort_order: New sort order value (lower = higher in list)
+            urgency: Optional new urgency level (1-5) if moving between urgency groups
+
+        Returns the updated task.
+
+        Example:
+            reorder_task(task_id=5, sort_order=1500)  # Move task to new position
+            reorder_task(task_id=5, sort_order=500, urgency=4)  # Move and change urgency
+        """
+        context.info(f"Reordering task {task_id} to sort_order={sort_order}")
+        try:
+            if urgency is not None:
+                db.validate_urgency(urgency)
+        except ValidationError as e:
+            return validation_error(str(e))
+
+        result = db.reorder_task(task_id, sort_order, urgency)
+        if not result:
+            return not_found_error("Task")
+        context.info(f"Task {task_id} reordered successfully")
+        return {"success": True, "task": result}
+
+    @mcp.tool()
     def bulk_update_tasks(
         context: Context,
         task_ids: list,
