@@ -76,6 +76,25 @@ def register_tools(mcp):
             context.info(f"Jurisdiction created with ID {result.get('id')}")
             return {"success": True, "jurisdiction": result, "action": "created"}
 
+    @mcp.tool()
+    def delete_jurisdiction(context: Context, jurisdiction_id: int) -> dict:
+        """
+        Delete a jurisdiction (court).
+
+        Note: This will fail if any cases are still assigned to this jurisdiction.
+        Reassign those cases to a different jurisdiction first.
+
+        Args:
+            jurisdiction_id: ID of the jurisdiction to delete
+
+        Returns confirmation.
+        """
+        context.info(f"Deleting jurisdiction {jurisdiction_id}")
+        if db.delete_jurisdiction(jurisdiction_id):
+            context.info(f"Jurisdiction {jurisdiction_id} deleted")
+            return {"success": True, "message": "Jurisdiction deleted"}
+        return not_found_error("Jurisdiction")
+
     # ===== CASE TOOLS =====
 
     @mcp.tool()
@@ -354,6 +373,25 @@ def register_tools(mcp):
         return {"deadlines": deadlines, "total": len(deadlines)}
 
     # ===== ACTIVITY TOOLS =====
+
+    @mcp.tool()
+    def get_activities(context: Context, case_id: Optional[int] = None) -> dict:
+        """
+        Get activities/time entries, optionally filtered by case.
+
+        Args:
+            case_id: Filter by specific case (optional)
+
+        Returns list of activities with case information.
+
+        Examples:
+            get_activities() - all activities
+            get_activities(case_id=5) - activities for case 5
+        """
+        context.info(f"Fetching activities{' for case ' + str(case_id) if case_id else ''}")
+        result = db.get_activities(case_id)
+        context.info(f"Found {result['total']} activities")
+        return {"success": True, "activities": result["activities"], "total": result["total"]}
 
     @mcp.tool()
     def log_activity(
@@ -804,6 +842,25 @@ def register_tools(mcp):
     # ===== NOTE TOOLS =====
 
     @mcp.tool()
+    def get_notes(context: Context, case_id: Optional[int] = None) -> dict:
+        """
+        Get notes, optionally filtered by case.
+
+        Args:
+            case_id: Filter by specific case (optional)
+
+        Returns list of notes with case information.
+
+        Examples:
+            get_notes() - all notes
+            get_notes(case_id=5) - notes for case 5
+        """
+        context.info(f"Fetching notes{' for case ' + str(case_id) if case_id else ''}")
+        result = db.get_notes(case_id)
+        context.info(f"Found {result['total']} notes")
+        return {"success": True, "notes": result["notes"], "total": result["total"]}
+
+    @mcp.tool()
     def add_note(context: Context, case_id: int, content: str) -> dict:
         """
         Add a note to a case.
@@ -1177,24 +1234,27 @@ def register_tools(mcp):
         context: Context,
         name: str = "",
         description: Optional[str] = None,
+        expertise_type_id: Optional[int] = None,
         list_all: bool = False
     ) -> dict:
         """
-        Add a new expertise type or list all existing types.
+        Create, update, or list expertise types.
 
         Expertise types are used to categorize expert witnesses (e.g., Biomechanics,
         Accident Reconstruction, Medical - Orthopedic).
 
         Args:
-            name: Name of the expertise type (required unless list_all=True)
+            name: Name of the expertise type (required for create/update)
             description: Description of the expertise type
+            expertise_type_id: ID if updating existing type (omit to create new)
             list_all: Set to True to just list all expertise types
 
-        Returns the created type or list of all types.
+        Returns the created/updated type or list of all types.
 
         Examples:
             manage_expertise_type(list_all=True)
             manage_expertise_type(name="Digital Forensics", description="Computer and phone forensics")
+            manage_expertise_type(expertise_type_id=5, name="Digital Forensics - Updated")
         """
         if list_all:
             context.info("Fetching all expertise types")
@@ -1202,8 +1262,17 @@ def register_tools(mcp):
             context.info(f"Found {len(types)} expertise types")
             return {"success": True, "expertise_types": types, "total": len(types)}
 
+        if expertise_type_id:
+            # Update existing
+            context.info(f"Updating expertise type {expertise_type_id}")
+            result = db.update_expertise_type(expertise_type_id, name if name else None, description)
+            if not result:
+                return not_found_error("Expertise type")
+            context.info(f"Expertise type {expertise_type_id} updated")
+            return {"success": True, "expertise_type": result, "action": "updated"}
+
         if not name:
-            return validation_error("Name is required when not listing")
+            return validation_error("Name is required when creating")
 
         context.info(f"Creating expertise type: {name}")
         result = db.create_expertise_type(name, description)
@@ -1211,28 +1280,47 @@ def register_tools(mcp):
         return {"success": True, "expertise_type": result, "action": "created"}
 
     @mcp.tool()
+    def delete_expertise_type(context: Context, expertise_type_id: int) -> dict:
+        """
+        Delete an expertise type.
+
+        Args:
+            expertise_type_id: ID of the expertise type to delete
+
+        Returns confirmation.
+        """
+        context.info(f"Deleting expertise type {expertise_type_id}")
+        if db.delete_expertise_type(expertise_type_id):
+            context.info(f"Expertise type {expertise_type_id} deleted")
+            return {"success": True, "message": "Expertise type deleted"}
+        return not_found_error("Expertise type")
+
+    @mcp.tool()
     def manage_person_type(
         context: Context,
         name: str = "",
         description: Optional[str] = None,
+        person_type_id: Optional[int] = None,
         list_all: bool = False
     ) -> dict:
         """
-        Add a new person type or list all existing types.
+        Create, update, or list person types.
 
         Person types categorize people in the system (e.g., client, attorney, judge,
         expert, witness, lien_holder, interpreter).
 
         Args:
-            name: Name of the person type (required unless list_all=True)
+            name: Name of the person type (required for create/update)
             description: Description of the person type
+            person_type_id: ID if updating existing type (omit to create new)
             list_all: Set to True to just list all person types
 
-        Returns the created type or list of all types.
+        Returns the created/updated type or list of all types.
 
         Examples:
             manage_person_type(list_all=True)
             manage_person_type(name="paralegal", description="Paralegal or legal assistant")
+            manage_person_type(person_type_id=3, name="attorney", description="Updated description")
         """
         if list_all:
             context.info("Fetching all person types")
@@ -1240,10 +1328,35 @@ def register_tools(mcp):
             context.info(f"Found {len(types)} person types")
             return {"success": True, "person_types": types, "total": len(types)}
 
+        if person_type_id:
+            # Update existing
+            context.info(f"Updating person type {person_type_id}")
+            result = db.update_person_type(person_type_id, name if name else None, description)
+            if not result:
+                return not_found_error("Person type")
+            context.info(f"Person type {person_type_id} updated")
+            return {"success": True, "person_type": result, "action": "updated"}
+
         if not name:
-            return validation_error("Name is required when not listing")
+            return validation_error("Name is required when creating")
 
         context.info(f"Creating person type: {name}")
         result = db.create_person_type(name, description)
         context.info(f"Person type created")
         return {"success": True, "person_type": result, "action": "created"}
+
+    @mcp.tool()
+    def delete_person_type(context: Context, person_type_id: int) -> dict:
+        """
+        Delete a person type.
+
+        Args:
+            person_type_id: ID of the person type to delete
+
+        Returns confirmation.
+        """
+        context.info(f"Deleting person type {person_type_id}")
+        if db.delete_person_type(person_type_id):
+            context.info(f"Person type {person_type_id} deleted")
+            return {"success": True, "message": "Person type deleted"}
+        return not_found_error("Person type")
