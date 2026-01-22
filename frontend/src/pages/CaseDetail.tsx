@@ -303,7 +303,9 @@ function OverviewTab({
 
   // Filter persons by role
   const clients = useMemo(
-    () => (caseData.persons || []).filter(p => p.role === 'Client'),
+    () => (caseData.persons || []).filter(p =>
+      p.role === 'Client' || p.role === 'Guardian Ad Litem' || p.role === 'Plaintiff Contact'
+    ),
     [caseData.persons]
   );
 
@@ -347,7 +349,8 @@ function OverviewTab({
       p.role !== 'Judge' && p.role !== 'Magistrate Judge' &&
       p.role !== 'Opposing Counsel' && p.role !== 'Co-Counsel' && p.role !== 'Referring Attorney' &&
       p.role !== 'Expert - Plaintiff' && p.role !== 'Plaintiff Expert' &&
-      p.role !== 'Expert - Defendant' && p.role !== 'Defendant Expert'
+      p.role !== 'Expert - Defendant' && p.role !== 'Defendant Expert' &&
+      p.role !== 'Guardian Ad Litem' && p.role !== 'Plaintiff Contact'
     ),
     [caseData.persons]
   );
@@ -370,7 +373,7 @@ function OverviewTab({
   const contactRoleOptions = [
     'Opposing Counsel', 'Co-Counsel', 'Referring Attorney', 'Mediator',
     'Judge', 'Magistrate Judge', 'Expert - Plaintiff', 'Expert - Defendant',
-    'Witness', 'Guardian Ad Litem', 'Insurance Adjuster', 'Lien Holder'
+    'Witness', 'Guardian Ad Litem', 'Plaintiff Contact', 'Insurance Adjuster', 'Lien Holder'
   ];
 
   const addClientMutation = useMutation({
