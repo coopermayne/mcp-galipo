@@ -8,7 +8,7 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
 from database import ValidationError
-from tools.utils import validation_error, not_found_error
+from tools.utils import validation_error, not_found_error, ActivityType
 
 
 def register_activity_tools(mcp):
@@ -38,7 +38,7 @@ def register_activity_tools(mcp):
         context: Context,
         case_id: int,
         description: str,
-        activity_type: str,
+        activity_type: ActivityType,
         minutes: Optional[int] = None,
         date: Optional[str] = None
     ) -> dict:
@@ -48,7 +48,7 @@ def register_activity_tools(mcp):
         Args:
             case_id: ID of the case
             description: Description of the activity
-            activity_type: Type (e.g., "Meeting", "Filing", "Research", "Drafting", "Document Review")
+            activity_type: Type of activity
             minutes: Time spent in minutes
             date: Date of activity (YYYY-MM-DD), defaults to today
 
@@ -76,7 +76,7 @@ def register_activity_tools(mcp):
         activity_id: int,
         date: Optional[str] = None,
         description: Optional[str] = None,
-        activity_type: Optional[str] = None,
+        activity_type: Optional[ActivityType] = None,
         minutes: Optional[int] = None
     ) -> dict:
         """
@@ -86,7 +86,7 @@ def register_activity_tools(mcp):
             activity_id: ID of the activity to update
             date: New date (YYYY-MM-DD)
             description: New description
-            activity_type: New type (e.g., "Meeting", "Filing", "Research")
+            activity_type: New type
             minutes: New time spent in minutes
 
         Returns updated activity.

@@ -8,7 +8,7 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
 from database import ValidationError
-from tools.utils import validation_error, not_found_error
+from tools.utils import validation_error, not_found_error, TaskStatus, Urgency
 
 
 def register_task_tools(mcp):
@@ -20,8 +20,8 @@ def register_task_tools(mcp):
         case_id: int,
         description: str,
         due_date: Optional[str] = None,
-        urgency: int = 2,
-        status: str = "Pending",
+        urgency: Urgency = 2,
+        status: TaskStatus = "Pending",
         event_id: Optional[int] = None
     ) -> dict:
         """
@@ -36,8 +36,8 @@ def register_task_tools(mcp):
             case_id: ID of the case
             description: What needs to be done
             due_date: Due date (YYYY-MM-DD)
-            urgency: 1-4 scale (1=Low, 2=Medium, 3=High, 4=Urgent), default 2
-            status: Status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
+            urgency: 1=Low, 2=Medium, 3=High, 4=Urgent (default 2)
+            status: Task status (default Pending)
             event_id: Optional ID of event this task is linked to (for tasks that support a specific event)
 
         Returns the created task with ID.
@@ -59,16 +59,16 @@ def register_task_tools(mcp):
     def get_tasks(
         context: Context,
         case_id: Optional[int] = None,
-        status_filter: Optional[str] = None,
-        urgency_filter: Optional[int] = None
+        status_filter: Optional[TaskStatus] = None,
+        urgency_filter: Optional[Urgency] = None
     ) -> dict:
         """
         Get tasks, optionally filtered by case, status, or urgency.
 
         Args:
             case_id: Filter by specific case
-            status_filter: Filter by status (Pending, Active, Done, etc.)
-            urgency_filter: Filter by urgency level (1-4)
+            status_filter: Filter by status
+            urgency_filter: Filter by urgency level
 
         Returns list of tasks with case and event information.
 
@@ -86,8 +86,8 @@ def register_task_tools(mcp):
         context: Context,
         task_id: int,
         description: Optional[str] = None,
-        status: Optional[str] = None,
-        urgency: Optional[int] = None,
+        status: Optional[TaskStatus] = None,
+        urgency: Optional[Urgency] = None,
         due_date: Optional[str] = None,
         completion_date: Optional[str] = None
     ) -> dict:
@@ -97,8 +97,8 @@ def register_task_tools(mcp):
         Args:
             task_id: ID of the task
             description: New description - required field, cannot be empty
-            status: New status (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
-            urgency: New urgency (1-4)
+            status: New status
+            urgency: New urgency
             due_date: New due date (YYYY-MM-DD), pass "" to clear
             completion_date: Date task was completed (YYYY-MM-DD), pass "" to clear
 
@@ -167,7 +167,7 @@ def register_task_tools(mcp):
         context: Context,
         task_id: int,
         sort_order: int,
-        urgency: Optional[int] = None
+        urgency: Optional[Urgency] = None
     ) -> dict:
         """
         Reorder a task and optionally change its urgency.
@@ -178,7 +178,7 @@ def register_task_tools(mcp):
         Args:
             task_id: ID of the task to reorder
             sort_order: New sort order value (lower = higher in list)
-            urgency: Optional new urgency level (1-4) if moving between urgency groups
+            urgency: Optional new urgency level if moving between urgency groups
 
         Returns the updated task.
 
@@ -203,7 +203,7 @@ def register_task_tools(mcp):
     def bulk_update_tasks(
         context: Context,
         task_ids: list,
-        status: str
+        status: TaskStatus
     ) -> dict:
         """
         Update multiple tasks to the same status at once.
@@ -212,7 +212,7 @@ def register_task_tools(mcp):
 
         Args:
             task_ids: List of task IDs to update
-            status: New status for all tasks (Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review)
+            status: New status for all tasks
 
         Returns count of updated tasks.
 
@@ -233,8 +233,8 @@ def register_task_tools(mcp):
     def bulk_update_case_tasks(
         context: Context,
         case_id: int,
-        new_status: str,
-        current_status: Optional[str] = None
+        new_status: TaskStatus,
+        current_status: Optional[TaskStatus] = None
     ) -> dict:
         """
         Update all tasks for a case to a new status.
@@ -269,8 +269,8 @@ def register_task_tools(mcp):
         context: Context,
         query: Optional[str] = None,
         case_id: Optional[int] = None,
-        status: Optional[str] = None,
-        urgency: Optional[int] = None
+        status: Optional[TaskStatus] = None,
+        urgency: Optional[Urgency] = None
     ) -> dict:
         """
         Search for tasks by description, case, status, or urgency.
@@ -278,8 +278,8 @@ def register_task_tools(mcp):
         Args:
             query: Search in task descriptions (partial match)
             case_id: Filter to specific case
-            status: Filter by status (Pending, Active, Done, etc.)
-            urgency: Filter by urgency level (1-4)
+            status: Filter by status
+            urgency: Filter by urgency level
 
         At least one parameter must be provided.
 
