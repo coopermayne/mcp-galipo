@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, MessageCircle } from 'lucide-react';
+import { X, MessageCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { streamChatMessage } from '../../api/chat';
@@ -16,6 +16,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([]);
+  const [failedMessageContent, setFailedMessageContent] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Handle escape key to close
@@ -145,30 +146,64 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     }
   }, []);
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, isRetry = false) => {
     // Abort any existing stream
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
 
-    // Create user message
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
+    // Clear any previous error state
+    setFailedMessageContent(null);
 
-    // Create placeholder assistant message for streaming
-    const streamingMessageId = crypto.randomUUID();
-    const streamingMessage: ChatMessage = {
-      id: streamingMessageId,
-      role: 'assistant',
-      content: '',
-      isStreaming: true,
-      timestamp: new Date(),
-    };
+    // For retry, we need to find and update the existing user message and remove the failed assistant message
+    let userMessageId: string;
+    let streamingMessageId: string;
 
-    setMessages((prev) => [...prev, userMessage, streamingMessage]);
+    if (isRetry) {
+      // Find the last user message with this content (should be the failed one)
+      const existingUserMsg = [...messages].reverse().find(m => m.role === 'user' && m.content === content);
+      if (existingUserMsg) {
+        userMessageId = existingUserMsg.id;
+        // Remove the failed assistant message and clear error from user message
+        setMessages((prev) => prev
+          .filter((m) => !(m.role === 'assistant' && m.error))
+          .map((m) => m.id === userMessageId ? { ...m, error: undefined } : m)
+        );
+      } else {
+        userMessageId = crypto.randomUUID();
+      }
+      streamingMessageId = crypto.randomUUID();
+      // Add new streaming message
+      const streamingMessage: ChatMessage = {
+        id: streamingMessageId,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, streamingMessage]);
+    } else {
+      // Create user message
+      userMessageId = crypto.randomUUID();
+      const userMessage: ChatMessage = {
+        id: userMessageId,
+        role: 'user',
+        content,
+        timestamp: new Date(),
+      };
+
+      // Create placeholder assistant message for streaming
+      streamingMessageId = crypto.randomUUID();
+      const streamingMessage: ChatMessage = {
+        id: streamingMessageId,
+        role: 'assistant',
+        content: '',
+        isStreaming: true,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, userMessage, streamingMessage]);
+    }
+
     setIsLoading(true);
     setToolExecutions([]);
 
@@ -187,21 +222,35 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         handleStreamEvent(event, streamingMessageId);
       }
     } catch (error) {
-      // Handle connection errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Store the failed message content for retry
+      setFailedMessageContent(content);
+      // Mark both user message and assistant message with error
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === streamingMessageId
-            ? {
-                ...m,
-                isStreaming: false,
-                content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              }
-            : m
-        )
+        prev.map((m) => {
+          if (m.id === userMessageId) {
+            return { ...m, error: errorMessage };
+          }
+          if (m.id === streamingMessageId) {
+            return {
+              ...m,
+              isStreaming: false,
+              content: '',
+              error: errorMessage,
+            };
+          }
+          return m;
+        })
       );
     } finally {
       setIsLoading(false);
       setToolExecutions([]);
+    }
+  };
+
+  const handleRetry = () => {
+    if (failedMessageContent) {
+      handleSend(failedMessageContent, true);
     }
   };
 
@@ -212,6 +261,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     setConversationId(null);
     setToolExecutions([]);
     setIsLoading(false);
+    setFailedMessageContent(null);
   };
 
   return (
@@ -226,11 +276,12 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         onClick={onClose}
       />
 
-      {/* Panel */}
+      {/* Panel - Full screen on mobile, side drawer on larger screens */}
       <div
         className={`
-          fixed top-0 right-0 bottom-0 z-50
-          w-full sm:w-[400px]
+          fixed z-50
+          inset-0 md:inset-auto md:top-0 md:right-0 md:bottom-0
+          w-full md:w-[420px] lg:w-[480px]
           bg-white dark:bg-slate-800
           shadow-2xl
           flex flex-col
@@ -239,16 +290,16 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between px-4 py-3 md:py-3 border-b border-slate-200 dark:border-slate-700 safe-area-inset-top">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-              <MessageCircle className="w-4 h-4 text-white" />
+            <div className="w-10 h-10 md:w-8 md:h-8 rounded-full bg-blue-600 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 md:w-4 md:h-4 text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <h2 className="text-base md:text-sm font-semibold text-slate-900 dark:text-slate-100">
                 AI Assistant
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
                 {caseContext ? `Case #${caseContext}` : 'General Chat'}
               </p>
             </div>
@@ -258,20 +309,46 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
             {messages.length > 0 && (
               <button
                 onClick={handleNewConversation}
-                className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="text-sm md:text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 md:px-2 md:py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
                 New chat
               </button>
             )}
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="p-2 md:p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               aria-label="Close chat"
             >
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6 md:w-5 md:h-5" />
             </button>
           </div>
         </div>
+
+        {/* Error Banner with Retry */}
+        {failedMessageContent && (
+          <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">Message failed to send</span>
+            </div>
+            <button
+              onClick={handleRetry}
+              disabled={isLoading}
+              className="
+                flex items-center gap-1.5 px-3 py-1.5
+                text-sm font-medium
+                text-red-700 dark:text-red-400
+                bg-red-100 dark:bg-red-900/30
+                hover:bg-red-200 dark:hover:bg-red-900/50
+                rounded-lg transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Messages */}
         <MessageList

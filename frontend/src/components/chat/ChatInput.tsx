@@ -40,8 +40,8 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   return (
-    <div className="border-t border-slate-200 dark:border-slate-700 p-4">
-      <div className="flex items-end gap-2">
+    <div className="border-t border-slate-200 dark:border-slate-700 p-3 md:p-4 safe-area-inset-bottom">
+      <div className="flex items-end gap-2 md:gap-2">
         <textarea
           ref={textareaRef}
           value={value}
@@ -52,7 +52,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           rows={1}
           className="
             flex-1 resize-none
-            px-4 py-2.5 rounded-xl
+            px-4 py-3 md:py-2.5 rounded-xl
             bg-slate-100 dark:bg-slate-700
             text-slate-900 dark:text-slate-100
             placeholder-slate-500 dark:placeholder-slate-400
@@ -60,7 +60,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             focus:border-blue-500 focus:ring-1 focus:ring-blue-500
             focus:outline-none
             disabled:opacity-50 disabled:cursor-not-allowed
-            text-sm
+            text-base md:text-sm
             transition-colors
           "
         />
@@ -68,22 +68,22 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           onClick={handleSubmit}
           disabled={!value.trim() || isLoading}
           className="
-            w-10 h-10 rounded-xl
-            bg-blue-600 hover:bg-blue-700
+            w-12 h-12 md:w-10 md:h-10 rounded-xl
+            bg-blue-600 hover:bg-blue-700 active:bg-blue-800
             disabled:bg-slate-300 dark:disabled:bg-slate-600
             disabled:cursor-not-allowed
             text-white
-            flex items-center justify-center
+            flex items-center justify-center flex-shrink-0
             transition-colors
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
             dark:focus:ring-offset-slate-800
           "
           aria-label="Send message"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-5 h-5 md:w-4 md:h-4" />
         </button>
       </div>
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
+      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center hidden md:block">
         Press Enter to send, Shift+Enter for new line
       </p>
     </div>

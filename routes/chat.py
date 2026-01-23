@@ -10,6 +10,7 @@ import json
 import time
 import logging
 import asyncio
+import threading
 from typing import Any, AsyncGenerator
 from pathlib import Path
 from fastapi.responses import JSONResponse
@@ -17,6 +18,90 @@ from starlette.responses import StreamingResponse
 
 import auth
 from .common import api_error
+
+
+# Rate limiting configuration
+RATE_LIMIT_REQUESTS = 20  # Maximum requests per window
+RATE_LIMIT_WINDOW = 60  # Window size in seconds (1 minute)
+
+
+class RateLimiter:
+    """
+    In-memory rate limiter that tracks requests per user.
+
+    Uses a sliding window approach: stores timestamps of requests and
+    counts how many fall within the current window.
+    """
+
+    def __init__(self, max_requests: int = RATE_LIMIT_REQUESTS, window_seconds: int = RATE_LIMIT_WINDOW):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        # Key: username, Value: list of request timestamps
+        self._requests: dict[str, list[float]] = {}
+        self._lock = threading.Lock()
+        self._last_cleanup = time.time()
+        self._cleanup_interval = 300  # Clean up every 5 minutes
+
+    def _cleanup_old_entries(self) -> None:
+        """Remove entries for users with no recent requests."""
+        now = time.time()
+        if now - self._last_cleanup < self._cleanup_interval:
+            return
+
+        self._last_cleanup = now
+        cutoff = now - self.window_seconds
+
+        # Remove users with no requests in the window
+        users_to_remove = []
+        for username, timestamps in self._requests.items():
+            # Filter to only recent timestamps
+            recent = [t for t in timestamps if t > cutoff]
+            if not recent:
+                users_to_remove.append(username)
+            else:
+                self._requests[username] = recent
+
+        for username in users_to_remove:
+            del self._requests[username]
+
+    def check_rate_limit(self, username: str) -> tuple[bool, int]:
+        """
+        Check if a user is within their rate limit.
+
+        Returns:
+            tuple of (allowed: bool, retry_after: int)
+            - allowed: True if request should proceed, False if rate limited
+            - retry_after: seconds until the oldest request expires (only meaningful if not allowed)
+        """
+        now = time.time()
+        cutoff = now - self.window_seconds
+
+        with self._lock:
+            # Periodically clean up old entries
+            self._cleanup_old_entries()
+
+            # Get or create request list for user
+            if username not in self._requests:
+                self._requests[username] = []
+
+            # Filter to only requests within the window
+            timestamps = self._requests[username]
+            recent = [t for t in timestamps if t > cutoff]
+            self._requests[username] = recent
+
+            if len(recent) >= self.max_requests:
+                # Rate limited - calculate retry_after
+                oldest = min(recent)
+                retry_after = int(oldest + self.window_seconds - now) + 1
+                return False, max(1, retry_after)
+
+            # Within limit - record this request
+            self._requests[username].append(now)
+            return True, 0
+
+
+# Global rate limiter instance for the chat stream endpoint
+_chat_rate_limiter = RateLimiter()
 
 # Set up logging
 _log_file = Path(__file__).parent.parent / "logs" / "chat_debug.log"
@@ -66,6 +151,24 @@ def _tool_results_to_content_blocks(results: list[ToolResult]) -> list[dict[str,
         }
         for r in results
     ]
+
+
+def _get_username_from_request(request) -> str | None:
+    """
+    Extract the username from the request's auth token.
+
+    Returns the username if the token is valid, None otherwise.
+    """
+    token = auth.get_token_from_request(request)
+    if not token:
+        return None
+
+    # Access the session storage to get the username
+    if token in auth._sessions:
+        username, expiry = auth._sessions[token]
+        if time.time() <= expiry:
+            return username
+    return None
 
 
 def register_chat_routes(mcp):
@@ -255,6 +358,23 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
         """
         if err := auth.require_auth(request):
             return err
+
+        # Rate limiting check
+        username = _get_username_from_request(request)
+        if username:
+            allowed, retry_after = _chat_rate_limiter.check_rate_limit(username)
+            if not allowed:
+                return JSONResponse(
+                    {
+                        "success": False,
+                        "error": {
+                            "message": f"Rate limit exceeded. You can make up to {RATE_LIMIT_REQUESTS} requests per minute. Please try again in {retry_after} seconds.",
+                            "code": "RATE_LIMIT_EXCEEDED"
+                        }
+                    },
+                    status_code=429,
+                    headers={"Retry-After": str(retry_after)}
+                )
 
         try:
             data = await request.json()
