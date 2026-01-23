@@ -8,22 +8,19 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
 from database import ValidationError
-from tools.utils import validation_error, not_found_error
+from tools.utils import validation_error, not_found_error, CaseStatus
 
 
 def register_case_tools(mcp):
     """Register case-related MCP tools."""
 
     @mcp.tool()
-    def list_cases(context: Context, status_filter: Optional[str] = None) -> dict:
+    def list_cases(context: Context, status_filter: Optional[CaseStatus] = None) -> dict:
         """
         List all cases with optional status filter.
 
         Args:
-            status_filter: Optional status to filter by (e.g., "Discovery", "Pre-trial")
-                          Valid statuses: Signing Up, Prospective, Pre-Filing, Pleadings,
-                          Discovery, Expert Discovery, Pre-trial, Trial, Post-Trial,
-                          Appeal, Settl. Pend., Stayed, Closed
+            status_filter: Optional status to filter by
 
         Returns list of cases with id, name, short_name, status, court.
         """
@@ -67,7 +64,7 @@ def register_case_tools(mcp):
     def create_case(
         context: Context,
         case_name: str,
-        status: str = "Signing Up",
+        status: CaseStatus = "Signing Up",
         court_id: Optional[int] = None,
         print_code: Optional[str] = None,
         case_summary: Optional[str] = None,
@@ -125,7 +122,7 @@ def register_case_tools(mcp):
         case_id: int,
         case_name: Optional[str] = None,
         short_name: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[CaseStatus] = None,
         court_id: Optional[int] = None,
         print_code: Optional[str] = None,
         case_summary: Optional[str] = None,
@@ -193,7 +190,7 @@ def register_case_tools(mcp):
         query: Optional[str] = None,
         case_number: Optional[str] = None,
         person_name: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[CaseStatus] = None,
         court_id: Optional[int] = None
     ) -> dict:
         """
@@ -205,7 +202,7 @@ def register_case_tools(mcp):
             query: Free text search on case name and summary (e.g., "Martinez", "City of LA")
             case_number: Search by case number (e.g., "24STCV", "12345")
             person_name: Filter by any person's name (client, defendant, expert, etc.)
-            status: Filter by exact status (e.g., "Discovery", "Pre-trial")
+            status: Filter by exact status
             court_id: Filter by jurisdiction/court ID
 
         At least one search parameter must be provided.

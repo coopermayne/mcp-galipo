@@ -8,7 +8,7 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
 from database import ValidationError
-from tools.utils import validation_error, not_found_error
+from tools.utils import validation_error, not_found_error, PersonSide
 
 
 def register_person_tools(mcp):
@@ -190,7 +190,7 @@ def register_person_tools(mcp):
         case_id: int,
         person_id: int,
         role: str,
-        side: Optional[str] = None,
+        side: Optional[PersonSide] = None,
         case_attributes: Optional[dict] = None,
         case_notes: Optional[str] = None,
         is_primary: bool = False,
@@ -207,7 +207,7 @@ def register_person_tools(mcp):
             case_id: ID of the case
             person_id: ID of the person
             role: Role in the case (e.g., 'Client', 'Defendant', 'Opposing Counsel', 'Judge')
-            side: 'plaintiff', 'defendant', or 'neutral'
+            side: Which side of the case this person is on
             case_attributes: Case-specific overrides/data as JSON
                 - Expert: {case_rate, testimony_topics, report_due, deposition_date}
                 - Judge: {panel_position, oral_argument_date}
@@ -255,7 +255,7 @@ def register_person_tools(mcp):
         case_id: int,
         person_id: int,
         role: str,
-        side: Optional[str] = None,
+        side: Optional[PersonSide] = None,
         case_attributes: Optional[dict] = None,
         case_notes: Optional[str] = None,
         is_primary: Optional[bool] = None,
@@ -269,7 +269,7 @@ def register_person_tools(mcp):
             case_id: ID of the case
             person_id: ID of the person
             role: Role to update (required to identify the assignment)
-            side: Update side ('plaintiff', 'defendant', 'neutral')
+            side: Update which side of the case
             case_attributes: Update case-specific attributes
             case_notes: Update case-specific notes
             is_primary: Update primary status
