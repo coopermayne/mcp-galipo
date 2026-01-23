@@ -10,3 +10,4 @@ frontend/dist/
 backups/*.sql
 backups/*.sql.gz
 !backups/.gitkeep
+.DS_Store

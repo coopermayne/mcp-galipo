@@ -12,3 +12,31 @@
   - **Important**: Be very careful with permissions - calendar data cannot be put at risk as it is the primary way the office tracks deadlines
   - Consider read-only access initially
   - Audit logging for any calendar operations
+
+## Features
+- [ ] Person type filtering in autocomplete search
+- [ ] Bulk person assignment
+- [ ] Person merge functionality
+- [ ] Task templates
+- [ ] Recurring deadlines
+- [ ] Task dependencies
+- [ ] Calendar export (iCal)
+- [ ] Time reports by case/date range
+
+## Fixes
+- [ ] Date picker calendar can overflow viewport on small screens
+- [ ] Long case names overflow in sidebar
+- [ ] SSE connection can drop silently; needs reconnection handling
+
+## Bugs
+- [ ] Optimistic updates can show stale data if server returns different values
+
+## Cleanup (Proceedings Migration)
+- [ ] Remove old case_numbers column after verification
+- [ ] Remove "Court proceedings" label/header (info is self-evident)
+
+## Technical Debt
+- [ ] Comprehensive error handling on API endpoints
+- [ ] Input validation (Pydantic models)
+- [ ] Unit tests for tool functions
+- [ ] E2E tests for critical flows
