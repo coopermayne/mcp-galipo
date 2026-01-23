@@ -82,6 +82,31 @@ Tighten layout, structured people sections, smart person picker.
 
 ---
 
+### Omni Bar (Command Palette)
+Global ⌘K shortcut opens a search bar for quick navigation and actions.
+
+**Phase 1: Case Search**
+- Quick jump to any case by name or case number
+- Fuzzy search with keyboard navigation
+- Recent cases shown by default
+
+**Future Phases**
+- Task search: find and mark tasks done/active
+- Quick note logging
+- Person search
+- Global actions (create case, add task, etc.)
+
+**Implementation**
+- [ ] Backend: `/api/v1/search` endpoint for unified search
+- [ ] Frontend: OmniBar component (modal overlay)
+- [ ] Frontend: ⌘K keyboard shortcut handler
+- [ ] Frontend: Fuzzy search with highlighting
+- [ ] Frontend: Keyboard navigation (↑↓ to select, Enter to go)
+- [ ] Frontend: Recent cases section
+- [ ] Frontend: Result type icons (case, task, person)
+
+---
+
 ### Proceedings Table
 Separate court proceedings from case "matters" - a single case can have multiple court filings.
 
