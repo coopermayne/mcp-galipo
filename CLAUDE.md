@@ -1,0 +1,113 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Galipo is a legal case management system for personal injury law firms. It operates as both:
+- An **MCP server** with 41+ tools for Claude AI integration (via FastMCP)
+- A **React web dashboard** for managing cases, tasks, deadlines, and contacts
+
+## Commands
+
+### Backend (Python/FastAPI)
+```bash
+# Development server with hot reload
+uvicorn main:app --reload --port 8000
+
+# Production server
+python main.py
+
+# Run database migrations
+python migrations/run_migration.py
+
+# Run specific migration
+python migrations/run_migration.py <migration_file.sql>
+```
+
+### Frontend (React/Vite)
+```bash
+cd frontend
+npm run dev          # Dev server at http://localhost:3000
+npm run build        # Production build
+npm run lint         # ESLint
+npm run type-check   # TypeScript type checking
+```
+
+### Database
+```bash
+# Connect to database
+psql $DATABASE_URL
+
+# Backup/restore
+./scripts/backup.sh
+./scripts/restore.sh <backup_file>
+
+# Reset database (development only)
+RESET_DB=true python main.py
+```
+
+## Architecture
+
+```
+main.py                    # FastAPI + MCP server entry point
+├── database.py           # Re-exports from db/ (backwards compat)
+├── db/                   # Database layer
+│   ├── connection.py     # PostgreSQL connection, migrations
+│   ├── cases.py          # Case queries
+│   ├── persons.py        # Person management
+│   ├── tasks.py          # Task operations
+│   ├── events.py         # Calendar/deadlines
+│   └── ...               # Other domain modules
+├── tools/                # MCP tools (AI interface)
+│   ├── cases.py          # Case MCP tools
+│   ├── tasks.py          # Task MCP tools
+│   └── ...               # Other tool modules
+├── routes/               # REST API endpoints (web UI interface)
+│   ├── cases.py          # Case endpoints
+│   ├── tasks.py          # Task endpoints
+│   └── ...               # Other route modules
+└── frontend/src/
+    ├── pages/            # Route pages (Dashboard, Cases, CaseDetail/, etc.)
+    ├── components/       # UI components by domain (cases/, tasks/, calendar/)
+    ├── api/              # API client functions
+    ├── types/            # TypeScript interfaces
+    └── context/          # Auth & Theme contexts
+```
+
+## Key Patterns
+
+### Backend
+- **Modular structure**: Each domain (cases, tasks, events, persons) has separate files in `db/`, `tools/`, and `routes/`
+- **Context manager for DB**: Use `with get_cursor() as cur:` for all database operations (auto-commits/rollbacks)
+- **Validation functions**: `db/validation.py` has validators like `validate_case_status()`, `validate_date_format()`
+- **MCP tools** return dicts/lists that FastMCP serializes; **routes** return FastAPI responses
+
+### Frontend
+- **TanStack Query** for server state (mutations invalidate related queries)
+- **TanStack Table** for data tables with sorting/filtering
+- **@dnd-kit** for drag-and-drop task reordering
+- **Tailwind CSS** for styling (utility classes)
+- API calls go through `frontend/src/api/` functions
+
+### Database
+- **JSONB columns** for flexible data (e.g., `persons.attributes` stores type-specific fields like hourly_rate, bar_number)
+- **case_persons** junction table links persons to cases with role (Client, Defendant, Judge, etc.) and side (Plaintiff, Defendant, Neutral)
+- **tasks.order_index** for drag-and-drop ordering; `db/tasks.py` has `reorder_task()` logic
+
+## Environment Variables
+
+```bash
+DATABASE_URL=postgresql://user:pass@localhost:5432/galipo
+AUTH_USERNAME=admin
+AUTH_PASSWORD=your_password
+PORT=8000  # optional, defaults to 8000
+RESET_DB=true  # development only - drops all tables on startup
+```
+
+## Endpoints
+
+- **Frontend**: http://localhost:3000 (Vite dev server)
+- **Backend API**: http://localhost:8000/api/v1/*
+- **MCP Server**: http://localhost:8000/sse
+- **Legacy frontend**: http://localhost:8000/legacy
