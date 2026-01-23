@@ -13,8 +13,9 @@ import {
 import type { DragEndEvent, DragOverEvent, DragStartEvent, CollisionDetection, UniqueIdentifier } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
-import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
+import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge, EditableDate } from '../components/common';
 import { UrgencyGroup, CaseGroup } from '../components/tasks';
+import { formatSmartDate } from '../utils/dateFormat';
 import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
 import type { Task } from '../types';
 import { Filter, Search, LayoutGrid, List, GripVertical } from 'lucide-react';
@@ -473,6 +474,11 @@ export function Tasks() {
                   <div className="flex-1 min-w-0 text-sm text-slate-900 dark:text-slate-100">
                     {activeTask.description}
                   </div>
+                  {activeTask.due_date && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {formatSmartDate(new Date(activeTask.due_date))}
+                    </span>
+                  )}
                   <StatusBadge status={activeTask.status} />
                   {view === 'by-case' && <UrgencyBadge urgency={activeTask.urgency} />}
                 </div>

@@ -1,7 +1,7 @@
 import { format, getYear, parse, isValid } from 'date-fns';
 
 export interface DateFormatOptions {
-  /** Show 2-letter day of week (Mo, Tu, etc.) - default: true */
+  /** Show 3-letter day of week (Mon, Tue, etc.) - default: true */
   showDayOfWeek?: boolean;
   /** Hide year if same as current year - default: true */
   hideCurrentYear?: boolean;
@@ -10,22 +10,22 @@ export interface DateFormatOptions {
 }
 
 /**
- * Format a date with smart year display and optional 2-letter day of week.
+ * Format a date with smart year display and optional 3-letter day of week.
  *
  * Examples with defaults (showDayOfWeek: true, hideCurrentYear: true, numeric: false):
- *   Current year: "Mo, Jan 22"
- *   Different year: "Tu, Mar 15, 2025"
+ *   Current year: "Mon, Jan 22"
+ *   Different year: "Tue, Mar 15, 2025"
  *
  * With numeric: true:
- *   Current year: "Mo, 1/22"
- *   Different year: "Tu, 3/15/25"
+ *   Current year: "Mon, 1/22"
+ *   Different year: "Tue, 3/15/25"
  *
  * With showDayOfWeek: false:
  *   Current year: "Jan 22"
  *   Different year: "Mar 15, 2025"
  *
  * With hideCurrentYear: false:
- *   "Mo, Jan 22, 2026" (always shows year)
+ *   "Mon, Jan 22, 2026" (always shows year)
  */
 export function formatSmartDate(date: Date, options: DateFormatOptions = {}): string {
   const { showDayOfWeek = true, hideCurrentYear = true, numeric = false } = options;
@@ -53,7 +53,7 @@ export function formatSmartDate(date: Date, options: DateFormatOptions = {}): st
 
   // Add day of week prefix if requested
   if (showDayOfWeek) {
-    const dayOfWeek = format(date, 'EEEE').slice(0, 2);
+    const dayOfWeek = format(date, 'EEE');
     return `${dayOfWeek}, ${datePart}`;
   }
 

@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, format } from 'date-fns';
+import { formatSmartDate } from '../../../utils/dateFormat';
 import { ConfirmModal } from '../../../components/common';
 import { createNote, deleteNote } from '../../../api';
 import type { Note } from '../../../types';
@@ -49,9 +50,12 @@ export function NotesTab({ caseId, notes }: NotesTabProps) {
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDateTime = (dateStr: string) => {
     const date = parseISO(dateStr);
-    return isValid(date) ? format(date, 'MMM d, yyyy h:mm a') : dateStr;
+    if (!isValid(date)) return dateStr;
+    const datePart = formatSmartDate(date, { numeric: false });
+    const timePart = format(date, 'h:mm a');
+    return `${datePart} ${timePart}`;
   };
 
   return (
@@ -98,7 +102,7 @@ export function NotesTab({ caseId, notes }: NotesTabProps) {
                   <p className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap">
                     {note.content}
                   </p>
-                  <p className="text-xs text-slate-500 mt-2">{formatDate(note.created_at)}</p>
+                  <p className="text-xs text-slate-500 mt-2">{formatDateTime(note.created_at)}</p>
                 </div>
                 <button
                   onClick={() => handleDelete(note)}
