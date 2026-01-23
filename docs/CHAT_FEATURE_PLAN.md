@@ -12,7 +12,7 @@ Add a natural language chat interface that allows users to interact with the cas
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 1: Foundation | ✅ Complete | Basic chat with tool execution working |
-| Phase 2: Streaming | ⬜ Not Started | SSE streaming, tool visualization |
+| Phase 2: Streaming | ✅ Complete | SSE streaming, tool indicators with timing |
 | Phase 3: Context & Intelligence | 🟡 Partial | Basic context done, persistence not started |
 | Phase 4: Polish | 🟡 Partial | Integration done, polish items remaining |
 
@@ -97,43 +97,46 @@ Add a natural language chat interface that allows users to interact with the cas
 
 ---
 
-### Phase 2: Streaming & Tool Visualization ⬜ NOT STARTED
+### Phase 2: Streaming & Tool Visualization ✅ COMPLETE
 
 **Goal**: Real-time streaming responses, visual feedback for tool execution
 
-#### Dev 1: Streaming Response
+#### Dev 1: Streaming Response ✅
 
-**Changes to:**
-- `services/chat/client.py`
-- `routes/chat.py`
-
-**Tasks:**
-- [ ] Update `ChatClient` to use streaming API
-- [ ] Update `/api/v1/chat` to return SSE stream
-- [ ] Handle tool execution mid-stream
-
-#### Dev 2: Tool Result Formatting
-
-**Changes to:**
-- `services/chat/executor.py`
+**Files modified:**
+- [x] `services/chat/client.py` - Added `stream_message()` method
+- [x] `routes/chat.py` - Added `POST /api/v1/chat/stream` SSE endpoint
 
 **Tasks:**
-- [ ] Add result summarization for large responses
-- [ ] Add timing information to tool results
-- [ ] Create human-readable tool execution summaries
+- [x] Update `ChatClient` to use streaming API
+- [x] Create `/api/v1/chat/stream` SSE endpoint (kept original endpoint for compatibility)
+- [x] Handle tool execution mid-stream with result events
 
-#### Dev 3: Streaming UI & Tool Indicators
+#### Dev 2: Tool Result Formatting ✅
 
-**Changes to:**
-- `frontend/src/api/chat.ts`
-- `frontend/src/components/chat/MessageList.tsx`
-- New: `frontend/src/components/chat/ToolCallIndicator.tsx`
+**Files modified:**
+- [x] `services/chat/executor.py`
+- [x] `services/chat/types.py`
 
 **Tasks:**
-- [ ] Update API client to handle SSE
-- [ ] Add streaming text display with typing cursor
-- [ ] Create `ToolCallIndicator.tsx` showing tool status
-- [ ] Show tool calls inline with messages
+- [x] Add result summarization for large responses (>4000 chars)
+- [x] Add timing information to tool results (`duration_ms`)
+- [x] Create human-readable tool execution summaries
+
+#### Dev 3: Streaming UI & Tool Indicators ✅
+
+**Files modified:**
+- [x] `frontend/src/api/chat.ts` - Added `streamChatMessage()` async generator
+- [x] `frontend/src/components/chat/MessageList.tsx` - Streaming cursor, tool display
+- [x] `frontend/src/components/chat/ToolCallIndicator.tsx` - New component
+- [x] `frontend/src/components/chat/ChatPanel.tsx` - Uses streaming API
+- [x] `frontend/src/types/chat.ts` - Updated event types
+
+**Tasks:**
+- [x] Update API client to handle SSE
+- [x] Add streaming text display with typing cursor
+- [x] Create `ToolCallIndicator.tsx` showing tool status with timing
+- [x] Show tool calls inline with messages (expandable details)
 
 ---
 
