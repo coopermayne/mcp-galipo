@@ -154,6 +154,36 @@ Galipo exposes 41 MCP tools across these categories:
 - [TODO.md](./TODO.md) - Planned features and known issues
 - [docs/](./docs/) - Additional planning documents
 
+## Development with Claude Code
+
+The team uses [Claude Code](https://claude.ai/code) for development. Project MCP servers are configured in `.mcp.json` to enhance the development experience.
+
+### Available MCP Servers
+
+| Server | Purpose |
+|--------|---------|
+| `postgres` | Query the database using natural language (read-only) |
+| `context7` | Fetch up-to-date library documentation |
+| `sequential-thinking` | Structured reasoning for complex problems (use on request) |
+
+### Setup
+
+1. **Install dependencies:**
+   ```bash
+   # Postgres MCP Pro
+   pip install postgres-mcp
+   ```
+
+2. **Set environment variables:**
+   ```bash
+   export DATABASE_URL="postgresql://user:pass@localhost:5432/galipo"
+   export CONTEXT7_API_KEY="your-context7-api-key"  # Get from https://context7.com
+   ```
+
+3. **Restart Claude Code** to pick up the MCP servers from `.mcp.json`
+
+The MCP servers will then be available in your Claude Code sessions for this project.
+
 ## Deployment
 
 - **Platform**: Coolify (or any Docker host)
