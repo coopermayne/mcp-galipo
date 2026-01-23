@@ -604,6 +604,46 @@ def migrate_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id)")
         print("  - Created proceedings table (if not exists)")
 
+        # 22. Create proceeding_judges junction table for multi-judge support
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS proceeding_judges (
+                id SERIAL PRIMARY KEY,
+                proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
+                person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                role VARCHAR(50) DEFAULT 'Judge',
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(proceeding_id, person_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_judges(proceeding_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_proceeding_judges_person_id ON proceeding_judges(person_id)")
+        print("  - Created proceeding_judges table (if not exists)")
+
+        # Migrate existing judge_id data from proceedings to proceeding_judges
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'proceedings' AND column_name = 'judge_id'
+            ) as has_judge_id
+        """)
+        if cur.fetchone()[0]:
+            # Migrate existing judge_id data to proceeding_judges
+            cur.execute("""
+                INSERT INTO proceeding_judges (proceeding_id, person_id, role, sort_order)
+                SELECT id, judge_id, 'Judge', 0
+                FROM proceedings
+                WHERE judge_id IS NOT NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM proceeding_judges pj
+                    WHERE pj.proceeding_id = proceedings.id
+                      AND pj.person_id = proceedings.judge_id
+                  )
+            """)
+            # Drop the old judge_id column
+            cur.execute("ALTER TABLE proceedings DROP COLUMN IF EXISTS judge_id")
+            print("  - Migrated judge_id to proceeding_judges and dropped column")
+
         print("Database migration complete.")
 
 
@@ -757,12 +797,24 @@ def init_db():
                 case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
                 case_number VARCHAR(100) NOT NULL,
                 jurisdiction_id INTEGER REFERENCES jurisdictions(id),
-                judge_id INTEGER REFERENCES persons(id),
                 sort_order INTEGER DEFAULT 0,
                 is_primary BOOLEAN DEFAULT FALSE,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 12. Proceeding judges junction table (multi-judge support)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS proceeding_judges (
+                id SERIAL PRIMARY KEY,
+                proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
+                person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                role VARCHAR(50) DEFAULT 'Judge',
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(proceeding_id, person_id)
             )
         """)
 
@@ -784,6 +836,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
             CREATE INDEX IF NOT EXISTS idx_notes_case_id ON notes(case_id);
             CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id);
+            CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_judges(proceeding_id);
+            CREATE INDEX IF NOT EXISTS idx_proceeding_judges_person_id ON proceeding_judges(person_id);
         """)
 
     print("Database tables initialized.")

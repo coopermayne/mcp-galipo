@@ -73,4 +73,9 @@ export {
   createProceeding,
   updateProceeding,
   deleteProceeding,
+  // Proceeding judges
+  getProceedingJudges,
+  addProceedingJudge,
+  updateProceedingJudge,
+  removeProceedingJudge,
 } from './proceedings';

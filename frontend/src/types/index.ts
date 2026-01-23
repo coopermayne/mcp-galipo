@@ -73,7 +73,10 @@ export type {
 
 // Proceeding types
 export type {
+  ProceedingJudge,
   Proceeding,
   CreateProceedingInput,
   UpdateProceedingInput,
+  AddProceedingJudgeInput,
+  UpdateProceedingJudgeInput,
 } from './proceeding';

@@ -1,4 +1,11 @@
-import type { Proceeding, CreateProceedingInput, UpdateProceedingInput } from '../types/proceeding';
+import type {
+  Proceeding,
+  CreateProceedingInput,
+  UpdateProceedingInput,
+  ProceedingJudge,
+  AddProceedingJudgeInput,
+  UpdateProceedingJudgeInput,
+} from '../types/proceeding';
 import { request } from './common';
 
 export async function getProceedings(caseId: number): Promise<{ proceedings: Proceeding[]; total: number }> {
@@ -31,6 +38,44 @@ export async function updateProceeding(
 
 export async function deleteProceeding(proceedingId: number): Promise<{ success: boolean }> {
   return request(`/proceedings/${proceedingId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Proceeding Judges API
+
+export async function getProceedingJudges(
+  proceedingId: number
+): Promise<{ judges: ProceedingJudge[]; total: number }> {
+  return request(`/proceedings/${proceedingId}/judges`);
+}
+
+export async function addProceedingJudge(
+  proceedingId: number,
+  data: AddProceedingJudgeInput
+): Promise<{ success: boolean; judge: ProceedingJudge }> {
+  return request(`/proceedings/${proceedingId}/judges`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateProceedingJudge(
+  proceedingId: number,
+  personId: number,
+  data: UpdateProceedingJudgeInput
+): Promise<{ success: boolean; judge: ProceedingJudge }> {
+  return request(`/proceedings/${proceedingId}/judges/${personId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeProceedingJudge(
+  proceedingId: number,
+  personId: number
+): Promise<{ success: boolean }> {
+  return request(`/proceedings/${proceedingId}/judges/${personId}`, {
     method: 'DELETE',
   });
 }

@@ -145,6 +145,11 @@ from .proceedings import (
     get_proceeding_by_id,
     update_proceeding,
     delete_proceeding,
+    # Proceeding judges
+    add_judge_to_proceeding,
+    remove_judge_from_proceeding,
+    get_proceeding_judges,
+    update_proceeding_judge,
 )
 
 # Define __all__ for explicit exports
@@ -255,4 +260,9 @@ __all__ = [
     "get_proceeding_by_id",
     "update_proceeding",
     "delete_proceeding",
+    # Proceeding judges
+    "add_judge_to_proceeding",
+    "remove_judge_from_proceeding",
+    "get_proceeding_judges",
+    "update_proceeding_judge",
 ]
