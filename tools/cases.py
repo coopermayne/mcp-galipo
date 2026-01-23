@@ -22,7 +22,7 @@ def register_case_tools(mcp):
         Args:
             status_filter: Optional status to filter by
 
-        Returns list of cases with id, name, short_name, status, court.
+        Returns list of cases with id, name, short_name, status.
         """
         context.info(f"Listing cases{' with status=' + status_filter if status_filter else ''}")
         result = db.get_all_cases(status_filter)
@@ -65,7 +65,6 @@ def register_case_tools(mcp):
         context: Context,
         case_name: str,
         status: CaseStatus = "Signing Up",
-        court_id: Optional[int] = None,
         print_code: Optional[str] = None,
         case_summary: Optional[str] = None,
         result: Optional[str] = None,
@@ -77,12 +76,12 @@ def register_case_tools(mcp):
         Create a new case.
 
         After creating a case, use assign_person_to_case to add clients, defendants,
-        opposing counsel, judges, experts, etc.
+        opposing counsel, judges, experts, etc. Use create_proceeding to add court
+        proceedings with jurisdiction and case numbers.
 
         Args:
             case_name: Name of the case (e.g., "Jones v. LAPD")
             status: Initial status (default: "Signing Up")
-            court_id: ID of the jurisdiction/court (use list_jurisdictions to see options)
             print_code: Short code for printing/filing
             case_summary: Brief description of the case
             result: Case outcome/result (e.g., "Settled", "Verdict for plaintiff")
@@ -97,7 +96,6 @@ def register_case_tools(mcp):
             create_case(
                 case_name="Martinez v. City of LA",
                 status="Signing Up",
-                court_id=1,
                 case_numbers=[{"number": "24STCV12345", "label": "State", "primary": true}]
             )
         """
@@ -110,7 +108,7 @@ def register_case_tools(mcp):
             return validation_error(str(e))
 
         case = db.create_case(
-            case_name, status, court_id, print_code, case_summary, result,
+            case_name, status, print_code, case_summary, result,
             date_of_injury, case_numbers, short_name
         )
         context.info(f"Case created with ID {case.get('id')}")
@@ -123,7 +121,6 @@ def register_case_tools(mcp):
         case_name: Optional[str] = None,
         short_name: Optional[str] = None,
         status: Optional[CaseStatus] = None,
-        court_id: Optional[int] = None,
         print_code: Optional[str] = None,
         case_summary: Optional[str] = None,
         result: Optional[str] = None,
@@ -133,12 +130,14 @@ def register_case_tools(mcp):
         """
         Update case fields.
 
+        Note: Court/jurisdiction is managed through proceedings, not directly on the case.
+        Use create_proceeding or update_proceeding to change court assignments.
+
         Args:
             case_id: ID of the case to update
             case_name: New case name
             short_name: New short display name
             status: New status
-            court_id: New court/jurisdiction ID
             print_code: New print code
             case_summary: New summary
             result: Case outcome/result
@@ -159,7 +158,7 @@ def register_case_tools(mcp):
 
         updated = db.update_case(
             case_id, case_name=case_name, short_name=short_name, status=status,
-            court_id=court_id, print_code=print_code, case_summary=case_summary,
+            print_code=print_code, case_summary=case_summary,
             result=result, date_of_injury=date_of_injury,
             case_numbers=case_numbers
         )
@@ -190,8 +189,7 @@ def register_case_tools(mcp):
         query: Optional[str] = None,
         case_number: Optional[str] = None,
         person_name: Optional[str] = None,
-        status: Optional[CaseStatus] = None,
-        court_id: Optional[int] = None
+        status: Optional[CaseStatus] = None
     ) -> dict:
         """
         Search for cases with multiple filter options.
@@ -203,12 +201,11 @@ def register_case_tools(mcp):
             case_number: Search by case number (e.g., "24STCV", "12345")
             person_name: Filter by any person's name (client, defendant, expert, etc.)
             status: Filter by exact status
-            court_id: Filter by jurisdiction/court ID
 
         At least one search parameter must be provided.
 
         Returns matching cases with context:
-        [{id, case_name, short_name, status, case_summary, court, case_numbers}]
+        [{id, case_name, short_name, status, case_summary, case_numbers}]
 
         Examples:
             - search_cases(query="Martinez") - find cases with "Martinez" in the name/summary
@@ -216,11 +213,11 @@ def register_case_tools(mcp):
             - search_cases(status="Discovery") - find all cases in Discovery phase
             - search_cases(person_name="City", status="Pre-trial") - cases with "City" in Pre-trial
         """
-        if not any([query, case_number, person_name, status, court_id]):
+        if not any([query, case_number, person_name, status]):
             return validation_error("Provide at least one search parameter")
 
-        filters = [f for f in [query, case_number, person_name, status, court_id] if f]
+        filters = [f for f in [query, case_number, person_name, status] if f]
         context.info(f"Searching cases with {len(filters)} filter(s)")
-        cases = db.search_cases(query, case_number, person_name, status, court_id)
+        cases = db.search_cases(query, case_number, person_name, status)
         context.info(f"Found {len(cases)} matching cases")
         return {"cases": cases, "total": len(cases)}

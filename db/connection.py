@@ -138,23 +138,17 @@ def migrate_db():
                     (j["name"], j.get("local_rules_link"))
                 )
 
-        # 3. Add court_id column to cases if it doesn't exist
+        # 3. Remove court_id column from cases (court is now only through proceedings)
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.columns
                 WHERE table_name = 'cases' AND column_name = 'court_id'
             )
         """)
-        if not cur.fetchone()[0]:
-            cur.execute("ALTER TABLE cases ADD COLUMN court_id INTEGER REFERENCES jurisdictions(id)")
-            # Migrate court string to court_id
-            cur.execute("""
-                UPDATE cases c
-                SET court_id = j.id
-                FROM jurisdictions j
-                WHERE c.court = j.name AND c.court_id IS NULL
-            """)
-            print("  - Added court_id column to cases")
+        if cur.fetchone()[0]:
+            cur.execute("DROP INDEX IF EXISTS idx_cases_court_id")
+            cur.execute("ALTER TABLE cases DROP COLUMN court_id")
+            print("  - Removed court_id column from cases (now managed through proceedings)")
 
         # 4. Add result column to cases if it doesn't exist
         cur.execute("""
@@ -634,7 +628,6 @@ def init_db():
                 case_name VARCHAR(255) NOT NULL,
                 short_name VARCHAR(100),
                 status VARCHAR(50) NOT NULL DEFAULT 'Signing Up',
-                court_id INTEGER REFERENCES jurisdictions(id),
                 print_code VARCHAR(50),
                 case_summary TEXT,
                 result TEXT,
@@ -776,7 +769,6 @@ def init_db():
         # Create indexes for better query performance
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
-            CREATE INDEX IF NOT EXISTS idx_cases_court_id ON cases(court_id);
             CREATE INDEX IF NOT EXISTS idx_persons_name ON persons(name);
             CREATE INDEX IF NOT EXISTS idx_persons_type ON persons(person_type);
             CREATE INDEX IF NOT EXISTS idx_persons_archived ON persons(archived);

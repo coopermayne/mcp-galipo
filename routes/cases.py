@@ -49,7 +49,6 @@ def register_case_routes(mcp):
         result = db.create_case(
             data["case_name"],
             data.get("status", "Signing Up"),
-            court_id=data.get("court_id"),
             print_code=data.get("print_code"),
             case_summary=data.get("case_summary"),
             result=data.get("result"),

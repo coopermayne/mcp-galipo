@@ -30,7 +30,6 @@ CREATE TABLE cases (
     case_name VARCHAR(255) NOT NULL,
     short_name VARCHAR(100),
     status VARCHAR(50) NOT NULL DEFAULT 'Signing Up',
-    court_id INTEGER REFERENCES jurisdictions(id),
     print_code VARCHAR(50),
     case_summary TEXT,
     result TEXT,
@@ -152,7 +151,6 @@ CREATE TABLE proceedings (
 
 -- Indexes for better query performance
 CREATE INDEX idx_cases_status ON cases(status);
-CREATE INDEX idx_cases_court_id ON cases(court_id);
 CREATE INDEX idx_persons_name ON persons(name);
 CREATE INDEX idx_persons_type ON persons(person_type);
 CREATE INDEX idx_persons_archived ON persons(archived);
