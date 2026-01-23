@@ -1,7 +1,8 @@
 """
 Proceeding API routes.
 
-Handles court proceeding CRUD operations for cases.
+Handles court proceeding CRUD operations for cases,
+including multi-judge support via proceeding_judges.
 """
 
 from fastapi.responses import JSONResponse
@@ -37,7 +38,6 @@ def register_proceeding_routes(mcp):
             case_id=case_id,
             case_number=data["case_number"],
             jurisdiction_id=data.get("jurisdiction_id"),
-            judge_id=data.get("judge_id"),
             sort_order=data.get("sort_order"),
             is_primary=data.get("is_primary", False),
             notes=data.get("notes")
@@ -76,3 +76,66 @@ def register_proceeding_routes(mcp):
         if db.delete_proceeding(proceeding_id):
             return JSONResponse({"success": True})
         return api_error("Proceeding not found", "NOT_FOUND", 404)
+
+    # =========================================================================
+    # Proceeding Judges Routes
+    # =========================================================================
+
+    @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges", methods=["GET"])
+    async def api_list_proceeding_judges(request):
+        """List all judges for a proceeding."""
+        if err := auth.require_auth(request):
+            return err
+        proceeding_id = int(request.path_params["proceeding_id"])
+        judges = db.get_proceeding_judges(proceeding_id)
+        return JSONResponse({"judges": judges, "total": len(judges)})
+
+    @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges", methods=["POST"])
+    async def api_add_proceeding_judge(request):
+        """Add a judge to a proceeding."""
+        if err := auth.require_auth(request):
+            return err
+        proceeding_id = int(request.path_params["proceeding_id"])
+        data = await request.json()
+
+        if not data.get("person_id"):
+            return api_error("person_id is required", "VALIDATION_ERROR", 400)
+
+        result = db.add_judge_to_proceeding(
+            proceeding_id=proceeding_id,
+            person_id=data["person_id"],
+            role=data.get("role", "Judge"),
+            sort_order=data.get("sort_order")
+        )
+        return JSONResponse({"success": True, "judge": result})
+
+    @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges/{person_id}", methods=["PUT"])
+    async def api_update_proceeding_judge(request):
+        """Update a judge's role or sort_order on a proceeding."""
+        if err := auth.require_auth(request):
+            return err
+        proceeding_id = int(request.path_params["proceeding_id"])
+        person_id = int(request.path_params["person_id"])
+        data = await request.json()
+
+        result = db.update_proceeding_judge(
+            proceeding_id=proceeding_id,
+            person_id=person_id,
+            role=data.get("role"),
+            sort_order=data.get("sort_order")
+        )
+        if not result:
+            return api_error("Judge assignment not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "judge": result})
+
+    @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges/{person_id}", methods=["DELETE"])
+    async def api_remove_proceeding_judge(request):
+        """Remove a judge from a proceeding."""
+        if err := auth.require_auth(request):
+            return err
+        proceeding_id = int(request.path_params["proceeding_id"])
+        person_id = int(request.path_params["person_id"])
+
+        if db.remove_judge_from_proceeding(proceeding_id, person_id):
+            return JSONResponse({"success": True})
+        return api_error("Judge assignment not found", "NOT_FOUND", 404)

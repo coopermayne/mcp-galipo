@@ -1,9 +1,15 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Scale, Plus, Star, Trash2, ExternalLink } from 'lucide-react';
+import { Scale, Plus, Star, Trash2, ExternalLink, UserPlus, X } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
-import { createProceeding, updateProceeding, deleteProceeding } from '../../../api';
-import type { Proceeding, Jurisdiction, CasePerson } from '../../../types';
+import {
+  createProceeding,
+  updateProceeding,
+  deleteProceeding,
+  addProceedingJudge,
+  removeProceedingJudge,
+} from '../../../api';
+import type { Proceeding, Jurisdiction, CasePerson, ProceedingJudge } from '../../../types';
 
 interface ProceedingsSectionProps {
   caseId: number;
@@ -23,19 +29,20 @@ export function ProceedingsSection({
   const [newProceeding, setNewProceeding] = useState({
     case_number: '',
     jurisdiction_id: '',
-    judge_id: '',
     is_primary: false,
     notes: '',
   });
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; case_number: string } | null>(
     null
   );
+  // Track which proceeding is showing the add judge UI
+  const [addingJudgeTo, setAddingJudgeTo] = useState<number | null>(null);
+  const [newJudge, setNewJudge] = useState({ person_id: '', role: 'Judge' });
 
   const createMutation = useMutation({
     mutationFn: (data: {
       case_number: string;
       jurisdiction_id?: number;
-      judge_id?: number;
       is_primary?: boolean;
       notes?: string;
     }) => createProceeding(caseId, data),
@@ -44,7 +51,6 @@ export function ProceedingsSection({
       setNewProceeding({
         case_number: '',
         jurisdiction_id: '',
-        judge_id: '',
         is_primary: false,
         notes: '',
       });
@@ -68,6 +74,24 @@ export function ProceedingsSection({
     },
   });
 
+  const addJudgeMutation = useMutation({
+    mutationFn: ({ proceedingId, data }: { proceedingId: number; data: { person_id: number; role: string } }) =>
+      addProceedingJudge(proceedingId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setAddingJudgeTo(null);
+      setNewJudge({ person_id: '', role: 'Judge' });
+    },
+  });
+
+  const removeJudgeMutation = useMutation({
+    mutationFn: ({ proceedingId, personId }: { proceedingId: number; personId: number }) =>
+      removeProceedingJudge(proceedingId, personId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+    },
+  });
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (newProceeding.case_number.trim()) {
@@ -76,11 +100,26 @@ export function ProceedingsSection({
         jurisdiction_id: newProceeding.jurisdiction_id
           ? parseInt(newProceeding.jurisdiction_id, 10)
           : undefined,
-        judge_id: newProceeding.judge_id ? parseInt(newProceeding.judge_id, 10) : undefined,
         is_primary: newProceeding.is_primary,
         notes: newProceeding.notes || undefined,
       });
     }
+  };
+
+  const handleAddJudge = (proceedingId: number) => {
+    if (newJudge.person_id) {
+      addJudgeMutation.mutate({
+        proceedingId,
+        data: {
+          person_id: parseInt(newJudge.person_id, 10),
+          role: newJudge.role,
+        },
+      });
+    }
+  };
+
+  const handleRemoveJudge = (proceedingId: number, personId: number) => {
+    removeJudgeMutation.mutate({ proceedingId, personId });
   };
 
   const handleRemove = useCallback((id: number, caseNumber: string) => {
@@ -101,6 +140,17 @@ export function ProceedingsSection({
   const judgeOptions = useMemo(() => {
     return judges.filter((p) => p.role === 'Judge' || p.role === 'Magistrate Judge');
   }, [judges]);
+
+  // Get available judges (not already on the proceeding)
+  const getAvailableJudges = (proceeding: Proceeding) => {
+    const assignedIds = new Set(proceeding.judges?.map((j) => j.person_id) || []);
+    return judgeOptions.filter((j) => !assignedIds.has(j.id));
+  };
+
+  const formatJudgeRole = (role: string) => {
+    if (role === 'Judge') return '';
+    return ` (${role})`;
+  };
 
   return (
     <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -138,22 +188,10 @@ export function ProceedingsSection({
               onChange={(e) =>
                 setNewProceeding({ ...newProceeding, jurisdiction_id: e.target.value })
               }
-              className="px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 outline-none"
+              className="col-span-2 px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 outline-none"
             >
               <option value="">Select court...</option>
               {jurisdictions.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={newProceeding.judge_id}
-              onChange={(e) => setNewProceeding({ ...newProceeding, judge_id: e.target.value })}
-              className="px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 outline-none"
-            >
-              <option value="">Select judge...</option>
-              {judgeOptions.map((j) => (
                 <option key={j.id} value={j.id}>
                   {j.name}
                 </option>
@@ -232,11 +270,83 @@ export function ProceedingsSection({
                       )}
                     </div>
                   )}
-                  {p.judge_name && (
-                    <span className="text-xs text-slate-500 block mt-0.5">
-                      Judge: {p.judge_name}
-                    </span>
+
+                  {/* Judges list */}
+                  {p.judges && p.judges.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {p.judges.map((judge: ProceedingJudge) => (
+                        <div
+                          key={`${judge.person_id}-${judge.role}`}
+                          className="flex items-center gap-1 text-xs text-slate-500 group/judge"
+                        >
+                          <span>
+                            {judge.name}
+                            {formatJudgeRole(judge.role)}
+                          </span>
+                          <button
+                            onClick={() => handleRemoveJudge(p.id, judge.person_id)}
+                            className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-slate-400 hover:text-red-400 transition-opacity"
+                            title="Remove judge"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
+
+                  {/* Add judge UI */}
+                  {addingJudgeTo === p.id ? (
+                    <div className="mt-2 flex items-center gap-1">
+                      <select
+                        value={newJudge.person_id}
+                        onChange={(e) => setNewJudge({ ...newJudge, person_id: e.target.value })}
+                        className="flex-1 px-1.5 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:border-primary-500 outline-none"
+                      >
+                        <option value="">Select judge...</option>
+                        {getAvailableJudges(p).map((j) => (
+                          <option key={j.id} value={j.id}>
+                            {j.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={newJudge.role}
+                        onChange={(e) => setNewJudge({ ...newJudge, role: e.target.value })}
+                        className="px-1.5 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:border-primary-500 outline-none"
+                      >
+                        <option value="Judge">Judge</option>
+                        <option value="Presiding">Presiding</option>
+                        <option value="Panel">Panel</option>
+                        <option value="Magistrate">Magistrate</option>
+                      </select>
+                      <button
+                        onClick={() => handleAddJudge(p.id)}
+                        disabled={!newJudge.person_id || addJudgeMutation.isPending}
+                        className="px-1.5 py-1 bg-primary-600 text-white rounded text-xs disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAddingJudgeTo(null);
+                          setNewJudge({ person_id: '', role: 'Judge' });
+                        }}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setAddingJudgeTo(p.id)}
+                      className="mt-1 text-xs text-primary-500 hover:text-primary-400 inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <UserPlus className="w-3 h-3" />
+                      Add judge
+                    </button>
+                  )}
+
                   {p.notes && (
                     <span className="text-xs text-slate-400 italic block mt-0.5">{p.notes}</span>
                   )}

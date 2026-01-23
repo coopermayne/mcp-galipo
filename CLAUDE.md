@@ -95,6 +95,19 @@ main.py                    # FastAPI + MCP server entry point
 - **case_persons** junction table links persons to cases with role (Client, Defendant, Judge, etc.) and side (Plaintiff, Defendant, Neutral)
 - **tasks.order_index** for drag-and-drop ordering; `db/tasks.py` has `reorder_task()` logic
 
+## Pre-Commit Verification
+
+**IMPORTANT:** After any changes that affect the database (schema, migrations, db/*.py functions), run `/verify` before pushing.
+
+The `/verify` skill checks:
+- Migration safety (idempotent, preserves data, correct FK order)
+- Type consistency across all layers (frontend types ↔ backend ↔ database)
+- API contract consistency (routes, MCP tools, frontend API)
+- Build verification (TypeScript compiles)
+- Export completeness (barrel files updated)
+
+This is critical because the **live production database** receives schema changes automatically when the app restarts after deployment. There is no manual migration step - `migrate_db()` runs on startup.
+
 ## Environment Variables
 
 ```bash
