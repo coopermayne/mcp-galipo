@@ -10,7 +10,6 @@ import {
   Calendar,
   Star,
   ChevronDown,
-  ChevronUp,
   CheckSquare,
   Clock,
   Building,
@@ -213,7 +212,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     tasks.filter(t => t.status !== 'Done'), [tasks]);
   const doneTasks = useMemo(() =>
     tasks.filter(t => t.status === 'Done')
-      .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()),
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [tasks]);
 
   const sortedActiveTasks = useMemo(() => {
@@ -241,7 +240,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     [events, now]);
 
   const starredEvents = useMemo(() =>
-    events.filter(e => e.is_starred),
+    events.filter(e => e.starred),
     [events]);
 
   // Contact role options
@@ -348,12 +347,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   }, [deleteTarget, removePersonMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map(s => ({ value: s, label: s }));
-  const urgencyOptions = [
-    { value: '1', label: 'Low' },
-    { value: '2', label: 'Medium' },
-    { value: '3', label: 'High' },
-    { value: '4', label: 'Urgent' },
-  ];
 
   return (
     <div className="space-y-4">
@@ -369,7 +362,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 proceedings={caseData.proceedings || []}
                 jurisdictions={constants?.jurisdictions}
                 judges={caseData.persons || []}
-                compact
               />
             </div>
             {/* Key People: Judge, Counsel, Mediator */}
@@ -430,7 +422,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                   <span className="text-slate-600 dark:text-slate-300 truncate">{event.description}</span>
                   <EditableDate
                     value={event.date}
-                    onSave={(value) => value && updateEventMutation.mutate({ id: event.id, data: { date: value } })}
+                    onSave={async (value) => { if (value) await updateEventMutation.mutateAsync({ id: event.id, data: { date: value } }); }}
                     className="text-xs shrink-0"
                   />
                 </div>
@@ -588,7 +580,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 <EditableSelect
                   value={task.status}
                   options={taskStatusOptions}
-                  onSave={(value) => updateTaskMutation.mutate({ id: task.id, data: { status: value as Task['status'] } })}
+                  onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { status: value as Task['status'] } }); }}
                   renderValue={(value) => <StatusBadge status={value} />}
                 />
                 <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{task.description}</span>
@@ -596,7 +588,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 {task.due_date && (
                   <EditableDate
                     value={task.due_date}
-                    onSave={(value) => updateTaskMutation.mutate({ id: task.id, data: { due_date: value } })}
+                    onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { due_date: value || undefined } }); }}
                     className="text-xs"
                   />
                 )}
@@ -626,21 +618,21 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
             {(showPastEvents ? pastEvents : futureEvents).map(event => (
               <div key={event.id} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
                 <button
-                  onClick={() => updateEventMutation.mutate({ id: event.id, data: { is_starred: !event.is_starred } })}
+                  onClick={() => updateEventMutation.mutate({ id: event.id, data: { starred: !event.starred } })}
                   className="shrink-0"
                 >
-                  <Star className={`w-3 h-3 ${event.is_starred ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
+                  <Star className={`w-3 h-3 ${event.starred ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
                 </button>
                 <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{event.description}</span>
                 <EditableDate
                   value={event.date}
-                  onSave={(value) => value && updateEventMutation.mutate({ id: event.id, data: { date: value } })}
+                  onSave={async (value) => { if (value) await updateEventMutation.mutateAsync({ id: event.id, data: { date: value } }); }}
                   className="text-xs shrink-0"
                 />
                 {event.time && (
                   <EditableTime
                     value={event.time}
-                    onSave={(value) => updateEventMutation.mutate({ id: event.id, data: { time: value } })}
+                    onSave={async (value) => { await updateEventMutation.mutateAsync({ id: event.id, data: { time: value || undefined } }); }}
                     className="text-xs shrink-0"
                   />
                 )}

@@ -13,7 +13,7 @@ import {
 import type { DragEndEvent, DragOverEvent, DragStartEvent, CollisionDetection, UniqueIdentifier } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
-import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge, EditableDate } from '../components/common';
+import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
 import { UrgencyGroup, CaseGroup } from '../components/tasks';
 import { formatSmartDate } from '../utils/dateFormat';
 import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
