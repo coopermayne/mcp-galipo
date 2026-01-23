@@ -122,9 +122,6 @@ export function CaseDetail() {
               onSave={(value) => handleUpdateField('status', value)}
               renderValue={(value) => <StatusBadge status={value} />}
             />
-            {caseData.court && (
-              <span className="text-slate-500 dark:text-slate-400 text-sm">{caseData.court}</span>
-            )}
           </div>
         </div>
       </div>

@@ -125,13 +125,6 @@ export function Cases() {
         ),
       },
       {
-        accessorKey: 'court',
-        header: 'Court',
-        cell: ({ row }) => (
-          <span className="text-slate-600 dark:text-slate-300">{row.original.court || '-'}</span>
-        ),
-      },
-      {
         accessorKey: 'judge',
         header: 'Judge',
         cell: ({ row }) => (

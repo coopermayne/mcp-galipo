@@ -105,6 +105,21 @@ python main.py
 unset RESET_DB
 ```
 
+### Run database migrations
+
+After pulling new code, check if there are pending migrations:
+
+```bash
+source .venv/bin/activate
+python migrations/run_migration.py
+```
+
+Or run a specific migration:
+
+```bash
+python migrations/run_migration.py 001_remove_court_id_from_cases.sql
+```
+
 ## 5. Set Up Frontend
 
 ```bash
@@ -218,6 +233,32 @@ docker run -p 8000:8000 \
   galipo
 ```
 
+### Production Migrations
+
+**Important:** Before deploying new code to production, run any pending migrations:
+
+```bash
+# Run migrations against production database
+DATABASE_URL="postgresql://prod_user:prod_pass@prod_host:5432/galipo" \
+  python migrations/run_migration.py
+```
+
+For Docker deployments, run migrations before starting the app:
+
+```bash
+# Run migrations first
+docker run --rm \
+  -e DATABASE_URL="postgresql://..." \
+  galipo python migrations/run_migration.py
+
+# Then start the app
+docker run -d -p 8000:8000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e AUTH_USERNAME="admin" \
+  -e AUTH_PASSWORD="password" \
+  galipo
+```
+
 ## Connecting Claude to Local Server
 
 For local development, you can connect Claude Code to your local MCP server:
@@ -280,6 +321,9 @@ cd frontend && npm run type-check
 
 # Lint frontend code
 cd frontend && npm run lint
+
+# Run database migrations
+python migrations/run_migration.py
 
 # Connect to database
 psql $DATABASE_URL

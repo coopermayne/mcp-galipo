@@ -10,11 +10,9 @@ import {
   Mail,
   Calendar,
   Star,
-  ExternalLink,
 } from 'lucide-react';
 import {
   EditableText,
-  EditableSelect,
   EditableDate,
   ConfirmModal,
 } from '../../../components/common';
@@ -23,7 +21,7 @@ import {
   assignPersonToCase,
   removePersonFromCase,
 } from '../../../api';
-import type { Case, Constants, Jurisdiction } from '../../../types';
+import type { Case, Constants } from '../../../types';
 import { ContactCard, StarredEvents, ProceedingsSection } from '../components';
 import { getPrimaryPhone, getPrimaryEmail } from '../utils';
 
@@ -140,20 +138,8 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     [caseData.persons]
   );
 
-  const jurisdictionOptions = useMemo(
-    () =>
-      (constants?.jurisdictions || []).map((j: Jurisdiction) => ({
-        value: String(j.id),
-        label: j.name,
-      })),
-    [constants]
-  );
-
-  const currentJurisdiction = useMemo(
-    () => constants?.jurisdictions?.find((j: Jurisdiction) => j.id === caseData.court_id),
-    [constants, caseData.court_id]
-  );
-
+  
+  
   // Common contact roles
   const contactRoleOptions = [
     'Opposing Counsel',
@@ -339,34 +325,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
         <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">Case Details</h3>
         <div className="space-y-3">
-          <Field label="Court">
-            <div className="flex items-center gap-2">
-              <EditableSelect
-                value={caseData.court_id ? String(caseData.court_id) : ''}
-                options={jurisdictionOptions}
-                onSave={(value) => onUpdateField('court_id', value ? parseInt(value, 10) : null)}
-              />
-              {currentJurisdiction?.local_rules_link && (
-                <a
-                  href={currentJurisdiction.local_rules_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-400 hover:text-primary-300"
-                  title="View local rules"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-            </div>
-          </Field>
-          <Field label="Print Code">
-            <EditableText
-              value={caseData.print_code || ''}
-              onSave={(value) => onUpdateField('print_code', value || null)}
-              placeholder="Enter code"
-              inputClassName="font-mono"
-            />
-          </Field>
           {caseData.status === 'Closed' && (
             <Field label="Result">
               <EditableText

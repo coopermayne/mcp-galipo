@@ -27,10 +27,9 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         cur.execute(f"SELECT COUNT(*) as total FROM cases c {where_clause}", params)
         total = cur.fetchone()["total"]
 
-        # Build query with joins for counts, court name, and assigned judge
+        # Build query with joins for counts and assigned judge
         query = f"""
             SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
-                   j.name as court,
                    (SELECT p.name FROM case_persons cp
                     JOIN persons p ON cp.person_id = p.id
                     WHERE cp.case_id = c.id AND cp.role = 'Judge'
@@ -40,7 +39,6 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
                    (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id AND e.date >= CURRENT_DATE) as upcoming_event_count
             FROM cases c
-            LEFT JOIN jurisdictions j ON c.court_id = j.id
             {where_clause}
             ORDER BY c.case_name
         """
@@ -60,9 +58,8 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
     """Get full case details by ID with all related data."""
     with get_cursor() as cur:
         cur.execute("""
-            SELECT c.*, j.name as court, j.local_rules_link
+            SELECT c.*
             FROM cases c
-            LEFT JOIN jurisdictions j ON c.court_id = j.id
             WHERE c.id = %s
         """, (case_id,))
         case = cur.fetchone()
@@ -167,7 +164,7 @@ def get_all_case_names() -> List[str]:
         return [row["case_name"] for row in cur.fetchall()]
 
 
-def create_case(case_name: str, status: str = "Signing Up", court_id: int = None,
+def create_case(case_name: str, status: str = "Signing Up",
                 print_code: str = None, case_summary: str = None, result: str = None,
                 date_of_injury: str = None, case_numbers: List[dict] = None,
                 short_name: str = None) -> dict:
@@ -182,10 +179,10 @@ def create_case(case_name: str, status: str = "Signing Up", court_id: int = None
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO cases (case_name, short_name, status, court_id, print_code, case_summary, result, date_of_injury, case_numbers)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO cases (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (case_name, short_name, status, court_id, print_code, case_summary, result, date_of_injury, case_numbers_json))
+        """, (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers_json))
         case_id = cur.fetchone()["id"]
 
     return get_case_by_id(case_id)
@@ -194,7 +191,7 @@ def create_case(case_name: str, status: str = "Signing Up", court_id: int = None
 def update_case(case_id: int, **kwargs) -> Optional[dict]:
     """Update case fields."""
     allowed_fields = [
-        "case_name", "short_name", "status", "court_id", "print_code",
+        "case_name", "short_name", "status", "print_code",
         "case_summary", "result", "date_of_injury", "case_numbers"
     ]
 
@@ -244,7 +241,7 @@ def delete_case(case_id: int) -> bool:
 
 
 def search_cases(query: str = None, case_number: str = None, person_name: str = None,
-                 status: str = None, court_id: int = None, limit: int = 50) -> List[dict]:
+                 status: str = None, limit: int = 50) -> List[dict]:
     """Search cases by various criteria."""
     conditions = []
     params = []
@@ -272,18 +269,13 @@ def search_cases(query: str = None, case_number: str = None, person_name: str = 
         conditions.append("c.status = %s")
         params.append(status)
 
-    if court_id:
-        conditions.append("c.court_id = %s")
-        params.append(court_id)
-
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
         cur.execute(f"""
             SELECT c.id, c.case_name, c.short_name, c.status, c.case_summary,
-                   j.name as court, c.case_numbers
+                   c.case_numbers
             FROM cases c
-            LEFT JOIN jurisdictions j ON c.court_id = j.id
             {where_clause}
             ORDER BY c.case_name
             LIMIT %s

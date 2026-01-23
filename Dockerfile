@@ -19,6 +19,7 @@ COPY tools/ ./tools/
 COPY routes/ ./routes/
 COPY static/ ./static/
 COPY templates/ ./templates/
+COPY migrations/ ./migrations/
 
 # Copy built React frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

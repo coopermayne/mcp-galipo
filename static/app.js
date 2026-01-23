@@ -285,9 +285,7 @@ async function renderCases() {
                     <div class="case-card-body">
                         <div class="case-card-meta">
                             ${getStatusBadge(c.status)}
-                            ${c.court ? `<span class="meta-court">${c.court}</span>` : ''}
                         </div>
-                        ${c.print_code ? `<div class="case-card-code">Code: ${c.print_code}</div>` : ''}
                     </div>
                 </div>
             `).join('')}
@@ -322,8 +320,6 @@ async function renderCaseDetail(caseId) {
                         <h1 class="case-detail-title">${caseData.case_name}</h1>
                         <div class="case-detail-meta">
                             ${getStatusBadge(caseData.status)}
-                            ${caseData.court ? `<span class="meta-item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg> ${caseData.court}</span>` : ''}
-                            ${caseData.print_code ? `<span class="meta-item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> ${caseData.print_code}</span>` : ''}
                         </div>
                     </div>
                     <button class="btn btn-primary" onclick="openCaseModal(${caseId})">Edit Case</button>
@@ -643,21 +639,11 @@ async function openCaseModal(caseId = null) {
                     <label>Case Name *</label>
                     <input type="text" class="form-control" id="case-name" value="${caseData.case_name || ''}" required>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select class="form-control" id="case-status">
-                            ${constants.case_statuses.map(s => `<option value="${s}" ${caseData.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Print Code</label>
-                        <input type="text" class="form-control" id="case-print-code" value="${caseData.print_code || ''}">
-                    </div>
-                </div>
                 <div class="form-group">
-                    <label>Court</label>
-                    <input type="text" class="form-control" id="case-court" value="${caseData.court || ''}">
+                    <label>Status</label>
+                    <select class="form-control" id="case-status">
+                        ${constants.case_statuses.map(s => `<option value="${s}" ${caseData.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Summary</label>
@@ -698,8 +684,6 @@ async function saveCase() {
     const data = {
         case_name: document.getElementById('case-name').value,
         status: document.getElementById('case-status').value,
-        print_code: document.getElementById('case-print-code').value || null,
-        court: document.getElementById('case-court').value || null,
         case_summary: document.getElementById('case-summary').value || null,
         date_of_injury: document.getElementById('case-doi').value || null,
         claim_due: document.getElementById('case-claim-due').value || null,

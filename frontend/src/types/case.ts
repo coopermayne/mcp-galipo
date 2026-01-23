@@ -19,10 +19,6 @@ export interface Case {
   case_name: string;
   short_name?: string;
   status: CaseStatus;
-  court?: string;
-  court_id?: number;
-  local_rules_link?: string;
-  print_code?: string;
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
@@ -42,8 +38,6 @@ export interface CaseSummary {
   case_name: string;
   short_name?: string;
   status: CaseStatus;
-  court?: string;
-  print_code?: string;
   judge?: string;
   client_count?: number;
   defendant_count?: number;
@@ -55,8 +49,6 @@ export interface CreateCaseInput {
   case_name: string;
   short_name?: string;
   status?: CaseStatus;
-  court_id?: number;
-  print_code?: string;
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
@@ -67,8 +59,6 @@ export interface UpdateCaseInput {
   case_name?: string;
   short_name?: string;
   status?: CaseStatus;
-  court_id?: number;
-  print_code?: string;
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
