@@ -54,7 +54,7 @@ docker run -d \
 
 ## 3. Set Up Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root. **This file is not tracked in git** and must be created manually:
 
 ```bash
 # Database connection
@@ -64,12 +64,21 @@ DATABASE_URL=postgresql://galipo_user:your_password@localhost:5432/galipo
 AUTH_USERNAME=admin
 AUTH_PASSWORD=your_secure_password
 
+# Anthropic API key (for in-app AI chat feature)
+ANTHROPIC_API_KEY=sk-ant-...
+
 # Server port (optional, defaults to 8000)
 PORT=8000
 
 # Reset database on startup (use with caution!)
 # RESET_DB=true
 ```
+
+**Required variables:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `AUTH_USERNAME` - Login username for web dashboard
+- `AUTH_PASSWORD` - Login password for web dashboard
+- `ANTHROPIC_API_KEY` - API key from https://console.anthropic.com/settings/keys
 
 Alternatively, export them in your shell:
 
@@ -230,8 +239,26 @@ docker run -p 8000:8000 \
   -e DATABASE_URL="postgresql://..." \
   -e AUTH_USERNAME="admin" \
   -e AUTH_PASSWORD="password" \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
   galipo
 ```
+
+### Production Environment Variables
+
+For production deployment, you must configure these environment variables in your hosting platform (Railway, Render, Fly.io, Heroku, etc.):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `AUTH_USERNAME` | Yes | Login username for web dashboard |
+| `AUTH_PASSWORD` | Yes | Login password (use a strong password!) |
+| `ANTHROPIC_API_KEY` | Yes | API key for in-app AI chat |
+| `PORT` | No | Server port (usually set by platform) |
+
+**Security notes:**
+- Use a different `ANTHROPIC_API_KEY` for production than development
+- Use a strong, unique `AUTH_PASSWORD`
+- Never commit credentials to git
 
 ### Production Migrations
 
@@ -256,6 +283,7 @@ docker run -d -p 8000:8000 \
   -e DATABASE_URL="postgresql://..." \
   -e AUTH_USERNAME="admin" \
   -e AUTH_PASSWORD="password" \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
   galipo
 ```
 
