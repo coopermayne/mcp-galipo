@@ -39,15 +39,43 @@ export interface ChatResponse {
   finished: boolean;
 }
 
-// SSE Event types for streaming (Phase 2)
-export type StreamEventType = 'text' | 'tool_use' | 'tool_result' | 'done' | 'error';
+// SSE Event types for streaming
+export type StreamEventType = 'text' | 'tool_start' | 'tool_result' | 'done' | 'error';
 
 export interface StreamEvent {
   type: StreamEventType;
+  // For 'text' events
   content?: string;
+  // For 'tool_start' and 'tool_result' events (flat structure from backend)
+  id?: string;
+  name?: string;
+  arguments?: Record<string, unknown>;
+  result?: string;
+  is_error?: boolean;
+  duration_ms?: number;
+  // For 'done' events
+  conversation_id?: string;
+  tool_calls?: ToolCall[];
+  // For 'error' events
+  error?: string;
+  // Legacy nested format (kept for compatibility)
   toolCall?: ToolCall;
   toolResult?: ToolResult;
-  error?: string;
+  conversationId?: string;
+}
+
+// Tool execution status for UI
+export type ToolStatus = 'pending' | 'running' | 'completed' | 'error';
+
+export interface ToolExecution {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  status: ToolStatus;
+  result?: string;
+  isError?: boolean;
+  startTime: number;
+  endTime?: number;
 }
 
 // Conversation management

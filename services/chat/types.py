@@ -33,6 +33,8 @@ class ToolResult:
     tool_use_id: str
     content: str  # JSON-serialized result or error message
     is_error: bool = False
+    duration_ms: int = 0  # Execution time in milliseconds
+    summary: str = ""  # Human-readable summary of the result
 
 
 @dataclass

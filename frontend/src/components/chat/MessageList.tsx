@@ -1,19 +1,21 @@
 import { useEffect, useRef } from 'react';
-import { Bot, User, Wrench } from 'lucide-react';
-import type { ChatMessage } from '../../types';
+import { Bot, User } from 'lucide-react';
+import { ToolCallIndicator } from './ToolCallIndicator';
+import type { ChatMessage, ToolExecution } from '../../types';
 
 interface MessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  toolExecutions?: ToolExecution[];
 }
 
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, toolExecutions = [] }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, toolExecutions]);
 
   if (messages.length === 0 && !isLoading) {
     return (
@@ -30,10 +32,15 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
       {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} />
+        <MessageBubble
+          key={message.id}
+          message={message}
+          toolExecutions={message.isStreaming ? toolExecutions : undefined}
+        />
       ))}
 
-      {isLoading && (
+      {/* Show loading state when waiting for initial response */}
+      {isLoading && !messages.some((m) => m.isStreaming) && (
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
             <Bot className="w-4 h-4 text-slate-600 dark:text-slate-300" />
@@ -53,7 +60,12 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+interface MessageBubbleProps {
+  message: ChatMessage;
+  toolExecutions?: ToolExecution[];
+}
+
+function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -71,37 +83,66 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
       {/* Message content */}
       <div className={`flex flex-col gap-2 max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}>
-        <div
-          className={`rounded-2xl px-4 py-2.5 ${
-            isUser
-              ? 'bg-blue-600 text-white rounded-tr-sm'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-tl-sm'
-          }`}
-        >
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-        </div>
+        {/* Text content */}
+        {(message.content || message.isStreaming) && (
+          <div
+            className={`rounded-2xl px-4 py-2.5 ${
+              isUser
+                ? 'bg-blue-600 text-white rounded-tr-sm'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-tl-sm'
+            }`}
+          >
+            <p className="text-sm whitespace-pre-wrap">
+              {message.content}
+              {message.isStreaming && <StreamingCursor />}
+            </p>
+          </div>
+        )}
 
-        {/* Tool calls display */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="w-full space-y-1">
+        {/* Tool executions during streaming */}
+        {toolExecutions && toolExecutions.length > 0 && (
+          <div className="w-full space-y-2">
+            {toolExecutions.map((execution) => (
+              <ToolCallIndicator key={execution.id} execution={execution} />
+            ))}
+          </div>
+        )}
+
+        {/* Completed tool calls (non-streaming messages) */}
+        {!message.isStreaming && message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="w-full space-y-2">
             {message.toolCalls.map((tool) => (
-              <div
+              <ToolCallIndicator
                 key={tool.id}
-                className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2"
-              >
-                <Wrench className="w-3 h-3" />
-                <span className="font-mono">{tool.name}</span>
-              </div>
+                execution={{
+                  id: tool.id,
+                  name: tool.name,
+                  arguments: tool.arguments,
+                  status: 'completed',
+                  result: message.toolResults?.find((r) => r.tool_use_id === tool.id)?.content,
+                  isError: message.toolResults?.find((r) => r.tool_use_id === tool.id)?.is_error,
+                  startTime: 0,
+                  endTime: 0,
+                }}
+              />
             ))}
           </div>
         )}
 
         {/* Timestamp */}
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          {formatTime(message.timestamp)}
-        </span>
+        {!message.isStreaming && (
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            {formatTime(message.timestamp)}
+          </span>
+        )}
       </div>
     </div>
+  );
+}
+
+function StreamingCursor() {
+  return (
+    <span className="inline-block w-1.5 h-4 ml-0.5 bg-slate-600 dark:bg-slate-300 animate-pulse" />
   );
 }
 

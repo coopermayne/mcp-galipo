@@ -2,14 +2,14 @@
 Claude API client for the chat feature.
 
 Handles communication with the Anthropic Claude API, including
-message sending and tool call extraction.
+message sending, tool call extraction, and streaming responses.
 """
 
 import os
 import anthropic
-from typing import Any
+from typing import Any, Generator
 
-from .types import ToolCall
+from .types import ToolCall, StreamEventType
 
 
 # System prompt for the chat assistant
@@ -88,3 +88,101 @@ class ChatClient:
             "tool_calls": tool_calls,
             "stop_reason": response.stop_reason
         }
+
+    def stream_message(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        system_prompt: str | None = None
+    ) -> Generator[dict[str, Any], None, None]:
+        """
+        Stream a response from Claude, yielding events as they arrive.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            tools: Optional list of tool definitions in Claude API format
+            system_prompt: Optional system prompt (uses default if not provided)
+
+        Yields:
+            Dict events with 'type' and associated data:
+                - {"type": "text", "content": "partial text..."}
+                - {"type": "tool_start", "id": "...", "name": "...", "arguments": {...}}
+                - {"type": "content_block_stop"} - signals end of a content block
+                - {"type": "message_stop", "stop_reason": "..."} - signals end of message
+        """
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "system": system_prompt or SYSTEM_PROMPT,
+            "messages": messages,
+        }
+
+        # Only include tools if provided and non-empty
+        if tools:
+            kwargs["tools"] = tools
+
+        # Track current tool being built (for accumulating JSON input)
+        current_tool_id: str | None = None
+        current_tool_name: str | None = None
+        current_tool_input_json: str = ""
+
+        with self.client.messages.stream(**kwargs) as stream:
+            for event in stream:
+                event_type = event.type
+
+                if event_type == "content_block_start":
+                    # Check if this is a tool_use block
+                    content_block = event.content_block
+                    if content_block.type == "tool_use":
+                        current_tool_id = content_block.id
+                        current_tool_name = content_block.name
+                        current_tool_input_json = ""
+                        # Emit tool_start event
+                        yield {
+                            "type": StreamEventType.TOOL_USE.value,
+                            "subtype": "start",
+                            "id": current_tool_id,
+                            "name": current_tool_name,
+                        }
+
+                elif event_type == "content_block_delta":
+                    delta = event.delta
+                    if delta.type == "text_delta":
+                        # Emit text delta
+                        yield {
+                            "type": StreamEventType.TEXT.value,
+                            "content": delta.text,
+                        }
+                    elif delta.type == "input_json_delta":
+                        # Accumulate tool input JSON
+                        current_tool_input_json += delta.partial_json
+
+                elif event_type == "content_block_stop":
+                    # If we were building a tool, emit the complete tool call
+                    if current_tool_id and current_tool_name:
+                        import json
+                        try:
+                            arguments = json.loads(current_tool_input_json) if current_tool_input_json else {}
+                        except json.JSONDecodeError:
+                            arguments = {}
+
+                        yield {
+                            "type": StreamEventType.TOOL_USE.value,
+                            "subtype": "done",
+                            "id": current_tool_id,
+                            "name": current_tool_name,
+                            "arguments": arguments,
+                        }
+
+                        # Reset tool tracking
+                        current_tool_id = None
+                        current_tool_name = None
+                        current_tool_input_json = ""
+
+                elif event_type == "message_stop":
+                    # Get the final message to extract stop_reason
+                    final_message = stream.get_final_message()
+                    yield {
+                        "type": "message_stop",
+                        "stop_reason": final_message.stop_reason if final_message else "end_turn",
+                    }

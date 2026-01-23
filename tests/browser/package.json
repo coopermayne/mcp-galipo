@@ -8,6 +8,8 @@
     "chat": "node run.js chat",
     "chat:visible": "HEADLESS=false node run.js chat",
     "chat:slow": "HEADLESS=false SLOW_MO=50 node run.js chat",
+    "streaming": "node run.js streaming",
+    "streaming:visible": "HEADLESS=false node run.js streaming",
     "list": "node run.js --list"
   },
   "keywords": ["testing", "puppeteer", "browser-automation"],

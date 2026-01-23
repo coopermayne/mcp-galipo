@@ -90,5 +90,7 @@ export type {
   ChatResponse,
   StreamEventType,
   StreamEvent,
+  ToolStatus,
+  ToolExecution,
   Conversation,
 } from './chat';
