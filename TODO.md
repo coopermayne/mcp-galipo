@@ -1,7 +1,7 @@
 # TODO
 
 ## Quick Add
-- [ ]
+- [ ] Move DOI to key dates area
 
 ---
 
@@ -80,6 +80,10 @@ Tighten layout, structured people sections, smart person picker.
 - [ ] Replace current sections with new PersonSection components
 - [ ] Add empty state styling
 - [ ] Responsive adjustments (stack on mobile)
+- [ ] Order counsel section: Referring Attorney → Co-Counsel → Opposing Counsel
+- [ ] Color code counsel types for easy recognition
+- [ ] Visual linking of GAL/client contact to clients (show which GAL represents which clients; handle 1 GAL → multiple clients efficiently)
+- [ ] Order experts section: Plaintiff experts first, then Defense; color code by side
 
 ---
 
@@ -108,7 +112,7 @@ Global ⌘K shortcut opens a search bar for quick navigation and actions.
 
 ---
 
-### Proceedings Table
+### Proceedings Table ⏳ In Progress
 Separate court proceedings from case "matters" - a single case can have multiple court filings.
 
 **Problem**: Currently `cases.case_numbers` is a JSONB array, but a matter can span multiple courts (state → federal removal → appeal → separate public records case). Judges are linked at case level, not per-proceeding.
@@ -127,6 +131,8 @@ proceedings (id, case_id, case_number, jurisdiction_id, judge_id, sort_order, is
 - [x] Update get_case_by_id to include proceedings
 - [x] Frontend: ProceedingsSection component (replaces CaseNumbersSection)
 - [x] Frontend: Move judges from case-level to per-proceeding
+- [ ] Remove "Court proceedings" label/header and horizontal bar (info is self-evident)
+- [ ] Remove judge/magistrate from case-level (DB + UI) - now per-proceeding
 - [ ] Remove old case_numbers column after verification
 
 ---
