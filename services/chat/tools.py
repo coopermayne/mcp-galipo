@@ -21,11 +21,48 @@ BLACKLIST: set[str] = {
 }
 
 
+def _clean_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Remove internal MCP parameters (like 'context') from a tool schema.
+
+    The MCP framework injects a 'context' parameter for internal use,
+    but this should not be exposed to Claude as a tool parameter.
+
+    Args:
+        schema: The raw schema from the MCP tool.
+
+    Returns:
+        A cleaned schema without internal parameters.
+    """
+    import copy
+    cleaned = copy.deepcopy(schema)
+
+    # Remove 'context' from properties
+    if "properties" in cleaned and "context" in cleaned["properties"]:
+        del cleaned["properties"]["context"]
+
+    # Remove 'context' from required list
+    if "required" in cleaned and "context" in cleaned["required"]:
+        cleaned["required"] = [r for r in cleaned["required"] if r != "context"]
+        # If required list is now empty, remove it
+        if not cleaned["required"]:
+            del cleaned["required"]
+
+    # Remove Context definition from $defs
+    if "$defs" in cleaned and "Context" in cleaned["$defs"]:
+        del cleaned["$defs"]["Context"]
+        # If $defs is now empty, remove it
+        if not cleaned["$defs"]:
+            del cleaned["$defs"]
+
+    return cleaned
+
+
 def get_tool_definitions() -> list[dict[str, Any]]:
     """Generate tool definitions from MCP tools for Claude API.
 
     Returns tool definitions in Claude's expected format, automatically
-    derived from the registered MCP tools.
+    derived from the registered MCP tools. Internal parameters like
+    'context' are filtered out.
 
     Returns:
         List of tool definitions with name, description, and input_schema.
@@ -36,10 +73,13 @@ def get_tool_definitions() -> list[dict[str, Any]]:
         if tool.name in BLACKLIST:
             continue
 
+        # Clean the schema to remove internal MCP parameters
+        cleaned_schema = _clean_schema(tool.parameters)
+
         definitions.append({
             "name": tool.name,
             "description": tool.description or f"Execute {tool.name}",
-            "input_schema": tool.parameters,
+            "input_schema": cleaned_schema,
         })
 
     return definitions
