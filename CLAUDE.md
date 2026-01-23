@@ -124,3 +124,12 @@ RESET_DB=true  # development only - drops all tables on startup
 - **Backend API**: http://localhost:8000/api/v1/*
 - **MCP Server**: http://localhost:8000/sse
 - **Legacy frontend**: http://localhost:8000/legacy
+
+## MCP Tools Usage
+
+Project MCP servers are configured in `.mcp.json`:
+- **postgres** - Database queries (read-only mode)
+- **context7** - Library documentation lookup
+- **sequential-thinking** - Structured step-by-step reasoning
+
+**Note:** Only use the `sequential-thinking` MCP when explicitly requested by the user (e.g., "use sequential thinking to work through this"). Do not use it automatically.
