@@ -11,3 +11,6 @@ backups/*.sql
 backups/*.sql.gz
 !backups/.gitkeep
 .DS_Store
+logs/
+tests/browser/output/
+tests/browser/node_modules/

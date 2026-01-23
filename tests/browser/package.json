@@ -1,0 +1,20 @@
+{
+  "name": "galipo-browser-tests",
+  "version": "1.0.0",
+  "description": "Browser automation tests for Galipo legal case management",
+  "main": "run.js",
+  "scripts": {
+    "test": "node run.js --help",
+    "chat": "node run.js chat",
+    "chat:visible": "HEADLESS=false node run.js chat",
+    "chat:slow": "HEADLESS=false SLOW_MO=50 node run.js chat",
+    "list": "node run.js --list"
+  },
+  "keywords": ["testing", "puppeteer", "browser-automation"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pdfkit": "^0.17.2",
+    "puppeteer": "^24.36.0"
+  }
+}
