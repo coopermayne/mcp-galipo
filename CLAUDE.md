@@ -28,7 +28,7 @@ python migrations/run_migration.py <migration_file.sql>
 ### Frontend (React/Vite)
 ```bash
 cd frontend
-npm run dev          # Dev server at http://localhost:3000
+npm run dev          # Dev server at http://localhost:5173
 npm run build        # Production build
 npm run lint         # ESLint
 npm run type-check   # TypeScript type checking
@@ -115,6 +115,23 @@ If you create a new top-level Python package (e.g., `utils/`, `lib/`, `workers/`
 
 Also ensure any new package has an `__init__.py` file.
 
+## Local Development
+
+**IMPORTANT:** When working locally, always use `/dev` to start or restart all development servers. This skill:
+- Checks PostgreSQL is running
+- Starts/restarts the backend (FastAPI on port 8000)
+- Starts/restarts the frontend (Vite on port 5173)
+- Verifies each service is healthy
+- Reports status summary
+
+Use `/dev` liberally:
+- At the start of any coding session
+- After pulling new changes
+- When services seem unresponsive
+- After changing environment variables or dependencies
+
+Logs are written to `/tmp/backend.log` and `/tmp/frontend.log` for debugging.
+
 ## Pre-Commit Verification
 
 **IMPORTANT:** After any changes that affect the database (schema, migrations, db/*.py functions), run `/verify` before pushing.
@@ -140,7 +157,7 @@ RESET_DB=true  # development only - drops all tables on startup
 
 ## Endpoints
 
-- **Frontend**: http://localhost:3000 (Vite dev server)
+- **Frontend**: http://localhost:5173 (Vite dev server)
 - **Backend API**: http://localhost:8000/api/v1/*
 - **MCP Server**: http://localhost:8000/sse
 - **Legacy frontend**: http://localhost:8000/legacy
