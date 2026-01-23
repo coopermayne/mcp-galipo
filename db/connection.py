@@ -593,7 +593,6 @@ def migrate_db():
                 case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
                 case_number VARCHAR(100) NOT NULL,
                 jurisdiction_id INTEGER REFERENCES jurisdictions(id),
-                judge_id INTEGER REFERENCES persons(id),
                 sort_order INTEGER DEFAULT 0,
                 is_primary BOOLEAN DEFAULT FALSE,
                 notes TEXT,

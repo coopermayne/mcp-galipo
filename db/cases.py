@@ -132,17 +132,53 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
 
         # Get proceedings
         cur.execute("""
-            SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id, p.judge_id,
+            SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id,
                    p.sort_order, p.is_primary, p.notes, p.created_at, p.updated_at,
-                   j.name as jurisdiction_name, j.local_rules_link,
-                   per.name as judge_name
+                   j.name as jurisdiction_name, j.local_rules_link
             FROM proceedings p
             LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
-            LEFT JOIN persons per ON p.judge_id = per.id
             WHERE p.case_id = %s
             ORDER BY p.sort_order, p.id
         """, (case_id,))
-        result["proceedings"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        proceedings = [dict(row) for row in cur.fetchall()]
+
+        # Fetch judges for all proceedings in one query
+        if proceedings:
+            proceeding_ids = [p["id"] for p in proceedings]
+            cur.execute("""
+                SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
+                       per.name as judge_name
+                FROM proceeding_judges pj
+                JOIN persons per ON pj.person_id = per.id
+                WHERE pj.proceeding_id = ANY(%s)
+                ORDER BY pj.sort_order, pj.id
+            """, (proceeding_ids,))
+
+            # Group judges by proceeding_id
+            judges_by_proceeding = {}
+            for row in cur.fetchall():
+                pid = row["proceeding_id"]
+                if pid not in judges_by_proceeding:
+                    judges_by_proceeding[pid] = []
+                judges_by_proceeding[pid].append({
+                    "person_id": row["person_id"],
+                    "name": row["judge_name"],
+                    "role": row["role"],
+                    "sort_order": row["sort_order"]
+                })
+
+            # Attach judges to proceedings
+            for p in proceedings:
+                p["judges"] = judges_by_proceeding.get(p["id"], [])
+                # For backwards compatibility, set judge_name from first judge
+                if p["judges"]:
+                    p["judge_name"] = p["judges"][0]["name"]
+                    p["judge_id"] = p["judges"][0]["person_id"]
+                else:
+                    p["judge_name"] = None
+                    p["judge_id"] = None
+
+        result["proceedings"] = serialize_rows(proceedings)
 
         return result
 
