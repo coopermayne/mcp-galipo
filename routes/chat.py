@@ -130,19 +130,29 @@ def register_chat_routes(mcp):
         # Get tool definitions
         tools = get_tool_definitions()
 
-        # Build system prompt with optional case context
-        system_prompt = None
-        if case_context:
-            system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
+        # Build system prompt with current date and optional case context
+        from datetime import datetime
+        current_date = datetime.now().strftime("%A, %B %d, %Y")
+        current_time = datetime.now().strftime("%I:%M %p")
 
-The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}.
+        system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
+
+Current date: {current_date}
+Current time: {current_time}
 
 You can help users:
 - Query case information, tasks, deadlines, events, contacts
 - Create and update notes, tasks, and events
 - Search for persons and contacts
 
+When creating or updating dates, always use the current year ({datetime.now().year}) unless the user explicitly specifies a different year.
+
 Always be helpful and concise. When you need more information to complete a task, ask clarifying questions."""
+
+        if case_context:
+            system_prompt += f"""
+
+The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}."""
 
         # Track all tool calls for the response
         all_tool_calls: list[dict[str, Any]] = []
