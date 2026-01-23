@@ -492,3 +492,41 @@ CHAT_MAX_TOKENS=4096
 - **Conversation depth**: Average messages per conversation
 - **Error rate**: % of failed requests
 - **Cost**: Average API cost per conversation
+
+---
+
+## Future Enhancements
+
+### Date Calculator MCP Tool
+
+Add a dedicated date calculation tool for reliable date operations. While Claude handles simple date math well, a tool ensures accuracy for:
+
+- **Business day calculations**: "Move deadline out 10 business days" (excludes weekends, optionally holidays)
+- **Relative date parsing**: "The Friday after next" → exact ISO date
+- **Court deadline calculations**: Jurisdiction-specific rules (e.g., CA Code of Civil Procedure deadlines)
+- **Date range queries**: "What's 45 days before the trial date?"
+
+**Proposed tool interface:**
+```python
+@mcp.tool()
+def date_calculator(
+    operation: str,  # "add", "subtract", "next_weekday", "business_days"
+    base_date: str | None = None,  # ISO format, defaults to today
+    days: int | None = None,
+    weeks: int | None = None,
+    months: int | None = None,
+    weekday: str | None = None,  # "monday", "friday", etc.
+    business_days_only: bool = False,
+    exclude_holidays: bool = False
+) -> dict:
+    """
+    Perform date calculations with guaranteed accuracy.
+
+    Examples:
+    - date_calculator(operation="add", days=43) → 43 days from today
+    - date_calculator(operation="next_weekday", weekday="friday", weeks=2) → Friday after next
+    - date_calculator(operation="add", business_days_only=True, days=10) → 10 business days
+    """
+```
+
+**Priority**: Medium - Current system prompt includes date/time, but tool adds precision for legal deadlines.
