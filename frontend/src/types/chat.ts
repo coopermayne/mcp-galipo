@@ -24,6 +24,8 @@ export interface ChatMessage {
   toolResults?: ToolResult[];
   isStreaming?: boolean;
   timestamp: Date;
+  /** Error state for failed messages - contains error message if send failed */
+  error?: string;
 }
 
 export interface ChatRequest {

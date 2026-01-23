@@ -17,6 +17,8 @@ Add a natural language chat interface that allows users to interact with the cas
 | Phase 4: Polish | 🟡 Partial | Integration done, polish items remaining |
 
 ### Recent Fixes
+- **Tool schema unification** (2026-01-23): Chat tools now dynamically generated from MCP tools, ensuring consistency. Removed hardcoded TOOL_DEFINITIONS dict.
+- **Internal context cleanup** (2026-01-23): Fixed tool schemas to remove internal `context` parameter that was leaking through to Claude.
 - **Conversation context loss** (2026-01-23): Fixed camelCase/snake_case mismatch in API requests. Frontend now converts `conversationId` → `conversation_id` before sending to backend.
 
 ---
