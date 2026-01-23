@@ -20,6 +20,7 @@
 - [ ] Date picker calendar can overflow viewport on small screens
 - [ ] Long case names overflow in sidebar
 - [ ] SSE connection can drop silently; needs reconnection handling
+- [ ] Activity display shows time even when it's default 12am; hide time unless custom
 
 ## Bugs
 - [ ] Optimistic updates can show stale data if server returns different values
