@@ -95,6 +95,26 @@ main.py                    # FastAPI + MCP server entry point
 - **case_persons** junction table links persons to cases with role (Client, Defendant, Judge, etc.) and side (Plaintiff, Defendant, Neutral)
 - **tasks.order_index** for drag-and-drop ordering; `db/tasks.py` has `reorder_task()` logic
 
+## Dockerfile - IMPORTANT
+
+**When adding new Python directories/modules**, you MUST update the `Dockerfile` to include them.
+
+The Dockerfile explicitly lists which directories to copy:
+```dockerfile
+COPY main.py database.py tools.py routes.py auth.py ./
+COPY db/ ./db/
+COPY tools/ ./tools/
+COPY routes/ ./routes/
+COPY services/ ./services/
+COPY static/ ./static/
+COPY templates/ ./templates/
+COPY migrations/ ./migrations/
+```
+
+If you create a new top-level Python package (e.g., `utils/`, `lib/`, `workers/`), **add a COPY line** for it or production will fail with `ModuleNotFoundError`.
+
+Also ensure any new package has an `__init__.py` file.
+
 ## Pre-Commit Verification
 
 **IMPORTANT:** After any changes that affect the database (schema, migrations, db/*.py functions), run `/verify` before pushing.
