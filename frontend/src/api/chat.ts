@@ -3,9 +3,15 @@ import { getAuthToken, clearAuthToken } from '../context/AuthContext';
 import type { ChatRequest, ChatResponse, StreamEvent } from '../types';
 
 export async function sendChatMessage(req: ChatRequest): Promise<ChatResponse> {
+  // Convert to snake_case for backend API
+  const body = {
+    message: req.message,
+    conversation_id: req.conversationId,
+    case_context: req.caseContext,
+  };
   return request('/chat', {
     method: 'POST',
-    body: JSON.stringify(req),
+    body: JSON.stringify(body),
   });
 }
 
@@ -17,13 +23,20 @@ export async function* streamChatMessage(req: ChatRequest): AsyncGenerator<Strea
   const url = `${API_BASE}/chat/stream`;
   const token = getAuthToken();
 
+  // Convert to snake_case for backend API
+  const body = {
+    message: req.message,
+    conversation_id: req.conversationId,
+    case_context: req.caseContext,
+  };
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(req),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
