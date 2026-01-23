@@ -2,11 +2,12 @@ import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, FileText, CheckSquare, Clock, StickyNote, Settings } from 'lucide-react';
-import { Header, PageContent } from '../../components/layout';
-import { EditableText, EditableSelect, StatusBadge, ConfirmModal } from '../../components/common';
+import { PageContent } from '../../components/layout';
+import { ConfirmModal } from '../../components/common';
 import { getCase, getConstants, updateCase, deleteCase } from '../../api';
 import type { Case } from '../../types';
 import { OverviewTab, TasksTab, EventsTab, NotesTab, SettingsTab } from './tabs';
+import { CaseHeader } from './components';
 
 type TabType = 'overview' | 'tasks' | 'events' | 'notes' | 'settings';
 
@@ -98,33 +99,11 @@ export function CaseDetail() {
 
   return (
     <>
-      <Header breadcrumbLabel={caseData.short_name || caseData.case_name} />
-
-      {/* Case Title Section */}
-      <div className="px-6 py-4">
-        <div className="flex-1 min-w-0">
-          <EditableText
-            value={caseData.case_name}
-            onSave={(value) => handleUpdateField('case_name', value)}
-            className="text-2xl font-semibold"
-          />
-          <EditableText
-            value={caseData.short_name || ''}
-            onSave={(value) => handleUpdateField('short_name', value || null)}
-            placeholder="Set short name..."
-            maxLength={10}
-            className="text-sm text-slate-500 dark:text-slate-400 mt-1"
-          />
-          <div className="flex items-center gap-3 mt-2">
-            <EditableSelect
-              value={caseData.status}
-              options={statusOptions}
-              onSave={(value) => handleUpdateField('status', value)}
-              renderValue={(value) => <StatusBadge status={value} />}
-            />
-          </div>
-        </div>
-      </div>
+      <CaseHeader
+        caseData={caseData}
+        statusOptions={statusOptions}
+        onUpdateField={handleUpdateField}
+      />
 
       {/* Tabs */}
       <div className="border-b border-slate-200 dark:border-slate-700 px-6">
