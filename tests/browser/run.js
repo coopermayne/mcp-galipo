@@ -23,11 +23,16 @@ const SCENARIOS_DIR = path.join(__dirname, 'scenarios');
 const SCENARIOS = {
   'chat': {
     file: 'chat-test.js',
-    description: 'Test the AI chat feature with various queries'
+    description: 'Test the AI chat feature with various queries',
+    run: 'runChatTest'
+  },
+  'streaming': {
+    file: 'streaming-test.js',
+    description: 'Test Phase 2 SSE streaming and tool visualization',
+    run: 'runStreamingTest'
   }
   // Add more scenarios here as needed:
   // 'cases': { file: 'cases-test.js', description: 'Test case management' },
-  // 'tasks': { file: 'tasks-test.js', description: 'Test task operations' },
 };
 
 function printHelp() {
@@ -91,8 +96,9 @@ async function runScenario(name) {
   console.log(`File: ${scenario.file}`);
   console.log('');
 
-  const { runChatTest } = require(scenarioPath);
-  return await runChatTest();
+  const scenarioModule = require(scenarioPath);
+  const runFn = scenarioModule[scenario.run] || scenarioModule.runChatTest;
+  return await runFn();
 }
 
 // Main
