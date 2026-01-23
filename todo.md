@@ -1,5 +1,15 @@
 # TODO
 
+## In Progress
+
+### In-App AI Chat
+Natural language chat interface for interacting with case data.
+- **Plan**: [docs/CHAT_FEATURE_PLAN.md](docs/CHAT_FEATURE_PLAN.md)
+- **Status**: Planning complete, ready for development
+- **Developers**: 3 (parallel workstreams)
+
+---
+
 ## Document Processing
 - [ ] Use PyMuPDF and PyMuPDF4LLM to work with documents (medical records, legal filings, etc.)
 
