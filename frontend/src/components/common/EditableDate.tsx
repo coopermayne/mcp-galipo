@@ -23,6 +23,7 @@ interface EditableDateProps extends DateFormatOptions {
 
 interface CustomInputProps {
   value?: string;
+  displayValue: string;
   onClick?: () => void;
   placeholder?: string;
   disabled?: boolean;
@@ -35,7 +36,7 @@ interface CustomInputProps {
 const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
   (
     {
-      value,
+      displayValue,
       onClick,
       placeholder,
       disabled,
@@ -78,7 +79,7 @@ const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
           `}
         >
           <Calendar className="w-3.5 h-3.5 shrink-0" />
-          <span>{value || placeholder}</span>
+          <span>{displayValue || placeholder}</span>
         </button>
         {clearable && hasDate && !disabled && (
           <button
@@ -183,6 +184,7 @@ export function EditableDate({
         dropdownMode="select"
         customInput={
           <CustomInput
+            displayValue={displayValue}
             placeholder={placeholder}
             disabled={disabled}
             status={status}

@@ -5,6 +5,7 @@ import { GripVertical, Trash2 } from 'lucide-react';
 import {
   EditableText,
   EditableSelect,
+  EditableDate,
   StatusBadge,
   UrgencyBadge,
 } from '../common';
@@ -107,6 +108,13 @@ export function SortableTaskRow({
           className="text-sm"
         />
       </div>
+
+      {/* Due Date */}
+      <EditableDate
+        value={task.due_date || null}
+        onSave={async (value) => { await onUpdate(task.id, 'due_date', value); }}
+        placeholder="Due"
+      />
 
       {/* Status */}
       <EditableSelect

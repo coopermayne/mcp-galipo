@@ -1,5 +1,6 @@
 import { Trash2, Activity, AlertTriangle } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, format } from 'date-fns';
+import { formatSmartDate } from '../../../utils/dateFormat';
 import type { Activity as ActivityType } from '../../../types';
 
 interface SettingsTabProps {
@@ -10,9 +11,12 @@ interface SettingsTabProps {
 }
 
 export function SettingsTab({ caseName, activities, onDelete }: SettingsTabProps) {
-  const formatDate = (dateStr: string) => {
+  const formatDateTime = (dateStr: string) => {
     const date = parseISO(dateStr);
-    return isValid(date) ? format(date, 'MMM d, yyyy h:mm a') : dateStr;
+    if (!isValid(date)) return dateStr;
+    const datePart = formatSmartDate(date, { numeric: false });
+    const timePart = format(date, 'h:mm a');
+    return `${datePart} ${timePart}`;
   };
 
   return (
@@ -46,7 +50,7 @@ export function SettingsTab({ caseName, activities, onDelete }: SettingsTabProps
                     </p>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {formatDate(activity.date)}
+                        {formatDateTime(activity.date)}
                       </span>
                       <span className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded">
                         {activity.type}
