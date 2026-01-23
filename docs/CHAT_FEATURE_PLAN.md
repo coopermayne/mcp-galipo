@@ -16,6 +16,9 @@ Add a natural language chat interface that allows users to interact with the cas
 | Phase 3: Context & Intelligence | 🟡 Partial | Basic context done, persistence not started |
 | Phase 4: Polish | 🟡 Partial | Integration done, polish items remaining |
 
+### Recent Fixes
+- **Conversation context loss** (2026-01-23): Fixed camelCase/snake_case mismatch in API requests. Frontend now converts `conversationId` → `conversation_id` before sending to backend.
+
 ---
 
 ## Architecture
@@ -208,7 +211,7 @@ routes/
 
 frontend/src/
 ├── api/
-│   └── chat.ts              ✅ API client for chat endpoint
+│   └── chat.ts              ✅ API client (snake_case conversion for backend)
 ├── types/
 │   └── chat.ts              ✅ TypeScript interfaces
 ├── hooks/
@@ -218,9 +221,9 @@ frontend/src/
         ├── index.ts         ✅ Barrel export
         ├── ChatButton.tsx   ✅ Floating action button
         ├── ChatPanel.tsx    ✅ Main chat drawer
-        ├── MessageList.tsx  ✅ Message display
+        ├── MessageList.tsx  ✅ Message display with tool indicators
         ├── ChatInput.tsx    ✅ Input field
-        └── ToolCallIndicator.tsx  ⬜ Tool execution display (not created)
+        └── ToolCallIndicator.tsx  ✅ Tool execution display
 
 tests/
 └── browser/                 ✅ Puppeteer test automation framework
