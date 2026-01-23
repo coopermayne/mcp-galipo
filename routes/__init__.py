@@ -14,7 +14,24 @@ Route modules:
 - persons: Person/contact management and case assignments
 - notes: Note CRUD operations
 - activities: Activity/time tracking (placeholder)
+- chat: AI chat with Claude integration
 """
+
+import logging
+from pathlib import Path
+
+# Set up debug logging to file
+_log_file = Path(__file__).parent.parent / "logs" / "routes_debug.log"
+_log_file.parent.mkdir(exist_ok=True)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(_log_file),
+        logging.StreamHandler()
+    ]
+)
+_logger = logging.getLogger("routes")
 
 from .auth import register_auth_routes
 from .stats import register_stats_routes
@@ -25,6 +42,7 @@ from .persons import register_person_routes
 from .notes import register_note_routes
 from .activities import register_activity_routes
 from .proceedings import register_proceeding_routes
+from .chat import register_chat_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -42,19 +60,35 @@ def register_routes(mcp):
     The SPA catch-all route in static.py must be registered last
     to avoid intercepting API requests.
     """
+    _logger.info("Starting route registration...")
+
     # Register API routes first (order among these doesn't matter much)
+    _logger.debug("Registering auth routes...")
     register_auth_routes(mcp)
+    _logger.debug("Registering stats routes...")
     register_stats_routes(mcp)
+    _logger.debug("Registering case routes...")
     register_case_routes(mcp)
+    _logger.debug("Registering task routes...")
     register_task_routes(mcp)
+    _logger.debug("Registering event routes...")
     register_event_routes(mcp)
+    _logger.debug("Registering person routes...")
     register_person_routes(mcp)
+    _logger.debug("Registering note routes...")
     register_note_routes(mcp)
+    _logger.debug("Registering activity routes...")
     register_activity_routes(mcp)
+    _logger.debug("Registering proceeding routes...")
     register_proceeding_routes(mcp)
+    _logger.debug("Registering chat routes...")
+    register_chat_routes(mcp)
+    _logger.debug("Chat routes registered successfully!")
 
     # Register static/SPA routes last (catch-all must be last)
+    _logger.debug("Registering static routes...")
     register_static_routes(mcp)
+    _logger.info("All routes registered successfully!")
 
 
 __all__ = [
@@ -71,5 +105,6 @@ __all__ = [
     "register_note_routes",
     "register_activity_routes",
     "register_proceeding_routes",
+    "register_chat_routes",
     "register_static_routes",
 ]

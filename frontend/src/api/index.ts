@@ -79,3 +79,6 @@ export {
   updateProceedingJudge,
   removeProceedingJudge,
 } from './proceedings';
+
+// Chat
+export { sendChatMessage } from './chat';

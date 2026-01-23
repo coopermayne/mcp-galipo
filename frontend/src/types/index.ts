@@ -80,3 +80,15 @@ export type {
   AddProceedingJudgeInput,
   UpdateProceedingJudgeInput,
 } from './proceeding';
+
+// Chat types
+export type {
+  ToolCall,
+  ToolResult,
+  ChatMessage,
+  ChatRequest,
+  ChatResponse,
+  StreamEventType,
+  StreamEvent,
+  Conversation,
+} from './chat';

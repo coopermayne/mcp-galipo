@@ -165,6 +165,7 @@ The team uses [Claude Code](https://claude.ai/code) for development. Project MCP
 | `postgres` | Query the database using natural language (read-only) |
 | `context7` | Fetch up-to-date library documentation |
 | `sequential-thinking` | Structured reasoning for complex problems (use on request) |
+| `puppeteer` | Browser automation for UI testing (development only) |
 
 ### Setup
 
@@ -183,6 +184,17 @@ The team uses [Claude Code](https://claude.ai/code) for development. Project MCP
 3. **Restart Claude Code** to pick up the MCP servers from `.mcp.json`
 
 The MCP servers will then be available in your Claude Code sessions for this project.
+
+### Puppeteer MCP (Development Only)
+
+The `puppeteer` MCP server enables Claude Code to perform browser automation for testing:
+- Navigate to URLs
+- Click buttons and links
+- Type into input fields
+- Take screenshots
+- Wait for elements
+
+This is useful for end-to-end testing of the web UI during development. No additional setup required - it runs via npx.
 
 ## Deployment
 
