@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, MessageCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { MessageList } from './MessageList';
-import { ChatInput } from './ChatInput';
+import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { streamChatMessage } from '../../api/chat';
 import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult } from '../../types';
 
@@ -18,6 +18,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([]);
   const [failedMessageContent, setFailedMessageContent] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<ChatInputHandle>(null);
 
   // Handle escape key to close
   useEffect(() => {
@@ -29,6 +30,17 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
+
+  // Focus input when panel opens
+  useEffect(() => {
+    if (isOpen) {
+      // Small delay to allow the panel animation to start
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -358,7 +370,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         />
 
         {/* Input */}
-        <ChatInput onSend={handleSend} isLoading={isLoading} />
+        <ChatInput ref={inputRef} onSend={handleSend} isLoading={isLoading} />
       </div>
     </>
   );
