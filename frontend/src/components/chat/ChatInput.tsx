@@ -59,7 +59,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           disabled={isLoading}
           rows={1}
           className="
-            flex-1 resize-none
+            flex-1 resize-none overflow-hidden
             px-4 py-3 md:py-2.5 rounded-xl
             bg-slate-100 dark:bg-slate-700
             text-slate-900 dark:text-slate-100
