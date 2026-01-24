@@ -5,8 +5,13 @@
 ### In-App AI Chat
 Natural language chat interface for interacting with case data.
 - **Plan**: [docs/CHAT_FEATURE_PLAN.md](docs/CHAT_FEATURE_PLAN.md)
+- **Status**: Complete (all 4 phases)
+
+### Smart Case Lookup
+Flexible AI-powered case finding - handles typos, person names, vague descriptions ("my LAPD case").
+- **Plan**: [docs/SMART_CASE_LOOKUP_PLAN.md](docs/SMART_CASE_LOOKUP_PLAN.md)
 - **Status**: Planning complete, ready for development
-- **Developers**: 3 (parallel workstreams)
+- **Approach**: Tiered loading (compact index → full details) to balance AI flexibility with token efficiency
 
 ---
 
@@ -40,6 +45,7 @@ Natural language chat interface for interacting with case data.
 
 ## Bugs
 - [ ] Optimistic updates can show stale data if server returns different values
+- [ ] AI chatbot hangs on simple requests (add task, update items) - need to debug Anthropic API call latency
 
 ## Cleanup (Proceedings Migration)
 - [ ] Remove old case_numbers column after verification
