@@ -166,6 +166,8 @@ RESET_DB=true  # development only - drops all tables on startup
 
 **Never push automatically.** The user will handle `git push` themselves. Only commit when asked, and stop there.
 
+**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity and handle pushes manually. This works well with Claude Code since you can watch commits come in and review before pushing.
+
 ## MCP Tools Usage
 
 Project MCP servers are configured in `.mcp.json`:
