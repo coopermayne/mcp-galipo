@@ -30,6 +30,10 @@ def seed_dev_data():
 
     print("Seeding development data...")
 
+    # First seed the lookup tables (jurisdictions, person_types, expertise_types)
+    print("  Seeding lookup tables...")
+    db.seed_db()
+
     # Get jurisdiction IDs
     jurisdictions = db.get_jurisdictions()
     jurisdiction_map = {j["name"]: j["id"] for j in jurisdictions}
@@ -380,15 +384,63 @@ def seed_dev_data():
             if expert_id:
                 db.assign_person_to_case(case_id, expert_id, "Plaintiff Expert", side="plaintiff")
 
-    # ========== EVENTS ==========
-    print("  Creating events...")
-
-    # Helper to find case
+    # Helper to find case by name
     def find_case(name):
         for c in created_cases:
             if name in c["name"]:
                 return c["id"]
         return None
+
+    # ========== PROCEEDINGS ==========
+    print("  Creating proceedings...")
+
+    # Map case numbers to their jurisdictions and judges
+    proceedings_data = [
+        # Martinez - Federal C.D. Cal.
+        {"case": "Martinez", "case_number": "2:24-cv-01234-PAC", "jurisdiction": "C.D. Cal.",
+         "judge": "Hon. Patricia Collins", "is_primary": True},
+        # Wilson - LA Superior
+        {"case": "Wilson", "case_number": "23STCV45678", "jurisdiction": "Los Angeles Superior",
+         "judge": "Hon. Robert Takahashi", "is_primary": True},
+        # Nguyen - LA Superior
+        {"case": "Nguyen", "case_number": "22STCV34567", "jurisdiction": "Los Angeles Superior",
+         "judge": "Hon. William Foster", "is_primary": True},
+        # Thompson - Federal C.D. Cal.
+        {"case": "Thompson", "case_number": "2:24-cv-05678-MLS", "jurisdiction": "C.D. Cal.",
+         "judge": "Hon. Maria Santos", "is_primary": True},
+        # Chen - LA Superior
+        {"case": "Chen", "case_number": "23STCV12345", "jurisdiction": "Los Angeles Superior",
+         "judge": "Hon. Robert Takahashi", "is_primary": True},
+        # O'Brien - LA Superior (closed case)
+        {"case": "O'Brien", "case_number": "21STCV09876", "jurisdiction": "Los Angeles Superior",
+         "judge": "Hon. William Foster", "is_primary": True},
+    ]
+
+    created_proceedings = []
+    for p in proceedings_data:
+        case_id = find_case(p["case"])
+        jurisdiction_id = jurisdiction_map.get(p["jurisdiction"])
+        judge_id = find_person(p["judge"]) if p.get("judge") else None
+
+        if case_id and jurisdiction_id:
+            proceeding = db.add_proceeding(
+                case_id=case_id,
+                case_number=p["case_number"],
+                jurisdiction_id=jurisdiction_id,
+                is_primary=p.get("is_primary", False)
+            )
+            created_proceedings.append(proceeding)
+
+            # Add judge to proceeding if specified
+            if judge_id and proceeding:
+                db.add_judge_to_proceeding(
+                    proceeding_id=proceeding["id"],
+                    person_id=judge_id,
+                    role="Judge"
+                )
+
+    # ========== EVENTS ==========
+    print("  Creating events...")
 
     events_data = [
         # Martinez case events
@@ -578,8 +630,12 @@ def seed_dev_data():
             db.add_note(case_id, n["content"])
 
     print("Development data seeded successfully!")
+    print(f"  - {len(jurisdictions)} jurisdictions seeded")
+    print(f"  - {len(db.get_person_types())} person types seeded")
+    print(f"  - {len(db.get_expertise_types())} expertise types seeded")
     print(f"  - {len(persons)} persons created")
     print(f"  - {len(created_cases)} cases created")
+    print(f"  - {len(created_proceedings)} proceedings created")
     print(f"  - {len(events_data)} events created")
     print(f"  - {len(tasks_data)} tasks created")
     print(f"  - {len(activities_data)} activities created")

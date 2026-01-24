@@ -76,6 +76,8 @@ def drop_all_tables():
             DROP TABLE IF EXISTS events CASCADE;
             DROP TABLE IF EXISTS deadlines CASCADE;
             DROP TABLE IF EXISTS activities CASCADE;
+            DROP TABLE IF EXISTS proceeding_judges CASCADE;
+            DROP TABLE IF EXISTS proceedings CASCADE;
             DROP TABLE IF EXISTS case_persons CASCADE;
             DROP TABLE IF EXISTS expertise_types CASCADE;
             DROP TABLE IF EXISTS person_types CASCADE;
@@ -123,14 +125,22 @@ def migrate_db():
         # 2. Seed jurisdictions from old court values if empty
         cur.execute("SELECT COUNT(*) FROM jurisdictions")
         if cur.fetchone()[0] == 0:
-            # Get unique court values from cases and create jurisdictions
-            cur.execute("SELECT DISTINCT court FROM cases WHERE court IS NOT NULL AND court != ''")
-            courts = [row[0] for row in cur.fetchall()]
-            for court_name in courts:
-                cur.execute(
-                    "INSERT INTO jurisdictions (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
-                    (court_name,)
+            # Check if old 'court' column exists before trying to migrate from it
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'cases' AND column_name = 'court'
                 )
+            """)
+            if cur.fetchone()[0]:
+                # Get unique court values from cases and create jurisdictions
+                cur.execute("SELECT DISTINCT court FROM cases WHERE court IS NOT NULL AND court != ''")
+                courts = [row[0] for row in cur.fetchall()]
+                for court_name in courts:
+                    cur.execute(
+                        "INSERT INTO jurisdictions (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
+                        (court_name,)
+                    )
             # Also add default jurisdictions
             for j in DEFAULT_JURISDICTIONS:
                 cur.execute(

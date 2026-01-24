@@ -39,8 +39,24 @@ def add_proceeding(case_id: int, case_number: str, jurisdiction_id: int = None,
         """, (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes))
         row = cur.fetchone()
 
-        # Fetch with joined data
-        return get_proceeding_by_id(row["id"])
+        # Get jurisdiction name if available
+        jurisdiction_name = None
+        local_rules_link = None
+        if jurisdiction_id:
+            cur.execute("SELECT name, local_rules_link FROM jurisdictions WHERE id = %s", (jurisdiction_id,))
+            jrow = cur.fetchone()
+            if jrow:
+                jurisdiction_name = jrow["name"]
+                local_rules_link = jrow["local_rules_link"]
+
+        proceeding = dict(row)
+        proceeding["jurisdiction_name"] = jurisdiction_name
+        proceeding["local_rules_link"] = local_rules_link
+        proceeding["judges"] = []
+        proceeding["judge_name"] = None
+        proceeding["judge_id"] = None
+
+        return serialize_row(proceeding)
 
 
 def get_proceedings(case_id: int) -> List[dict]:
