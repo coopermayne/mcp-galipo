@@ -293,7 +293,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         className={`
           fixed z-50
           inset-0 md:inset-auto md:top-0 md:right-0 md:bottom-0
-          w-full md:w-[420px] lg:w-[480px]
+          w-full md:w-[600px] lg:w-[700px] xl:w-[800px]
           bg-white dark:bg-slate-800
           shadow-2xl
           flex flex-col
