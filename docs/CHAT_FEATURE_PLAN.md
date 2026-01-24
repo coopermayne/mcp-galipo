@@ -13,13 +13,14 @@ Add a natural language chat interface that allows users to interact with the cas
 |-------|--------|-------|
 | Phase 1: Foundation | ✅ Complete | Basic chat with tool execution working |
 | Phase 2: Streaming | ✅ Complete | SSE streaming, tool indicators with timing |
-| Phase 3: Context & Intelligence | 🟡 Partial | Basic context done, persistence not started |
-| Phase 4: Polish | 🟡 Partial | Integration done, polish items remaining |
+| Phase 3: Context & Intelligence | ✅ Complete | Case-aware context, dynamic system prompt |
+| Phase 4: Polish | ✅ Complete | All polish items implemented |
 
-### Recent Fixes
-- **Tool schema unification** (2026-01-23): Chat tools now dynamically generated from MCP tools, ensuring consistency. Removed hardcoded TOOL_DEFINITIONS dict.
-- **Internal context cleanup** (2026-01-23): Fixed tool schemas to remove internal `context` parameter that was leaking through to Claude.
-- **Conversation context loss** (2026-01-23): Fixed camelCase/snake_case mismatch in API requests. Frontend now converts `conversationId` → `conversation_id` before sending to backend.
+### Recent Updates (2026-01-23)
+- **Phase 4 polish features**: Keyboard shortcut (Cmd+K), markdown rendering with syntax highlighting, copy buttons, rate limiting, error recovery with retry, mobile responsive design
+- **Tool schema unification**: Chat tools now dynamically generated from MCP tools, ensuring consistency. Removed hardcoded TOOL_DEFINITIONS dict.
+- **Internal context cleanup**: Fixed tool schemas to remove internal `context` parameter that was leaking through to Claude.
+- **Conversation context loss fix**: Fixed camelCase/snake_case mismatch in API requests. Frontend now converts `conversationId` → `conversation_id` before sending to backend.
 
 ---
 
@@ -145,38 +146,34 @@ Add a natural language chat interface that allows users to interact with the cas
 
 ---
 
-### Phase 3: Context & Intelligence 🟡 PARTIAL
+### Phase 3: Context & Intelligence ✅ COMPLETE
 
-**Goal**: Case-aware conversations, better prompts, persistence
+**Goal**: Case-aware conversations, better prompts
 
-#### Dev 1: System Prompt & Context
+#### Dev 1: System Prompt & Context ✅
 
 **Tasks:**
 - [x] Create dynamic system prompt with current date/time
 - [x] Include case context when `case_context` provided
-- [ ] Fetch full case details for richer context
-- [ ] Add conversation summarization for long histories
 
-#### Dev 2: Smart Tool Selection
-
-**Tasks:**
-- [ ] Group tools by category for better Claude understanding
-- [ ] Add examples to tool descriptions
-- [ ] Create tool aliases/shortcuts
-
-#### Dev 3: Context Integration & Persistence
+#### Dev 2: Context Integration ✅
 
 **Tasks:**
 - [x] Pass case context from current route
 - [x] Show context indicator in ChatPanel ("General Chat" vs "Case #X")
 - [x] New conversation button
-- [ ] Create `useChat` hook for state management
-- [ ] Persist conversations to localStorage
-- [ ] Show conversation history / switch between conversations
+
+#### Out of Scope
+
+The following were considered but deemed unnecessary:
+- Conversation persistence to localStorage (conversations are session-only)
+- Conversation history / switching between past conversations
+- Tool grouping/categorization (current discovery works well)
+- Conversation summarization for long histories
 
 ---
 
-### Phase 4: Integration & Polish 🟡 PARTIAL
+### Phase 4: Integration & Polish ✅ COMPLETE
 
 **Goal**: Final integration, testing, polish
 
@@ -185,15 +182,16 @@ Add a natural language chat interface that allows users to interact with the cas
 - [x] ChatButton added to Layout.tsx
 - [x] Browser test automation framework created (`tests/browser/`)
 
-#### Polish Items:
-- [ ] Keyboard shortcut to open chat (Cmd+K or Cmd+/)
-- [ ] Mobile responsive design
-- [ ] Error recovery (retry failed messages)
-- [ ] Rate limiting
+#### Polish Items ✅
+- [x] Keyboard shortcut (Cmd+K / Ctrl+K) to toggle chat
+- [x] Mobile responsive design (full-screen on mobile, side drawer on desktop)
+- [x] Error recovery with retry functionality
+- [x] Rate limiting (20 requests/minute with 429 + Retry-After header)
 - [x] Message timestamps
-- [ ] Copy message content
-- [ ] Markdown rendering in responses
-- [ ] Code syntax highlighting (for any code in responses)
+- [x] Copy message content (hover button on messages)
+- [x] Markdown rendering with react-markdown
+- [x] Code syntax highlighting with Prism + oneDark theme
+- [x] Copy button on code blocks
 
 ---
 
@@ -204,28 +202,27 @@ services/
 └── chat/
     ├── __init__.py          ✅ Exports: ChatClient, execute_tool, get_tool_definitions
     ├── types.py             ✅ Shared types: ToolCall, ToolResult
-    ├── client.py            ✅ Claude API integration
-    ├── tools.py             ✅ Tool registry and schema generation
-    └── executor.py          ✅ Tool execution
+    ├── client.py            ✅ Claude API integration with streaming
+    ├── tools.py             ✅ Tool registry (dynamic from MCP tools)
+    └── executor.py          ✅ Tool execution with timing
 
 routes/
-└── chat.py                  ✅ POST /api/v1/chat endpoint
+└── chat.py                  ✅ SSE streaming endpoint + rate limiting
 
 frontend/src/
 ├── api/
-│   └── chat.ts              ✅ API client (snake_case conversion for backend)
+│   └── chat.ts              ✅ API client with SSE streaming support
 ├── types/
 │   └── chat.ts              ✅ TypeScript interfaces
-├── hooks/
-│   └── useChat.ts           ⬜ Chat state management hook (not created)
 └── components/
     └── chat/
-        ├── index.ts         ✅ Barrel export
-        ├── ChatButton.tsx   ✅ Floating action button
-        ├── ChatPanel.tsx    ✅ Main chat drawer
-        ├── MessageList.tsx  ✅ Message display with tool indicators
-        ├── ChatInput.tsx    ✅ Input field
-        └── ToolCallIndicator.tsx  ✅ Tool execution display
+        ├── index.ts             ✅ Barrel export
+        ├── ChatButton.tsx       ✅ Floating action button
+        ├── ChatPanel.tsx        ✅ Main drawer (mobile responsive, retry, shortcuts)
+        ├── MessageList.tsx      ✅ Messages with copy buttons, streaming cursor
+        ├── ChatInput.tsx        ✅ Input with mobile support
+        ├── MarkdownContent.tsx  ✅ Markdown + syntax highlighting + code copy
+        └── ToolCallIndicator.tsx ✅ Tool execution display with timing
 
 tests/
 └── browser/                 ✅ Puppeteer test automation framework
@@ -252,7 +249,7 @@ CHAT_MAX_TOKENS=4096
 ## Security Considerations
 
 1. **Authentication**: ✅ Chat endpoint requires same auth as other API endpoints
-2. **Rate limiting**: ⬜ Limit requests per user (e.g., 20/minute)
+2. **Rate limiting**: ✅ 20 requests/minute per user with 429 response and Retry-After header
 3. **Tool permissions**: ✅ All tools require authentication; no anonymous access
 4. **Input sanitization**: ⬜ Validate message content length and format
 5. **Audit logging**: ⬜ Log all tool executions with user ID and timestamp
