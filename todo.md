@@ -45,7 +45,7 @@ Flexible AI-powered case finding - handles typos, person names, vague descriptio
 
 ## Bugs
 - [ ] Optimistic updates can show stale data if server returns different values
-- [ ] AI chatbot hangs on simple requests (add task, update items) - need to debug Anthropic API call latency
+- [ ] AI chatbot slow after MCP tools merge (commit a1e7b67) - now sends 49 tools vs 18 before; fix by curating a whitelist of chat-relevant tools in services/chat/tools.py
 
 ## Cleanup (Proceedings Migration)
 - [ ] Remove old case_numbers column after verification
