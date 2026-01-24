@@ -162,6 +162,10 @@ RESET_DB=true  # development only - drops all tables on startup
 - **MCP Server**: http://localhost:8000/sse
 - **Legacy frontend**: http://localhost:8000/legacy
 
+## Git Practices
+
+**Never push automatically.** The user will handle `git push` themselves. Only commit when asked, and stop there.
+
 ## MCP Tools Usage
 
 Project MCP servers are configured in `.mcp.json`:
