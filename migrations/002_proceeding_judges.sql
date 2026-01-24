@@ -18,17 +18,26 @@ CREATE TABLE IF NOT EXISTS proceeding_judges (
 CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_judges(proceeding_id);
 CREATE INDEX IF NOT EXISTS idx_proceeding_judges_person_id ON proceeding_judges(person_id);
 
--- Step 3: Migrate existing judge_id data to the new table
+-- Step 3: Migrate existing judge_id data to the new table (if column exists)
 -- Only insert if judge_id is not null and the proceeding_judges record doesn't already exist
-INSERT INTO proceeding_judges (proceeding_id, person_id, role, sort_order)
-SELECT id, judge_id, 'Judge', 0
-FROM proceedings
-WHERE judge_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM proceeding_judges pj
-    WHERE pj.proceeding_id = proceedings.id
-      AND pj.person_id = proceedings.judge_id
-  );
+DO $$
+BEGIN
+    -- Only run migration if judge_id column exists
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'proceedings' AND column_name = 'judge_id'
+    ) THEN
+        INSERT INTO proceeding_judges (proceeding_id, person_id, role, sort_order)
+        SELECT id, judge_id, 'Judge', 0
+        FROM proceedings
+        WHERE judge_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM proceeding_judges pj
+            WHERE pj.proceeding_id = proceedings.id
+              AND pj.person_id = proceedings.judge_id
+          );
+    END IF;
+END $$;
 
 -- Step 4: Remove the old judge_id column from proceedings
 -- This is safe because we've already migrated the data above
