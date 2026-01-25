@@ -176,3 +176,56 @@ Project MCP servers are configured in `.mcp.json`:
 - **sequential-thinking** - Structured step-by-step reasoning
 
 **Note:** Only use the `sequential-thinking` MCP when explicitly requested by the user (e.g., "use sequential thinking to work through this"). Do not use it automatically.
+
+---
+
+## Future Plans
+
+### Person Schema Simplification
+
+> **TODO**: Implement this simplified person/case_persons model
+
+**Overview:** Role drives the UI, not a separate type field. Type is implicit from role + which attributes exist.
+
+**Design Principles:**
+1. **No explicit person_type field** — type is implicit from role + attributes
+2. **Role determines form fields** — "Expert Witness" → show expert fields
+3. **Person-level = inherent/stable** — things that don't change per case
+4. **Case-level = engagement-specific** — negotiated terms for THIS case
+5. **Rates: defaults + overrides** — standard rates on person, override per case
+6. **Custom fields allowed** — at either level
+
+**Person-Level Attributes (`persons.attributes`):**
+
+| Role Context | Attributes |
+|--------------|------------|
+| Attorneys | `bar_number` |
+| Judges | `courtroom`, `department`, `initials` |
+| Experts | `specialties[]`, `hourly_rate`, `deposition_rate`, `trial_rate`, `retainer_fee` |
+| Mediators | `style`, `half_day_rate`, `full_day_rate` |
+| Interpreters | `languages[]`, `hourly_rate` |
+| Clients | `date_of_birth`, `preferred_language`, `emergency_contact` |
+
+**Case-Level Attributes (`case_persons.case_attributes`):**
+
+| Context | Attributes |
+|---------|------------|
+| Rate overrides | Any rate field (wins over person-level) |
+| Experts | `specialty` (which one for this case), `testimony_topic` |
+| Lien holders | `lien_amount`, `lien_type` |
+| Witnesses | `testimony_topic` |
+| Any | `notes` (case-specific) |
+
+**Resolution Logic:**
+```typescript
+const getEffectiveValue = (person, caseAssignment, field) => {
+  return caseAssignment.case_attributes?.[field]
+    ?? person.attributes?.[field];
+};
+```
+
+**Migration:**
+- Drop person_types table (type is implicit)
+- Drop/ignore persons.person_type column
+- Keep expertise_types for autocomplete only
+- Frontend: role-based form fields, not type-based
