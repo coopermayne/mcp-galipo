@@ -119,6 +119,9 @@ from services.chat import (
     StreamEventType,
     get_tool_definitions,
     execute_tool,
+    log_request,
+    log_response,
+    log_tool_execution,
 )
 
 
@@ -461,6 +464,15 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                     iteration_text = ""
 
                     try:
+                        # Log the request before sending
+                        log_request(
+                            conversation_id=conversation_id,
+                            system_prompt=system_prompt,
+                            messages=messages,
+                            tools=tools,
+                            case_context=case_context,
+                        )
+
                         # Stream the response from Claude
                         for event in client.stream_message(
                             messages=messages,
@@ -528,6 +540,17 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
                                         tool_results.append(result)
 
+                                        # Log tool execution
+                                        log_tool_execution(
+                                            conversation_id=conversation_id,
+                                            tool_name=tc.name,
+                                            tool_id=tc.id,
+                                            arguments=tc.arguments,
+                                            result=result.content,
+                                            is_error=result.is_error,
+                                            duration_ms=duration_ms,
+                                        )
+
                                         # Send tool_result event
                                         yield f"data: {json.dumps({'type': 'tool_result', 'id': tc.id, 'name': tc.name, 'result': result.content, 'is_error': result.is_error, 'duration_ms': duration_ms})}\n\n"
 
@@ -542,6 +565,14 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                                 else:
                                     # No more tool calls - we're done
                                     accumulated_text += iteration_text
+
+                                    # Log the final response
+                                    log_response(
+                                        conversation_id=conversation_id,
+                                        content=accumulated_text,
+                                        tool_calls=all_tool_calls if all_tool_calls else None,
+                                        stop_reason=stop_reason,
+                                    )
 
                                     # Add assistant response to history
                                     if iteration_text:
