@@ -55,6 +55,29 @@ Fuzzy matching for all entity associations - persons, jurisdictions, etc.
   - Audit logging for any calendar operations
 
 ## Features
+
+### Omni Bar / Global Search (GH #4)
+- [ ] Implement Shift+Cmd+K shortcut for quick switching between cases, tasks, people
+
+### Undo Functionality (GH #3)
+- [ ] Cmd+Z support for reversing frontend edits
+- [ ] Roll back AI-initiated changes
+
+### AI Chat Improvements (GH #5)
+- [ ] After MCP tool execution, show specific message of exactly what was done
+- [ ] Include what fields were filled out
+- [ ] Provide clickable link to open the created/modified item
+- [ ] Example: "Created case 'Smith v. Jones' with status 'Discovery', injury date '2025-01-15'. [Open case →]"
+
+### Activity Log Enhancements (GH #6, #7)
+**Goal**: Single scrollable view showing full history of what's happened with a case. Encourage users to document during client calls without worrying about polish.
+- [ ] **Note cleanup button** - AI-powered cleanup for typos/grammar (free-flowing entry → polished)
+- [ ] **Auto-generated summaries** - Descriptive titles for lengthy entries to improve scannability
+- [ ] **Task integration** - Show completed tasks in activity log (e.g., "complaint filed, task marked done")
+- [ ] **Status change tracking** - Display task status transitions (e.g., paralegal starts working on task)
+- [ ] **Clarify activity log vs notes** - Prevent users dumping conversation transcripts into notes; notes = case-specific info that doesn't fit elsewhere on the case page but is important to remember; activity log = chronological work history
+
+### Other Features
 - [ ] Person type filtering in autocomplete search
 - [ ] Bulk person assignment
 - [ ] Person merge functionality
@@ -77,6 +100,19 @@ Fuzzy matching for all entity associations - persons, jurisdictions, etc.
 - [ ] Remove "Court proceedings" label/header (info is self-evident)
 
 ## Technical Debt
+
+### MCP Tool Consolidation (GH #1)
+- [ ] Reduce to a reasonable number of tools by consolidating into general CRUD tools
+- [ ] Example: `manage_task(action="create|update|delete", ...)` instead of separate `create_task`, `update_task`, `delete_task`
+- [ ] Same pattern for cases, persons, events, etc.
+- [ ] Goal: Less context bloat on every AI interaction
+
+### Chat Performance (GH #2)
+- [ ] Add logging for AI chat context (full prompts sent to Claude)
+- [ ] Feed logs into Claude Code to identify refactoring opportunities
+- [ ] Goal: Shorten prompts, make app faster
+
+### Other
 - [ ] Comprehensive error handling on API endpoints
 - [ ] Input validation (Pydantic models)
 - [ ] Unit tests for tool functions
