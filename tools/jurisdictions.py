@@ -7,7 +7,7 @@ Tools for managing jurisdictions/courts in the legal case management system.
 from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
-from tools.utils import not_found_error
+from tools.utils import validation_error, not_found_error, check_empty_required_field
 
 
 def register_jurisdiction_tools(mcp):
@@ -15,11 +15,7 @@ def register_jurisdiction_tools(mcp):
 
     @mcp.tool()
     def list_jurisdictions(context: Context) -> dict:
-        """
-        List all jurisdictions (courts).
-
-        Returns list of jurisdictions with id, name, local_rules_link, and notes.
-        """
+        """List all jurisdictions (courts)."""
         context.info("Fetching all jurisdictions")
         jurisdictions = db.get_jurisdictions()
         context.info(f"Found {len(jurisdictions)} jurisdictions")
@@ -33,17 +29,11 @@ def register_jurisdiction_tools(mcp):
         local_rules_link: Optional[str] = None,
         notes: Optional[str] = None
     ) -> dict:
-        """
-        Create or update a jurisdiction (court).
+        """Create or update a jurisdiction (court)."""
+        error = check_empty_required_field(name, "name")
+        if error:
+            return error
 
-        Args:
-            name: Name of the jurisdiction (e.g., "C.D. Cal.", "Los Angeles Superior")
-            jurisdiction_id: ID if updating existing jurisdiction (omit to create new)
-            local_rules_link: URL to local rules
-            notes: Additional notes
-
-        Returns the created/updated jurisdiction.
-        """
         if jurisdiction_id:
             context.info(f"Updating jurisdiction {jurisdiction_id}: {name}")
             result = db.update_jurisdiction(jurisdiction_id, name, local_rules_link, notes)
@@ -59,19 +49,12 @@ def register_jurisdiction_tools(mcp):
 
     @mcp.tool()
     def delete_jurisdiction(context: Context, jurisdiction_id: int) -> dict:
-        """
-        Delete a jurisdiction (court).
-
-        Note: This will fail if any cases are still assigned to this jurisdiction.
-        Reassign those cases to a different jurisdiction first.
-
-        Args:
-            jurisdiction_id: ID of the jurisdiction to delete
-
-        Returns confirmation.
-        """
+        """Delete a jurisdiction (court)."""
         context.info(f"Deleting jurisdiction {jurisdiction_id}")
         if db.delete_jurisdiction(jurisdiction_id):
             context.info(f"Jurisdiction {jurisdiction_id} deleted")
             return {"success": True, "message": "Jurisdiction deleted"}
-        return not_found_error("Jurisdiction")
+        return not_found_error(
+            "Jurisdiction",
+            hint="The jurisdiction may not exist, or it may still have proceedings assigned to it. Reassign those proceedings first."
+        )

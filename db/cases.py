@@ -326,6 +326,29 @@ def search_cases(query: str = None, case_number: str = None, person_name: str = 
         return results
 
 
+def get_case_summary(case_id: int) -> Optional[dict]:
+    """Get lightweight case summary with counts instead of full related data."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
+                   c.case_summary, c.date_of_injury, c.result,
+                   c.created_at, c.updated_at,
+                   (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id) as person_count,
+                   (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id) as task_count,
+                   (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
+                   (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id) as event_count,
+                   (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id AND e.date >= CURRENT_DATE) as upcoming_event_count,
+                   (SELECT COUNT(*) FROM notes n WHERE n.case_id = c.id) as note_count,
+                   (SELECT COUNT(*) FROM proceedings p WHERE p.case_id = c.id) as proceeding_count
+            FROM cases c
+            WHERE c.id = %s
+        """, (case_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return serialize_row(dict(row))
+
+
 def get_dashboard_stats() -> dict:
     """Get dashboard statistics."""
     with get_cursor() as cur:

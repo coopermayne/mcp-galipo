@@ -8,7 +8,10 @@ from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
 from database import ValidationError
-from tools.utils import validation_error, not_found_error, CaseStatus
+from tools.utils import (
+    validation_error, not_found_error, CaseStatus,
+    invalid_status_error, invalid_date_format_error
+)
 
 
 def register_case_tools(mcp):
@@ -16,14 +19,7 @@ def register_case_tools(mcp):
 
     @mcp.tool()
     def list_cases(context: Context, status_filter: Optional[CaseStatus] = None) -> dict:
-        """
-        List all cases with optional status filter.
-
-        Args:
-            status_filter: Optional status to filter by
-
-        Returns list of cases with id, name, short_name, status.
-        """
+        """List all cases with optional status filter."""
         context.info(f"Listing cases{' with status=' + status_filter if status_filter else ''}")
         result = db.get_all_cases(status_filter)
         context.info(f"Found {result['total']} cases")
@@ -31,16 +27,7 @@ def register_case_tools(mcp):
 
     @mcp.tool()
     def get_case(context: Context, case_id: Optional[int] = None, case_name: Optional[str] = None) -> dict:
-        """
-        Get full details for a specific case by ID or name.
-
-        Args:
-            case_id: The numeric ID of the case
-            case_name: The name of the case (e.g., "Martinez v. City of Los Angeles")
-
-        Returns complete case information including persons (clients, defendants, contacts),
-        case numbers, activities, events, tasks, and notes.
-        """
+        """Get full details for a specific case by ID or name."""
         if case_id:
             context.info(f"Fetching case by ID: {case_id}")
             case = db.get_case_by_id(case_id)
@@ -48,17 +35,35 @@ def register_case_tools(mcp):
             context.info(f"Fetching case by name: {case_name}")
             case = db.get_case_by_name(case_name)
         else:
-            return validation_error("Provide either case_id or case_name")
+            return validation_error(
+                "Must provide either case_id or case_name",
+                hint="Use case_id for exact lookup, or case_name for name-based search",
+                example={"case_id": 5}
+            )
 
         if not case:
             context.info("Case not found")
             available = db.get_all_case_names()
             result = not_found_error("Case")
-            result["available_cases"] = available
+            result["available_cases"] = available[:10]  # First 10 for context
+            if len(available) > 10:
+                result["note"] = f"Showing 10 of {len(available)} cases. Use search(entity='cases') for filtered search."
             return result
 
         context.info(f"Retrieved case: {case.get('case_name', 'Unknown')}")
         return case
+
+    @mcp.tool()
+    def get_case_summary(context: Context, case_id: int) -> dict:
+        """Get basic case info without full related data (lighter response)."""
+        context.info(f"Fetching case summary for ID: {case_id}")
+        summary = db.get_case_summary(case_id)
+
+        if not summary:
+            return not_found_error("Case")
+
+        context.info(f"Retrieved summary for: {summary.get('case_name', 'Unknown')}")
+        return {"success": True, "case": summary}
 
     @mcp.tool()
     def create_case(
@@ -72,40 +77,18 @@ def register_case_tools(mcp):
         case_numbers: Optional[list] = None,
         short_name: Optional[str] = None
     ) -> dict:
-        """
-        Create a new case.
-
-        After creating a case, use assign_person_to_case to add clients, defendants,
-        opposing counsel, judges, experts, etc. Use create_proceeding to add court
-        proceedings with jurisdiction and case numbers.
-
-        Args:
-            case_name: Name of the case (e.g., "Jones v. LAPD")
-            status: Initial status (default: "Signing Up")
-            print_code: Short code for printing/filing
-            case_summary: Brief description of the case
-            result: Case outcome/result (e.g., "Settled", "Verdict for plaintiff")
-            date_of_injury: Date of injury (YYYY-MM-DD format)
-            case_numbers: List of case numbers
-                          Format: [{"number": "24STCV12345", "label": "State", "primary": true}]
-            short_name: Short display name (defaults to first word of case_name)
-
-        Returns the created case.
-
-        Example:
-            create_case(
-                case_name="Martinez v. City of LA",
-                status="Signing Up",
-                case_numbers=[{"number": "24STCV12345", "label": "State", "primary": true}]
-            )
-        """
+        """Create a new case."""
         context.info(f"Creating new case: {case_name}")
         try:
             db.validate_case_status(status)
+        except ValidationError:
+            return invalid_status_error(status, "case")
+
+        try:
             if date_of_injury:
                 db.validate_date_format(date_of_injury, "date_of_injury")
-        except ValidationError as e:
-            return validation_error(str(e))
+        except ValidationError:
+            return invalid_date_format_error(date_of_injury, "date_of_injury")
 
         case = db.create_case(
             case_name, status, print_code, case_summary, result,
@@ -127,34 +110,20 @@ def register_case_tools(mcp):
         date_of_injury: Optional[str] = None,
         case_numbers: Optional[list] = None
     ) -> dict:
-        """
-        Update case fields.
-
-        Note: Court/jurisdiction is managed through proceedings, not directly on the case.
-        Use create_proceeding or update_proceeding to change court assignments.
-
-        Args:
-            case_id: ID of the case to update
-            case_name: New case name
-            short_name: New short display name
-            status: New status
-            print_code: New print code
-            case_summary: New summary
-            result: Case outcome/result
-            date_of_injury: Date of injury (YYYY-MM-DD)
-            case_numbers: List of case numbers (replaces entire list).
-                          Format: [{"number": "24STCV12345", "label": "State", "primary": true}]
-
-        Returns updated case info.
-        """
+        """Update case fields."""
         context.info(f"Updating case {case_id}")
-        try:
-            if status:
+
+        if status:
+            try:
                 db.validate_case_status(status)
-            if date_of_injury:
+            except ValidationError:
+                return invalid_status_error(status, "case")
+
+        if date_of_injury:
+            try:
                 db.validate_date_format(date_of_injury, "date_of_injury")
-        except ValidationError as e:
-            return validation_error(str(e))
+            except ValidationError:
+                return invalid_date_format_error(date_of_injury, "date_of_injury")
 
         updated = db.update_case(
             case_id, case_name=case_name, short_name=short_name, status=status,
@@ -163,61 +132,15 @@ def register_case_tools(mcp):
             case_numbers=case_numbers
         )
         if not updated:
-            return not_found_error("Case or no updates provided")
+            return not_found_error("Case")
         context.info(f"Case {case_id} updated successfully")
         return {"success": True, "case": updated}
 
     @mcp.tool()
     def delete_case(context: Context, case_id: int) -> dict:
-        """
-        Delete a case and all related data (persons, events, tasks, notes, etc. are CASCADE deleted).
-
-        Args:
-            case_id: ID of the case to delete
-
-        Returns confirmation.
-        """
+        """Delete a case and all related data."""
         context.info(f"Deleting case {case_id} and all related data")
         if db.delete_case(case_id):
             context.info(f"Case {case_id} deleted successfully")
             return {"success": True, "message": "Case and all related data deleted"}
         return not_found_error("Case")
-
-    @mcp.tool()
-    def search_cases(
-        context: Context,
-        query: Optional[str] = None,
-        case_number: Optional[str] = None,
-        person_name: Optional[str] = None,
-        status: Optional[CaseStatus] = None
-    ) -> dict:
-        """
-        Search for cases with multiple filter options.
-
-        All provided filters are combined with AND logic (case must match all filters).
-
-        Args:
-            query: Free text search on case name and summary (e.g., "Martinez", "City of LA")
-            case_number: Search by case number (e.g., "24STCV", "12345")
-            person_name: Filter by any person's name (client, defendant, expert, etc.)
-            status: Filter by exact status
-
-        At least one search parameter must be provided.
-
-        Returns matching cases with context:
-        [{id, case_name, short_name, status, case_summary, case_numbers}]
-
-        Examples:
-            - search_cases(query="Martinez") - find cases with "Martinez" in the name/summary
-            - search_cases(person_name="LAPD") - find all cases involving LAPD
-            - search_cases(status="Discovery") - find all cases in Discovery phase
-            - search_cases(person_name="City", status="Pre-trial") - cases with "City" in Pre-trial
-        """
-        if not any([query, case_number, person_name, status]):
-            return validation_error("Provide at least one search parameter")
-
-        filters = [f for f in [query, case_number, person_name, status] if f]
-        context.info(f"Searching cases with {len(filters)} filter(s)")
-        cases = db.search_cases(query, case_number, person_name, status)
-        context.info(f"Found {len(cases)} matching cases")
-        return {"cases": cases, "total": len(cases)}

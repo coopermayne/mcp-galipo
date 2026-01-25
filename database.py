@@ -52,6 +52,7 @@ from db import (
     get_all_cases,
     get_case_by_id,
     get_case_by_name,
+    get_case_summary,
     get_all_case_names,
     create_case,
     update_case,
