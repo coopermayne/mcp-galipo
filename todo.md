@@ -28,6 +28,17 @@ Simplify person/case_persons model - role drives UI, type is implicit.
 - **Plan**: See "Future Plans" section in [CLAUDE.md](./CLAUDE.md)
 - **Status**: Planned, not started
 
+### Universal Fuzzy Association
+Fuzzy matching for all entity associations - persons, jurisdictions, etc.
+- **Status**: Planning needed
+- **Scope**:
+  - [ ] Backend: `pg_trgm` fuzzy search for persons (extends Smart Case Lookup Phase 3)
+  - [ ] Backend: Fuzzy search for jurisdictions
+  - [ ] MCP/Chat: Auto-suggest existing matches when adding associations ("Did you mean Richard Clark?")
+  - [ ] Frontend: Sophisticated autocomplete for judges, experts, attorneys, jurisdictions
+  - [ ] Frontend: Seamless flow - fuzzy search existing → create new if not found
+- **Example**: User types "Mr. Clark expert" → system suggests "Richard Clark" from existing persons
+
 ---
 
 ## Document Processing
