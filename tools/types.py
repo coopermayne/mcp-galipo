@@ -7,7 +7,7 @@ Tools for managing expertise types and person types in the legal case management
 from typing import Optional
 from mcp.server.fastmcp import Context
 import database as db
-from tools.utils import validation_error, not_found_error
+from tools.utils import validation_error, not_found_error, check_empty_required_field
 
 
 def register_type_tools(mcp):
@@ -21,25 +21,7 @@ def register_type_tools(mcp):
         expertise_type_id: Optional[int] = None,
         list_all: bool = False
     ) -> dict:
-        """
-        Create, update, or list expertise types.
-
-        Expertise types are used to categorize expert witnesses (e.g., Biomechanics,
-        Accident Reconstruction, Medical - Orthopedic).
-
-        Args:
-            name: Name of the expertise type (required for create/update)
-            description: Description of the expertise type
-            expertise_type_id: ID if updating existing type (omit to create new)
-            list_all: Set to True to just list all expertise types
-
-        Returns the created/updated type or list of all types.
-
-        Examples:
-            manage_expertise_type(list_all=True)
-            manage_expertise_type(name="Digital Forensics", description="Computer and phone forensics")
-            manage_expertise_type(expertise_type_id=5, name="Digital Forensics - Updated")
-        """
+        """Create, update, or list expertise types."""
         if list_all:
             context.info("Fetching all expertise types")
             types = db.get_expertise_types()
@@ -56,7 +38,11 @@ def register_type_tools(mcp):
             return {"success": True, "expertise_type": result, "action": "updated"}
 
         if not name:
-            return validation_error("Name is required when creating")
+            return validation_error(
+                "Name is required when creating",
+                hint="Provide a name for the expertise type, or use list_all=True to see existing types",
+                example={"name": "Biomechanics", "description": "Expert in human body mechanics"}
+            )
 
         context.info(f"Creating expertise type: {name}")
         result = db.create_expertise_type(name, description)
@@ -65,14 +51,7 @@ def register_type_tools(mcp):
 
     @mcp.tool()
     def delete_expertise_type(context: Context, expertise_type_id: int) -> dict:
-        """
-        Delete an expertise type.
-
-        Args:
-            expertise_type_id: ID of the expertise type to delete
-
-        Returns confirmation.
-        """
+        """Delete an expertise type."""
         context.info(f"Deleting expertise type {expertise_type_id}")
         if db.delete_expertise_type(expertise_type_id):
             context.info(f"Expertise type {expertise_type_id} deleted")
@@ -87,25 +66,7 @@ def register_type_tools(mcp):
         person_type_id: Optional[int] = None,
         list_all: bool = False
     ) -> dict:
-        """
-        Create, update, or list person types.
-
-        Person types categorize people in the system (e.g., client, attorney, judge,
-        expert, witness, lien_holder, interpreter).
-
-        Args:
-            name: Name of the person type (required for create/update)
-            description: Description of the person type
-            person_type_id: ID if updating existing type (omit to create new)
-            list_all: Set to True to just list all person types
-
-        Returns the created/updated type or list of all types.
-
-        Examples:
-            manage_person_type(list_all=True)
-            manage_person_type(name="paralegal", description="Paralegal or legal assistant")
-            manage_person_type(person_type_id=3, name="attorney", description="Updated description")
-        """
+        """Create, update, or list person types."""
         if list_all:
             context.info("Fetching all person types")
             types = db.get_person_types()
@@ -122,7 +83,11 @@ def register_type_tools(mcp):
             return {"success": True, "person_type": result, "action": "updated"}
 
         if not name:
-            return validation_error("Name is required when creating")
+            return validation_error(
+                "Name is required when creating",
+                hint="Provide a name for the person type, or use list_all=True to see existing types",
+                example={"name": "paralegal", "description": "Paralegal or legal assistant"}
+            )
 
         context.info(f"Creating person type: {name}")
         result = db.create_person_type(name, description)
@@ -131,14 +96,7 @@ def register_type_tools(mcp):
 
     @mcp.tool()
     def delete_person_type(context: Context, person_type_id: int) -> dict:
-        """
-        Delete a person type.
-
-        Args:
-            person_type_id: ID of the person type to delete
-
-        Returns confirmation.
-        """
+        """Delete a person type."""
         context.info(f"Deleting person type {person_type_id}")
         if db.delete_person_type(person_type_id):
             context.info(f"Person type {person_type_id} deleted")
