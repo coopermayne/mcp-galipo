@@ -148,7 +148,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             cur.execute("""
                 SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
                        per.name as judge_name
-                FROM proceeding_judges pj
+                FROM judges pj
                 JOIN persons per ON pj.person_id = per.id
                 WHERE pj.proceeding_id = ANY(%s)
                 ORDER BY pj.sort_order, pj.id

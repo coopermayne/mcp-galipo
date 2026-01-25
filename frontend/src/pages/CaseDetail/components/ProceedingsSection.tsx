@@ -318,7 +318,7 @@ export function ProceedingsSection({
                         <option value="Judge">Judge</option>
                         <option value="Presiding">Presiding</option>
                         <option value="Panel">Panel</option>
-                        <option value="Magistrate">Magistrate</option>
+                        <option value="Magistrate Judge">Magistrate Judge</option>
                       </select>
                       <button
                         onClick={() => handleAddJudge(p.id)}

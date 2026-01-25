@@ -246,7 +246,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   // Contact role options
   const contactRoleOptions = [
     'Opposing Counsel', 'Co-Counsel', 'Referring Attorney', 'Mediator',
-    'Judge', 'Magistrate Judge', 'Expert - Plaintiff', 'Expert - Defendant',
+    'Expert - Plaintiff', 'Expert - Defendant',
     'Witness', 'Guardian Ad Litem', 'Plaintiff Contact', 'Insurance Adjuster', 'Lien Holder',
   ];
 

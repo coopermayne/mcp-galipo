@@ -18,6 +18,7 @@ from .validation import (
     PERSON_SIDES,
     DEFAULT_EXPERTISE_TYPES,
     DEFAULT_JURISDICTIONS,
+    JUDGE_ROLES,
     validate_case_status,
     validate_task_status,
     validate_urgency,
@@ -25,6 +26,7 @@ from .validation import (
     validate_time_format,
     validate_person_type,
     validate_person_side,
+    validate_case_person_role,
 )
 
 # Connection and database management
@@ -148,7 +150,7 @@ from .proceedings import (
     # Proceeding judges
     add_judge_to_proceeding,
     remove_judge_from_proceeding,
-    get_proceeding_judges,
+    get_judges,
     update_proceeding_judge,
 )
 
@@ -163,6 +165,7 @@ __all__ = [
     "PERSON_SIDES",
     "DEFAULT_EXPERTISE_TYPES",
     "DEFAULT_JURISDICTIONS",
+    "JUDGE_ROLES",
     "validate_case_status",
     "validate_task_status",
     "validate_urgency",
@@ -170,6 +173,7 @@ __all__ = [
     "validate_time_format",
     "validate_person_type",
     "validate_person_side",
+    "validate_case_person_role",
     # Connection
     "DATABASE_URL",
     "_NOT_PROVIDED",
@@ -263,6 +267,6 @@ __all__ = [
     # Proceeding judges
     "add_judge_to_proceeding",
     "remove_judge_from_proceeding",
-    "get_proceeding_judges",
+    "get_judges",
     "update_proceeding_judge",
 ]

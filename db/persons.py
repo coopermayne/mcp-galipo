@@ -7,7 +7,8 @@ from typing import Optional, List
 
 from .connection import get_cursor, serialize_row, serialize_rows
 from .validation import (
-    validate_person_type, validate_person_side, validate_date_format
+    validate_person_type, validate_person_side, validate_date_format,
+    validate_case_person_role
 )
 
 
@@ -170,6 +171,7 @@ def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = N
                           is_primary: bool = False, contact_via_person_id: int = None,
                           assigned_date: str = None) -> dict:
     """Assign a person to a case with a specific role."""
+    validate_case_person_role(role)
     if side:
         validate_person_side(side)
     validate_date_format(assigned_date, "assigned_date")
