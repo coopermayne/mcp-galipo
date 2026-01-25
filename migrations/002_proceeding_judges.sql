@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS proceeding_judges (
     id SERIAL PRIMARY KEY,
     proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
     person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-    role VARCHAR(50) DEFAULT 'Judge',  -- 'Presiding', 'Panel', 'Magistrate', 'Judge'
+    role VARCHAR(50) DEFAULT 'Judge',  -- 'Judge', 'Presiding', 'Panel', 'Magistrate Judge'
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(proceeding_id, person_id)

@@ -30,6 +30,9 @@ DEFAULT_PERSON_TYPES = [
 # Sides in a case
 PERSON_SIDES = ["plaintiff", "defendant", "neutral"]
 
+# Roles that cannot be assigned directly to cases (must go through proceedings)
+JUDGE_ROLES = ["Judge", "Magistrate Judge"]
+
 # Default expertise types for experts
 DEFAULT_EXPERTISE_TYPES = [
     "Biomechanics", "Accident Reconstruction", "Medical - Orthopedic",
@@ -109,3 +112,13 @@ def validate_person_side(side: str) -> str:
     if side and side not in PERSON_SIDES:
         raise ValidationError(f"Invalid side '{side}'. Must be one of: {', '.join(PERSON_SIDES)}")
     return side
+
+
+def validate_case_person_role(role: str) -> str:
+    """Validate that a case_person role is not a judge role (judges go on proceedings)."""
+    if role in JUDGE_ROLES:
+        raise ValidationError(
+            f"Role '{role}' cannot be assigned directly to a case. "
+            "Judges must be assigned to proceedings instead."
+        )
+    return role

@@ -5,7 +5,7 @@ Tools for managing court proceedings within cases. A single case (matter) can ha
 multiple proceedings across different courts (e.g., state court -> federal removal -> appeal).
 
 Each proceeding can have multiple judges (for panels, magistrate+judge combos, etc.)
-via the proceeding_judges relationship.
+via the judges relationship.
 """
 
 from typing import Optional
@@ -174,19 +174,19 @@ def register_proceeding_tools(mcp):
         Add a judge to a proceeding.
 
         A proceeding can have multiple judges (for panels, magistrate+judge combos, etc.).
-        The same person can have multiple roles (e.g., both "Judge" and "Magistrate").
+        The same person can have multiple roles (e.g., both "Judge" and "Magistrate Judge").
 
         Args:
             proceeding_id: ID of the proceeding
             person_id: ID of the judge (must be a person, typically with type 'judge')
-            role: Role on this proceeding - "Judge", "Presiding", "Panel", or "Magistrate"
+            role: Role on this proceeding - "Judge", "Presiding", "Panel", or "Magistrate Judge"
             sort_order: Display order (auto-assigned if not provided)
 
         Returns the created judge assignment with person name.
 
         Examples:
             - add_proceeding_judge(proceeding_id=1, person_id=5)
-            - add_proceeding_judge(proceeding_id=1, person_id=6, role="Magistrate")
+            - add_proceeding_judge(proceeding_id=1, person_id=6, role="Magistrate Judge")
         """
         context.info(f"Adding judge {person_id} to proceeding {proceeding_id} as {role}")
 
@@ -225,7 +225,7 @@ def register_proceeding_tools(mcp):
         return not_found_error("Judge assignment")
 
     @mcp.tool()
-    def get_proceeding_judges(
+    def get_judges(
         context: Context,
         proceeding_id: int
     ) -> dict:
@@ -239,7 +239,7 @@ def register_proceeding_tools(mcp):
         Each judge includes: person_id, name, role, sort_order.
         """
         context.info(f"Fetching judges for proceeding {proceeding_id}")
-        judges = db.get_proceeding_judges(proceeding_id)
+        judges = db.get_judges(proceeding_id)
         context.info(f"Found {len(judges)} judges")
         return {"judges": judges, "total": len(judges)}
 

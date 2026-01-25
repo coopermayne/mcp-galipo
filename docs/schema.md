@@ -69,7 +69,7 @@ erDiagram
         timestamp updated_at
     }
 
-    proceeding_judges {
+    judges {
         serial id PK
         integer proceeding_id FK
         integer person_id FK
@@ -143,8 +143,8 @@ erDiagram
 
     cases ||--o{ proceedings : "has proceedings"
     jurisdictions ||--o{ proceedings : "filed in"
-    proceedings ||--o{ proceeding_judges : "has judges"
-    persons ||--o{ proceeding_judges : "serves as judge"
+    proceedings ||--o{ judges : "has judges"
+    persons ||--o{ judges : "serves as judge"
 
     cases ||--o{ tasks : "has tasks"
     cases ||--o{ events : "has events"
@@ -162,8 +162,8 @@ erDiagram
 | persons | case_persons | 1:many | CASCADE |
 | cases | proceedings | 1:many | CASCADE |
 | jurisdictions | proceedings | 1:many | SET NULL |
-| proceedings | proceeding_judges | 1:many | CASCADE |
-| persons | proceeding_judges | 1:many | CASCADE |
+| proceedings | judges | 1:many | CASCADE |
+| persons | judges | 1:many | CASCADE |
 | cases | tasks | 1:many | CASCADE |
 | cases | events | 1:many | CASCADE |
 | events | tasks | 1:many (optional) | SET NULL |

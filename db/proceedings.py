@@ -5,7 +5,7 @@ A proceeding represents a court filing within a case. A single case (matter) can
 multiple proceedings across different courts (e.g., state court -> federal removal -> appeal).
 
 Each proceeding can have multiple judges (for panels, magistrate+judge combos, etc.)
-via the proceeding_judges junction table.
+via the judges table.
 """
 
 from typing import Optional, List
@@ -79,7 +79,7 @@ def get_proceedings(case_id: int) -> List[dict]:
             cur.execute("""
                 SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
                        per.name as judge_name
-                FROM proceeding_judges pj
+                FROM judges pj
                 JOIN persons per ON pj.person_id = per.id
                 WHERE pj.proceeding_id = ANY(%s)
                 ORDER BY pj.sort_order, pj.id
@@ -133,7 +133,7 @@ def get_proceeding_by_id(proceeding_id: int) -> Optional[dict]:
         cur.execute("""
             SELECT pj.person_id, pj.role, pj.sort_order,
                    per.name as judge_name
-            FROM proceeding_judges pj
+            FROM judges pj
             JOIN persons per ON pj.person_id = per.id
             WHERE pj.proceeding_id = %s
             ORDER BY pj.sort_order, pj.id
@@ -216,7 +216,7 @@ def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
 
 
 def delete_proceeding(proceeding_id: int) -> bool:
-    """Delete a proceeding (cascade deletes proceeding_judges)."""
+    """Delete a proceeding (cascade deletes judges)."""
     with get_cursor() as cur:
         cur.execute("DELETE FROM proceedings WHERE id = %s", (proceeding_id,))
         return cur.rowcount > 0
@@ -234,12 +234,12 @@ def add_judge_to_proceeding(proceeding_id: int, person_id: int, role: str = "Jud
         if sort_order is None:
             cur.execute("""
                 SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order
-                FROM proceeding_judges WHERE proceeding_id = %s
+                FROM judges WHERE proceeding_id = %s
             """, (proceeding_id,))
             sort_order = cur.fetchone()["next_order"]
 
         cur.execute("""
-            INSERT INTO proceeding_judges (proceeding_id, person_id, role, sort_order)
+            INSERT INTO judges (proceeding_id, person_id, role, sort_order)
             VALUES (%s, %s, %s, %s)
             ON CONFLICT (proceeding_id, person_id) DO UPDATE SET role = EXCLUDED.role, sort_order = EXCLUDED.sort_order
             RETURNING id, proceeding_id, person_id, role, sort_order, created_at
@@ -260,19 +260,19 @@ def remove_judge_from_proceeding(proceeding_id: int, person_id: int) -> bool:
     """Remove a judge from a proceeding."""
     with get_cursor() as cur:
         cur.execute("""
-            DELETE FROM proceeding_judges
+            DELETE FROM judges
             WHERE proceeding_id = %s AND person_id = %s
         """, (proceeding_id, person_id))
         return cur.rowcount > 0
 
 
-def get_proceeding_judges(proceeding_id: int) -> List[dict]:
+def get_judges(proceeding_id: int) -> List[dict]:
     """Get all judges for a proceeding."""
     with get_cursor() as cur:
         cur.execute("""
             SELECT pj.id, pj.proceeding_id, pj.person_id, pj.role, pj.sort_order, pj.created_at,
                    per.name as judge_name
-            FROM proceeding_judges pj
+            FROM judges pj
             JOIN persons per ON pj.person_id = per.id
             WHERE pj.proceeding_id = %s
             ORDER BY pj.sort_order, pj.id
@@ -304,7 +304,7 @@ def update_proceeding_judge(proceeding_id: int, person_id: int, role: str = _NOT
 
     with get_cursor() as cur:
         cur.execute(f"""
-            UPDATE proceeding_judges SET {', '.join(updates)}
+            UPDATE judges SET {', '.join(updates)}
             WHERE proceeding_id = %s AND person_id = %s
             RETURNING id, proceeding_id, person_id, role, sort_order, created_at
         """, params)

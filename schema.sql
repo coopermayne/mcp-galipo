@@ -141,12 +141,22 @@ CREATE TABLE proceedings (
     case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
     case_number VARCHAR(100) NOT NULL,
     jurisdiction_id INTEGER REFERENCES jurisdictions(id),
-    judge_id INTEGER REFERENCES persons(id),
     sort_order INTEGER DEFAULT 0,
     is_primary BOOLEAN DEFAULT FALSE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 12. Judges table (judges assigned to proceedings)
+CREATE TABLE judges (
+    id SERIAL PRIMARY KEY,
+    proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
+    person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'Judge',
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(proceeding_id, person_id)
 );
 
 -- Indexes for better query performance
@@ -166,3 +176,5 @@ CREATE INDEX idx_events_date ON events(date);
 CREATE INDEX idx_activities_case_id ON activities(case_id);
 CREATE INDEX idx_notes_case_id ON notes(case_id);
 CREATE INDEX idx_proceedings_case_id ON proceedings(case_id);
+CREATE INDEX idx_judges_proceeding_id ON judges(proceeding_id);
+CREATE INDEX idx_judges_person_id ON judges(person_id);

@@ -76,7 +76,7 @@ def drop_all_tables():
             DROP TABLE IF EXISTS events CASCADE;
             DROP TABLE IF EXISTS deadlines CASCADE;
             DROP TABLE IF EXISTS activities CASCADE;
-            DROP TABLE IF EXISTS proceeding_judges CASCADE;
+            DROP TABLE IF EXISTS judges CASCADE;
             DROP TABLE IF EXISTS proceedings CASCADE;
             DROP TABLE IF EXISTS case_persons CASCADE;
             DROP TABLE IF EXISTS expertise_types CASCADE;
@@ -613,9 +613,32 @@ def migrate_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id)")
         print("  - Created proceedings table (if not exists)")
 
-        # 22. Create proceeding_judges junction table for multi-judge support
+        # 22. Rename proceeding_judges to judges if it exists (migration from old name)
+        #     Only rename if proceeding_judges exists AND judges does NOT exist
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS proceeding_judges (
+            SELECT
+                EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'proceeding_judges') as has_old,
+                EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'judges') as has_new
+        """)
+        row = cur.fetchone()
+        if row[0] and not row[1]:  # has old table, no new table
+            cur.execute("ALTER TABLE proceeding_judges RENAME TO judges")
+            cur.execute("ALTER INDEX IF EXISTS idx_proceeding_judges_proceeding_id RENAME TO idx_judges_proceeding_id")
+            cur.execute("ALTER INDEX IF EXISTS idx_proceeding_judges_person_id RENAME TO idx_judges_person_id")
+            print("  - Renamed proceeding_judges table to judges")
+        elif row[0] and row[1]:  # both exist - migrate data and drop old
+            cur.execute("""
+                INSERT INTO judges (proceeding_id, person_id, role, sort_order, created_at)
+                SELECT proceeding_id, person_id, role, sort_order, created_at
+                FROM proceeding_judges
+                ON CONFLICT (proceeding_id, person_id) DO NOTHING
+            """)
+            cur.execute("DROP TABLE proceeding_judges")
+            print("  - Migrated data from proceeding_judges to judges and dropped old table")
+
+        # 23. Create judges junction table for multi-judge support (if not exists)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS judges (
                 id SERIAL PRIMARY KEY,
                 proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
                 person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
@@ -625,11 +648,11 @@ def migrate_db():
                 UNIQUE(proceeding_id, person_id)
             )
         """)
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_judges(proceeding_id)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_proceeding_judges_person_id ON proceeding_judges(person_id)")
-        print("  - Created proceeding_judges table (if not exists)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id)")
+        print("  - Created judges table (if not exists)")
 
-        # Migrate existing judge_id data from proceedings to proceeding_judges
+        # Migrate existing judge_id data from proceedings to judges
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.columns
@@ -637,21 +660,27 @@ def migrate_db():
             ) as has_judge_id
         """)
         if cur.fetchone()[0]:
-            # Migrate existing judge_id data to proceeding_judges
+            # Migrate existing judge_id data to judges
             cur.execute("""
-                INSERT INTO proceeding_judges (proceeding_id, person_id, role, sort_order)
+                INSERT INTO judges (proceeding_id, person_id, role, sort_order)
                 SELECT id, judge_id, 'Judge', 0
                 FROM proceedings
                 WHERE judge_id IS NOT NULL
                   AND NOT EXISTS (
-                    SELECT 1 FROM proceeding_judges pj
+                    SELECT 1 FROM judges pj
                     WHERE pj.proceeding_id = proceedings.id
                       AND pj.person_id = proceedings.judge_id
                   )
             """)
             # Drop the old judge_id column
             cur.execute("ALTER TABLE proceedings DROP COLUMN IF EXISTS judge_id")
-            print("  - Migrated judge_id to proceeding_judges and dropped column")
+            print("  - Migrated judge_id to judges and dropped column")
+
+        # 24. Standardize "Magistrate" role to "Magistrate Judge" in judges table
+        cur.execute("UPDATE judges SET role = 'Magistrate Judge' WHERE role = 'Magistrate'")
+
+        # 25. Remove any judge roles from case_persons (judges belong on proceedings only)
+        cur.execute("DELETE FROM case_persons WHERE role IN ('Judge', 'Magistrate Judge')")
 
         print("Database migration complete.")
 
@@ -816,7 +845,7 @@ def init_db():
 
         # 12. Proceeding judges junction table (multi-judge support)
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS proceeding_judges (
+            CREATE TABLE IF NOT EXISTS judges (
                 id SERIAL PRIMARY KEY,
                 proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
                 person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
@@ -845,8 +874,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
             CREATE INDEX IF NOT EXISTS idx_notes_case_id ON notes(case_id);
             CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id);
-            CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_judges(proceeding_id);
-            CREATE INDEX IF NOT EXISTS idx_proceeding_judges_person_id ON proceeding_judges(person_id);
+            CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id);
+            CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id);
         """)
 
     print("Database tables initialized.")

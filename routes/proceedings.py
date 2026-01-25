@@ -2,7 +2,7 @@
 Proceeding API routes.
 
 Handles court proceeding CRUD operations for cases,
-including multi-judge support via proceeding_judges.
+including multi-judge support via judges.
 """
 
 from fastapi.responses import JSONResponse
@@ -82,12 +82,12 @@ def register_proceeding_routes(mcp):
     # =========================================================================
 
     @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges", methods=["GET"])
-    async def api_list_proceeding_judges(request):
+    async def api_list_judges(request):
         """List all judges for a proceeding."""
         if err := auth.require_auth(request):
             return err
         proceeding_id = int(request.path_params["proceeding_id"])
-        judges = db.get_proceeding_judges(proceeding_id)
+        judges = db.get_judges(proceeding_id)
         return JSONResponse({"judges": judges, "total": len(judges)})
 
     @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges", methods=["POST"])
