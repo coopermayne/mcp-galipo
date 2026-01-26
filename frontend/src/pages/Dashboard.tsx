@@ -51,7 +51,7 @@ export function Dashboard() {
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
     queryKey: ['dashboard-tasks'],
-    queryFn: () => getTasks({ limit: 10 }),
+    queryFn: () => getTasks({ exclude_status: 'Done', limit: 10 }),
   });
 
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
@@ -154,8 +154,8 @@ export function Dashboard() {
     { value: '4', label: '4 - Urgent' },
   ];
 
-  // Filter to only show non-completed tasks
-  const pendingTasks = tasksData?.tasks.filter(t => t.status !== 'Done') || [];
+  // Tasks are already filtered server-side to exclude Done
+  const pendingTasks = tasksData?.tasks || [];
 
   // Filter to only show upcoming events (not overdue)
   const today = new Date();

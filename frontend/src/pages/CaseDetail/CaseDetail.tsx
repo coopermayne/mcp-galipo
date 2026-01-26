@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, FileText, CheckSquare, Clock, StickyNote, Settings } from 'lucide-react';
@@ -72,6 +72,33 @@ export function CaseDetail() {
       })),
     [constants]
   );
+
+  // Keyboard shortcuts: 1-5 for tab navigation
+  useEffect(() => {
+    const tabKeys: Record<string, TabType> = {
+      '1': 'overview',
+      '2': 'tasks',
+      '3': 'events',
+      '4': 'notes',
+      '5': 'settings',
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when typing in input fields
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if (isTyping) return;
+
+      const tab = tabKeys[e.key];
+      if (tab) {
+        e.preventDefault();
+        setActiveTab(tab);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (isLoading) {
     return (
