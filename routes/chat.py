@@ -331,6 +331,7 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                                 content = event.get("content", "")
                                 iteration_text += content
                                 yield f"data: {json.dumps({'type': 'text', 'content': content})}\n\n"
+                                await asyncio.sleep(0)  # Flush to client
 
                             elif event_type == StreamEventType.TOOL_USE.value:
                                 subtype = event.get("subtype")
@@ -338,6 +339,7 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                                 if subtype == "start":
                                     # Tool use starting - send tool_start event
                                     yield f"data: {json.dumps({'type': 'tool_start', 'id': event.get('id'), 'name': event.get('name')})}\n\n"
+                                    await asyncio.sleep(0)  # Flush to client
 
                                 elif subtype == "done":
                                     # Tool use complete - we have the full arguments
@@ -398,6 +400,7 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
                                         # Send tool_result event
                                         yield f"data: {json.dumps({'type': 'tool_result', 'id': tc.id, 'name': tc.name, 'result': result.content, 'is_error': result.is_error, 'duration_ms': duration_ms})}\n\n"
+                                        await asyncio.sleep(0)  # Flush to client
 
                                     # Add tool results to history
                                     messages.append({
@@ -431,16 +434,19 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
                                     # Send done event
                                     yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None})}\n\n"
+                                    await asyncio.sleep(0)  # Flush to client
                                     return
 
                     except Exception as e:
                         _logger.exception(f"Error in stream iteration: {e}")
                         yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                        await asyncio.sleep(0)  # Flush to client
                         return
 
                 # If we hit max iterations, send done event
                 _conversations[conversation_id] = messages
                 yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None})}\n\n"
+                await asyncio.sleep(0)  # Flush to client
 
             except Exception as e:
                 _logger.exception(f"Error in SSE generation: {e}")
