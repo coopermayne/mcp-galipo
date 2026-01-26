@@ -8,7 +8,7 @@ import {
   DragOverlay,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } from '@dnd-kit/core';
-import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import { SortableTaskRow } from '../../../components/tasks';
 import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
@@ -27,6 +27,7 @@ interface TasksTabProps {
 export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<TaskViewMode>('by-urgency');
+  const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [addingToGroup, setAddingToGroup] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
@@ -109,10 +110,18 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     { value: '4', label: '4 - Urgent' },
   ];
 
+  // Filter tasks based on done toggle
+  const filteredTasks = useMemo(() => {
+    if (showDoneTasks) {
+      return tasks.filter(t => t.status === 'Done');
+    }
+    return tasks.filter(t => t.status !== 'Done');
+  }, [tasks, showDoneTasks]);
+
   // Group tasks by urgency
   const tasksByUrgency = useMemo(() => {
     const groups: Record<number, Task[]> = { 4: [], 3: [], 2: [], 1: [] };
-    tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (groups[task.urgency]) {
         groups[task.urgency].push(task);
       } else {
@@ -120,7 +129,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       }
     });
     return groups;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   // Group tasks by status
   const tasksByStatus = useMemo(() => {
@@ -129,7 +138,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     statuses.forEach((s) => {
       groups[s] = [];
     });
-    tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (groups[task.status]) {
         groups[task.status].push(task);
       } else {
@@ -138,7 +147,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       }
     });
     return groups;
-  }, [tasks, constants]);
+  }, [filteredTasks, constants]);
 
   const toggleCollapse = useCallback((groupKey: string) => {
     setCollapsedGroups((prev) => {
@@ -202,7 +211,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       const { active } = event;
-      const task = tasks.find((t) => t.id === active.id);
+      const task = filteredTasks.find((t) => t.id === active.id);
       setActiveTask(task || null);
       setActiveId(active.id);
       if (task) {
@@ -213,7 +222,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         setOverIndex(groupTasks.findIndex((t) => t.id === task.id));
       }
     },
-    [tasks, view, tasksByUrgency, tasksByStatus]
+    [filteredTasks, view, tasksByUrgency, tasksByStatus]
   );
 
   const handleDragOver = useCallback(
@@ -222,7 +231,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       if (!over) return;
 
       const overId = over.id;
-      const activeTaskItem = tasks.find((t) => t.id === active.id);
+      const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
       if (!activeTaskItem) return;
 
       let targetContainer: string | null = null;
@@ -236,16 +245,16 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
             : tasksByStatus[targetContainer] || [];
         targetIndex = groupTasks.filter((t) => t.id !== active.id).length;
       } else {
-        const overTask = tasks.find((t) => t.id === overId);
+        const overTask = filteredTasks.find((t) => t.id === overId);
         if (overTask) {
           targetContainer = view === 'by-urgency' ? String(overTask.urgency) : overTask.status;
           const groupTasks =
             view === 'by-urgency'
               ? tasksByUrgency[overTask.urgency] || []
               : tasksByStatus[overTask.status] || [];
-          const filteredTasks = groupTasks.filter((t) => t.id !== active.id);
-          const overTaskIndex = filteredTasks.findIndex((t) => t.id === overId);
-          targetIndex = overTaskIndex >= 0 ? overTaskIndex : filteredTasks.length;
+          const groupTasksFiltered = groupTasks.filter((t) => t.id !== active.id);
+          const overTaskIndex = groupTasksFiltered.findIndex((t) => t.id === overId);
+          targetIndex = overTaskIndex >= 0 ? overTaskIndex : groupTasksFiltered.length;
         }
       }
 
@@ -257,7 +266,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         setOverIndex(targetIndex);
       }
     },
-    [tasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex]
+    [filteredTasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex]
   );
 
   const handleDragEnd = useCallback(
@@ -273,7 +282,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
 
       if (!finalContainer) return;
 
-      const activeTaskItem = tasks.find((t) => t.id === active.id);
+      const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
       if (!activeTaskItem) return;
 
       const targetTasks =
@@ -305,7 +314,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       }
     },
     [
-      tasks,
+      filteredTasks,
       view,
       tasksByUrgency,
       tasksByStatus,
@@ -440,6 +449,18 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
             Status
           </button>
         </div>
+        <div className="flex-1" />
+        <button
+          onClick={() => setShowDoneTasks(!showDoneTasks)}
+          className={`flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+            showDoneTasks
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          {showDoneTasks ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          Done
+        </button>
       </div>
 
       {/* Task Groups */}

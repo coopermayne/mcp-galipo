@@ -18,7 +18,7 @@ import { UrgencyGroup, CaseGroup } from '../components/tasks';
 import { formatSmartDate } from '../utils/dateFormat';
 import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
 import type { Task } from '../types';
-import { Filter, Search, LayoutGrid, List, GripVertical } from 'lucide-react';
+import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff } from 'lucide-react';
 
 type ViewMode = 'by-urgency' | 'by-case';
 
@@ -26,6 +26,7 @@ export function Tasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [view, setView] = useState<ViewMode>('by-urgency');
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -46,11 +47,19 @@ export function Tasks() {
   );
 
   const { data: tasksData, isLoading } = useQuery({
-    queryKey: ['tasks', { status: statusFilter || undefined }],
-    queryFn: () =>
-      getTasks({
-        status: statusFilter || undefined,
-      }),
+    queryKey: ['tasks', { status: statusFilter || undefined, showDone: showDoneTasks }],
+    queryFn: () => {
+      // If showing done tasks specifically, filter for Done status
+      if (showDoneTasks && !statusFilter) {
+        return getTasks({ status: 'Done' });
+      }
+      // If a specific status is selected, use that
+      if (statusFilter) {
+        return getTasks({ status: statusFilter });
+      }
+      // Otherwise exclude done tasks
+      return getTasks({ exclude_status: 'Done' });
+    },
   });
 
   const { data: constants } = useQuery({
@@ -367,6 +376,21 @@ export function Tasks() {
                 ))}
               </select>
             </div>
+
+            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
+
+            {/* Show Done Toggle */}
+            <button
+              onClick={() => setShowDoneTasks(!showDoneTasks)}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                showDoneTasks
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              {showDoneTasks ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              Done
+            </button>
 
             <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
 
