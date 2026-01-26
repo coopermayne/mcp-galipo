@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { parseISO, isValid } from 'date-fns';
 
@@ -42,6 +44,8 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
   const [deleteEventTarget, setDeleteEventTarget] = useState<number | null>(null);
+  const [showDoneTasks, setShowDoneTasks] = useState(false);
+  const [showPastEvents, setShowPastEvents] = useState(false);
 
 
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -50,8 +54,8 @@ export function Dashboard() {
   });
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
-    queryKey: ['dashboard-tasks'],
-    queryFn: () => getTasks({ exclude_status: 'Done', limit: 10 }),
+    queryKey: ['dashboard-tasks', { showDone: showDoneTasks }],
+    queryFn: () => getTasks(showDoneTasks ? { status: 'Done', limit: 10 } : { exclude_status: 'Done', limit: 10 }),
   });
 
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
@@ -154,16 +158,22 @@ export function Dashboard() {
     { value: '4', label: '4 - Urgent' },
   ];
 
-  // Tasks are already filtered server-side to exclude Done
-  const pendingTasks = tasksData?.tasks || [];
+  // Tasks are filtered based on toggle
+  const displayTasks = tasksData?.tasks || [];
 
-  // Filter to only show upcoming events (not overdue)
+  // Filter events based on past/future toggle
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcomingEvents = eventsData?.events.filter(e => {
+  const displayEvents = (eventsData?.events || []).filter(e => {
     const eventDate = parseISO(e.date);
-    return isValid(eventDate) && eventDate >= today;
-  }) || [];
+    if (!isValid(eventDate)) return false;
+    return showPastEvents ? eventDate < today : eventDate >= today;
+  }).sort((a, b) => {
+    const dateA = parseISO(a.date).getTime();
+    const dateB = parseISO(b.date).getTime();
+    // Past events: most recent first; Future events: soonest first
+    return showPastEvents ? dateB - dateA : dateA - dateB;
+  });
 
   return (
     <>
@@ -210,21 +220,34 @@ export function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Tasks</h2>
-              <Link
-                to="/tasks"
-                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
-              >
-                View all <ChevronRight className="w-4 h-4" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowDoneTasks(!showDoneTasks)}
+                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
+                    showDoneTasks
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {showDoneTasks ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  Done
+                </button>
+                <Link
+                  to="/tasks"
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
+                >
+                  View all <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
             <ListPanel>
               {tasksLoading ? (
                 <ListPanel.Loading />
-              ) : pendingTasks.length === 0 ? (
-                <ListPanel.Empty message="No pending tasks" />
+              ) : displayTasks.length === 0 ? (
+                <ListPanel.Empty message={showDoneTasks ? "No completed tasks" : "No pending tasks"} />
               ) : (
                 <ListPanel.Body>
-                  {pendingTasks.slice(0, 8).map((task) => (
+                  {displayTasks.slice(0, 8).map((task) => (
                     <ListPanel.Row key={task.id}>
                       <Link
                         to={`/cases/${task.case_id}`}
@@ -274,21 +297,34 @@ export function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Events</h2>
-              <Link
-                to="/calendar"
-                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
-              >
-                View all <ChevronRight className="w-4 h-4" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowPastEvents(!showPastEvents)}
+                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
+                    showPastEvents
+                      ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  {showPastEvents ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {showPastEvents ? 'Past' : 'Upcoming'}
+                </button>
+                <Link
+                  to="/calendar"
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
+                >
+                  View all <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
             <ListPanel>
               {eventsLoading ? (
                 <ListPanel.Loading />
-              ) : upcomingEvents.length === 0 ? (
-                <ListPanel.Empty message="No upcoming events" />
+              ) : displayEvents.length === 0 ? (
+                <ListPanel.Empty message={showPastEvents ? "No past events" : "No upcoming events"} />
               ) : (
                 <ListPanel.Body>
-                  {upcomingEvents.slice(0, 8).map((event) => (
+                  {displayEvents.slice(0, 8).map((event) => (
                     <ListPanel.Row key={event.id}>
                       <Link
                         to={`/cases/${event.case_id}`}

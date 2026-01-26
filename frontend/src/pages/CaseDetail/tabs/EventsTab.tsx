@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link } from 'lucide-react';
+import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff } from 'lucide-react';
 import { EditableText, EditableDate, EditableTime, ConfirmModal } from '../../../components/common';
 import { createEvent, updateEvent, deleteEvent } from '../../../api';
 import type { Event } from '../../../types';
@@ -13,6 +13,7 @@ interface EventsTabProps {
 export function EventsTab({ caseId, events }: EventsTabProps) {
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
+  const [showPastEvents, setShowPastEvents] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [newEvent, setNewEvent] = useState({
     date: '',
@@ -23,6 +24,19 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(
     null
   );
+
+  // Filter events based on past/future
+  const now = new Date();
+  const filteredEvents = useMemo(() => {
+    if (showPastEvents) {
+      return events
+        .filter(e => new Date(e.date) < now)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+    return events
+      .filter(e => new Date(e.date) >= now)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events, showPastEvents]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -74,7 +88,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-      {/* Add Button or Form */}
+      {/* Header with Add Button and Toggle */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-700">
         {isAdding ? (
           <form onSubmit={handleCreate} className="space-y-3">
@@ -145,22 +159,37 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
             </div>
           </form>
         ) : (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
-          >
-            <Plus className="w-4 h-4" />
-            Add Event
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIsAdding(true)}
+              className="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+            >
+              <Plus className="w-4 h-4" />
+              Add Event
+            </button>
+            <button
+              onClick={() => setShowPastEvents(!showPastEvents)}
+              className={`flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                showPastEvents
+                  ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              {showPastEvents ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              {showPastEvents ? 'Past' : 'Upcoming'}
+            </button>
+          </div>
         )}
       </div>
 
       {/* Event List */}
       <div className="divide-y divide-slate-200 dark:divide-slate-700">
-        {events.length === 0 ? (
-          <div className="p-8 text-center text-slate-400">No events</div>
+        {filteredEvents.length === 0 ? (
+          <div className="p-8 text-center text-slate-400">
+            {showPastEvents ? 'No past events' : 'No upcoming events'}
+          </div>
         ) : (
-          events.map((event) => (
+          filteredEvents.map((event) => (
             <div key={event.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
               <div className="px-4 py-3 flex items-center gap-4">
                 <button
