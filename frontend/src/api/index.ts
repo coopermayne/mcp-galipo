@@ -81,4 +81,4 @@ export {
 } from './proceedings';
 
 // Chat
-export { sendChatMessage, streamChatMessage } from './chat';
+export { streamChatMessage } from './chat';
