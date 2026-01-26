@@ -84,6 +84,9 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
         return;
       }
 
+      // Don't trigger when modifier keys are held
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
       // Don't trigger shortcuts when typing in an input
       const target = event.target as HTMLElement;
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
