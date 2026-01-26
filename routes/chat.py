@@ -122,6 +122,8 @@ from services.chat import (
     log_request,
     log_response,
     log_tool_execution,
+    get_session_id,
+    delete_session,
 )
 
 
@@ -243,6 +245,9 @@ def register_chat_routes(mcp):
             _conversations[conversation_id] = []
 
         messages = _conversations[conversation_id]
+
+        # Get session_id for operation tracking (used by mutate/rollback tools)
+        session_id = get_session_id(conversation_id)
 
         # Add user message to history
         messages.append({
@@ -382,7 +387,7 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                                     tool_results: list[ToolResult] = []
                                     for tc in iteration_tool_calls:
                                         start_time = time.time()
-                                        result = execute_tool(tc)
+                                        result = execute_tool(tc, session_id=session_id)
                                         duration_ms = int((time.time() - start_time) * 1000)
 
                                         tool_results.append(result)
@@ -471,6 +476,8 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
         conversation_id = request.path_params.get("conversation_id")
         if conversation_id in _conversations:
             del _conversations[conversation_id]
+            # Also clean up the session tracking
+            delete_session(conversation_id)
             return JSONResponse({"success": True})
 
         return api_error("Conversation not found", "NOT_FOUND", 404)

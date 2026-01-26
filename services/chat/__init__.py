@@ -26,6 +26,11 @@ from .debug import (
     clear_log,
     DEBUG_ENABLED,
 )
+from .session import (
+    get_session_id,
+    delete_session,
+    get_session_manager,
+)
 
 __all__ = [
     # Types
@@ -54,4 +59,8 @@ __all__ = [
     "get_tool_summary",
     "clear_log",
     "DEBUG_ENABLED",
+    # Session
+    "get_session_id",
+    "delete_session",
+    "get_session_manager",
 ]

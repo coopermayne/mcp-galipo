@@ -155,6 +155,15 @@ from .proceedings import (
     update_proceeding_judge,
 )
 
+# SQL operations (for MCP tools)
+from .sql_ops import (
+    execute_query,
+    execute_mutation,
+    rollback_operations,
+    get_operation_history,
+    ALLOWED_TABLES,
+)
+
 # Define __all__ for explicit exports
 __all__ = [
     # Validation
@@ -271,4 +280,10 @@ __all__ = [
     "remove_judge_from_proceeding",
     "get_judges",
     "update_proceeding_judge",
+    # SQL operations
+    "execute_query",
+    "execute_mutation",
+    "rollback_operations",
+    "get_operation_history",
+    "ALLOWED_TABLES",
 ]

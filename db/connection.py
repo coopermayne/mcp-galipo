@@ -71,6 +71,7 @@ def drop_all_tables():
     """Drop all existing tables for clean reset."""
     with get_cursor(dict_cursor=False) as cur:
         cur.execute("""
+            DROP TABLE IF EXISTS operation_log CASCADE;
             DROP TABLE IF EXISTS notes CASCADE;
             DROP TABLE IF EXISTS tasks CASCADE;
             DROP TABLE IF EXISTS events CASCADE;
@@ -682,6 +683,26 @@ def migrate_db():
         # 25. Remove any judge roles from case_persons (judges belong on proceedings only)
         cur.execute("DELETE FROM case_persons WHERE role IN ('Judge', 'Magistrate Judge')")
 
+        # 26. Create operation_log table for AI mutation rollback
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS operation_log (
+                id SERIAL PRIMARY KEY,
+                session_id UUID NOT NULL,
+                sequence INT NOT NULL,
+                table_name VARCHAR(100) NOT NULL,
+                operation VARCHAR(10) NOT NULL,
+                record_id INT,
+                before_data JSONB,
+                after_data JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                rolled_back_at TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_operation_log_session ON operation_log(session_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log(created_at DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_operation_log_table ON operation_log(table_name)")
+        print("  - Created operation_log table (if not exists)")
+
         print("Database migration complete.")
 
 
@@ -856,6 +877,22 @@ def init_db():
             )
         """)
 
+        # 13. Operation log table (for AI mutation rollback)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS operation_log (
+                id SERIAL PRIMARY KEY,
+                session_id UUID NOT NULL,
+                sequence INT NOT NULL,
+                table_name VARCHAR(100) NOT NULL,
+                operation VARCHAR(10) NOT NULL,
+                record_id INT,
+                before_data JSONB,
+                after_data JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                rolled_back_at TIMESTAMP
+            )
+        """)
+
         # Create indexes for better query performance
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
@@ -876,6 +913,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id);
             CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id);
             CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id);
+            CREATE INDEX IF NOT EXISTS idx_operation_log_session ON operation_log(session_id);
+            CREATE INDEX IF NOT EXISTS idx_operation_log_created ON operation_log(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_operation_log_table ON operation_log(table_name);
         """)
 
     print("Database tables initialized.")

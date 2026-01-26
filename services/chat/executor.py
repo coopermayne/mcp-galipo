@@ -8,7 +8,8 @@ ensuring consistent behavior between the MCP server and chat feature.
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, Optional
+from uuid import UUID
 
 from services.chat.types import ToolCall, ToolResult
 from services.chat.tools import get_mcp_instance, BLACKLIST
@@ -27,7 +28,13 @@ class ChatContext:
 
     MCP tools expect a Context object for logging. This provides a compatible
     interface that logs to Python's standard logging instead of MCP's system.
+
+    Args:
+        session_id: Optional UUID for operation tracking (used by mutate/rollback tools)
     """
+
+    def __init__(self, session_id: Optional[UUID] = None):
+        self.session_id = session_id
 
     def info(self, msg: str) -> None:
         logger.info(f"[MCP Tool] {msg}")
@@ -50,8 +57,8 @@ class ChatContext:
         raise NotImplementedError("Resource reading not supported in chat context")
 
 
-# Shared context instance
-_context = ChatContext()
+# Default context instance (no session)
+_default_context = ChatContext()
 
 
 def _truncate_result(result: Any, tool_name: str) -> tuple[str, bool]:
@@ -158,11 +165,12 @@ def _generate_summary(result: Any, tool_name: str, args: dict[str, Any]) -> str:
     return "Operation completed"
 
 
-def execute_tool(tool_call: ToolCall) -> ToolResult:
+def execute_tool(tool_call: ToolCall, session_id: Optional[UUID] = None) -> ToolResult:
     """Execute a tool by calling the MCP tool function directly.
 
     Args:
         tool_call: The tool call to execute, containing name, id, and arguments.
+        session_id: Optional UUID for the chat session (used for operation tracking).
 
     Returns:
         ToolResult with the execution result or error message.
@@ -197,9 +205,12 @@ def execute_tool(tool_call: ToolCall) -> ToolResult:
         )
 
     try:
+        # Create context with session_id for operation tracking
+        context = ChatContext(session_id) if session_id else _default_context
+
         # Call the MCP tool function with our chat context
         # MCP tools expect (context, **kwargs) signature
-        result = tool.fn(_context, **tool_call.arguments)
+        result = tool.fn(context, **tool_call.arguments)
 
         duration_ms = int((time.time() - start_time) * 1000)
 

@@ -3,10 +3,12 @@
 -- Run with: psql $DATABASE_URL -f schema.sql
 
 -- Drop existing tables (in correct order due to foreign keys)
+DROP TABLE IF EXISTS operation_log CASCADE;
 DROP TABLE IF EXISTS notes CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS events CASCADE;
 DROP TABLE IF EXISTS activities CASCADE;
+DROP TABLE IF EXISTS judges CASCADE;
 DROP TABLE IF EXISTS proceedings CASCADE;
 DROP TABLE IF EXISTS case_persons CASCADE;
 DROP TABLE IF EXISTS expertise_types CASCADE;
@@ -159,6 +161,20 @@ CREATE TABLE judges (
     UNIQUE(proceeding_id, person_id)
 );
 
+-- 13. Operation log table (for AI mutation rollback capability)
+CREATE TABLE operation_log (
+    id SERIAL PRIMARY KEY,
+    session_id UUID NOT NULL,
+    sequence INT NOT NULL,
+    table_name VARCHAR(100) NOT NULL,
+    operation VARCHAR(10) NOT NULL,  -- INSERT, UPDATE, DELETE
+    record_id INT,
+    before_data JSONB,
+    after_data JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    rolled_back_at TIMESTAMP
+);
+
 -- Indexes for better query performance
 CREATE INDEX idx_cases_status ON cases(status);
 CREATE INDEX idx_persons_name ON persons(name);
@@ -178,3 +194,6 @@ CREATE INDEX idx_notes_case_id ON notes(case_id);
 CREATE INDEX idx_proceedings_case_id ON proceedings(case_id);
 CREATE INDEX idx_judges_proceeding_id ON judges(proceeding_id);
 CREATE INDEX idx_judges_person_id ON judges(person_id);
+CREATE INDEX idx_operation_log_session ON operation_log(session_id);
+CREATE INDEX idx_operation_log_created ON operation_log(created_at DESC);
+CREATE INDEX idx_operation_log_table ON operation_log(table_name);
