@@ -1,9 +1,46 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { X, MessageCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { streamChatMessage } from '../../api/chat';
 import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult } from '../../types';
+
+// Map mutation tools to the query keys they affect
+const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
+  // Task mutations
+  add_task: [['tasks'], ['case']],
+  update_task: [['tasks'], ['case']],
+  delete_task: [['tasks'], ['case']],
+  reorder_task: [['tasks'], ['case']],
+  bulk_update_tasks: [['tasks'], ['case']],
+  bulk_update_case_tasks: [['tasks'], ['case']],
+  // Event mutations
+  add_event: [['events'], ['case'], ['calendar']],
+  update_event: [['events'], ['case'], ['calendar']],
+  delete_event: [['events'], ['case'], ['calendar']],
+  // Case mutations
+  create_case: [['cases'], ['stats']],
+  update_case: [['cases'], ['case'], ['stats']],
+  delete_case: [['cases'], ['stats']],
+  // Person mutations
+  manage_person: [['persons'], ['case']],
+  assign_person_to_case: [['persons'], ['case']],
+  update_case_assignment: [['persons'], ['case']],
+  remove_person_from_case: [['persons'], ['case']],
+  // Note mutations
+  add_note: [['notes'], ['case']],
+  update_note: [['notes'], ['case']],
+  delete_note: [['notes'], ['case']],
+  // Proceeding mutations
+  add_proceeding: [['proceedings'], ['case']],
+  update_proceeding: [['proceedings'], ['case']],
+  delete_proceeding: [['proceedings'], ['case']],
+  // Activity mutations
+  log_activity: [['activities'], ['case']],
+  update_activity: [['activities'], ['case']],
+  delete_activity: [['activities'], ['case']],
+};
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -12,6 +49,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +131,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
 
       case 'tool_result':
         // Update tool execution with result
-        // Handle flat format from backend: {type: 'tool_result', id: '...', result: '...', is_error: false, duration_ms: 123}
+        // Handle flat format from backend: {type: 'tool_result', id: '...', name: '...', result: '...', is_error: false, duration_ms: 123}
         if (event.id) {
           const toolResult: ToolResult = {
             tool_use_id: event.id,
@@ -123,6 +161,16 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
                 : m
             )
           );
+
+          // Invalidate queries if this was a successful mutation tool
+          if (!event.is_error && event.name) {
+            const queriesToInvalidate = MUTATION_TOOL_QUERIES[event.name];
+            if (queriesToInvalidate) {
+              queriesToInvalidate.forEach((queryKey) => {
+                queryClient.invalidateQueries({ queryKey });
+              });
+            }
+          }
         }
         break;
 
@@ -177,7 +225,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         );
         break;
     }
-  }, []);
+  }, [queryClient]);
 
   const handleSend = async (content: string, isRetry = false) => {
     // Abort any existing stream
