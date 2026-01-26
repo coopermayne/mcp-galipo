@@ -20,6 +20,7 @@ def register_task_routes(mcp):
             return err
         case_id = request.query_params.get("case_id")
         status = request.query_params.get("status")
+        exclude_status = request.query_params.get("exclude_status")
         urgency = request.query_params.get("urgency")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
@@ -29,6 +30,7 @@ def register_task_routes(mcp):
         result = db.get_tasks(
             case_id=int(case_id) if case_id else None,
             status_filter=status,
+            exclude_status=exclude_status,
             urgency_filter=int(urgency) if urgency else None,
             limit=limit,
             offset=offset

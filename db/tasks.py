@@ -30,7 +30,7 @@ def add_task(case_id: int, description: str, due_date: str = None,
         return serialize_row(dict(cur.fetchone()))
 
 
-def get_tasks(case_id: int = None, status_filter: str = None,
+def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: int = None, limit: int = None, offset: int = None) -> dict:
     """Get tasks with optional filters."""
     conditions = []
@@ -44,6 +44,11 @@ def get_tasks(case_id: int = None, status_filter: str = None,
         validate_task_status(status_filter)
         conditions.append("t.status = %s")
         params.append(status_filter)
+
+    if exclude_status:
+        validate_task_status(exclude_status)
+        conditions.append("t.status != %s")
+        params.append(exclude_status)
 
     if urgency_filter:
         validate_urgency(urgency_filter)

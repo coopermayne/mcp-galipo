@@ -4,6 +4,7 @@ import { request } from './common';
 export async function getTasks(params?: {
   case_id?: number;
   status?: string;
+  exclude_status?: string;
   urgency?: number;
   limit?: number;
   offset?: number;
@@ -11,6 +12,7 @@ export async function getTasks(params?: {
   const searchParams = new URLSearchParams();
   if (params?.case_id) searchParams.set('case_id', String(params.case_id));
   if (params?.status) searchParams.set('status', params.status);
+  if (params?.exclude_status) searchParams.set('exclude_status', params.exclude_status);
   if (params?.urgency) searchParams.set('urgency', String(params.urgency));
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
