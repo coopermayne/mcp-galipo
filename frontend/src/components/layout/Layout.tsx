@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useMatch } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { ChatButton, ChatPanel } from '../chat';
 
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Detect if we're on a case detail page and extract case ID
+  const caseMatch = useMatch('/cases/:id');
+  const caseContext = caseMatch?.params.id ? parseInt(caseMatch.params.id, 10) : undefined;
 
   // Keyboard shortcut: Cmd+K (Mac) / Ctrl+K (Windows) to toggle chat
   useEffect(() => {
@@ -28,7 +32,7 @@ export function Layout() {
 
       {/* Chat UI */}
       <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
-      <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
     </div>
   );
 }
