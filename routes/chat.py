@@ -296,6 +296,12 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
             all_tool_calls: list[dict[str, Any]] = []
             accumulated_text = ""
 
+            # Track cumulative token usage across iterations
+            total_input_tokens = 0
+            total_output_tokens = 0
+            total_cache_creation_tokens = 0
+            total_cache_read_tokens = 0
+
             # Conversation loop - continue until no more tool calls
             max_iterations = 10
             iteration = 0
@@ -366,6 +372,14 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                                 # Message complete - check stop reason
                                 stop_reason = event.get("stop_reason")
 
+                                # Accumulate usage data from this iteration
+                                usage = event.get("usage")
+                                if usage:
+                                    total_input_tokens += usage.get("input_tokens", 0)
+                                    total_output_tokens += usage.get("output_tokens", 0)
+                                    total_cache_creation_tokens += usage.get("cache_creation_input_tokens", 0)
+                                    total_cache_read_tokens += usage.get("cache_read_input_tokens", 0)
+
                                 if stop_reason == "tool_use" and iteration_tool_calls:
                                     # Add assistant message with tool calls to history
                                     assistant_content: list[dict[str, Any]] = []
@@ -432,6 +446,29 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                                     # Update conversation storage
                                     _conversations[conversation_id] = messages
 
+                                    # Send usage event before done
+                                    if total_input_tokens > 0 or total_output_tokens > 0:
+                                        usage_data = {
+                                            'type': 'usage',
+                                            'input_tokens': total_input_tokens,
+                                            'output_tokens': total_output_tokens,
+                                            'cache_read_input_tokens': total_cache_read_tokens,
+                                            'cache_creation_input_tokens': total_cache_creation_tokens,
+                                            'request': {
+                                                'system_prompt': system_prompt[:2000] if system_prompt else '',
+                                                'messages': messages,
+                                                'tools': [t['name'] for t in tools] if tools else [],
+                                                'tool_count': len(tools) if tools else 0,
+                                            },
+                                            'response': {
+                                                'content': accumulated_text,
+                                                'stop_reason': stop_reason,
+                                                'tool_calls': all_tool_calls,
+                                            }
+                                        }
+                                        yield f"data: {json.dumps(usage_data)}\n\n"
+                                        await asyncio.sleep(0)  # Flush to client
+
                                     # Send done event
                                     yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None})}\n\n"
                                     await asyncio.sleep(0)  # Flush to client
@@ -443,8 +480,32 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                         await asyncio.sleep(0)  # Flush to client
                         return
 
-                # If we hit max iterations, send done event
+                # If we hit max iterations, send usage and done events
                 _conversations[conversation_id] = messages
+
+                # Send usage event
+                if total_input_tokens > 0 or total_output_tokens > 0:
+                    usage_data = {
+                        'type': 'usage',
+                        'input_tokens': total_input_tokens,
+                        'output_tokens': total_output_tokens,
+                        'cache_read_input_tokens': total_cache_read_tokens,
+                        'cache_creation_input_tokens': total_cache_creation_tokens,
+                        'request': {
+                            'system_prompt': system_prompt[:2000] if system_prompt else '',
+                            'messages': messages,
+                            'tools': [t['name'] for t in tools] if tools else [],
+                            'tool_count': len(tools) if tools else 0,
+                        },
+                        'response': {
+                            'content': accumulated_text,
+                            'stop_reason': 'max_iterations',
+                            'tool_calls': all_tool_calls,
+                        }
+                    }
+                    yield f"data: {json.dumps(usage_data)}\n\n"
+                    await asyncio.sleep(0)  # Flush to client
+
                 yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None})}\n\n"
                 await asyncio.sleep(0)  # Flush to client
 

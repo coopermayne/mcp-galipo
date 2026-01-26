@@ -126,6 +126,27 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         }
         break;
 
+      case 'usage':
+        // Update message with token usage data
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamingMessageId
+              ? {
+                  ...m,
+                  usage: {
+                    input_tokens: event.input_tokens || 0,
+                    output_tokens: event.output_tokens || 0,
+                    cache_read_input_tokens: event.cache_read_input_tokens,
+                    cache_creation_input_tokens: event.cache_creation_input_tokens,
+                    request: event.request,
+                    response: event.response,
+                  },
+                }
+              : m
+          )
+        );
+        break;
+
       case 'done':
         // Mark streaming as complete
         setMessages((prev) =>

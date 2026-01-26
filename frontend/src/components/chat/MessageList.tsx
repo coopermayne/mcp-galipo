@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Bot, User, Copy, Check } from 'lucide-react';
 import { ToolCallIndicator } from './ToolCallIndicator';
+import { TokenUsageIndicator } from './TokenUsageIndicator';
 import { MarkdownContent } from './MarkdownContent';
 import type { ChatMessage, ToolExecution } from '../../types';
 
@@ -168,6 +169,13 @@ function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
                 }}
               />
             ))}
+          </div>
+        )}
+
+        {/* Token usage indicator */}
+        {!message.isStreaming && message.role === 'assistant' && message.usage && (
+          <div className="w-full">
+            <TokenUsageIndicator usage={message.usage} />
           </div>
         )}
 
