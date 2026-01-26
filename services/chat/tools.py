@@ -16,8 +16,7 @@ register_tools(_mcp)
 
 # Tools to EXCLUDE from chat (blacklist approach - everything else is available)
 BLACKLIST: set[str] = {
-    # Add tool names here to hide them from the chat AI
-    # Example: "dangerous_tool",
+    "get_current_time",  # Date/time already in system prompt
 }
 
 

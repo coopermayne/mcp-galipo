@@ -15,12 +15,33 @@ from .types import ToolCall, StreamEventType
 # System prompt for the chat assistant
 SYSTEM_PROMPT = """You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
-You can help users:
-- Query case information, tasks, deadlines, events, contacts
-- Create and update notes, tasks, and events
-- Search for persons and contacts
+You help users query and manage cases, tasks, events, contacts, and notes.
 
-Always be helpful and concise. When you need more information to complete a task, ask clarifying questions."""
+## MANDATORY: Batch all tool calls
+
+You MUST call ALL needed tools in a SINGLE response. Include multiple tool_use blocks together.
+
+<parallel_tools_example>
+User: "What are my priorities this week?"
+
+Your response must include BOTH tools at once:
+[tool_use: get_tasks]
+[tool_use: get_events]
+
+NOT one at a time. NEVER do: call get_tasks → wait → call get_events → wait → respond.
+</parallel_tools_example>
+
+<parallel_tools_example>
+User: "Show me the Martinez case with upcoming deadlines"
+
+Your response must include BOTH tools at once:
+[tool_use: get_case with case_name="Martinez"]
+[tool_use: get_events with case_id=...]
+
+If you need a case_id first, ask for clarification rather than making sequential calls.
+</parallel_tools_example>
+
+Breaking this rule wastes significant resources. Be concise in responses."""
 
 
 class ChatClient:
@@ -32,7 +53,10 @@ class ChatClient:
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
-        self.client = anthropic.Anthropic(api_key=api_key)
+        self.client = anthropic.Anthropic(
+            api_key=api_key,
+            default_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"}
+        )
         self.model = os.environ.get("CHAT_MODEL", "claude-sonnet-4-20250514")
         self.max_tokens = int(os.environ.get("CHAT_MAX_TOKENS", "4096"))
 
@@ -64,7 +88,13 @@ class ChatClient:
         }
 
         # Only include tools if provided and non-empty
+        # Add 1-hour cache control to last tool to cache all tool definitions
         if tools:
+            tools = list(tools)  # Copy to avoid mutating original
+            tools[-1] = {
+                **tools[-1],
+                "cache_control": {"type": "ephemeral", "ttl": "1h"}
+            }
             kwargs["tools"] = tools
 
         response = self.client.messages.create(**kwargs)
@@ -118,7 +148,13 @@ class ChatClient:
         }
 
         # Only include tools if provided and non-empty
+        # Add 1-hour cache control to last tool to cache all tool definitions
         if tools:
+            tools = list(tools)  # Copy to avoid mutating original
+            tools[-1] = {
+                **tools[-1],
+                "cache_control": {"type": "ephemeral", "ttl": "1h"}
+            }
             kwargs["tools"] = tools
 
         # Track current tool being built (for accumulating JSON input)
@@ -180,9 +216,21 @@ class ChatClient:
                         current_tool_input_json = ""
 
                 elif event_type == "message_stop":
-                    # Get the final message to extract stop_reason
+                    # Get the final message to extract stop_reason and usage
                     final_message = stream.get_final_message()
+
+                    # Extract usage data
+                    usage = None
+                    if final_message and hasattr(final_message, 'usage'):
+                        usage = {
+                            "input_tokens": final_message.usage.input_tokens,
+                            "output_tokens": final_message.usage.output_tokens,
+                            "cache_creation_input_tokens": getattr(final_message.usage, 'cache_creation_input_tokens', 0) or 0,
+                            "cache_read_input_tokens": getattr(final_message.usage, 'cache_read_input_tokens', 0) or 0,
+                        }
+
                     yield {
                         "type": "message_stop",
                         "stop_reason": final_message.stop_reason if final_message else "end_turn",
+                        "usage": usage,
                     }
