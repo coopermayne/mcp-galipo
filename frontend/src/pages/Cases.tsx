@@ -1,16 +1,16 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import type { ColumnDef } from '@tanstack/react-table';
 import { Header, PageContent } from '../components/layout';
-import { DataTable, StatusBadge, EditableSelect } from '../components/common';
+import { StatusBadge, EditableSelect, ListPanel } from '../components/common';
 import { getCases, getConstants, createCase, updateCase } from '../api';
 import type { CaseSummary, CaseStatus } from '../types';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Search, Filter } from 'lucide-react';
 
 export function Cases() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
@@ -72,40 +72,17 @@ export function Cases() {
     [constants]
   );
 
-  const columns: ColumnDef<CaseSummary>[] = useMemo(
-    () => [
-      {
-        accessorKey: 'case_name',
-        header: 'Case Name',
-        cell: ({ row }) => (
-          <button
-            onClick={() => navigate(`/cases/${row.original.id}`)}
-            className="text-left hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-          >
-            <span className="font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400">
-              {row.original.short_name || row.original.case_name}
-            </span>
-            {row.original.short_name && (
-              <span className="block text-xs text-slate-500 dark:text-slate-400">{row.original.case_name}</span>
-            )}
-          </button>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => (
-          <EditableSelect
-            value={row.original.status}
-            options={statusOptions}
-            onSave={(value) => handleStatusChange(row.original.id, value)}
-            renderValue={(value) => <StatusBadge status={value} />}
-          />
-        ),
-      },
-    ],
-    [statusOptions, handleStatusChange, navigate]
-  );
+  // Filter cases by search query
+  const filteredCases = useMemo(() => {
+    if (!casesData?.cases) return [];
+    if (!searchQuery) return casesData.cases;
+
+    const query = searchQuery.toLowerCase();
+    return casesData.cases.filter((c) =>
+      c.case_name.toLowerCase().includes(query) ||
+      (c.short_name && c.short_name.toLowerCase().includes(query))
+    );
+  }, [casesData?.cases, searchQuery]);
 
   return (
     <>
@@ -129,27 +106,42 @@ export function Cases() {
       />
 
       <PageContent>
-        {/* Status Filter */}
-        <div className="mb-4 flex items-center gap-4">
-          <label className="text-sm text-slate-500 dark:text-slate-400">Filter by status:</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="
-              px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600
-              text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
-              focus:border-primary-500 focus:ring-1 focus:ring-primary-500
-              outline-none transition-colors
-            "
-          >
-            <option value="">All Statuses</option>
-            {constants?.case_statuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Search and Filters */}
+        <ListPanel className="mb-6">
+          <div className="px-4 py-3 flex items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search cases..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+            </div>
+
+            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
+
+            {/* Status Filter */}
+            <Filter className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-500 dark:text-slate-400">Status:</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+              >
+                <option value="">All</option>
+                {constants?.case_statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </ListPanel>
 
         {/* Quick Add Form */}
         {isCreating && (
@@ -199,19 +191,43 @@ export function Cases() {
           </div>
         )}
 
-        {/* Cases Table */}
+        {/* Cases List */}
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-slate-500 dark:text-slate-400" />
-          </div>
+          <ListPanel>
+            <ListPanel.Loading />
+          </ListPanel>
+        ) : filteredCases.length === 0 ? (
+          <ListPanel>
+            <ListPanel.Empty message="No cases found" />
+          </ListPanel>
         ) : (
-          <DataTable
-            data={casesData?.cases || []}
-            columns={columns}
-            searchColumn="case_name"
-            searchPlaceholder="Search cases..."
-            emptyMessage="No cases found"
-          />
+          <ListPanel>
+            <ListPanel.Body>
+              {filteredCases.map((caseItem) => (
+                <ListPanel.Row key={caseItem.id}>
+                  <button
+                    onClick={() => navigate(`/cases/${caseItem.id}`)}
+                    className="flex-1 text-left min-w-0 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  >
+                    <span className="font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400">
+                      {caseItem.short_name || caseItem.case_name}
+                    </span>
+                    {caseItem.short_name && (
+                      <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {caseItem.case_name}
+                      </span>
+                    )}
+                  </button>
+                  <EditableSelect
+                    value={caseItem.status}
+                    options={statusOptions}
+                    onSave={(value) => handleStatusChange(caseItem.id, value)}
+                    renderValue={(value) => <StatusBadge status={value} />}
+                  />
+                </ListPanel.Row>
+              ))}
+            </ListPanel.Body>
+          </ListPanel>
         )}
       </PageContent>
     </>
