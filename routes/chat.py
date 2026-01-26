@@ -244,20 +244,23 @@ def register_chat_routes(mcp):
 
         # Build system prompt with current date and optional case context
         from datetime import datetime
-        current_date = datetime.now().strftime("%A, %B %d, %Y")
-        current_time = datetime.now().strftime("%I:%M %p")
+        from zoneinfo import ZoneInfo
+        pacific = ZoneInfo("America/Los_Angeles")
+        now_pacific = datetime.now(pacific)
+        current_date = now_pacific.strftime("%A, %B %d, %Y")
+        current_time = now_pacific.strftime("%I:%M %p")
 
         system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
 Current date: {current_date}
-Current time: {current_time}
+Current time: {current_time} (Pacific Time)
 
 You can help users:
 - Query case information, tasks, deadlines, events, contacts
 - Create and update notes, tasks, and events
 - Search for persons and contacts
 
-When creating or updating dates, always use the current year ({datetime.now().year}) unless the user explicitly specifies a different year.
+When creating or updating dates, always use the current year ({now_pacific.year}) unless the user explicitly specifies a different year.
 
 Always be helpful and concise. When you need more information to complete a task, ask clarifying questions."""
 
@@ -421,20 +424,23 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
         # Build system prompt with current date and optional case context
         from datetime import datetime
-        current_date = datetime.now().strftime("%A, %B %d, %Y")
-        current_time = datetime.now().strftime("%I:%M %p")
+        from zoneinfo import ZoneInfo
+        pacific = ZoneInfo("America/Los_Angeles")
+        now_pacific = datetime.now(pacific)
+        current_date = now_pacific.strftime("%A, %B %d, %Y")
+        current_time = now_pacific.strftime("%I:%M %p")
 
         system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
 Current date: {current_date}
-Current time: {current_time}
+Current time: {current_time} (Pacific Time)
 
 You can help users:
 - Query case information, tasks, deadlines, events, contacts
 - Create and update notes, tasks, and events
 - Search for persons and contacts
 
-When creating or updating dates, always use the current year ({datetime.now().year}) unless the user explicitly specifies a different year.
+When creating or updating dates, always use the current year ({now_pacific.year}) unless the user explicitly specifies a different year.
 
 Always be helpful and concise. When you need more information to complete a task, ask clarifying questions."""
 
