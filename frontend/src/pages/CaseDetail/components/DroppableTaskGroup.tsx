@@ -40,7 +40,7 @@ export function DroppableTaskGroup({
     <div
       ref={setNodeRef}
       className={`
-        rounded-b-lg border border-t-0 border-slate-200 dark:border-slate-700 overflow-hidden
+        rounded-b-lg border border-t-0 border-slate-200 dark:border-slate-700
         ${isOver ? 'ring-2 ring-primary-500 ring-opacity-50' : ''}
         ${tasks.length === 0 ? 'min-h-[48px] bg-slate-50 dark:bg-slate-800/50' : ''}
       `}

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Scale, Plus, Star, Trash2, ExternalLink, UserPlus, X } from 'lucide-react';
+import { Plus, Star, Trash2, ExternalLink, UserPlus, X } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import {
   createProceeding,
@@ -153,14 +153,8 @@ export function ProceedingsSection({
   };
 
   return (
-    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Scale className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-            Court Proceedings
-          </span>
-        </div>
+    <div className="mt-4">
+      <div className="flex justify-end mb-3">
         <button
           onClick={() => setShowAdd(!showAdd)}
           className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"

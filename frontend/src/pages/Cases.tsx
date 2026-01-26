@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Header, PageContent } from '../components/layout';
-import { DataTable, StatusBadge, EditableSelect, ConfirmModal } from '../components/common';
-import { getCases, getConstants, createCase, updateCase, deleteCase } from '../api';
+import { DataTable, StatusBadge, EditableSelect } from '../components/common';
+import { getCases, getConstants, createCase, updateCase } from '../api';
 import type { CaseSummary, CaseStatus } from '../types';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 
 export function Cases() {
   const navigate = useNavigate();
@@ -14,7 +14,6 @@ export function Cases() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const { data: casesData, isLoading } = useQuery({
     queryKey: ['cases', { status: statusFilter || undefined }],
@@ -47,14 +46,6 @@ export function Cases() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteCase(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cases'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
-  });
-
   const handleStatusChange = useCallback(
     async (caseId: number, newStatus: string) => {
       await updateMutation.mutateAsync({ id: caseId, data: { status: newStatus as CaseStatus } });
@@ -72,21 +63,6 @@ export function Cases() {
     [newCaseName, createMutation]
   );
 
-  const handleDeleteCase = useCallback(
-    (e: React.MouseEvent, caseId: number, caseName: string) => {
-      e.stopPropagation();
-      setDeleteTarget({ id: caseId, name: caseName });
-    },
-    []
-  );
-
-  const confirmDeleteCase = useCallback(() => {
-    if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
-      setDeleteTarget(null);
-    }
-  }, [deleteTarget, deleteMutation]);
-
   const statusOptions = useMemo(
     () =>
       (constants?.case_statuses || []).map((s) => ({
@@ -102,14 +78,17 @@ export function Cases() {
         accessorKey: 'case_name',
         header: 'Case Name',
         cell: ({ row }) => (
-          <div>
-            <span className="font-medium text-slate-900 dark:text-slate-100">
+          <button
+            onClick={() => navigate(`/cases/${row.original.id}`)}
+            className="text-left hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+          >
+            <span className="font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400">
               {row.original.short_name || row.original.case_name}
             </span>
             {row.original.short_name && (
               <span className="block text-xs text-slate-500 dark:text-slate-400">{row.original.case_name}</span>
             )}
-          </div>
+          </button>
         ),
       },
       {
@@ -124,37 +103,8 @@ export function Cases() {
           />
         ),
       },
-      {
-        accessorKey: 'judge',
-        header: 'Judge',
-        cell: ({ row }) => (
-          <span className="text-slate-600 dark:text-slate-300">
-            {row.original.judge || '-'}
-          </span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        cell: ({ row }) => (
-          <button
-            onClick={(e) => handleDeleteCase(e, row.original.id, row.original.case_name)}
-            className="p-1 text-slate-500 hover:text-red-400 transition-colors"
-            title="Delete case"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        ),
-      },
     ],
-    [statusOptions, handleStatusChange, handleDeleteCase]
-  );
-
-  const handleRowClick = useCallback(
-    (caseItem: CaseSummary) => {
-      navigate(`/cases/${caseItem.id}`);
-    },
-    [navigate]
+    [statusOptions, handleStatusChange, navigate]
   );
 
   return (
@@ -258,24 +208,12 @@ export function Cases() {
           <DataTable
             data={casesData?.cases || []}
             columns={columns}
-            onRowClick={handleRowClick}
             searchColumn="case_name"
             searchPlaceholder="Search cases..."
             emptyMessage="No cases found"
           />
         )}
       </PageContent>
-
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDeleteCase}
-        title="Delete Case"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This will permanently remove the case and all associated data. This action cannot be undone.`}
-        confirmText="Delete Case"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
-      />
     </>
   );
 }

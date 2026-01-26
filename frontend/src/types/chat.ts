@@ -16,6 +16,29 @@ export interface ToolResult {
   is_error: boolean;
 }
 
+// Token usage types
+export interface UsageRequest {
+  system_prompt: string;
+  messages: unknown[];
+  tools: string[];
+  tool_count: number;
+}
+
+export interface UsageResponse {
+  content: string;
+  stop_reason: string;
+  tool_calls: unknown[];
+}
+
+export interface UsageData {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+  request?: UsageRequest;
+  response?: UsageResponse;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -26,6 +49,8 @@ export interface ChatMessage {
   timestamp: Date;
   /** Error state for failed messages - contains error message if send failed */
   error?: string;
+  /** Token usage data for this message */
+  usage?: UsageData;
 }
 
 export interface ChatRequest {
@@ -42,7 +67,7 @@ export interface ChatResponse {
 }
 
 // SSE Event types for streaming
-export type StreamEventType = 'text' | 'tool_start' | 'tool_result' | 'done' | 'error';
+export type StreamEventType = 'text' | 'tool_start' | 'tool_result' | 'usage' | 'done' | 'error';
 
 export interface StreamEvent {
   type: StreamEventType;
@@ -55,6 +80,13 @@ export interface StreamEvent {
   result?: string;
   is_error?: boolean;
   duration_ms?: number;
+  // For 'usage' events
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+  request?: UsageRequest;
+  response?: UsageResponse;
   // For 'done' events
   conversation_id?: string;
   tool_calls?: ToolCall[];

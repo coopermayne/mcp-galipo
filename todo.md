@@ -128,7 +128,7 @@ Goal: Reduce context bloat on every AI interaction.
 ## Cleanup
 
 - [ ] Remove old `case_numbers` column after verification
-- [ ] Remove "Court proceedings" label/header (info is self-evident)
+- [x] Remove "Court proceedings" label/header (info is self-evident)
 
 ---
 

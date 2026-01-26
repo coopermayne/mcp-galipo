@@ -85,6 +85,9 @@ export type {
 export type {
   ToolCall,
   ToolResult,
+  UsageRequest,
+  UsageResponse,
+  UsageData,
   ChatMessage,
   ChatRequest,
   ChatResponse,
