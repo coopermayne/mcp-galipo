@@ -57,7 +57,7 @@ class ChatClient:
             api_key=api_key,
             default_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"}
         )
-        self.model = os.environ.get("CHAT_MODEL", "claude-sonnet-4-20250514")
+        self.model = os.environ.get("CHAT_MODEL", "claude-haiku-4-5")
         self.max_tokens = int(os.environ.get("CHAT_MAX_TOKENS", "4096"))
 
     def send_message(
