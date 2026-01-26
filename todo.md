@@ -9,6 +9,8 @@
 
 ## Bugs (High Priority)
 
+- [ ] **Case tab state not in URL** - Tab selection (Overview/Tasks/Activity/etc.) should be reflected in URL for bookmarking/sharing (e.g., `/cases/123/tasks`)
+- [x] **Chat context not passed** - Chat should know current page context (e.g., which case user is viewing) but this isn't working
 - [ ] **Chat tool bloat** - Now sends 49 tools vs 18 before (commit a1e7b67). Fix: curate whitelist in `services/chat/tools.py`
 - [ ] **SSE connection drops** - Needs reconnection handling for silent disconnects
 - [ ] **Optimistic update staleness** - Can show stale data if server returns different values
@@ -81,6 +83,11 @@ Fuzzy matching for all entity associations (extends Smart Case Lookup Phase 3).
 - [ ] Outlook Calendar MCP integration (read-only initially, audit logging)
 - [ ] Calendar export (iCal)
 - [ ] Recurring deadlines
+
+### Modal Detail Views
+- [ ] Person detail modal - click to view/edit all info (contact, attributes, case associations)
+- [ ] Proceeding detail modal - view/edit proceeding with judge, dates, notes
+- [ ] Extend pattern to other entities as needed (events, tasks?)
 
 ### Other
 - [ ] Person type filtering in autocomplete search
