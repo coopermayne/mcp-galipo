@@ -1,19 +1,6 @@
-import { request, API_BASE, ApiError } from './common';
+import { API_BASE, ApiError } from './common';
 import { getAuthToken, clearAuthToken } from '../context/AuthContext';
-import type { ChatRequest, ChatResponse, StreamEvent } from '../types';
-
-export async function sendChatMessage(req: ChatRequest): Promise<ChatResponse> {
-  // Convert to snake_case for backend API
-  const body = {
-    message: req.message,
-    conversation_id: req.conversationId,
-    case_context: req.caseContext,
-  };
-  return request('/chat', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
+import type { ChatRequest, StreamEvent } from '../types';
 
 /**
  * Stream chat messages via SSE.
