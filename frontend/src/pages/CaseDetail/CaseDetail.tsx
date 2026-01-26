@@ -84,6 +84,9 @@ export function CaseDetail() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when modifier keys are held
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       // Don't trigger when typing in input fields
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
