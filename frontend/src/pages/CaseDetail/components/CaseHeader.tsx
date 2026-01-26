@@ -77,14 +77,28 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
   // Keyboard navigation
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // Escape closes search
       if (event.key === 'Escape' && showSearch) {
         setShowSearch(false);
         setSearchQuery('');
+        return;
+      }
+
+      // Don't trigger shortcuts when typing in an input
+      const target = event.target as HTMLElement;
+      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if (isTyping) return;
+
+      // J = next case, K = previous case
+      if (event.key === 'j' && nextCase) {
+        navigate(`/cases/${nextCase.id}`);
+      } else if (event.key === 'k' && prevCase) {
+        navigate(`/cases/${prevCase.id}`);
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showSearch]);
+  }, [showSearch, nextCase, prevCase, navigate]);
 
   const handleNavigate = (caseId: number) => {
     navigate(`/cases/${caseId}`);
@@ -138,7 +152,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
               ? 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
               : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
           }`}
-          title={prevCase ? `Previous: ${prevCase.short_name || prevCase.case_name}` : 'No previous case'}
+          title={prevCase ? `Previous: ${prevCase.short_name || prevCase.case_name} (K)` : 'No previous case'}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -152,7 +166,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
               ? 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
               : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
           }`}
-          title={nextCase ? `Next: ${nextCase.short_name || nextCase.case_name}` : 'No next case'}
+          title={nextCase ? `Next: ${nextCase.short_name || nextCase.case_name} (J)` : 'No next case'}
         >
           <ChevronRight className="w-5 h-5" />
         </button>
