@@ -12,8 +12,16 @@ import database as db
 from tools import register_tools
 from routes import register_routes
 
+
+MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
+
+IMPORTANT: Call the get_current_time tool at the start of any session to know the current date and time in Pacific Time (Los Angeles). This is essential for creating events, tasks, or deadlines with correct dates.
+
+This server provides tools to manage cases, tasks, events, contacts, and notes."""
+
+
 # Initialize the MCP server
-mcp = FastMCP("Legal Case Management")
+mcp = FastMCP("Legal Case Management", instructions=MCP_INSTRUCTIONS)
 
 # Register MCP tools (for AI/Claude integration)
 register_tools(mcp)

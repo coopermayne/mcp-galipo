@@ -15,6 +15,7 @@ from tools.types import register_type_tools
 from tools.proceedings import register_proceeding_tools
 from tools.search import register_search_tools
 from tools.help import register_help_tools
+from tools.time import register_time_tools
 
 # Re-export utility functions for backwards compatibility
 from tools.utils import error_response, validation_error, not_found_error
@@ -29,6 +30,9 @@ def register_tools(mcp):
     Args:
         mcp: A FastMCP instance to register tools on
     """
+    # Time tool first (for current date/time awareness)
+    register_time_tools(mcp)
+
     # Core domain tools
     register_jurisdiction_tools(mcp)
     register_case_tools(mcp)
@@ -52,6 +56,7 @@ __all__ = [
     'register_tools',
 
     # Domain-specific registration functions
+    'register_time_tools',
     'register_jurisdiction_tools',
     'register_case_tools',
     'register_person_tools',
