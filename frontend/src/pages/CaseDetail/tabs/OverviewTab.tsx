@@ -571,7 +571,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               </button>
             </div>
           </div>
-          <div className="space-y-1 max-h-64 overflow-y-auto">
+          <div className="space-y-1">
             {(showDoneTasks ? doneTasks : sortedActiveTasks).map(task => (
               <div key={task.id} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
                 <EditableSelect
@@ -611,7 +611,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               <ChevronDown className="w-3 h-3" />
             </button>
           </div>
-          <div className="space-y-1 max-h-64 overflow-y-auto">
+          <div className="space-y-1">
             {(showPastEvents ? pastEvents : futureEvents).map(event => (
               <div key={event.id} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
                 <button
