@@ -222,6 +222,7 @@ export function ProceedingsSection({
                 <JurisdictionAutocomplete
                   onSelectJurisdiction={handleSelectJurisdiction}
                   onCreateNew={handleCreateJurisdiction}
+                  onCancel={() => setShowAdd(false)}
                   placeholder="Search courts or create new..."
                 />
               </div>
@@ -359,6 +360,10 @@ export function ProceedingsSection({
                         excludePersonIds={p.judges?.map((j) => j.person_id) || []}
                         onSelectPerson={(person) => handleSelectJudge(p.id, person)}
                         onCreateNew={(name) => handleCreateJudge(p.id, name)}
+                        onCancel={() => {
+                          setAddingJudgeTo(null);
+                          setNewJudgeRole('Judge');
+                        }}
                         placeholder="Search judges or create new..."
                         autoFocus
                       />
