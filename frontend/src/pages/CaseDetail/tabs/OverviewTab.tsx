@@ -394,16 +394,14 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 className="text-xs shrink-0"
               />
             </div>
-            {/* Starred events */}
+            {/* Starred events - read only */}
             {starredEvents.map(event => (
               <div key={event.id} className="flex items-center gap-2 text-sm">
                 <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
                 <span className="text-slate-600 dark:text-slate-300 truncate">{event.description}</span>
-                <EditableDate
-                  value={event.date}
-                  onSave={async (value) => { if (value) await updateEventMutation.mutateAsync({ id: event.id, data: { date: value } }); }}
-                  className="text-xs shrink-0"
-                />
+                <span className="text-xs text-slate-500 shrink-0">
+                  {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
               </div>
             ))}
             {starredEvents.length === 0 && !caseData.date_of_injury && (
