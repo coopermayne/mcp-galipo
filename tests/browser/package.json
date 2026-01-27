@@ -5,18 +5,16 @@
   "main": "run.js",
   "scripts": {
     "test": "node run.js --help",
-    "chat": "node run.js chat",
-    "chat:visible": "HEADLESS=false node run.js chat",
-    "chat:slow": "HEADLESS=false SLOW_MO=50 node run.js chat",
-    "streaming": "node run.js streaming",
-    "streaming:visible": "HEADLESS=false node run.js streaming",
-    "list": "node run.js --list"
+    "speed": "node scenarios/chat-speed-test.js",
+    "speed:visible": "HEADLESS=false node scenarios/chat-speed-test.js",
+    "compare": "node scenarios/model-comparison-test.js",
+    "compare:visible": "HEADLESS=false node scenarios/model-comparison-test.js",
+    "list": "ls scenarios/"
   },
-  "keywords": ["testing", "puppeteer", "browser-automation"],
+  "keywords": ["testing", "playwright", "browser-automation"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "pdfkit": "^0.17.2",
-    "puppeteer": "^24.36.0"
+    "playwright": "^1.48.0"
   }
 }

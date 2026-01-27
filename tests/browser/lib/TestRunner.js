@@ -1,5 +1,5 @@
 /**
- * TestRunner - Flexible browser automation framework built on Puppeteer
+ * TestRunner - Flexible browser automation framework built on Playwright
  *
  * Features:
  * - Login handling
@@ -8,19 +8,20 @@
  * - Test step tracking for reports
  */
 
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
 class TestRunner {
   constructor(options = {}) {
-    this.baseUrl = options.baseUrl || 'http://localhost:3000';
+    this.baseUrl = options.baseUrl || 'http://localhost:5173';
     this.outputDir = options.outputDir || path.join(__dirname, '..', 'output');
     this.headless = options.headless !== false; // default true
     this.slowMo = options.slowMo || 0;
     this.viewport = options.viewport || { width: 1280, height: 800 };
 
     this.browser = null;
+    this.context = null;
     this.page = null;
     this.steps = []; // Track test steps for report
     this.screenshotIndex = 0;
@@ -36,14 +37,16 @@ class TestRunner {
    * Initialize browser and page
    */
   async init() {
-    this.browser = await puppeteer.launch({
+    this.browser = await chromium.launch({
       headless: this.headless,
-      slowMo: this.slowMo,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      slowMo: this.slowMo
     });
 
-    this.page = await this.browser.newPage();
-    await this.page.setViewport(this.viewport);
+    this.context = await this.browser.newContext({
+      viewport: this.viewport
+    });
+
+    this.page = await this.context.newPage();
 
     // Set up console logging from browser
     this.page.on('console', msg => {
@@ -59,6 +62,9 @@ class TestRunner {
    * Close browser
    */
   async close() {
+    if (this.context) {
+      await this.context.close();
+    }
     if (this.browser) {
       await this.browser.close();
     }
@@ -69,7 +75,7 @@ class TestRunner {
    */
   async goto(urlPath, options = {}) {
     const url = urlPath.startsWith('http') ? urlPath : `${this.baseUrl}${urlPath}`;
-    await this.page.goto(url, { waitUntil: 'networkidle0', ...options });
+    await this.page.goto(url, { waitUntil: 'networkidle', ...options });
     return this;
   }
 
@@ -83,14 +89,14 @@ class TestRunner {
     await this.page.waitForSelector('#username');
 
     // Fill in credentials
-    await this.page.type('#username', username);
-    await this.page.type('#password', password);
+    await this.page.fill('#username', username);
+    await this.page.fill('#password', password);
 
-    // Click submit
-    await this.page.click('button[type="submit"]');
-
-    // Wait for navigation to complete (should redirect to dashboard)
-    await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
+    // Click submit and wait for navigation
+    await Promise.all([
+      this.page.waitForURL('**/*', { waitUntil: 'networkidle' }),
+      this.page.click('button[type="submit"]')
+    ]);
 
     return this;
   }
@@ -148,8 +154,8 @@ class TestRunner {
   async waitForText(text, options = {}) {
     await this.page.waitForFunction(
       (searchText) => document.body.innerText.includes(searchText),
-      { timeout: 30000, ...options },
-      text
+      text,
+      { timeout: 30000, ...options }
     );
     return this;
   }
@@ -158,7 +164,7 @@ class TestRunner {
    * Wait for network to be idle
    */
   async waitForNetworkIdle(timeout = 500) {
-    await this.page.waitForNetworkIdle({ idleTime: timeout });
+    await this.page.waitForLoadState('networkidle');
     return this;
   }
 
@@ -177,9 +183,9 @@ class TestRunner {
   async type(selector, text, options = {}) {
     await this.page.waitForSelector(selector);
     if (options.clear) {
-      await this.page.click(selector, { clickCount: 3 });
+      await this.page.fill(selector, '');
     }
-    await this.page.type(selector, text, { delay: options.delay || 0 });
+    await this.page.fill(selector, text);
     return this;
   }
 
@@ -259,13 +265,13 @@ class TestRunner {
    * Highlight an element temporarily (useful before screenshots)
    */
   async highlight(selector, color = 'red') {
-    await this.page.evaluate((sel, c) => {
+    await this.page.evaluate(([sel, c]) => {
       const el = document.querySelector(sel);
       if (el) {
         el.style.outline = `3px solid ${c}`;
         el.style.outlineOffset = '2px';
       }
-    }, selector, color);
+    }, [selector, color]);
     return this;
   }
 
