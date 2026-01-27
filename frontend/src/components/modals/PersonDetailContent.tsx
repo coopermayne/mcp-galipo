@@ -349,7 +349,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   };
 
   const handleUpdateAttribute = async (key: string, value: unknown) => {
-    const newAttributes = { ...data?.person?.attributes, [key]: value };
+    const newAttributes: Record<string, unknown> = { ...data?.person?.attributes, [key]: value };
     // Remove undefined values
     Object.keys(newAttributes).forEach((k) => {
       if (newAttributes[k] === undefined) delete newAttributes[k];
