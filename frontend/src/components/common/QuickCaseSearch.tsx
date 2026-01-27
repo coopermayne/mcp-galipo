@@ -147,11 +147,11 @@ export function QuickCaseSearch({ isOpen, onClose }: QuickCaseSearchProps) {
                       )}
                     </div>
                     <span className={`px-2 py-0.5 text-xs rounded-full ${
-                      c.status === 'Active'
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : c.status === 'Pending'
+                      c.status === 'Closed'
+                        ? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                        : c.status === 'Signing Up' || c.status === 'Prospective'
                         ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                        : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                     }`}>
                       {c.status}
                     </span>

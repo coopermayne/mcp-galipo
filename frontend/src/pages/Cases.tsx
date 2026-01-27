@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
 import { StatusBadge, EditableSelect, ListPanel } from '../components/common';
 import { getCases, getConstants, createCase, updateCase } from '../api';
-import type { CaseSummary, CaseStatus } from '../types';
+import type { CaseStatus } from '../types';
 import { Plus, Loader2, Search, Filter } from 'lucide-react';
 
 export function Cases() {
