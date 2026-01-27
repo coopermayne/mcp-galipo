@@ -1,40 +1,41 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, ExternalLink, UserPlus, X } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
+import { PersonAutocomplete, JurisdictionAutocomplete } from '../../../components/common';
 import {
   createProceeding,
   updateProceeding,
   addProceedingJudge,
   removeProceedingJudge,
+  createPerson,
+  assignPersonToCase,
+  createJurisdiction,
 } from '../../../api';
-import type { Proceeding, Jurisdiction, CasePerson, ProceedingJudge } from '../../../types';
+import type { Proceeding, Jurisdiction, ProceedingJudge, Person } from '../../../types';
 
 interface ProceedingsSectionProps {
   caseId: number;
   proceedings: Proceeding[];
-  jurisdictions?: Jurisdiction[];
-  judges?: CasePerson[];
 }
 
 export function ProceedingsSection({
   caseId,
   proceedings,
-  jurisdictions = [],
-  judges = [],
 }: ProceedingsSectionProps) {
   const queryClient = useQueryClient();
   const { openProceedingModal, openPersonModal } = useEntityModal();
   const [showAdd, setShowAdd] = useState(false);
   const [newProceeding, setNewProceeding] = useState({
     case_number: '',
-    jurisdiction_id: '',
+    jurisdiction_id: null as number | null,
+    jurisdiction_name: '',
     is_primary: false,
     notes: '',
   });
   // Track which proceeding is showing the add judge UI
   const [addingJudgeTo, setAddingJudgeTo] = useState<number | null>(null);
-  const [newJudge, setNewJudge] = useState({ person_id: '', role: 'Judge' });
+  const [newJudgeRole, setNewJudgeRole] = useState('Judge');
 
   const createMutation = useMutation({
     mutationFn: (data: {
@@ -47,11 +48,24 @@ export function ProceedingsSection({
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       setNewProceeding({
         case_number: '',
-        jurisdiction_id: '',
+        jurisdiction_id: null,
+        jurisdiction_name: '',
         is_primary: false,
         notes: '',
       });
       setShowAdd(false);
+    },
+  });
+
+  const createJurisdictionMutation = useMutation({
+    mutationFn: (name: string) => createJurisdiction({ name }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['jurisdictions'] });
+      setNewProceeding({
+        ...newProceeding,
+        jurisdiction_id: data.jurisdiction.id,
+        jurisdiction_name: data.jurisdiction.name,
+      });
     },
   });
 
@@ -64,12 +78,43 @@ export function ProceedingsSection({
   });
 
   const addJudgeMutation = useMutation({
-    mutationFn: ({ proceedingId, data }: { proceedingId: number; data: { person_id: number; role: string } }) =>
-      addProceedingJudge(proceedingId, data),
+    mutationFn: async ({ proceedingId, personId, role }: { proceedingId: number; personId: number; role: string }) => {
+      // First assign the person to the case as a judge (if not already)
+      await assignPersonToCase(caseId, {
+        person_id: personId,
+        role: role,
+        side: 'neutral',
+      }).catch(() => {
+        // Ignore error if already assigned
+      });
+      // Then add to the proceeding
+      return addProceedingJudge(proceedingId, { person_id: personId, role });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       setAddingJudgeTo(null);
-      setNewJudge({ person_id: '', role: 'Judge' });
+      setNewJudgeRole('Judge');
+    },
+  });
+
+  const createAndAddJudgeMutation = useMutation({
+    mutationFn: async ({ proceedingId, name, role }: { proceedingId: number; name: string; role: string }) => {
+      // Create the person as a judge
+      const personResult = await createPerson({ person_type: 'judge', name });
+      const personId = personResult.person.id;
+      // Assign to case
+      await assignPersonToCase(caseId, {
+        person_id: personId,
+        role: role,
+        side: 'neutral',
+      });
+      // Add to proceeding
+      return addProceedingJudge(proceedingId, { person_id: personId, role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setAddingJudgeTo(null);
+      setNewJudgeRole('Judge');
     },
   });
 
@@ -86,25 +131,39 @@ export function ProceedingsSection({
     if (newProceeding.case_number.trim()) {
       createMutation.mutate({
         case_number: newProceeding.case_number.trim(),
-        jurisdiction_id: newProceeding.jurisdiction_id
-          ? parseInt(newProceeding.jurisdiction_id, 10)
-          : undefined,
+        jurisdiction_id: newProceeding.jurisdiction_id ?? undefined,
         is_primary: newProceeding.is_primary,
         notes: newProceeding.notes || undefined,
       });
     }
   };
 
-  const handleAddJudge = (proceedingId: number) => {
-    if (newJudge.person_id) {
-      addJudgeMutation.mutate({
-        proceedingId,
-        data: {
-          person_id: parseInt(newJudge.person_id, 10),
-          role: newJudge.role,
-        },
-      });
-    }
+  const handleSelectJurisdiction = (jurisdiction: Jurisdiction) => {
+    setNewProceeding({
+      ...newProceeding,
+      jurisdiction_id: jurisdiction.id,
+      jurisdiction_name: jurisdiction.name,
+    });
+  };
+
+  const handleCreateJurisdiction = (name: string) => {
+    createJurisdictionMutation.mutate(name);
+  };
+
+  const handleClearJurisdiction = () => {
+    setNewProceeding({
+      ...newProceeding,
+      jurisdiction_id: null,
+      jurisdiction_name: '',
+    });
+  };
+
+  const handleSelectJudge = (proceedingId: number, person: Person) => {
+    addJudgeMutation.mutate({ proceedingId, personId: person.id, role: newJudgeRole });
+  };
+
+  const handleCreateJudge = (proceedingId: number, name: string) => {
+    createAndAddJudgeMutation.mutate({ proceedingId, name, role: newJudgeRole });
   };
 
   const handleRemoveJudge = (proceedingId: number, personId: number) => {
@@ -113,17 +172,6 @@ export function ProceedingsSection({
 
   const handleSetPrimary = (id: number) => {
     updateMutation.mutate({ id, data: { is_primary: true } });
-  };
-
-  // Get judges from persons assigned to the case
-  const judgeOptions = useMemo(() => {
-    return judges.filter((p) => p.role === 'Judge' || p.role === 'Magistrate Judge');
-  }, [judges]);
-
-  // Get available judges (not already on the proceeding)
-  const getAvailableJudges = (proceeding: Proceeding) => {
-    const assignedIds = new Set(proceeding.judges?.map((j) => j.person_id) || []);
-    return judgeOptions.filter((j) => !assignedIds.has(j.id));
   };
 
   const formatJudgeRole = (role: string) => {
@@ -156,20 +204,28 @@ export function ProceedingsSection({
               placeholder="Case number *"
               className="col-span-2 px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
             />
-            <select
-              value={newProceeding.jurisdiction_id}
-              onChange={(e) =>
-                setNewProceeding({ ...newProceeding, jurisdiction_id: e.target.value })
-              }
-              className="col-span-2 px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 outline-none"
-            >
-              <option value="">Select court...</option>
-              {jurisdictions.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.name}
-                </option>
-              ))}
-            </select>
+            {newProceeding.jurisdiction_id ? (
+              <div className="col-span-2 flex items-center gap-2 px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm">
+                <span className="text-slate-900 dark:text-slate-100 flex-1">
+                  {newProceeding.jurisdiction_name}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearJurisdiction}
+                  className="p-0.5 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="col-span-2">
+                <JurisdictionAutocomplete
+                  onSelectJurisdiction={handleSelectJurisdiction}
+                  onCreateNew={handleCreateJurisdiction}
+                  placeholder="Search courts or create new..."
+                />
+              </div>
+            )}
           </div>
           <input
             type="text"
@@ -276,45 +332,36 @@ export function ProceedingsSection({
 
                   {/* Add judge UI */}
                   {addingJudgeTo === p.id ? (
-                    <div className="mt-2 flex items-center gap-1">
-                      <select
-                        value={newJudge.person_id}
-                        onChange={(e) => setNewJudge({ ...newJudge, person_id: e.target.value })}
-                        className="flex-1 px-1.5 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:border-primary-500 outline-none"
-                      >
-                        <option value="">Select judge...</option>
-                        {getAvailableJudges(p).map((j) => (
-                          <option key={j.id} value={j.id}>
-                            {j.name}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={newJudge.role}
-                        onChange={(e) => setNewJudge({ ...newJudge, role: e.target.value })}
-                        className="px-1.5 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:border-primary-500 outline-none"
-                      >
-                        <option value="Judge">Judge</option>
-                        <option value="Presiding">Presiding</option>
-                        <option value="Panel">Panel</option>
-                        <option value="Magistrate Judge">Magistrate Judge</option>
-                      </select>
-                      <button
-                        onClick={() => handleAddJudge(p.id)}
-                        disabled={!newJudge.person_id || addJudgeMutation.isPending}
-                        className="px-1.5 py-1 bg-primary-600 text-white rounded text-xs disabled:opacity-50"
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAddingJudgeTo(null);
-                          setNewJudge({ person_id: '', role: 'Judge' });
-                        }}
-                        className="p-1 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={newJudgeRole}
+                          onChange={(e) => setNewJudgeRole(e.target.value)}
+                          className="px-1.5 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:border-primary-500 outline-none"
+                        >
+                          <option value="Judge">Judge</option>
+                          <option value="Presiding">Presiding</option>
+                          <option value="Panel">Panel</option>
+                          <option value="Magistrate Judge">Magistrate Judge</option>
+                        </select>
+                        <button
+                          onClick={() => {
+                            setAddingJudgeTo(null);
+                            setNewJudgeRole('Judge');
+                          }}
+                          className="p-1 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <PersonAutocomplete
+                        personTypes={['judge']}
+                        excludePersonIds={p.judges?.map((j) => j.person_id) || []}
+                        onSelectPerson={(person) => handleSelectJudge(p.id, person)}
+                        onCreateNew={(name) => handleCreateJudge(p.id, name)}
+                        placeholder="Search judges or create new..."
+                        autoFocus
+                      />
                     </div>
                   ) : (
                     <button
