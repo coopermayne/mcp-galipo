@@ -103,3 +103,36 @@ def register_task_routes(mcp):
             return JSONResponse({"success": True, "task": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
+
+    @mcp.custom_route("/api/v1/docket", methods=["GET"])
+    async def api_get_docket(request):
+        """Get all tasks in the daily docket, grouped by category."""
+        if err := auth.require_auth(request):
+            return err
+        exclude_done = request.query_params.get("exclude_done", "true").lower() == "true"
+        result = db.get_docket_tasks(exclude_done=exclude_done)
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/docket/{task_id}", methods=["PUT"])
+    async def api_update_docket(request):
+        """Update a task's docket category and/or order."""
+        if err := auth.require_auth(request):
+            return err
+        task_id = int(request.path_params["task_id"])
+        data = await request.json()
+
+        try:
+            # Handle null/None for clearing docket_category
+            docket_category = data.get("docket_category", db._NOT_PROVIDED)
+            docket_order = data.get("docket_order", db._NOT_PROVIDED)
+
+            result = db.update_docket(
+                task_id=task_id,
+                docket_category=docket_category,
+                docket_order=int(docket_order) if docket_order is not None and docket_order is not db._NOT_PROVIDED else docket_order
+            )
+            if not result:
+                return api_error("Task not found", "NOT_FOUND", 404)
+            return JSONResponse({"success": True, "task": result})
+        except ValueError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)

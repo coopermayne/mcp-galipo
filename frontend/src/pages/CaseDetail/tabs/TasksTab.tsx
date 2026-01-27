@@ -12,7 +12,7 @@ import { Plus, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import { SortableTaskRow } from '../../../components/tasks';
 import { TaskDropZones } from '../../../components/docket';
-import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
+import { createTask, updateTask, deleteTask, reorderTask, updateDocket } from '../../../api';
 import { useDragContext } from '../../../context/DragContext';
 import type { Task, Constants, TaskStatus } from '../../../types';
 import { DroppableTaskGroup } from '../components';
@@ -274,28 +274,34 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     [filteredTasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex]
   );
 
+  // Mutation for updating docket category
+  const docketMutation = useMutation({
+    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
+      updateDocket(taskId, { docket_category: category }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
+    },
+  });
+
   // Handle global drop zone actions
   const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
     switch (zone) {
       case 'done':
         await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
         break;
       case 'today':
-        await updateMutation.mutateAsync({ id: taskId, data: { due_date: today, status: 'Pending' } });
+        await docketMutation.mutateAsync({ taskId, category: 'today' });
         break;
       case 'tomorrow':
-        await updateMutation.mutateAsync({ id: taskId, data: { due_date: tomorrowStr, status: 'Pending' } });
+        await docketMutation.mutateAsync({ taskId, category: 'tomorrow' });
         break;
       case 'backburner':
-        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Blocked', due_date: '' } });
+        await docketMutation.mutateAsync({ taskId, category: 'backburner' });
         break;
     }
-  }, [updateMutation]);
+  }, [updateMutation, docketMutation]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {

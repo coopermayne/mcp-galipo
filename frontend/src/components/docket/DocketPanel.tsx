@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
@@ -7,32 +7,46 @@ import {
   useSensors,
   DragOverlay,
   useDroppable,
+  pointerWithin,
+  rectIntersection,
 } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { X, Calendar, Loader2, Check, LogOut } from 'lucide-react';
 import { TodayTaskList } from './TodayTaskList';
-import { getTasksForToday, getTasksForTomorrow, getBackburnerTasks, updateTask } from '../../api';
+import { getDocketTasks, updateDocket, updateTask } from '../../api';
 import { useDragContext } from '../../context/DragContext';
-import type { Task } from '../../types';
+import type { Task, DocketCategory } from '../../types';
 
 interface DocketPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type SectionId = 'section-today' | 'section-tomorrow' | 'section-backburner';
+
+const sectionToCategory: Record<SectionId, DocketCategory> = {
+  'section-today': 'today',
+  'section-tomorrow': 'tomorrow',
+  'section-backburner': 'backburner',
+};
+
 // Droppable section header that allows dropping tasks into it
 function DroppableSection({
   id,
   title,
   count,
+  isOver: isOverProp,
   children
 }: {
   id: string;
   title: string;
   count: number;
+  isOver?: boolean;
   children: React.ReactNode;
 }) {
-  const { isOver, setNodeRef } = useDroppable({ id });
+  const { isOver: isOverDroppable, setNodeRef } = useDroppable({ id });
+  const isOver = isOverProp || isOverDroppable;
 
   return (
     <div className="mb-4">
@@ -54,7 +68,7 @@ function DroppableSection({
   );
 }
 
-// Drop zone for clearing tasks (dragging out of panel)
+// Drop zone for clearing tasks (removing from docket)
 function ClearDropZone() {
   const { isDraggingTask, sourceLocation } = useDragContext();
   const { isOver, setNodeRef } = useDroppable({ id: 'drop-clear' });
@@ -116,9 +130,35 @@ function DoneDropZone() {
   );
 }
 
+// Custom collision detection that prioritizes drop zones over sortable items
+const customCollisionDetection: CollisionDetection = (args) => {
+  // First check for pointer collisions (more precise)
+  const pointerCollisions = pointerWithin(args);
+
+  // Prioritize special drop zones and section headers
+  const priorityIds = ['drop-done', 'drop-clear', 'section-today', 'section-tomorrow', 'section-backburner'];
+
+  const priorityCollision = pointerCollisions.find((collision) =>
+    priorityIds.includes(collision.id.toString())
+  );
+
+  if (priorityCollision) {
+    return [priorityCollision];
+  }
+
+  // If no priority collision, check for task collisions
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+
+  // Fall back to rect intersection
+  return rectIntersection(args);
+};
+
 export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
   const queryClient = useQueryClient();
   const { startDrag, endDrag, draggedTask } = useDragContext();
+  const [overSection, setOverSection] = useState<SectionId | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -139,28 +179,42 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  const { data: todayData, isLoading: loadingToday } = useQuery({
-    queryKey: ['tasks', 'today'],
-    queryFn: getTasksForToday,
+  // Fetch all docket tasks in one query
+  const { data: docketData, isLoading } = useQuery({
+    queryKey: ['docket'],
+    queryFn: () => getDocketTasks(true),
     enabled: isOpen,
   });
 
-  const { data: tomorrowData, isLoading: loadingTomorrow } = useQuery({
-    queryKey: ['tasks', 'tomorrow'],
-    queryFn: getTasksForTomorrow,
-    enabled: isOpen,
-  });
+  const todayTasks = docketData?.today || [];
+  const tomorrowTasks = docketData?.tomorrow || [];
+  const backburnerTasks = docketData?.backburner || [];
 
-  const { data: backburnerData, isLoading: loadingBackburner } = useQuery({
-    queryKey: ['tasks', 'backburner'],
-    queryFn: getBackburnerTasks,
-    enabled: isOpen,
-  });
+  // Create a map of task ID to section for quick lookup
+  const taskSectionMap = useMemo(() => {
+    const map = new Map<number, SectionId>();
+    todayTasks.forEach((t) => map.set(t.id, 'section-today'));
+    tomorrowTasks.forEach((t) => map.set(t.id, 'section-tomorrow'));
+    backburnerTasks.forEach((t) => map.set(t.id, 'section-backburner'));
+    return map;
+  }, [todayTasks, tomorrowTasks, backburnerTasks]);
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) =>
-      updateTask(id, data),
+  // Mutation for updating docket category/order
+  const docketMutation = useMutation({
+    mutationFn: ({ taskId, category, order }: { taskId: number; category: DocketCategory | null; order?: number }) =>
+      updateDocket(taskId, { docket_category: category, docket_order: order }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  // Mutation for marking tasks as Done
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      updateTask(id, { status: status as 'Done' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
@@ -168,55 +222,144 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
 
   const handleMarkDone = useCallback(
     (taskId: number) => {
-      updateMutation.mutate({ id: taskId, data: { status: 'Done' } });
+      statusMutation.mutate({ id: taskId, status: 'Done' });
     },
-    [updateMutation]
+    [statusMutation]
   );
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
-      const allTasks = [
-        ...(todayData?.tasks || []),
-        ...(tomorrowData?.tasks || []),
-        ...(backburnerData?.tasks || []),
-      ];
+      const allTasks = [...todayTasks, ...tomorrowTasks, ...backburnerTasks];
       const task = allTasks.find((t) => t.id === event.active.id);
       if (task) {
         startDrag(task, 'docket-panel');
       }
     },
-    [todayData, tomorrowData, backburnerData, startDrag]
+    [todayTasks, tomorrowTasks, backburnerTasks, startDrag]
   );
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { over } = event;
+      if (!over) {
+        setOverSection(null);
+        return;
+      }
+
+      const overId = over.id.toString();
+
+      // Check if hovering over a section header
+      if (overId.startsWith('section-')) {
+        setOverSection(overId as SectionId);
+        return;
+      }
+
+      // Check if hovering over a task - find which section it belongs to
+      const overTaskId = typeof over.id === 'number' ? over.id : parseInt(overId, 10);
+      if (!isNaN(overTaskId)) {
+        const section = taskSectionMap.get(overTaskId);
+        if (section) {
+          setOverSection(section);
+          return;
+        }
+      }
+
+      setOverSection(null);
+    },
+    [taskSectionMap]
+  );
+
+  // Calculate new docket_order for insertion at a specific index
+  const calculateDocketOrderAtIndex = useCallback((tasks: Task[], insertIndex: number): number => {
+    if (tasks.length === 0) return 1000;
+    if (insertIndex === 0) return (tasks[0]?.docket_order || 1000) - 500;
+    if (insertIndex >= tasks.length) return (tasks[tasks.length - 1]?.docket_order || 0) + 1000;
+    const prevTask = tasks[insertIndex - 1];
+    const nextTask = tasks[insertIndex];
+    return Math.floor(((prevTask?.docket_order || 0) + (nextTask?.docket_order || (prevTask?.docket_order || 0) + 1000)) / 2);
+  }, []);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       endDrag();
+      setOverSection(null);
 
       if (!over) return;
 
       const overId = over.id.toString();
       const taskId = active.id as number;
-      const today = new Date().toISOString().split('T')[0];
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-      // Handle different drop targets
+      // Handle special drop targets first
       if (overId === 'drop-done') {
-        updateMutation.mutate({ id: taskId, data: { status: 'Done' } });
-      } else if (overId === 'drop-clear') {
-        // Clear due_date and reset status from Blocked if it was backburner
-        updateMutation.mutate({ id: taskId, data: { due_date: '', status: 'Pending' } });
-      } else if (overId === 'section-today') {
-        updateMutation.mutate({ id: taskId, data: { due_date: today, status: 'Pending' } });
-      } else if (overId === 'section-tomorrow') {
-        updateMutation.mutate({ id: taskId, data: { due_date: tomorrowStr, status: 'Pending' } });
-      } else if (overId === 'section-backburner') {
-        updateMutation.mutate({ id: taskId, data: { status: 'Blocked', due_date: '' } });
+        statusMutation.mutate({ id: taskId, status: 'Done' });
+        return;
+      }
+      if (overId === 'drop-clear') {
+        // Remove from docket
+        docketMutation.mutate({ taskId, category: null, order: undefined });
+        return;
+      }
+
+      // Handle section header drops
+      if (overId === 'section-today') {
+        const newOrder = calculateDocketOrderAtIndex(todayTasks, todayTasks.length);
+        docketMutation.mutate({ taskId, category: 'today', order: newOrder });
+        return;
+      }
+      if (overId === 'section-tomorrow') {
+        const newOrder = calculateDocketOrderAtIndex(tomorrowTasks, tomorrowTasks.length);
+        docketMutation.mutate({ taskId, category: 'tomorrow', order: newOrder });
+        return;
+      }
+      if (overId === 'section-backburner') {
+        const newOrder = calculateDocketOrderAtIndex(backburnerTasks, backburnerTasks.length);
+        docketMutation.mutate({ taskId, category: 'backburner', order: newOrder });
+        return;
+      }
+
+      // Handle dropping on another task (reordering or moving between sections)
+      const overTaskId = typeof over.id === 'number' ? over.id : parseInt(overId, 10);
+      if (isNaN(overTaskId)) return;
+
+      const activeSection = taskSectionMap.get(taskId);
+      const targetSection = taskSectionMap.get(overTaskId);
+
+      if (!targetSection) return;
+
+      // Get the tasks for the target section
+      let targetTasks: Task[] = [];
+      if (targetSection === 'section-today') {
+        targetTasks = todayTasks;
+      } else if (targetSection === 'section-tomorrow') {
+        targetTasks = tomorrowTasks;
+      } else if (targetSection === 'section-backburner') {
+        targetTasks = backburnerTasks;
+      }
+
+      // Find positions
+      const oldIndex = targetTasks.findIndex((t) => t.id === taskId);
+      const newIndex = targetTasks.findIndex((t) => t.id === overTaskId);
+
+      const targetCategory = sectionToCategory[targetSection];
+
+      if (activeSection === targetSection) {
+        // Same section - just reorder
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const reorderedTasks = arrayMove(targetTasks, oldIndex, newIndex);
+          const tasksWithoutActive = reorderedTasks.filter((t) => t.id !== taskId);
+          const insertIdx = reorderedTasks.findIndex((t) => t.id === taskId);
+          const newDocketOrder = calculateDocketOrderAtIndex(tasksWithoutActive, insertIdx);
+          docketMutation.mutate({ taskId, category: targetCategory, order: newDocketOrder });
+        }
+      } else {
+        // Different section - move to new section and position
+        const tasksWithoutActive = targetTasks.filter((t) => t.id !== taskId);
+        const newDocketOrder = calculateDocketOrderAtIndex(tasksWithoutActive, newIndex);
+        docketMutation.mutate({ taskId, category: targetCategory, order: newDocketOrder });
       }
     },
-    [endDrag, updateMutation]
+    [endDrag, statusMutation, docketMutation, taskSectionMap, todayTasks, tomorrowTasks, backburnerTasks, calculateDocketOrderAtIndex]
   );
 
   const todayStr = new Date().toLocaleDateString('en-US', {
@@ -224,8 +367,6 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
     month: 'short',
     day: 'numeric',
   });
-
-  const isLoading = loadingToday || loadingTomorrow || loadingBackburner;
 
   return (
     <>
@@ -280,7 +421,9 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
         {/* Content */}
         <DndContext
           sensors={sensors}
+          collisionDetection={customCollisionDetection}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div className="flex-1 overflow-y-auto py-4 relative">
@@ -293,25 +436,43 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
               </div>
             ) : (
               <>
-                <DroppableSection id="section-today" title="Today" count={todayData?.tasks?.length || 0}>
+                <DroppableSection
+                  id="section-today"
+                  title="Today"
+                  count={todayTasks.length}
+                  isOver={overSection === 'section-today'}
+                >
                   <TodayTaskList
-                    tasks={todayData?.tasks || []}
+                    tasks={todayTasks}
+                    sectionId="section-today"
                     onMarkDone={handleMarkDone}
-                    emptyMessage="No tasks due today"
+                    emptyMessage="No tasks scheduled for today"
                   />
                 </DroppableSection>
 
-                <DroppableSection id="section-tomorrow" title="Tomorrow" count={tomorrowData?.tasks?.length || 0}>
+                <DroppableSection
+                  id="section-tomorrow"
+                  title="Tomorrow"
+                  count={tomorrowTasks.length}
+                  isOver={overSection === 'section-tomorrow'}
+                >
                   <TodayTaskList
-                    tasks={tomorrowData?.tasks || []}
+                    tasks={tomorrowTasks}
+                    sectionId="section-tomorrow"
                     onMarkDone={handleMarkDone}
-                    emptyMessage="No tasks due tomorrow"
+                    emptyMessage="No tasks scheduled for tomorrow"
                   />
                 </DroppableSection>
 
-                <DroppableSection id="section-backburner" title="Back Burner" count={backburnerData?.tasks?.length || 0}>
+                <DroppableSection
+                  id="section-backburner"
+                  title="Back Burner"
+                  count={backburnerTasks.length}
+                  isOver={overSection === 'section-backburner'}
+                >
                   <TodayTaskList
-                    tasks={backburnerData?.tasks || []}
+                    tasks={backburnerTasks}
+                    sectionId="section-backburner"
                     onMarkDone={handleMarkDone}
                     emptyMessage="No tasks on back burner"
                   />

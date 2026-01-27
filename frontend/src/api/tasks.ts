@@ -1,4 +1,4 @@
-import type { Task, CreateTaskInput, UpdateTaskInput } from '../types';
+import type { Task, CreateTaskInput, UpdateTaskInput, DocketTasks, UpdateDocketInput, DocketCategory } from '../types';
 import { request } from './common';
 
 export async function getTasks(params?: {
@@ -24,29 +24,46 @@ export async function getTasks(params?: {
   return request(`/tasks${query ? `?${query}` : ''}`);
 }
 
+// ============================================================================
+// Docket API Functions
+// ============================================================================
+
 /**
- * Get tasks due today (convenience function for the Docket panel)
+ * Get all tasks in the daily docket, grouped by category (today, tomorrow, backburner)
  */
-export async function getTasksForToday(): Promise<{ tasks: Task[]; total: number }> {
-  const today = new Date().toISOString().split('T')[0];
-  return getTasks({ due_date_from: today, due_date_to: today, exclude_status: 'Done' });
+export async function getDocketTasks(excludeDone: boolean = true): Promise<DocketTasks> {
+  return request(`/docket?exclude_done=${excludeDone}`);
 }
 
 /**
- * Get tasks due tomorrow
+ * Update a task's docket category and/or order
  */
-export async function getTasksForTomorrow(): Promise<{ tasks: Task[]; total: number }> {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
-  return getTasks({ due_date_from: tomorrowStr, due_date_to: tomorrowStr, exclude_status: 'Done' });
+export async function updateDocket(
+  taskId: number,
+  data: UpdateDocketInput
+): Promise<{ success: boolean; task: Task }> {
+  return request(`/docket/${taskId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }
 
 /**
- * Get tasks on the back burner (status: Blocked, no due date)
+ * Add a task to the docket with a specific category
  */
-export async function getBackburnerTasks(): Promise<{ tasks: Task[]; total: number }> {
-  return getTasks({ status: 'Blocked' });
+export async function addToDocket(
+  taskId: number,
+  category: DocketCategory,
+  order?: number
+): Promise<{ success: boolean; task: Task }> {
+  return updateDocket(taskId, { docket_category: category, docket_order: order });
+}
+
+/**
+ * Remove a task from the docket (set docket_category to null)
+ */
+export async function removeFromDocket(taskId: number): Promise<{ success: boolean; task: Task }> {
+  return updateDocket(taskId, { docket_category: null, docket_order: null });
 }
 
 export async function createTask(data: CreateTaskInput): Promise<{ success: boolean; task: Task }> {
