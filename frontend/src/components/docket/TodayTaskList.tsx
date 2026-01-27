@@ -1,4 +1,5 @@
 import { useSortable } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
 import { GripVertical, Check } from 'lucide-react';
@@ -93,11 +94,14 @@ function DocketTaskRow({ task, onMarkDone }: DocketTaskRowProps) {
 
 interface TodayTaskListProps {
   tasks: Task[];
+  sectionId: string;
   onMarkDone: (taskId: number) => void;
   emptyMessage?: string;
 }
 
-export function TodayTaskList({ tasks, onMarkDone, emptyMessage = 'No tasks' }: TodayTaskListProps) {
+export function TodayTaskList({ tasks, sectionId, onMarkDone, emptyMessage = 'No tasks' }: TodayTaskListProps) {
+  const taskIds = tasks.map((t) => t.id);
+
   if (tasks.length === 0) {
     return (
       <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 italic">
@@ -107,10 +111,12 @@ export function TodayTaskList({ tasks, onMarkDone, emptyMessage = 'No tasks' }: 
   }
 
   return (
-    <div className="border-t border-slate-200 dark:border-slate-700">
-      {tasks.map((task) => (
-        <DocketTaskRow key={task.id} task={task} onMarkDone={onMarkDone} />
-      ))}
-    </div>
+    <SortableContext items={taskIds} strategy={verticalListSortingStrategy} id={sectionId}>
+      <div className="border-t border-slate-200 dark:border-slate-700">
+        {tasks.map((task) => (
+          <DocketTaskRow key={task.id} task={task} onMarkDone={onMarkDone} />
+        ))}
+      </div>
+    </SortableContext>
   );
 }

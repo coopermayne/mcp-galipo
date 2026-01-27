@@ -25,13 +25,15 @@ export {
 // Tasks
 export {
   getTasks,
-  getTasksForToday,
-  getTasksForTomorrow,
-  getBackburnerTasks,
   createTask,
   updateTask,
   deleteTask,
   reorderTask,
+  // Docket functions
+  getDocketTasks,
+  updateDocket,
+  addToDocket,
+  removeFromDocket,
 } from './tasks';
 
 // Events
