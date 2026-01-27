@@ -26,7 +26,7 @@ export function ProceedingsSection({
   judges = [],
 }: ProceedingsSectionProps) {
   const queryClient = useQueryClient();
-  const { openProceedingModal } = useEntityModal();
+  const { openProceedingModal, openPersonModal } = useEntityModal();
   const [showAdd, setShowAdd] = useState(false);
   const [newProceeding, setNewProceeding] = useState({
     case_number: '',
@@ -278,10 +278,13 @@ export function ProceedingsSection({
                           key={`${judge.person_id}-${judge.role}`}
                           className="flex items-center gap-1 text-xs text-slate-500 group/judge"
                         >
-                          <span>
+                          <span
+                            className="cursor-pointer hover:underline"
+                            onClick={() => openPersonModal(judge.person_id, { caseId })}
+                          >
                             {judge.name}
-                            {formatJudgeRole(judge.role)}
                           </span>
+                          <span>{formatJudgeRole(judge.role)}</span>
                           <button
                             onClick={() => handleRemoveJudge(p.id, judge.person_id)}
                             className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-slate-400 hover:text-red-400 transition-opacity"
