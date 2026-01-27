@@ -27,9 +27,12 @@ export type {
 
 // Task types
 export type {
+  DocketCategory,
   Task,
   CreateTaskInput,
   UpdateTaskInput,
+  DocketTasks,
+  UpdateDocketInput,
 } from './task';
 
 // Event types

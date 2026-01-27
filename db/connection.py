@@ -682,6 +682,28 @@ def migrate_db():
         # 25. Remove any judge roles from case_persons (judges belong on proceedings only)
         cur.execute("DELETE FROM case_persons WHERE role IN ('Judge', 'Magistrate Judge')")
 
+        # 26. Add docket_category column to tasks for Daily Docket scheduling
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'tasks' AND column_name = 'docket_category'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE tasks ADD COLUMN docket_category VARCHAR(20)")
+            print("  - Added docket_category column to tasks")
+
+        # 27. Add docket_order column to tasks for sorting within Daily Docket
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'tasks' AND column_name = 'docket_order'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE tasks ADD COLUMN docket_order INTEGER")
+            print("  - Added docket_order column to tasks")
+
         print("Database migration complete.")
 
 
@@ -813,6 +835,8 @@ def init_db():
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
                 urgency INTEGER CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
                 sort_order INTEGER DEFAULT 0,
+                docket_category VARCHAR(20),
+                docket_order INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
