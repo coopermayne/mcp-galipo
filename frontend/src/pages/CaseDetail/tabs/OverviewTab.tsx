@@ -54,11 +54,24 @@ function PersonChip({
   showStar?: boolean;
   variant?: 'default' | 'primary' | 'muted';
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [copiedField, setCopiedField] = useState<'phone' | 'email' | null>(null);
   const phone = getPrimaryPhone(person.phones);
   const email = getPrimaryEmail(person.emails);
-  const hasOrg = !!person.organization;
-  const hasContact = phone || email || hasOrg;
+
+  const copyToClipboard = async (text: string, field: 'phone' | 'email') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleIconClick = (e: React.MouseEvent, text: string, field: 'phone' | 'email') => {
+    e.stopPropagation();
+    copyToClipboard(text, field);
+  };
 
   const baseClass = variant === 'primary'
     ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-200'
@@ -68,52 +81,41 @@ function PersonChip({
 
   return (
     <div className="relative">
-      <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm ${baseClass}`}>
+      <div
+        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm cursor-pointer hover:opacity-80 transition-opacity ${baseClass}`}
+        onClick={onOpenDetail}
+      >
         {showStar && person.is_primary && (
           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
         )}
-        <span
-          className="font-medium cursor-pointer hover:underline"
-          onClick={onOpenDetail}
-        >
+        <span className="font-medium">
           {person.name}
         </span>
         {person.role && !['Client', 'Defendant'].includes(person.role) && (
           <span className="text-xs opacity-70">({person.role})</span>
         )}
-        {/* Contact icons - expand on click */}
-        {hasContact && (
-          <span
-            className="flex items-center gap-0.5 ml-1 cursor-pointer"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {phone && <Phone className="w-3 h-3 opacity-50" />}
-            {email && <Mail className="w-3 h-3 opacity-50" />}
-            {hasOrg && <Building className="w-3 h-3 opacity-50" />}
+        {/* Contact icons - copy to clipboard on click */}
+        {(phone || email) && (
+          <span className="flex items-center gap-0.5 ml-1">
+            {phone && (
+              <Phone
+                className="w-3 h-3 opacity-50 hover:opacity-100 cursor-pointer"
+                onClick={(e) => handleIconClick(e, phone, 'phone')}
+              />
+            )}
+            {email && (
+              <Mail
+                className="w-3 h-3 opacity-50 hover:opacity-100 cursor-pointer"
+                onClick={(e) => handleIconClick(e, email, 'email')}
+              />
+            )}
           </span>
         )}
       </div>
-      {/* Expanded contact details */}
-      {expanded && hasContact && (
-        <div className="absolute z-10 top-full left-0 mt-1 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg text-xs space-y-1 min-w-48">
-          {hasOrg && (
-            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-              <Building className="w-3 h-3" />
-              {person.organization}
-            </div>
-          )}
-          {phone && (
-            <a href={`tel:${phone}`} className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-primary-600">
-              <Phone className="w-3 h-3" />
-              {phone}
-            </a>
-          )}
-          {email && (
-            <a href={`mailto:${email}`} className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-primary-600">
-              <Mail className="w-3 h-3" />
-              {email}
-            </a>
-          )}
+      {/* Copy confirmation tooltip */}
+      {copiedField && (
+        <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded shadow-lg whitespace-nowrap">
+          {copiedField === 'phone' ? 'Phone copied!' : 'Email copied!'}
         </div>
       )}
     </div>
