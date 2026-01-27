@@ -419,8 +419,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               <ProceedingsSection
                 caseId={caseId}
                 proceedings={caseData.proceedings || []}
-                jurisdictions={constants?.jurisdictions}
-                judges={caseData.persons || []}
               />
             </div>
             {/* Key People: Judge, Counsel, Experts, Mediator */}
