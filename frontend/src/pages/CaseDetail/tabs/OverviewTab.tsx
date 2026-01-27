@@ -15,6 +15,7 @@ import {
   Building,
   Eye,
   EyeOff,
+  Zap,
 } from 'lucide-react';
 import {
   EditableText,
@@ -396,37 +397,39 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                   </div>
                 </div>
               )}
-              {/* DOI */}
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-400 w-16">DOI:</span>
-                <EditableDate
-                  value={caseData.date_of_injury || null}
-                  onSave={(value) => onUpdateField('date_of_injury', value)}
-                  placeholder="Set date"
-                />
-              </div>
             </div>
           </div>
         </div>
 
         {/* Key Dates */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-          <SectionHeader icon={Calendar} title="Key Dates" count={starredEvents.length} />
+          <SectionHeader icon={Calendar} title="Key Dates" count={starredEvents.length + (caseData.date_of_injury ? 1 : 0)} />
           <div className="space-y-1">
-            {starredEvents.length === 0 ? (
+            {/* Date of Injury - always show first */}
+            <div className="flex items-center gap-2 text-sm">
+              <Zap className="w-3 h-3 text-red-500 shrink-0" />
+              <span className="text-slate-600 dark:text-slate-300 truncate">Date of Injury</span>
+              <EditableDate
+                value={caseData.date_of_injury || null}
+                onSave={(value) => onUpdateField('date_of_injury', value)}
+                placeholder="Set date"
+                className="text-xs shrink-0"
+              />
+            </div>
+            {/* Starred events */}
+            {starredEvents.map(event => (
+              <div key={event.id} className="flex items-center gap-2 text-sm">
+                <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                <span className="text-slate-600 dark:text-slate-300 truncate">{event.description}</span>
+                <EditableDate
+                  value={event.date}
+                  onSave={async (value) => { if (value) await updateEventMutation.mutateAsync({ id: event.id, data: { date: value } }); }}
+                  className="text-xs shrink-0"
+                />
+              </div>
+            ))}
+            {starredEvents.length === 0 && !caseData.date_of_injury && (
               <p className="text-xs text-slate-400 italic">Star events to pin them here</p>
-            ) : (
-              starredEvents.map(event => (
-                <div key={event.id} className="flex items-center gap-2 text-sm">
-                  <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                  <span className="text-slate-600 dark:text-slate-300 truncate">{event.description}</span>
-                  <EditableDate
-                    value={event.date}
-                    onSave={async (value) => { if (value) await updateEventMutation.mutateAsync({ id: event.id, data: { date: value } }); }}
-                    className="text-xs shrink-0"
-                  />
-                </div>
-              ))
             )}
           </div>
         </div>
