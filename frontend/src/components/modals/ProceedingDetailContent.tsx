@@ -9,11 +9,13 @@ import {
   Loader2,
   AlertCircle,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
-import { EditableText, EditableSelect } from '../common';
+import { EditableText, EditableSelect, ConfirmModal } from '../common';
 import {
   getProceeding,
   updateProceeding,
+  deleteProceeding,
   addProceedingJudge,
   removeProceedingJudge,
   getConstants,
@@ -35,6 +37,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const readOnly = context?.readOnly ?? false;
   const [showAddJudge, setShowAddJudge] = useState(false);
   const [newJudge, setNewJudge] = useState({ person_id: '', role: 'Judge' });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: proceedingData, isLoading, error } = useQuery({
     queryKey: ['proceeding', entityId],
@@ -83,6 +86,17 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteProceeding(entityId),
+    onSuccess: () => {
+      if (context?.caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
+      }
+      setShowDeleteConfirm(false);
+      onClose();
     },
   });
 
@@ -343,6 +357,31 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
           />
         )}
       </div>
+
+      {/* Delete Proceeding button */}
+      {!readOnly && (
+        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete proceeding
+          </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => deleteMutation.mutate()}
+        title="Delete proceeding"
+        message={`Are you sure you want to delete proceeding "${proceeding.case_number}"? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }

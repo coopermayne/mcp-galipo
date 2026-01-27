@@ -1,12 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Star, Trash2, ExternalLink, UserPlus, X } from 'lucide-react';
-import { ConfirmModal } from '../../../components/common';
+import { Plus, Star, ExternalLink, UserPlus, X } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
 import {
   createProceeding,
   updateProceeding,
-  deleteProceeding,
   addProceedingJudge,
   removeProceedingJudge,
 } from '../../../api';
@@ -34,9 +32,6 @@ export function ProceedingsSection({
     is_primary: false,
     notes: '',
   });
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; case_number: string } | null>(
-    null
-  );
   // Track which proceeding is showing the add judge UI
   const [addingJudgeTo, setAddingJudgeTo] = useState<number | null>(null);
   const [newJudge, setNewJudge] = useState({ person_id: '', role: 'Judge' });
@@ -65,14 +60,6 @@ export function ProceedingsSection({
       updateProceeding(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteProceeding(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setDeleteTarget(null);
     },
   });
 
@@ -123,16 +110,6 @@ export function ProceedingsSection({
   const handleRemoveJudge = (proceedingId: number, personId: number) => {
     removeJudgeMutation.mutate({ proceedingId, personId });
   };
-
-  const handleRemove = useCallback((id: number, caseNumber: string) => {
-    setDeleteTarget({ id, case_number: caseNumber });
-  }, []);
-
-  const confirmRemove = useCallback(() => {
-    if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
-    }
-  }, [deleteTarget, deleteMutation]);
 
   const handleSetPrimary = (id: number) => {
     updateMutation.mutate({ id, data: { is_primary: true } });
@@ -353,39 +330,20 @@ export function ProceedingsSection({
                     <span className="text-xs text-slate-400 italic block mt-0.5">{p.notes}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
-                  {!p.is_primary && (
-                    <button
-                      onClick={() => handleSetPrimary(p.id)}
-                      title="Set as primary"
-                      className="p-0.5 text-slate-500 hover:text-amber-500"
-                    >
-                      <Star className="w-3 h-3" />
-                    </button>
-                  )}
+                {!p.is_primary && (
                   <button
-                    onClick={() => handleRemove(p.id, p.case_number)}
-                    className="p-0.5 text-slate-500 hover:text-red-400"
+                    onClick={() => handleSetPrimary(p.id)}
+                    title="Set as primary"
+                    className="p-0.5 text-slate-500 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Star className="w-3 h-3" />
                   </button>
-                </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
-
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmRemove}
-        title="Remove Proceeding"
-        message={`Are you sure you want to remove proceeding "${deleteTarget?.case_number}"?`}
-        confirmText="Remove"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
-      />
     </div>
   );
 }
