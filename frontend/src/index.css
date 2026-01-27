@@ -143,7 +143,7 @@ body {
 }
 
 .dark .react-datepicker {
-  background-color: #334155;
+  background-color: #334155 !important;
   border-color: #475569;
 }
 
@@ -154,7 +154,7 @@ body {
 }
 
 .dark .react-datepicker__header {
-  background-color: #334155;
+  background-color: #334155 !important;
   border-color: #475569;
 }
 
@@ -271,7 +271,7 @@ body {
 }
 
 .dark .react-datepicker__time {
-  background-color: #334155;
+  background-color: #334155 !important;
 }
 
 .react-datepicker__time-box {
