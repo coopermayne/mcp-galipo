@@ -96,6 +96,8 @@ from .tasks import (
     bulk_update_tasks_for_case,
     search_tasks,
     reorder_task,
+    get_docket_tasks,
+    update_docket,
 )
 
 # Event operations
@@ -229,6 +231,8 @@ __all__ = [
     "bulk_update_tasks_for_case",
     "search_tasks",
     "reorder_task",
+    "get_docket_tasks",
+    "update_docket",
     # Events
     "add_event",
     "get_upcoming_events",

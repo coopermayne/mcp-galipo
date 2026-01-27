@@ -10,6 +10,15 @@ from .validation import (
 )
 
 
+VALID_DOCKET_CATEGORIES = ['today', 'tomorrow', 'backburner', None]
+
+
+def validate_docket_category(category: str) -> None:
+    """Validate that docket_category is a valid value."""
+    if category is not None and category not in VALID_DOCKET_CATEGORIES:
+        raise ValueError(f"Invalid docket_category: {category}. Must be one of: today, tomorrow, backburner, or null")
+
+
 def add_task(case_id: int, description: str, due_date: str = None,
              status: str = "Pending", urgency: int = 2, event_id: int = None) -> dict:
     """Add a task to a case."""
@@ -25,14 +34,21 @@ def add_task(case_id: int, description: str, due_date: str = None,
         cur.execute("""
             INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
         """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
         return serialize_row(dict(cur.fetchone()))
 
 
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
-              urgency_filter: int = None, limit: int = None, offset: int = None) -> dict:
-    """Get tasks with optional filters."""
+              urgency_filter: int = None, due_date_from: str = None, due_date_to: str = None,
+              docket_category: str = _NOT_PROVIDED, limit: int = None, offset: int = None) -> dict:
+    """Get tasks with optional filters.
+
+    Note: docket_category uses _NOT_PROVIDED sentinel to distinguish between:
+    - Not filtering by docket_category at all (default)
+    - Filtering for tasks WITH a specific category (e.g., 'today')
+    - Filtering for tasks WITHOUT any docket_category (pass None explicitly)
+    """
     conditions = []
     params = []
 
@@ -55,6 +71,24 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         conditions.append("t.urgency = %s")
         params.append(urgency_filter)
 
+    if due_date_from:
+        validate_date_format(due_date_from, "due_date_from")
+        conditions.append("t.due_date >= %s")
+        params.append(due_date_from)
+
+    if due_date_to:
+        validate_date_format(due_date_to, "due_date_to")
+        conditions.append("t.due_date <= %s")
+        params.append(due_date_to)
+
+    if docket_category is not _NOT_PROVIDED:
+        if docket_category is None:
+            conditions.append("t.docket_category IS NULL")
+        else:
+            validate_docket_category(docket_category)
+            conditions.append("t.docket_category = %s")
+            params.append(docket_category)
+
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
@@ -63,7 +97,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
 
         query = f"""
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency, t.event_id, t.sort_order, t.created_at
+                   t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
+                   t.sort_order, t.docket_category, t.docket_order, t.created_at
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             {where_clause}
@@ -105,7 +140,7 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -113,7 +148,8 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
 
 def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: str = _NOT_PROVIDED,
                      completion_date: str = _NOT_PROVIDED, status: str = _NOT_PROVIDED,
-                     urgency: int = _NOT_PROVIDED) -> Optional[dict]:
+                     urgency: int = _NOT_PROVIDED, docket_category: str = _NOT_PROVIDED,
+                     docket_order: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update all task fields."""
     updates = []
     params = []
@@ -146,6 +182,16 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         updates.append("urgency = %s")
         params.append(urgency)
 
+    if docket_category is not _NOT_PROVIDED:
+        if docket_category is not None:
+            validate_docket_category(docket_category)
+        updates.append("docket_category = %s")
+        params.append(docket_category)
+
+    if docket_order is not _NOT_PROVIDED:
+        updates.append("docket_order = %s")
+        params.append(docket_order)
+
     if not updates:
         return None
 
@@ -155,7 +201,7 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
@@ -226,7 +272,8 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
     with get_cursor() as cur:
         cur.execute(f"""
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency, t.sort_order
+                   t.due_date, t.completion_date, t.status, t.urgency, t.sort_order,
+                   t.docket_category, t.docket_order
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             {where_clause}
@@ -261,7 +308,89 @@ def reorder_task(task_id: int, new_sort_order: int, new_urgency: int = None) -> 
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
+        """, params)
+        row = cur.fetchone()
+        return serialize_row(dict(row)) if row else None
+
+
+def get_docket_tasks(exclude_done: bool = True) -> dict:
+    """Get all tasks that have a docket_category set (today, tomorrow, backburner).
+
+    Args:
+        exclude_done: If True, exclude tasks with status 'Done'
+
+    Returns:
+        Dict with tasks grouped by category
+    """
+    conditions = ["t.docket_category IS NOT NULL"]
+    params = []
+
+    if exclude_done:
+        conditions.append("t.status != 'Done'")
+
+    where_clause = f"WHERE {' AND '.join(conditions)}"
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
+                   t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
+                   t.sort_order, t.docket_category, t.docket_order, t.created_at
+            FROM tasks t
+            JOIN cases c ON t.case_id = c.id
+            {where_clause}
+            ORDER BY t.docket_order ASC NULLS LAST, t.id ASC
+        """, params)
+        all_tasks = serialize_rows([dict(row) for row in cur.fetchall()])
+
+        # Group by category
+        today = [t for t in all_tasks if t['docket_category'] == 'today']
+        tomorrow = [t for t in all_tasks if t['docket_category'] == 'tomorrow']
+        backburner = [t for t in all_tasks if t['docket_category'] == 'backburner']
+
+        return {
+            "today": today,
+            "tomorrow": tomorrow,
+            "backburner": backburner,
+            "total": len(all_tasks)
+        }
+
+
+def update_docket(task_id: int, docket_category: str = _NOT_PROVIDED,
+                  docket_order: int = _NOT_PROVIDED) -> Optional[dict]:
+    """Update a task's docket scheduling.
+
+    Args:
+        task_id: The ID of the task to update
+        docket_category: 'today', 'tomorrow', 'backburner', or None to remove from docket
+        docket_order: Sort order within the docket panel
+
+    Returns:
+        The updated task
+    """
+    updates = []
+    params = []
+
+    if docket_category is not _NOT_PROVIDED:
+        if docket_category is not None:
+            validate_docket_category(docket_category)
+        updates.append("docket_category = %s")
+        params.append(docket_category)
+
+    if docket_order is not _NOT_PROVIDED:
+        updates.append("docket_order = %s")
+        params.append(docket_order)
+
+    if not updates:
+        return None
+
+    params.append(task_id)
+
+    with get_cursor() as cur:
+        cur.execute(f"""
+            UPDATE tasks SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
         """, params)
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None

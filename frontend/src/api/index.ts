@@ -29,6 +29,11 @@ export {
   updateTask,
   deleteTask,
   reorderTask,
+  // Docket functions
+  getDocketTasks,
+  updateDocket,
+  addToDocket,
+  removeFromDocket,
 } from './tasks';
 
 // Events

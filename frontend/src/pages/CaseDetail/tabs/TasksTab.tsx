@@ -11,7 +11,9 @@ import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } fr
 import { Plus, ChevronDown, ChevronUp, Eye, EyeOff, LayoutGrid, Calendar } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import { SortableTaskRow } from '../../../components/tasks';
-import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
+import { TaskDropZones } from '../../../components/docket';
+import { createTask, updateTask, deleteTask, reorderTask, updateDocket } from '../../../api';
+import { useDragContext } from '../../../context/DragContext';
 import type { Task, Constants } from '../../../types';
 import { DroppableTaskGroup } from '../components';
 import { urgencyConfig, dateGroupConfig } from '../utils';
@@ -26,6 +28,7 @@ interface TasksTabProps {
 
 export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   const queryClient = useQueryClient();
+  const { startDrag, endDrag } = useDragContext();
   const [view, setView] = useState<TaskViewMode>('by-urgency');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -260,9 +263,11 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         const groupTasks =
           view === 'by-urgency' ? tasksByUrgency[task.urgency] : tasksByDate[getDateGroupKey(task)];
         setOverIndex(groupTasks.findIndex((t) => t.id === task.id));
+        // Notify global drag context
+        startDrag(task, 'case-detail');
       }
     },
-    [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey]
+    [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey, startDrag]
   );
 
   const handleDragOver = useCallback(
@@ -309,9 +314,38 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey, overContainer, overIndex]
   );
 
+  // Mutation for updating docket category
+  const docketMutation = useMutation({
+    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
+      updateDocket(taskId, { docket_category: category }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
+    },
+  });
+
+  // Handle global drop zone actions
+  const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
+    switch (zone) {
+      case 'done':
+        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
+        break;
+      case 'today':
+        await docketMutation.mutateAsync({ taskId, category: 'today' });
+        break;
+      case 'tomorrow':
+        await docketMutation.mutateAsync({ taskId, category: 'tomorrow' });
+        break;
+      case 'backburner':
+        await docketMutation.mutateAsync({ taskId, category: 'backburner' });
+        break;
+    }
+  }, [updateMutation, docketMutation]);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const { active } = event;
+      const { active, over } = event;
       const finalContainer = overContainer;
       const finalIndex = overIndex;
 
@@ -319,11 +353,22 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       setActiveId(null);
       setOverContainer(null);
       setOverIndex(0);
+      endDrag();
 
-      if (!finalContainer) return;
+      if (!over) return;
 
       const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
       if (!activeTaskItem) return;
+
+      // Check for global drop zones first
+      const overId = over.id.toString();
+      if (overId.startsWith('drop-')) {
+        const zone = overId.replace('drop-', '');
+        handleGlobalDrop(activeTaskItem.id, zone);
+        return;
+      }
+
+      if (!finalContainer) return;
 
       const targetTasks =
         view === 'by-urgency'
@@ -361,6 +406,8 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       overIndex,
       calculateSortOrderAtIndex,
       reorderMutation,
+      endDrag,
+      handleGlobalDrop,
     ]
   );
 
@@ -533,6 +580,9 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
               )}
           </div>
         )}
+
+        {/* Drop zones - appear when dragging */}
+        <TaskDropZones isVisible={activeTask !== null} />
 
         {/* Drag Overlay */}
         <DragOverlay dropAnimation={null}>

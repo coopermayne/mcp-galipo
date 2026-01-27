@@ -15,8 +15,10 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
 import { UrgencyGroup, CaseGroup, DateGroup } from '../components/tasks';
+import { TaskDropZones } from '../components/docket';
 import { formatSmartDate } from '../utils/dateFormat';
-import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
+import { getTasks, getConstants, updateTask, deleteTask, reorderTask, updateDocket } from '../api';
+import { useDragContext } from '../context/DragContext';
 import type { Task } from '../types';
 import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff, Calendar } from 'lucide-react';
 
@@ -24,6 +26,7 @@ type ViewMode = 'by-urgency' | 'by-date' | 'by-case';
 
 export function Tasks() {
   const queryClient = useQueryClient();
+  const { startDrag, endDrag } = useDragContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
@@ -250,8 +253,10 @@ export function Tasks() {
       setOverContainer(task.urgency);
       const currentIndex = tasksByUrgency[task.urgency].findIndex((t) => t.id === task.id);
       setOverIndex(currentIndex);
+      // Notify global drag context
+      startDrag(task, 'tasks-page');
     }
-  }, [filteredTasks, tasksByUrgency]);
+  }, [filteredTasks, tasksByUrgency, startDrag]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
@@ -292,6 +297,34 @@ export function Tasks() {
     }
   }, [filteredTasks, tasksByUrgency, view, overContainer, overIndex]);
 
+  // Mutation for updating docket category
+  const docketMutation = useMutation({
+    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
+      updateDocket(taskId, { docket_category: category }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
+    },
+  });
+
+  // Handle global drop zone actions
+  const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
+    switch (zone) {
+      case 'done':
+        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
+        break;
+      case 'today':
+        await docketMutation.mutateAsync({ taskId, category: 'today' });
+        break;
+      case 'tomorrow':
+        await docketMutation.mutateAsync({ taskId, category: 'tomorrow' });
+        break;
+      case 'backburner':
+        await docketMutation.mutateAsync({ taskId, category: 'backburner' });
+        break;
+    }
+  }, [updateMutation, docketMutation]);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -304,11 +337,22 @@ export function Tasks() {
     setActiveId(null);
     setOverContainer(null);
     setOverIndex(0);
+    endDrag();
 
-    if (!over || finalContainer === null) return;
+    if (!over) return;
 
     const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
     if (!activeTaskItem) return;
+
+    // Check for global drop zones first
+    const overId = over.id.toString();
+    if (overId.startsWith('drop-')) {
+      const zone = overId.replace('drop-', '');
+      handleGlobalDrop(activeTaskItem.id, zone);
+      return;
+    }
+
+    if (finalContainer === null) return;
 
     // Highlight the dropped task
     setRecentlyDroppedId(activeTaskItem.id);
@@ -331,9 +375,8 @@ export function Tasks() {
       });
     } else {
       // By case view - handle within-case reordering
-      const overId = over.id;
-      if (typeof overId === 'number') {
-        const overTask = filteredTasks.find((t) => t.id === overId);
+      if (typeof over.id === 'number') {
+        const overTask = filteredTasks.find((t) => t.id === over.id);
         if (overTask && overTask.case_id === activeTaskItem.case_id) {
           const groupTasks = tasksByCase[activeTaskItem.case_id]?.tasks || [];
           const oldIndex = groupTasks.findIndex((t) => t.id === activeTaskItem.id);
@@ -353,7 +396,7 @@ export function Tasks() {
         }
       }
     }
-  }, [filteredTasks, view, tasksByUrgency, tasksByCase, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation]);
+  }, [filteredTasks, view, tasksByUrgency, tasksByCase, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation, endDrag, handleGlobalDrop]);
 
   // Custom collision detection that prefers items over containers
   const collisionDetection: CollisionDetection = useCallback((args) => {
@@ -560,6 +603,9 @@ export function Tasks() {
                 ))}
               </div>
             )}
+
+            {/* Drop zones - appear when dragging */}
+            <TaskDropZones isVisible={activeTask !== null} />
 
             {/* Drag Overlay - shows the item being dragged */}
             <DragOverlay dropAnimation={null}>
