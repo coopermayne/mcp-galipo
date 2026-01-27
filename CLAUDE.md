@@ -130,7 +130,76 @@ Use `/dev` liberally:
 - When services seem unresponsive
 - After changing environment variables or dependencies
 
-Logs are written to `/tmp/backend.log` and `/tmp/frontend.log` for debugging.
+Logs are written to `/tmp/backend_$BACKEND_PORT.log` and `/tmp/frontend_$VITE_PORT.log` for debugging.
+
+## Multi-Repo Development Setup
+
+For working on multiple branches/features simultaneously, you can run parallel copies of the repo with isolated databases and ports.
+
+### Port Configuration
+
+| Copy | Backend | Frontend | Database |
+|------|---------|----------|----------|
+| mcp-galipo | 8000 | 5173 | galipo |
+| mcp-galipo_2 | 8001 | 5174 | galipo_2 |
+| mcp-galipo_3 | 8002 | 5175 | galipo_3 |
+
+### Setup Steps
+
+**1. Create the databases:**
+```bash
+# Using Postgres.app
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "CREATE DATABASE galipo_2;"
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "CREATE DATABASE galipo_3;"
+
+# Grant permissions
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE galipo_2 TO galipo_user;"
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE galipo_3 TO galipo_user;"
+
+# Also grant schema permissions (required for table creation)
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql galipo_2 -c "GRANT ALL ON SCHEMA public TO galipo_user;"
+/Applications/Postgres.app/Contents/Versions/latest/bin/psql galipo_3 -c "GRANT ALL ON SCHEMA public TO galipo_user;"
+```
+
+**2. Copy the repo:**
+```bash
+cd /Users/coopermayne/Code
+cp -r mcp-galipo mcp-galipo_2
+cp -r mcp-galipo mcp-galipo_3
+```
+
+**3. Update `.env` in each copy:**
+
+For mcp-galipo_2:
+```bash
+DATABASE_URL=postgresql://galipo_user:devpassword@localhost:5432/galipo_2
+PORT=8001
+BACKEND_PORT=8001
+VITE_PORT=5174
+```
+
+For mcp-galipo_3:
+```bash
+DATABASE_URL=postgresql://galipo_user:devpassword@localhost:5432/galipo_3
+PORT=8002
+BACKEND_PORT=8002
+VITE_PORT=5175
+```
+
+**4. Reinstall frontend dependencies** (symlinks break during copy):
+```bash
+cd mcp-galipo_2/frontend && rm -rf node_modules && npm install
+cd mcp-galipo_3/frontend && rm -rf node_modules && npm install
+```
+
+**5. Start each environment:**
+Run `/dev` in each repo's Claude Code session. The backend will auto-run migrations on first start.
+
+### Accessing Each Copy
+
+- **mcp-galipo**: http://localhost:5173
+- **mcp-galipo_2**: http://localhost:5174
+- **mcp-galipo_3**: http://localhost:5175
 
 ## Pre-Commit Verification
 
