@@ -31,7 +31,8 @@ def add_task(case_id: int, description: str, due_date: str = None,
 
 
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
-              urgency_filter: int = None, limit: int = None, offset: int = None) -> dict:
+              urgency_filter: int = None, due_date_from: str = None, due_date_to: str = None,
+              limit: int = None, offset: int = None) -> dict:
     """Get tasks with optional filters."""
     conditions = []
     params = []
@@ -54,6 +55,16 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         validate_urgency(urgency_filter)
         conditions.append("t.urgency = %s")
         params.append(urgency_filter)
+
+    if due_date_from:
+        validate_date_format(due_date_from, "due_date_from")
+        conditions.append("t.due_date >= %s")
+        params.append(due_date_from)
+
+    if due_date_to:
+        validate_date_format(due_date_to, "due_date_to")
+        conditions.append("t.due_date <= %s")
+        params.append(due_date_to)
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
