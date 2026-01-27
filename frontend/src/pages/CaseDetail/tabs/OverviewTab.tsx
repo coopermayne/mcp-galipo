@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Zap,
+  MapPin,
 } from 'lucide-react';
 import {
   EditableText,
@@ -54,11 +55,19 @@ function PersonChip({
   showStar?: boolean;
   variant?: 'default' | 'primary' | 'muted';
 }) {
-  const [copiedField, setCopiedField] = useState<'phone' | 'email' | null>(null);
+  const [copiedField, setCopiedField] = useState<'phone' | 'email' | 'address' | null>(null);
   const phone = getPrimaryPhone(person.phones);
   const email = getPrimaryEmail(person.emails);
 
-  const copyToClipboard = async (text: string, field: 'phone' | 'email') => {
+  // Build letter-ready address (multiline: name, org, address)
+  const letterAddress = [
+    person.name,
+    person.organization,
+    person.address,
+  ].filter(Boolean).join('\n');
+  const hasAddress = !!person.address;
+
+  const copyToClipboard = async (text: string, field: 'phone' | 'email' | 'address') => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
@@ -68,7 +77,7 @@ function PersonChip({
     }
   };
 
-  const handleIconClick = (e: React.MouseEvent, text: string, field: 'phone' | 'email') => {
+  const handleIconClick = (e: React.MouseEvent, text: string, field: 'phone' | 'email' | 'address') => {
     e.stopPropagation();
     copyToClipboard(text, field);
   };
@@ -78,6 +87,8 @@ function PersonChip({
     : variant === 'muted'
     ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
     : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200';
+
+  const copiedLabels = { phone: 'Phone copied!', email: 'Email copied!', address: 'Address copied!' };
 
   return (
     <div className="relative">
@@ -95,7 +106,7 @@ function PersonChip({
           <span className="text-xs opacity-70">({person.role})</span>
         )}
         {/* Contact icons - copy to clipboard on click */}
-        {(phone || email) && (
+        {(phone || email || hasAddress) && (
           <span className="flex items-center gap-0.5 ml-1">
             {phone && (
               <Phone
@@ -109,13 +120,19 @@ function PersonChip({
                 onClick={(e) => handleIconClick(e, email, 'email')}
               />
             )}
+            {hasAddress && (
+              <MapPin
+                className="w-3 h-3 opacity-50 hover:opacity-100 cursor-pointer"
+                onClick={(e) => handleIconClick(e, letterAddress, 'address')}
+              />
+            )}
           </span>
         )}
       </div>
       {/* Copy confirmation tooltip */}
       {copiedField && (
         <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded shadow-lg whitespace-nowrap">
-          {copiedField === 'phone' ? 'Phone copied!' : 'Email copied!'}
+          {copiedLabels[copiedField]}
         </div>
       )}
     </div>
