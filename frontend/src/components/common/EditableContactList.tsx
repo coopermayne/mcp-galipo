@@ -31,7 +31,6 @@ export function EditableContactList({
 
   const labels = type === 'phone' ? PHONE_LABELS : EMAIL_LABELS;
   const placeholder = type === 'phone' ? '(555) 123-4567' : 'email@example.com';
-  const emptyText = type === 'phone' ? 'No phone numbers' : 'No email addresses';
 
   const { save, status } = useAutoSave({
     onSave: async (newEntries: ContactEntry[]) => {
@@ -149,10 +148,6 @@ export function EditableContactList({
 
   return (
     <div className="space-y-2">
-      {localEntries.length === 0 && editingIndex === null && (
-        <span className="text-slate-400 italic text-sm">{emptyText}</span>
-      )}
-
       {localEntries.map((entry, index) => (
         <div
           key={index}
