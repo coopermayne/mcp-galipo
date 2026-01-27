@@ -75,8 +75,12 @@ Fuzzy matching for all entity associations (extends Smart Case Lookup Phase 3).
 - [ ] Frontend: Sophisticated autocomplete for judges, experts, attorneys, jurisdictions
 - [ ] Frontend: Seamless flow - fuzzy search existing → create new if not found
 
-### Document Processing
-- [ ] Use PyMuPDF and PyMuPDF4LLM to work with documents (medical records, legal filings)
+### Document Processing & Generation
+Integration with [docx_template](https://github.com/coopermayne/docx_template) for document generation.
+- [ ] **Template generation** - Generate documents from case data using docx_template
+- [ ] **Drag-to-fill case info** - Drop a filing PDF to auto-extract case number, judge, magistrate, etc.
+- [ ] **PDF document analysis** - Use PyMuPDF/PyMuPDF4LLM for medical records, legal filings
+- [ ] **Template library** - Store and manage document templates within the app
 
 ### Calendar & Deadlines
 - [ ] Date calculator MCP tool for legal deadlines (business days, court rules)
@@ -104,6 +108,14 @@ Generate professional Word/PDF documents for client communication and internal u
 - [ ] **Case status report** - Multi-case summary for portfolio review
 - [ ] **Template system** - Customizable report templates with firm branding
 - [ ] **Export formats** - Word (.docx) and PDF support
+
+### Costs Tracker
+Track case expenses with smart document processing.
+- [ ] **Drag-and-drop bills** - Drop invoice/bill, AI extracts payee, amount, date, description
+- [ ] **Payment status** - Track paid/unpaid/partial with payment history and who paid
+- [ ] **Cost categories** - Filing fees, expert fees, court reporter, medical records, etc.
+- [ ] **Case association** - Link costs to specific cases
+- [ ] **Batch import (reach)** - Drag entire costs folder, AI processes all with duplicate detection
 
 ### Other
 - [ ] Person type filtering in autocomplete search
