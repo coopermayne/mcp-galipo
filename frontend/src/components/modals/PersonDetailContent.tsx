@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   User,
@@ -10,9 +11,10 @@ import {
   X,
   Loader2,
   AlertCircle,
+  UserMinus,
 } from 'lucide-react';
-import { EditableText } from '../common';
-import { getPerson, updatePerson } from '../../api';
+import { EditableText, ConfirmModal } from '../common';
+import { getPerson, updatePerson, removePersonFromCase } from '../../api';
 import type { Person, UpdatePersonInput } from '../../types';
 
 interface PersonDetailContentProps {
@@ -167,6 +169,7 @@ function AttributesSection({ person }: { person: Person }) {
 export function PersonDetailContent({ entityId, context, onClose }: PersonDetailContentProps) {
   const queryClient = useQueryClient();
   const readOnly = context?.readOnly ?? false;
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['person', entityId],
@@ -183,8 +186,23 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
     },
   });
 
+  const removeMutation = useMutation({
+    mutationFn: (role?: string) => removePersonFromCase(context!.caseId!, entityId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', context?.caseId] });
+      setShowRemoveConfirm(false);
+      onClose();
+    },
+  });
+
   const handleUpdateField = async (field: keyof UpdatePersonInput, value: string | null) => {
     await updateMutation.mutateAsync({ [field]: value || undefined });
+  };
+
+  const handleRemoveFromCase = () => {
+    // Find the assignment for the current case to get the role
+    const assignment = data?.person?.case_assignments?.find(a => a.case_id === context?.caseId);
+    removeMutation.mutate(assignment?.role);
   };
 
   if (isLoading) {
@@ -369,6 +387,31 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
           </div>
         </div>
       )}
+
+      {/* Remove from Case button - only show when viewing from a case context */}
+      {context?.caseId && !readOnly && (
+        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <button
+            onClick={() => setShowRemoveConfirm(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          >
+            <UserMinus className="w-4 h-4" />
+            Remove from case
+          </button>
+        </div>
+      )}
+
+      {/* Remove Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showRemoveConfirm}
+        onClose={() => setShowRemoveConfirm(false)}
+        onConfirm={handleRemoveFromCase}
+        title="Remove from case"
+        message={`Are you sure you want to remove "${person.name}" from this case? This will not delete the person record.`}
+        confirmText="Remove"
+        variant="danger"
+        isLoading={removeMutation.isPending}
+      />
     </div>
   );
 }
