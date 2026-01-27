@@ -157,6 +157,20 @@ from .proceedings import (
     update_proceeding_judge,
 )
 
+# Webhook operations
+from .webhooks import (
+    create_webhook_log,
+    get_webhook_log_by_id,
+    get_webhook_log_by_idempotency_key,
+    get_webhook_logs,
+    get_pending_webhook_logs,
+    update_webhook_log,
+    mark_webhook_processing,
+    mark_webhook_completed,
+    mark_webhook_failed,
+    idempotency_key_exists,
+)
+
 # Define __all__ for explicit exports
 __all__ = [
     # Validation
@@ -275,4 +289,15 @@ __all__ = [
     "remove_judge_from_proceeding",
     "get_judges",
     "update_proceeding_judge",
+    # Webhooks
+    "create_webhook_log",
+    "get_webhook_log_by_id",
+    "get_webhook_log_by_idempotency_key",
+    "get_webhook_logs",
+    "get_pending_webhook_logs",
+    "update_webhook_log",
+    "mark_webhook_processing",
+    "mark_webhook_completed",
+    "mark_webhook_failed",
+    "idempotency_key_exists",
 ]

@@ -45,6 +45,7 @@ from .proceedings import register_proceeding_routes
 from .chat import register_chat_routes
 from .quick_create import register_quick_create_routes
 from .export import register_export_routes
+from .webhooks import register_webhook_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -90,6 +91,8 @@ def register_routes(mcp):
     register_quick_create_routes(mcp)
     _logger.debug("Registering export routes...")
     register_export_routes(mcp)
+    _logger.debug("Registering webhook routes...")
+    register_webhook_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     _logger.debug("Registering static routes...")
@@ -114,5 +117,6 @@ __all__ = [
     "register_chat_routes",
     "register_quick_create_routes",
     "register_export_routes",
+    "register_webhook_routes",
     "register_static_routes",
 ]
