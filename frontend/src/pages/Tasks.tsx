@@ -179,17 +179,20 @@ export function Tasks() {
   const tasksByDate = useMemo(() => {
     const groups: Record<string, Task[]> = { overdue: [], today: [], thisWeek: [], nextWeek: [], later: [], noDate: [] };
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    // Format as YYYY-MM-DD in local timezone (not UTC)
+    const formatLocalDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayStr = formatLocalDate(now);
 
     // Calculate end of this week (Sunday)
     const endOfThisWeek = new Date(now);
     endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
-    const endOfThisWeekStr = endOfThisWeek.toISOString().split('T')[0];
+    const endOfThisWeekStr = formatLocalDate(endOfThisWeek);
 
     // Calculate end of next week
     const endOfNextWeek = new Date(endOfThisWeek);
     endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
-    const endOfNextWeekStr = endOfNextWeek.toISOString().split('T')[0];
+    const endOfNextWeekStr = formatLocalDate(endOfNextWeek);
 
     filteredTasks.forEach((task) => {
       if (!task.due_date) {

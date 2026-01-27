@@ -25,17 +25,24 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
     null
   );
 
+  // Helper to parse date string as local time (not UTC)
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Filter events based on past/future
   const now = new Date();
+  now.setHours(0, 0, 0, 0); // Compare at midnight local time
   const filteredEvents = useMemo(() => {
     if (showPastEvents) {
       return events
-        .filter(e => new Date(e.date) < now)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .filter(e => parseLocalDate(e.date) < now)
+        .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
     }
     return events
-      .filter(e => new Date(e.date) >= now)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .filter(e => parseLocalDate(e.date) >= now)
+      .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
   }, [events, showPastEvents]);
 
   const createMutation = useMutation({

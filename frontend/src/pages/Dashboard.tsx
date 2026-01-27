@@ -24,7 +24,6 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { parseISO, isValid } from 'date-fns';
 
 // Deterministic color mapping for case badges
 const caseColorClasses = [
@@ -59,8 +58,12 @@ export function Dashboard() {
   });
 
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
-    queryKey: ['dashboard-events'],
-    queryFn: () => getEvents({ limit: 10 }),
+    queryKey: ['dashboard-events', { showPast: showPastEvents }],
+    queryFn: () => getEvents({
+      limit: 10,
+      includePast: showPastEvents,
+      pastDays: 14,
+    }),
   });
 
   const { data: constants } = useQuery({
@@ -161,19 +164,8 @@ export function Dashboard() {
   // Tasks are filtered based on toggle
   const displayTasks = tasksData?.tasks || [];
 
-  // Filter events based on past/future toggle
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const displayEvents = (eventsData?.events || []).filter(e => {
-    const eventDate = parseISO(e.date);
-    if (!isValid(eventDate)) return false;
-    return showPastEvents ? eventDate < today : eventDate >= today;
-  }).sort((a, b) => {
-    const dateA = parseISO(a.date).getTime();
-    const dateB = parseISO(b.date).getTime();
-    // Past events: most recent first; Future events: soonest first
-    return showPastEvents ? dateB - dateA : dateA - dateB;
-  });
+  // Events are already filtered by the API based on showPastEvents
+  const displayEvents = eventsData?.events || [];
 
   return (
     <>

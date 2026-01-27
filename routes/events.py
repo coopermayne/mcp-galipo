@@ -20,12 +20,18 @@ def register_event_routes(mcp):
             return err
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
+        include_past = request.query_params.get("include_past", "false").lower() == "true"
+        past_days = request.query_params.get("past_days")
+
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
         offset = int(offset)
+        past_days = int(past_days) if past_days else 14
 
         result = db.get_upcoming_events(
             limit=limit,
-            offset=offset
+            offset=offset,
+            include_past=include_past,
+            past_days=past_days
         )
         return JSONResponse(result)
 

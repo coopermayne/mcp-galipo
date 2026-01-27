@@ -35,7 +35,7 @@ import {
 } from '../../../api';
 import type { Case, Constants, Task, Event, CasePerson, Person } from '../../../types';
 import { ProceedingsSection } from '../components';
-import { getPrimaryPhone, getPrimaryEmail } from '../utils';
+import { getPrimaryPhone, getPrimaryEmail, parseLocalDate } from '../utils';
 import { inferSideFromRole } from '../../../utils';
 
 interface OverviewTabProps {
@@ -249,13 +249,14 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   // Events filtering
   const events = caseData.events || [];
   const now = new Date();
+  now.setHours(0, 0, 0, 0); // Compare at midnight local time
   const futureEvents = useMemo(() =>
-    events.filter(e => new Date(e.date) >= now)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    events.filter(e => parseLocalDate(e.date) >= now)
+      .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()),
     [events, now]);
   const pastEvents = useMemo(() =>
-    events.filter(e => new Date(e.date) < now)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    events.filter(e => parseLocalDate(e.date) < now)
+      .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime()),
     [events, now]);
 
   const starredEvents = useMemo(() =>

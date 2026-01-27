@@ -127,21 +127,25 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     return groups;
   }, [filteredTasks]);
 
+  // Format date as YYYY-MM-DD in local timezone (not UTC)
+  const formatLocalDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   // Group tasks by date (overdue, today, this week, next week, later, no date)
   const tasksByDate = useMemo(() => {
     const groups: Record<string, Task[]> = { overdue: [], today: [], thisWeek: [], nextWeek: [], later: [], noDate: [] };
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(now);
 
     // Calculate end of this week (Sunday)
     const endOfThisWeek = new Date(now);
     endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
-    const endOfThisWeekStr = endOfThisWeek.toISOString().split('T')[0];
+    const endOfThisWeekStr = formatLocalDate(endOfThisWeek);
 
     // Calculate end of next week
     const endOfNextWeek = new Date(endOfThisWeek);
     endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
-    const endOfNextWeekStr = endOfNextWeek.toISOString().split('T')[0];
+    const endOfNextWeekStr = formatLocalDate(endOfNextWeek);
 
     filteredTasks.forEach((task) => {
       if (!task.due_date) {
@@ -208,7 +212,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         createMutation.mutate({ description: newTaskText.trim(), urgency: parseInt(groupKey, 10) });
       } else {
         // By date view - set due_date based on group
-        const today = new Date().toISOString().split('T')[0];
+        const today = formatLocalDate(new Date());
         let dueDate: string | undefined;
         if (groupKey === 'today') {
           dueDate = today;
@@ -216,7 +220,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
           // Set to tomorrow
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);
-          dueDate = tomorrow.toISOString().split('T')[0];
+          dueDate = formatLocalDate(tomorrow);
         }
         // overdue and noDate don't set a due date
         createMutation.mutate({ description: newTaskText.trim(), due_date: dueDate });
@@ -245,7 +249,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   // Helper to get the date group key for a task
   const getDateGroupKey = useCallback((task: Task): string => {
     if (!task.due_date) return 'noDate';
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     if (task.due_date < todayStr) return 'overdue';
     if (task.due_date === todayStr) return 'today';
     return 'later';
