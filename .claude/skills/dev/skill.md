@@ -12,8 +12,10 @@ Start or restart all development services and verify each is working correctly.
 | Service | Port | Health Check |
 |---------|------|--------------|
 | PostgreSQL | 5432 | Port connectivity or process check |
-| Backend (FastAPI) | 8000 | `GET /api/v1/chat/debug` |
-| Frontend (Vite) | 5173 | HTTP 200 response |
+| Backend (FastAPI) | $BACKEND_PORT (default 8000) | `GET /api/v1/chat/debug` |
+| Frontend (Vite) | $VITE_PORT (default 5173) | HTTP 200 response |
+
+**Note:** Ports are configured in `.env`. For multi-repo setups, each copy should have unique ports.
 
 ## Startup Procedure
 
@@ -61,9 +63,14 @@ lsof -i:5432 >/dev/null 2>&1 && echo "PostgreSQL: OK" || echo "PostgreSQL: FAILE
 ### Step 2: Stop Existing Processes
 
 ```bash
-# Kill any existing backend/frontend processes
-kill -9 $(lsof -ti:8000) 2>/dev/null || true
-kill -9 $(lsof -ti:5173) 2>/dev/null || true
+# Source .env to get port configs
+set -a && source .env && set +a
+BACKEND_PORT=${BACKEND_PORT:-8000}
+VITE_PORT=${VITE_PORT:-5173}
+
+# Kill any existing backend/frontend processes on our ports
+kill -9 $(lsof -ti:$BACKEND_PORT) 2>/dev/null || true
+kill -9 $(lsof -ti:$VITE_PORT) 2>/dev/null || true
 sleep 1
 ```
 
@@ -72,22 +79,23 @@ sleep 1
 **IMPORTANT:** Must source `.env` file for DATABASE_URL and other config.
 
 ```bash
-cd /Users/coopermayne/Code/mcp-galipo
+# Use repo root (where this skill runs from)
 source .venv/bin/activate
 set -a && source .env && set +a
-uvicorn main:app --reload --port 8000 > /tmp/backend.log 2>&1 &
+BACKEND_PORT=${BACKEND_PORT:-8000}
+uvicorn main:app --reload --port $BACKEND_PORT > /tmp/backend_$BACKEND_PORT.log 2>&1 &
 ```
 
 Wait 3 seconds for startup, then verify:
 ```bash
-curl -s http://localhost:8000/api/v1/chat/debug
+curl -s http://localhost:$BACKEND_PORT/api/v1/chat/debug
 ```
 
 Expected response: `{"status":"ok","message":"Chat routes are registered!"}`
 
 If it fails, check logs:
 ```bash
-tail -30 /tmp/backend.log
+tail -30 /tmp/backend_$BACKEND_PORT.log
 ```
 
 Common issues:
@@ -100,22 +108,24 @@ Common issues:
 **IMPORTANT:** Vite requires Node.js 20.19+ or 22.12+. Use nvm/fnm to switch if needed.
 
 ```bash
-cd /Users/coopermayne/Code/mcp-galipo/frontend
+cd frontend
 # Ensure correct Node version (20+)
 source ~/.nvm/nvm.sh 2>/dev/null && nvm use 20 2>/dev/null || true
-npm run dev > /tmp/frontend.log 2>&1 &
+# Pass env vars to Vite (it reads VITE_PORT and BACKEND_PORT from process.env)
+VITE_PORT=$VITE_PORT BACKEND_PORT=$BACKEND_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
+cd ..
 ```
 
 Wait 2 seconds for startup, then verify:
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:5173
+curl -s -o /dev/null -w "%{http_code}" http://localhost:$VITE_PORT
 ```
 
 Expected response: `200`
 
 If it fails, check logs:
 ```bash
-tail -20 /tmp/frontend.log
+tail -20 /tmp/frontend_$VITE_PORT.log
 ```
 
 ### Step 5: Final Verification Summary
@@ -134,68 +144,72 @@ else
 fi
 
 # Backend
-BACKEND=$(curl -s http://localhost:8000/api/v1/chat/debug 2>/dev/null)
-if [[ "$BACKEND" == *"ok"* ]]; then
-    echo "Backend:    OK (port 8000)"
+BACKEND_RESP=$(curl -s http://localhost:$BACKEND_PORT/api/v1/chat/debug 2>/dev/null)
+if [[ "$BACKEND_RESP" == *"ok"* ]]; then
+    echo "Backend:    OK (port $BACKEND_PORT)"
 else
-    echo "Backend:    FAILED - check /tmp/backend.log"
+    echo "Backend:    FAILED - check /tmp/backend_$BACKEND_PORT.log"
 fi
 
 # Frontend
-FRONTEND=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 2>/dev/null)
-if [[ "$FRONTEND" == "200" ]]; then
-    echo "Frontend:   OK (port 5173)"
+FRONTEND_RESP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$VITE_PORT 2>/dev/null)
+if [[ "$FRONTEND_RESP" == "200" ]]; then
+    echo "Frontend:   OK (port $VITE_PORT)"
 else
-    echo "Frontend:   FAILED - check /tmp/frontend.log"
+    echo "Frontend:   FAILED - check /tmp/frontend_$VITE_PORT.log"
 fi
 
 echo ""
-echo "Frontend URL: http://localhost:5173"
+echo "Frontend URL: http://localhost:$VITE_PORT"
 ```
 
 ## Quick Reference
 
 ### View Logs
 ```bash
-tail -f /tmp/backend.log   # Backend logs
-tail -f /tmp/frontend.log  # Frontend logs
+# Logs are named by port for multi-repo setups
+tail -f /tmp/backend_$BACKEND_PORT.log   # Backend logs
+tail -f /tmp/frontend_$VITE_PORT.log     # Frontend logs
 ```
 
 ### Stop All Services
 ```bash
-kill -9 $(lsof -ti:8000) 2>/dev/null  # Stop backend
-kill -9 $(lsof -ti:5173) 2>/dev/null  # Stop frontend
+source .env
+kill -9 $(lsof -ti:${BACKEND_PORT:-8000}) 2>/dev/null  # Stop backend
+kill -9 $(lsof -ti:${VITE_PORT:-5173}) 2>/dev/null     # Stop frontend
 ```
 
 ### Restart Just Backend
 ```bash
-kill -9 $(lsof -ti:8000) 2>/dev/null
-cd /Users/coopermayne/Code/mcp-galipo
-source .venv/bin/activate && set -a && source .env && set +a
-uvicorn main:app --reload --port 8000 > /tmp/backend.log 2>&1 &
+set -a && source .env && set +a
+kill -9 $(lsof -ti:$BACKEND_PORT) 2>/dev/null
+source .venv/bin/activate
+uvicorn main:app --reload --port $BACKEND_PORT > /tmp/backend_$BACKEND_PORT.log 2>&1 &
 ```
 
 ### Restart Just Frontend
 ```bash
-kill -9 $(lsof -ti:5173) 2>/dev/null
-cd /Users/coopermayne/Code/mcp-galipo/frontend
+set -a && source .env && set +a
+kill -9 $(lsof -ti:$VITE_PORT) 2>/dev/null
+cd frontend
 source ~/.nvm/nvm.sh 2>/dev/null && nvm use 20 2>/dev/null || true
-npm run dev > /tmp/frontend.log 2>&1 &
+VITE_PORT=$VITE_PORT BACKEND_PORT=$BACKEND_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
+cd ..
 ```
 
 ## Troubleshooting
 
 ### Backend won't start
-1. Check if port is in use: `lsof -i:8000`
+1. Check if port is in use: `lsof -i:$BACKEND_PORT`
 2. Check database: `lsof -i:5432` or `pgrep -x postgres`
-3. Verify .env exists: `cat /Users/coopermayne/Code/mcp-galipo/.env`
-4. Check logs: `tail -50 /tmp/backend.log`
+3. Verify .env exists: `cat .env`
+4. Check logs: `tail -50 /tmp/backend_$BACKEND_PORT.log`
 
 ### Frontend won't start
-1. Check if port is in use: `lsof -i:5173`
+1. Check if port is in use: `lsof -i:$VITE_PORT`
 2. Check node_modules: `ls frontend/node_modules`
 3. If missing: `cd frontend && npm install`
-4. Check logs: `tail -50 /tmp/frontend.log`
+4. Check logs: `tail -50 /tmp/frontend_$VITE_PORT.log`
 
 ### Database connection errors
 Start postgres based on your installation:
