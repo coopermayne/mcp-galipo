@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { Header, PageContent } from '../components/layout';
 import {
   StatusBadge,
@@ -12,7 +14,10 @@ import {
   ListPanel,
   ConfirmModal,
 } from '../components/common';
-import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent } from '../api';
+import { DraggableTaskRow } from '../components/tasks';
+import { TaskDropZones } from '../components/docket';
+import { useDragContext } from '../context/DragContext';
+import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent, updateDocket } from '../api';
 import type { Task, Event } from '../types';
 import {
   Briefcase,
@@ -41,11 +46,18 @@ const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColo
 
 export function Dashboard() {
   const queryClient = useQueryClient();
+  const { startDrag, endDrag } = useDragContext();
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
   const [deleteEventTarget, setDeleteEventTarget] = useState<number | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
@@ -107,6 +119,52 @@ export function Dashboard() {
     },
   });
 
+  const docketMutation = useMutation({
+    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
+      updateDocket(taskId, { docket_category: category }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
+    },
+  });
+
+  // Tasks are filtered based on toggle
+  const displayTasks = tasksData?.tasks || [];
+
+  // Events are already filtered by the API based on showPastEvents
+  const displayEvents = eventsData?.events || [];
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const task = displayTasks.find((t) => t.id === event.active.id);
+    if (task) {
+      setActiveTask(task);
+      startDrag(task, 'dashboard');
+    }
+  }, [displayTasks, startDrag]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    endDrag();
+
+    if (!over) return;
+
+    const task = displayTasks.find((t) => t.id === active.id);
+    if (!task) return;
+
+    const overId = over.id.toString();
+    if (overId === 'drop-done') {
+      updateTaskMutation.mutate({ id: task.id, data: { status: 'Done' } });
+    } else if (overId === 'drop-today') {
+      docketMutation.mutate({ taskId: task.id, category: 'today' });
+    } else if (overId === 'drop-tomorrow') {
+      docketMutation.mutate({ taskId: task.id, category: 'tomorrow' });
+    } else if (overId === 'drop-backburner') {
+      docketMutation.mutate({ taskId: task.id, category: 'backburner' });
+    }
+  }, [displayTasks, updateTaskMutation, docketMutation, endDrag]);
+
   const handleUpdateTask = useCallback(
     async (taskId: number, field: string, value: any) => {
       await updateTaskMutation.mutateAsync({ id: taskId, data: { [field]: value } });
@@ -160,12 +218,6 @@ export function Dashboard() {
     { value: '3', label: '3 - High' },
     { value: '4', label: '4 - Urgent' },
   ];
-
-  // Tasks are filtered based on toggle
-  const displayTasks = tasksData?.tasks || [];
-
-  // Events are already filtered by the API based on showPastEvents
-  const displayEvents = eventsData?.events || [];
 
   return (
     <>
@@ -232,57 +284,76 @@ export function Dashboard() {
                 </Link>
               </div>
             </div>
-            <ListPanel>
-              {tasksLoading ? (
-                <ListPanel.Loading />
-              ) : displayTasks.length === 0 ? (
-                <ListPanel.Empty message={showDoneTasks ? "No completed tasks" : "No pending tasks"} />
-              ) : (
-                <ListPanel.Body>
-                  {displayTasks.slice(0, 8).map((task) => (
-                    <ListPanel.Row key={task.id}>
-                      <Link
-                        to={`/cases/${task.case_id}`}
-                        className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(task.case_id)}`}
-                        title={task.short_name || task.case_name || `Case #${task.case_id}`}
-                      >
-                        {task.short_name || task.case_name || `Case #${task.case_id}`}
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <EditableText
-                          value={task.description}
-                          onSave={(value) => handleUpdateTask(task.id, 'description', value)}
-                          className="text-sm"
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <ListPanel>
+                {tasksLoading ? (
+                  <ListPanel.Loading />
+                ) : displayTasks.length === 0 ? (
+                  <ListPanel.Empty message={showDoneTasks ? "No completed tasks" : "No pending tasks"} />
+                ) : (
+                  <ListPanel.Body>
+                    {displayTasks.slice(0, 8).map((task) => (
+                      <DraggableTaskRow key={task.id} task={task} className="px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                        <Link
+                          to={`/cases/${task.case_id}`}
+                          className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(task.case_id)}`}
+                          title={task.short_name || task.case_name || `Case #${task.case_id}`}
+                        >
+                          {task.short_name || task.case_name || `Case #${task.case_id}`}
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <EditableText
+                            value={task.description}
+                            onSave={(value) => handleUpdateTask(task.id, 'description', value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        <EditableDate
+                          value={task.due_date || null}
+                          onSave={(value) => handleUpdateTask(task.id, 'due_date', value)}
+                          placeholder="Due"
                         />
-                      </div>
-                      <EditableDate
-                        value={task.due_date || null}
-                        onSave={(value) => handleUpdateTask(task.id, 'due_date', value)}
-                        placeholder="Due"
-                      />
-                      <EditableSelect
-                        value={task.status}
-                        options={taskStatusOptions}
-                        onSave={(value) => handleUpdateTask(task.id, 'status', value)}
-                        renderValue={(value) => <StatusBadge status={value} />}
-                      />
-                      <EditableSelect
-                        value={String(task.urgency)}
-                        options={urgencyOptions}
-                        onSave={(value) => handleUpdateTask(task.id, 'urgency', parseInt(value))}
-                        renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
-                      />
-                      <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="p-1 text-slate-500 hover:text-red-400"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </ListPanel.Row>
-                  ))}
-                </ListPanel.Body>
-              )}
-            </ListPanel>
+                        <EditableSelect
+                          value={task.status}
+                          options={taskStatusOptions}
+                          onSave={(value) => handleUpdateTask(task.id, 'status', value)}
+                          renderValue={(value) => <StatusBadge status={value} />}
+                        />
+                        <EditableSelect
+                          value={String(task.urgency)}
+                          options={urgencyOptions}
+                          onSave={(value) => handleUpdateTask(task.id, 'urgency', parseInt(value))}
+                          renderValue={(value) => <UrgencyBadge urgency={parseInt(value)} />}
+                        />
+                        <button
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="p-1 text-slate-500 hover:text-red-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </DraggableTaskRow>
+                    ))}
+                  </ListPanel.Body>
+                )}
+              </ListPanel>
+
+              {/* Drop zones for docket */}
+              <TaskDropZones isVisible={activeTask !== null} />
+
+              {/* Drag overlay */}
+              <DragOverlay dropAnimation={null}>
+                {activeTask && (
+                  <div className="px-4 py-3 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-primary-500 flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${getCaseColorClass(activeTask.case_id)}`}>
+                      {activeTask.short_name || activeTask.case_name}
+                    </span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                      {activeTask.description}
+                    </span>
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
           </div>
 
           {/* Upcoming Events */}
