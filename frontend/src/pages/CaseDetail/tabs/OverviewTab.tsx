@@ -1,10 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
   Building2,
   Plus,
-  Trash2,
   Phone,
   Mail,
   Calendar,
@@ -24,13 +23,11 @@ import {
   EditableSelect,
   StatusBadge,
   UrgencyBadge,
-  ConfirmModal,
 } from '../../../components/common';
 import { useEntityModal } from '../../../components/modals';
 import {
   createPerson,
   assignPersonToCase,
-  removePersonFromCase,
   updateTask,
   updateEvent,
 } from '../../../api';
@@ -48,13 +45,11 @@ interface OverviewTabProps {
 // Compact person chip with contact icons
 function PersonChip({
   person,
-  onRemove,
   onOpenDetail,
   showStar = false,
   variant = 'default'
 }: {
   person: CasePerson;
-  onRemove: () => void;
   onOpenDetail: () => void;
   showStar?: boolean;
   variant?: 'default' | 'primary' | 'muted';
@@ -72,7 +67,7 @@ function PersonChip({
     : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200';
 
   return (
-    <div className="relative group">
+    <div className="relative">
       <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm ${baseClass}`}>
         {showStar && person.is_primary && (
           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
@@ -97,12 +92,6 @@ function PersonChip({
             {hasOrg && <Building className="w-3 h-3 opacity-50" />}
           </span>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="ml-1 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 transition-opacity"
-        >
-          <Trash2 className="w-3 h-3" />
-        </button>
       </div>
       {/* Expanded contact details */}
       {expanded && hasContact && (
@@ -173,9 +162,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '', is_primary: false });
   const [newDefendantName, setNewDefendantName] = useState('');
   const [newContact, setNewContact] = useState({ name: '', role: 'Opposing Counsel', organization: '', phone: '', email: '' });
-
-  // Delete targets
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string; type: string; role?: string } | null>(null);
 
   // Filter persons by role
   const clients = useMemo(() =>
@@ -329,15 +315,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     },
   });
 
-  const removePersonMutation = useMutation({
-    mutationFn: ({ personId, role }: { personId: number; role?: string }) =>
-      removePersonFromCase(caseId, personId, role),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setDeleteTarget(null);
-    },
-  });
-
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) => updateTask(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
@@ -347,16 +324,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
-
-  const handleRemovePerson = useCallback((person: CasePerson, type: string) => {
-    setDeleteTarget({ id: person.id, name: person.name, type, role: person.role });
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    if (deleteTarget) {
-      removePersonMutation.mutate({ personId: deleteTarget.id, role: deleteTarget.role });
-    }
-  }, [deleteTarget, removePersonMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map(s => ({ value: s, label: s }));
 
@@ -383,7 +350,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                   <span className="text-slate-400 w-16">Judge:</span>
                   <div className="flex flex-wrap gap-1">
                     {judges.map(j => (
-                      <PersonChip key={j.assignment_id} person={j} onRemove={() => handleRemovePerson(j, 'judge')} onOpenDetail={() => openPersonModal(j.id, { caseId })} variant="muted" />
+                      <PersonChip key={j.assignment_id} person={j} onOpenDetail={() => openPersonModal(j.id, { caseId })} variant="muted" />
                     ))}
                   </div>
                 </div>
@@ -393,7 +360,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                   <span className="text-slate-400 w-16">Counsel:</span>
                   <div className="flex flex-wrap gap-1">
                     {counsel.map(c => (
-                      <PersonChip key={c.assignment_id} person={c} onRemove={() => handleRemovePerson(c, 'counsel')} onOpenDetail={() => openPersonModal(c.id, { caseId })} variant="muted" />
+                      <PersonChip key={c.assignment_id} person={c} onOpenDetail={() => openPersonModal(c.id, { caseId })} variant="muted" />
                     ))}
                   </div>
                 </div>
@@ -403,7 +370,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                   <span className="text-slate-400 w-16">Mediator:</span>
                   <div className="flex flex-wrap gap-1">
                     {mediators.map(m => (
-                      <PersonChip key={m.assignment_id} person={m} onRemove={() => handleRemovePerson(m, 'mediator')} onOpenDetail={() => openPersonModal(m.id, { caseId })} variant="muted" />
+                      <PersonChip key={m.assignment_id} person={m} onOpenDetail={() => openPersonModal(m.id, { caseId })} variant="muted" />
                     ))}
                   </div>
                 </div>
@@ -491,7 +458,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           )}
           <div className="flex flex-wrap gap-1">
             {clients.map(client => (
-              <PersonChip key={client.assignment_id} person={client} onRemove={() => handleRemovePerson(client, 'client')} onOpenDetail={() => openPersonModal(client.id, { caseId })} showStar variant="primary" />
+              <PersonChip key={client.assignment_id} person={client} onOpenDetail={() => openPersonModal(client.id, { caseId })} showStar variant="primary" />
             ))}
             {clients.length === 0 && !showAddClient && <p className="text-xs text-slate-400 italic">None</p>}
           </div>
@@ -517,7 +484,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           )}
           <div className="flex flex-wrap gap-1">
             {defendants.map(def => (
-              <PersonChip key={def.assignment_id} person={def} onRemove={() => handleRemovePerson(def, 'defendant')} onOpenDetail={() => openPersonModal(def.id, { caseId })} />
+              <PersonChip key={def.assignment_id} person={def} onOpenDetail={() => openPersonModal(def.id, { caseId })} />
             ))}
             {defendants.length === 0 && !showAddDefendant && <p className="text-xs text-slate-400 italic">None</p>}
           </div>
@@ -528,7 +495,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           <SectionHeader icon={Users} title="Experts" count={experts.length} />
           <div className="flex flex-wrap gap-1">
             {experts.map(expert => (
-              <PersonChip key={expert.assignment_id} person={expert} onRemove={() => handleRemovePerson(expert, 'expert')} onOpenDetail={() => openPersonModal(expert.id, { caseId })} />
+              <PersonChip key={expert.assignment_id} person={expert} onOpenDetail={() => openPersonModal(expert.id, { caseId })} />
             ))}
             {experts.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
           </div>
@@ -557,7 +524,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           )}
           <div className="flex flex-wrap gap-1">
             {otherContacts.map(contact => (
-              <PersonChip key={contact.assignment_id} person={contact} onRemove={() => handleRemovePerson(contact, 'contact')} onOpenDetail={() => openPersonModal(contact.id, { caseId })} />
+              <PersonChip key={contact.assignment_id} person={contact} onOpenDetail={() => openPersonModal(contact.id, { caseId })} />
             ))}
             {otherContacts.length === 0 && !showAddContact && <p className="text-xs text-slate-400 italic">None</p>}
           </div>
@@ -660,18 +627,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           </div>
         </div>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-        title={`Remove ${deleteTarget?.type}`}
-        message={`Are you sure you want to remove "${deleteTarget?.name}" from this case?`}
-        confirmText="Remove"
-        variant="danger"
-        isLoading={removePersonMutation.isPending}
-      />
     </div>
   );
 }
