@@ -372,11 +372,7 @@ def seed_dev_data():
             if opp_id:
                 db.assign_person_to_case(case_id, opp_id, "Opposing Counsel", side="defendant")
 
-        # Assign judge
-        if c.get("judge"):
-            judge_id = find_person(c["judge"])
-            if judge_id:
-                db.assign_person_to_case(case_id, judge_id, "Judge", side="neutral")
+        # Note: Judges are assigned via proceedings, not directly to cases
 
         # Assign experts
         for e in c.get("experts", []):

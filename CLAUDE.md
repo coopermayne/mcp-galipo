@@ -147,32 +147,30 @@ For working on multiple branches/features simultaneously, you can run parallel c
 ### Setup Steps
 
 **1. Create the databases:**
+
 ```bash
-# Using Postgres.app
+# Using Postgres.app (creates databases owned by your macOS user)
 /Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "CREATE DATABASE galipo_2;"
 /Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "CREATE DATABASE galipo_3;"
-
-# Grant permissions
-/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE galipo_2 TO galipo_user;"
-/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "GRANT ALL PRIVILEGES ON DATABASE galipo_3 TO galipo_user;"
-
-# Also grant schema permissions (required for table creation)
-/Applications/Postgres.app/Contents/Versions/latest/bin/psql galipo_2 -c "GRANT ALL ON SCHEMA public TO galipo_user;"
-/Applications/Postgres.app/Contents/Versions/latest/bin/psql galipo_3 -c "GRANT ALL ON SCHEMA public TO galipo_user;"
 ```
 
+> **Note:** With Postgres.app, databases are owned by your macOS username (e.g., `coopermayne`), so no GRANT commands are needed. If using a different postgres user, grant permissions accordingly.
+
 **2. Copy the repo:**
+
 ```bash
-cd /Users/coopermayne/Code
+cd ~/Code  # or wherever your repos live
 cp -r mcp-galipo mcp-galipo_2
 cp -r mcp-galipo mcp-galipo_3
 ```
 
 **3. Update `.env` in each copy:**
 
+Edit the `.env` file in each copy to use unique ports and databases. Only change the values shown below (keep other settings like `AUTH_*` and `ANTHROPIC_API_KEY` the same):
+
 For mcp-galipo_2:
 ```bash
-DATABASE_URL=postgresql://galipo_user:devpassword@localhost:5432/galipo_2
+DATABASE_URL=postgresql://YOUR_USER@localhost:5432/galipo_2
 PORT=8001
 BACKEND_PORT=8001
 VITE_PORT=5174
@@ -180,26 +178,49 @@ VITE_PORT=5174
 
 For mcp-galipo_3:
 ```bash
-DATABASE_URL=postgresql://galipo_user:devpassword@localhost:5432/galipo_3
+DATABASE_URL=postgresql://YOUR_USER@localhost:5432/galipo_3
 PORT=8002
 BACKEND_PORT=8002
 VITE_PORT=5175
 ```
 
+> **Note:** Replace `YOUR_USER` with your postgres username. For Postgres.app, this is typically your macOS username (run `whoami` to check).
+
 **4. Reinstall frontend dependencies** (symlinks break during copy):
+
 ```bash
 cd mcp-galipo_2/frontend && rm -rf node_modules && npm install
 cd mcp-galipo_3/frontend && rm -rf node_modules && npm install
 ```
 
 **5. Start each environment:**
+
 Run `/dev` in each repo's Claude Code session. The backend will auto-run migrations on first start.
+
+**6. Seed with test data (optional):**
+
+```bash
+cd mcp-galipo_2
+set -a && source .env && set +a
+.venv/bin/python seed_dev_data.py
+```
+
+Repeat for mcp-galipo_3.
 
 ### Accessing Each Copy
 
 - **mcp-galipo**: http://localhost:5173
 - **mcp-galipo_2**: http://localhost:5174
 - **mcp-galipo_3**: http://localhost:5175
+
+### How It Works
+
+The `/dev` skill sources the `.env` file and uses the configured ports:
+- Backend reads `PORT` for uvicorn
+- Frontend reads `VITE_PORT` for the dev server port
+- Frontend reads `BACKEND_PORT` to configure the API proxy (so `/api/*` requests go to the right backend)
+
+All three variables should match: if backend runs on 8001, set both `PORT=8001` and `BACKEND_PORT=8001`.
 
 ## Pre-Commit Verification
 
@@ -216,12 +237,26 @@ This is critical because the **live production database** receives schema change
 
 ## Environment Variables
 
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | (none) | PostgreSQL connection string |
+| `AUTH_USERNAME` | Yes | (none) | Web dashboard login username |
+| `AUTH_PASSWORD` | Yes | (none) | Web dashboard login password |
+| `PORT` | No | 8000 | Backend server port (used by uvicorn) |
+| `BACKEND_PORT` | No | 8000 | Backend port (used by Vite proxy config) |
+| `VITE_PORT` | No | 5173 | Frontend dev server port |
+| `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
+| `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
+| `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
+
+Example `.env`:
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost:5432/galipo
+DATABASE_URL=postgresql://myuser@localhost:5432/galipo
 AUTH_USERNAME=admin
-AUTH_PASSWORD=your_password
-PORT=8000  # optional, defaults to 8000
-RESET_DB=true  # development only - drops all tables on startup
+AUTH_PASSWORD=yourpassword
+PORT=8000
+BACKEND_PORT=8000
+VITE_PORT=5173
 ```
 
 ## Endpoints
