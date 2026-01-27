@@ -82,19 +82,20 @@ function ClearDropZone() {
     <div
       ref={setNodeRef}
       className={`
-        absolute left-0 top-0 bottom-0 w-16 -ml-16
-        flex items-center justify-center
+        mx-4 mb-4 p-3 rounded-lg
+        flex items-center justify-center gap-2
+        border-2 border-dashed
         transition-all duration-200
         ${isOver
-          ? 'bg-orange-100 dark:bg-orange-900/30 border-r-4 border-orange-500'
-          : 'bg-slate-100/50 dark:bg-slate-800/50 border-r-2 border-dashed border-slate-300 dark:border-slate-600'
+          ? 'bg-orange-100 dark:bg-orange-900/30 border-orange-500'
+          : 'bg-slate-50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-600'
         }
       `}
     >
-      <div className={`flex flex-col items-center gap-1 ${isOver ? 'text-orange-600' : 'text-slate-400'}`}>
-        <LogOut className="w-5 h-5 rotate-180" />
-        <span className="text-xs font-medium">Clear</span>
-      </div>
+      <LogOut className={`w-5 h-5 rotate-180 ${isOver ? 'text-orange-600' : 'text-slate-400'}`} />
+      <span className={`text-sm font-medium ${isOver ? 'text-orange-600' : 'text-slate-400'}`}>
+        Remove from Docket
+      </span>
     </div>
   );
 }
@@ -230,7 +231,9 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       const allTasks = [...todayTasks, ...tomorrowTasks, ...backburnerTasks];
-      const task = allTasks.find((t) => t.id === event.active.id);
+      // Convert to number since dnd-kit may pass string ids
+      const activeId = typeof event.active.id === 'string' ? parseInt(event.active.id, 10) : event.active.id;
+      const task = allTasks.find((t) => t.id === activeId);
       if (task) {
         startDrag(task, 'docket-panel');
       }
