@@ -2,6 +2,7 @@ export { EditableText } from './EditableText';
 export { EditableSelect } from './EditableSelect';
 export { EditableDate } from './EditableDate';
 export { EditableTime } from './EditableTime';
+export { EditableContactList } from './EditableContactList';
 export { Badge, StatusBadge, UrgencyBadge } from './Badge';
 export { DataTable } from './DataTable';
 export { ListPanel } from './ListPanel';
