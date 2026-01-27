@@ -97,6 +97,14 @@ Global task panel (button like chat button, top-right) for planning your day.
 - [ ] **Back burner section** - Tasks waiting on something, visible reminder to follow up
 - [ ] **Quick status changes** - Dropping on zones updates task status/category/assignee
 
+### Polished Report Exports
+Generate professional Word/PDF documents for client communication and internal use.
+- [ ] **Case summary report** - Polished case overview with parties, status, key dates, proceedings
+- [ ] **Task list export** - Filtered task list as Word/PDF (by case, status, date range)
+- [ ] **Case status report** - Multi-case summary for portfolio review
+- [ ] **Template system** - Customizable report templates with firm branding
+- [ ] **Export formats** - Word (.docx) and PDF support
+
 ### Other
 - [ ] Person type filtering in autocomplete search
 - [ ] Bulk person assignment
