@@ -25,6 +25,9 @@ export {
 // Tasks
 export {
   getTasks,
+  getTasksForToday,
+  getTasksForTomorrow,
+  getBackburnerTasks,
   createTask,
   updateTask,
   deleteTask,

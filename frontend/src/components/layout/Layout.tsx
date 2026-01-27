@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Outlet, useMatch } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { ChatButton, ChatPanel } from '../chat';
+import { DocketButton, DocketPanel } from '../docket';
 import { QuickCaseSearch } from '../common';
 
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isDocketOpen, setIsDocketOpen] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
 
   // Detect if we're on a case detail page and extract case ID
@@ -19,6 +21,12 @@ export function Layout() {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'k') {
         e.preventDefault();
         setIsQuickSearchOpen((prev) => !prev);
+        return;
+      }
+      // Shift+Cmd+D (Mac) / Shift+Ctrl+D (Windows) to toggle docket
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
+        e.preventDefault();
+        setIsDocketOpen((prev) => !prev);
         return;
       }
       // Cmd+K (Mac) / Ctrl+K (Windows) to toggle chat
@@ -42,6 +50,10 @@ export function Layout() {
       {/* Chat UI */}
       <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
       <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
+
+      {/* Daily Docket */}
+      <DocketButton onClick={() => setIsDocketOpen(true)} isOpen={isDocketOpen} />
+      <DocketPanel isOpen={isDocketOpen} onClose={() => setIsDocketOpen(false)} />
 
       {/* Quick Case Search */}
       <QuickCaseSearch isOpen={isQuickSearchOpen} onClose={() => setIsQuickSearchOpen(false)} />

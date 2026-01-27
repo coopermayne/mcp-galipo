@@ -22,6 +22,8 @@ def register_task_routes(mcp):
         status = request.query_params.get("status")
         exclude_status = request.query_params.get("exclude_status")
         urgency = request.query_params.get("urgency")
+        due_date_from = request.query_params.get("due_date_from")
+        due_date_to = request.query_params.get("due_date_to")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
@@ -32,6 +34,8 @@ def register_task_routes(mcp):
             status_filter=status,
             exclude_status=exclude_status,
             urgency_filter=int(urgency) if urgency else None,
+            due_date_from=due_date_from,
+            due_date_to=due_date_to,
             limit=limit,
             offset=offset
         )

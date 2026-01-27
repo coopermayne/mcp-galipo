@@ -11,7 +11,9 @@ import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } fr
 import { Plus, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import { SortableTaskRow } from '../../../components/tasks';
+import { TaskDropZones } from '../../../components/docket';
 import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
+import { useDragContext } from '../../../context/DragContext';
 import type { Task, Constants, TaskStatus } from '../../../types';
 import { DroppableTaskGroup } from '../components';
 import { urgencyConfig, statusConfig } from '../utils';
@@ -26,6 +28,7 @@ interface TasksTabProps {
 
 export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   const queryClient = useQueryClient();
+  const { startDrag, endDrag } = useDragContext();
   const [view, setView] = useState<TaskViewMode>('by-urgency');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -220,9 +223,11 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         const groupTasks =
           view === 'by-urgency' ? tasksByUrgency[task.urgency] : tasksByStatus[task.status];
         setOverIndex(groupTasks.findIndex((t) => t.id === task.id));
+        // Notify global drag context
+        startDrag(task, 'case-detail');
       }
     },
-    [filteredTasks, view, tasksByUrgency, tasksByStatus]
+    [filteredTasks, view, tasksByUrgency, tasksByStatus, startDrag]
   );
 
   const handleDragOver = useCallback(
@@ -269,9 +274,32 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     [filteredTasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex]
   );
 
+  // Handle global drop zone actions
+  const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    switch (zone) {
+      case 'done':
+        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
+        break;
+      case 'today':
+        await updateMutation.mutateAsync({ id: taskId, data: { due_date: today, status: 'Pending' } });
+        break;
+      case 'tomorrow':
+        await updateMutation.mutateAsync({ id: taskId, data: { due_date: tomorrowStr, status: 'Pending' } });
+        break;
+      case 'backburner':
+        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Blocked', due_date: '' } });
+        break;
+    }
+  }, [updateMutation]);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const { active } = event;
+      const { active, over } = event;
       const finalContainer = overContainer;
       const finalIndex = overIndex;
 
@@ -279,11 +307,22 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       setActiveId(null);
       setOverContainer(null);
       setOverIndex(0);
+      endDrag();
 
-      if (!finalContainer) return;
+      if (!over) return;
 
       const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
       if (!activeTaskItem) return;
+
+      // Check for global drop zones first
+      const overId = over.id.toString();
+      if (overId.startsWith('drop-')) {
+        const zone = overId.replace('drop-', '');
+        handleGlobalDrop(activeTaskItem.id, zone);
+        return;
+      }
+
+      if (!finalContainer) return;
 
       const targetTasks =
         view === 'by-urgency'
@@ -322,6 +361,8 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       overIndex,
       calculateSortOrderAtIndex,
       reorderMutation,
+      endDrag,
+      handleGlobalDrop,
     ]
   );
 
@@ -494,6 +535,9 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
             )}
           </div>
         )}
+
+        {/* Drop zones - appear when dragging */}
+        <TaskDropZones isVisible={activeTask !== null} />
 
         {/* Drag Overlay */}
         <DragOverlay dropAnimation={null}>

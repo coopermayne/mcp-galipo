@@ -15,8 +15,10 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
 import { UrgencyGroup, CaseGroup } from '../components/tasks';
+import { TaskDropZones } from '../components/docket';
 import { formatSmartDate } from '../utils/dateFormat';
 import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
+import { useDragContext } from '../context/DragContext';
 import type { Task } from '../types';
 import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff } from 'lucide-react';
 
@@ -24,6 +26,7 @@ type ViewMode = 'by-urgency' | 'by-case';
 
 export function Tasks() {
   const queryClient = useQueryClient();
+  const { startDrag, endDrag } = useDragContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
@@ -203,8 +206,10 @@ export function Tasks() {
       setOverContainer(task.urgency);
       const currentIndex = tasksByUrgency[task.urgency].findIndex((t) => t.id === task.id);
       setOverIndex(currentIndex);
+      // Notify global drag context
+      startDrag(task, 'tasks-page');
     }
-  }, [filteredTasks, tasksByUrgency]);
+  }, [filteredTasks, tasksByUrgency, startDrag]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
@@ -245,6 +250,29 @@ export function Tasks() {
     }
   }, [filteredTasks, tasksByUrgency, view, overContainer, overIndex]);
 
+  // Handle global drop zone actions
+  const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    switch (zone) {
+      case 'done':
+        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
+        break;
+      case 'today':
+        await updateMutation.mutateAsync({ id: taskId, data: { due_date: today, status: 'Pending' } });
+        break;
+      case 'tomorrow':
+        await updateMutation.mutateAsync({ id: taskId, data: { due_date: tomorrowStr, status: 'Pending' } });
+        break;
+      case 'backburner':
+        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Blocked', due_date: '' } });
+        break;
+    }
+  }, [updateMutation]);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -257,11 +285,22 @@ export function Tasks() {
     setActiveId(null);
     setOverContainer(null);
     setOverIndex(0);
+    endDrag();
 
-    if (!over || finalContainer === null) return;
+    if (!over) return;
 
     const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
     if (!activeTaskItem) return;
+
+    // Check for global drop zones first
+    const overId = over.id.toString();
+    if (overId.startsWith('drop-')) {
+      const zone = overId.replace('drop-', '');
+      handleGlobalDrop(activeTaskItem.id, zone);
+      return;
+    }
+
+    if (finalContainer === null) return;
 
     // Highlight the dropped task
     setRecentlyDroppedId(activeTaskItem.id);
@@ -284,9 +323,8 @@ export function Tasks() {
       });
     } else {
       // By case view - handle within-case reordering
-      const overId = over.id;
-      if (typeof overId === 'number') {
-        const overTask = filteredTasks.find((t) => t.id === overId);
+      if (typeof over.id === 'number') {
+        const overTask = filteredTasks.find((t) => t.id === over.id);
         if (overTask && overTask.case_id === activeTaskItem.case_id) {
           const groupTasks = tasksByCase[activeTaskItem.case_id]?.tasks || [];
           const oldIndex = groupTasks.findIndex((t) => t.id === activeTaskItem.id);
@@ -306,7 +344,7 @@ export function Tasks() {
         }
       }
     }
-  }, [filteredTasks, view, tasksByUrgency, tasksByCase, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation]);
+  }, [filteredTasks, view, tasksByUrgency, tasksByCase, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation, endDrag, handleGlobalDrop]);
 
   // Custom collision detection that prefers items over containers
   const collisionDetection: CollisionDetection = useCallback((args) => {
@@ -482,6 +520,9 @@ export function Tasks() {
                 ))}
               </div>
             )}
+
+            {/* Drop zones - appear when dragging */}
+            <TaskDropZones isVisible={activeTask !== null} />
 
             {/* Drag Overlay - shows the item being dragged */}
             <DragOverlay dropAnimation={null}>
