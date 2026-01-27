@@ -465,6 +465,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                       excludePersonIds={assignedPersonIds}
                       onSelectPerson={(person) => assignCounselMutation.mutate({ person, role: newCounselRole })}
                       onCreateNew={(name) => createCounselMutation.mutate({ name, role: newCounselRole })}
+                      onCancel={() => setShowAddCounsel(false)}
                       placeholder="Search attorneys..."
                       autoFocus
                     />
@@ -495,6 +496,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                       excludePersonIds={assignedPersonIds}
                       onSelectPerson={(person) => assignMediatorMutation.mutate(person)}
                       onCreateNew={(name) => createMediatorMutation.mutate(name)}
+                      onCancel={() => setShowAddMediator(false)}
                       placeholder="Search mediators..."
                       autoFocus
                     />
@@ -571,6 +573,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 excludePersonIds={assignedPersonIds}
                 onSelectPerson={(person) => assignClientMutation.mutate(person)}
                 onCreateNew={(name) => createClientMutation.mutate(name)}
+                onCancel={() => setShowAddClient(false)}
                 placeholder="Search clients or create new..."
                 autoFocus
               />
@@ -603,6 +606,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 excludePersonIds={assignedPersonIds}
                 onSelectPerson={(person) => assignDefendantMutation.mutate(person)}
                 onCreateNew={(name) => createDefendantMutation.mutate(name)}
+                onCancel={() => setShowAddDefendant(false)}
                 placeholder="Search defendants or create new..."
                 autoFocus
               />
@@ -642,6 +646,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 excludePersonIds={assignedPersonIds}
                 onSelectPerson={(person) => assignExpertMutation.mutate({ person, role: newExpertRole })}
                 onCreateNew={(name) => createExpertMutation.mutate({ name, role: newExpertRole })}
+                onCancel={() => setShowAddExpert(false)}
                 placeholder="Search experts or create new..."
                 autoFocus
               />

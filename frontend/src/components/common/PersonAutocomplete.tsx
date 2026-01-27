@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, Building2, Phone } from 'lucide-react';
+import { Search, Plus, Building2, Phone, X } from 'lucide-react';
 import { getPersons } from '../../api';
 import type { Person, PersonType } from '../../types';
 
@@ -9,6 +9,7 @@ interface PersonAutocompleteProps {
   excludePersonIds?: number[];          // Already assigned to case
   onSelectPerson: (person: Person) => void;
   onCreateNew: (name: string) => void;
+  onCancel?: () => void;                // Called when user cancels (Escape or X button)
   placeholder?: string;
   autoFocus?: boolean;
 }
@@ -18,6 +19,7 @@ export function PersonAutocomplete({
   excludePersonIds = [],
   onSelectPerson,
   onCreateNew,
+  onCancel,
   placeholder = 'Search or create...',
   autoFocus = false,
 }: PersonAutocompleteProps) {
@@ -99,10 +101,15 @@ export function PersonAutocomplete({
         }
         break;
       case 'Escape':
-        setIsOpen(false);
+        e.preventDefault();
+        if (onCancel) {
+          onCancel();
+        } else {
+          setIsOpen(false);
+        }
         break;
     }
-  }, [isOpen, highlightedIndex, results, totalItems, showCreateOption, search, onSelectPerson, onCreateNew]);
+  }, [isOpen, highlightedIndex, results, totalItems, showCreateOption, search, onSelectPerson, onCreateNew, onCancel]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -136,7 +143,7 @@ export function PersonAutocomplete({
   return (
     <div className="relative">
       {/* Input */}
-      <div className="relative">
+      <div className="relative flex items-center">
         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
         <input
           ref={inputRef}
@@ -149,8 +156,18 @@ export function PersonAutocomplete({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full pl-7 pr-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full pl-7 pr-7 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            title="Cancel"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
       </div>
 
       {/* Dropdown */}
