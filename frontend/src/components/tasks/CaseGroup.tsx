@@ -59,25 +59,25 @@ export function CaseGroup({
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={`
-          w-full flex items-center gap-2 mb-2 px-3 py-2 rounded-lg
+          w-full flex items-center gap-2 mb-2 px-3 py-2 rounded-lg min-w-0
           ${colorClass}
           hover:opacity-90 transition-opacity
         `}
       >
         {isExpanded ? (
-          <ChevronDown className="w-4 h-4" />
+          <ChevronDown className="w-4 h-4 shrink-0" />
         ) : (
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4 shrink-0" />
         )}
-        <span className="font-semibold text-sm">
+        <span className="font-semibold text-sm truncate">
           {shortName || caseName}
         </span>
         {shortName && shortName !== caseName && (
-          <span className="text-xs opacity-75 truncate">
+          <span className="text-xs opacity-75 truncate hidden sm:inline">
             - {caseName}
           </span>
         )}
-        <span className="ml-auto text-xs opacity-75">
+        <span className="ml-auto text-xs opacity-75 shrink-0">
           ({tasks.length} task{tasks.length !== 1 ? 's' : ''})
         </span>
       </button>

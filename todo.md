@@ -15,7 +15,7 @@
 - [ ] **SSE connection drops** - Needs reconnection handling for silent disconnects
 - [ ] **Optimistic update staleness** - Can show stale data if server returns different values
 - [ ] **Date picker overflow** - Calendar can overflow viewport on small screens
-- [ ] **Long case names** - Overflow in sidebar
+- [x] **Long case names** - Overflow in sidebar
 
 ---
 

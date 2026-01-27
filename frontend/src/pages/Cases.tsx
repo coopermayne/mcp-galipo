@@ -209,7 +209,7 @@ export function Cases() {
                     onClick={() => navigate(`/cases/${caseItem.id}`)}
                     className="flex-1 text-left min-w-0 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                   >
-                    <span className="font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400">
+                    <span className="block font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 truncate">
                       {caseItem.short_name || caseItem.case_name}
                     </span>
                     {caseItem.short_name && (
