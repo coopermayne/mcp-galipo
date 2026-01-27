@@ -11,7 +11,7 @@ import {
 } from '../components/common';
 import { getEvents, updateEvent, deleteEvent } from '../api';
 import type { Event } from '../types';
-import { Trash2, Search, Star } from 'lucide-react';
+import { Trash2, Search, Star, Eye, EyeOff } from 'lucide-react';
 
 // Deterministic color mapping for case badges
 const caseColorClasses = [
@@ -31,10 +31,14 @@ export function Calendar() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [showPastEvents, setShowPastEvents] = useState(false);
 
   const { data: eventsData, isLoading } = useQuery({
-    queryKey: ['events'],
-    queryFn: () => getEvents(),
+    queryKey: ['events', { showPast: showPastEvents }],
+    queryFn: () => getEvents({
+      includePast: showPastEvents,
+      pastDays: 365, // Show up to a year of past events
+    }),
   });
 
   const updateMutation = useMutation({
@@ -75,21 +79,23 @@ export function Calendar() {
     }
   }, [deleteTarget, deleteMutation]);
 
-  // Filter and group events by date
-  const groupedEvents = useMemo(() => {
-    if (!eventsData?.events) return {};
+  // Filter events by search query
+  const filteredEvents = useMemo(() => {
+    if (!eventsData?.events) return [];
 
-    // Filter by search query (description, case name, or short name)
-    const filteredEvents = searchQuery
-      ? eventsData.events.filter((event) => {
-          const query = searchQuery.toLowerCase();
-          return (
-            event.description.toLowerCase().includes(query) ||
-            (event.case_name && event.case_name.toLowerCase().includes(query)) ||
-            (event.short_name && event.short_name.toLowerCase().includes(query))
-          );
-        })
-      : eventsData.events;
+    if (!searchQuery) return eventsData.events;
+
+    const query = searchQuery.toLowerCase();
+    return eventsData.events.filter((event) =>
+      event.description.toLowerCase().includes(query) ||
+      (event.case_name && event.case_name.toLowerCase().includes(query)) ||
+      (event.short_name && event.short_name.toLowerCase().includes(query))
+    );
+  }, [eventsData?.events, searchQuery]);
+
+  // Group upcoming events by date category
+  const groupedEvents = useMemo(() => {
+    if (showPastEvents) return null; // Don't group past events
 
     const groups: Record<string, Event[]> = {
       overdue: [],
@@ -107,8 +113,9 @@ export function Calendar() {
     monthEnd.setDate(monthEnd.getDate() + 30);
 
     filteredEvents.forEach((event) => {
-      const dueDate = new Date(event.date);
-      dueDate.setHours(0, 0, 0, 0);
+      // Parse date as local time (not UTC) to avoid timezone shift issues
+      const [year, month, day] = event.date.split('-').map(Number);
+      const dueDate = new Date(year, month - 1, day);
 
       if (dueDate < today) {
         groups.overdue.push(event);
@@ -124,7 +131,7 @@ export function Calendar() {
     });
 
     return groups;
-  }, [eventsData?.events, searchQuery]);
+  }, [filteredEvents, showPastEvents]);
 
   const groupLabels: Record<string, string> = {
     overdue: 'Overdue',
@@ -142,6 +149,49 @@ export function Calendar() {
     later: 'text-slate-500',
   };
 
+  const renderEventRow = (event: Event, highlight: boolean = false) => (
+    <ListPanel.Row key={event.id} highlight={highlight}>
+      <button
+        onClick={() => handleUpdate(event.id, 'starred', !event.starred)}
+        className={`p-1 ${event.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+        title={event.starred ? 'Unstar' : 'Star'}
+      >
+        <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
+      </button>
+      <Link
+        to={`/cases/${event.case_id}`}
+        className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(event.case_id)}`}
+        title={event.short_name || event.case_name || `Case #${event.case_id}`}
+      >
+        {event.short_name || event.case_name || `Case #${event.case_id}`}
+      </Link>
+      <div className="flex-1 min-w-0">
+        <EditableText
+          value={event.description}
+          onSave={(value) => handleUpdate(event.id, 'description', value)}
+          className="text-sm"
+        />
+      </div>
+      <div className="flex items-center gap-0">
+        <EditableDate
+          value={event.date}
+          onSave={(value) => handleUpdate(event.id, 'date', value)}
+          clearable={false}
+        />
+        <EditableTime
+          value={event.time || null}
+          onSave={(value) => handleUpdate(event.id, 'time', value)}
+        />
+      </div>
+      <button
+        onClick={() => handleDelete(event.id)}
+        className="p-1 text-slate-500 hover:text-red-400"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </ListPanel.Row>
+  );
+
   return (
     <>
       <Header
@@ -150,7 +200,7 @@ export function Calendar() {
       />
 
       <PageContent>
-        {/* Search */}
+        {/* Search and Toggle */}
         <ListPanel className="mb-6">
           <div className="px-4 py-3 flex items-center gap-4">
             <div className="relative flex-1 max-w-xs">
@@ -163,6 +213,17 @@ export function Calendar() {
                 className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
+            <button
+              onClick={() => setShowPastEvents(!showPastEvents)}
+              className={`flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                showPastEvents
+                  ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              {showPastEvents ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              {showPastEvents ? 'Past Events' : 'Upcoming'}
+            </button>
           </div>
         </ListPanel>
 
@@ -171,13 +232,26 @@ export function Calendar() {
           <ListPanel>
             <ListPanel.Loading />
           </ListPanel>
-        ) : eventsData?.events.length === 0 ? (
+        ) : filteredEvents.length === 0 ? (
           <ListPanel>
-            <ListPanel.Empty message="No events found" />
+            <ListPanel.Empty message={showPastEvents ? 'No past events found' : 'No upcoming events'} />
           </ListPanel>
+        ) : showPastEvents ? (
+          // Past events - simple list sorted by most recent first (already sorted by API)
+          <div>
+            <h2 className="text-sm font-semibold mb-2 text-slate-600 dark:text-slate-400">
+              Past Events ({filteredEvents.length})
+            </h2>
+            <ListPanel>
+              <ListPanel.Body>
+                {filteredEvents.map((event) => renderEventRow(event))}
+              </ListPanel.Body>
+            </ListPanel>
+          </div>
         ) : (
+          // Upcoming events - grouped by date category
           <div className="space-y-6">
-            {Object.entries(groupedEvents).map(
+            {groupedEvents && Object.entries(groupedEvents).map(
               ([group, events]) =>
                 events.length > 0 && (
                   <div key={group}>
@@ -186,48 +260,7 @@ export function Calendar() {
                     </h2>
                     <ListPanel>
                       <ListPanel.Body>
-                        {events.map((event) => (
-                          <ListPanel.Row key={event.id} highlight={group === 'overdue'}>
-                            <button
-                              onClick={() => handleUpdate(event.id, 'starred', !event.starred)}
-                              className={`p-1 ${event.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                              title={event.starred ? 'Unstar' : 'Star'}
-                            >
-                              <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
-                            </button>
-                            <Link
-                              to={`/cases/${event.case_id}`}
-                              className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(event.case_id)}`}
-                              title={event.short_name || event.case_name || `Case #${event.case_id}`}
-                            >
-                              {event.short_name || event.case_name || `Case #${event.case_id}`}
-                            </Link>
-                            <div className="flex-1 min-w-0">
-                              <EditableText
-                                value={event.description}
-                                onSave={(value) => handleUpdate(event.id, 'description', value)}
-                                className="text-sm"
-                              />
-                            </div>
-                            <div className="flex items-center gap-0">
-                              <EditableDate
-                                value={event.date}
-                                onSave={(value) => handleUpdate(event.id, 'date', value)}
-                                clearable={false}
-                              />
-                              <EditableTime
-                                value={event.time || null}
-                                onSave={(value) => handleUpdate(event.id, 'time', value)}
-                              />
-                            </div>
-                            <button
-                              onClick={() => handleDelete(event.id)}
-                              className="p-1 text-slate-500 hover:text-red-400"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </ListPanel.Row>
-                        ))}
+                        {events.map((event) => renderEventRow(event, group === 'overdue'))}
                       </ListPanel.Body>
                     </ListPanel>
                   </div>

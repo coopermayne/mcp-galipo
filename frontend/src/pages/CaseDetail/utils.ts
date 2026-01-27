@@ -1,5 +1,15 @@
 // Helper functions for CaseDetail components
 
+/**
+ * Parse a date string (YYYY-MM-DD) as local time, not UTC.
+ * This avoids timezone shift issues where "2026-01-27" parsed as UTC
+ * becomes Jan 26 at 4pm in Pacific time.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day); // month is 0-indexed
+}
+
 export function getPrimaryPhone(
   phones: Array<{ value: string; label?: string; primary?: boolean }> | undefined
 ): string | null {

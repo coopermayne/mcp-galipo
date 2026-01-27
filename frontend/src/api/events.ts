@@ -4,10 +4,14 @@ import { request } from './common';
 export async function getEvents(params?: {
   limit?: number;
   offset?: number;
+  includePast?: boolean;
+  pastDays?: number;
 }): Promise<{ events: Event[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
+  if (params?.includePast) searchParams.set('include_past', 'true');
+  if (params?.pastDays) searchParams.set('past_days', String(params.pastDays));
   const query = searchParams.toString();
   return request(`/events${query ? `?${query}` : ''}`);
 }
