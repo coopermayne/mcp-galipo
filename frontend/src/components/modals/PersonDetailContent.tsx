@@ -13,7 +13,7 @@ import {
   AlertCircle,
   UserMinus,
 } from 'lucide-react';
-import { EditableText, ConfirmModal } from '../common';
+import { EditableText, EditableContactList, ConfirmModal } from '../common';
 import { getPerson, updatePerson, removePersonFromCase } from '../../api';
 import type { Person, UpdatePersonInput } from '../../types';
 
@@ -26,39 +26,165 @@ interface PersonDetailContentProps {
   onClose: () => void;
 }
 
+// Editable attribute row component
+function AttributeRow({
+  label,
+  value,
+  onSave,
+  readOnly,
+  placeholder,
+  prefix,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onSave: (value: string) => Promise<unknown>;
+  readOnly: boolean;
+  placeholder?: string;
+  prefix?: string;
+  suffix?: string;
+}) {
+  if (readOnly) {
+    if (!value) return null;
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-slate-400 w-24 shrink-0">{label}:</span>
+        <span className="text-slate-700 dark:text-slate-300">
+          {prefix}{value}{suffix}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-slate-400 w-24 shrink-0">{label}:</span>
+      <div className="flex-1 flex items-center gap-1">
+        {prefix && <span className="text-slate-500">{prefix}</span>}
+        <EditableText
+          value={value}
+          onSave={onSave}
+          placeholder={placeholder || `Add ${label.toLowerCase()}...`}
+          className="flex-1"
+        />
+        {suffix && value && <span className="text-slate-500">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+// Editable expertises tag input
+function EditableExpertises({
+  expertises,
+  onSave,
+  readOnly,
+}: {
+  expertises: string[];
+  onSave: (expertises: string[]) => Promise<unknown>;
+  readOnly: boolean;
+}) {
+  const handleSave = async (value: string) => {
+    const newExpertises = value
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    await onSave(newExpertises);
+  };
+
+  if (readOnly) {
+    if (!expertises || expertises.length === 0) return null;
+    return (
+      <div className="flex items-start gap-2 text-sm">
+        <span className="text-slate-400 w-24 shrink-0">Specialties:</span>
+        <div className="flex flex-wrap gap-1">
+          {expertises.map((exp, i) => (
+            <span key={i} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">
+              {exp}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <span className="text-slate-400 w-24 shrink-0 pt-1">Specialties:</span>
+      <div className="flex-1">
+        <EditableText
+          value={expertises?.join(', ') || ''}
+          onSave={handleSave}
+          placeholder="Enter specialties (comma-separated)..."
+          className="flex-1"
+        />
+        {expertises && expertises.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {expertises.map((exp, i) => (
+              <span key={i} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">
+                {exp}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Type-specific attribute display
-function AttributesSection({ person }: { person: Person }) {
+function AttributesSection({
+  person,
+  readOnly,
+  onUpdateAttribute,
+}: {
+  person: Person;
+  readOnly: boolean;
+  onUpdateAttribute: (key: string, value: unknown) => Promise<unknown>;
+}) {
   const type = person.person_type;
   const attrs = person.attributes || {};
+
+  const handleStringAttr = (key: string) => async (value: string) => {
+    await onUpdateAttribute(key, value || undefined);
+  };
+
+  const handleNumberAttr = (key: string) => async (value: string) => {
+    const num = value ? parseFloat(value) : undefined;
+    await onUpdateAttribute(key, num);
+  };
 
   if (type === 'judge') {
     const judgeAttrs = attrs as { courtroom_number?: string; chambers?: string; initials?: string; jurisdiction?: string };
     return (
       <div className="space-y-2">
-        {judgeAttrs.courtroom_number && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Courtroom:</span>
-            <span className="text-slate-700 dark:text-slate-300">{judgeAttrs.courtroom_number}</span>
-          </div>
-        )}
-        {judgeAttrs.chambers && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Chambers:</span>
-            <span className="text-slate-700 dark:text-slate-300">{judgeAttrs.chambers}</span>
-          </div>
-        )}
-        {judgeAttrs.initials && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Initials:</span>
-            <span className="text-slate-700 dark:text-slate-300">{judgeAttrs.initials}</span>
-          </div>
-        )}
-        {judgeAttrs.jurisdiction && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Jurisdiction:</span>
-            <span className="text-slate-700 dark:text-slate-300">{judgeAttrs.jurisdiction}</span>
-          </div>
-        )}
+        <AttributeRow
+          label="Courtroom"
+          value={judgeAttrs.courtroom_number || ''}
+          onSave={handleStringAttr('courtroom_number')}
+          readOnly={readOnly}
+          placeholder="e.g., 302"
+        />
+        <AttributeRow
+          label="Chambers"
+          value={judgeAttrs.chambers || ''}
+          onSave={handleStringAttr('chambers')}
+          readOnly={readOnly}
+          placeholder="e.g., 3rd Floor, Room 310"
+        />
+        <AttributeRow
+          label="Initials"
+          value={judgeAttrs.initials || ''}
+          onSave={handleStringAttr('initials')}
+          readOnly={readOnly}
+          placeholder="e.g., JRS"
+        />
+        <AttributeRow
+          label="Jurisdiction"
+          value={judgeAttrs.jurisdiction || ''}
+          onSave={handleStringAttr('jurisdiction')}
+          readOnly={readOnly}
+          placeholder="e.g., Los Angeles Superior Court"
+        />
       </div>
     );
   }
@@ -67,72 +193,84 @@ function AttributesSection({ person }: { person: Person }) {
     const expertAttrs = attrs as { hourly_rate?: number; deposition_rate?: number; trial_rate?: number; expertises?: string[] };
     return (
       <div className="space-y-2">
-        {expertAttrs.expertises && expertAttrs.expertises.length > 0 && (
-          <div className="flex items-start gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Specialties:</span>
-            <div className="flex flex-wrap gap-1">
-              {expertAttrs.expertises.map((exp, i) => (
-                <span key={i} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">
-                  {exp}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-        {expertAttrs.hourly_rate && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Hourly Rate:</span>
-            <span className="text-slate-700 dark:text-slate-300">${expertAttrs.hourly_rate}/hr</span>
-          </div>
-        )}
-        {expertAttrs.deposition_rate && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Deposition:</span>
-            <span className="text-slate-700 dark:text-slate-300">${expertAttrs.deposition_rate}/hr</span>
-          </div>
-        )}
-        {expertAttrs.trial_rate && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Trial Rate:</span>
-            <span className="text-slate-700 dark:text-slate-300">${expertAttrs.trial_rate}/hr</span>
-          </div>
-        )}
+        <EditableExpertises
+          expertises={expertAttrs.expertises || []}
+          onSave={(expertises) => onUpdateAttribute('expertises', expertises.length > 0 ? expertises : undefined)}
+          readOnly={readOnly}
+        />
+        <AttributeRow
+          label="Hourly Rate"
+          value={expertAttrs.hourly_rate?.toString() || ''}
+          onSave={handleNumberAttr('hourly_rate')}
+          readOnly={readOnly}
+          placeholder="e.g., 350"
+          prefix="$"
+          suffix="/hr"
+        />
+        <AttributeRow
+          label="Deposition"
+          value={expertAttrs.deposition_rate?.toString() || ''}
+          onSave={handleNumberAttr('deposition_rate')}
+          readOnly={readOnly}
+          placeholder="e.g., 500"
+          prefix="$"
+          suffix="/hr"
+        />
+        <AttributeRow
+          label="Trial Rate"
+          value={expertAttrs.trial_rate?.toString() || ''}
+          onSave={handleNumberAttr('trial_rate')}
+          readOnly={readOnly}
+          placeholder="e.g., 750"
+          prefix="$"
+          suffix="/hr"
+        />
       </div>
     );
   }
 
   if (type === 'attorney') {
     const attorneyAttrs = attrs as { bar_number?: string };
-    return attorneyAttrs.bar_number ? (
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-slate-400 w-24 shrink-0">Bar Number:</span>
-        <span className="text-slate-700 dark:text-slate-300">{attorneyAttrs.bar_number}</span>
+    return (
+      <div className="space-y-2">
+        <AttributeRow
+          label="Bar Number"
+          value={attorneyAttrs.bar_number || ''}
+          onSave={handleStringAttr('bar_number')}
+          readOnly={readOnly}
+          placeholder="e.g., CA123456"
+        />
       </div>
-    ) : null;
+    );
   }
 
   if (type === 'mediator') {
     const mediatorAttrs = attrs as { half_day_rate?: number; full_day_rate?: number; style?: string };
     return (
       <div className="space-y-2">
-        {mediatorAttrs.style && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Style:</span>
-            <span className="text-slate-700 dark:text-slate-300">{mediatorAttrs.style}</span>
-          </div>
-        )}
-        {mediatorAttrs.half_day_rate && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Half Day:</span>
-            <span className="text-slate-700 dark:text-slate-300">${mediatorAttrs.half_day_rate}</span>
-          </div>
-        )}
-        {mediatorAttrs.full_day_rate && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Full Day:</span>
-            <span className="text-slate-700 dark:text-slate-300">${mediatorAttrs.full_day_rate}</span>
-          </div>
-        )}
+        <AttributeRow
+          label="Style"
+          value={mediatorAttrs.style || ''}
+          onSave={handleStringAttr('style')}
+          readOnly={readOnly}
+          placeholder="e.g., Evaluative, Facilitative"
+        />
+        <AttributeRow
+          label="Half Day"
+          value={mediatorAttrs.half_day_rate?.toString() || ''}
+          onSave={handleNumberAttr('half_day_rate')}
+          readOnly={readOnly}
+          placeholder="e.g., 1500"
+          prefix="$"
+        />
+        <AttributeRow
+          label="Full Day"
+          value={mediatorAttrs.full_day_rate?.toString() || ''}
+          onSave={handleNumberAttr('full_day_rate')}
+          readOnly={readOnly}
+          placeholder="e.g., 2500"
+          prefix="$"
+        />
       </div>
     );
   }
@@ -141,24 +279,27 @@ function AttributesSection({ person }: { person: Person }) {
     const clientAttrs = attrs as { date_of_birth?: string; preferred_language?: string; emergency_contact?: string };
     return (
       <div className="space-y-2">
-        {clientAttrs.date_of_birth && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">DOB:</span>
-            <span className="text-slate-700 dark:text-slate-300">{clientAttrs.date_of_birth}</span>
-          </div>
-        )}
-        {clientAttrs.preferred_language && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Language:</span>
-            <span className="text-slate-700 dark:text-slate-300">{clientAttrs.preferred_language}</span>
-          </div>
-        )}
-        {clientAttrs.emergency_contact && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-400 w-24 shrink-0">Emergency:</span>
-            <span className="text-slate-700 dark:text-slate-300">{clientAttrs.emergency_contact}</span>
-          </div>
-        )}
+        <AttributeRow
+          label="DOB"
+          value={clientAttrs.date_of_birth || ''}
+          onSave={handleStringAttr('date_of_birth')}
+          readOnly={readOnly}
+          placeholder="e.g., 1985-03-15"
+        />
+        <AttributeRow
+          label="Language"
+          value={clientAttrs.preferred_language || ''}
+          onSave={handleStringAttr('preferred_language')}
+          readOnly={readOnly}
+          placeholder="e.g., Spanish"
+        />
+        <AttributeRow
+          label="Emergency"
+          value={clientAttrs.emergency_contact || ''}
+          onSave={handleStringAttr('emergency_contact')}
+          readOnly={readOnly}
+          placeholder="e.g., Jane Doe (555) 123-4567"
+        />
       </div>
     );
   }
@@ -199,6 +340,23 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
     await updateMutation.mutateAsync({ [field]: value || undefined });
   };
 
+  const handleUpdatePhones = async (phones: Array<{ value: string; label?: string; primary?: boolean }>) => {
+    await updateMutation.mutateAsync({ phones });
+  };
+
+  const handleUpdateEmails = async (emails: Array<{ value: string; label?: string; primary?: boolean }>) => {
+    await updateMutation.mutateAsync({ emails });
+  };
+
+  const handleUpdateAttribute = async (key: string, value: unknown) => {
+    const newAttributes = { ...data?.person?.attributes, [key]: value };
+    // Remove undefined values
+    Object.keys(newAttributes).forEach((k) => {
+      if (newAttributes[k] === undefined) delete newAttributes[k];
+    });
+    await updateMutation.mutateAsync({ attributes: newAttributes });
+  };
+
   const handleRemoveFromCase = () => {
     // Find the assignment for the current case to get the role
     const assignment = data?.person?.case_assignments?.find(a => a.case_id === context?.caseId);
@@ -223,8 +381,6 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   }
 
   const person = data.person;
-  const primaryPhone = person.phones?.find(p => p.primary)?.value || person.phones?.[0]?.value;
-  const primaryEmail = person.emails?.find(e => e.primary)?.value || person.emails?.[0]?.value;
 
   return (
     <div className="p-6">
@@ -264,35 +420,33 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
           <Phone className="w-4 h-4 text-slate-400" />
           Contact Information
         </h3>
-        <div className="space-y-3 pl-6">
-          {/* Phone */}
-          <div className="flex items-center gap-2 text-sm">
-            <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-            {primaryPhone ? (
-              <a href={`tel:${primaryPhone}`} className="text-slate-700 dark:text-slate-300 hover:text-primary-600">
-                {primaryPhone}
-              </a>
-            ) : (
-              <span className="text-slate-400 italic">No phone</span>
-            )}
-            {person.phones && person.phones.length > 1 && (
-              <span className="text-xs text-slate-400">(+{person.phones.length - 1} more)</span>
-            )}
+        <div className="space-y-4 pl-6">
+          {/* Phones */}
+          <div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+              <Phone className="w-3 h-3" />
+              Phone Numbers
+            </div>
+            <EditableContactList
+              entries={person.phones || []}
+              onSave={handleUpdatePhones}
+              type="phone"
+              disabled={readOnly}
+            />
           </div>
 
-          {/* Email */}
-          <div className="flex items-center gap-2 text-sm">
-            <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-            {primaryEmail ? (
-              <a href={`mailto:${primaryEmail}`} className="text-slate-700 dark:text-slate-300 hover:text-primary-600">
-                {primaryEmail}
-              </a>
-            ) : (
-              <span className="text-slate-400 italic">No email</span>
-            )}
-            {person.emails && person.emails.length > 1 && (
-              <span className="text-xs text-slate-400">(+{person.emails.length - 1} more)</span>
-            )}
+          {/* Emails */}
+          <div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+              <Mail className="w-3 h-3" />
+              Email Addresses
+            </div>
+            <EditableContactList
+              entries={person.emails || []}
+              onSave={handleUpdateEmails}
+              type="email"
+              disabled={readOnly}
+            />
           </div>
 
           {/* Organization */}
@@ -332,7 +486,21 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
       </div>
 
       {/* Type-Specific Attributes */}
-      <AttributesSection person={person} />
+      {person.person_type && (
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
+            <Briefcase className="w-4 h-4 text-slate-400" />
+            {person.person_type.charAt(0).toUpperCase() + person.person_type.slice(1)} Details
+          </h3>
+          <div className="pl-6">
+            <AttributesSection
+              person={person}
+              readOnly={readOnly}
+              onUpdateAttribute={handleUpdateAttribute}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       <div className="mt-6">
