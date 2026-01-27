@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { SortableTaskRow } from './SortableTaskRow';
 import type { Task } from '../../types';
@@ -45,12 +43,6 @@ export function CaseGroup({
   recentlyDroppedId,
 }: CaseGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const { setNodeRef, isOver } = useDroppable({
-    id: `case-${caseId}`,
-    data: { type: 'case', caseId },
-  });
-
-  const taskIds = tasks.map((t) => t.id);
   const colorClass = getCaseColorClass(caseId);
 
   return (
@@ -85,10 +77,8 @@ export function CaseGroup({
       {/* Collapsible Container */}
       {isExpanded && (
         <div
-          ref={setNodeRef}
           className={`
             rounded-lg border border-slate-200 dark:border-slate-700
-            ${isOver ? 'ring-2 ring-primary-500 ring-opacity-50' : ''}
             ${tasks.length === 0 ? 'min-h-[60px] bg-slate-50 dark:bg-slate-800/50' : ''}
           `}
         >
@@ -97,21 +87,20 @@ export function CaseGroup({
               No tasks
             </div>
           ) : (
-            <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-              {tasks.map((task) => (
-                <SortableTaskRow
-                  key={task.id}
-                  task={task}
-                  taskStatusOptions={taskStatusOptions}
-                  urgencyOptions={urgencyOptions}
-                  onUpdate={onUpdate}
-                  onDelete={onDelete}
-                  showCaseBadge={false}
-                  showUrgency={true}
-                  isHighlighted={task.id === recentlyDroppedId}
-                />
-              ))}
-            </SortableContext>
+            tasks.map((task) => (
+              <SortableTaskRow
+                key={task.id}
+                task={task}
+                taskStatusOptions={taskStatusOptions}
+                urgencyOptions={urgencyOptions}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                showCaseBadge={false}
+                showUrgency={true}
+                isHighlighted={task.id === recentlyDroppedId}
+                disableDrag
+              />
+            ))
           )}
         </div>
       )}
