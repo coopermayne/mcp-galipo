@@ -15,6 +15,7 @@ import {
   EyeOff,
   Zap,
   MapPin,
+  LayoutGrid,
 } from 'lucide-react';
 import {
   EditableText,
@@ -410,6 +411,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 onSave={(value) => onUpdateField('date_of_injury', value)}
                 placeholder="Set date"
                 className="text-xs shrink-0"
+                clearable={false}
               />
             </div>
             {/* Starred events - read only */}
@@ -554,14 +556,30 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           <div className="flex items-center justify-between mb-3">
             <SectionHeader icon={CheckSquare} title="Tasks" count={showDoneTasks ? doneTasks.length : activeTasks.length} />
             <div className="flex items-center gap-2">
-              <select
-                value={taskView}
-                onChange={(e) => setTaskView(e.target.value as 'urgency' | 'date')}
-                className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-              >
-                <option value="urgency">By Urgency</option>
-                <option value="date">By Date</option>
-              </select>
+              <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 rounded-md p-0.5">
+                <button
+                  onClick={() => setTaskView('urgency')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    taskView === 'urgency'
+                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <LayoutGrid className="w-3 h-3" />
+                  Urgency
+                </button>
+                <button
+                  onClick={() => setTaskView('date')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    taskView === 'date'
+                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <Calendar className="w-3 h-3" />
+                  Date
+                </button>
+              </div>
               <button
                 onClick={() => setShowDoneTasks(!showDoneTasks)}
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${showDoneTasks ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'text-slate-500 hover:text-slate-700'}`}

@@ -8,15 +8,15 @@ import {
   DragOverlay,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } from '@dnd-kit/core';
-import { Plus, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Eye, EyeOff, LayoutGrid, Calendar } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import { SortableTaskRow } from '../../../components/tasks';
 import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
-import type { Task, Constants, TaskStatus } from '../../../types';
+import type { Task, Constants } from '../../../types';
 import { DroppableTaskGroup } from '../components';
-import { urgencyConfig, statusConfig } from '../utils';
+import { urgencyConfig, dateGroupConfig } from '../utils';
 
-type TaskViewMode = 'by-urgency' | 'by-status';
+type TaskViewMode = 'by-urgency' | 'by-date';
 
 interface TasksTabProps {
   caseId: number;
@@ -49,7 +49,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   );
 
   const createMutation = useMutation({
-    mutationFn: (data: { description: string; urgency?: number; status?: TaskStatus }) =>
+    mutationFn: (data: { description: string; urgency?: number; due_date?: string }) =>
       createTask({ case_id: caseId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
@@ -80,18 +80,11 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       taskId,
       sortOrder,
       urgency,
-      status,
     }: {
       taskId: number;
       sortOrder: number;
       urgency?: number;
-      status?: TaskStatus;
-    }) =>
-      reorderTask(taskId, sortOrder, urgency).then(() => {
-        if (status !== undefined) {
-          return updateTask(taskId, { status });
-        }
-      }),
+    }) => reorderTask(taskId, sortOrder, urgency),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -131,23 +124,49 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     return groups;
   }, [filteredTasks]);
 
-  // Group tasks by status
-  const tasksByStatus = useMemo(() => {
-    const statuses = constants?.task_statuses || ['Pending', 'Active', 'Done'];
-    const groups: Record<string, Task[]> = {};
-    statuses.forEach((s) => {
-      groups[s] = [];
-    });
+  // Group tasks by date (overdue, today, this week, next week, later, no date)
+  const tasksByDate = useMemo(() => {
+    const groups: Record<string, Task[]> = { overdue: [], today: [], thisWeek: [], nextWeek: [], later: [], noDate: [] };
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Calculate end of this week (Sunday)
+    const endOfThisWeek = new Date(now);
+    endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
+    const endOfThisWeekStr = endOfThisWeek.toISOString().split('T')[0];
+
+    // Calculate end of next week
+    const endOfNextWeek = new Date(endOfThisWeek);
+    endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
+    const endOfNextWeekStr = endOfNextWeek.toISOString().split('T')[0];
+
     filteredTasks.forEach((task) => {
-      if (groups[task.status]) {
-        groups[task.status].push(task);
+      if (!task.due_date) {
+        groups.noDate.push(task);
+      } else if (task.due_date < todayStr) {
+        groups.overdue.push(task);
+      } else if (task.due_date === todayStr) {
+        groups.today.push(task);
+      } else if (task.due_date <= endOfThisWeekStr) {
+        groups.thisWeek.push(task);
+      } else if (task.due_date <= endOfNextWeekStr) {
+        groups.nextWeek.push(task);
       } else {
-        if (!groups['Other']) groups['Other'] = [];
-        groups['Other'].push(task);
+        groups.later.push(task);
       }
     });
+
+    // Sort within each group by due_date (earliest first), with no-date tasks by urgency
+    ['overdue', 'today', 'thisWeek', 'nextWeek', 'later'].forEach((key) => {
+      groups[key].sort((a, b) => {
+        if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+        return 0;
+      });
+    });
+    groups.noDate.sort((a, b) => b.urgency - a.urgency);
+
     return groups;
-  }, [filteredTasks, constants]);
+  }, [filteredTasks]);
 
   const toggleCollapse = useCallback((groupKey: string) => {
     setCollapsedGroups((prev) => {
@@ -185,7 +204,19 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       if (view === 'by-urgency') {
         createMutation.mutate({ description: newTaskText.trim(), urgency: parseInt(groupKey, 10) });
       } else {
-        createMutation.mutate({ description: newTaskText.trim(), status: groupKey as TaskStatus });
+        // By date view - set due_date based on group
+        const today = new Date().toISOString().split('T')[0];
+        let dueDate: string | undefined;
+        if (groupKey === 'today') {
+          dueDate = today;
+        } else if (groupKey === 'later') {
+          // Set to tomorrow
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          dueDate = tomorrow.toISOString().split('T')[0];
+        }
+        // overdue and noDate don't set a due date
+        createMutation.mutate({ description: newTaskText.trim(), due_date: dueDate });
       }
     },
     [newTaskText, view, createMutation]
@@ -208,6 +239,15 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     []
   );
 
+  // Helper to get the date group key for a task
+  const getDateGroupKey = useCallback((task: Task): string => {
+    if (!task.due_date) return 'noDate';
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (task.due_date < todayStr) return 'overdue';
+    if (task.due_date === todayStr) return 'today';
+    return 'later';
+  }, []);
+
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       const { active } = event;
@@ -215,14 +255,14 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       setActiveTask(task || null);
       setActiveId(active.id);
       if (task) {
-        const container = view === 'by-urgency' ? String(task.urgency) : task.status;
+        const container = view === 'by-urgency' ? String(task.urgency) : getDateGroupKey(task);
         setOverContainer(container);
         const groupTasks =
-          view === 'by-urgency' ? tasksByUrgency[task.urgency] : tasksByStatus[task.status];
+          view === 'by-urgency' ? tasksByUrgency[task.urgency] : tasksByDate[getDateGroupKey(task)];
         setOverIndex(groupTasks.findIndex((t) => t.id === task.id));
       }
     },
-    [filteredTasks, view, tasksByUrgency, tasksByStatus]
+    [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey]
   );
 
   const handleDragOver = useCallback(
@@ -242,16 +282,16 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         const groupTasks =
           view === 'by-urgency'
             ? tasksByUrgency[parseInt(targetContainer, 10)] || []
-            : tasksByStatus[targetContainer] || [];
+            : tasksByDate[targetContainer] || [];
         targetIndex = groupTasks.filter((t) => t.id !== active.id).length;
       } else {
         const overTask = filteredTasks.find((t) => t.id === overId);
         if (overTask) {
-          targetContainer = view === 'by-urgency' ? String(overTask.urgency) : overTask.status;
+          targetContainer = view === 'by-urgency' ? String(overTask.urgency) : getDateGroupKey(overTask);
           const groupTasks =
             view === 'by-urgency'
               ? tasksByUrgency[overTask.urgency] || []
-              : tasksByStatus[overTask.status] || [];
+              : tasksByDate[getDateGroupKey(overTask)] || [];
           const groupTasksFiltered = groupTasks.filter((t) => t.id !== active.id);
           const overTaskIndex = groupTasksFiltered.findIndex((t) => t.id === overId);
           targetIndex = overTaskIndex >= 0 ? overTaskIndex : groupTasksFiltered.length;
@@ -266,7 +306,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         setOverIndex(targetIndex);
       }
     },
-    [filteredTasks, view, tasksByUrgency, tasksByStatus, overContainer, overIndex]
+    [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey, overContainer, overIndex]
   );
 
   const handleDragEnd = useCallback(
@@ -288,7 +328,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       const targetTasks =
         view === 'by-urgency'
           ? (tasksByUrgency[parseInt(finalContainer, 10)] || []).filter((t) => t.id !== active.id)
-          : (tasksByStatus[finalContainer] || []).filter((t) => t.id !== active.id);
+          : (tasksByDate[finalContainer] || []).filter((t) => t.id !== active.id);
 
       const newSortOrder = calculateSortOrderAtIndex(targetTasks, finalIndex);
 
@@ -305,11 +345,10 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
           urgency: urgencyChanged ? newUrgency : undefined,
         });
       } else {
-        const statusChanged = finalContainer !== activeTaskItem.status;
+        // By date view - only reorder within the group, don't change the date
         reorderMutation.mutate({
           taskId: activeTaskItem.id,
           sortOrder: newSortOrder,
-          status: statusChanged ? (finalContainer as TaskStatus) : undefined,
         });
       }
     },
@@ -317,7 +356,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
       filteredTasks,
       view,
       tasksByUrgency,
-      tasksByStatus,
+      tasksByDate,
       overContainer,
       overIndex,
       calculateSortOrderAtIndex,
@@ -414,7 +453,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
             urgencyOptions={urgencyOptions}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
-            showUrgency={view === 'by-status'}
+            showUrgency={view === 'by-date'}
             recentlyDroppedId={recentlyDroppedId}
           />
         )}
@@ -426,27 +465,28 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     <>
       {/* View Toggle */}
       <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-slate-500 dark:text-slate-400">Group by:</span>
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
           <button
             onClick={() => setView('by-urgency')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               view === 'by-urgency'
                 ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            Urgency
+            <LayoutGrid className="w-4 h-4" />
+            By Urgency
           </button>
           <button
-            onClick={() => setView('by-status')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              view === 'by-status'
+            onClick={() => setView('by-date')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              view === 'by-date'
                 ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            Status
+            <Calendar className="w-4 h-4" />
+            By Date
           </button>
         </div>
         <div className="flex-1" />
@@ -482,16 +522,15 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
           </div>
         ) : (
           <div>
-            {(constants?.task_statuses || ['Pending', 'Active', 'Done']).map((status) =>
-              renderTaskGroup(
-                status,
-                tasksByStatus[status] || [],
-                statusConfig[status] || {
-                  color: 'text-slate-600',
-                  bgColor: 'bg-slate-50 dark:bg-slate-800/50',
-                }
-              )
-            )}
+            {['overdue', 'today', 'thisWeek', 'nextWeek', 'later', 'noDate']
+              .filter((dateKey) => dateKey !== 'overdue' || tasksByDate[dateKey]?.length > 0)
+              .map((dateKey) =>
+                renderTaskGroup(
+                  dateKey,
+                  tasksByDate[dateKey] || [],
+                  dateGroupConfig[dateKey]
+                )
+              )}
           </div>
         )}
 
@@ -506,7 +545,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
                 onUpdate={() => {}}
                 onDelete={() => {}}
                 showCaseBadge={false}
-                showUrgency={view === 'by-status'}
+                showUrgency={view === 'by-date'}
               />
             </div>
           )}
