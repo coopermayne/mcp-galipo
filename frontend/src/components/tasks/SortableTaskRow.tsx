@@ -35,6 +35,7 @@ interface SortableTaskRowProps {
   showUrgency?: boolean;
   isPreview?: boolean;
   isHighlighted?: boolean;
+  disableDrag?: boolean;
 }
 
 export function SortableTaskRow({
@@ -47,6 +48,7 @@ export function SortableTaskRow({
   showUrgency = true,
   isPreview = false,
   isHighlighted = false,
+  disableDrag = false,
 }: SortableTaskRowProps) {
   const {
     attributes,
@@ -55,7 +57,7 @@ export function SortableTaskRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id, disabled: isPreview });
+  } = useSortable({ id: task.id, disabled: isPreview || disableDrag });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -81,13 +83,15 @@ export function SortableTaskRow({
       `}
     >
       {/* Drag Handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
+      {!disableDrag && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Case Badge */}
       {showCaseBadge && (
