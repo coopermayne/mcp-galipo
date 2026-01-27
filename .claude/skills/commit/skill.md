@@ -1,9 +1,11 @@
 ---
 name: commit
-description: Commits only changes made by THIS Claude instance
+description: "[EXPLICIT ONLY] Run ONLY when user types /commit - never automatically"
 ---
 
 # Session-Aware Commit
+
+**IMPORTANT: This skill must ONLY be invoked when the user explicitly types `/commit`. NEVER run this skill automatically after making changes, even if it seems relevant. The user handles commits manually via lazygit.**
 
 Commits only changes from THIS session, not from other parallel Claude instances.
 
