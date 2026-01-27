@@ -247,6 +247,7 @@ This is critical because the **live production database** receives schema change
 | `VITE_PORT` | No | 5173 | Frontend dev server port |
 | `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
 | `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
+| `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
 
 Example `.env`:
@@ -257,6 +258,7 @@ AUTH_PASSWORD=yourpassword
 PORT=8000
 BACKEND_PORT=8000
 VITE_PORT=5173
+WEBHOOK_SECRET_COURTLISTENER=your-long-random-secret-token
 ```
 
 ## Endpoints

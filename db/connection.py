@@ -71,6 +71,7 @@ def drop_all_tables():
     """Drop all existing tables for clean reset."""
     with get_cursor(dict_cursor=False) as cur:
         cur.execute("""
+            DROP TABLE IF EXISTS webhook_logs CASCADE;
             DROP TABLE IF EXISTS notes CASCADE;
             DROP TABLE IF EXISTS tasks CASCADE;
             DROP TABLE IF EXISTS events CASCADE;
@@ -704,6 +705,31 @@ def migrate_db():
             cur.execute("ALTER TABLE tasks ADD COLUMN docket_order INTEGER")
             print("  - Added docket_order column to tasks")
 
+        # 28. Create webhook_logs table for storing incoming webhooks
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_logs (
+                id SERIAL PRIMARY KEY,
+                source VARCHAR(50) NOT NULL,
+                event_type VARCHAR(100),
+                idempotency_key UUID UNIQUE,
+                payload JSONB NOT NULL DEFAULT '{}',
+                headers JSONB DEFAULT '{}',
+                proceeding_id INTEGER REFERENCES proceedings(id) ON DELETE SET NULL,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+                processing_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                processing_error TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_source ON webhook_logs(source)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_status ON webhook_logs(processing_status)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_proceeding_id ON webhook_logs(proceeding_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_idempotency_key ON webhook_logs(idempotency_key)")
+        print("  - Created webhook_logs table (if not exists)")
+
         print("Database migration complete.")
 
 
@@ -880,6 +906,25 @@ def init_db():
             )
         """)
 
+        # 13. Webhook logs table (for storing incoming webhooks from external services)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_logs (
+                id SERIAL PRIMARY KEY,
+                source VARCHAR(50) NOT NULL,
+                event_type VARCHAR(100),
+                idempotency_key UUID UNIQUE,
+                payload JSONB NOT NULL DEFAULT '{}',
+                headers JSONB DEFAULT '{}',
+                proceeding_id INTEGER REFERENCES proceedings(id) ON DELETE SET NULL,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+                processing_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                processing_error TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP
+            )
+        """)
+
         # Create indexes for better query performance
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
@@ -900,6 +945,11 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id);
             CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id);
             CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id);
+            CREATE INDEX IF NOT EXISTS idx_webhook_logs_source ON webhook_logs(source);
+            CREATE INDEX IF NOT EXISTS idx_webhook_logs_status ON webhook_logs(processing_status);
+            CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at);
+            CREATE INDEX IF NOT EXISTS idx_webhook_logs_proceeding_id ON webhook_logs(proceeding_id);
+            CREATE INDEX IF NOT EXISTS idx_webhook_logs_idempotency_key ON webhook_logs(idempotency_key);
         """)
 
     print("Database tables initialized.")
