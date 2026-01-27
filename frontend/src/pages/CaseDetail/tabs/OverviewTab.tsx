@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import {
   Users,
   Building2,
@@ -26,12 +28,16 @@ import {
   UrgencyBadge,
   PersonAutocomplete,
 } from '../../../components/common';
+import { DraggableTaskRow } from '../../../components/tasks';
+import { TaskDropZones } from '../../../components/docket';
 import { useEntityModal } from '../../../components/modals';
+import { useDragContext } from '../../../context/DragContext';
 import {
   createPerson,
   assignPersonToCase,
   updateTask,
   updateEvent,
+  updateDocket,
 } from '../../../api';
 import type { Case, Constants, Task, Event, CasePerson, Person } from '../../../types';
 import { ProceedingsSection } from '../components';
@@ -174,6 +180,7 @@ function SectionHeader({
 export function OverviewTab({ caseData, caseId, constants, onUpdateField }: OverviewTabProps) {
   const queryClient = useQueryClient();
   const { openPersonModal } = useEntityModal();
+  const { startDrag, endDrag } = useDragContext();
 
   // UI State
   const [showAddClient, setShowAddClient] = useState(false);
@@ -184,10 +191,18 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   const [taskView, setTaskView] = useState<'urgency' | 'date'>('urgency');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   // Form state
   const [newCounselRole, setNewCounselRole] = useState('Opposing Counsel');
   const [newExpertRole, setNewExpertRole] = useState('Expert - Plaintiff');
+
+  // Drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
 
   // Filter persons by role
   const clients = useMemo(() =>
@@ -406,6 +421,48 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
+
+  const docketMutation = useMutation({
+    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
+      updateDocket(taskId, { docket_category: category }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
+    },
+  });
+
+  const displayedTasks = showDoneTasks ? doneTasks : sortedActiveTasks;
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const task = displayedTasks.find((t) => t.id === event.active.id);
+    if (task) {
+      setActiveTask(task);
+      startDrag(task, 'case-overview');
+    }
+  }, [displayedTasks, startDrag]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    endDrag();
+
+    if (!over) return;
+
+    const task = displayedTasks.find((t) => t.id === active.id);
+    if (!task) return;
+
+    const overId = over.id.toString();
+    if (overId === 'drop-done') {
+      updateTaskMutation.mutate({ id: task.id, data: { status: 'Done' } });
+    } else if (overId === 'drop-today') {
+      docketMutation.mutate({ taskId: task.id, category: 'today' });
+    } else if (overId === 'drop-tomorrow') {
+      docketMutation.mutate({ taskId: task.id, category: 'tomorrow' });
+    } else if (overId === 'drop-backburner') {
+      docketMutation.mutate({ taskId: task.id, category: 'backburner' });
+    }
+  }, [displayedTasks, updateTaskMutation, docketMutation, endDrag]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map(s => ({ value: s, label: s }));
 
@@ -704,32 +761,49 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               </button>
             </div>
           </div>
-          <div className="space-y-1">
-            {(showDoneTasks ? doneTasks : sortedActiveTasks).map(task => (
-              <div key={task.id} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
-                <EditableSelect
-                  value={task.status}
-                  options={taskStatusOptions}
-                  onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { status: value as Task['status'] } }); }}
-                  renderValue={(value) => <StatusBadge status={value} />}
-                />
-                <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{task.description}</span>
-                <UrgencyBadge urgency={task.urgency} />
-                {task.due_date && (
-                  <EditableDate
-                    value={task.due_date}
-                    onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { due_date: value || undefined } }); }}
-                    className="text-xs"
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="space-y-1">
+              {displayedTasks.map(task => (
+                <DraggableTaskRow key={task.id} task={task} className="p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
+                  <EditableSelect
+                    value={task.status}
+                    options={taskStatusOptions}
+                    onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { status: value as Task['status'] } }); }}
+                    renderValue={(value) => <StatusBadge status={value} />}
                   />
-                )}
-              </div>
-            ))}
-            {(showDoneTasks ? doneTasks : sortedActiveTasks).length === 0 && (
-              <p className="text-xs text-slate-400 italic text-center py-4">
-                {showDoneTasks ? 'No completed tasks' : 'No active tasks'}
-              </p>
-            )}
-          </div>
+                  <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{task.description}</span>
+                  <UrgencyBadge urgency={task.urgency} />
+                  {task.due_date && (
+                    <EditableDate
+                      value={task.due_date}
+                      onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { due_date: value || undefined } }); }}
+                      className="text-xs"
+                    />
+                  )}
+                </DraggableTaskRow>
+              ))}
+              {displayedTasks.length === 0 && (
+                <p className="text-xs text-slate-400 italic text-center py-4">
+                  {showDoneTasks ? 'No completed tasks' : 'No active tasks'}
+                </p>
+              )}
+            </div>
+
+            {/* Drop zones for docket */}
+            <TaskDropZones isVisible={activeTask !== null} />
+
+            {/* Drag overlay */}
+            <DragOverlay dropAnimation={null}>
+              {activeTask && (
+                <div className="p-2 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-primary-500 flex items-center gap-2 text-sm">
+                  <StatusBadge status={activeTask.status} />
+                  <span className="text-slate-700 dark:text-slate-300 truncate">
+                    {activeTask.description}
+                  </span>
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
         </div>
 
         {/* Events */}
