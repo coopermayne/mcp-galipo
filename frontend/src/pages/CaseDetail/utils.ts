@@ -62,3 +62,36 @@ export const statusConfig: Record<string, { color: string; bgColor: string }> = 
     bgColor: 'bg-green-50 dark:bg-green-900/20',
   },
 };
+
+export const dateGroupConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+  overdue: {
+    label: 'Overdue',
+    color: 'text-red-600 dark:text-red-400',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+  },
+  today: {
+    label: 'Today',
+    color: 'text-amber-600 dark:text-amber-400',
+    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+  },
+  thisWeek: {
+    label: 'This Week',
+    color: 'text-blue-600 dark:text-blue-400',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+  },
+  nextWeek: {
+    label: 'Next Week',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+  },
+  later: {
+    label: 'Later',
+    color: 'text-slate-600 dark:text-slate-400',
+    bgColor: 'bg-slate-100 dark:bg-slate-800/50',
+  },
+  noDate: {
+    label: 'No Date',
+    color: 'text-slate-500 dark:text-slate-400',
+    bgColor: 'bg-slate-50 dark:bg-slate-800/50',
+  },
+};

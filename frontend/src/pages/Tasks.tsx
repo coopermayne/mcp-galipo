@@ -14,13 +14,13 @@ import type { DragEndEvent, DragOverEvent, DragStartEvent, CollisionDetection, U
 import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
-import { UrgencyGroup, CaseGroup } from '../components/tasks';
+import { UrgencyGroup, CaseGroup, DateGroup } from '../components/tasks';
 import { formatSmartDate } from '../utils/dateFormat';
 import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
 import type { Task } from '../types';
-import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff } from 'lucide-react';
+import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff, Calendar } from 'lucide-react';
 
-type ViewMode = 'by-urgency' | 'by-case';
+type ViewMode = 'by-urgency' | 'by-date' | 'by-case';
 
 export function Tasks() {
   const queryClient = useQueryClient();
@@ -169,6 +169,53 @@ export function Tasks() {
       }
       groups[task.case_id].tasks.push(task);
     });
+    return groups;
+  }, [filteredTasks]);
+
+  // Group tasks by date (for "by date" view)
+  const tasksByDate = useMemo(() => {
+    const groups: Record<string, Task[]> = { overdue: [], today: [], thisWeek: [], nextWeek: [], later: [], noDate: [] };
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Calculate end of this week (Sunday)
+    const endOfThisWeek = new Date(now);
+    endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
+    const endOfThisWeekStr = endOfThisWeek.toISOString().split('T')[0];
+
+    // Calculate end of next week
+    const endOfNextWeek = new Date(endOfThisWeek);
+    endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
+    const endOfNextWeekStr = endOfNextWeek.toISOString().split('T')[0];
+
+    filteredTasks.forEach((task) => {
+      if (!task.due_date) {
+        groups.noDate.push(task);
+      } else if (task.due_date < todayStr) {
+        groups.overdue.push(task);
+      } else if (task.due_date === todayStr) {
+        groups.today.push(task);
+      } else if (task.due_date <= endOfThisWeekStr) {
+        groups.thisWeek.push(task);
+      } else if (task.due_date <= endOfNextWeekStr) {
+        groups.nextWeek.push(task);
+      } else {
+        groups.later.push(task);
+      }
+    });
+
+    // Sort within each group by due_date (earliest first), then by urgency
+    ['overdue', 'today', 'thisWeek', 'nextWeek', 'later'].forEach((key) => {
+      groups[key].sort((a, b) => {
+        if (a.due_date && b.due_date) {
+          const dateCmp = a.due_date.localeCompare(b.due_date);
+          if (dateCmp !== 0) return dateCmp;
+        }
+        return b.urgency - a.urgency;
+      });
+    });
+    groups.noDate.sort((a, b) => b.urgency - a.urgency);
+
     return groups;
   }, [filteredTasks]);
 
@@ -410,6 +457,19 @@ export function Tasks() {
                 By Urgency
               </button>
               <button
+                onClick={() => setView('by-date')}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                  ${view === 'by-date'
+                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
+                  }
+                `}
+              >
+                <Calendar className="w-4 h-4" />
+                By Date
+              </button>
+              <button
                 onClick={() => setView('by-case')}
                 className={`
                   flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
@@ -460,6 +520,24 @@ export function Tasks() {
                     recentlyDroppedId={recentlyDroppedId}
                   />
                 ))}
+              </div>
+            ) : view === 'by-date' ? (
+              // Date View - groups: Overdue (if any), Today, This Week, Next Week, Later, No Date
+              <div>
+                {['overdue', 'today', 'thisWeek', 'nextWeek', 'later', 'noDate']
+                  .filter((dateKey) => dateKey !== 'overdue' || tasksByDate[dateKey]?.length > 0)
+                  .map((dateKey) => (
+                    <DateGroup
+                      key={dateKey}
+                      dateKey={dateKey}
+                      tasks={tasksByDate[dateKey]}
+                      taskStatusOptions={taskStatusOptions}
+                      urgencyOptions={urgencyOptions}
+                      onUpdate={handleUpdate}
+                      onDelete={handleDelete}
+                      recentlyDroppedId={recentlyDroppedId}
+                    />
+                  ))}
               </div>
             ) : (
               // Case View - grouped by case (sorted alphabetically by short_name)
