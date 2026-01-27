@@ -18,8 +18,8 @@ _sessions: dict[str, tuple[str, float]] = {}
 SESSION_EXPIRY = 24 * 60 * 60
 
 # Environment variables with dev defaults
-AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
-AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "asdf")
+AUTH_USERNAME = os.getenv("AUTH_USERNAME", "a")
+AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "a")
 
 
 def authenticate(username: str, password: str) -> Optional[str]:
