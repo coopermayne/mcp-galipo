@@ -87,3 +87,6 @@ export {
 
 // Chat
 export { streamChatMessage } from './chat';
+
+// Quick Create
+export { quickCreateTask, quickCreateEvent } from './quickCreate';

@@ -5,6 +5,9 @@ import { ChatButton, ChatPanel } from '../chat';
 import { DocketButton, DocketPanel } from '../docket';
 import { QuickCaseSearch } from '../common';
 
+// Detect if running on Mac
+const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isDocketOpen, setIsDocketOpen] = useState(false);
@@ -15,24 +18,35 @@ export function Layout() {
   const caseContext = caseMatch?.params.id ? parseInt(caseMatch.params.id, 10) : undefined;
 
   // Keyboard shortcuts
+  // Mac: Control + key
+  // Windows: Alt + key (to avoid browser conflicts)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Shift+Cmd+K (Mac) / Shift+Ctrl+K (Windows) to open quick case search
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'k') {
+      // Check for our modifier key (Control on Mac, Alt on Windows)
+      const hasModifier = isMac ? e.ctrlKey : e.altKey;
+      if (!hasModifier) return;
+
+      const key = e.key.toLowerCase();
+
+      // Ctrl+G (Mac) / Alt+G (Windows) - Quick case search
+      if (key === 'g') {
         e.preventDefault();
         setIsQuickSearchOpen((prev) => !prev);
         return;
       }
-      // Shift+Cmd+D (Mac) / Shift+Ctrl+D (Windows) to toggle docket
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
+
+      // Ctrl+D (Mac) / Alt+D (Windows) - Daily docket
+      if (key === 'd') {
         e.preventDefault();
         setIsDocketOpen((prev) => !prev);
         return;
       }
-      // Cmd+K (Mac) / Ctrl+K (Windows) to toggle chat
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+
+      // Ctrl+K (Mac) / Alt+K (Windows) - Chat
+      if (key === 'k') {
         e.preventDefault();
         setIsChatOpen((prev) => !prev);
+        return;
       }
     };
 
