@@ -8,3 +8,4 @@ export { DataTable } from './DataTable';
 export { ListPanel } from './ListPanel';
 export { ConfirmModal } from './ConfirmModal';
 export { QuickCaseSearch } from './QuickCaseSearch';
+export { PersonAutocomplete } from './PersonAutocomplete';
