@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
-import { GripVertical, Trash2 } from 'lucide-react';
+import { GripVertical, Trash2, ChevronRight } from 'lucide-react';
 import {
   EditableText,
   EditableSelect,
@@ -82,16 +82,18 @@ export function SortableTaskRow({
         ${isHighlighted ? 'ring-2 ring-primary-400 ring-opacity-75' : ''}
       `}
     >
-      {/* Drag Handle */}
-      {!disableDrag && (
-        <button
-          {...attributes}
-          {...listeners}
-          className="p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-      )}
+      {/* Docket Indicator (fixed width) + Drag Handle */}
+      <div className="w-3 flex-shrink-0">
+        {task.docket_category && (
+          <ChevronRight className="w-3 h-3 text-slate-400" />
+        )}
+      </div>
+      <button
+        {...(disableDrag ? {} : { ...attributes, ...listeners })}
+        className={`p-1 text-slate-400 ${disableDrag ? 'cursor-default' : 'cursor-grab active:cursor-grabbing hover:text-slate-600 dark:hover:text-slate-300'}`}
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
 
       {/* Case Badge */}
       {showCaseBadge && (
