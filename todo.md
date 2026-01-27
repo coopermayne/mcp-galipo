@@ -113,9 +113,33 @@ Goal: Reduce context bloat on every AI interaction.
 - [ ] Goal: shorter prompts, faster responses
 
 ### Testing
-- [ ] Unit tests for tool functions
-- [ ] Integration tests for chat endpoint
-- [ ] E2E tests for critical flows
+Current coverage is <10%. Comprehensive improvement plan available.
+
+**Plan:** [docs/TEST_COVERAGE_PLAN.md](docs/TEST_COVERAGE_PLAN.md)
+
+**Phase 1: Backend Foundation (Quick Wins)**
+- [ ] Add pytest to `requirements.txt`
+- [ ] Create `tests/conftest.py` with fixtures
+- [ ] Test `db/validation.py` (8 pure functions, no DB needed)
+
+**Phase 2: Database Layer Tests**
+- [ ] Test `db/cases.py`, `db/tasks.py`, `db/events.py`
+
+**Phase 3: API Route Tests**
+- [ ] Test case/task/event endpoints with FastAPI TestClient
+
+**Phase 4: MCP Tool Tests**
+- [ ] Validate tool inputs, outputs, and error handling
+
+**Phase 5: Frontend Component Tests**
+- [ ] Add Vitest + React Testing Library
+- [ ] Test TaskList, CaseCard, form components
+
+**Phase 6: Expand E2E Tests**
+- [ ] Add Playwright tests for case/task/event flows
+
+**Phase 7: CI/CD Integration**
+- [ ] GitHub Actions workflow for automated testing
 
 ### Code Quality
 - [ ] Comprehensive error handling on API endpoints
