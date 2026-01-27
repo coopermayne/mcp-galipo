@@ -89,6 +89,14 @@ Fuzzy matching for all entity associations (extends Smart Case Lookup Phase 3).
 - [ ] Proceeding detail modal - view/edit proceeding with judge, dates, notes
 - [ ] Extend pattern to other entities as needed (events, tasks?)
 
+### Daily Docket / Task Planner
+Global task panel (button like chat button, top-right) for planning your day.
+- [ ] **Daily Docket button** - Top-right floating button (like chat) opens task planner panel
+- [ ] **Today's tasks list** - Drag tasks here to plan what to work on today, reorderable
+- [ ] **Drag target zones** - When dragging a task, show drop zones: "Done", "Today", "Back Burner", "Assign to Paralegal"
+- [ ] **Back burner section** - Tasks waiting on something, visible reminder to follow up
+- [ ] **Quick status changes** - Dropping on zones updates task status/category/assignee
+
 ### Other
 - [ ] Person type filtering in autocomplete search
 - [ ] Bulk person assignment
