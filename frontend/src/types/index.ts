@@ -97,3 +97,10 @@ export type {
   ToolExecution,
   Conversation,
 } from './chat';
+
+// Modal types
+export type {
+  EntityType,
+  EntityModalState,
+  EntityModalContextValue,
+} from './modal';

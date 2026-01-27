@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, Trash2, ExternalLink, UserPlus, X } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
+import { useEntityModal } from '../../../components/modals';
 import {
   createProceeding,
   updateProceeding,
@@ -25,6 +26,7 @@ export function ProceedingsSection({
   judges = [],
 }: ProceedingsSectionProps) {
   const queryClient = useQueryClient();
+  const { openProceedingModal } = useEntityModal();
   const [showAdd, setShowAdd] = useState(false);
   const [newProceeding, setNewProceeding] = useState({
     case_number: '',
@@ -243,7 +245,10 @@ export function ProceedingsSection({
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-slate-700 dark:text-slate-200 truncate">
+                    <span
+                      className="font-mono text-slate-700 dark:text-slate-200 truncate cursor-pointer hover:underline"
+                      onClick={() => openProceedingModal(p.id, { caseId })}
+                    >
                       {p.case_number}
                     </span>
                     {p.is_primary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
