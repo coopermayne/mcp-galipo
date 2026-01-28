@@ -207,6 +207,8 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['docket'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Invalidate all case queries so the chevron updates on case detail pages
+      queryClient.invalidateQueries({ queryKey: ['case'] });
     },
   });
 
@@ -218,6 +220,8 @@ export function DocketPanel({ isOpen, onClose }: DocketPanelProps) {
       queryClient.invalidateQueries({ queryKey: ['docket'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      // Invalidate all case queries so the chevron updates on case detail pages
+      queryClient.invalidateQueries({ queryKey: ['case'] });
     },
   });
 
