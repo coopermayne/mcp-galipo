@@ -6,3 +6,4 @@ python-dotenv
 psycopg2-binary
 anthropic
 filelock
+PyJWT
