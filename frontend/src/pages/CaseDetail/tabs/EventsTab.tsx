@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff } from 'lucide-react';
 import { EditableText, EditableDate, EditableTime, ConfirmModal } from '../../../components/common';
-import { createEvent, updateEvent, deleteEvent } from '../../../api';
+import { createEvent } from '../../../api';
+import { useEventMutations } from '../../../hooks';
 import type { Event } from '../../../types';
 
 interface EventsTabProps {
@@ -12,6 +13,7 @@ interface EventsTabProps {
 
 export function EventsTab({ caseId, events }: EventsTabProps) {
   const queryClient = useQueryClient();
+  const { updateEvent, deleteEvent } = useEventMutations(caseId);
   const [isAdding, setIsAdding] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -21,9 +23,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
     calculation_note: '',
     starred: false,
   });
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(
-    null
-  );
+  const [deleteTarget, setDeleteTarget] = useState<Event | null>(null);
 
   // Helper to parse date string as local time (not UTC)
   const parseLocalDate = (dateStr: string) => {
@@ -33,7 +33,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
 
   // Filter events based on past/future
   const now = new Date();
-  now.setHours(0, 0, 0, 0); // Compare at midnight local time
+  now.setHours(0, 0, 0, 0);
   const filteredEvents = useMemo(() => {
     if (showPastEvents) {
       return events
@@ -61,30 +61,24 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+  // Simple helper to update event field with undo
+  const handleUpdate = useCallback(
+    (event: Event, field: string, value: unknown) => {
+      return updateEvent.mutateAsync({ event, field, value });
     },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteEvent(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setDeleteTarget(null);
-    },
-  });
+    [updateEvent]
+  );
 
   const handleDelete = useCallback((event: Event) => {
-    setDeleteTarget({ id: event.id, description: event.description });
+    setDeleteTarget(event);
   }, []);
 
   const confirmDelete = useCallback(() => {
     if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
+      deleteEvent.mutate({ event: deleteTarget });
+      setDeleteTarget(null);
     }
-  }, [deleteTarget, deleteMutation]);
+  }, [deleteTarget, deleteEvent]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,9 +204,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                   )}
                 </button>
                 <button
-                  onClick={() =>
-                    updateMutation.mutate({ id: event.id, data: { starred: !event.starred } })
-                  }
+                  onClick={() => handleUpdate(event, 'starred', !event.starred)}
                   className={`p-1 ${event.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
                   title={event.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
                 >
@@ -221,24 +213,18 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                 <div className="flex items-center gap-0">
                   <EditableDate
                     value={event.date}
-                    onSave={(value) =>
-                      updateMutation.mutateAsync({ id: event.id, data: { date: value || undefined } })
-                    }
+                    onSave={(value) => handleUpdate(event, 'date', value || undefined)}
                     clearable={false}
                   />
                   <EditableTime
                     value={event.time || null}
-                    onSave={(value) =>
-                      updateMutation.mutateAsync({ id: event.id, data: { time: value || undefined } })
-                    }
+                    onSave={(value) => handleUpdate(event, 'time', value || undefined)}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <EditableText
                     value={event.description}
-                    onSave={(value) =>
-                      updateMutation.mutateAsync({ id: event.id, data: { description: value } })
-                    }
+                    onSave={(value) => handleUpdate(event, 'description', value)}
                     className="text-sm"
                   />
                 </div>
@@ -267,12 +253,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                     <label className="block text-xs text-slate-400 mb-1">Document Link</label>
                     <EditableText
                       value={event.document_link || ''}
-                      onSave={(value) =>
-                        updateMutation.mutateAsync({
-                          id: event.id,
-                          data: { document_link: value || undefined },
-                        })
-                      }
+                      onSave={(value) => handleUpdate(event, 'document_link', value || undefined)}
                       placeholder="Enter URL to related document"
                       className="text-sm"
                     />
@@ -281,12 +262,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                     <label className="block text-xs text-slate-400 mb-1">Calculation Note</label>
                     <EditableText
                       value={event.calculation_note || ''}
-                      onSave={(value) =>
-                        updateMutation.mutateAsync({
-                          id: event.id,
-                          data: { calculation_note: value || undefined },
-                        })
-                      }
+                      onSave={(value) => handleUpdate(event, 'calculation_note', value || undefined)}
                       placeholder="e.g., 30 days from service date"
                       className="text-sm"
                     />
@@ -303,10 +279,10 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
         title="Delete Event"
-        message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete "${deleteTarget?.description}"?`}
         confirmText="Delete Event"
         variant="danger"
-        isLoading={deleteMutation.isPending}
+        isLoading={deleteEvent.isPending}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { Loader2, FileText, CheckSquare, Clock, StickyNote, Settings } from 'luc
 import { PageContent } from '../../components/layout';
 import { ConfirmModal } from '../../components/common';
 import { getCase, getConstants, updateCase, deleteCase } from '../../api';
+import { useUndo } from '../../context/UndoContext';
 import type { Case } from '../../types';
 import { OverviewTab, TasksTab, EventsTab, NotesTab, SettingsTab } from './tabs';
 import { CaseHeader } from './components';
@@ -15,6 +16,7 @@ export function CaseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { pushUndoAction } = useUndo();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -50,9 +52,19 @@ export function CaseDetail() {
 
   const handleUpdateField = useCallback(
     async (field: string, value: string | number | null) => {
+      const previousValue = caseData ? caseData[field as keyof Case] : undefined;
       await updateCaseMutation.mutateAsync({ [field]: value });
+
+      pushUndoAction({
+        entityType: 'case',
+        entityId: caseId,
+        actionType: 'update',
+        description: `Case ${field.replace(/_/g, ' ')} updated`,
+        previousData: { [field]: previousValue },
+        invalidateKeys: [['case', caseId], ['cases']],
+      });
     },
-    [updateCaseMutation]
+    [updateCaseMutation, caseData, caseId, pushUndoAction]
   );
 
   const handleDelete = useCallback(() => {

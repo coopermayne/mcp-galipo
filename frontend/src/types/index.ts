@@ -107,3 +107,12 @@ export type {
   EntityModalState,
   EntityModalContextValue,
 } from './modal';
+
+// Undo types
+export type {
+  UndoEntityType,
+  UndoActionType,
+  UndoAction,
+  Toast,
+  UndoContextValue,
+} from './undo';

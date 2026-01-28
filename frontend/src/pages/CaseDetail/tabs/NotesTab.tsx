@@ -4,7 +4,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { parseISO, isValid, format } from 'date-fns';
 import { formatSmartDate } from '../../../utils/dateFormat';
 import { ConfirmModal } from '../../../components/common';
-import { createNote, deleteNote } from '../../../api';
+import { createNote } from '../../../api';
+import { useNoteMutations } from '../../../hooks';
 import type { Note } from '../../../types';
 
 interface NotesTabProps {
@@ -14,8 +15,9 @@ interface NotesTabProps {
 
 export function NotesTab({ caseId, notes }: NotesTabProps) {
   const queryClient = useQueryClient();
+  const { deleteNote } = useNoteMutations(caseId);
   const [newNote, setNewNote] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; content: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (content: string) => createNote(caseId, content),
@@ -25,23 +27,16 @@ export function NotesTab({ caseId, notes }: NotesTabProps) {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteNote(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setDeleteTarget(null);
-    },
-  });
-
   const handleDelete = useCallback((note: Note) => {
-    setDeleteTarget({ id: note.id, content: note.content });
+    setDeleteTarget(note);
   }, []);
 
   const confirmDelete = useCallback(() => {
     if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
+      deleteNote.mutate({ note: deleteTarget });
+      setDeleteTarget(null);
     }
-  }, [deleteTarget, deleteMutation]);
+  }, [deleteTarget, deleteNote]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,10 +116,10 @@ export function NotesTab({ caseId, notes }: NotesTabProps) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
         title="Delete Note"
-        message={`Are you sure you want to delete this note? This action cannot be undone.`}
+        message={`Are you sure you want to delete this note?`}
         confirmText="Delete Note"
         variant="danger"
-        isLoading={deleteMutation.isPending}
+        isLoading={deleteNote.isPending}
       />
     </div>
   );

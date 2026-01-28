@@ -14,6 +14,7 @@ import { SortableTaskRow } from '../../../components/tasks';
 import { TaskDropZones } from '../../../components/docket';
 import { createTask, updateTask, deleteTask, reorderTask, updateDocket } from '../../../api';
 import { useDragContext } from '../../../context/DragContext';
+import { useUndo } from '../../../context/UndoContext';
 import type { Task, Constants } from '../../../types';
 import { DroppableTaskGroup } from '../components';
 import { urgencyConfig, dateGroupConfig } from '../utils';
@@ -29,6 +30,7 @@ interface TasksTabProps {
 export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
   const queryClient = useQueryClient();
   const { startDrag, endDrag } = useDragContext();
+  const { pushUndoAction } = useUndo();
   const [view, setView] = useState<TaskViewMode>('by-urgency');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -189,9 +191,29 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
 
   const handleUpdate = useCallback(
     async (taskId: number, field: string, value: unknown) => {
+      const task = tasks.find((t) => t.id === taskId);
+      const previousValue = task ? task[field as keyof Task] : undefined;
+
       await updateMutation.mutateAsync({ id: taskId, data: { [field]: value } });
+
+      // Push undo action after successful update
+      const isStatusToggle = field === 'status';
+      const description = isStatusToggle
+        ? value === 'Done'
+          ? 'Task completed'
+          : 'Task reopened'
+        : `Task ${field} updated`;
+
+      pushUndoAction({
+        entityType: 'task',
+        entityId: taskId,
+        actionType: isStatusToggle ? 'toggle' : 'update',
+        description,
+        previousData: { [field]: previousValue },
+        invalidateKeys: [['case', caseId], ['tasks'], ['docket']],
+      });
     },
-    [updateMutation]
+    [updateMutation, tasks, caseId, pushUndoAction]
   );
 
   const handleDelete = useCallback((taskId: number, description: string) => {
@@ -200,10 +222,31 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
 
   const confirmDelete = useCallback(() => {
     if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
+      const task = tasks.find((t) => t.id === deleteTarget.id);
+      deleteMutation.mutate(deleteTarget.id, {
+        onSuccess: () => {
+          if (task) {
+            pushUndoAction({
+              entityType: 'task',
+              entityId: deleteTarget.id,
+              actionType: 'delete',
+              description: 'Task deleted',
+              previousData: {},
+              deletedEntity: {
+                case_id: task.case_id,
+                description: task.description,
+                status: task.status,
+                due_date: task.due_date,
+                urgency: task.urgency,
+              },
+              invalidateKeys: [['case', caseId], ['tasks'], ['docket']],
+            });
+          }
+        },
+      });
       setDeleteTarget(null);
     }
-  }, [deleteTarget, deleteMutation]);
+  }, [deleteTarget, deleteMutation, tasks, caseId, pushUndoAction]);
 
   const handleAddToGroup = useCallback(
     (groupKey: string) => {
@@ -331,9 +374,20 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
 
   // Handle global drop zone actions
   const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
+    const task = tasks.find((t) => t.id === taskId);
     switch (zone) {
       case 'done':
         await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
+        if (task) {
+          pushUndoAction({
+            entityType: 'task',
+            entityId: taskId,
+            actionType: 'toggle',
+            description: 'Task completed',
+            previousData: { status: task.status },
+            invalidateKeys: [['case', caseId], ['tasks'], ['docket']],
+          });
+        }
         break;
       case 'today':
         await docketMutation.mutateAsync({ taskId, category: 'today' });
@@ -345,7 +399,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         await docketMutation.mutateAsync({ taskId, category: 'backburner' });
         break;
     }
-  }, [updateMutation, docketMutation]);
+  }, [updateMutation, docketMutation, tasks, caseId, pushUndoAction]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {

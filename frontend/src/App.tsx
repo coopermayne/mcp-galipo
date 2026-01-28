@@ -6,8 +6,10 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { EntityModalProvider } from './context/EntityModalContext';
 import { DragProvider } from './context/DragContext';
+import { UndoProvider } from './context/UndoContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { EntityDetailModal } from './components/modals';
+import { ToastContainer } from './components/common';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,34 +24,37 @@ function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <DragProvider>
-          <EntityModalProvider>
-            <AuthProvider>
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route
-                    path="/"
-                    element={
-                      <ProtectedRoute>
-                        <Layout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route index element={<Dashboard />} />
-                    <Route path="cases" element={<Cases />} />
-                    <Route path="cases/:id" element={<CaseDetail />} />
-                    <Route path="tasks" element={<Tasks />} />
-                    <Route path="calendar" element={<Calendar />} />
-                    <Route path="courtlistener" element={<Webhooks />} />
-                    <Route path="courtlistener/:id" element={<WebhookDetail />} />
-                  </Route>
-                </Routes>
-              </BrowserRouter>
-              <EntityDetailModal />
-            </AuthProvider>
-          </EntityModalProvider>
-        </DragProvider>
+        <UndoProvider>
+          <DragProvider>
+            <EntityModalProvider>
+              <AuthProvider>
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
+                          <Layout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route index element={<Dashboard />} />
+                      <Route path="cases" element={<Cases />} />
+                      <Route path="cases/:id" element={<CaseDetail />} />
+                      <Route path="tasks" element={<Tasks />} />
+                      <Route path="calendar" element={<Calendar />} />
+                      <Route path="courtlistener" element={<Webhooks />} />
+                      <Route path="courtlistener/:id" element={<WebhookDetail />} />
+                    </Route>
+                  </Routes>
+                </BrowserRouter>
+                <EntityDetailModal />
+                <ToastContainer />
+              </AuthProvider>
+            </EntityModalProvider>
+          </DragProvider>
+        </UndoProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
