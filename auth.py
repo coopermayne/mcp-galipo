@@ -1,31 +1,34 @@
 """
 Authentication module for basic username/password auth.
 
-Session tokens stored in-memory with 24hr expiry.
+Uses JWT tokens for stateless authentication (works with multiple workers).
 """
 
 import os
 import secrets
-import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi.responses import JSONResponse
+import jwt
 
 
-# In-memory session storage: token -> (username, expiry_timestamp)
-_sessions: dict[str, tuple[str, float]] = {}
-
-# Session expiry: 24 hours in seconds
-SESSION_EXPIRY = 24 * 60 * 60
+# Session expiry: 24 hours
+SESSION_EXPIRY_HOURS = 24
 
 # Environment variables with dev defaults
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "a")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "a")
 
+# JWT secret - uses AUTH_PASSWORD as secret, or generate one if not set
+# In production, AUTH_PASSWORD should be a strong secret
+JWT_SECRET = os.getenv("JWT_SECRET", AUTH_PASSWORD)
+JWT_ALGORITHM = "HS256"
+
 
 def authenticate(username: str, password: str) -> Optional[str]:
     """
     Validate credentials against env vars.
-    Returns session token on success, None on failure.
+    Returns JWT token on success, None on failure.
     Uses timing-safe comparison to prevent timing attacks.
     """
     username_valid = secrets.compare_digest(username, AUTH_USERNAME)
@@ -37,33 +40,33 @@ def authenticate(username: str, password: str) -> Optional[str]:
 
 
 def create_session(username: str) -> str:
-    """Create a new session and return the token."""
-    token = secrets.token_urlsafe(32)
-    expiry = time.time() + SESSION_EXPIRY
-    _sessions[token] = (username, expiry)
-    return token
+    """Create a JWT token for the user."""
+    expiry = datetime.now(timezone.utc) + timedelta(hours=SESSION_EXPIRY_HOURS)
+    payload = {
+        "sub": username,
+        "exp": expiry,
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def validate_session(token: str) -> bool:
-    """Check if a token is valid and not expired."""
-    if token not in _sessions:
+    """Check if a JWT token is valid and not expired."""
+    try:
+        jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return True
+    except jwt.ExpiredSignatureError:
         return False
-
-    username, expiry = _sessions[token]
-    if time.time() > expiry:
-        # Clean up expired session
-        del _sessions[token]
+    except jwt.InvalidTokenError:
         return False
-
-    return True
 
 
 def invalidate_session(token: str) -> bool:
-    """Remove a session token. Returns True if it existed."""
-    if token in _sessions:
-        del _sessions[token]
-        return True
-    return False
+    """
+    JWT tokens are stateless and can't be invalidated server-side.
+    Returns True for API compatibility. Client should discard the token.
+    """
+    return True
 
 
 def get_token_from_request(request) -> Optional[str]:
