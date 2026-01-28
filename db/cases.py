@@ -116,7 +116,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         # Get tasks
         cur.execute("""
             SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.event_id, t.sort_order,
-                   e.description as event_description
+                   t.docket_category, t.docket_order, e.description as event_description
             FROM tasks t
             LEFT JOIN events e ON t.event_id = e.id
             WHERE t.case_id = %s ORDER BY t.sort_order ASC

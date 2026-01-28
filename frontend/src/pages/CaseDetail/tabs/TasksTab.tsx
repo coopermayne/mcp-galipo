@@ -67,6 +67,7 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['docket'] });
     },
   });
 
