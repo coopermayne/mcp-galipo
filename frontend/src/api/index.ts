@@ -68,8 +68,8 @@ export {
   createPersonType,
 } from './persons';
 
-// Activities (placeholder for future use)
-export {} from './activities';
+// Activities
+export { createActivity, deleteActivity } from './activities';
 
 // Proceedings
 export {
