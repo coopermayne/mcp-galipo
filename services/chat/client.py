@@ -6,8 +6,9 @@ message sending, tool call extraction, and streaming responses.
 """
 
 import os
-import anthropic
-from typing import Any, Generator
+import json
+from anthropic import AsyncAnthropic
+from typing import Any, AsyncGenerator
 
 from .types import ToolCall, StreamEventType
 
@@ -45,7 +46,7 @@ Breaking this rule wastes significant resources. Be concise in responses."""
 
 
 class ChatClient:
-    """Client for interacting with Claude API."""
+    """Async client for interacting with Claude API."""
 
     def __init__(self):
         """Initialize the Claude client."""
@@ -53,14 +54,14 @@ class ChatClient:
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
-        self.client = anthropic.Anthropic(
+        self.client = AsyncAnthropic(
             api_key=api_key,
             default_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"}
         )
         self.model = os.environ.get("CHAT_MODEL", "claude-haiku-4-5")
         self.max_tokens = int(os.environ.get("CHAT_MAX_TOKENS", "4096"))
 
-    def send_message(
+    async def send_message(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
@@ -97,7 +98,7 @@ class ChatClient:
             }
             kwargs["tools"] = tools
 
-        response = self.client.messages.create(**kwargs)
+        response = await self.client.messages.create(**kwargs)
 
         # Extract text content and tool calls from response
         text_content = ""
@@ -119,12 +120,12 @@ class ChatClient:
             "stop_reason": response.stop_reason
         }
 
-    def stream_message(
+    async def stream_message(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         system_prompt: str | None = None
-    ) -> Generator[dict[str, Any], None, None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream a response from Claude, yielding events as they arrive.
 
@@ -162,8 +163,8 @@ class ChatClient:
         current_tool_name: str | None = None
         current_tool_input_json: str = ""
 
-        with self.client.messages.stream(**kwargs) as stream:
-            for event in stream:
+        async with self.client.messages.stream(**kwargs) as stream:
+            async for event in stream:
                 event_type = event.type
 
                 if event_type == "content_block_start":
@@ -196,7 +197,6 @@ class ChatClient:
                 elif event_type == "content_block_stop":
                     # If we were building a tool, emit the complete tool call
                     if current_tool_id and current_tool_name:
-                        import json
                         try:
                             arguments = json.loads(current_tool_input_json) if current_tool_input_json else {}
                         except json.JSONDecodeError:
@@ -217,7 +217,7 @@ class ChatClient:
 
                 elif event_type == "message_stop":
                     # Get the final message to extract stop_reason and usage
-                    final_message = stream.get_final_message()
+                    final_message = await stream.get_final_message()
 
                     # Extract usage data
                     usage = None

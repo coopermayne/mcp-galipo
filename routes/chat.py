@@ -325,7 +325,7 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                         )
 
                         # Stream the response from Claude
-                        for event in client.stream_message(
+                        async for event in client.stream_message(
                             messages=messages,
                             tools=tools if tools else None,
                             system_prompt=system_prompt

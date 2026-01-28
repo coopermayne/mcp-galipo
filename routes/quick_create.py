@@ -172,7 +172,7 @@ def register_quick_create_routes(mcp):
 
         try:
             # Send to Claude with only the task tool
-            response = client.send_message(
+            response = await client.send_message(
                 messages=messages,
                 tools=[TASK_TOOL],
                 system_prompt=system_prompt
@@ -272,7 +272,7 @@ def register_quick_create_routes(mcp):
 
         try:
             # Send to Claude with only the event tool
-            response = client.send_message(
+            response = await client.send_message(
                 messages=messages,
                 tools=[EVENT_TOOL],
                 system_prompt=system_prompt

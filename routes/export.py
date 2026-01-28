@@ -5,6 +5,8 @@ Provides an endpoint to export all case data as JSON.
 """
 
 import json
+import asyncio
+from collections import defaultdict
 from datetime import datetime, date, time
 from fastapi.responses import Response
 import auth
@@ -30,20 +32,151 @@ def serialize_row(row: dict) -> dict:
 
 
 def get_all_cases_with_data() -> list:
-    """Get all cases with their complete related data."""
-    cases = []
+    """
+    Get all cases with their complete related data.
 
+    Optimized to use batch queries instead of N+1 pattern.
+    Total queries: ~7 regardless of case count.
+    """
     with get_cursor() as cur:
-        # Get all cases
+        # 1. Get all cases
         cur.execute("""
             SELECT id, case_name, short_name, status, print_code, case_summary,
                    result, date_of_injury, case_numbers, created_at, updated_at
             FROM cases
             ORDER BY case_name
         """)
-        case_rows = [dict(row) for row in cur.fetchall()]
+        cases = [dict(row) for row in cur.fetchall()]
 
-        for case_row in case_rows:
+        if not cases:
+            return []
+
+        case_ids = [c["id"] for c in cases]
+
+        # 2. Batch fetch all persons for all cases
+        cur.execute("""
+            SELECT cp.case_id,
+                   p.id as person_id, p.person_type, p.name, p.phones, p.emails,
+                   p.address, p.organization, p.attributes, p.notes as person_notes,
+                   p.archived,
+                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
+                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.assigned_date, cp.created_at as assigned_at,
+                   via.name as contact_via_name
+            FROM persons p
+            JOIN case_persons cp ON p.id = cp.person_id
+            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            WHERE cp.case_id = ANY(%s)
+            ORDER BY cp.case_id,
+                CASE cp.role
+                    WHEN 'Client' THEN 1
+                    WHEN 'Defendant' THEN 2
+                    ELSE 3
+                END,
+                p.name
+        """, (case_ids,))
+        persons_by_case = defaultdict(list)
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            case_id = row_dict.pop("case_id")
+            persons_by_case[case_id].append(serialize_row(row_dict))
+
+        # 3. Batch fetch all tasks for all cases
+        cur.execute("""
+            SELECT case_id, id, due_date, completion_date, description, status, urgency,
+                   event_id, sort_order, created_at
+            FROM tasks
+            WHERE case_id = ANY(%s)
+            ORDER BY case_id, sort_order ASC
+        """, (case_ids,))
+        tasks_by_case = defaultdict(list)
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            case_id = row_dict.pop("case_id")
+            tasks_by_case[case_id].append(serialize_row(row_dict))
+
+        # 4. Batch fetch all events for all cases
+        cur.execute("""
+            SELECT case_id, id, date, time, location, description, document_link,
+                   calculation_note, starred, created_at
+            FROM events
+            WHERE case_id = ANY(%s)
+            ORDER BY case_id, date
+        """, (case_ids,))
+        events_by_case = defaultdict(list)
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            case_id = row_dict.pop("case_id")
+            events_by_case[case_id].append(serialize_row(row_dict))
+
+        # 5. Batch fetch all notes for all cases
+        cur.execute("""
+            SELECT case_id, id, content, created_at, updated_at
+            FROM notes
+            WHERE case_id = ANY(%s)
+            ORDER BY case_id, created_at DESC
+        """, (case_ids,))
+        notes_by_case = defaultdict(list)
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            case_id = row_dict.pop("case_id")
+            notes_by_case[case_id].append(serialize_row(row_dict))
+
+        # 6. Batch fetch all activities for all cases
+        cur.execute("""
+            SELECT case_id, id, date, description, type, minutes, created_at
+            FROM activities
+            WHERE case_id = ANY(%s)
+            ORDER BY case_id, date DESC
+        """, (case_ids,))
+        activities_by_case = defaultdict(list)
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            case_id = row_dict.pop("case_id")
+            activities_by_case[case_id].append(serialize_row(row_dict))
+
+        # 7. Batch fetch all proceedings for all cases (with jurisdiction join)
+        cur.execute("""
+            SELECT p.case_id, p.id, p.case_number, p.jurisdiction_id, p.sort_order,
+                   p.is_primary, p.notes, p.created_at, p.updated_at,
+                   j.name as jurisdiction_name, j.local_rules_link
+            FROM proceedings p
+            LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
+            WHERE p.case_id = ANY(%s)
+            ORDER BY p.case_id, p.sort_order, p.id
+        """, (case_ids,))
+        proceedings_by_case = defaultdict(list)
+        all_proceeding_ids = []
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            case_id = row_dict.pop("case_id")
+            all_proceeding_ids.append(row_dict["id"])
+            proceedings_by_case[case_id].append(row_dict)
+
+        # 8. Batch fetch all judges for all proceedings
+        judges_by_proceeding = defaultdict(list)
+        if all_proceeding_ids:
+            cur.execute("""
+                SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
+                       pj.created_at, per.name as judge_name
+                FROM judges pj
+                JOIN persons per ON pj.person_id = per.id
+                WHERE pj.proceeding_id = ANY(%s)
+                ORDER BY pj.proceeding_id, pj.sort_order, pj.id
+            """, (all_proceeding_ids,))
+            for row in cur.fetchall():
+                pid = row["proceeding_id"]
+                judges_by_proceeding[pid].append(serialize_row({
+                    "person_id": row["person_id"],
+                    "name": row["judge_name"],
+                    "role": row["role"],
+                    "sort_order": row["sort_order"],
+                    "created_at": row["created_at"]
+                }))
+
+        # Assemble the results
+        result = []
+        for case_row in cases:
             case_id = case_row["id"]
             case_data = serialize_row(case_row)
 
@@ -51,112 +184,21 @@ def get_all_cases_with_data() -> list:
             if case_data.get("case_numbers") and isinstance(case_data["case_numbers"], str):
                 case_data["case_numbers"] = json.loads(case_data["case_numbers"])
 
-            # Get persons assigned to this case
-            cur.execute("""
-                SELECT p.id as person_id, p.person_type, p.name, p.phones, p.emails,
-                       p.address, p.organization, p.attributes, p.notes as person_notes,
-                       p.archived,
-                       cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                       cp.case_notes, cp.is_primary, cp.contact_via_person_id,
-                       cp.assigned_date, cp.created_at as assigned_at,
-                       via.name as contact_via_name
-                FROM persons p
-                JOIN case_persons cp ON p.id = cp.person_id
-                LEFT JOIN persons via ON cp.contact_via_person_id = via.id
-                WHERE cp.case_id = %s
-                ORDER BY
-                    CASE cp.role
-                        WHEN 'Client' THEN 1
-                        WHEN 'Defendant' THEN 2
-                        ELSE 3
-                    END,
-                    p.name
-            """, (case_id,))
-            case_data["persons"] = [serialize_row(dict(row)) for row in cur.fetchall()]
+            case_data["persons"] = persons_by_case.get(case_id, [])
+            case_data["tasks"] = tasks_by_case.get(case_id, [])
+            case_data["events"] = events_by_case.get(case_id, [])
+            case_data["notes"] = notes_by_case.get(case_id, [])
+            case_data["activities"] = activities_by_case.get(case_id, [])
 
-            # Get tasks
-            cur.execute("""
-                SELECT id, due_date, completion_date, description, status, urgency,
-                       event_id, sort_order, created_at
-                FROM tasks
-                WHERE case_id = %s
-                ORDER BY sort_order ASC
-            """, (case_id,))
-            case_data["tasks"] = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-            # Get events
-            cur.execute("""
-                SELECT id, date, time, location, description, document_link,
-                       calculation_note, starred, created_at
-                FROM events
-                WHERE case_id = %s
-                ORDER BY date
-            """, (case_id,))
-            case_data["events"] = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-            # Get notes
-            cur.execute("""
-                SELECT id, content, created_at, updated_at
-                FROM notes
-                WHERE case_id = %s
-                ORDER BY created_at DESC
-            """, (case_id,))
-            case_data["notes"] = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-            # Get activities
-            cur.execute("""
-                SELECT id, date, description, type, minutes, created_at
-                FROM activities
-                WHERE case_id = %s
-                ORDER BY date DESC
-            """, (case_id,))
-            case_data["activities"] = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-            # Get proceedings with their judges
-            cur.execute("""
-                SELECT p.id, p.case_number, p.jurisdiction_id, p.sort_order,
-                       p.is_primary, p.notes, p.created_at, p.updated_at,
-                       j.name as jurisdiction_name, j.local_rules_link
-                FROM proceedings p
-                LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
-                WHERE p.case_id = %s
-                ORDER BY p.sort_order, p.id
-            """, (case_id,))
-            proceedings = [dict(row) for row in cur.fetchall()]
-
-            # Fetch judges for all proceedings
-            if proceedings:
-                proceeding_ids = [p["id"] for p in proceedings]
-                cur.execute("""
-                    SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
-                           pj.created_at, per.name as judge_name
-                    FROM judges pj
-                    JOIN persons per ON pj.person_id = per.id
-                    WHERE pj.proceeding_id = ANY(%s)
-                    ORDER BY pj.sort_order, pj.id
-                """, (proceeding_ids,))
-
-                judges_by_proceeding = {}
-                for row in cur.fetchall():
-                    pid = row["proceeding_id"]
-                    if pid not in judges_by_proceeding:
-                        judges_by_proceeding[pid] = []
-                    judges_by_proceeding[pid].append(serialize_row({
-                        "person_id": row["person_id"],
-                        "name": row["judge_name"],
-                        "role": row["role"],
-                        "sort_order": row["sort_order"],
-                        "created_at": row["created_at"]
-                    }))
-
-                for p in proceedings:
-                    p["judges"] = judges_by_proceeding.get(p["id"], [])
-
+            # Add judges to proceedings
+            proceedings = proceedings_by_case.get(case_id, [])
+            for p in proceedings:
+                p["judges"] = judges_by_proceeding.get(p["id"], [])
             case_data["proceedings"] = [serialize_row(p) for p in proceedings]
 
-            cases.append(case_data)
+            result.append(case_data)
 
-    return cases
+        return result
 
 
 def register_export_routes(mcp):
@@ -168,10 +210,12 @@ def register_export_routes(mcp):
         if err := auth.require_auth(request):
             return err
 
+        cases = await asyncio.to_thread(get_all_cases_with_data)
+
         data = {
             "exported_at": datetime.now().isoformat(),
             "version": "1.0",
-            "cases": get_all_cases_with_data(),
+            "cases": cases,
         }
 
         # Generate filename with timestamp

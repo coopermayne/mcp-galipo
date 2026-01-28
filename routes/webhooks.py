@@ -6,6 +6,8 @@ No session authentication required - uses token-based validation.
 """
 
 import os
+import asyncio
+import logging
 from fastapi.responses import JSONResponse
 
 import auth
@@ -31,7 +33,8 @@ def register_webhook_routes(mcp):
         limit = int(request.query_params.get("limit", "100"))
         offset = int(request.query_params.get("offset", "0"))
 
-        webhooks = db.get_webhook_logs(
+        webhooks = await asyncio.to_thread(
+            db.get_webhook_logs,
             source=source,
             processing_status=status,
             limit=limit,
@@ -46,7 +49,7 @@ def register_webhook_routes(mcp):
             return err
 
         webhook_id = int(request.path_params["webhook_id"])
-        webhook = db.get_webhook_log_by_id(webhook_id)
+        webhook = await asyncio.to_thread(db.get_webhook_log_by_id, webhook_id)
 
         if not webhook:
             return api_error("Webhook not found", "NOT_FOUND", 404)
@@ -60,7 +63,7 @@ def register_webhook_routes(mcp):
             return err
 
         webhook_id = int(request.path_params["webhook_id"])
-        deleted = db.delete_webhook_log(webhook_id)
+        deleted = await asyncio.to_thread(db.delete_webhook_log, webhook_id)
 
         if not deleted:
             return api_error("Webhook not found", "NOT_FOUND", 404)
@@ -105,9 +108,11 @@ def register_webhook_routes(mcp):
 
         try:
             # Check for duplicate if idempotency key provided
-            if idempotency_key and db.idempotency_key_exists(idempotency_key):
-                # Return 200 OK for duplicates (idempotent behavior)
-                return JSONResponse({"success": True, "duplicate": True})
+            if idempotency_key:
+                exists = await asyncio.to_thread(db.idempotency_key_exists, idempotency_key)
+                if exists:
+                    # Return 200 OK for duplicates (idempotent behavior)
+                    return JSONResponse({"success": True, "duplicate": True})
 
             # Extract event type from payload if available
             # CourtListener webhooks have a "webhook" key with metadata
@@ -132,7 +137,8 @@ def register_webhook_routes(mcp):
             # 5. Consider background job queue vs synchronous processing
 
             # Store the webhook for later processing
-            result = db.create_webhook_log(
+            result = await asyncio.to_thread(
+                db.create_webhook_log,
                 source="courtlistener",
                 payload=payload,
                 event_type=event_type,
@@ -150,6 +156,5 @@ def register_webhook_routes(mcp):
         except Exception as e:
             # Log error but still return 200 to prevent CourtListener retries
             # The webhook data is in the request, we can debug from logs
-            import logging
             logging.error(f"Webhook processing error: {e}")
             return api_error(f"Database error: {str(e)}", "DATABASE_ERROR", 500)

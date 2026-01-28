@@ -4,6 +4,7 @@ Task API routes.
 Handles task CRUD operations and reordering.
 """
 
+import asyncio
 from fastapi.responses import JSONResponse
 import database as db
 import auth
@@ -29,7 +30,8 @@ def register_task_routes(mcp):
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
         offset = int(offset)
 
-        result = db.get_tasks(
+        result = await asyncio.to_thread(
+            db.get_tasks,
             case_id=int(case_id) if case_id else None,
             status_filter=status,
             exclude_status=exclude_status,
@@ -47,7 +49,8 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         data = await request.json()
-        result = db.add_task(
+        result = await asyncio.to_thread(
+            db.add_task,
             data["case_id"],
             data["description"],
             data.get("due_date"),
@@ -64,7 +67,7 @@ def register_task_routes(mcp):
             return err
         task_id = int(request.path_params["task_id"])
         data = await request.json()
-        result = db.update_task_full(task_id, **data)
+        result = await asyncio.to_thread(db.update_task_full, task_id, **data)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "task": result})
@@ -75,7 +78,8 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         task_id = int(request.path_params["task_id"])
-        if db.delete_task(task_id):
+        deleted = await asyncio.to_thread(db.delete_task, task_id)
+        if deleted:
             return JSONResponse({"success": True})
         return api_error("Task not found", "NOT_FOUND", 404)
 
@@ -93,7 +97,8 @@ def register_task_routes(mcp):
             return api_error("task_id and sort_order are required", "VALIDATION_ERROR", 400)
 
         try:
-            result = db.reorder_task(
+            result = await asyncio.to_thread(
+                db.reorder_task,
                 task_id=int(task_id),
                 new_sort_order=int(sort_order),
                 new_urgency=int(urgency) if urgency is not None else None
@@ -110,7 +115,7 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         exclude_done = request.query_params.get("exclude_done", "true").lower() == "true"
-        result = db.get_docket_tasks(exclude_done=exclude_done)
+        result = await asyncio.to_thread(db.get_docket_tasks, exclude_done=exclude_done)
         return JSONResponse(result)
 
     @mcp.custom_route("/api/v1/docket/{task_id}", methods=["PUT"])
@@ -126,7 +131,8 @@ def register_task_routes(mcp):
             docket_category = data.get("docket_category", db._NOT_PROVIDED)
             docket_order = data.get("docket_order", db._NOT_PROVIDED)
 
-            result = db.update_docket(
+            result = await asyncio.to_thread(
+                db.update_docket,
                 task_id=task_id,
                 docket_category=docket_category,
                 docket_order=int(docket_order) if docket_order is not None and docket_order is not db._NOT_PROVIDED else docket_order
