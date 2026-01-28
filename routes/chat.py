@@ -158,20 +158,21 @@ def _tool_results_to_content_blocks(results: list[ToolResult]) -> list[dict[str,
 
 def _get_username_from_request(request) -> str | None:
     """
-    Extract the username from the request's auth token.
+    Extract the username from the request's JWT token.
 
     Returns the username if the token is valid, None otherwise.
     """
+    import jwt
+
     token = auth.get_token_from_request(request)
     if not token:
         return None
 
-    # Access the session storage to get the username
-    if token in auth._sessions:
-        username, expiry = auth._sessions[token]
-        if time.time() <= expiry:
-            return username
-    return None
+    try:
+        payload = jwt.decode(token, auth.JWT_SECRET, algorithms=[auth.JWT_ALGORITHM])
+        return payload.get("sub")
+    except jwt.InvalidTokenError:
+        return None
 
 
 def register_chat_routes(mcp):
