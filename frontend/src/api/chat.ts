@@ -2,6 +2,21 @@ import { API_BASE, ApiError } from './common';
 import { getAuthToken, clearAuthToken } from '../context/AuthContext';
 import type { ChatRequest, StreamEvent } from '../types';
 
+export interface ChatInfo {
+  model: string;
+}
+
+/**
+ * Get chat configuration info (model name, etc.)
+ */
+export async function getChatInfo(): Promise<ChatInfo> {
+  const response = await fetch(`${API_BASE}/chat/info`);
+  if (!response.ok) {
+    throw new ApiError('Failed to fetch chat info', 'FETCH_ERROR', response.status);
+  }
+  return response.json();
+}
+
 /**
  * Stream chat messages via SSE.
  * Yields StreamEvent objects as they arrive from the server.

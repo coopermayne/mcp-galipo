@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { X, MessageCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
-import { streamChatMessage } from '../../api/chat';
+import { streamChatMessage, getChatInfo } from '../../api/chat';
 import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult } from '../../types';
 
 // Map mutation tools to the query keys they affect
@@ -55,8 +55,16 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([]);
   const [failedMessageContent, setFailedMessageContent] = useState<string | null>(null);
+  const [modelName, setModelName] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<ChatInputHandle>(null);
+
+  // Fetch chat info (model name) on mount
+  useEffect(() => {
+    getChatInfo()
+      .then((info) => setModelName(info.model))
+      .catch(() => setModelName(null)); // Fail silently
+  }, []);
 
   // Handle escape key to close
   useEffect(() => {
@@ -382,6 +390,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
               </h2>
               <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
                 {caseContext ? `Case #${caseContext}` : 'General Chat'}
+                {modelName && <span className="ml-1.5 opacity-70">· {modelName}</span>}
               </p>
             </div>
           </div>
