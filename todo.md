@@ -42,6 +42,22 @@ Flexible AI-powered case finding - handles typos, person names, vague descriptio
 - [ ] Add `search_persons_fuzzy()` in `db/persons.py`
 - [ ] Add `search_persons` MCP tool for duplicate checking before creates
 
+### List Component Unification
+Ground-up rebuild of all list rendering using flexible compound components. Replaces scattered implementations with a unified system.
+
+**Plan:** [docs/LIST_UNIFICATION_PLAN.md](docs/LIST_UNIFICATION_PLAN.md)
+
+**Phase 1: Build New Components** (Medium)
+- [ ] Create `components/common/list/` with `List`, `ListRow`, `ListGroup`, `ListDraggable`
+- [ ] Create `caseColors.ts` + `CaseBadge.tsx` (eliminates 5+ duplicate arrays)
+- [ ] Create `ListContext` for size variants (`compact`, `standard`)
+
+**Phase 2: Replace Page by Page** (Medium)
+- [ ] Cases.tsx → Calendar.tsx → Dashboard.tsx → Tasks.tsx → TasksTab.tsx → OverviewTab.tsx → DocketPanel.tsx
+
+**Phase 3: Delete Old Code** (Small)
+- [ ] Delete `ListPanel`, `SortableTaskRow`, `DraggableTaskRow`, `UrgencyGroup`, `CaseGroup`, `DateGroup`, `TodayTaskList`, `DroppableTaskGroup`
+
 ---
 
 ## Features
