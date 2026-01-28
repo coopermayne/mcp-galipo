@@ -1,9 +1,17 @@
-// Activity API functions
-// Currently no activity endpoints are used in the frontend,
-// but this module is ready for future activity-related API calls.
+import type { Activity, CreateActivityInput } from '../types';
+import { request } from './common';
 
-// import type { Activity } from '../types';
-// import { request } from './common';
+export async function createActivity(
+  input: CreateActivityInput
+): Promise<{ success: boolean; activity: Activity }> {
+  return request('/activities', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
 
-// Placeholder for future activity API functions
-export {};
+export async function deleteActivity(activityId: number): Promise<{ success: boolean }> {
+  return request(`/activities/${activityId}`, {
+    method: 'DELETE',
+  });
+}
