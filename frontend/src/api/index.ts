@@ -92,5 +92,5 @@ export { streamChatMessage } from './chat';
 export { quickCreateTask, quickCreateEvent } from './quickCreate';
 
 // Webhooks
-export { getWebhooks, getWebhook } from './webhooks';
+export { getWebhooks, getWebhook, deleteWebhook } from './webhooks';
 export type { WebhookLog, GetWebhooksParams } from './webhooks';

@@ -625,6 +625,227 @@ def seed_dev_data():
         if case_id:
             db.add_note(case_id, n["content"])
 
+    # ========== WEBHOOKS ==========
+    print("  Creating webhook logs...")
+
+    import uuid
+
+    webhooks_data = [
+        # Docket Alert webhook (event_type 1)
+        {
+            "source": "courtlistener",
+            "event_type": "1",
+            "idempotency_key": str(uuid.uuid4()),
+            "payload": {
+                "webhook": {
+                    "event_type": 1,
+                    "version": 2,
+                    "date_created": "2024-12-15T14:30:00-08:00"
+                },
+                "payload": {
+                    "results": [
+                        {
+                            "docket": "https://www.courtlistener.com/api/rest/v4/dockets/68547231/",
+                            "docket_id": 68547231,
+                            "case_name": "Martinez v. City of Los Angeles",
+                            "court": "cacd",
+                            "docket_number": "2:24-cv-01234-PAC",
+                            "date_filed": "2024-06-15",
+                            "description": "ORDER granting Motion for Extension of Time"
+                        }
+                    ]
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "user-agent": "CourtListener/2.0"
+            },
+            "processing_status": "completed"
+        },
+        # Search Alert webhook (event_type 2)
+        {
+            "source": "courtlistener",
+            "event_type": "2",
+            "idempotency_key": str(uuid.uuid4()),
+            "payload": {
+                "webhook": {
+                    "event_type": 2,
+                    "version": 2,
+                    "date_created": "2024-12-16T09:15:00-08:00"
+                },
+                "payload": {
+                    "alert": {
+                        "name": "Police Misconduct - Los Angeles",
+                        "query": "police AND misconduct AND \"los angeles\"",
+                        "rate": "rt"
+                    },
+                    "results": [
+                        {
+                            "caseName": "Davis v. City of Los Angeles",
+                            "court": "C.D. Cal.",
+                            "dateFiled": "2024-12-01",
+                            "snippet": "...alleged excessive force by LAPD officers..."
+                        }
+                    ]
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "user-agent": "CourtListener/2.0"
+            },
+            "processing_status": "pending"
+        },
+        # RECAP Fetch webhook (event_type 3)
+        {
+            "source": "courtlistener",
+            "event_type": "3",
+            "idempotency_key": str(uuid.uuid4()),
+            "payload": {
+                "webhook": {
+                    "event_type": 3,
+                    "version": 2,
+                    "date_created": "2024-12-14T16:45:00-08:00"
+                },
+                "payload": {
+                    "status": "successful",
+                    "docket": {
+                        "absolute_url": "/docket/68123456/wilson-v-abc-trucking/",
+                        "case_name": "Wilson v. ABC Trucking Inc.",
+                        "docket_number": "23STCV45678",
+                        "court": "lasc"
+                    },
+                    "recap_documents": [
+                        {
+                            "description": "Complaint",
+                            "document_number": 1,
+                            "filepath_local": "/storage/recap/lasc/23STCV45678/001.pdf"
+                        },
+                        {
+                            "description": "Summons Issued",
+                            "document_number": 2,
+                            "filepath_local": "/storage/recap/lasc/23STCV45678/002.pdf"
+                        }
+                    ]
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "user-agent": "CourtListener/2.0"
+            },
+            "processing_status": "completed"
+        },
+        # Old Docket Alert webhook (event_type 4)
+        {
+            "source": "courtlistener",
+            "event_type": "4",
+            "idempotency_key": str(uuid.uuid4()),
+            "payload": {
+                "webhook": {
+                    "event_type": 4,
+                    "version": 2,
+                    "date_created": "2024-12-10T11:00:00-08:00"
+                },
+                "payload": {
+                    "message": "Your docket alert for O'Brien v. ABC Trucking Inc. (21STCV09876) has not had any new entries in over 180 days.",
+                    "docket": {
+                        "case_name": "O'Brien v. ABC Trucking Inc.",
+                        "docket_number": "21STCV09876",
+                        "court": "lasc",
+                        "date_last_filing": "2023-06-15"
+                    },
+                    "recommendation": "Consider disabling this alert if the case has concluded."
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "user-agent": "CourtListener/2.0"
+            },
+            "processing_status": "completed"
+        },
+        # Another Docket Alert with new filing
+        {
+            "source": "courtlistener",
+            "event_type": "1",
+            "idempotency_key": str(uuid.uuid4()),
+            "payload": {
+                "webhook": {
+                    "event_type": 1,
+                    "version": 2,
+                    "date_created": "2024-12-17T08:30:00-08:00"
+                },
+                "payload": {
+                    "results": [
+                        {
+                            "docket": "https://www.courtlistener.com/api/rest/v4/dockets/68234567/",
+                            "docket_id": 68234567,
+                            "case_name": "Nguyen v. Metro Transit Authority",
+                            "court": "lasc",
+                            "docket_number": "22STCV34567",
+                            "date_filed": "2024-12-16",
+                            "description": "MOTION for Summary Judgment filed by Defendant Metro Transit Authority"
+                        }
+                    ]
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "user-agent": "CourtListener/2.0"
+            },
+            "processing_status": "processing"
+        },
+        # Failed webhook (for testing error display)
+        {
+            "source": "courtlistener",
+            "event_type": "1",
+            "idempotency_key": str(uuid.uuid4()),
+            "payload": {
+                "webhook": {
+                    "event_type": 1,
+                    "version": 2,
+                    "date_created": "2024-12-13T10:00:00-08:00"
+                },
+                "payload": {
+                    "results": [
+                        {
+                            "docket_id": 99999999,
+                            "case_name": "Unknown Case",
+                            "court": "unknown",
+                            "docket_number": "INVALID-123"
+                        }
+                    ]
+                }
+            },
+            "headers": {
+                "content-type": "application/json",
+                "user-agent": "CourtListener/2.0"
+            },
+            "processing_status": "failed",
+            "processing_error": "Could not match docket to any known case in the system"
+        },
+    ]
+
+    for w in webhooks_data:
+        # Store the idempotency_key before creation
+        idem_key = w.get("idempotency_key")
+
+        result = db.create_webhook_log(
+            source=w["source"],
+            payload=w["payload"],
+            event_type=w.get("event_type"),
+            idempotency_key=idem_key,
+            headers=w.get("headers"),
+        )
+
+        # Update status if not pending
+        if result and w.get("processing_status") != "pending":
+            webhook_id = result["id"]
+            if w["processing_status"] == "failed":
+                db.mark_webhook_failed(webhook_id, w.get("processing_error", "Unknown error"))
+            elif w["processing_status"] == "completed":
+                db.mark_webhook_completed(webhook_id)
+            elif w["processing_status"] == "processing":
+                db.mark_webhook_processing(webhook_id)
+
     print("Development data seeded successfully!")
     print(f"  - {len(jurisdictions)} jurisdictions seeded")
     print(f"  - {len(db.get_person_types())} person types seeded")
@@ -636,6 +857,7 @@ def seed_dev_data():
     print(f"  - {len(tasks_data)} tasks created")
     print(f"  - {len(activities_data)} activities created")
     print(f"  - {len(notes_data)} notes created")
+    print(f"  - {len(webhooks_data)} webhook logs created")
 
 
 if __name__ == "__main__":
