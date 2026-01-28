@@ -4,6 +4,7 @@ Person/contact API routes.
 Handles person CRUD and case-person assignment operations.
 """
 
+import asyncio
 from fastapi.responses import JSONResponse
 import database as db
 import auth
@@ -28,7 +29,8 @@ def register_person_routes(mcp):
         limit = int(request.query_params.get("limit", 50))
         offset = int(request.query_params.get("offset", 0))
 
-        result = db.search_persons(
+        result = await asyncio.to_thread(
+            db.search_persons,
             name=name,
             person_type=person_type,
             organization=organization,
@@ -48,7 +50,8 @@ def register_person_routes(mcp):
             return err
         data = await request.json()
         try:
-            result = db.create_person(
+            result = await asyncio.to_thread(
+                db.create_person,
                 person_type=data["person_type"],
                 name=data["name"],
                 phones=data.get("phones"),
@@ -68,7 +71,7 @@ def register_person_routes(mcp):
         if err := auth.require_auth(request):
             return err
         person_id = int(request.path_params["person_id"])
-        person = db.get_person_by_id(person_id)
+        person = await asyncio.to_thread(db.get_person_by_id, person_id)
         if not person:
             return api_error("Person not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "person": person})
@@ -81,7 +84,8 @@ def register_person_routes(mcp):
         person_id = int(request.path_params["person_id"])
         data = await request.json()
         try:
-            result = db.update_person(
+            result = await asyncio.to_thread(
+                db.update_person,
                 person_id,
                 name=data.get("name"),
                 person_type=data.get("person_type"),
@@ -107,10 +111,11 @@ def register_person_routes(mcp):
         person_id = int(request.path_params["person_id"])
         permanent = request.query_params.get("permanent", "false").lower() == "true"
         if permanent:
-            if db.delete_person(person_id):
+            deleted = await asyncio.to_thread(db.delete_person, person_id)
+            if deleted:
                 return JSONResponse({"success": True, "action": "deleted"})
         else:
-            result = db.archive_person(person_id)
+            result = await asyncio.to_thread(db.archive_person, person_id)
             if result:
                 return JSONResponse({"success": True, "action": "archived"})
         return api_error("Person not found", "NOT_FOUND", 404)
@@ -126,7 +131,7 @@ def register_person_routes(mcp):
         role = request.query_params.get("role")
         side = request.query_params.get("side")
 
-        persons = db.get_case_persons(case_id, person_type, role, side)
+        persons = await asyncio.to_thread(db.get_case_persons, case_id, person_type, role, side)
         return JSONResponse({"success": True, "persons": persons, "total": len(persons)})
 
     @mcp.custom_route("/api/v1/cases/{case_id}/persons", methods=["POST"])
@@ -138,7 +143,8 @@ def register_person_routes(mcp):
         data = await request.json()
 
         try:
-            result = db.assign_person_to_case(
+            result = await asyncio.to_thread(
+                db.assign_person_to_case,
                 case_id=case_id,
                 person_id=data["person_id"],
                 role=data["role"],
@@ -163,7 +169,8 @@ def register_person_routes(mcp):
         data = await request.json()
 
         try:
-            result = db.update_case_assignment(
+            result = await asyncio.to_thread(
+                db.update_case_assignment,
                 case_id=case_id,
                 person_id=person_id,
                 role=data["role"],
@@ -189,6 +196,7 @@ def register_person_routes(mcp):
         person_id = int(request.path_params["person_id"])
         role = request.query_params.get("role")
 
-        if db.remove_person_from_case(case_id, person_id, role):
+        removed = await asyncio.to_thread(db.remove_person_from_case, case_id, person_id, role)
+        if removed:
             return JSONResponse({"success": True})
         return api_error("Assignment not found", "NOT_FOUND", 404)

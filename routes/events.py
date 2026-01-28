@@ -4,6 +4,7 @@ Event API routes.
 Handles event (calendar items: hearings, depositions, filing deadlines) CRUD operations.
 """
 
+import asyncio
 from fastapi.responses import JSONResponse
 import database as db
 import auth
@@ -27,7 +28,8 @@ def register_event_routes(mcp):
         offset = int(offset)
         past_days = int(past_days) if past_days else 14
 
-        result = db.get_upcoming_events(
+        result = await asyncio.to_thread(
+            db.get_upcoming_events,
             limit=limit,
             offset=offset,
             include_past=include_past,
@@ -41,7 +43,8 @@ def register_event_routes(mcp):
         if err := auth.require_auth(request):
             return err
         data = await request.json()
-        result = db.add_event(
+        result = await asyncio.to_thread(
+            db.add_event,
             data["case_id"],
             data["date"],
             data["description"],
@@ -60,7 +63,7 @@ def register_event_routes(mcp):
             return err
         event_id = int(request.path_params["event_id"])
         data = await request.json()
-        result = db.update_event_full(event_id, **data)
+        result = await asyncio.to_thread(db.update_event_full, event_id, **data)
         if not result:
             return api_error("Event not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "event": result})
@@ -71,6 +74,7 @@ def register_event_routes(mcp):
         if err := auth.require_auth(request):
             return err
         event_id = int(request.path_params["event_id"])
-        if db.delete_event(event_id):
+        deleted = await asyncio.to_thread(db.delete_event, event_id)
+        if deleted:
             return JSONResponse({"success": True})
         return api_error("Event not found", "NOT_FOUND", 404)

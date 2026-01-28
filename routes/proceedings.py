@@ -5,6 +5,7 @@ Handles court proceeding CRUD operations for cases,
 including multi-judge support via judges.
 """
 
+import asyncio
 from fastapi.responses import JSONResponse
 import database as db
 import auth
@@ -20,7 +21,7 @@ def register_proceeding_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = int(request.path_params["case_id"])
-        proceedings = db.get_proceedings(case_id)
+        proceedings = await asyncio.to_thread(db.get_proceedings, case_id)
         return JSONResponse({"proceedings": proceedings, "total": len(proceedings)})
 
     @mcp.custom_route("/api/v1/cases/{case_id}/proceedings", methods=["POST"])
@@ -34,7 +35,8 @@ def register_proceeding_routes(mcp):
         if not data.get("case_number"):
             return api_error("case_number is required", "VALIDATION_ERROR", 400)
 
-        result = db.add_proceeding(
+        result = await asyncio.to_thread(
+            db.add_proceeding,
             case_id=case_id,
             case_number=data["case_number"],
             jurisdiction_id=data.get("jurisdiction_id"),
@@ -50,7 +52,7 @@ def register_proceeding_routes(mcp):
         if err := auth.require_auth(request):
             return err
         proceeding_id = int(request.path_params["proceeding_id"])
-        result = db.get_proceeding_by_id(proceeding_id)
+        result = await asyncio.to_thread(db.get_proceeding_by_id, proceeding_id)
         if not result:
             return api_error("Proceeding not found", "NOT_FOUND", 404)
         return JSONResponse(result)
@@ -62,7 +64,7 @@ def register_proceeding_routes(mcp):
             return err
         proceeding_id = int(request.path_params["proceeding_id"])
         data = await request.json()
-        result = db.update_proceeding(proceeding_id, **data)
+        result = await asyncio.to_thread(db.update_proceeding, proceeding_id, **data)
         if not result:
             return api_error("Proceeding not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "proceeding": result})
@@ -73,7 +75,8 @@ def register_proceeding_routes(mcp):
         if err := auth.require_auth(request):
             return err
         proceeding_id = int(request.path_params["proceeding_id"])
-        if db.delete_proceeding(proceeding_id):
+        deleted = await asyncio.to_thread(db.delete_proceeding, proceeding_id)
+        if deleted:
             return JSONResponse({"success": True})
         return api_error("Proceeding not found", "NOT_FOUND", 404)
 
@@ -87,7 +90,7 @@ def register_proceeding_routes(mcp):
         if err := auth.require_auth(request):
             return err
         proceeding_id = int(request.path_params["proceeding_id"])
-        judges = db.get_judges(proceeding_id)
+        judges = await asyncio.to_thread(db.get_judges, proceeding_id)
         return JSONResponse({"judges": judges, "total": len(judges)})
 
     @mcp.custom_route("/api/v1/proceedings/{proceeding_id}/judges", methods=["POST"])
@@ -101,7 +104,8 @@ def register_proceeding_routes(mcp):
         if not data.get("person_id"):
             return api_error("person_id is required", "VALIDATION_ERROR", 400)
 
-        result = db.add_judge_to_proceeding(
+        result = await asyncio.to_thread(
+            db.add_judge_to_proceeding,
             proceeding_id=proceeding_id,
             person_id=data["person_id"],
             role=data.get("role", "Judge"),
@@ -118,7 +122,8 @@ def register_proceeding_routes(mcp):
         person_id = int(request.path_params["person_id"])
         data = await request.json()
 
-        result = db.update_proceeding_judge(
+        result = await asyncio.to_thread(
+            db.update_proceeding_judge,
             proceeding_id=proceeding_id,
             person_id=person_id,
             role=data.get("role"),
@@ -136,6 +141,7 @@ def register_proceeding_routes(mcp):
         proceeding_id = int(request.path_params["proceeding_id"])
         person_id = int(request.path_params["person_id"])
 
-        if db.remove_judge_from_proceeding(proceeding_id, person_id):
+        removed = await asyncio.to_thread(db.remove_judge_from_proceeding, proceeding_id, person_id)
+        if removed:
             return JSONResponse({"success": True})
         return api_error("Judge assignment not found", "NOT_FOUND", 404)

@@ -6,6 +6,9 @@ Uses PostgreSQL database for persistent storage.
 """
 
 import os
+from contextlib import asynccontextmanager
+
+import filelock
 from fastmcp import FastMCP
 
 import database as db
@@ -20,7 +23,57 @@ IMPORTANT: Call the get_current_time tool at the start of any session to know th
 This server provides tools to manage cases, tasks, events, contacts, and notes."""
 
 
-# Initialize the MCP server
+def initialize_database():
+    """Initialize database with migrations and seeding.
+
+    Called once per deployment, protected by file lock for multi-worker safety.
+    """
+    # Use file lock so only one worker initializes the database
+    lock = filelock.FileLock("/tmp/galipo_init.lock", timeout=60)
+
+    with lock:
+        init_marker = "/tmp/galipo_initialized"
+
+        # Check if already initialized in this deployment
+        if os.path.exists(init_marker):
+            print("Database already initialized by another worker, skipping.")
+            return
+
+        # Initialize database on startup
+        # Only drop/recreate tables if RESET_DB=true (for development/testing)
+        if os.environ.get("RESET_DB", "").lower() == "true":
+            print("RESET_DB=true: Dropping and recreating all tables...")
+            db.drop_all_tables()
+            db.init_db()
+            db.seed_db()
+        else:
+            # Run migrations first (handles schema upgrades for existing databases)
+            db.migrate_db()
+            # Then ensure all tables exist (safe for production)
+            db.init_db()
+            # Seed lookup tables (idempotent - only inserts if empty)
+            db.seed_db()
+
+        # Mark as initialized
+        with open(init_marker, "w") as f:
+            f.write("initialized")
+        print("Database initialization complete.")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Application lifespan handler.
+
+    Initializes database on startup, cleans up on shutdown.
+    Safe for multi-worker deployments (uses file lock).
+    """
+    # Startup
+    initialize_database()
+    yield
+    # Shutdown - connection pool cleanup is handled by atexit in db/connection.py
+
+
+# Initialize the MCP server with lifespan
 mcp = FastMCP("Legal Case Management", instructions=MCP_INSTRUCTIONS)
 
 # Register MCP tools (for AI/Claude integration)
@@ -38,24 +91,10 @@ register_tools(mcp)
 # - routes/static.py: Static file serving and SPA routing
 register_routes(mcp)
 
-# Initialize database on startup
-# Only drop/recreate tables if RESET_DB=true (for development/testing)
-if os.environ.get("RESET_DB", "").lower() == "true":
-    print("RESET_DB=true: Dropping and recreating all tables...")
-    db.drop_all_tables()
-    db.init_db()
-    db.seed_db()
-else:
-    # Run migrations first (handles schema upgrades for existing databases)
-    db.migrate_db()
-    # Then ensure all tables exist (safe for production)
-    db.init_db()
-    # Seed lookup tables (idempotent - only inserts if empty)
-    db.seed_db()
-
-
-# Export ASGI app for uvicorn
+# Export ASGI app for uvicorn/gunicorn
+# Get the FastAPI app and add lifespan
 app = mcp.http_app()
+app.router.lifespan_context = lifespan
 
 if __name__ == "__main__":
     # Run the MCP server with SSE transport for remote access

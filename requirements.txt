@@ -1,6 +1,8 @@
 fastmcp
 fastapi
 uvicorn[standard]
+gunicorn
 python-dotenv
 psycopg2-binary
 anthropic
+filelock

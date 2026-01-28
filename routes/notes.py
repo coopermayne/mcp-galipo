@@ -4,6 +4,7 @@ Note routes.
 Handles note CRUD operations for cases.
 """
 
+import asyncio
 from fastapi.responses import JSONResponse
 import database as db
 import auth
@@ -19,7 +20,7 @@ def register_note_routes(mcp):
         if err := auth.require_auth(request):
             return err
         data = await request.json()
-        result = db.add_note(data["case_id"], data["content"])
+        result = await asyncio.to_thread(db.add_note, data["case_id"], data["content"])
         return JSONResponse({"success": True, "note": result})
 
     @mcp.custom_route("/api/v1/notes/{note_id}", methods=["DELETE"])
@@ -28,6 +29,7 @@ def register_note_routes(mcp):
         if err := auth.require_auth(request):
             return err
         note_id = int(request.path_params["note_id"])
-        if db.delete_note(note_id):
+        deleted = await asyncio.to_thread(db.delete_note, note_id)
+        if deleted:
             return JSONResponse({"success": True})
         return api_error("Note not found", "NOT_FOUND", 404)

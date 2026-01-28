@@ -4,6 +4,7 @@ Case API routes.
 Handles case CRUD operations.
 """
 
+import asyncio
 from fastapi.responses import JSONResponse
 import database as db
 import auth
@@ -23,7 +24,7 @@ def register_case_routes(mcp):
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
         offset = int(offset)
-        result = db.get_all_cases(status, limit=limit, offset=offset)
+        result = await asyncio.to_thread(db.get_all_cases, status, limit=limit, offset=offset)
         return JSONResponse({
             "cases": result["cases"],
             "total": result["total"]
@@ -35,7 +36,7 @@ def register_case_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = int(request.path_params["case_id"])
-        case = db.get_case_by_id(case_id)
+        case = await asyncio.to_thread(db.get_case_by_id, case_id)
         if not case:
             return api_error("Case not found", "NOT_FOUND", 404)
         return JSONResponse(case)
@@ -46,7 +47,8 @@ def register_case_routes(mcp):
         if err := auth.require_auth(request):
             return err
         data = await request.json()
-        result = db.create_case(
+        result = await asyncio.to_thread(
+            db.create_case,
             data["case_name"],
             data.get("status", "Signing Up"),
             print_code=data.get("print_code"),
@@ -65,7 +67,7 @@ def register_case_routes(mcp):
             return err
         case_id = int(request.path_params["case_id"])
         data = await request.json()
-        result = db.update_case(case_id, **data)
+        result = await asyncio.to_thread(db.update_case, case_id, **data)
         if not result:
             return api_error("Case not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "case": result})
@@ -76,6 +78,7 @@ def register_case_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = int(request.path_params["case_id"])
-        if db.delete_case(case_id):
+        deleted = await asyncio.to_thread(db.delete_case, case_id)
+        if deleted:
             return JSONResponse({"success": True})
         return api_error("Case not found", "NOT_FOUND", 404)

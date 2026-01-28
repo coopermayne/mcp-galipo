@@ -3,7 +3,9 @@ Database connection pooling, initialization, and migrations.
 """
 
 import os
+import atexit
 import psycopg2
+from psycopg2.pool import ThreadedConnectionPool
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 from datetime import datetime, date, time
@@ -14,8 +16,39 @@ from .validation import (
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# Connection pool configuration
+DB_POOL_MIN = int(os.environ.get("DB_POOL_MIN", 2))
+DB_POOL_MAX = int(os.environ.get("DB_POOL_MAX", 10))
+
+# Global connection pool
+_pool: ThreadedConnectionPool | None = None
+
 # Sentinel value to distinguish "not provided" from "explicitly set to None/null"
 _NOT_PROVIDED = object()
+
+
+def get_pool() -> ThreadedConnectionPool:
+    """Get or create the database connection pool."""
+    global _pool
+    if _pool is None:
+        _pool = ThreadedConnectionPool(
+            minconn=DB_POOL_MIN,
+            maxconn=DB_POOL_MAX,
+            dsn=DATABASE_URL
+        )
+    return _pool
+
+
+def close_pool():
+    """Close the connection pool. Called on process shutdown."""
+    global _pool
+    if _pool is not None:
+        _pool.closeall()
+        _pool = None
+
+
+# Register cleanup on process exit
+atexit.register(close_pool)
 
 
 def serialize_value(val):
@@ -43,8 +76,9 @@ def serialize_rows(rows: list) -> list:
 
 @contextmanager
 def get_connection():
-    """Context manager for database connections."""
-    conn = psycopg2.connect(DATABASE_URL)
+    """Context manager for database connections from the pool."""
+    pool = get_pool()
+    conn = pool.getconn()
     try:
         yield conn
         conn.commit()
@@ -52,7 +86,7 @@ def get_connection():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 @contextmanager
