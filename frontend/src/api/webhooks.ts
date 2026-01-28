@@ -37,3 +37,7 @@ export async function getWebhooks(params: GetWebhooksParams = {}): Promise<{ web
 export async function getWebhook(id: number): Promise<{ webhook: WebhookLog }> {
   return request(`/webhooks/${id}`);
 }
+
+export async function deleteWebhook(id: number): Promise<{ success: boolean }> {
+  return request(`/webhooks/${id}`, { method: 'DELETE' });
+}

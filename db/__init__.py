@@ -169,6 +169,7 @@ from .webhooks import (
     mark_webhook_completed,
     mark_webhook_failed,
     idempotency_key_exists,
+    delete_webhook_log,
 )
 
 # Define __all__ for explicit exports
@@ -300,4 +301,5 @@ __all__ = [
     "mark_webhook_completed",
     "mark_webhook_failed",
     "idempotency_key_exists",
+    "delete_webhook_log",
 ]

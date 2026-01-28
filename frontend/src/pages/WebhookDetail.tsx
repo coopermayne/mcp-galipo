@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
-import { getWebhook } from '../api';
-import { ArrowLeft, CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react';
+import { getWebhook, deleteWebhook } from '../api';
+import { ArrowLeft, CheckCircle, Clock, AlertCircle, XCircle, Trash2 } from 'lucide-react';
 
 const EVENT_TYPE_NAMES: Record<number, string> = {
   1: 'Docket Alert',
@@ -51,11 +52,21 @@ function formatDate(dateStr: string) {
 export function WebhookDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['webhook', id],
     queryFn: () => getWebhook(Number(id)),
     enabled: !!id,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteWebhook(Number(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['webhooks'] });
+      navigate('/courtlistener');
+    },
   });
 
   const webhook = data?.webhook;
@@ -130,11 +141,44 @@ export function WebhookDetail() {
               <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Event Type</span>
               <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{eventTypeName}</p>
             </div>
-            <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">ID</span>
-              <p className="mt-1 text-sm font-mono text-slate-900 dark:text-slate-100">#{webhook.id}</p>
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">ID</span>
+                <p className="mt-1 text-sm font-mono text-slate-900 dark:text-slate-100">#{webhook.id}</p>
+              </div>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                title="Delete webhook"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
+
+          {/* Delete Confirmation */}
+          {showDeleteConfirm && (
+            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-800 dark:text-red-200 mb-3">
+                Are you sure you want to delete this webhook? This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                  className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {webhook.processing_error && (
             <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">

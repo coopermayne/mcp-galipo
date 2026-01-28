@@ -53,6 +53,20 @@ def register_webhook_routes(mcp):
 
         return JSONResponse({"webhook": webhook})
 
+    @mcp.custom_route("/api/v1/webhooks/{webhook_id}", methods=["DELETE"])
+    async def delete_webhook(request):
+        """Delete a webhook log by ID."""
+        if err := auth.require_auth(request):
+            return err
+
+        webhook_id = int(request.path_params["webhook_id"])
+        deleted = db.delete_webhook_log(webhook_id)
+
+        if not deleted:
+            return api_error("Webhook not found", "NOT_FOUND", 404)
+
+        return JSONResponse({"success": True})
+
     @mcp.custom_route("/api/v1/webhooks/courtlistener/{token}", methods=["POST"])
     async def receive_courtlistener_webhook(request):
         """
@@ -108,6 +122,14 @@ def register_webhook_routes(mcp):
                 "idempotency-key": idempotency_key,
                 "user-agent": request.headers.get("user-agent"),
             }
+
+            # TODO: Implement webhook processing logic
+            # Currently we just log webhooks - need to actually process them:
+            # 1. Match incoming docket alerts to cases in Galipo (by docket number, case name, etc.)
+            # 2. For matched cases: create tasks, events, or notes based on the alert type
+            # 3. For unmatched: maybe surface in UI for manual linking or ignore
+            # 4. Mark webhook as "completed" or "failed" based on processing result
+            # 5. Consider background job queue vs synchronous processing
 
             # Store the webhook for later processing
             result = db.create_webhook_log(

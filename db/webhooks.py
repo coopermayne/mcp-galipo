@@ -203,3 +203,10 @@ def idempotency_key_exists(idempotency_key: str) -> bool:
             (idempotency_key,)
         )
         return cur.fetchone() is not None
+
+
+def delete_webhook_log(webhook_id: int) -> bool:
+    """Delete a webhook log entry. Returns True if deleted, False if not found."""
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM webhook_logs WHERE id = %s RETURNING id", (webhook_id,))
+        return cur.fetchone() is not None
