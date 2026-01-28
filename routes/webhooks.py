@@ -8,6 +8,7 @@ No session authentication required - uses token-based validation.
 import os
 from fastapi.responses import JSONResponse
 
+import auth
 import database as db
 from .common import api_error
 
@@ -18,6 +19,39 @@ WEBHOOK_SECRET_COURTLISTENER = os.environ.get("WEBHOOK_SECRET_COURTLISTENER", ""
 
 def register_webhook_routes(mcp):
     """Register webhook receiver routes."""
+
+    @mcp.custom_route("/api/v1/webhooks", methods=["GET"])
+    async def list_webhooks(request):
+        """List all webhook logs with optional filtering."""
+        if err := auth.require_auth(request):
+            return err
+
+        source = request.query_params.get("source")
+        status = request.query_params.get("status")
+        limit = int(request.query_params.get("limit", "100"))
+        offset = int(request.query_params.get("offset", "0"))
+
+        webhooks = db.get_webhook_logs(
+            source=source,
+            processing_status=status,
+            limit=limit,
+            offset=offset,
+        )
+        return JSONResponse({"webhooks": webhooks})
+
+    @mcp.custom_route("/api/v1/webhooks/{webhook_id}", methods=["GET"])
+    async def get_webhook(request):
+        """Get a single webhook log by ID."""
+        if err := auth.require_auth(request):
+            return err
+
+        webhook_id = int(request.path_params["webhook_id"])
+        webhook = db.get_webhook_log_by_id(webhook_id)
+
+        if not webhook:
+            return api_error("Webhook not found", "NOT_FOUND", 404)
+
+        return JSONResponse({"webhook": webhook})
 
     @mcp.custom_route("/api/v1/webhooks/courtlistener/{token}", methods=["POST"])
     async def receive_courtlistener_webhook(request):
