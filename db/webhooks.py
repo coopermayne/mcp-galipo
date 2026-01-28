@@ -5,6 +5,7 @@ Stores incoming webhook events from external services (e.g., CourtListener)
 for later processing.
 """
 
+import json
 from typing import Optional, List
 from uuid import UUID
 
@@ -34,6 +35,9 @@ def create_webhook_log(
             if cur.fetchone():
                 return None  # Duplicate webhook
 
+        payload_json = json.dumps(payload) if payload else '{}'
+        headers_json = json.dumps(headers) if headers else '{}'
+
         cur.execute("""
             INSERT INTO webhook_logs (source, event_type, idempotency_key, payload, headers, proceeding_id)
             VALUES (%s, %s, %s, %s, %s, %s)
@@ -43,8 +47,8 @@ def create_webhook_log(
             source,
             event_type,
             idempotency_key,
-            payload if payload else {},
-            headers if headers else {},
+            payload_json,
+            headers_json,
             proceeding_id
         ))
         row = cur.fetchone()

@@ -49,43 +49,51 @@ def register_webhook_routes(mcp):
         # Extract idempotency key from headers (CourtListener sends this)
         idempotency_key = request.headers.get("idempotency-key")
 
-        # Check for duplicate if idempotency key provided
-        if idempotency_key and db.idempotency_key_exists(idempotency_key):
-            # Return 200 OK for duplicates (idempotent behavior)
-            return JSONResponse({"success": True, "duplicate": True})
-
-        # Parse webhook payload
+        # Parse webhook payload first (before any DB operations)
         try:
             payload = await request.json()
         except Exception:
             return api_error("Invalid JSON payload", "INVALID_PAYLOAD", 400)
 
-        # Extract event type from payload if available
-        # CourtListener webhooks have a "webhook" key with metadata
-        event_type = None
-        webhook_meta = payload.get("webhook", {})
-        if isinstance(webhook_meta, dict):
-            event_type = webhook_meta.get("event_type")
+        try:
+            # Check for duplicate if idempotency key provided
+            if idempotency_key and db.idempotency_key_exists(idempotency_key):
+                # Return 200 OK for duplicates (idempotent behavior)
+                return JSONResponse({"success": True, "duplicate": True})
 
-        # Capture headers for debugging (exclude sensitive ones)
-        headers_to_store = {
-            "content-type": request.headers.get("content-type"),
-            "idempotency-key": idempotency_key,
-            "user-agent": request.headers.get("user-agent"),
-        }
+            # Extract event type from payload if available
+            # CourtListener webhooks have a "webhook" key with metadata
+            event_type = None
+            webhook_meta = payload.get("webhook", {})
+            if isinstance(webhook_meta, dict):
+                event_type = webhook_meta.get("event_type")
 
-        # Store the webhook for later processing
-        result = db.create_webhook_log(
-            source="courtlistener",
-            payload=payload,
-            event_type=event_type,
-            idempotency_key=idempotency_key,
-            headers=headers_to_store,
-        )
+            # Capture headers for debugging (exclude sensitive ones)
+            headers_to_store = {
+                "content-type": request.headers.get("content-type"),
+                "idempotency-key": idempotency_key,
+                "user-agent": request.headers.get("user-agent"),
+            }
 
-        if result is None:
-            # Duplicate (idempotency key exists) - return 200 OK
-            return JSONResponse({"success": True, "duplicate": True})
+            # Store the webhook for later processing
+            result = db.create_webhook_log(
+                source="courtlistener",
+                payload=payload,
+                event_type=event_type,
+                idempotency_key=idempotency_key,
+                headers=headers_to_store,
+            )
 
-        # Return 200 immediately (webhook will be processed asynchronously)
-        return JSONResponse({"success": True, "id": result["id"]})
+            if result is None:
+                # Duplicate (idempotency key exists) - return 200 OK
+                return JSONResponse({"success": True, "duplicate": True})
+
+            # Return 200 immediately (webhook will be processed asynchronously)
+            return JSONResponse({"success": True, "id": result["id"]})
+
+        except Exception as e:
+            # Log error but still return 200 to prevent CourtListener retries
+            # The webhook data is in the request, we can debug from logs
+            import logging
+            logging.error(f"Webhook processing error: {e}")
+            return api_error(f"Database error: {str(e)}", "DATABASE_ERROR", 500)
