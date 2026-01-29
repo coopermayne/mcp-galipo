@@ -78,6 +78,7 @@ Ground-up rebuild of all list rendering using flexible compound components. Repl
 
 ### Activity Log Enhancements
 Goal: Single scrollable view of case history. Encourage documenting during calls without polish.
+- [ ] **Unified activity/task timeline** - Merge activities and completed tasks into one chronological feed. Clicking "done" on a task adds it to the timeline alongside notes and conversations. Everything that happened on a case in one place.
 - [ ] **Note cleanup button** - AI-powered cleanup for typos/grammar
 - [ ] **Auto-generated summaries** - Descriptive titles for lengthy entries
 - [ ] **Task integration** - Show completed tasks in activity log
