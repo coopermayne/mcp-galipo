@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Pre-commit hook: Regenerate schema diagram when database changes
+#
+# Install this hook by running:
+#   ./scripts/install-hooks.sh
+#
+# Or manually:
+#   cp scripts/hooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+
+# Check if any database-related files are staged
+STAGED_FILES=$(git diff --cached --name-only)
+
+# Patterns that should trigger schema regeneration
+SCHEMA_TRIGGERS="migrations/|db/connection.py"
+
+if echo "$STAGED_FILES" | grep -qE "$SCHEMA_TRIGGERS"; then
+    echo "Database changes detected, regenerating schema diagram..."
+
+    # Check if we can run the script (need .env and database)
+    if [ -f ".env" ]; then
+        # Load environment
+        set -a
+        source .env
+        set +a
+
+        # Run the schema generator (use venv if available)
+        PYTHON="${PWD}/.venv/bin/python"
+        [ ! -f "$PYTHON" ] && PYTHON="python3"
+        if $PYTHON scripts/generate_schema_diagram.py 2>/dev/null; then
+            # Stage the updated schema.md if it changed
+            if git diff --quiet docs/schema.md 2>/dev/null; then
+                echo "Schema diagram unchanged"
+            else
+                git add docs/schema.md
+                echo "✓ Schema diagram updated and staged"
+            fi
+        else
+            echo "⚠ Could not regenerate schema diagram (database not available?)"
+            echo "  Run 'python scripts/generate_schema_diagram.py' manually when database is up"
+        fi
+    else
+        echo "⚠ No .env file found, skipping schema diagram generation"
+    fi
+fi
+
+exit 0
