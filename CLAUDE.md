@@ -45,7 +45,12 @@ psql $DATABASE_URL
 
 # Reset database (development only)
 RESET_DB=true python main.py
+
+# Generate schema diagram (auto-runs on commit if migrations changed)
+python scripts/generate_schema_diagram.py
 ```
+
+**Schema Diagram**: The `docs/schema.md` file contains an auto-generated Mermaid ER diagram of the database schema. It updates automatically via a pre-commit hook when you commit changes to `migrations/` or `db/connection.py`. You can also regenerate it manually with the command above.
 
 ## Architecture
 
