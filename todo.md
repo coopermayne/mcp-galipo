@@ -133,6 +133,10 @@ Track case expenses with smart document processing.
 - [ ] **Case association** - Link costs to specific cases
 - [ ] **Batch import (reach)** - Drag entire costs folder, AI processes all with duplicate detection
 
+### Case Page Contacts
+- [ ] Show client contact info (phones/emails) in the Clients section
+- [ ] Add "Other" section for people not in existing categories (Clients, Defendants, Judges, Experts, etc.)
+
 ### Other
 - [ ] Person type filtering in autocomplete search
 - [ ] Bulk person assignment

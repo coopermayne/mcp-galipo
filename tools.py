@@ -502,7 +502,11 @@ def register_tools(mcp):
         notes: Optional[str] = None,
         archived: Optional[bool] = None
     ) -> dict:
-        """Create or update a person (client, attorney, judge, expert, etc.)."""
+        """Create or update a person. Pass person_id to update existing.
+
+        phones schema: [{"value": "555-123-4567", "label": "Mobile", "primary": true}]
+        emails schema: [{"value": "jane@firm.com", "label": "Work", "primary": true}]
+        """
         try:
             db.validate_person_type(person_type)
         except ValidationError as e:
