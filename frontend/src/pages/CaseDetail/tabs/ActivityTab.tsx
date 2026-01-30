@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Clock, CheckCircle, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, CheckCircle, Trash2, Plus, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { parseISO, isValid, format } from 'date-fns';
 import { formatSmartDate } from '../../../utils/dateFormat';
 import { ConfirmModal } from '../../../components/common';
@@ -21,7 +21,16 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
   const [activityDate, setActivityDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [minutes, setMinutes] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
-  const [isFormExpanded, setIsFormExpanded] = useState(true);
+  const [isFormExpanded, setIsFormExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Focus textarea when form expands
+  useEffect(() => {
+    if (isFormExpanded && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isFormExpanded]);
 
   const { data: constants } = useQuery<Constants>({
     queryKey: ['constants'],
@@ -75,11 +84,17 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
   // Build unified timeline from activities and completed tasks
   const timeline = useMemo<TimelineItem[]>(() => {
     const items: TimelineItem[] = [];
+    const query = searchQuery.toLowerCase().trim();
 
     // Add activities (with null safety)
     if (activities && Array.isArray(activities)) {
       for (const activity of activities) {
         if (activity && activity.date) {
+          // Filter by search query
+          if (query && !activity.description.toLowerCase().includes(query) &&
+              !activity.type.toLowerCase().includes(query)) {
+            continue;
+          }
           items.push({
             type: 'activity',
             data: activity,
@@ -95,6 +110,10 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
       for (const task of completedTasks) {
         const sortDate = task.completion_date || task.created_at;
         if (sortDate) {
+          // Filter by search query
+          if (query && !task.description.toLowerCase().includes(query)) {
+            continue;
+          }
           items.push({
             type: 'completed_task',
             data: task,
@@ -113,7 +132,7 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
     });
 
     return items;
-  }, [activities, tasks]);
+  }, [activities, tasks, searchQuery]);
 
   const formatDateTime = (dateStr: string) => {
     const date = parseISO(dateStr);
@@ -144,6 +163,7 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
           <form onSubmit={handleCreate} className="p-4">
             <div className="space-y-3">
               <textarea
+                ref={textareaRef}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the activity..."
@@ -220,10 +240,29 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
       {/* Timeline */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-          <h3 className="font-medium text-slate-900 dark:text-slate-100">Timeline</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Activities and completed tasks
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-medium text-slate-900 dark:text-slate-100">Timeline</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Activities and completed tasks
+              </p>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="
+                  pl-9 pr-3 py-1.5 w-48 rounded-lg border border-slate-300 dark:border-slate-600
+                  bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+                  focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+                  outline-none text-sm
+                "
+              />
+            </div>
+          </div>
         </div>
 
         <div className="divide-y divide-slate-200 dark:divide-slate-700">
