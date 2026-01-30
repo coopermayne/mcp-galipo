@@ -107,3 +107,10 @@ export type {
   EntityModalState,
   EntityModalContextValue,
 } from './modal';
+
+// Timeline types
+export type {
+  ActivityTimelineItem,
+  TaskTimelineItem,
+  TimelineItem,
+} from './timeline';
