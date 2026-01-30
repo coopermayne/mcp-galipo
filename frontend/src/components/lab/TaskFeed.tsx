@@ -9,6 +9,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -301,11 +302,17 @@ export function TaskFeed({
   // Hide case column when grouping by case (redundant info)
   const effectiveShowCase = showCase && groupBy !== 'case';
 
-  // dnd-kit sensors
+  // dnd-kit sensors - PointerSensor for mouse, TouchSensor for mobile
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
       },
     })
   );
