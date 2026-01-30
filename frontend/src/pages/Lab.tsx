@@ -15,7 +15,7 @@ import { Header, PageContent } from '../components/layout';
 import { TaskFeed, TaskDetailSheet, useTaskActions } from '../components/lab';
 import { getTasks } from '../api';
 import type { Task } from '../types';
-import { FlaskConical, GripVertical, List, Calendar, Briefcase, LayoutList } from 'lucide-react';
+import { GripVertical, List, Calendar, Briefcase, LayoutList } from 'lucide-react';
 
 type GroupMode = 'none' | 'date' | 'case';
 
@@ -95,7 +95,6 @@ export function Lab() {
       <Header
         title="Lab"
         subtitle="Todoist-style task list"
-        icon={<FlaskConical className="w-6 h-6" />}
       />
 
       <PageContent>
@@ -165,8 +164,8 @@ export function Lab() {
             sortable={sortable}
             groupBy={groupBy}
             emptyMessage="No active tasks"
-            onDelete={deleteTask}
-            onMarkDone={markDone}
+            onDelete={async (taskId) => { await deleteTask(taskId); }}
+            onMarkDone={async (taskId) => { await markDone(taskId); }}
             onTaskClick={handleTaskClick}
             onEditClick={handleEditClick}
             onReorder={handleReorder}
@@ -179,7 +178,7 @@ export function Lab() {
           task={selectedTask}
           isOpen={!!selectedTask}
           onClose={handleCloseDetail}
-          onMarkDone={markDone}
+          onMarkDone={(taskId) => { markDone(taskId); }}
           onPrevTask={handlePrevTask}
           onNextTask={handleNextTask}
           hasPrevTask={hasPrevTask}

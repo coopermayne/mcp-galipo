@@ -9,9 +9,13 @@ import {
   Webhook,
   Users,
   X,
+  Sun,
+  Moon,
+  LogOut,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getAuthToken } from '../../context/AuthContext';
+import { getAuthToken, useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -29,6 +33,8 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const { logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -98,8 +104,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           bg-white dark:bg-slate-900 text-slate-900 dark:text-white
           flex flex-col border-r border-slate-200 dark:border-transparent
           transition-transform duration-300 ease-in-out
-          md:static md:translate-x-0 md:w-56
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:sticky md:top-0 md:h-screen md:w-56
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
       >
         {/* Logo - matches header height and style */}
@@ -142,14 +148,28 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-slate-200 dark:border-slate-700">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-700 space-y-1">
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className={`w-4 h-4 ${isExporting ? 'animate-pulse' : ''}`} />
+            <Download className={`w-5 h-5 ${isExporting ? 'animate-pulse' : ''}`} />
             {isExporting ? 'Exporting...' : 'Export Data'}
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors"
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+          <button
+            onClick={logout}
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
           </button>
         </div>
       </aside>

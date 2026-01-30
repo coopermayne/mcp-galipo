@@ -1,7 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { ChevronRight, Home, LogOut, Sun, Moon, Menu } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { ChevronRight, Home, Menu } from 'lucide-react';
 import { useMobileSidebar } from './Layout';
 
 interface HeaderProps {
@@ -13,8 +11,6 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProps) {
   const location = useLocation();
-  const { logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { toggle: toggleMobileSidebar } = useMobileSidebar();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
@@ -75,24 +71,12 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
         ) : null}
       </div>
 
-      {/* Right side: actions + theme toggle + logout */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {actions}
-        <button
-          onClick={toggleTheme}
-          className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
-        <button
-          onClick={logout}
-          className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          title="Sign out"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
-      </div>
+      {/* Right side: page-specific actions */}
+      {actions && (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {actions}
+        </div>
+      )}
     </header>
   );
 }
