@@ -52,7 +52,8 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
 
         query = f"""
             SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
-                   e.description, e.document_link, e.calculation_note, e.starred
+                   e.description, e.document_link, e.calculation_note, e.starred,
+                   (SELECT COUNT(*) FROM tasks t WHERE t.event_id = e.id) as task_count
             FROM events e
             JOIN cases c ON e.case_id = c.id
             {where_clause}
@@ -84,7 +85,8 @@ def get_events(case_id: int = None) -> dict:
 
         cur.execute(f"""
             SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
-                   e.description, e.document_link, e.calculation_note, e.starred, e.created_at
+                   e.description, e.document_link, e.calculation_note, e.starred, e.created_at,
+                   (SELECT COUNT(*) FROM tasks t WHERE t.event_id = e.id) as task_count
             FROM events e
             JOIN cases c ON e.case_id = c.id
             {where_clause}
