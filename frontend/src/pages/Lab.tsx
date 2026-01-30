@@ -1,10 +1,13 @@
 /**
- * Lab - Experimental page for testing new unified task components
+ * Lab - Todoist-style task list experiment
  *
  * Route: /lab
  *
- * This page is for iterating on a new task list/row component
- * that can eventually replace the 5 different implementations.
+ * Testing the new Todoist-inspired task components with:
+ * - Date-based grouping (Overdue, Today, Tomorrow, etc.)
+ * - Case-based grouping (alphabetical)
+ * - Minimal task rows with hover actions
+ * - Priority shown via checkbox color
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -12,26 +15,26 @@ import { Header, PageContent } from '../components/layout';
 import { TaskFeed, useTaskActions } from '../components/lab';
 import { getTasks } from '../api';
 import type { Task } from '../types';
-import { Eye, EyeOff, FlaskConical, GripVertical, List } from 'lucide-react';
+import { FlaskConical, GripVertical, List, Calendar, Briefcase, LayoutList } from 'lucide-react';
+
+type GroupMode = 'none' | 'date' | 'case';
 
 export function Lab() {
-  const [showDone, setShowDone] = useState(false);
   const [sortable, setSortable] = useState(true);
+  const [groupBy, setGroupBy] = useState<GroupMode>('date');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // Fetch tasks
+  // Fetch active tasks only
   const { data: tasksData, isLoading } = useQuery({
-    queryKey: ['lab-tasks', { showDone }],
-    queryFn: () => getTasks(showDone ? { status: 'Done', limit: 20 } : { exclude_status: 'Done', limit: 20 }),
+    queryKey: ['lab-tasks'],
+    queryFn: () => getTasks({ exclude_status: 'Done', limit: 50 }),
   });
 
   // Use our unified hook for all task actions
   const {
-    updateField,
     markDone,
     deleteTask,
     mutations,
-    isUpdating,
     isDeleting,
   } = useTaskActions({
     invalidateKeys: [['lab-tasks']],
@@ -41,12 +44,19 @@ export function Lab() {
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
-    // TODO: Open task detail modal
     console.log('Task clicked:', task);
   };
 
+  const handleEditClick = (task: Task) => {
+    setSelectedTask(task);
+    console.log('Edit clicked:', task);
+  };
+
+  const handleAddTask = (dueDate?: string) => {
+    console.log('Add task for date:', dueDate);
+  };
+
   const handleReorder = (taskId: number, newIndex: number, reorderedTasks: Task[]) => {
-    // Calculate new sort_order based on neighbors
     let newSortOrder: number;
     if (newIndex === 0) {
       newSortOrder = (reorderedTasks[0]?.sort_order || 1000) - 500;
@@ -59,31 +69,55 @@ export function Lab() {
     }
 
     mutations.reorder.mutate({ taskId, sortOrder: newSortOrder });
-    console.log('Reorder:', { taskId, newIndex, newSortOrder });
   };
 
   return (
     <>
       <Header
         title="Lab"
-        subtitle="Experimental unified task components"
+        subtitle="Todoist-style task list"
         icon={<FlaskConical className="w-6 h-6" />}
       />
 
       <PageContent>
         {/* Controls */}
-        <div className="mb-6 flex items-center gap-4">
-          <button
-            onClick={() => setShowDone(!showDone)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              showDone
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            {showDone ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            {showDone ? 'Showing Done' : 'Showing Active'}
-          </button>
+        <div className="mb-6 flex items-center gap-2">
+          {/* Group by selector */}
+          <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <button
+              onClick={() => setGroupBy('none')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                groupBy === 'none'
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <LayoutList className="w-4 h-4" />
+              <span>List</span>
+            </button>
+            <button
+              onClick={() => setGroupBy('date')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ${
+                groupBy === 'date'
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Date</span>
+            </button>
+            <button
+              onClick={() => setGroupBy('case')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ${
+                groupBy === 'case'
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Case</span>
+            </button>
+          </div>
 
           <button
             onClick={() => setSortable(!sortable)}
@@ -94,49 +128,37 @@ export function Lab() {
             }`}
           >
             {sortable ? <GripVertical className="w-4 h-4" /> : <List className="w-4 h-4" />}
-            {sortable ? 'Sortable' : 'Static'}
+            {sortable ? 'Drag' : 'Static'}
           </button>
 
-          <div className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="text-sm text-slate-500 dark:text-slate-400 ml-2">
             {tasks.length} tasks
-            {(isUpdating || isDeleting) && ' (saving...)'}
+            {isDeleting && ' (saving...)'}
           </div>
         </div>
 
-        {/* Info panel */}
-        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-          <h3 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Experimental Components</h3>
-          <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
-            <li>- <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">TaskFeed</code>: Unified list with DndContext</li>
-            <li>- <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">TaskItem</code>: Unified row with useSortable</li>
-            <li>- <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">useTaskActions</code>: Unified mutations hook</li>
-            <li>- Toggle "Sortable" to enable/disable drag-and-drop</li>
-            <li>- Click status badge to cycle through statuses</li>
-            <li>- Drag handle appears when sortable is enabled</li>
-          </ul>
+        {/* The Todoist-style TaskFeed */}
+        <div className="max-w-2xl">
+          <TaskFeed
+            tasks={tasks}
+            isLoading={isLoading}
+            showCase={true}
+            sortable={sortable}
+            groupBy={groupBy}
+            emptyMessage="No active tasks"
+            onDelete={deleteTask}
+            onMarkDone={markDone}
+            onTaskClick={handleTaskClick}
+            onEditClick={handleEditClick}
+            onReorder={handleReorder}
+            onAddTask={handleAddTask}
+          />
         </div>
-
-        {/* The experimental TaskFeed */}
-        <TaskFeed
-          tasks={tasks}
-          isLoading={isLoading}
-          showCase={true}
-          showUrgency={true}
-          showDelete={true}
-          showQuickDone={true}
-          sortable={sortable}
-          emptyMessage={showDone ? 'No completed tasks' : 'No active tasks'}
-          onUpdate={updateField}
-          onDelete={deleteTask}
-          onMarkDone={markDone}
-          onTaskClick={handleTaskClick}
-          onReorder={handleReorder}
-        />
 
         {/* Selected task debug */}
         {selectedTask && (
-          <div className="mt-6 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg">
-            <h4 className="font-medium text-slate-700 dark:text-slate-300 mb-2">Selected Task (debug)</h4>
+          <div className="mt-6 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg max-w-2xl">
+            <h4 className="font-medium text-slate-700 dark:text-slate-300 mb-2">Selected Task</h4>
             <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-auto">
               {JSON.stringify(selectedTask, null, 2)}
             </pre>
