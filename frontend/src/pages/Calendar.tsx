@@ -7,7 +7,9 @@ import {
   EditableDate,
   EditableTime,
   ListPanel,
-  ConfirmModal,
+  DeleteEventModal,
+  CreateTaskFromEventModal,
+  CreateTaskButton,
 } from '../components/common';
 import { getEvents, updateEvent, deleteEvent } from '../api';
 import type { Event } from '../types';
@@ -30,8 +32,9 @@ const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColo
 export function Calendar() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [showPastEvents, setShowPastEvents] = useState(false);
+  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   const { data: eventsData, isLoading } = useQuery({
     queryKey: ['events', { showPast: showPastEvents }],
@@ -66,15 +69,15 @@ export function Calendar() {
   );
 
   const handleDelete = useCallback(
-    (eventId: number) => {
-      setDeleteTarget(eventId);
+    (event: Event) => {
+      setDeleteTarget({ id: event.id, description: event.description });
     },
     []
   );
 
   const confirmDelete = useCallback(() => {
     if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget);
+      deleteMutation.mutate(deleteTarget.id);
       setDeleteTarget(null);
     }
   }, [deleteTarget, deleteMutation]);
@@ -183,8 +186,9 @@ export function Calendar() {
           onSave={(value) => handleUpdate(event.id, 'time', value)}
         />
       </div>
+      <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
       <button
-        onClick={() => handleDelete(event.id)}
+        onClick={() => handleDelete(event)}
         className="p-1 text-slate-500 hover:text-red-400"
       >
         <Trash2 className="w-4 h-4" />
@@ -270,15 +274,20 @@ export function Calendar() {
         )}
       </PageContent>
 
-      <ConfirmModal
+      <DeleteEventModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Delete Event"
-        message="Are you sure you want to delete this event?"
-        confirmText="Delete Event"
-        variant="danger"
+        eventId={deleteTarget?.id ?? null}
+        eventDescription={deleteTarget?.description ?? ''}
         isLoading={deleteMutation.isPending}
+      />
+
+      <CreateTaskFromEventModal
+        isOpen={!!taskFromEvent}
+        onClose={() => setTaskFromEvent(null)}
+        event={taskFromEvent}
+        caseId={taskFromEvent?.case_id ?? 0}
       />
     </>
   );
