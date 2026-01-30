@@ -16,3 +16,4 @@ export { MentionTextarea } from './MentionTextarea';
 export { CreateTaskFromEventModal } from './CreateTaskFromEventModal';
 export { EventLinkBadge } from './EventLinkBadge';
 export { CreateTaskButton } from './CreateTaskButton';
+export { DeleteEventModal } from './DeleteEventModal';

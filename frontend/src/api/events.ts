@@ -40,3 +40,7 @@ export async function deleteEvent(eventId: number): Promise<{ success: boolean }
     method: 'DELETE',
   });
 }
+
+export async function getEventTasks(eventId: number): Promise<{ tasks: { id: number; description: string }[] }> {
+  return request(`/events/${eventId}/tasks`);
+}

@@ -42,6 +42,7 @@ export {
   createEvent,
   updateEvent,
   deleteEvent,
+  getEventTasks,
 } from './events';
 
 // Notes
