@@ -28,6 +28,8 @@ import {
   UrgencyBadge,
   PersonAutocomplete,
   AddPersonDropdown,
+  CreateTaskButton,
+  CreateTaskFromEventModal,
 } from '../../../components/common';
 import { DraggableTaskRow } from '../../../components/tasks';
 import { TaskDropZones } from '../../../components/docket';
@@ -190,6 +192,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   // Drag sensors
   const sensors = useSensors(
@@ -883,6 +886,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                     className="text-xs shrink-0"
                   />
                 )}
+                <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
               </div>
             ))}
             {(showPastEvents ? pastEvents : futureEvents).length === 0 && (
@@ -893,6 +897,13 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           </div>
         </div>
       </div>
+
+      <CreateTaskFromEventModal
+        isOpen={!!taskFromEvent}
+        onClose={() => setTaskFromEvent(null)}
+        event={taskFromEvent}
+        caseId={caseId}
+      />
     </div>
   );
 }

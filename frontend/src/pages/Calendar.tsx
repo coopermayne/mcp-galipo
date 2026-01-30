@@ -9,10 +9,11 @@ import {
   ListPanel,
   ConfirmModal,
   CreateTaskFromEventModal,
+  CreateTaskButton,
 } from '../components/common';
 import { getEvents, updateEvent, deleteEvent } from '../api';
 import type { Event } from '../types';
-import { Trash2, Search, Star, Eye, EyeOff, ListTodo } from 'lucide-react';
+import { Trash2, Search, Star, Eye, EyeOff } from 'lucide-react';
 
 // Deterministic color mapping for case badges
 const caseColorClasses = [
@@ -185,18 +186,7 @@ export function Calendar() {
           onSave={(value) => handleUpdate(event.id, 'time', value)}
         />
       </div>
-      <button
-        onClick={() => setTaskFromEvent(event)}
-        className="relative p-1 text-slate-500 hover:text-primary-500"
-        title="Create task from event"
-      >
-        <ListTodo className="w-4 h-4" />
-        {(event.task_count ?? 0) > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[10px] font-medium bg-primary-500 text-white rounded-full px-0.5">
-            {event.task_count}
-          </span>
-        )}
-      </button>
+      <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
       <button
         onClick={() => handleDelete(event.id)}
         className="p-1 text-slate-500 hover:text-red-400"
