@@ -141,10 +141,14 @@ export function TaskItem({
     }
   };
 
+  // On mobile, attach drag listeners to the row; on desktop, use the handle
+  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
+      {...(showDragHandle && isTouchDevice ? { ...attributes, ...listeners } : {})}
       className={`
         group relative flex items-start gap-2 px-3 py-2.5 md:px-2 md:py-2
         border-b border-slate-100 dark:border-slate-800
@@ -152,12 +156,13 @@ export function TaskItem({
         ${onClick ? 'cursor-pointer' : ''}
         ${isDragging ? 'shadow-lg rounded-lg bg-white dark:bg-slate-800 border border-primary-500' : ''}
         ${isHighlighted ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
+        ${showDragHandle && isTouchDevice ? 'touch-none' : ''}
       `}
       onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Drag handle - appears on hover, hidden on mobile */}
+      {/* Drag handle - appears on hover, desktop only */}
       <div className={`hidden md:flex w-6 flex-shrink-0 items-center justify-center pt-0.5 transition-opacity ${isHovered && showDragHandle ? 'opacity-100' : 'opacity-0'}`}>
         {showDragHandle && (
           <button

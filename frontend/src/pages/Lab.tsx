@@ -15,12 +15,11 @@ import { Header, PageContent } from '../components/layout';
 import { TaskFeed, TaskDetailSheet, useTaskActions } from '../components/lab';
 import { getTasks } from '../api';
 import type { Task } from '../types';
-import { GripVertical, List, Calendar, Briefcase, LayoutList } from 'lucide-react';
+import { Calendar, Briefcase, LayoutList } from 'lucide-react';
 
 type GroupMode = 'none' | 'date' | 'case';
 
 export function Lab() {
-  const [sortable, setSortable] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupMode>('date');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -137,18 +136,6 @@ export function Lab() {
             </button>
           </div>
 
-          <button
-            onClick={() => setSortable(!sortable)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              sortable
-                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            {sortable ? <GripVertical className="w-4 h-4" /> : <List className="w-4 h-4" />}
-            {sortable ? 'Drag' : 'Static'}
-          </button>
-
           <div className="text-sm text-slate-500 dark:text-slate-400 ml-2">
             {tasks.length} tasks
             {isDeleting && ' (saving...)'}
@@ -161,7 +148,7 @@ export function Lab() {
             tasks={tasks}
             isLoading={isLoading}
             showCase={true}
-            sortable={sortable}
+            sortable={true}
             groupBy={groupBy}
             emptyMessage="No active tasks"
             onDelete={async (taskId) => { await deleteTask(taskId); }}
