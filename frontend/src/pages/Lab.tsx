@@ -9,11 +9,12 @@
  * - Minimal task rows with hover actions
  * - Priority shown via checkbox color
  */
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useCallback, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { TaskFeed, TaskDetailSheet, useTaskActions } from '../components/lab';
-import { getTasks } from '../api';
+import { ToastContainer, useToast } from '../components/common';
+import { getTasks, updateTask } from '../api';
 import type { Task } from '../types';
 import { Calendar, Briefcase, LayoutList } from 'lucide-react';
 
@@ -22,6 +23,11 @@ type GroupMode = 'none' | 'date' | 'case';
 export function Lab() {
   const [groupBy, setGroupBy] = useState<GroupMode>('date');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { toasts, showToast, dismissToast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Track previous task states for undo (taskId -> previous status)
+  const previousStates = useRef<Map<number, string>>(new Map());
 
   // Fetch active tasks only
   const { data: tasksData, isLoading } = useQuery({
@@ -40,6 +46,32 @@ export function Lab() {
   });
 
   const tasks = tasksData?.tasks || [];
+
+  // Handle marking done with toast and undo support
+  const handleMarkDone = useCallback(async (taskId: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Store previous state for undo
+    previousStates.current.set(taskId, task.status);
+
+    // Mark as done
+    await markDone(taskId);
+
+    // Show toast with undo
+    showToast({
+      message: '1 task completed',
+      onUndo: async () => {
+        const prevStatus = previousStates.current.get(taskId);
+        if (prevStatus) {
+          await updateTask(taskId, { status: prevStatus });
+          queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          previousStates.current.delete(taskId);
+        }
+      },
+    });
+  }, [tasks, markDone, showToast, queryClient]);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
@@ -148,14 +180,13 @@ export function Lab() {
             tasks={tasks}
             isLoading={isLoading}
             showCase={true}
-            sortable={true}
+            sortable={false}
             groupBy={groupBy}
             emptyMessage="No active tasks"
             onDelete={async (taskId) => { await deleteTask(taskId); }}
-            onMarkDone={async (taskId) => { await markDone(taskId); }}
+            onMarkDone={handleMarkDone}
             onTaskClick={handleTaskClick}
             onEditClick={handleEditClick}
-            onReorder={handleReorder}
             onAddTask={handleAddTask}
           />
         </div>
@@ -165,13 +196,16 @@ export function Lab() {
           task={selectedTask}
           isOpen={!!selectedTask}
           onClose={handleCloseDetail}
-          onMarkDone={(taskId) => { markDone(taskId); }}
+          onMarkDone={handleMarkDone}
           onPrevTask={handlePrevTask}
           onNextTask={handleNextTask}
           hasPrevTask={hasPrevTask}
           hasNextTask={hasNextTask}
         />
       </PageContent>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </>
   );
 }

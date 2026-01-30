@@ -84,7 +84,7 @@ function formatSectionHeader(date: Date): { label: string; sublabel: string } {
 }
 
 /**
- * Group tasks by due date
+ * Group tasks by due date, sorting within each group by urgency
  */
 function groupTasksByDate(tasks: Task[]): DateGroup[] {
   const today = new Date();
@@ -123,32 +123,37 @@ function groupTasksByDate(tasks: Task[]): DateGroup[] {
 
   const result: DateGroup[] = [];
 
-  // Add overdue section first
+  // Add overdue section first (sorted by urgency, then by date oldest first)
   if (overdueTasks.length > 0) {
     result.push({
       key: 'overdue',
       label: 'Overdue',
       date: null,
-      tasks: overdueTasks,
+      tasks: sortTasksByUrgencyAndDate(overdueTasks),
       isOverdue: true,
       isCollapsible: true,
     });
   }
 
-  // Add date groups sorted by date
-  const sortedGroups = Array.from(groups.values()).sort((a, b) => {
-    if (!a.date || !b.date) return 0;
-    return a.date.getTime() - b.date.getTime();
-  });
+  // Add date groups sorted by date, tasks within sorted by urgency
+  const sortedGroups = Array.from(groups.values())
+    .sort((a, b) => {
+      if (!a.date || !b.date) return 0;
+      return a.date.getTime() - b.date.getTime();
+    })
+    .map(group => ({
+      ...group,
+      tasks: sortTasksByUrgency(group.tasks),
+    }));
   result.push(...sortedGroups);
 
-  // Add no-date section at the end
+  // Add no-date section at the end (sorted by urgency)
   if (noDateTasks.length > 0) {
     result.push({
       key: 'no-date',
       label: 'No due date',
       date: null,
-      tasks: noDateTasks,
+      tasks: sortTasksByUrgency(noDateTasks),
     });
   }
 
@@ -156,7 +161,7 @@ function groupTasksByDate(tasks: Task[]): DateGroup[] {
 }
 
 /**
- * Group tasks by case (alphabetically)
+ * Group tasks by case (alphabetically), sorting within each group by urgency then date
  */
 function groupTasksByCase(tasks: Task[]): DateGroup[] {
   const groups: Map<number, DateGroup> = new Map();
@@ -176,10 +181,20 @@ function groupTasksByCase(tasks: Task[]): DateGroup[] {
     groups.get(caseId)!.tasks.push(task);
   }
 
-  // Sort groups alphabetically by case name
-  return Array.from(groups.values()).sort((a, b) =>
-    a.label.localeCompare(b.label)
-  );
+  // Sort groups alphabetically by case name, tasks within by urgency then date
+  return Array.from(groups.values())
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map(group => ({
+      ...group,
+      tasks: sortTasksByUrgencyAndDate(group.tasks),
+    }));
+}
+
+/**
+ * Sort tasks by urgency only (high to low)
+ */
+function sortTasksByUrgency(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => b.urgency - a.urgency);
 }
 
 /**
@@ -280,6 +295,26 @@ export function TaskFeed({
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [recentlyDroppedId, setRecentlyDroppedId] = useState<number | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [completingTaskIds, setCompletingTaskIds] = useState<Set<number>>(new Set());
+
+  // Handle marking a task as done with animation
+  const handleMarkDone = useCallback((taskId: number) => {
+    // Start animation immediately
+    setCompletingTaskIds(prev => new Set(prev).add(taskId));
+
+    // After animation completes, trigger the actual callback
+    setTimeout(() => {
+      if (onMarkDone) {
+        onMarkDone(taskId);
+      }
+      // Clean up (the task will be removed from list after refetch anyway)
+      setCompletingTaskIds(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }, 400); // Match the CSS animation duration
+  }, [onMarkDone]);
 
   // Group tasks based on groupBy mode
   const groups = useMemo(() => {
@@ -311,8 +346,8 @@ export function TaskFeed({
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 5,
+        delay: 150,
+        tolerance: 8,
       },
     })
   );
@@ -401,8 +436,9 @@ export function TaskFeed({
           showCase={effectiveShowCase}
           showDragHandle={showDragHandle}
           isHighlighted={task.id === recentlyDroppedId}
+          isCompleting={completingTaskIds.has(task.id)}
           onDelete={handleDeleteClick}
-          onMarkDone={onMarkDone ? () => onMarkDone(task.id) : undefined}
+          onMarkDone={onMarkDone ? () => handleMarkDone(task.id) : undefined}
           onClick={onTaskClick}
           onEdit={onEditClick}
         />
