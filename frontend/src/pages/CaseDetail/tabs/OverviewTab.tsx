@@ -28,6 +28,8 @@ import {
   UrgencyBadge,
   PersonAutocomplete,
   AddPersonDropdown,
+  DraggablePersonChip,
+  UnnestDropZone,
 } from '../../../components/common';
 import { DraggableTaskRow } from '../../../components/tasks';
 import { TaskDropZones } from '../../../components/docket';
@@ -36,6 +38,7 @@ import { useDragContext } from '../../../context/DragContext';
 import {
   createPerson,
   assignPersonToCase,
+  updateCaseAssignment,
   updateTask,
   updateEvent,
   updateDocket,
@@ -190,6 +193,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
 
   // Drag sensors
   const sensors = useSensors(
@@ -204,9 +208,37 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
       p.role === 'Client' || p.role === 'Guardian Ad Litem' || p.role === 'Plaintiff Contact'
     ), [caseData.persons]);
 
+  // Group clients by parent (for GAL -> Kids nesting)
+  const groupedClients = useMemo(() => {
+    const roots = clients.filter(c => !c.grouped_under_id);
+    const nestedByParent = new Map<number, CasePerson[]>();
+    clients.filter(c => c.grouped_under_id).forEach(c => {
+      const parentId = c.grouped_under_id!;
+      if (!nestedByParent.has(parentId)) {
+        nestedByParent.set(parentId, []);
+      }
+      nestedByParent.get(parentId)!.push(c);
+    });
+    return { roots, nestedByParent };
+  }, [clients]);
+
   const defendants = useMemo(() =>
     (caseData.persons || []).filter(p => p.role === 'Defendant'),
     [caseData.persons]);
+
+  // Group defendants by parent (for Org -> Employee nesting)
+  const groupedDefendants = useMemo(() => {
+    const roots = defendants.filter(d => !d.grouped_under_id);
+    const nestedByParent = new Map<number, CasePerson[]>();
+    defendants.filter(d => d.grouped_under_id).forEach(d => {
+      const parentId = d.grouped_under_id!;
+      if (!nestedByParent.has(parentId)) {
+        nestedByParent.set(parentId, []);
+      }
+      nestedByParent.get(parentId)!.push(d);
+    });
+    return { roots, nestedByParent };
+  }, [defendants]);
 
   const judges = useMemo(() =>
     (caseData.persons || []).filter(p => p.role === 'Judge' || p.role === 'Magistrate Judge'),
@@ -218,6 +250,20 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
       .filter(p => counselOrder.includes(p.role || ''))
       .sort((a, b) => counselOrder.indexOf(a.role || '') - counselOrder.indexOf(b.role || ''));
   }, [caseData.persons]);
+
+  // Group counsel by parent (for Lead Attorney -> Associates nesting)
+  const groupedCounsel = useMemo(() => {
+    const roots = counsel.filter(c => !c.grouped_under_id);
+    const nestedByParent = new Map<number, CasePerson[]>();
+    counsel.filter(c => c.grouped_under_id).forEach(c => {
+      const parentId = c.grouped_under_id!;
+      if (!nestedByParent.has(parentId)) {
+        nestedByParent.set(parentId, []);
+      }
+      nestedByParent.get(parentId)!.push(c);
+    });
+    return { roots, nestedByParent };
+  }, [counsel]);
 
   const experts = useMemo(() => {
     const all = (caseData.persons || []).filter(p =>
@@ -468,6 +514,13 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     },
   });
 
+  // Mutation for updating person nesting (grouped_under_id)
+  const updateNestingMutation = useMutation({
+    mutationFn: ({ personId, role, grouped_under_id }: { personId: number; role: string; grouped_under_id: number | null }) =>
+      updateCaseAssignment(caseId, personId, { role, grouped_under_id }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
+  });
+
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) => updateTask(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
@@ -491,6 +544,18 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   const displayedTasks = showDoneTasks ? doneTasks : sortedActiveTasks;
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    const activeId = event.active.id.toString();
+
+    // Check if this is a person drag
+    if (activeId.startsWith('person-')) {
+      const personData = event.active.data.current?.person as CasePerson | undefined;
+      if (personData) {
+        setActivePerson(personData);
+      }
+      return;
+    }
+
+    // Otherwise it's a task drag
     const task = displayedTasks.find((t) => t.id === event.active.id);
     if (task) {
       setActiveTask(task);
@@ -500,6 +565,48 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    const activeId = active.id.toString();
+
+    // Handle person drag end
+    if (activeId.startsWith('person-')) {
+      setActivePerson(null);
+      if (!over) return;
+
+      const draggedPerson = active.data.current?.person as CasePerson | undefined;
+      if (!draggedPerson) return;
+
+      const overId = over.id.toString();
+
+      // Dropped on unnest zone - remove nesting
+      if (overId.startsWith('unnest-')) {
+        if (draggedPerson.grouped_under_id) {
+          updateNestingMutation.mutate({
+            personId: draggedPerson.id,
+            role: draggedPerson.role || '',
+            grouped_under_id: null,
+          });
+        }
+        return;
+      }
+
+      // Dropped on another person - nest under them
+      if (overId.startsWith('drop-person-')) {
+        const targetPerson = over.data.current?.person as CasePerson | undefined;
+        if (targetPerson && targetPerson.id !== draggedPerson.id) {
+          // Don't allow nesting under yourself or your own children
+          if (targetPerson.grouped_under_id !== draggedPerson.id) {
+            updateNestingMutation.mutate({
+              personId: draggedPerson.id,
+              role: draggedPerson.role || '',
+              grouped_under_id: targetPerson.id,
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle task drag end
     setActiveTask(null);
     endDrag();
 
@@ -518,7 +625,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     } else if (overId === 'drop-backburner') {
       docketMutation.mutate({ taskId: task.id, category: 'backburner' });
     }
-  }, [displayedTasks, updateTaskMutation, docketMutation, endDrag]);
+  }, [displayedTasks, updateTaskMutation, docketMutation, endDrag, updateNestingMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map(s => ({ value: s, label: s }));
 
@@ -553,14 +660,35 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               {/* Counsel - always show with add button */}
               <div className="flex items-start gap-2 text-sm">
                 <span className="text-slate-400 w-16 shrink-0 pt-1">Counsel:</span>
-                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                  {counsel.map(c => (
-                    <PersonChip key={c.assignment_id} person={c} onOpenDetail={() => openPersonModal(c.id, { caseId })} variant={getCounselVariant(c.role || '')} />
-                  ))}
-                  {counsel.length === 0 && (
-                    <span className="text-xs text-slate-400 italic pt-1">None</span>
-                  )}
-                </div>
+                <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                    {groupedCounsel.roots.map(c => (
+                      <div key={c.assignment_id} className="flex flex-col gap-1">
+                        <DraggablePersonChip
+                          person={c}
+                          onOpenDetail={() => openPersonModal(c.id, { caseId })}
+                          variant={getCounselVariant(c.role || '')}
+                          canBeDropTarget={true}
+                        />
+                        {/* Nested persons under this parent */}
+                        {groupedCounsel.nestedByParent.get(c.id)?.map(nested => (
+                          <DraggablePersonChip
+                            key={nested.assignment_id}
+                            person={nested}
+                            onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                            variant={getCounselVariant(nested.role || '')}
+                            isNested={true}
+                            canBeDropTarget={false}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                    {counsel.length === 0 && (
+                      <span className="text-xs text-slate-400 italic pt-1">None</span>
+                    )}
+                  </div>
+                  <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && counsel.some(c => c.id === activePerson.id)} sectionId="counsel" />
+                </DndContext>
                 <div className="pt-1 shrink-0">
                   <AddPersonDropdown
                     roleOptions={counselRoleOptions}
@@ -672,12 +800,35 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               />
             }
           />
-          <div className="flex flex-wrap gap-1">
-            {clients.map(client => (
-              <PersonChip key={client.assignment_id} person={client} onOpenDetail={() => openPersonModal(client.id, { caseId })} showStar variant="primary" />
-            ))}
-            {clients.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
-          </div>
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="flex flex-wrap gap-1">
+              {groupedClients.roots.map(client => (
+                <div key={client.assignment_id} className="flex flex-col gap-1">
+                  <DraggablePersonChip
+                    person={client}
+                    onOpenDetail={() => openPersonModal(client.id, { caseId })}
+                    showStar
+                    variant="primary"
+                    canBeDropTarget={true}
+                  />
+                  {/* Nested persons under this parent */}
+                  {groupedClients.nestedByParent.get(client.id)?.map(nested => (
+                    <DraggablePersonChip
+                      key={nested.assignment_id}
+                      person={nested}
+                      onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                      showStar
+                      variant="primary"
+                      isNested={true}
+                      canBeDropTarget={false}
+                    />
+                  ))}
+                </div>
+              ))}
+              {clients.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
+            </div>
+            <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && clients.some(c => c.id === activePerson.id)} sectionId="clients" />
+          </DndContext>
         </div>
 
         {/* Defendants */}
@@ -705,12 +856,31 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               />
             </div>
           )}
-          <div className="flex flex-wrap gap-1">
-            {defendants.map(def => (
-              <PersonChip key={def.assignment_id} person={def} onOpenDetail={() => openPersonModal(def.id, { caseId })} />
-            ))}
-            {defendants.length === 0 && !showAddDefendant && <p className="text-xs text-slate-400 italic">None</p>}
-          </div>
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="flex flex-wrap gap-1">
+              {groupedDefendants.roots.map(def => (
+                <div key={def.assignment_id} className="flex flex-col gap-1">
+                  <DraggablePersonChip
+                    person={def}
+                    onOpenDetail={() => openPersonModal(def.id, { caseId })}
+                    canBeDropTarget={true}
+                  />
+                  {/* Nested persons under this parent */}
+                  {groupedDefendants.nestedByParent.get(def.id)?.map(nested => (
+                    <DraggablePersonChip
+                      key={nested.assignment_id}
+                      person={nested}
+                      onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                      isNested={true}
+                      canBeDropTarget={false}
+                    />
+                  ))}
+                </div>
+              ))}
+              {defendants.length === 0 && !showAddDefendant && <p className="text-xs text-slate-400 italic">None</p>}
+            </div>
+            <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && defendants.some(d => d.id === activePerson.id)} sectionId="defendants" />
+          </DndContext>
         </div>
 
         {/* Experts */}

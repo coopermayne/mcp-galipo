@@ -717,7 +717,18 @@ def migrate_db():
         # 25. Remove any judge roles from case_persons (judges belong on proceedings only)
         cur.execute("DELETE FROM case_persons WHERE role IN ('Judge', 'Magistrate Judge')")
 
-        # 26. Add docket_category column to tasks for Daily Docket scheduling
+        # 26. Rename contact_via_person_id to grouped_under_id (idempotent)
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'case_persons' AND column_name = 'contact_via_person_id'
+            )
+        """)
+        if cur.fetchone()[0]:
+            cur.execute("ALTER TABLE case_persons RENAME COLUMN contact_via_person_id TO grouped_under_id")
+            print("  - Renamed contact_via_person_id to grouped_under_id")
+
+        # 28. Add docket_category column to tasks for Daily Docket scheduling
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.columns
@@ -728,7 +739,7 @@ def migrate_db():
             cur.execute("ALTER TABLE tasks ADD COLUMN docket_category VARCHAR(20)")
             print("  - Added docket_category column to tasks")
 
-        # 27. Add docket_order column to tasks for sorting within Daily Docket
+        # 29. Add docket_order column to tasks for sorting within Daily Docket
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.columns
@@ -739,7 +750,7 @@ def migrate_db():
             cur.execute("ALTER TABLE tasks ADD COLUMN docket_order INTEGER")
             print("  - Added docket_order column to tasks")
 
-        # 28. Create webhook_logs table for storing incoming webhooks
+        # 30. Create webhook_logs table for storing incoming webhooks
         cur.execute("""
             CREATE TABLE IF NOT EXISTS webhook_logs (
                 id SERIAL PRIMARY KEY,
@@ -847,7 +858,7 @@ def init_db():
                 case_attributes JSONB DEFAULT '{}',
                 case_notes TEXT,
                 is_primary BOOLEAN DEFAULT FALSE,
-                contact_via_person_id INTEGER REFERENCES persons(id),
+                grouped_under_id INTEGER REFERENCES persons(id),
                 assigned_date DATE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(case_id, person_id, role)

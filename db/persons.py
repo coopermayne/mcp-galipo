@@ -49,11 +49,11 @@ def get_person_by_id(person_id: int) -> Optional[dict]:
         cur.execute("""
             SELECT cp.id as assignment_id, cp.case_id, c.case_name, c.short_name,
                    cp.role, cp.side, cp.case_attributes, cp.case_notes,
-                   cp.is_primary, cp.contact_via_person_id,
-                   via.name as contact_via_name, cp.assigned_date, cp.created_at
+                   cp.is_primary, cp.grouped_under_id,
+                   via.name as grouped_under_name, cp.assigned_date, cp.created_at
             FROM case_persons cp
             JOIN cases c ON cp.case_id = c.id
-            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            LEFT JOIN persons via ON cp.grouped_under_id = via.id
             WHERE cp.person_id = %s
             ORDER BY c.case_name
         """, (person_id,))
@@ -172,7 +172,7 @@ def delete_person(person_id: int) -> bool:
 
 def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = None,
                           case_attributes: dict = None, case_notes: str = None,
-                          is_primary: bool = False, contact_via_person_id: int = None,
+                          is_primary: bool = False, grouped_under_id: int = None,
                           assigned_date: str = None) -> dict:
     """Assign a person to a case with a specific role."""
     validate_case_person_role(role)
@@ -185,18 +185,18 @@ def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = N
     with get_cursor() as cur:
         cur.execute("""
             INSERT INTO case_persons (case_id, person_id, role, side, case_attributes,
-                                      case_notes, is_primary, contact_via_person_id, assigned_date)
+                                      case_notes, is_primary, grouped_under_id, assigned_date)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (case_id, person_id, role) DO UPDATE SET
                 side = EXCLUDED.side,
                 case_attributes = EXCLUDED.case_attributes,
                 case_notes = EXCLUDED.case_notes,
                 is_primary = EXCLUDED.is_primary,
-                contact_via_person_id = EXCLUDED.contact_via_person_id,
+                grouped_under_id = EXCLUDED.grouped_under_id,
                 assigned_date = EXCLUDED.assigned_date
             RETURNING id
         """, (case_id, person_id, role, side, case_attrs_json, case_notes,
-              is_primary, contact_via_person_id, assigned_date))
+              is_primary, grouped_under_id, assigned_date))
         assignment_id = cur.fetchone()["id"]
 
         # Return full assignment details
@@ -204,12 +204,12 @@ def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = N
             SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
                    p.attributes, p.notes as person_notes,
                    cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.case_notes, cp.is_primary, cp.grouped_under_id,
                    cp.assigned_date, cp.created_at as assigned_at,
-                   via.name as contact_via_name
+                   via.name as grouped_under_name
             FROM persons p
             JOIN case_persons cp ON p.id = cp.person_id
-            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            LEFT JOIN persons via ON cp.grouped_under_id = via.id
             WHERE cp.id = %s
         """, (assignment_id,))
         return serialize_row(dict(cur.fetchone()))
@@ -218,7 +218,7 @@ def assign_person_to_case(case_id: int, person_id: int, role: str, side: str = N
 def update_case_assignment(case_id: int, person_id: int, role: str, **kwargs) -> Optional[dict]:
     """Update a case-person assignment."""
     allowed_fields = ["side", "case_attributes", "case_notes", "is_primary",
-                      "contact_via_person_id", "assigned_date"]
+                      "grouped_under_id", "assigned_date"]
     updates = []
     params = []
 
@@ -256,12 +256,12 @@ def update_case_assignment(case_id: int, person_id: int, role: str, **kwargs) ->
             SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
                    p.attributes, p.notes as person_notes,
                    cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.case_notes, cp.is_primary, cp.grouped_under_id,
                    cp.assigned_date, cp.created_at as assigned_at,
-                   via.name as contact_via_name
+                   via.name as grouped_under_name
             FROM persons p
             JOIN case_persons cp ON p.id = cp.person_id
-            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            LEFT JOIN persons via ON cp.grouped_under_id = via.id
             WHERE cp.id = %s
         """, (assignment_id,))
         return serialize_row(dict(cur.fetchone()))
@@ -310,12 +310,12 @@ def get_case_persons(case_id: int, person_type: str = None, role: str = None,
             SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
                    p.attributes, p.notes as person_notes,
                    cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.case_notes, cp.is_primary, cp.grouped_under_id,
                    cp.assigned_date, cp.created_at as assigned_at,
-                   via.name as contact_via_name
+                   via.name as grouped_under_name
             FROM persons p
             JOIN case_persons cp ON p.id = cp.person_id
-            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            LEFT JOIN persons via ON cp.grouped_under_id = via.id
             WHERE {where_clause}
             ORDER BY cp.role, p.name
         """, params)

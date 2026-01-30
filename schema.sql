@@ -81,7 +81,7 @@ CREATE TABLE case_persons (
     case_attributes JSONB DEFAULT '{}',
     case_notes TEXT,
     is_primary BOOLEAN DEFAULT FALSE,
-    contact_via_person_id INTEGER REFERENCES persons(id),
+    grouped_under_id INTEGER REFERENCES persons(id),
     assigned_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(case_id, person_id, role)

@@ -542,7 +542,7 @@ def register_tools(mcp):
         case_attributes: Optional[dict] = None,
         case_notes: Optional[str] = None,
         is_primary: bool = False,
-        contact_via_person_id: Optional[int] = None,
+        grouped_under_id: Optional[int] = None,
         assigned_date: Optional[str] = None
     ) -> dict:
         """Link a person to a case with a role. Note: judges go on proceedings, not cases."""
@@ -560,7 +560,7 @@ def register_tools(mcp):
                 return invalid_date_format_error(assigned_date, "assigned_date")
         result = db.assign_person_to_case(case_id=case_id, person_id=person_id, role=role, side=side,
                                            case_attributes=case_attributes, case_notes=case_notes,
-                                           is_primary=is_primary, contact_via_person_id=contact_via_person_id,
+                                           is_primary=is_primary, grouped_under_id=grouped_under_id,
                                            assigned_date=assigned_date)
         if not result:
             return validation_error("Could not create assignment", hint="Verify both case_id and person_id exist")
