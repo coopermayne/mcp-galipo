@@ -319,9 +319,20 @@ export function TaskItem({
           {task.description}
         </div>
 
-        {/* Metadata row: date + event link on left, case on right */}
-        <div className="flex items-center justify-between mt-0.5 gap-3">
-          <div className="flex items-center gap-3">
+        {/* Metadata row: case, date, event link - all inline */}
+        <div className="flex items-center mt-0.5 gap-3">
+          {/* Case/Project link */}
+          {showCase && (
+            <Link
+              to={`/cases/${task.case_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              title={task.case_name || `Case #${task.case_id}`}
+            >
+              <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
+            </Link>
+          )}
             {/* Due date with inline picker - wrapped to stop propagation */}
             <div onClick={(e) => e.stopPropagation()}>
               <DatePicker
@@ -360,34 +371,26 @@ export function TaskItem({
               />
             </div>
 
-            {/* Event link indicator */}
-            {task.event_id && task.event_date && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onEventLinkClick) onEventLinkClick(task, e);
-                }}
-                className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-600 hover:underline"
-                title={task.event_description || 'Linked event'}
-              >
-                <Link2 className="w-3 h-3 flex-shrink-0" />
-                <span>{formatRelativeDate(task.event_date).text}</span>
-              </button>
-            )}
-          </div>
-
-          {/* Case/Project link */}
-          {showCase && (
-            <Link
-              to={`/cases/${task.case_id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-              title={task.case_name || `Case #${task.case_id}`}
+            {/* Event link - always visible */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onEventLinkClick) onEventLinkClick(task, e);
+              }}
+              className={`flex items-center gap-1 text-xs hover:underline ${
+                task.event_id
+                  ? 'text-primary-500 hover:text-primary-600'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+              }`}
+              title={task.event_id && task.event_description ? task.event_description : 'Add event'}
             >
-              <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
-              <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
-            </Link>
-          )}
+              <Link2 className="w-3 h-3 flex-shrink-0" />
+              <span>
+                {task.event_id && task.event_date
+                  ? formatRelativeDate(task.event_date).text
+                  : 'Add event'}
+              </span>
+            </button>
         </div>
       </div>
 
@@ -399,20 +402,6 @@ export function TaskItem({
           title="Edit"
         >
           <Pencil className="w-4 h-4" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onEventLinkClick) onEventLinkClick(task, e);
-          }}
-          className={`p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded ${
-            task.event_id
-              ? 'text-primary-500 hover:text-primary-600'
-              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-          }`}
-          title={task.event_id ? `Linked to: ${task.event_description || 'event'}` : 'Link to event'}
-        >
-          <Link2 className="w-4 h-4" />
         </button>
         <button
           onClick={(e) => {
