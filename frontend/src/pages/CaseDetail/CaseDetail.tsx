@@ -1,15 +1,15 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, FileText, CheckSquare, Clock, StickyNote, Settings } from 'lucide-react';
+import { Loader2, FileText, CheckSquare, Clock, StickyNote, History, Settings } from 'lucide-react';
 import { PageContent } from '../../components/layout';
 import { ConfirmModal } from '../../components/common';
 import { getCase, getConstants, updateCase, deleteCase } from '../../api';
 import type { Case } from '../../types';
-import { OverviewTab, TasksTab, EventsTab, NotesTab, SettingsTab } from './tabs';
+import { OverviewTab, TasksTab, EventsTab, NotesTab, ActivityTab, SettingsTab } from './tabs';
 import { CaseHeader } from './components';
 
-type TabType = 'overview' | 'tasks' | 'events' | 'notes' | 'settings';
+type TabType = 'overview' | 'tasks' | 'events' | 'notes' | 'activity' | 'settings';
 
 export function CaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -73,14 +73,15 @@ export function CaseDetail() {
     [constants]
   );
 
-  // Keyboard shortcuts: 1-5 for tab navigation
+  // Keyboard shortcuts: 1-6 for tab navigation
   useEffect(() => {
     const tabKeys: Record<string, TabType> = {
       '1': 'overview',
       '2': 'tasks',
       '3': 'events',
       '4': 'notes',
-      '5': 'settings',
+      '5': 'activity',
+      '6': 'settings',
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -124,6 +125,7 @@ export function CaseDetail() {
     { id: 'tasks' as TabType, label: 'Tasks', icon: CheckSquare, count: caseData.tasks?.length },
     { id: 'events' as TabType, label: 'Events', icon: Clock, count: caseData.events?.length },
     { id: 'notes' as TabType, label: 'Notes', icon: StickyNote, count: caseData.notes?.length },
+    { id: 'activity' as TabType, label: 'Activity', icon: History, count: caseData.activities?.length },
     { id: 'settings' as TabType, label: 'Settings', icon: Settings },
   ];
 
@@ -188,12 +190,19 @@ export function CaseDetail() {
           <NotesTab caseId={caseId} notes={caseData.notes || []} persons={caseData.persons || []} />
         </PageContent>
       )}
+      {activeTab === 'activity' && (
+        <PageContent>
+          <ActivityTab
+            caseId={caseId}
+            activities={caseData.activities || []}
+            tasks={caseData.tasks || []}
+          />
+        </PageContent>
+      )}
       {activeTab === 'settings' && (
         <PageContent>
           <SettingsTab
-            caseId={caseId}
             caseName={caseData.case_name}
-            activities={caseData.activities || []}
             onDelete={handleDelete}
           />
         </PageContent>

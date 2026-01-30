@@ -175,6 +175,12 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
             validate_task_status(status)
         updates.append("status = %s")
         params.append(status)
+        # Auto-set completion_date when marking as Done (if not explicitly provided)
+        if status == "Done" and completion_date is _NOT_PROVIDED:
+            updates.append("completion_date = CURRENT_DATE")
+        # Clear completion_date when unmarking from Done (if not explicitly provided)
+        elif status is not None and status != "Done" and completion_date is _NOT_PROVIDED:
+            updates.append("completion_date = NULL")
 
     if urgency is not _NOT_PROVIDED:
         if urgency is not None:
