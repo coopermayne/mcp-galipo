@@ -14,6 +14,7 @@ export { AddPersonDropdown } from './AddPersonDropdown';
 export { MentionDropdown } from './MentionDropdown';
 export { MentionTextarea } from './MentionTextarea';
 export { CreateTaskFromEventModal } from './CreateTaskFromEventModal';
+export { CreateTaskModal } from './CreateTaskModal';
 export { EventLinkBadge } from './EventLinkBadge';
 export { CreateTaskButton } from './CreateTaskButton';
 export { DeleteEventModal } from './DeleteEventModal';

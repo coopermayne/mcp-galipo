@@ -206,7 +206,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
   // Filter persons by role
   const clients = useMemo(() =>
     (caseData.persons || []).filter(p =>
-      p.role === 'Client' || p.role === 'Guardian Ad Litem' || p.role === 'Plaintiff Contact'
+      p.role === 'Client' || p.role === 'Guardian Ad Litem' || p.role === 'Plaintiff Contact' || p.role === 'Decedent'
     ), [caseData.persons]);
 
   // Group clients by parent (for GAL -> Kids nesting)
@@ -283,7 +283,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
 
   // "Other" roles not covered by specific sections
   const coveredRoles = [
-    'Client', 'Guardian Ad Litem', 'Plaintiff Contact',
+    'Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent',
     'Defendant',
     'Judge', 'Magistrate Judge',
     'Opposing Counsel', 'Co-Counsel', 'Referring Attorney',
@@ -339,7 +339,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     [events]);
 
   // Role options
-  const clientRoleOptions = ['Client', 'Guardian Ad Litem', 'Plaintiff Contact'];
+  const clientRoleOptions = ['Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent'];
   const counselRoleOptions = ['Opposing Counsel', 'Co-Counsel', 'Referring Attorney'];
   const expertRoleOptions = ['Expert - Plaintiff', 'Expert - Defendant'];
   const otherRoleOptions = ['Witness', 'Interpreter', 'Insurance Adjuster', 'Lien Holder'];

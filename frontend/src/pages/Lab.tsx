@@ -14,9 +14,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { TaskFeed, TaskDetailSheet, EventLinkPopover, useTaskActions } from '../components/lab';
 import type { SheetFocusMode } from '../components/lab/TaskDetailSheet';
-import { ToastContainer, useToast } from '../components/common';
+import { ToastContainer, useToast, CreateTaskModal } from '../components/common';
 import { getTasks, updateTask } from '../api';
-import type { Task } from '../types';
+import type { Task, TaskStatus } from '../types';
 import { Calendar, Briefcase, LayoutList } from 'lucide-react';
 
 type GroupMode = 'none' | 'date' | 'case';
@@ -30,8 +30,11 @@ export function Lab() {
   const { toasts, showToast, dismissToast } = useToast();
   const queryClient = useQueryClient();
 
+  // Add task modal state
+  const [createTaskModal, setCreateTaskModal] = useState<{ dueDate?: string; caseId?: number } | null>(null);
+
   // Track previous task states for undo (taskId -> previous status)
-  const previousStates = useRef<Map<number, string>>(new Map());
+  const previousStates = useRef<Map<number, TaskStatus>>(new Map());
 
   // Fetch active tasks only
   const { data: tasksData, isLoading } = useQuery({
@@ -43,7 +46,6 @@ export function Lab() {
   const {
     markDone,
     deleteTask,
-    mutations,
     isDeleting,
   } = useTaskActions({
     invalidateKeys: [['lab-tasks']],
@@ -125,8 +127,8 @@ export function Lab() {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }, [queryClient]);
 
-  const handleAddTask = (dueDate?: string) => {
-    console.log('Add task for date:', dueDate);
+  const handleAddTask = (dueDate?: string, caseId?: number) => {
+    setCreateTaskModal({ dueDate, caseId });
   };
 
   // Navigation between tasks in the detail sheet
@@ -144,21 +146,6 @@ export function Lab() {
     if (hasNextTask) {
       setSelectedTask(tasks[selectedTaskIndex + 1]);
     }
-  };
-
-  const handleReorder = (taskId: number, newIndex: number, reorderedTasks: Task[]) => {
-    let newSortOrder: number;
-    if (newIndex === 0) {
-      newSortOrder = (reorderedTasks[0]?.sort_order || 1000) - 500;
-    } else if (newIndex >= reorderedTasks.length - 1) {
-      newSortOrder = (reorderedTasks[reorderedTasks.length - 1]?.sort_order || 0) + 1000;
-    } else {
-      const prev = reorderedTasks[newIndex - 1];
-      const next = reorderedTasks[newIndex + 1];
-      newSortOrder = Math.floor(((prev?.sort_order || 0) + (next?.sort_order || (prev?.sort_order || 0) + 1000)) / 2);
-    }
-
-    mutations.reorder.mutate({ taskId, sortOrder: newSortOrder });
   };
 
   return (
@@ -260,6 +247,15 @@ export function Lab() {
           />
         )}
       </PageContent>
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        isOpen={!!createTaskModal}
+        onClose={() => setCreateTaskModal(null)}
+        caseId={createTaskModal?.caseId}
+        dueDate={createTaskModal?.dueDate}
+        invalidateKeys={[['lab-tasks']]}
+      />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

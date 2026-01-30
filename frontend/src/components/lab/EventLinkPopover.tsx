@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Search, X, Link2, Calendar, Loader2 } from 'lucide-react';
+import { Search, X, Link2, Loader2 } from 'lucide-react';
 import { searchEvents } from '../../api';
 import type { Task, Event } from '../../types';
 

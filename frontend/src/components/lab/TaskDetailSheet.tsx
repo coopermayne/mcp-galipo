@@ -113,7 +113,7 @@ export function TaskDetailSheet({
     setEditedTitle(task?.description || '');
   }, [task?.description]);
 
-  // Handle initial focus
+  // Handle initial focus - respond to initialFocus changes even when sheet is already open
   useEffect(() => {
     if (isOpen && task && initialFocus) {
       // Small delay to ensure the sheet is rendered
@@ -140,7 +140,7 @@ export function TaskDetailSheet({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, task, initialFocus]);
+  }, [isOpen, task?.id, initialFocus]);
 
   // Reset pickers when task changes
   useEffect(() => {
@@ -360,8 +360,8 @@ export function TaskDetailSheet({
               </span>
             </Link>
 
-            {/* Due date */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800">
+            {/* Due date + Event Link */}
+            <div className="relative border-b border-slate-100 dark:border-slate-800 flex items-center">
               <DatePicker
                 selected={selectedDate}
                 onChange={handleDateChange}
@@ -439,7 +439,7 @@ export function TaskDetailSheet({
                 customInput={
                   <button
                     ref={dateButtonRef}
-                    className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                    className="flex items-center gap-4 px-4 py-3 flex-1 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     <Calendar className={`w-5 h-5 ${dateDisplay.color}`} />
                     <span className={`text-sm ${dateDisplay.color}`}>
@@ -448,6 +448,18 @@ export function TaskDetailSheet({
                   </button>
                 }
               />
+              {/* Event Link button */}
+              <button
+                ref={eventLinkButtonRef}
+                onClick={() => setShowEventLinkPopover(true)}
+                className="flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-l border-slate-100 dark:border-slate-800"
+                title={task.event_id && task.event_description ? task.event_description : 'Add event'}
+              >
+                <Link2 className={`w-5 h-5 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
+                <span className={`text-sm ${task.event_id ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400'}`}>
+                  {task.event_id && task.event_date ? task.event_date : 'Add event'}
+                </span>
+              </button>
             </div>
 
             {/* Priority */}
@@ -489,22 +501,6 @@ export function TaskDetailSheet({
               </div>,
               document.getElementById('datepicker-portal') || document.body
             )}
-
-            {/* Event Link */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800">
-              <button
-                ref={eventLinkButtonRef}
-                onClick={() => setShowEventLinkPopover(true)}
-                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                <Link2 className={`w-5 h-5 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
-                <span className={`text-sm ${task.event_id ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400'}`}>
-                  {task.event_id && task.event_description
-                    ? task.event_description
-                    : 'Link to event'}
-                </span>
-              </button>
-            </div>
 
             {/* Event Link Popover */}
             {showEventLinkPopover && (

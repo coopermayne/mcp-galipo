@@ -51,7 +51,7 @@ interface TaskFeedProps {
   /** Callback when tasks are reordered via drag-and-drop */
   onReorder?: (taskId: number, newIndex: number, tasks: Task[]) => void;
   /** Callback when "Add task" is clicked for a section */
-  onAddTask?: (dueDate?: string) => void;
+  onAddTask?: (dueDate?: string, caseId?: number) => void;
 }
 
 interface DateGroup {
@@ -490,7 +490,7 @@ export function TaskFeed({
 
                 {/* Add task button per section */}
                 {onAddTask && (
-                  <AddTaskButton onClick={() => onAddTask(group.date?.toISOString().split('T')[0])} />
+                  <AddTaskButton onClick={() => onAddTask(group.date?.toISOString().split('T')[0], group.caseId)} />
                 )}
               </>
             )}
