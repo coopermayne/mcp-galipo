@@ -592,15 +592,21 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
       // Dropped on another person - nest under them
       if (overId.startsWith('drop-person-')) {
         const targetPerson = over.data.current?.person as CasePerson | undefined;
-        if (targetPerson && targetPerson.id !== draggedPerson.id) {
-          // Don't allow nesting under yourself or your own children
-          if (targetPerson.grouped_under_id !== draggedPerson.id) {
-            updateNestingMutation.mutate({
-              personId: draggedPerson.id,
-              role: draggedPerson.role || '',
-              grouped_under_id: targetPerson.id,
-            });
-          }
+        const draggedHasChildren = active.data.current?.hasChildren as boolean | undefined;
+
+        // Don't allow nesting if:
+        // - Dropped on self
+        // - Target is already nested under dragged person
+        // - Dragged person has children (only one level of nesting allowed)
+        if (targetPerson &&
+            targetPerson.id !== draggedPerson.id &&
+            targetPerson.grouped_under_id !== draggedPerson.id &&
+            !draggedHasChildren) {
+          updateNestingMutation.mutate({
+            personId: draggedPerson.id,
+            role: draggedPerson.role || '',
+            grouped_under_id: targetPerson.id,
+          });
         }
       }
       return;
@@ -662,27 +668,32 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 <span className="text-slate-400 w-16 shrink-0 pt-1">Counsel:</span>
                 <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                   <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                    {groupedCounsel.roots.map(c => (
-                      <div key={c.assignment_id} className="flex flex-col gap-1">
-                        <DraggablePersonChip
-                          person={c}
-                          onOpenDetail={() => openPersonModal(c.id, { caseId })}
-                          variant={getCounselVariant(c.role || '')}
-                          canBeDropTarget={true}
-                        />
-                        {/* Nested persons under this parent */}
-                        {groupedCounsel.nestedByParent.get(c.id)?.map(nested => (
+                    {groupedCounsel.roots.map(c => {
+                      const children = groupedCounsel.nestedByParent.get(c.id) || [];
+                      return (
+                        <div key={c.assignment_id} className="flex flex-col gap-1">
                           <DraggablePersonChip
-                            key={nested.assignment_id}
-                            person={nested}
-                            onOpenDetail={() => openPersonModal(nested.id, { caseId })}
-                            variant={getCounselVariant(nested.role || '')}
-                            isNested={true}
-                            canBeDropTarget={false}
+                            person={c}
+                            onOpenDetail={() => openPersonModal(c.id, { caseId })}
+                            variant={getCounselVariant(c.role || '')}
+                            canBeDropTarget={true}
+                            hasChildren={children.length > 0}
                           />
-                        ))}
-                      </div>
-                    ))}
+                          {/* Nested persons under this parent */}
+                          {children.map((nested, idx) => (
+                            <DraggablePersonChip
+                              key={nested.assignment_id}
+                              person={nested}
+                              onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                              variant={getCounselVariant(nested.role || '')}
+                              isNested={true}
+                              isLastChild={idx === children.length - 1}
+                              canBeDropTarget={false}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
                     {counsel.length === 0 && (
                       <span className="text-xs text-slate-400 italic pt-1">None</span>
                     )}
@@ -802,29 +813,34 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           />
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="flex flex-wrap gap-1">
-              {groupedClients.roots.map(client => (
-                <div key={client.assignment_id} className="flex flex-col gap-1">
-                  <DraggablePersonChip
-                    person={client}
-                    onOpenDetail={() => openPersonModal(client.id, { caseId })}
-                    showStar
-                    variant="primary"
-                    canBeDropTarget={true}
-                  />
-                  {/* Nested persons under this parent */}
-                  {groupedClients.nestedByParent.get(client.id)?.map(nested => (
+              {groupedClients.roots.map(client => {
+                const children = groupedClients.nestedByParent.get(client.id) || [];
+                return (
+                  <div key={client.assignment_id} className="flex flex-col gap-1">
                     <DraggablePersonChip
-                      key={nested.assignment_id}
-                      person={nested}
-                      onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                      person={client}
+                      onOpenDetail={() => openPersonModal(client.id, { caseId })}
                       showStar
                       variant="primary"
-                      isNested={true}
-                      canBeDropTarget={false}
+                      canBeDropTarget={true}
+                      hasChildren={children.length > 0}
                     />
-                  ))}
-                </div>
-              ))}
+                    {/* Nested persons under this parent */}
+                    {children.map((nested, idx) => (
+                      <DraggablePersonChip
+                        key={nested.assignment_id}
+                        person={nested}
+                        onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                        showStar
+                        variant="primary"
+                        isNested={true}
+                        isLastChild={idx === children.length - 1}
+                        canBeDropTarget={false}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
               {clients.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
             </div>
             <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && clients.some(c => c.id === activePerson.id)} sectionId="clients" />
@@ -858,25 +874,30 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           )}
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="flex flex-wrap gap-1">
-              {groupedDefendants.roots.map(def => (
-                <div key={def.assignment_id} className="flex flex-col gap-1">
-                  <DraggablePersonChip
-                    person={def}
-                    onOpenDetail={() => openPersonModal(def.id, { caseId })}
-                    canBeDropTarget={true}
-                  />
-                  {/* Nested persons under this parent */}
-                  {groupedDefendants.nestedByParent.get(def.id)?.map(nested => (
+              {groupedDefendants.roots.map(def => {
+                const children = groupedDefendants.nestedByParent.get(def.id) || [];
+                return (
+                  <div key={def.assignment_id} className="flex flex-col gap-1">
                     <DraggablePersonChip
-                      key={nested.assignment_id}
-                      person={nested}
-                      onOpenDetail={() => openPersonModal(nested.id, { caseId })}
-                      isNested={true}
-                      canBeDropTarget={false}
+                      person={def}
+                      onOpenDetail={() => openPersonModal(def.id, { caseId })}
+                      canBeDropTarget={true}
+                      hasChildren={children.length > 0}
                     />
-                  ))}
-                </div>
-              ))}
+                    {/* Nested persons under this parent */}
+                    {children.map((nested, idx) => (
+                      <DraggablePersonChip
+                        key={nested.assignment_id}
+                        person={nested}
+                        onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                        isNested={true}
+                        isLastChild={idx === children.length - 1}
+                        canBeDropTarget={false}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
               {defendants.length === 0 && !showAddDefendant && <p className="text-xs text-slate-400 italic">None</p>}
             </div>
             <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && defendants.some(d => d.id === activePerson.id)} sectionId="defendants" />

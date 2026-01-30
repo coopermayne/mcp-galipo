@@ -23,8 +23,10 @@ interface DraggablePersonChipProps {
   showStar?: boolean;
   variant?: 'default' | 'primary' | 'muted' | 'danger' | 'success' | 'warning';
   isNested?: boolean;
+  isLastChild?: boolean;
   canBeDropTarget?: boolean;
   isDragDisabled?: boolean;
+  hasChildren?: boolean;
 }
 
 export function DraggablePersonChip({
@@ -33,10 +35,15 @@ export function DraggablePersonChip({
   showStar = false,
   variant = 'default',
   isNested = false,
+  isLastChild = true,
   canBeDropTarget = true,
   isDragDisabled = false,
+  hasChildren = false,
 }: DraggablePersonChipProps) {
   const [copiedField, setCopiedField] = useState<'phone' | 'email' | 'address' | null>(null);
+
+  // Parents with children can't be nested under others (only one level of nesting)
+  const canBeDragged = !isDragDisabled && !hasChildren;
 
   // Draggable setup
   const {
@@ -47,8 +54,8 @@ export function DraggablePersonChip({
     isDragging,
   } = useDraggable({
     id: `person-${person.id}-${person.role}`,
-    data: { person },
-    disabled: isDragDisabled,
+    data: { person, hasChildren },
+    disabled: !canBeDragged,
   });
 
   // Droppable setup (only if can be drop target)
@@ -113,7 +120,13 @@ export function DraggablePersonChip({
   } : undefined;
 
   return (
-    <div className={`relative ${isNested ? 'ml-6' : ''}`}>
+    <div className={`relative flex items-center ${isNested ? 'ml-4' : ''}`}>
+      {/* Tree connector for nested items */}
+      {isNested && (
+        <span className="text-slate-400 dark:text-slate-500 font-mono text-xs mr-1 select-none">
+          {isLastChild ? '└─' : '├─'}
+        </span>
+      )}
       <div
         ref={setRefs}
         style={style}
@@ -126,8 +139,8 @@ export function DraggablePersonChip({
         `}
         onClick={onOpenDetail}
       >
-        {/* Drag handle */}
-        {!isDragDisabled && (
+        {/* Drag handle - hidden if has children (can't nest parents) */}
+        {canBeDragged && (
           <span
             {...attributes}
             {...listeners}
