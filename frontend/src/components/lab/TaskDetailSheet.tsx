@@ -15,7 +15,6 @@ import {
   Flag,
   Briefcase,
   AlignLeft,
-  MessageSquare,
   Paperclip,
 } from 'lucide-react';
 import type { Task } from '../../types';

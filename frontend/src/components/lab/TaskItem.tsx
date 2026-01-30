@@ -146,7 +146,7 @@ export function TaskItem({
       ref={setNodeRef}
       style={style}
       className={`
-        group relative flex items-start gap-2 px-2 py-2
+        group relative flex items-start gap-2 px-3 py-2.5 md:px-2 md:py-2
         border-b border-slate-100 dark:border-slate-800
         transition-colors
         ${onClick ? 'cursor-pointer' : ''}
@@ -157,8 +157,8 @@ export function TaskItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Drag handle - appears on hover */}
-      <div className={`w-6 flex-shrink-0 flex items-center justify-center pt-0.5 transition-opacity ${isHovered && showDragHandle ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Drag handle - appears on hover, hidden on mobile */}
+      <div className={`hidden md:flex w-6 flex-shrink-0 items-center justify-center pt-0.5 transition-opacity ${isHovered && showDragHandle ? 'opacity-100' : 'opacity-0'}`}>
         {showDragHandle && (
           <button
             {...attributes}
@@ -193,72 +193,71 @@ export function TaskItem({
 
       {/* Content */}
       <div className="flex-1 min-w-0 pt-0.5">
-        {/* Title */}
-        <div className={`text-sm leading-tight ${isDone ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
+        {/* Title - single line, truncate */}
+        <div className={`text-sm leading-snug truncate ${isDone ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
           {task.description}
         </div>
 
-        {/* Metadata row */}
-        <div className="flex items-center gap-3 mt-1">
+        {/* Metadata row: date on left, case on right */}
+        <div className="flex items-center justify-between mt-0.5">
           {/* Due date */}
-          {dateInfo && (
+          {dateInfo ? (
             <div className={`flex items-center gap-1 text-xs ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3 h-3 flex-shrink-0" />
               <span>{dateInfo.text}</span>
             </div>
+          ) : (
+            <div />
+          )}
+
+          {/* Case/Project link */}
+          {showCase && (
+            <Link
+              to={`/cases/${task.case_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              title={task.case_name || `Case #${task.case_id}`}
+            >
+              <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
+              <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
+            </Link>
           )}
         </div>
       </div>
 
-      {/* Right side: hover actions + case */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Hover actions */}
-        <div className={`flex items-center gap-0.5 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-          <button
-            onClick={handleEditClick}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-            title="Edit"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-            title="Set due date"
-          >
-            <Calendar className="w-4 h-4" />
-          </button>
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-            title="Comments"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onDelete) onDelete(task.id);
-            }}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-            title="More actions"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Case/Project link */}
-        {showCase && (
-          <Link
-            to={`/cases/${task.case_id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-            title={task.case_name || `Case #${task.case_id}`}
-          >
-            <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
-            <Inbox className="w-3.5 h-3.5" />
-          </Link>
-        )}
+      {/* Hover actions - hidden on mobile */}
+      <div className={`hidden md:flex items-start gap-0.5 pt-0.5 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+        <button
+          onClick={handleEditClick}
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+          title="Edit"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+          title="Set due date"
+        >
+          <Calendar className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+          title="Comments"
+        >
+          <MessageSquare className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onDelete) onDelete(task.id);
+          }}
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+          title="More actions"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
