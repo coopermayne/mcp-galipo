@@ -38,6 +38,8 @@ export interface TaskItemProps {
   disableDrag?: boolean;
   /** Highlight this row (e.g., after drop) */
   isHighlighted?: boolean;
+  /** Whether this task is animating out (being marked done) */
+  isCompleting?: boolean;
   /** Callback when checkbox is clicked (mark done) */
   onMarkDone?: (taskId: number) => void;
   /** Callback when task row is clicked (for inline edit) */
@@ -90,6 +92,7 @@ export function TaskItem({
   showDragHandle = false,
   disableDrag = false,
   isHighlighted = false,
+  isCompleting = false,
   onMarkDone,
   onClick,
   onEdit,
@@ -120,6 +123,7 @@ export function TaskItem({
   const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
   const dateInfo = task.due_date ? formatRelativeDate(task.due_date) : null;
   const isDone = task.status === 'Done';
+  const showCompleted = isDone || isCompleting;
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -152,11 +156,12 @@ export function TaskItem({
       className={`
         group relative flex items-start gap-2 px-3 py-2.5 md:px-2 md:py-2
         border-b border-slate-100 dark:border-slate-800
-        transition-colors
+        transition-opacity duration-300 ease-out
         ${onClick ? 'cursor-pointer' : ''}
         ${isDragging ? 'shadow-lg rounded-lg bg-white dark:bg-slate-800 border border-primary-500' : ''}
         ${isHighlighted ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
-        ${showDragHandle && isTouchDevice ? 'touch-none' : ''}
+        ${showDragHandle && isTouchDevice ? 'touch-none active:bg-slate-100 dark:active:bg-slate-700 active:scale-[0.98]' : ''}
+        ${isCompleting ? 'opacity-0' : 'opacity-100'}
       `}
       onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
@@ -181,16 +186,22 @@ export function TaskItem({
         onClick={handleCheckboxClick}
         className={`
           w-5 h-5 mt-0.5 flex-shrink-0 rounded-full border-2
-          transition-all duration-150
-          ${isDone
-            ? 'bg-slate-400 border-slate-400'
+          transition-all duration-200
+          ${showCompleted
+            ? 'bg-green-500 border-green-500 scale-110'
             : priorityColor
           }
         `}
-        title={isDone ? 'Completed' : 'Mark as done'}
+        title={showCompleted ? 'Completed' : 'Mark as done'}
       >
-        {isDone && (
-          <svg className="w-full h-full text-white p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+        {showCompleted && (
+          <svg
+            className="w-full h-full text-white p-0.5 animate-[checkmark_0.2s_ease-out]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+          >
             <polyline points="20 6 9 17 4 12" />
           </svg>
         )}
@@ -199,7 +210,7 @@ export function TaskItem({
       {/* Content */}
       <div className="flex-1 min-w-0 pt-0.5">
         {/* Title - single line, truncate */}
-        <div className={`text-sm leading-snug truncate ${isDone ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
+        <div className={`text-sm leading-snug truncate transition-all duration-200 ${showCompleted ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
           {task.description}
         </div>
 

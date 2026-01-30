@@ -18,3 +18,6 @@ export { EventLinkBadge } from './EventLinkBadge';
 export { CreateTaskButton } from './CreateTaskButton';
 export { DeleteEventModal } from './DeleteEventModal';
 export { DraggablePersonChip, UnnestDropZone } from './DraggablePersonChip';
+export { ToastContainer } from './Toast';
+export type { ToastData } from './Toast';
+export { useToast } from './useToast';
