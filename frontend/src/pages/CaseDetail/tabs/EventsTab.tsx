@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff } from 'lucide-react';
-import { EditableText, EditableDate, EditableTime, ConfirmModal } from '../../../components/common';
+import { EditableText, EditableDate, EditableTime, DeleteEventModal, CreateTaskFromEventModal, CreateTaskButton } from '../../../components/common';
 import { createEvent, updateEvent, deleteEvent } from '../../../api';
 import type { Event } from '../../../types';
 
@@ -24,6 +24,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(
     null
   );
+  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   // Helper to parse date string as local time (not UTC)
   const parseLocalDate = (dateStr: string) => {
@@ -253,6 +254,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                     <Link className="w-4 h-4" />
                   </a>
                 )}
+                <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
                 <button
                   onClick={() => handleDelete(event)}
                   className="p-1 text-slate-500 hover:text-red-400"
@@ -298,15 +300,20 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
         )}
       </div>
 
-      <ConfirmModal
+      <DeleteEventModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Delete Event"
-        message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
-        confirmText="Delete Event"
-        variant="danger"
+        eventId={deleteTarget?.id ?? null}
+        eventDescription={deleteTarget?.description ?? ''}
         isLoading={deleteMutation.isPending}
+      />
+
+      <CreateTaskFromEventModal
+        isOpen={!!taskFromEvent}
+        onClose={() => setTaskFromEvent(null)}
+        event={taskFromEvent}
+        caseId={caseId}
       />
     </div>
   );

@@ -13,6 +13,10 @@ import {
   EditableTime,
   ListPanel,
   ConfirmModal,
+  EventLinkBadge,
+  CreateTaskButton,
+  CreateTaskFromEventModal,
+  DeleteEventModal,
 } from '../components/common';
 import { DraggableTaskRow } from '../components/tasks';
 import { TaskDropZones } from '../components/docket';
@@ -48,10 +52,11 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const { startDrag, endDrag } = useDragContext();
   const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
-  const [deleteEventTarget, setDeleteEventTarget] = useState<number | null>(null);
+  const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: number; description: string } | null>(null);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -194,15 +199,15 @@ export function Dashboard() {
   );
 
   const handleDeleteEvent = useCallback(
-    (eventId: number) => {
-      setDeleteEventTarget(eventId);
+    (event: Event) => {
+      setDeleteEventTarget({ id: event.id, description: event.description });
     },
     []
   );
 
   const confirmDeleteEvent = useCallback(() => {
     if (deleteEventTarget) {
-      deleteEventMutation.mutate(deleteEventTarget);
+      deleteEventMutation.mutate(deleteEventTarget.id);
       setDeleteEventTarget(null);
     }
   }, [deleteEventTarget, deleteEventMutation]);
@@ -301,12 +306,13 @@ export function Dashboard() {
                         >
                           {task.short_name || task.case_name || `Case #${task.case_id}`}
                         </Link>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
                           <EditableText
                             value={task.description}
                             onSave={(value) => handleUpdateTask(task.id, 'description', value)}
                             className="text-sm"
                           />
+                          <EventLinkBadge eventDescription={task.event_description} eventDate={task.event_date} />
                         </div>
                         <EditableDate
                           value={task.due_date || null}
@@ -414,8 +420,9 @@ export function Dashboard() {
                           onSave={(value) => handleUpdateEvent(event.id, 'time', value)}
                         />
                       </div>
+                      <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
                       <button
-                        onClick={() => handleDeleteEvent(event.id)}
+                        onClick={() => handleDeleteEvent(event)}
                         className="p-1 text-slate-500 hover:text-red-400"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -440,15 +447,20 @@ export function Dashboard() {
         isLoading={deleteTaskMutation.isPending}
       />
 
-      <ConfirmModal
+      <DeleteEventModal
         isOpen={!!deleteEventTarget}
         onClose={() => setDeleteEventTarget(null)}
         onConfirm={confirmDeleteEvent}
-        title="Delete Event"
-        message="Are you sure you want to delete this event?"
-        confirmText="Delete Event"
-        variant="danger"
+        eventId={deleteEventTarget?.id ?? null}
+        eventDescription={deleteEventTarget?.description ?? ''}
         isLoading={deleteEventMutation.isPending}
+      />
+
+      <CreateTaskFromEventModal
+        isOpen={!!taskFromEvent}
+        onClose={() => setTaskFromEvent(null)}
+        event={taskFromEvent}
+        caseId={taskFromEvent?.case_id ?? 0}
       />
     </>
   );

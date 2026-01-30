@@ -13,6 +13,7 @@ export interface Event {
   document_link?: string;
   calculation_note?: string;
   starred?: boolean;
+  task_count?: number;
   created_at: string;
 }
 

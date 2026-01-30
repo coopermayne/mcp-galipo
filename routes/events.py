@@ -68,9 +68,18 @@ def register_event_routes(mcp):
             return api_error("Event not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "event": result})
 
+    @mcp.custom_route("/api/v1/events/{event_id}/tasks", methods=["GET"])
+    async def api_get_event_tasks(request):
+        """Get tasks linked to an event."""
+        if err := auth.require_auth(request):
+            return err
+        event_id = int(request.path_params["event_id"])
+        tasks = await asyncio.to_thread(db.get_tasks_for_event, event_id)
+        return JSONResponse({"tasks": tasks})
+
     @mcp.custom_route("/api/v1/events/{event_id}", methods=["DELETE"])
     async def api_delete_event(request):
-        """Delete an event."""
+        """Delete an event and its linked tasks."""
         if err := auth.require_auth(request):
             return err
         event_id = int(request.path_params["event_id"])

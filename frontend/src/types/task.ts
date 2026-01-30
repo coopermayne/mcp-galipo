@@ -19,6 +19,7 @@ export interface Task {
   docket_order?: number | null;
   event_id?: number;
   event_description?: string;
+  event_date?: string;
   created_at: string;
 }
 
