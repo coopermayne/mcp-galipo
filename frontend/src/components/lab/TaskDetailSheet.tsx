@@ -5,7 +5,10 @@
  * Matches Todoist mobile task editing UX.
  */
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import DatePicker from 'react-datepicker';
+import { format, parse, isValid, getYear } from 'date-fns';
 import {
   X,
   ChevronUp,
@@ -16,27 +19,39 @@ import {
   Briefcase,
   AlignLeft,
   Paperclip,
+  Check,
+  Link2,
 } from 'lucide-react';
 import type { Task } from '../../types';
+import { EventLinkPopover } from './EventLinkPopover';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority config matching TaskItem
-const PRIORITY_CONFIG = {
-  4: { label: 'Priority 1', color: 'text-red-500', borderColor: 'border-red-500' },
-  3: { label: 'Priority 2', color: 'text-orange-500', borderColor: 'border-orange-500' },
-  2: { label: 'Priority 3', color: 'text-blue-500', borderColor: 'border-blue-500' },
-  1: { label: 'Priority 4', color: 'text-slate-400', borderColor: 'border-slate-300' },
-} as const;
+const PRIORITY_OPTIONS = [
+  { value: 4, label: 'Priority 1', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
+  { value: 3, label: 'Priority 2', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+  { value: 2, label: 'Priority 3', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  { value: 1, label: 'Priority 4', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
+] as const;
+
+const getPriorityConfig = (urgency: number) =>
+  PRIORITY_OPTIONS.find(p => p.value === urgency) || PRIORITY_OPTIONS[3];
+
+export type SheetFocusMode = 'title' | 'comment' | 'date' | null;
 
 interface TaskDetailSheetProps {
   task: Task | null;
   isOpen: boolean;
   onClose: () => void;
   onMarkDone?: (taskId: number) => void;
-  onUpdate?: (taskId: number, updates: Partial<Task>) => void;
+  onUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
+  onLinkEvent?: (taskId: number, eventId: number | null) => void;
   onPrevTask?: () => void;
   onNextTask?: () => void;
   hasPrevTask?: boolean;
   hasNextTask?: boolean;
+  /** What to focus when sheet opens */
+  initialFocus?: SheetFocusMode;
 }
 
 /**
@@ -76,18 +91,62 @@ export function TaskDetailSheet({
   onClose,
   onMarkDone,
   onUpdate,
+  onLinkEvent,
   onPrevTask,
   onNextTask,
   hasPrevTask = false,
   hasNextTask = false,
+  initialFocus = null,
 }: TaskDetailSheetProps) {
   const [editedTitle, setEditedTitle] = useState(task?.description || '');
-  const sheetRef = useRef<HTMLDivElement>(null);
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  const [priorityPickerPos, setPriorityPickerPos] = useState({ top: 0, left: 0 });
+  const [showEventLinkPopover, setShowEventLinkPopover] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
+  const dateButtonRef = useRef<HTMLButtonElement>(null);
+  const priorityButtonRef = useRef<HTMLButtonElement>(null);
+  const eventLinkButtonRef = useRef<HTMLButtonElement>(null);
 
   // Sync title when task changes
   useEffect(() => {
     setEditedTitle(task?.description || '');
   }, [task?.description]);
+
+  // Handle initial focus
+  useEffect(() => {
+    if (isOpen && task && initialFocus) {
+      // Small delay to ensure the sheet is rendered
+      const timer = setTimeout(() => {
+        switch (initialFocus) {
+          case 'title':
+            if (titleInputRef.current) {
+              titleInputRef.current.focus();
+              titleInputRef.current.select();
+            }
+            break;
+          case 'comment':
+            if (commentInputRef.current) {
+              commentInputRef.current.focus();
+            }
+            break;
+          case 'date':
+            // Click the date button to open the picker
+            if (dateButtonRef.current) {
+              dateButtonRef.current.click();
+            }
+            break;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, task, initialFocus]);
+
+  // Reset pickers when task changes
+  useEffect(() => {
+    setShowPriorityPicker(false);
+    setShowEventLinkPopover(false);
+  }, [task?.id]);
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -105,18 +164,32 @@ export function TaskDetailSheet({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        if (showPriorityPicker) {
+          setShowPriorityPicker(false);
+        } else if (showEventLinkPopover) {
+          setShowEventLinkPopover(false);
+        } else {
+          onClose();
+        }
       }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showPriorityPicker, showEventLinkPopover]);
 
   if (!isOpen || !task) return null;
 
-  const priorityConfig = PRIORITY_CONFIG[task.urgency as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG[1];
+  const priorityConfig = getPriorityConfig(task.urgency);
   const dateDisplay = formatDateDisplay(task.due_date);
   const isDone = task.status === 'Done';
+
+  // Parse date for DatePicker
+  const selectedDate = task.due_date
+    ? (() => {
+        const parsed = parse(task.due_date, 'yyyy-MM-dd', new Date());
+        return isValid(parsed) ? parsed : null;
+      })()
+    : null;
 
   const handleCheckboxClick = () => {
     if (onMarkDone) {
@@ -124,10 +197,42 @@ export function TaskDetailSheet({
     }
   };
 
-  const handleTitleBlur = () => {
+  const handleTitleBlur = async () => {
     if (editedTitle !== task.description && onUpdate) {
-      onUpdate(task.id, { description: editedTitle });
+      await onUpdate(task.id, { description: editedTitle });
     }
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      titleInputRef.current?.blur();
+    }
+  };
+
+  const handleDateChange = async (date: Date | null) => {
+    if (onUpdate) {
+      const newDateStr = date ? format(date, 'yyyy-MM-dd') : undefined;
+      await onUpdate(task.id, { due_date: newDateStr });
+    }
+  };
+
+  const handlePriorityClick = () => {
+    if (priorityButtonRef.current) {
+      const rect = priorityButtonRef.current.getBoundingClientRect();
+      setPriorityPickerPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+    setShowPriorityPicker(!showPriorityPicker);
+  };
+
+  const handlePriorityChange = async (urgency: number) => {
+    if (onUpdate) {
+      await onUpdate(task.id, { urgency });
+    }
+    setShowPriorityPicker(false);
   };
 
   return (
@@ -140,7 +245,6 @@ export function TaskDetailSheet({
 
       {/* Sheet - slides up from bottom on mobile, centered on desktop */}
       <div
-        ref={sheetRef}
         className="fixed inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
                    bg-white dark:bg-slate-900
                    rounded-t-2xl sm:rounded-2xl
@@ -158,7 +262,7 @@ export function TaskDetailSheet({
             className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
           >
             <Briefcase className="w-4 h-4" />
-            <span>{task.short_name || task.case_name || `Case #${task.case_id}`}</span>
+            <span>{task.case_name || task.short_name || `Case #${task.case_id}`}</span>
           </Link>
 
           {/* Nav + actions */}
@@ -202,9 +306,14 @@ export function TaskDetailSheet({
                   transition-all duration-150
                   ${isDone
                     ? 'bg-slate-400 border-slate-400'
-                    : priorityConfig.borderColor + ' hover:bg-slate-50 dark:hover:bg-slate-800'
+                    : `border-${priorityConfig.color.replace('text-', '')} hover:bg-slate-50 dark:hover:bg-slate-800`
                   }
                 `}
+                style={{
+                  borderColor: isDone ? undefined : priorityConfig.color.includes('red') ? '#ef4444' :
+                    priorityConfig.color.includes('orange') ? '#f97316' :
+                    priorityConfig.color.includes('blue') ? '#3b82f6' : '#94a3b8'
+                }}
               >
                 {isDone && (
                   <svg className="w-full h-full text-white p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -216,10 +325,12 @@ export function TaskDetailSheet({
               {/* Title input */}
               <div className="flex-1">
                 <input
+                  ref={titleInputRef}
                   type="text"
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
                   onBlur={handleTitleBlur}
+                  onKeyDown={handleTitleKeyDown}
                   className={`
                     w-full text-lg font-medium bg-transparent border-none outline-none
                     ${isDone ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}
@@ -245,25 +356,171 @@ export function TaskDetailSheet({
             >
               <Briefcase className="w-5 h-5 text-slate-400" />
               <span className="text-sm text-slate-700 dark:text-slate-300">
-                {task.short_name || task.case_name || `Case #${task.case_id}`}
+                {task.case_name || task.short_name || `Case #${task.case_id}`}
               </span>
             </Link>
 
             {/* Due date */}
-            <button className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800">
-              <Calendar className={`w-5 h-5 ${dateDisplay.color}`} />
-              <span className={`text-sm ${dateDisplay.color}`}>
-                {dateDisplay.text}
-              </span>
-            </button>
+            <div className="relative border-b border-slate-100 dark:border-slate-800">
+              <DatePicker
+                selected={selectedDate}
+                onChange={handleDateChange}
+                dateFormat="yyyy-MM-dd"
+                showYearDropdown
+                showMonthDropdown
+                scrollableYearDropdown
+                yearDropdownItemNumber={15}
+                dropdownMode="select"
+                portalId="datepicker-portal"
+                renderCustomHeader={({
+                  date,
+                  changeYear,
+                  changeMonth,
+                  decreaseMonth,
+                  increaseMonth,
+                  prevMonthButtonDisabled,
+                  nextMonthButtonDisabled,
+                }) => {
+                  const currentYear = getYear(new Date());
+                  const years = Array.from({ length: 26 }, (_, i) => currentYear - 10 + i);
+                  const months = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December',
+                  ];
+                  return (
+                    <div className="flex items-center justify-between px-2 py-2 bg-white dark:bg-slate-700">
+                      <button
+                        type="button"
+                        onClick={decreaseMonth}
+                        disabled={prevMonthButtonDisabled}
+                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={months[date.getMonth()]}
+                          onChange={(e) => changeMonth(months.indexOf(e.target.value))}
+                          className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+                        >
+                          {months.map((month) => (
+                            <option key={month} value={month}>
+                              {month}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={date.getFullYear()}
+                          onChange={(e) => changeYear(Number(e.target.value))}
+                          className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+                        >
+                          {years.map((year) => (
+                            <option key={year} value={year}>
+                              {year}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={increaseMonth}
+                        disabled={nextMonthButtonDisabled}
+                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                }}
+                customInput={
+                  <button
+                    ref={dateButtonRef}
+                    className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <Calendar className={`w-5 h-5 ${dateDisplay.color}`} />
+                    <span className={`text-sm ${dateDisplay.color}`}>
+                      {dateDisplay.text}
+                    </span>
+                  </button>
+                }
+              />
+            </div>
 
             {/* Priority */}
-            <button className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800">
-              <Flag className={`w-5 h-5 ${priorityConfig.color}`} />
-              <span className={`text-sm ${priorityConfig.color}`}>
-                {priorityConfig.label}
-              </span>
-            </button>
+            <div className="relative border-b border-slate-100 dark:border-slate-800">
+              <button
+                ref={priorityButtonRef}
+                onClick={handlePriorityClick}
+                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <Flag className={`w-5 h-5 ${priorityConfig.color}`} />
+                <span className={`text-sm ${priorityConfig.color}`}>
+                  {priorityConfig.label}
+                </span>
+              </button>
+            </div>
+
+            {/* Priority Picker Dropdown - rendered in portal */}
+            {showPriorityPicker && createPortal(
+              <div className="fixed inset-0 z-[9999]" onClick={() => setShowPriorityPicker(false)}>
+                <div
+                  className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
+                  style={{ top: priorityPickerPos.top, left: priorityPickerPos.left }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {PRIORITY_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handlePriorityChange(option.value)}
+                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${option.color}`}
+                    >
+                      <Flag className="w-4 h-4" />
+                      <span className="text-sm flex-1">{option.label}</span>
+                      {task.urgency === option.value && (
+                        <Check className="w-4 h-4" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>,
+              document.getElementById('datepicker-portal') || document.body
+            )}
+
+            {/* Event Link */}
+            <div className="relative border-b border-slate-100 dark:border-slate-800">
+              <button
+                ref={eventLinkButtonRef}
+                onClick={() => setShowEventLinkPopover(true)}
+                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <Link2 className={`w-5 h-5 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
+                <span className={`text-sm ${task.event_id ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400'}`}>
+                  {task.event_id && task.event_description
+                    ? task.event_description
+                    : 'Link to event'}
+                </span>
+              </button>
+            </div>
+
+            {/* Event Link Popover */}
+            {showEventLinkPopover && (
+              <EventLinkPopover
+                task={task}
+                isOpen={showEventLinkPopover}
+                anchorEl={eventLinkButtonRef.current}
+                onClose={() => setShowEventLinkPopover(false)}
+                onLinkEvent={(taskId, eventId) => {
+                  if (onLinkEvent) {
+                    onLinkEvent(taskId, eventId);
+                  }
+                  setShowEventLinkPopover(false);
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -273,6 +530,7 @@ export function TaskDetailSheet({
             <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
             <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-full">
               <input
+                ref={commentInputRef}
                 type="text"
                 placeholder="Comment"
                 className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400"

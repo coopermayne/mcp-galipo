@@ -34,4 +34,5 @@ export interface UpdateTaskInput {
   completion_date?: string;
   status?: TaskStatus;
   urgency?: number;
+  event_id?: number | null;
 }

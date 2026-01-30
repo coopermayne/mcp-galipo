@@ -219,7 +219,7 @@ def search_events(query: str = None, case_id: int = None,
             ORDER BY e.date
             LIMIT %s
         """, params + [limit])
-        return [dict(row) for row in cur.fetchall()]
+        return serialize_rows([dict(row) for row in cur.fetchall()])
 
 
 def get_calendar(days: int = 30, include_tasks: bool = True,

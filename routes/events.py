@@ -56,6 +56,26 @@ def register_event_routes(mcp):
         )
         return JSONResponse({"success": True, "event": result})
 
+    @mcp.custom_route("/api/v1/events/search", methods=["GET"])
+    async def api_search_events(request):
+        """Search events by query and/or case_id."""
+        if err := auth.require_auth(request):
+            return err
+        query = request.query_params.get("q")
+        case_id = request.query_params.get("case_id")
+        limit = request.query_params.get("limit", "50")
+
+        case_id = int(case_id) if case_id else None
+        limit = int(limit)
+
+        events = await asyncio.to_thread(
+            db.search_events,
+            query=query,
+            case_id=case_id,
+            limit=limit
+        )
+        return JSONResponse({"events": events})
+
     @mcp.custom_route("/api/v1/events/{event_id}", methods=["PUT"])
     async def api_update_event(request):
         """Update an event."""

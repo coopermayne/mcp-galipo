@@ -150,7 +150,8 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
 
 def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: str = _NOT_PROVIDED,
                      completion_date: str = _NOT_PROVIDED, status: str = _NOT_PROVIDED,
-                     urgency: int = _NOT_PROVIDED, docket_category: str = _NOT_PROVIDED,
+                     urgency: int = _NOT_PROVIDED, event_id: int = _NOT_PROVIDED,
+                     docket_category: str = _NOT_PROVIDED,
                      docket_order: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update all task fields."""
     updates = []
@@ -189,6 +190,10 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
             validate_urgency(urgency)
         updates.append("urgency = %s")
         params.append(urgency)
+
+    if event_id is not _NOT_PROVIDED:
+        updates.append("event_id = %s")
+        params.append(event_id)
 
     if docket_category is not _NOT_PROVIDED:
         if docket_category is not None:
