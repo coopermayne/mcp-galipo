@@ -107,4 +107,6 @@ from db import (
     get_person_type_by_id,
     update_person_type,
     delete_person_type,
+    count_persons_by_type,
+    update_persons_type_name,
 )
