@@ -44,7 +44,7 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
       createActivity({
         case_id: caseId,
         description: description.trim(),
-        activity_type: activityType,
+        activity_type: activityType || 'Unspecified',
         date: activityDate,
         minutes: minutes ? parseInt(minutes, 10) : undefined,
       }),
@@ -76,7 +76,7 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (description.trim() && activityType && activityDate) {
+    if (description.trim() && activityDate) {
       createMutation.mutate();
     }
   };
@@ -221,7 +221,7 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
             <div className="mt-3 flex justify-end">
               <button
                 type="submit"
-                disabled={createMutation.isPending || !description.trim() || !activityType || !activityDate}
+                disabled={createMutation.isPending || !description.trim() || !activityDate}
                 className="
                   px-4 py-2 bg-primary-600 text-white rounded-lg
                   hover:bg-primary-700 transition-colors
