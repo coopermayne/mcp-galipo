@@ -42,6 +42,12 @@ interface TaskFeedProps {
   onTaskClick?: (task: Task) => void;
   /** Callback when edit button is clicked */
   onEditClick?: (task: Task) => void;
+  /** Callback when date changes (inline date picker) */
+  onDateChange?: (taskId: number, date: string | null) => void;
+  /** Callback when comment button is clicked */
+  onCommentClick?: (task: Task) => void;
+  /** Callback when event link button is clicked */
+  onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
   /** Callback when tasks are reordered via drag-and-drop */
   onReorder?: (taskId: number, newIndex: number, tasks: Task[]) => void;
   /** Callback when "Add task" is clicked for a section */
@@ -287,6 +293,9 @@ export function TaskFeed({
   onMarkDone,
   onTaskClick,
   onEditClick,
+  onDateChange,
+  onCommentClick,
+  onEventLinkClick,
   onReorder,
   onAddTask,
 }: TaskFeedProps) {
@@ -441,6 +450,9 @@ export function TaskFeed({
           onMarkDone={onMarkDone ? () => handleMarkDone(task.id) : undefined}
           onClick={onTaskClick}
           onEdit={onEditClick}
+          onDateChange={onDateChange}
+          onCommentClick={onCommentClick}
+          onEventLinkClick={onEventLinkClick}
         />
       ))}
     </>

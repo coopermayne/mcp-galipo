@@ -38,6 +38,7 @@ export {
   updateEvent,
   deleteEvent,
   getEventTasks,
+  searchEvents,
 } from './events';
 
 // Notes

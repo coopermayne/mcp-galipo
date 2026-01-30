@@ -44,3 +44,16 @@ export async function deleteEvent(eventId: number): Promise<{ success: boolean }
 export async function getEventTasks(eventId: number): Promise<{ tasks: { id: number; description: string }[] }> {
   return request(`/events/${eventId}/tasks`);
 }
+
+export async function searchEvents(params: {
+  query?: string;
+  caseId?: number;
+  limit?: number;
+}): Promise<{ events: Event[] }> {
+  const searchParams = new URLSearchParams();
+  if (params.query) searchParams.set('q', params.query);
+  if (params.caseId) searchParams.set('case_id', String(params.caseId));
+  if (params.limit) searchParams.set('limit', String(params.limit));
+  const queryStr = searchParams.toString();
+  return request(`/events/search${queryStr ? `?${queryStr}` : ''}`);
+}

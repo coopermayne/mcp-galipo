@@ -5,10 +5,12 @@
  * Line 1: checkbox + title
  * Line 2: date (with icon) + case/project on right
  */
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
+import DatePicker from 'react-datepicker';
+import { format, parse, isValid, getYear } from 'date-fns';
 import {
   Calendar,
   GripVertical,
@@ -16,8 +18,10 @@ import {
   MessageSquare,
   MoreHorizontal,
   Inbox,
+  Link2,
 } from 'lucide-react';
 import type { Task } from '../../types';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority colors for checkbox border (Todoist style)
 // 4 = urgent (red), 3 = high (orange), 2 = medium (blue), 1 = low (gray)
@@ -46,6 +50,12 @@ export interface TaskItemProps {
   onClick?: (task: Task) => void;
   /** Callback when edit action is clicked */
   onEdit?: (task: Task) => void;
+  /** Callback when date changes (inline date picker) */
+  onDateChange?: (taskId: number, date: string | null) => void;
+  /** Callback when comment button is clicked */
+  onCommentClick?: (task: Task) => void;
+  /** Callback when event link button is clicked */
+  onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
   /** Callback when delete is clicked */
   onDelete?: (taskId: number) => void;
 }
@@ -96,9 +106,104 @@ export function TaskItem({
   onMarkDone,
   onClick,
   onEdit,
+  onDateChange,
+  onCommentClick,
+  onEventLinkClick,
   onDelete,
 }: TaskItemProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const dateButtonRef = useRef<HTMLButtonElement>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  // Parse the date for DatePicker
+  const selectedDate = task.due_date
+    ? (() => {
+        const parsed = parse(task.due_date, 'yyyy-MM-dd', new Date());
+        return isValid(parsed) ? parsed : null;
+      })()
+    : null;
+
+  const handleDateChange = (date: Date | null) => {
+    if (onDateChange) {
+      const newDateStr = date ? format(date, 'yyyy-MM-dd') : null;
+      onDateChange(task.id, newDateStr);
+    }
+    setIsDatePickerOpen(false);
+  };
+
+  // Custom header for the date picker (same as EditableDate)
+  const renderDatePickerHeader = ({
+    date,
+    changeYear,
+    changeMonth,
+    decreaseMonth,
+    increaseMonth,
+    prevMonthButtonDisabled,
+    nextMonthButtonDisabled,
+  }: {
+    date: Date;
+    changeYear: (year: number) => void;
+    changeMonth: (month: number) => void;
+    decreaseMonth: () => void;
+    increaseMonth: () => void;
+    prevMonthButtonDisabled: boolean;
+    nextMonthButtonDisabled: boolean;
+  }) => {
+    const currentYear = getYear(new Date());
+    const years = Array.from({ length: 26 }, (_, i) => currentYear - 10 + i);
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return (
+      <div className="flex items-center justify-between px-2 py-2 bg-white dark:bg-slate-700">
+        <button
+          type="button"
+          onClick={decreaseMonth}
+          disabled={prevMonthButtonDisabled}
+          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="flex items-center gap-1">
+          <select
+            value={months[date.getMonth()]}
+            onChange={(e) => changeMonth(months.indexOf(e.target.value))}
+            className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+          >
+            {months.map((month) => (
+              <option key={month} value={month}>
+                {month}
+              </option>
+            ))}
+          </select>
+          <select
+            value={date.getFullYear()}
+            onChange={(e) => changeYear(Number(e.target.value))}
+            className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={increaseMonth}
+          disabled={nextMonthButtonDisabled}
+          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
 
   // dnd-kit sortable hook
   const {
@@ -214,17 +319,62 @@ export function TaskItem({
           {task.description}
         </div>
 
-        {/* Metadata row: date on left, case on right */}
-        <div className="flex items-center justify-between mt-0.5">
-          {/* Due date */}
-          {dateInfo ? (
-            <div className={`flex items-center gap-1 text-xs ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
-              <Calendar className="w-3 h-3 flex-shrink-0" />
-              <span>{dateInfo.text}</span>
+        {/* Metadata row: date + event link on left, case on right */}
+        <div className="flex items-center justify-between mt-0.5 gap-3">
+          <div className="flex items-center gap-3">
+            {/* Due date with inline picker - wrapped to stop propagation */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <DatePicker
+                selected={selectedDate}
+                onChange={handleDateChange}
+                open={isDatePickerOpen}
+                onClickOutside={() => setIsDatePickerOpen(false)}
+                onInputClick={() => setIsDatePickerOpen(true)}
+                dateFormat="yyyy-MM-dd"
+                showYearDropdown
+                showMonthDropdown
+                scrollableYearDropdown
+                yearDropdownItemNumber={15}
+                dropdownMode="select"
+                portalId="datepicker-portal"
+                renderCustomHeader={renderDatePickerHeader}
+                customInput={
+                  dateInfo ? (
+                    <button
+                      ref={dateButtonRef}
+                      className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+                    >
+                      <Calendar className="w-3 h-3 flex-shrink-0" />
+                      <span>{dateInfo.text}</span>
+                    </button>
+                  ) : (
+                    <button
+                      ref={dateButtonRef}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    >
+                      <Calendar className="w-3 h-3 flex-shrink-0" />
+                      <span>Add date</span>
+                    </button>
+                  )
+                }
+              />
             </div>
-          ) : (
-            <div />
-          )}
+
+            {/* Event link indicator */}
+            {task.event_id && task.event_date && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onEventLinkClick) onEventLinkClick(task, e);
+                }}
+                className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-600 hover:underline"
+                title={task.event_description || 'Linked event'}
+              >
+                <Link2 className="w-3 h-3 flex-shrink-0" />
+                <span>{formatRelativeDate(task.event_date).text}</span>
+              </button>
+            )}
+          </div>
 
           {/* Case/Project link */}
           {showCase && (
@@ -251,14 +401,24 @@ export function TaskItem({
           <Pencil className="w-4 h-4" />
         </button>
         <button
-          onClick={(e) => e.stopPropagation()}
-          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-          title="Set due date"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onEventLinkClick) onEventLinkClick(task, e);
+          }}
+          className={`p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded ${
+            task.event_id
+              ? 'text-primary-500 hover:text-primary-600'
+              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+          }`}
+          title={task.event_id ? `Linked to: ${task.event_description || 'event'}` : 'Link to event'}
         >
-          <Calendar className="w-4 h-4" />
+          <Link2 className="w-4 h-4" />
         </button>
         <button
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onCommentClick) onCommentClick(task);
+          }}
           className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
           title="Comments"
         >

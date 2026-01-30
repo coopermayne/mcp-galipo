@@ -12,7 +12,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
-import { TaskFeed, TaskDetailSheet, useTaskActions } from '../components/lab';
+import { TaskFeed, TaskDetailSheet, EventLinkPopover, useTaskActions } from '../components/lab';
+import type { SheetFocusMode } from '../components/lab/TaskDetailSheet';
 import { ToastContainer, useToast } from '../components/common';
 import { getTasks, updateTask } from '../api';
 import type { Task } from '../types';
@@ -23,6 +24,9 @@ type GroupMode = 'none' | 'date' | 'case';
 export function Lab() {
   const [groupBy, setGroupBy] = useState<GroupMode>('date');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
+  const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
+  const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
   const { toasts, showToast, dismissToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -74,16 +78,52 @@ export function Lab() {
   }, [tasks, markDone, showToast, queryClient]);
 
   const handleTaskClick = (task: Task) => {
+    setSheetFocusMode(null);
     setSelectedTask(task);
   };
 
   const handleEditClick = (task: Task) => {
+    setSheetFocusMode('title');
     setSelectedTask(task);
+  };
+
+  const handleDateChange = useCallback(async (taskId: number, date: string | null) => {
+    await updateTask(taskId, { due_date: date ?? undefined });
+    queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handleCommentClick = (task: Task) => {
+    setSheetFocusMode('comment');
+    setSelectedTask(task);
+  };
+
+  const handleEventLinkClick = (task: Task, event?: React.MouseEvent) => {
+    setEventLinkTask(task);
+    setEventLinkAnchor(event?.currentTarget as HTMLElement || null);
+  };
+
+  const handleLinkEvent = useCallback(async (taskId: number, eventId: number | null) => {
+    await updateTask(taskId, { event_id: eventId });
+    queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handleCloseEventLink = () => {
+    setEventLinkTask(null);
+    setEventLinkAnchor(null);
   };
 
   const handleCloseDetail = () => {
     setSelectedTask(null);
+    setSheetFocusMode(null);
   };
+
+  const handleUpdateTask = useCallback(async (taskId: number, updates: Partial<Task>) => {
+    await updateTask(taskId, updates);
+    queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
 
   const handleAddTask = (dueDate?: string) => {
     console.log('Add task for date:', dueDate);
@@ -187,6 +227,9 @@ export function Lab() {
             onMarkDone={handleMarkDone}
             onTaskClick={handleTaskClick}
             onEditClick={handleEditClick}
+            onDateChange={handleDateChange}
+            onCommentClick={handleCommentClick}
+            onEventLinkClick={handleEventLinkClick}
             onAddTask={handleAddTask}
           />
         </div>
@@ -197,11 +240,25 @@ export function Lab() {
           isOpen={!!selectedTask}
           onClose={handleCloseDetail}
           onMarkDone={handleMarkDone}
+          onUpdate={handleUpdateTask}
+          onLinkEvent={handleLinkEvent}
           onPrevTask={handlePrevTask}
           onNextTask={handleNextTask}
           hasPrevTask={hasPrevTask}
           hasNextTask={hasNextTask}
+          initialFocus={sheetFocusMode}
         />
+
+        {/* Event Link Popover */}
+        {eventLinkTask && (
+          <EventLinkPopover
+            task={eventLinkTask}
+            isOpen={!!eventLinkTask}
+            anchorEl={eventLinkAnchor}
+            onClose={handleCloseEventLink}
+            onLinkEvent={handleLinkEvent}
+          />
+        )}
       </PageContent>
 
       {/* Toast notifications */}
