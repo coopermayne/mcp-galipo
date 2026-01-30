@@ -8,10 +8,11 @@ import {
   EditableTime,
   ListPanel,
   ConfirmModal,
+  CreateTaskFromEventModal,
 } from '../components/common';
 import { getEvents, updateEvent, deleteEvent } from '../api';
 import type { Event } from '../types';
-import { Trash2, Search, Star, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Search, Star, Eye, EyeOff, ListTodo } from 'lucide-react';
 
 // Deterministic color mapping for case badges
 const caseColorClasses = [
@@ -32,6 +33,7 @@ export function Calendar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [showPastEvents, setShowPastEvents] = useState(false);
+  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   const { data: eventsData, isLoading } = useQuery({
     queryKey: ['events', { showPast: showPastEvents }],
@@ -184,6 +186,18 @@ export function Calendar() {
         />
       </div>
       <button
+        onClick={() => setTaskFromEvent(event)}
+        className="relative p-1 text-slate-500 hover:text-primary-500"
+        title="Create task from event"
+      >
+        <ListTodo className="w-4 h-4" />
+        {(event.task_count ?? 0) > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[10px] font-medium bg-primary-500 text-white rounded-full px-0.5">
+            {event.task_count}
+          </span>
+        )}
+      </button>
+      <button
         onClick={() => handleDelete(event.id)}
         className="p-1 text-slate-500 hover:text-red-400"
       >
@@ -279,6 +293,13 @@ export function Calendar() {
         confirmText="Delete Event"
         variant="danger"
         isLoading={deleteMutation.isPending}
+      />
+
+      <CreateTaskFromEventModal
+        isOpen={!!taskFromEvent}
+        onClose={() => setTaskFromEvent(null)}
+        event={taskFromEvent}
+        caseId={taskFromEvent?.case_id ?? 0}
       />
     </>
   );

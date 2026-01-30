@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff } from 'lucide-react';
-import { EditableText, EditableDate, EditableTime, ConfirmModal } from '../../../components/common';
+import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff, ListTodo } from 'lucide-react';
+import { EditableText, EditableDate, EditableTime, ConfirmModal, CreateTaskFromEventModal } from '../../../components/common';
 import { createEvent, updateEvent, deleteEvent } from '../../../api';
 import type { Event } from '../../../types';
 
@@ -24,6 +24,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(
     null
   );
+  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   // Helper to parse date string as local time (not UTC)
   const parseLocalDate = (dateStr: string) => {
@@ -254,6 +255,18 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                   </a>
                 )}
                 <button
+                  onClick={() => setTaskFromEvent(event)}
+                  className="relative p-1 text-slate-500 hover:text-primary-500"
+                  title="Create task from event"
+                >
+                  <ListTodo className="w-4 h-4" />
+                  {(event.task_count ?? 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[10px] font-medium bg-primary-500 text-white rounded-full px-0.5">
+                      {event.task_count}
+                    </span>
+                  )}
+                </button>
+                <button
                   onClick={() => handleDelete(event)}
                   className="p-1 text-slate-500 hover:text-red-400"
                 >
@@ -307,6 +320,13 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
         confirmText="Delete Event"
         variant="danger"
         isLoading={deleteMutation.isPending}
+      />
+
+      <CreateTaskFromEventModal
+        isOpen={!!taskFromEvent}
+        onClose={() => setTaskFromEvent(null)}
+        event={taskFromEvent}
+        caseId={caseId}
       />
     </div>
   );
