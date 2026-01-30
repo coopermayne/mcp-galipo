@@ -68,6 +68,7 @@ export function NotesTab({ caseId, notes, persons }: NotesTabProps) {
           value={newNote}
           onChange={setNewNote}
           persons={persons}
+          caseId={caseId}
           placeholder="Add a note... (use @ to mention people)"
           className="
             w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
