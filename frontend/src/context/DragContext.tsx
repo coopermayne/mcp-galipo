@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { Task } from '../types';
 
-export type DragSourceLocation = 'tasks-page' | 'case-detail' | 'docket-panel' | 'dashboard' | 'case-overview';
+export type DragSourceLocation = 'tasks-page' | 'case-detail' | 'dashboard' | 'case-overview';
 
 interface DragContextValue {
   isDraggingTask: boolean;

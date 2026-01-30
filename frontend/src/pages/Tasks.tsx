@@ -15,9 +15,8 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
 import { UrgencyGroup, CaseGroup, DateGroup } from '../components/tasks';
-import { TaskDropZones } from '../components/docket';
 import { formatSmartDate } from '../utils/dateFormat';
-import { getTasks, getConstants, updateTask, deleteTask, reorderTask, updateDocket } from '../api';
+import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
 import { useDragContext } from '../context/DragContext';
 import type { Task } from '../types';
 import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff, Calendar } from 'lucide-react';
@@ -300,33 +299,12 @@ export function Tasks() {
     }
   }, [filteredTasks, tasksByUrgency, view, overContainer, overIndex]);
 
-  // Mutation for updating docket category
-  const docketMutation = useMutation({
-    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
-      updateDocket(taskId, { docket_category: category }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['docket'] });
-    },
-  });
-
   // Handle global drop zone actions
   const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
-    switch (zone) {
-      case 'done':
-        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
-        break;
-      case 'today':
-        await docketMutation.mutateAsync({ taskId, category: 'today' });
-        break;
-      case 'tomorrow':
-        await docketMutation.mutateAsync({ taskId, category: 'tomorrow' });
-        break;
-      case 'backburner':
-        await docketMutation.mutateAsync({ taskId, category: 'backburner' });
-        break;
+    if (zone === 'done') {
+      await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
     }
-  }, [updateMutation, docketMutation]);
+  }, [updateMutation]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -606,9 +584,6 @@ export function Tasks() {
                 ))}
               </div>
             )}
-
-            {/* Drop zones - appear when dragging */}
-            <TaskDropZones isVisible={activeTask !== null} />
 
             {/* Drag Overlay - shows the item being dragged */}
             <DragOverlay dropAnimation={null}>

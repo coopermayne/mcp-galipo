@@ -2,8 +2,6 @@
 
 import type { TaskStatus } from './common';
 
-export type DocketCategory = 'today' | 'tomorrow' | 'backburner';
-
 export interface Task {
   id: number;
   case_id: number;
@@ -15,8 +13,6 @@ export interface Task {
   status: TaskStatus;
   urgency: number;
   sort_order: number;
-  docket_category?: DocketCategory | null;
-  docket_order?: number | null;
   event_id?: number;
   event_description?: string;
   event_date?: string;
@@ -38,18 +34,4 @@ export interface UpdateTaskInput {
   completion_date?: string;
   status?: TaskStatus;
   urgency?: number;
-  docket_category?: DocketCategory | null;
-  docket_order?: number | null;
-}
-
-export interface DocketTasks {
-  today: Task[];
-  tomorrow: Task[];
-  backburner: Task[];
-  total: number;
-}
-
-export interface UpdateDocketInput {
-  docket_category?: DocketCategory | null;
-  docket_order?: number | null;
 }

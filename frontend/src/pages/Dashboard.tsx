@@ -19,9 +19,8 @@ import {
   DeleteEventModal,
 } from '../components/common';
 import { DraggableTaskRow } from '../components/tasks';
-import { TaskDropZones } from '../components/docket';
 import { useDragContext } from '../context/DragContext';
-import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent, updateDocket } from '../api';
+import { getStats, getTasks, getEvents, getConstants, updateTask, deleteTask, updateEvent, deleteEvent } from '../api';
 import type { Task, Event } from '../types';
 import {
   Briefcase,
@@ -124,16 +123,6 @@ export function Dashboard() {
     },
   });
 
-  const docketMutation = useMutation({
-    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
-      updateDocket(taskId, { docket_category: category }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['docket'] });
-    },
-  });
-
   // Tasks are filtered based on toggle
   const displayTasks = tasksData?.tasks || [];
 
@@ -161,14 +150,8 @@ export function Dashboard() {
     const overId = over.id.toString();
     if (overId === 'drop-done') {
       updateTaskMutation.mutate({ id: task.id, data: { status: 'Done' } });
-    } else if (overId === 'drop-today') {
-      docketMutation.mutate({ taskId: task.id, category: 'today' });
-    } else if (overId === 'drop-tomorrow') {
-      docketMutation.mutate({ taskId: task.id, category: 'tomorrow' });
-    } else if (overId === 'drop-backburner') {
-      docketMutation.mutate({ taskId: task.id, category: 'backburner' });
     }
-  }, [displayTasks, updateTaskMutation, docketMutation, endDrag]);
+  }, [displayTasks, updateTaskMutation, endDrag]);
 
   const handleUpdateTask = useCallback(
     async (taskId: number, field: string, value: any) => {
@@ -342,9 +325,6 @@ export function Dashboard() {
                   </ListPanel.Body>
                 )}
               </ListPanel>
-
-              {/* Drop zones for docket */}
-              <TaskDropZones isVisible={activeTask !== null} />
 
               {/* Drag overlay */}
               <DragOverlay dropAnimation={null}>

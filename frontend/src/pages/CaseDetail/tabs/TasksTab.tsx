@@ -11,8 +11,7 @@ import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } fr
 import { Plus, ChevronDown, ChevronUp, Eye, EyeOff, LayoutGrid, Calendar } from 'lucide-react';
 import { ConfirmModal } from '../../../components/common';
 import { SortableTaskRow } from '../../../components/tasks';
-import { TaskDropZones } from '../../../components/docket';
-import { createTask, updateTask, deleteTask, reorderTask, updateDocket } from '../../../api';
+import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
 import { useDragContext } from '../../../context/DragContext';
 import type { Task, Constants } from '../../../types';
 import { DroppableTaskGroup } from '../components';
@@ -67,7 +66,6 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['docket'] });
     },
   });
 
@@ -319,34 +317,12 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
     [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey, overContainer, overIndex]
   );
 
-  // Mutation for updating docket category
-  const docketMutation = useMutation({
-    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
-      updateDocket(taskId, { docket_category: category }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['docket'] });
-    },
-  });
-
   // Handle global drop zone actions
   const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
-    switch (zone) {
-      case 'done':
-        await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
-        break;
-      case 'today':
-        await docketMutation.mutateAsync({ taskId, category: 'today' });
-        break;
-      case 'tomorrow':
-        await docketMutation.mutateAsync({ taskId, category: 'tomorrow' });
-        break;
-      case 'backburner':
-        await docketMutation.mutateAsync({ taskId, category: 'backburner' });
-        break;
+    if (zone === 'done') {
+      await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
     }
-  }, [updateMutation, docketMutation]);
+  }, [updateMutation]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -585,9 +561,6 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
               )}
           </div>
         )}
-
-        {/* Drop zones - appear when dragging */}
-        <TaskDropZones isVisible={activeTask !== null} />
 
         {/* Drag Overlay */}
         <DragOverlay dropAnimation={null}>

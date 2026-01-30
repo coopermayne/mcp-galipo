@@ -34,7 +34,6 @@ import {
   UnnestDropZone,
 } from '../../../components/common';
 import { DraggableTaskRow } from '../../../components/tasks';
-import { TaskDropZones } from '../../../components/docket';
 import { useEntityModal } from '../../../components/modals';
 import { useDragContext } from '../../../context/DragContext';
 import {
@@ -43,7 +42,6 @@ import {
   updateCaseAssignment,
   updateTask,
   updateEvent,
-  updateDocket,
 } from '../../../api';
 import type { Case, Constants, Task, Event, CasePerson, Person } from '../../../types';
 import { ProceedingsSection } from '../components';
@@ -534,16 +532,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
 
-  const docketMutation = useMutation({
-    mutationFn: ({ taskId, category }: { taskId: number; category: 'today' | 'tomorrow' | 'backburner' }) =>
-      updateDocket(taskId, { docket_category: category }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['docket'] });
-    },
-  });
-
   const displayedTasks = showDoneTasks ? doneTasks : sortedActiveTasks;
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -627,14 +615,8 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     const overId = over.id.toString();
     if (overId === 'drop-done') {
       updateTaskMutation.mutate({ id: task.id, data: { status: 'Done' } });
-    } else if (overId === 'drop-today') {
-      docketMutation.mutate({ taskId: task.id, category: 'today' });
-    } else if (overId === 'drop-tomorrow') {
-      docketMutation.mutate({ taskId: task.id, category: 'tomorrow' });
-    } else if (overId === 'drop-backburner') {
-      docketMutation.mutate({ taskId: task.id, category: 'backburner' });
     }
-  }, [displayedTasks, updateTaskMutation, docketMutation, endDrag, updateNestingMutation]);
+  }, [displayedTasks, updateTaskMutation, endDrag, updateNestingMutation]);
 
   const taskStatusOptions = (constants?.task_statuses || []).map(s => ({ value: s, label: s }));
 
@@ -1025,9 +1007,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
                 </p>
               )}
             </div>
-
-            {/* Drop zones for docket */}
-            <TaskDropZones isVisible={activeTask !== null} />
 
             {/* Drag overlay */}
             <DragOverlay dropAnimation={null}>
