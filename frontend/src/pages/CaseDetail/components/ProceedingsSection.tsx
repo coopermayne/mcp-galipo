@@ -157,7 +157,6 @@ export function ProceedingsSection({
   };
 
   const formatJudgeRole = (role: string) => {
-    if (role === 'Judge') return '';
     return ` (${role})`;
   };
 
@@ -253,38 +252,38 @@ export function ProceedingsSection({
         <p className="text-xs text-slate-500">No proceedings</p>
       ) : (
         <div className="space-y-2">
-          {proceedings.map((p) => (
+          {[...proceedings].sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0)).map((p) => (
             <div
               key={p.id}
               className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg group text-sm"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {p.is_primary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
                     <span
                       className="font-mono text-slate-700 dark:text-slate-200 truncate cursor-pointer hover:underline"
                       onClick={() => openProceedingModal(p.id, { caseId })}
                     >
                       {p.case_number}
                     </span>
-                    {p.is_primary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
+                    {p.jurisdiction_name && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-xs text-slate-500">{p.jurisdiction_name}</span>
+                        {p.local_rules_link && (
+                          <a
+                            href={p.local_rules_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary-400 hover:text-primary-300"
+                            title="View local rules"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </span>
+                    )}
                   </div>
-                  {p.jurisdiction_name && (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-xs text-slate-500">{p.jurisdiction_name}</span>
-                      {p.local_rules_link && (
-                        <a
-                          href={p.local_rules_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-400 hover:text-primary-300"
-                          title="View local rules"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                  )}
 
                   {/* Judges list */}
                   {p.judges && p.judges.length > 0 && (
