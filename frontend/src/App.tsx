@@ -46,8 +46,8 @@ function App() {
                     <Route path="persons" element={<Persons />} />
                   </Route>
                 </Routes>
+                <EntityDetailModal />
               </BrowserRouter>
-              <EntityDetailModal />
             </AuthProvider>
           </EntityModalProvider>
         </DragProvider>

@@ -130,8 +130,8 @@ def delete_person_type(person_type_id: int) -> bool:
 def count_persons_by_type(person_type: str) -> int:
     """Count how many persons have a given type."""
     with get_cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM persons WHERE person_type = %s", (person_type,))
-        return cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) as count FROM persons WHERE person_type = %s", (person_type,))
+        return cur.fetchone()["count"]
 
 
 def update_persons_type_name(old_name: str, new_name: str) -> int:

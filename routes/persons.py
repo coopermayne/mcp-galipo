@@ -37,7 +37,7 @@ def register_person_routes(mcp):
             email=email,
             phone=phone,
             case_id=int(case_id) if case_id else None,
-            archived=include_archived,
+            include_archived=include_archived,
             limit=limit,
             offset=offset
         )
