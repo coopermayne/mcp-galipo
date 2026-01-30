@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Clock, CheckCircle, Trash2, Plus, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { Clock, CheckCircle, Trash2, Plus, ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { parseISO, isValid, format } from 'date-fns';
 import { formatSmartDate } from '../../../utils/dateFormat';
 import { ConfirmModal } from '../../../components/common';
@@ -255,12 +255,21 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
                 className="
-                  pl-9 pr-3 py-1.5 w-48 rounded-lg border border-slate-300 dark:border-slate-600
+                  pl-9 pr-8 py-1.5 w-48 rounded-lg border border-slate-300 dark:border-slate-600
                   bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
                   focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                   outline-none text-sm
                 "
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -268,7 +277,11 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
         <div className="divide-y divide-slate-200 dark:divide-slate-700">
           {timeline.length === 0 ? (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-              No activities or completed tasks yet
+              {searchQuery ? (
+                <>No results for "{searchQuery}"</>
+              ) : (
+                <>No activities or completed tasks yet</>
+              )}
             </div>
           ) : (
             timeline.map((item) => (
