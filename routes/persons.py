@@ -152,7 +152,7 @@ def register_person_routes(mcp):
                 case_attributes=data.get("case_attributes"),
                 case_notes=data.get("case_notes"),
                 is_primary=data.get("is_primary", False),
-                contact_via_person_id=data.get("contact_via_person_id"),
+                grouped_under_id=data.get("grouped_under_id"),
                 assigned_date=data.get("assigned_date")
             )
             return JSONResponse({"success": True, "assignment": result})
@@ -178,7 +178,7 @@ def register_person_routes(mcp):
                 case_attributes=data.get("case_attributes"),
                 case_notes=data.get("case_notes"),
                 is_primary=data.get("is_primary"),
-                contact_via_person_id=data.get("contact_via_person_id"),
+                grouped_under_id=data.get("grouped_under_id"),
                 assigned_date=data.get("assigned_date")
             )
             if not result:
