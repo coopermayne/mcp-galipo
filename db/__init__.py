@@ -110,6 +110,7 @@ from .events import (
     delete_event,
     search_events,
     get_calendar,
+    get_tasks_for_event,
 )
 
 # Activity operations
@@ -259,6 +260,7 @@ __all__ = [
     "delete_event",
     "search_events",
     "get_calendar",
+    "get_tasks_for_event",
     # Activities
     "add_activity",
     "get_all_activities",
