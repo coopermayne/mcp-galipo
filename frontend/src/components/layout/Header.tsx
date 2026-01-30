@@ -1,7 +1,8 @@
 import { useLocation, Link } from 'react-router-dom';
-import { ChevronRight, Home, LogOut, Sun, Moon } from 'lucide-react';
+import { ChevronRight, Home, LogOut, Sun, Moon, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useMobileSidebar } from './Layout';
 
 interface HeaderProps {
   title?: React.ReactNode;
@@ -14,6 +15,7 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
   const location = useLocation();
   const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { toggle: toggleMobileSidebar } = useMobileSidebar();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
   const breadcrumbs = pathSegments.map((segment, index) => {
@@ -31,9 +33,17 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
   const showBreadcrumbs = !showTitle && breadcrumbs.length > 1;
 
   return (
-    <header className="h-16 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 flex items-center justify-between transition-colors">
-      {/* Left side: title or breadcrumbs */}
+    <header className="h-16 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 flex items-center justify-between transition-colors">
+      {/* Left side: hamburger (mobile) + title or breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
+        {/* Hamburger menu - mobile only */}
+        <button
+          onClick={toggleMobileSidebar}
+          className="p-2 -ml-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors md:hidden"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
         {showTitle ? (
           /* Title + subtitle for main pages */
           <div className="flex items-baseline gap-3">

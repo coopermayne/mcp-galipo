@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Outlet, useMatch } from 'react-router-dom';
+import { useState, useEffect, createContext, useContext } from 'react';
+import { Outlet, useMatch, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { ChatButton, ChatPanel } from '../chat';
 import { DocketButton, DocketPanel } from '../docket';
@@ -8,10 +8,38 @@ import { QuickCaseSearch } from '../common';
 // Detect if running on Mac
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
+// Context for mobile sidebar state
+interface MobileSidebarContextType {
+  isOpen: boolean;
+  toggle: () => void;
+  close: () => void;
+}
+
+const MobileSidebarContext = createContext<MobileSidebarContextType>({
+  isOpen: false,
+  toggle: () => {},
+  close: () => {},
+});
+
+export const useMobileSidebar = () => useContext(MobileSidebarContext);
+
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isDocketOpen, setIsDocketOpen] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  const mobileSidebarContext: MobileSidebarContextType = {
+    isOpen: isMobileSidebarOpen,
+    toggle: () => setIsMobileSidebarOpen(prev => !prev),
+    close: () => setIsMobileSidebarOpen(false),
+  };
 
   // Detect if we're on a case detail page and extract case ID
   const caseMatch = useMatch('/cases/:id');
@@ -55,22 +83,27 @@ export function Layout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <Outlet />
-      </main>
+    <MobileSidebarContext.Provider value={mobileSidebarContext}>
+      <div className="flex min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors">
+        <Sidebar
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
+        />
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <Outlet />
+        </main>
 
-      {/* Chat UI */}
-      <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
-      <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
+        {/* Chat UI */}
+        <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
+        <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
 
-      {/* Daily Docket */}
-      <DocketButton onClick={() => setIsDocketOpen(true)} isOpen={isDocketOpen} />
-      <DocketPanel isOpen={isDocketOpen} onClose={() => setIsDocketOpen(false)} />
+        {/* Daily Docket */}
+        <DocketButton onClick={() => setIsDocketOpen(true)} isOpen={isDocketOpen} />
+        <DocketPanel isOpen={isDocketOpen} onClose={() => setIsDocketOpen(false)} />
 
-      {/* Quick Case Search */}
-      <QuickCaseSearch isOpen={isQuickSearchOpen} onClose={() => setIsQuickSearchOpen(false)} />
-    </div>
+        {/* Quick Case Search */}
+        <QuickCaseSearch isOpen={isQuickSearchOpen} onClose={() => setIsQuickSearchOpen(false)} />
+      </div>
+    </MobileSidebarContext.Provider>
   );
 }
