@@ -177,6 +177,12 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
             validate_task_status(status)
         updates.append("status = %s")
         params.append(status)
+        # Auto-set completion_date when marking as Done (if not explicitly provided)
+        if status == "Done" and completion_date is _NOT_PROVIDED:
+            updates.append("completion_date = CURRENT_DATE")
+        # Clear completion_date when unmarking from Done (if not explicitly provided)
+        elif status is not None and status != "Done" and completion_date is _NOT_PROVIDED:
+            updates.append("completion_date = NULL")
 
     if urgency is not _NOT_PROVIDED:
         if urgency is not None:
@@ -220,26 +226,33 @@ def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
     """Update status for multiple tasks."""
     validate_task_status(status)
     with get_cursor() as cur:
-        cur.execute("""
-            UPDATE tasks SET status = %s
-            WHERE id = ANY(%s)
-        """, (status, task_ids))
+        if status == "Done":
+            cur.execute("""
+                UPDATE tasks SET status = %s, completion_date = CURRENT_DATE
+                WHERE id = ANY(%s)
+            """, (status, task_ids))
+        else:
+            cur.execute("""
+                UPDATE tasks SET status = %s, completion_date = NULL
+                WHERE id = ANY(%s)
+            """, (status, task_ids))
         return {"updated": cur.rowcount}
 
 
 def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
     """Update all tasks for a case, optionally filtering by current status."""
     validate_task_status(status)
+    completion_clause = ", completion_date = CURRENT_DATE" if status == "Done" else ", completion_date = NULL"
     with get_cursor() as cur:
         if current_status:
             validate_task_status(current_status)
-            cur.execute("""
-                UPDATE tasks SET status = %s
+            cur.execute(f"""
+                UPDATE tasks SET status = %s{completion_clause}
                 WHERE case_id = %s AND status = %s
             """, (status, case_id, current_status))
         else:
-            cur.execute("""
-                UPDATE tasks SET status = %s
+            cur.execute(f"""
+                UPDATE tasks SET status = %s{completion_clause}
                 WHERE case_id = %s
             """, (status, case_id))
         return {"updated": cur.rowcount}
