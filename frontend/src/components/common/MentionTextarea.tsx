@@ -1,11 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { MentionDropdown } from './MentionDropdown';
+import { useEntityModalContext } from '../../context/EntityModalContext';
 import type { CasePerson } from '../../types';
 
 interface MentionTextareaProps {
   value: string;
   onChange: (value: string) => void;
   persons: CasePerson[];
+  caseId: number;
   placeholder?: string;
   className?: string;
 }
@@ -79,6 +81,7 @@ export function MentionTextarea({
   value,
   onChange,
   persons,
+  caseId,
   placeholder,
   className,
 }: MentionTextareaProps) {
@@ -90,6 +93,7 @@ export function MentionTextarea({
 
   const editorRef = useRef<HTMLDivElement>(null);
   const lastValueRef = useRef(value);
+  const { openModal } = useEntityModalContext();
 
   // Get filtered persons for keyboard navigation
   const filteredPersons = persons.filter((person) =>
@@ -305,6 +309,25 @@ export function MentionTextarea({
     document.execCommand('insertText', false, text);
   }, []);
 
+  // Handle clicks on mention chips to open person modal
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('mention-chip')) {
+        e.preventDefault();
+        const personId = target.getAttribute('data-person-id');
+        if (personId) {
+          openModal({
+            type: 'person',
+            id: parseInt(personId, 10),
+            context: { caseId },
+          });
+        }
+      }
+    },
+    [openModal, caseId]
+  );
+
   const showPlaceholder = !isFocused && !value;
 
   return (
@@ -315,6 +338,7 @@ export function MentionTextarea({
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
+        onClick={handleClick}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         className={className}
@@ -357,10 +381,17 @@ export function MentionTextarea({
           font-weight: 500;
           margin: 0 1px;
           user-select: all;
+          cursor: pointer;
+        }
+        .mention-chip:hover {
+          background-color: rgb(191 219 254); /* blue-200 */
         }
         .dark .mention-chip {
           background-color: rgb(30 58 138 / 0.4); /* blue-900/40 */
           color: rgb(147 197 253); /* blue-300 */
+        }
+        .dark .mention-chip:hover {
+          background-color: rgb(30 58 138 / 0.6); /* blue-900/60 */
         }
       `}</style>
     </div>
