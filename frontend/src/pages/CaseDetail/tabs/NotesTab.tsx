@@ -3,16 +3,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { parseISO, isValid, format } from 'date-fns';
 import { formatSmartDate } from '../../../utils/dateFormat';
-import { ConfirmModal } from '../../../components/common';
+import { ConfirmModal, MentionTextarea } from '../../../components/common';
+import { NoteContent } from '../../../components/notes';
 import { createNote, deleteNote } from '../../../api';
-import type { Note } from '../../../types';
+import type { Note, CasePerson } from '../../../types';
 
 interface NotesTabProps {
   caseId: number;
   notes: Note[];
+  persons: CasePerson[];
 }
 
-export function NotesTab({ caseId, notes }: NotesTabProps) {
+export function NotesTab({ caseId, notes, persons }: NotesTabProps) {
   const queryClient = useQueryClient();
   const [newNote, setNewNote] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; content: string } | null>(null);
@@ -62,10 +64,11 @@ export function NotesTab({ caseId, notes }: NotesTabProps) {
     <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
       {/* Add Note */}
       <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
-        <textarea
+        <MentionTextarea
           value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Add a note..."
+          onChange={setNewNote}
+          persons={persons}
+          placeholder="Add a note... (use @ to mention people)"
           className="
             w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
             bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
@@ -99,9 +102,9 @@ export function NotesTab({ caseId, notes }: NotesTabProps) {
             <div key={note.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <p className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap">
-                    {note.content}
-                  </p>
+                  <div className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap">
+                    <NoteContent content={note.content} caseId={caseId} />
+                  </div>
                   <p className="text-xs text-slate-500 mt-2">{formatDateTime(note.created_at)}</p>
                 </div>
                 <button
