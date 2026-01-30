@@ -42,6 +42,17 @@ Flexible AI-powered case finding - handles typos, person names, vague descriptio
 - [ ] Add `search_persons_fuzzy()` in `db/persons.py`
 - [ ] Add `search_persons` MCP tool for duplicate checking before creates
 
+### Defense Section with Drag-and-Drop Pairing
+Dynamic UI for defendant-counsel relationships. Default: all defendants share all opposing counsel. Exception: drag a defendant to separate them and link specific counsel.
+
+**Plan:** [docs/DEFENSE_SECTION_PLAN.md](docs/DEFENSE_SECTION_PLAN.md)
+
+- [ ] Create `DefenseSection` component with side-by-side boxes (Defendants | Opposing Counsel)
+- [ ] Implement drag-to-separate: drag defendant down → creates new row with counsel drop zone
+- [ ] Implement drag-to-merge: drag defendant back up → returns to main row
+- [ ] Update `db/persons.py` to merge `case_attributes` (not replace) on update
+- [ ] Move Opposing Counsel out of Case Details section (only Co-Counsel/Referring Attorney remain)
+
 ### List Component Unification
 Ground-up rebuild of all list rendering using flexible compound components. Replaces scattered implementations with a unified system.
 
