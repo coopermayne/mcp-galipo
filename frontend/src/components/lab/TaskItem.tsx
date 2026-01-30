@@ -1,80 +1,99 @@
 /**
- * TaskItem - Unified task row component
+ * TaskItem - Todoist-style task row component
  *
- * A single task display that can be configured for different contexts.
- * Supports drag-and-drop via dnd-kit when used inside a DndContext.
+ * Minimal two-line layout with hover actions.
+ * Line 1: checkbox + title
+ * Line 2: date (with icon) + case/project on right
  */
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
-import { Check, Trash2, Calendar, ChevronRight, GripVertical } from 'lucide-react';
-import type { Task, TaskStatus } from '../../types';
+import {
+  Calendar,
+  GripVertical,
+  Pencil,
+  MessageSquare,
+  MoreHorizontal,
+  Inbox,
+} from 'lucide-react';
+import type { Task } from '../../types';
 
-// Deterministic color mapping for case badges
-const CASE_COLORS = [
-  'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
-  'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300',
-  'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-];
-
-const URGENCY_CONFIG = {
-  4: { label: 'Urgent', color: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  3: { label: 'High', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300' },
-  2: { label: 'Medium', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' },
-  1: { label: 'Low', color: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' },
-} as const;
-
-const STATUS_CONFIG = {
-  'To Do': { color: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
-  'In Progress': { color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' },
-  'Done': { color: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' },
+// Priority colors for checkbox border (Todoist style)
+// 4 = urgent (red), 3 = high (orange), 2 = medium (blue), 1 = low (gray)
+const PRIORITY_COLORS = {
+  4: 'border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20',
+  3: 'border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20',
+  2: 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20',
+  1: 'border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50',
 } as const;
 
 export interface TaskItemProps {
   task: Task;
-  /** Show the case name badge */
+  /** Show the case/project on the right */
   showCase?: boolean;
-  /** Show urgency badge */
-  showUrgency?: boolean;
-  /** Show delete button */
-  showDelete?: boolean;
-  /** Show quick "mark done" button */
-  showQuickDone?: boolean;
-  /** Show drag handle (requires DndContext parent) */
+  /** Show drag handle on hover */
   showDragHandle?: boolean;
   /** Disable drag even if showDragHandle is true */
   disableDrag?: boolean;
   /** Highlight this row (e.g., after drop) */
   isHighlighted?: boolean;
-  /** Callback when any field is updated */
-  onUpdate?: (taskId: number, field: keyof Task, value: unknown) => Promise<void>;
+  /** Callback when checkbox is clicked (mark done) */
+  onMarkDone?: (taskId: number) => void;
+  /** Callback when task row is clicked (for inline edit) */
+  onClick?: (task: Task) => void;
+  /** Callback when edit action is clicked */
+  onEdit?: (task: Task) => void;
   /** Callback when delete is clicked */
   onDelete?: (taskId: number) => void;
-  /** Callback when task is marked done */
-  onMarkDone?: (taskId: number) => void;
-  /** Callback when task row is clicked (for modal opening) */
-  onClick?: (task: Task) => void;
+}
+
+/**
+ * Format a date relative to today (Todoist style)
+ */
+function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean } {
+  const date = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const diffDays = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const isOverdue = diffDays < 0;
+
+  if (diffDays === 0) {
+    return { text: 'Today', isOverdue: false };
+  } else if (diffDays === 1) {
+    return { text: 'Tomorrow', isOverdue: false };
+  } else if (diffDays === -1) {
+    return { text: 'Yesterday', isOverdue: true };
+  } else if (isOverdue) {
+    return {
+      text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      isOverdue: true
+    };
+  } else {
+    return {
+      text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      isOverdue: false
+    };
+  }
 }
 
 export function TaskItem({
   task,
   showCase = true,
-  showUrgency = true,
-  showDelete = true,
-  showQuickDone = false,
   showDragHandle = false,
   disableDrag = false,
   isHighlighted = false,
-  onUpdate,
-  onDelete,
   onMarkDone,
   onClick,
+  onEdit,
+  onDelete,
 }: TaskItemProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -98,9 +117,16 @@ export function TaskItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  const caseColor = CASE_COLORS[task.case_id % CASE_COLORS.length];
-  const urgencyConfig = URGENCY_CONFIG[task.urgency as keyof typeof URGENCY_CONFIG] || URGENCY_CONFIG[2];
-  const statusConfig = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG['To Do'];
+  const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
+  const dateInfo = task.due_date ? formatRelativeDate(task.due_date) : null;
+  const isDone = task.status === 'Done';
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onMarkDone) {
+      onMarkDone(task.id);
+    }
+  };
 
   const handleRowClick = () => {
     if (onClick) {
@@ -108,33 +134,11 @@ export function TaskItem({
     }
   };
 
-  const handleStatusCycle = async (e: React.MouseEvent) => {
+  const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!onUpdate) return;
-
-    const statusOrder: TaskStatus[] = ['To Do', 'In Progress', 'Done'];
-    const currentIndex = statusOrder.indexOf(task.status);
-    const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length];
-    await onUpdate(task.id, 'status', nextStatus);
-  };
-
-  const handleQuickDone = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onMarkDone) {
-      onMarkDone(task.id);
+    if (onEdit) {
+      onEdit(task);
     }
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onDelete) {
-      onDelete(task.id);
-    }
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -142,98 +146,118 @@ export function TaskItem({
       ref={setNodeRef}
       style={style}
       className={`
-        flex items-center gap-3 px-4 py-3
-        bg-white dark:bg-slate-800
-        border-b border-slate-200 dark:border-slate-700 last:border-b-0
+        group relative flex items-start gap-2 px-2 py-2
+        border-b border-slate-100 dark:border-slate-800
         transition-colors
-        ${onClick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50' : ''}
-        ${isDragging ? 'shadow-lg rounded-lg border border-primary-500' : ''}
-        ${isHighlighted ? 'ring-2 ring-primary-400 ring-opacity-75' : ''}
+        ${onClick ? 'cursor-pointer' : ''}
+        ${isDragging ? 'shadow-lg rounded-lg bg-white dark:bg-slate-800 border border-primary-500' : ''}
+        ${isHighlighted ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
       `}
       onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Docket indicator */}
-      <div className="w-4 flex-shrink-0">
-        {task.docket_category && (
-          <ChevronRight className="w-4 h-4 text-amber-500" />
+      {/* Drag handle - appears on hover */}
+      <div className={`w-6 flex-shrink-0 flex items-center justify-center pt-0.5 transition-opacity ${isHovered && showDragHandle ? 'opacity-100' : 'opacity-0'}`}>
+        {showDragHandle && (
+          <button
+            {...attributes}
+            {...listeners}
+            className={`p-0.5 text-slate-400 ${disableDrag ? 'cursor-default' : 'cursor-grab active:cursor-grabbing hover:text-slate-600 dark:hover:text-slate-300'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
         )}
       </div>
 
-      {/* Drag handle */}
-      {showDragHandle && (
-        <button
-          {...attributes}
-          {...listeners}
-          className={`p-1 text-slate-400 ${disableDrag ? 'cursor-default' : 'cursor-grab active:cursor-grabbing hover:text-slate-600 dark:hover:text-slate-300'}`}
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-      )}
-
-      {/* Case badge */}
-      {showCase && (
-        <Link
-          to={`/cases/${task.case_id}`}
-          onClick={(e) => e.stopPropagation()}
-          className={`px-2 py-0.5 rounded text-xs font-medium truncate max-w-[80px] text-center hover:opacity-80 ${caseColor}`}
-          title={task.short_name || task.case_name || `Case #${task.case_id}`}
-        >
-          {task.short_name || task.case_name || `#${task.case_id}`}
-        </Link>
-      )}
-
-      {/* Status badge (clickable to cycle) */}
+      {/* Checkbox */}
       <button
-        onClick={handleStatusCycle}
-        className={`px-2 py-0.5 rounded text-xs font-medium ${statusConfig.color} hover:opacity-80`}
-        title="Click to change status"
+        onClick={handleCheckboxClick}
+        className={`
+          w-5 h-5 mt-0.5 flex-shrink-0 rounded-full border-2
+          transition-all duration-150
+          ${isDone
+            ? 'bg-slate-400 border-slate-400'
+            : priorityColor
+          }
+        `}
+        title={isDone ? 'Completed' : 'Mark as done'}
       >
-        {task.status}
+        {isDone && (
+          <svg className="w-full h-full text-white p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
       </button>
 
-      {/* Description */}
-      <div className="flex-1 min-w-0">
-        <span className="text-sm text-slate-900 dark:text-slate-100 truncate block">
+      {/* Content */}
+      <div className="flex-1 min-w-0 pt-0.5">
+        {/* Title */}
+        <div className={`text-sm leading-tight ${isDone ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
           {task.description}
-        </span>
+        </div>
+
+        {/* Metadata row */}
+        <div className="flex items-center gap-3 mt-1">
+          {/* Due date */}
+          {dateInfo && (
+            <div className={`flex items-center gap-1 text-xs ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+              <Calendar className="w-3 h-3" />
+              <span>{dateInfo.text}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Due date */}
-      {task.due_date && (
-        <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-          <Calendar className="w-3 h-3" />
-          {formatDate(task.due_date)}
+      {/* Right side: hover actions + case */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Hover actions */}
+        <div className={`flex items-center gap-0.5 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+          <button
+            onClick={handleEditClick}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="Edit"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => e.stopPropagation()}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="Set due date"
+          >
+            <Calendar className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => e.stopPropagation()}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="Comments"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onDelete) onDelete(task.id);
+            }}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="More actions"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
         </div>
-      )}
 
-      {/* Urgency badge */}
-      {showUrgency && (
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${urgencyConfig.color}`}>
-          {task.urgency}
-        </span>
-      )}
-
-      {/* Actions (show on hover) */}
-      <div className={`flex items-center gap-1 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-        {showQuickDone && task.status !== 'Done' && (
-          <button
-            onClick={handleQuickDone}
-            className="p-1 text-slate-400 hover:text-green-500 transition-colors"
-            title="Mark as Done"
+        {/* Case/Project link */}
+        {showCase && (
+          <Link
+            to={`/cases/${task.case_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+            title={task.case_name || `Case #${task.case_id}`}
           >
-            <Check className="w-4 h-4" />
-          </button>
-        )}
-        {showDelete && (
-          <button
-            onClick={handleDelete}
-            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-            title="Delete task"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
+            <Inbox className="w-3.5 h-3.5" />
+          </Link>
         )}
       </div>
     </div>
@@ -244,20 +268,17 @@ export function TaskItem({
  * TaskItemOverlay - Used inside DragOverlay for the dragged preview
  */
 export function TaskItemOverlay({ task }: { task: Task }) {
-  const caseColor = CASE_COLORS[task.case_id % CASE_COLORS.length];
-  const statusConfig = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG['To Do'];
+  const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-primary-500">
+    <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-primary-500">
       <GripVertical className="w-4 h-4 text-slate-400" />
-      <span className={`px-2 py-0.5 rounded text-xs font-medium truncate max-w-[80px] ${caseColor}`}>
-        {task.short_name || task.case_name}
-      </span>
-      <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusConfig.color}`}>
-        {task.status}
-      </span>
+      <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${priorityColor.split(' ')[0]}`} />
       <span className="text-sm text-slate-900 dark:text-slate-100 truncate">
         {task.description}
+      </span>
+      <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
+        {task.short_name || task.case_name}
       </span>
     </div>
   );
