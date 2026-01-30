@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, ExternalLink, UserPlus, X } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
-import { PersonAutocomplete, JurisdictionAutocomplete } from '../../../components/common';
+import { JurisdictionAutocomplete, AddPersonDropdown } from '../../../components/common';
 import {
   createProceeding,
   updateProceeding,
   addProceedingJudge,
   removeProceedingJudge,
   createPerson,
-  assignPersonToCase,
   createJurisdiction,
 } from '../../../api';
 import type { Proceeding, Jurisdiction, ProceedingJudge, Person } from '../../../types';
@@ -33,9 +32,8 @@ export function ProceedingsSection({
     is_primary: false,
     notes: '',
   });
-  // Track which proceeding is showing the add judge UI
-  const [addingJudgeTo, setAddingJudgeTo] = useState<number | null>(null);
-  const [newJudgeRole, setNewJudgeRole] = useState('Judge');
+
+  const judgeRoleOptions = ['Judge', 'Magistrate Judge', 'Presiding', 'Panel'];
 
   const createMutation = useMutation({
     mutationFn: (data: {
@@ -79,21 +77,11 @@ export function ProceedingsSection({
 
   const addJudgeMutation = useMutation({
     mutationFn: async ({ proceedingId, personId, role }: { proceedingId: number; personId: number; role: string }) => {
-      // First assign the person to the case as a judge (if not already)
-      await assignPersonToCase(caseId, {
-        person_id: personId,
-        role: role,
-        side: 'neutral',
-      }).catch(() => {
-        // Ignore error if already assigned
-      });
-      // Then add to the proceeding
+      // Add judge directly to proceeding (judges are not assigned to cases)
       return addProceedingJudge(proceedingId, { person_id: personId, role });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setAddingJudgeTo(null);
-      setNewJudgeRole('Judge');
     },
   });
 
@@ -102,19 +90,13 @@ export function ProceedingsSection({
       // Create the person as a judge
       const personResult = await createPerson({ person_type: 'judge', name });
       const personId = personResult.person.id;
-      // Assign to case
-      await assignPersonToCase(caseId, {
-        person_id: personId,
-        role: role,
-        side: 'neutral',
-      });
-      // Add to proceeding
-      return addProceedingJudge(proceedingId, { person_id: personId, role });
+      // Add judge directly to proceeding (judges are not assigned to cases)
+      const judgeResult = await addProceedingJudge(proceedingId, { person_id: personId, role });
+      return { personId, judgeResult };
     },
-    onSuccess: () => {
+    onSuccess: ({ personId }) => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setAddingJudgeTo(null);
-      setNewJudgeRole('Judge');
+      openPersonModal(personId, { caseId });
     },
   });
 
@@ -158,12 +140,12 @@ export function ProceedingsSection({
     });
   };
 
-  const handleSelectJudge = (proceedingId: number, person: Person) => {
-    addJudgeMutation.mutate({ proceedingId, personId: person.id, role: newJudgeRole });
+  const handleSelectJudge = (proceedingId: number, person: Person, role: string) => {
+    addJudgeMutation.mutate({ proceedingId, personId: person.id, role });
   };
 
-  const handleCreateJudge = (proceedingId: number, name: string) => {
-    createAndAddJudgeMutation.mutate({ proceedingId, name, role: newJudgeRole });
+  const handleCreateJudge = (proceedingId: number, name: string, role: string) => {
+    createAndAddJudgeMutation.mutate({ proceedingId, name, role });
   };
 
   const handleRemoveJudge = (proceedingId: number, personId: number) => {
@@ -175,7 +157,6 @@ export function ProceedingsSection({
   };
 
   const formatJudgeRole = (role: string) => {
-    if (role === 'Judge') return '';
     return ` (${role})`;
   };
 
@@ -271,38 +252,38 @@ export function ProceedingsSection({
         <p className="text-xs text-slate-500">No proceedings</p>
       ) : (
         <div className="space-y-2">
-          {proceedings.map((p) => (
+          {[...proceedings].sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0)).map((p) => (
             <div
               key={p.id}
               className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg group text-sm"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {p.is_primary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
                     <span
                       className="font-mono text-slate-700 dark:text-slate-200 truncate cursor-pointer hover:underline"
                       onClick={() => openProceedingModal(p.id, { caseId })}
                     >
                       {p.case_number}
                     </span>
-                    {p.is_primary && <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
+                    {p.jurisdiction_name && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-xs text-slate-500">{p.jurisdiction_name}</span>
+                        {p.local_rules_link && (
+                          <a
+                            href={p.local_rules_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary-400 hover:text-primary-300"
+                            title="View local rules"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </span>
+                    )}
                   </div>
-                  {p.jurisdiction_name && (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-xs text-slate-500">{p.jurisdiction_name}</span>
-                      {p.local_rules_link && (
-                        <a
-                          href={p.local_rules_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-400 hover:text-primary-300"
-                          title="View local rules"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                  )}
 
                   {/* Judges list */}
                   {p.judges && p.judges.length > 0 && (
@@ -332,51 +313,18 @@ export function ProceedingsSection({
                   )}
 
                   {/* Add judge UI */}
-                  {addingJudgeTo === p.id ? (
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center gap-1">
-                        <select
-                          value={newJudgeRole}
-                          onChange={(e) => setNewJudgeRole(e.target.value)}
-                          className="px-1.5 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:border-primary-500 outline-none"
-                        >
-                          <option value="Judge">Judge</option>
-                          <option value="Presiding">Presiding</option>
-                          <option value="Panel">Panel</option>
-                          <option value="Magistrate Judge">Magistrate Judge</option>
-                        </select>
-                        <button
-                          onClick={() => {
-                            setAddingJudgeTo(null);
-                            setNewJudgeRole('Judge');
-                          }}
-                          className="p-1 text-slate-400 hover:text-slate-600"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <PersonAutocomplete
-                        personTypes={['judge']}
-                        excludePersonIds={p.judges?.map((j) => j.person_id) || []}
-                        onSelectPerson={(person) => handleSelectJudge(p.id, person)}
-                        onCreateNew={(name) => handleCreateJudge(p.id, name)}
-                        onCancel={() => {
-                          setAddingJudgeTo(null);
-                          setNewJudgeRole('Judge');
-                        }}
-                        placeholder="Search judges or create new..."
-                        autoFocus
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setAddingJudgeTo(p.id)}
-                      className="mt-1 text-xs text-primary-500 hover:text-primary-400 inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <UserPlus className="w-3 h-3" />
-                      Add judge
-                    </button>
-                  )}
+                  <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1">
+                    <UserPlus className="w-3 h-3 text-primary-500" />
+                    <span className="text-xs text-primary-500">Add judge</span>
+                    <AddPersonDropdown
+                      roleOptions={judgeRoleOptions}
+                      onAssign={(person, role) => handleSelectJudge(p.id, person, role)}
+                      onCreate={(name, role) => handleCreateJudge(p.id, name, role)}
+                      excludePersonIds={p.judges?.map((j) => j.person_id) || []}
+                      getPersonTypes={() => ['judge']}
+                      getPlaceholder={() => 'Search judges or create new...'}
+                    />
+                  </div>
 
                   {p.notes && (
                     <span className="text-xs text-slate-400 italic block mt-0.5">{p.notes}</span>

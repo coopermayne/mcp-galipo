@@ -144,7 +144,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   );
 
   const formatJudgeRole = (role: string) => {
-    if (role === 'Judge') return '';
     return ` (${role})`;
   };
 
