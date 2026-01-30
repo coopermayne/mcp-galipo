@@ -182,6 +182,25 @@ function groupTasksByCase(tasks: Task[]): DateGroup[] {
 }
 
 /**
+ * Sort tasks by urgency (high to low), then by date (earliest first)
+ */
+function sortTasksByUrgencyAndDate(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    // First sort by urgency (descending - higher urgency first)
+    if (b.urgency !== a.urgency) {
+      return b.urgency - a.urgency;
+    }
+    // Then by due date (ascending - earlier dates first, no date last)
+    if (a.due_date && b.due_date) {
+      return a.due_date.localeCompare(b.due_date);
+    }
+    if (a.due_date && !b.due_date) return -1;
+    if (!a.due_date && b.due_date) return 1;
+    return 0;
+  });
+}
+
+/**
  * Section header component (Todoist style)
  */
 function SectionHeader({
@@ -274,7 +293,7 @@ export function TaskFeed({
           key: 'all',
           label: '',
           date: null,
-          tasks,
+          tasks: sortTasksByUrgencyAndDate(tasks),
         }];
     }
   }, [tasks, groupBy]);

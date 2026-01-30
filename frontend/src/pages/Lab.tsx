@@ -12,7 +12,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
-import { TaskFeed, useTaskActions } from '../components/lab';
+import { TaskFeed, TaskDetailSheet, useTaskActions } from '../components/lab';
 import { getTasks } from '../api';
 import type { Task } from '../types';
 import { FlaskConical, GripVertical, List, Calendar, Briefcase, LayoutList } from 'lucide-react';
@@ -44,16 +44,35 @@ export function Lab() {
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
-    console.log('Task clicked:', task);
   };
 
   const handleEditClick = (task: Task) => {
     setSelectedTask(task);
-    console.log('Edit clicked:', task);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedTask(null);
   };
 
   const handleAddTask = (dueDate?: string) => {
     console.log('Add task for date:', dueDate);
+  };
+
+  // Navigation between tasks in the detail sheet
+  const selectedTaskIndex = selectedTask ? tasks.findIndex(t => t.id === selectedTask.id) : -1;
+  const hasPrevTask = selectedTaskIndex > 0;
+  const hasNextTask = selectedTaskIndex >= 0 && selectedTaskIndex < tasks.length - 1;
+
+  const handlePrevTask = () => {
+    if (hasPrevTask) {
+      setSelectedTask(tasks[selectedTaskIndex - 1]);
+    }
+  };
+
+  const handleNextTask = () => {
+    if (hasNextTask) {
+      setSelectedTask(tasks[selectedTaskIndex + 1]);
+    }
   };
 
   const handleReorder = (taskId: number, newIndex: number, reorderedTasks: Task[]) => {
@@ -155,21 +174,17 @@ export function Lab() {
           />
         </div>
 
-        {/* Selected task debug */}
-        {selectedTask && (
-          <div className="mt-6 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg max-w-2xl">
-            <h4 className="font-medium text-slate-700 dark:text-slate-300 mb-2">Selected Task</h4>
-            <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-auto">
-              {JSON.stringify(selectedTask, null, 2)}
-            </pre>
-            <button
-              onClick={() => setSelectedTask(null)}
-              className="mt-2 text-sm text-primary-600 hover:text-primary-700"
-            >
-              Clear selection
-            </button>
-          </div>
-        )}
+        {/* Task Detail Sheet (mobile-first) */}
+        <TaskDetailSheet
+          task={selectedTask}
+          isOpen={!!selectedTask}
+          onClose={handleCloseDetail}
+          onMarkDone={markDone}
+          onPrevTask={handlePrevTask}
+          onNextTask={handleNextTask}
+          hasPrevTask={hasPrevTask}
+          hasNextTask={hasNextTask}
+        />
       </PageContent>
     </>
   );
