@@ -146,3 +146,21 @@ export async function createPersonType(
     body: JSON.stringify({ name, description }),
   });
 }
+
+export async function updatePersonType(
+  typeId: number,
+  data: { name?: string; description?: string }
+): Promise<{ success: boolean; person_type: PersonTypeRecord }> {
+  return request(`/person-types/${typeId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deletePersonType(
+  typeId: number
+): Promise<{ success: boolean }> {
+  return request(`/person-types/${typeId}`, {
+    method: 'DELETE',
+  });
+}

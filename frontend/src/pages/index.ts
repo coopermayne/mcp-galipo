@@ -6,3 +6,4 @@ export { Calendar } from './Calendar';
 export { Webhooks } from './Webhooks';
 export { WebhookDetail } from './WebhookDetail';
 export { Login } from './Login';
+export { Persons } from './Persons';

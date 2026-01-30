@@ -66,6 +66,8 @@ export {
   createExpertiseType,
   getPersonTypes,
   createPersonType,
+  updatePersonType,
+  deletePersonType,
 } from './persons';
 
 // Activities

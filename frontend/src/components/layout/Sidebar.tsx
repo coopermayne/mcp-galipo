@@ -7,6 +7,7 @@ import {
   Scale,
   Download,
   Webhook,
+  Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import { getAuthToken } from '../../context/AuthContext';
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Calendar', href: '/calendar', icon: Clock },
   { name: 'CourtListener', href: '/courtlistener', icon: Webhook },
+  { name: 'Persons', href: '/persons', icon: Users },
 ];
 
 export function Sidebar() {
