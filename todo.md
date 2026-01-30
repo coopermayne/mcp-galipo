@@ -126,13 +126,18 @@ Integration with [docx_template](https://github.com/coopermayne/docx_template) f
 - [ ] Modal allows editing title (pre-filled from event) and due date (defaults to event date)
 - [ ] Task is associated with the event's case
 
-### Daily Docket / Task Planner
-Global task panel (button like chat button, top-right) for planning your day.
-- [ ] **Daily Docket button** - Top-right floating button (like chat) opens task planner panel
-- [ ] **Today's tasks list** - Drag tasks here to plan what to work on today, reorderable
-- [ ] **Drag target zones** - When dragging a task, show drop zones: "Done", "Today", "Back Burner", "Assign to Paralegal"
-- [ ] **Back burner section** - Tasks waiting on something, visible reminder to follow up
-- [ ] **Quick status changes** - Dropping on zones updates task status/category/assignee
+### Global Day Planner (Kanban)
+Trello-style kanban board as a slide-over panel. All 4 status columns always visible. Drag cards between columns to change status.
+
+**Plan:** [docs/PLANNER_KANBAN_PLAN.md](docs/PLANNER_KANBAN_PLAN.md)
+
+- [ ] **Database migration** - Add `in_planner` and `planner_added_at` columns to tasks
+- [ ] **Backend endpoints** - GET/POST planner tasks, toggle in_planner
+- [ ] **PlannerPanel component** - Slide-in panel (80% width), Cmd+Shift+P shortcut
+- [ ] **KanbanBoard component** - 4 columns (To Do, In Progress, Blocked, Done)
+- [ ] **Drag & drop** - Cross-column drag updates task status
+- [ ] **Add to Planner** - Button on task items to add/remove from planner
+- [ ] **Auto-cleanup** - Done tasks older than 24h auto-remove from planner
 
 ### Polished Report Exports
 Generate professional Word/PDF documents for client communication and internal use.
