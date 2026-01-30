@@ -6,9 +6,9 @@ import {
   getPersons,
   getPersonTypes,
   createPersonType,
-  updatePersonType,
   deletePersonType,
 } from '../api';
+import { useEntityModalContext } from '../context/EntityModalContext';
 import type { Person, PersonTypeRecord } from '../types';
 import {
   Search,
@@ -20,9 +20,7 @@ import {
   Settings,
   X,
   Plus,
-  Pencil,
   Trash2,
-  Check,
   Loader2,
 } from 'lucide-react';
 
@@ -76,8 +74,6 @@ function ManageTypesModal({
 }) {
   const queryClient = useQueryClient();
   const [newTypeName, setNewTypeName] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
@@ -85,17 +81,6 @@ function ManageTypesModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['person-types'] });
       setNewTypeName('');
-      setError(null);
-    },
-    onError: (err: Error) => setError(err.message),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) => updatePersonType(id, { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['person-types'] });
-      queryClient.invalidateQueries({ queryKey: ['persons'] });
-      setEditingId(null);
       setError(null);
     },
     onError: (err: Error) => setError(err.message),
@@ -114,18 +99,6 @@ function ManageTypesModal({
     e.preventDefault();
     if (newTypeName.trim()) {
       createMutation.mutate(newTypeName.trim().toLowerCase());
-    }
-  };
-
-  const handleStartEdit = (pt: PersonTypeRecord) => {
-    setEditingId(pt.id);
-    setEditingName(pt.name);
-    setError(null);
-  };
-
-  const handleSaveEdit = () => {
-    if (editingId && editingName.trim()) {
-      updateMutation.mutate({ id: editingId, name: editingName.trim().toLowerCase() });
     }
   };
 
@@ -196,76 +169,34 @@ function ManageTypesModal({
           <div className="space-y-1">
             {personTypes.map((pt) => {
               const count = typeCounts[pt.name] || 0;
-              const isEditing = editingId === pt.id;
 
               return (
                 <div
                   key={pt.id}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 group"
                 >
-                  {isEditing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        className="flex-1 px-2 py-1 rounded border border-primary-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSaveEdit();
-                          if (e.key === 'Escape') setEditingId(null);
-                        }}
-                      />
-                      <button
-                        onClick={handleSaveEdit}
-                        disabled={updateMutation.isPending}
-                        className="p-1 text-green-600 hover:text-green-700"
-                      >
-                        {updateMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Check className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="p-1 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="flex-1 text-sm text-slate-900 dark:text-slate-100 capitalize">
-                        {pt.name}
-                      </span>
-                      <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">
-                        {count} {count === 1 ? 'person' : 'persons'}
-                      </span>
-                      <button
-                        onClick={() => handleStartEdit(pt)}
-                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(pt)}
-                        disabled={deleteMutation.isPending || count > 0}
-                        className={`p-1 transition-opacity ${
-                          count > 0
-                            ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                            : 'text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100'
-                        }`}
-                        title={count > 0 ? `Cannot delete: ${count} person(s) use this type` : 'Delete type'}
-                      >
-                        {deleteMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
-                    </>
-                  )}
+                  <span className="flex-1 text-sm text-slate-900 dark:text-slate-100 capitalize">
+                    {pt.name}
+                  </span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+                    {count} {count === 1 ? 'person' : 'persons'}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(pt)}
+                    disabled={deleteMutation.isPending || count > 0}
+                    className={`p-1 transition-opacity ${
+                      count > 0
+                        ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                        : 'text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100'
+                    }`}
+                    title={count > 0 ? `Cannot delete: ${count} person(s) use this type` : 'Delete type'}
+                  >
+                    {deleteMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
               );
             })}
@@ -287,6 +218,7 @@ function ManageTypesModal({
 }
 
 export function Persons() {
+  const { openModal } = useEntityModalContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [showArchived, setShowArchived] = useState(false);
@@ -418,7 +350,10 @@ export function Persons() {
                 const email = getPrimaryEmail(person);
 
                 return (
-                  <ListPanel.Row key={person.id}>
+                  <ListPanel.Row
+                    key={person.id}
+                    onClick={() => openModal({ type: 'person', id: person.id })}
+                  >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {/* Avatar placeholder */}
                       <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">

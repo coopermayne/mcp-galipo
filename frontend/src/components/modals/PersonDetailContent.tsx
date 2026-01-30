@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   User,
@@ -308,6 +309,7 @@ function AttributesSection({
 }
 
 export function PersonDetailContent({ entityId, context, onClose }: PersonDetailContentProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const readOnly = context?.readOnly ?? false;
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -321,6 +323,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
     mutationFn: (update: UpdatePersonInput) => updatePerson(entityId, update),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['person', entityId] });
+      queryClient.invalidateQueries({ queryKey: ['persons'] });
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
@@ -540,9 +543,15 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
                 className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm"
               >
                 <div className="min-w-0">
-                  <span className="font-medium text-slate-700 dark:text-slate-300 truncate block">
+                  <button
+                    onClick={() => {
+                      onClose();
+                      navigate(`/cases/${assignment.case_id}`);
+                    }}
+                    className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:underline truncate block text-left"
+                  >
                     {assignment.short_name || assignment.case_name || `Case #${assignment.case_id}`}
-                  </span>
+                  </button>
                   <span className="text-xs text-slate-500">{assignment.role}</span>
                 </div>
                 {assignment.is_primary && (
