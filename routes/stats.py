@@ -125,3 +125,55 @@ def register_stats_routes(mcp):
         data = await request.json()
         result = await asyncio.to_thread(db.create_person_type, data["name"], data.get("description"))
         return JSONResponse({"success": True, "person_type": result})
+
+    @mcp.custom_route("/api/v1/person-types/{type_id}", methods=["PUT"])
+    async def api_update_person_type(request):
+        """Update a person type (rename)."""
+        if err := auth.require_auth(request):
+            return err
+        type_id = int(request.path_params["type_id"])
+        data = await request.json()
+
+        # Get old name to update persons
+        old_type = await asyncio.to_thread(db.get_person_type_by_id, type_id)
+        if not old_type:
+            return api_error("Person type not found", "NOT_FOUND", 404)
+
+        new_name = data.get("name")
+        # If name is changing, update all persons with old type
+        if new_name and new_name != old_type["name"]:
+            await asyncio.to_thread(db.update_persons_type_name, old_type["name"], new_name)
+
+        result = await asyncio.to_thread(
+            db.update_person_type,
+            type_id,
+            name=new_name,
+            description=data.get("description")
+        )
+        return JSONResponse({"success": True, "person_type": result})
+
+    @mcp.custom_route("/api/v1/person-types/{type_id}", methods=["DELETE"])
+    async def api_delete_person_type(request):
+        """Delete a person type (only if not in use)."""
+        if err := auth.require_auth(request):
+            return err
+        type_id = int(request.path_params["type_id"])
+
+        # Get type to check name
+        person_type = await asyncio.to_thread(db.get_person_type_by_id, type_id)
+        if not person_type:
+            return api_error("Person type not found", "NOT_FOUND", 404)
+
+        # Check if any persons use this type
+        count = await asyncio.to_thread(db.count_persons_by_type, person_type["name"])
+        if count > 0:
+            return api_error(
+                f"Cannot delete: {count} person(s) use this type",
+                "IN_USE",
+                409
+            )
+
+        deleted = await asyncio.to_thread(db.delete_person_type, type_id)
+        if deleted:
+            return JSONResponse({"success": True})
+        return api_error("Failed to delete person type", "DELETE_FAILED", 500)
