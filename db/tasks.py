@@ -224,26 +224,33 @@ def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
     """Update status for multiple tasks."""
     validate_task_status(status)
     with get_cursor() as cur:
-        cur.execute("""
-            UPDATE tasks SET status = %s
-            WHERE id = ANY(%s)
-        """, (status, task_ids))
+        if status == "Done":
+            cur.execute("""
+                UPDATE tasks SET status = %s, completion_date = CURRENT_DATE
+                WHERE id = ANY(%s)
+            """, (status, task_ids))
+        else:
+            cur.execute("""
+                UPDATE tasks SET status = %s, completion_date = NULL
+                WHERE id = ANY(%s)
+            """, (status, task_ids))
         return {"updated": cur.rowcount}
 
 
 def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
     """Update all tasks for a case, optionally filtering by current status."""
     validate_task_status(status)
+    completion_clause = ", completion_date = CURRENT_DATE" if status == "Done" else ", completion_date = NULL"
     with get_cursor() as cur:
         if current_status:
             validate_task_status(current_status)
-            cur.execute("""
-                UPDATE tasks SET status = %s
+            cur.execute(f"""
+                UPDATE tasks SET status = %s{completion_clause}
                 WHERE case_id = %s AND status = %s
             """, (status, case_id, current_status))
         else:
-            cur.execute("""
-                UPDATE tasks SET status = %s
+            cur.execute(f"""
+                UPDATE tasks SET status = %s{completion_clause}
                 WHERE case_id = %s
             """, (status, case_id))
         return {"updated": cur.rowcount}
