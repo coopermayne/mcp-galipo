@@ -11,3 +11,5 @@ export { QuickCaseSearch } from './QuickCaseSearch';
 export { PersonAutocomplete } from './PersonAutocomplete';
 export { JurisdictionAutocomplete } from './JurisdictionAutocomplete';
 export { AddPersonDropdown } from './AddPersonDropdown';
+export { MentionDropdown } from './MentionDropdown';
+export { MentionTextarea } from './MentionTextarea';
