@@ -185,15 +185,11 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
 
   // UI State
   const [showAddDefendant, setShowAddDefendant] = useState(false);
-  const [showAddCounsel, setShowAddCounsel] = useState(false);
   const [showAddMediator, setShowAddMediator] = useState(false);
   const [taskView, setTaskView] = useState<'urgency' | 'date'>('urgency');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-
-  // Form state
-  const [newCounselRole, setNewCounselRole] = useState('Opposing Counsel');
 
   // Drag sensors
   const sensors = useSensors(
@@ -244,11 +240,17 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     'Defendant',
     'Judge', 'Magistrate Judge',
     'Opposing Counsel', 'Co-Counsel', 'Referring Attorney',
-    'Expert - Plaintiff', 'Expert - Defendant',
     'Mediator'
   ];
   const others = useMemo(() =>
-    (caseData.persons || []).filter(p => p.role && !coveredRoles.includes(p.role)),
+    (caseData.persons || []).filter(p => {
+      if (!p.role) return false;
+      // Exclude roles already shown in other sections
+      if (coveredRoles.includes(p.role)) return false;
+      // Exclude experts (shown in Experts section)
+      if (p.role.toLowerCase().includes('expert')) return false;
+      return true;
+    }),
     [caseData.persons]);
 
   // Tasks filtering
@@ -304,6 +306,16 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
 
   const getExpertVariant = (role: string): 'primary' | 'danger' => {
     return role?.includes('Plaintiff') ? 'primary' : 'danger';
+  };
+
+  const getOtherVariant = (role: string): 'muted' | 'warning' | 'success' | 'primary' | 'danger' => {
+    switch (role) {
+      case 'Insurance Adjuster': return 'warning';
+      case 'Lien Holder': return 'danger';
+      case 'Interpreter': return 'success';
+      case 'Witness': return 'primary';
+      default: return 'muted';
+    }
   };
 
   // Get list of person IDs already assigned to this case
@@ -367,7 +379,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setShowAddCounsel(false);
     },
   });
 
@@ -380,7 +391,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     },
     onSuccess: (personId) => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setShowAddCounsel(false);
       openPersonModal(personId, { caseId });
     },
   });
@@ -541,41 +551,26 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
               )}
 
               {/* Counsel - always show with add button */}
-              <div className="space-y-1">
-                <div className="flex items-start gap-2 text-sm">
-                  <span className="text-slate-400 w-16 shrink-0 pt-1">Counsel:</span>
-                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                    {counsel.map(c => (
-                      <PersonChip key={c.assignment_id} person={c} onOpenDetail={() => openPersonModal(c.id, { caseId })} variant={getCounselVariant(c.role || '')} />
-                    ))}
-                    {counsel.length === 0 && !showAddCounsel && (
-                      <span className="text-xs text-slate-400 italic pt-1">None</span>
-                    )}
-                  </div>
-                  <button onClick={() => setShowAddCounsel(!showAddCounsel)} className="text-primary-600 hover:text-primary-700 pt-1 shrink-0">
-                    <Plus className="w-3 h-3" />
-                  </button>
+              <div className="flex items-start gap-2 text-sm">
+                <span className="text-slate-400 w-16 shrink-0 pt-1">Counsel:</span>
+                <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                  {counsel.map(c => (
+                    <PersonChip key={c.assignment_id} person={c} onOpenDetail={() => openPersonModal(c.id, { caseId })} variant={getCounselVariant(c.role || '')} />
+                  ))}
+                  {counsel.length === 0 && (
+                    <span className="text-xs text-slate-400 italic pt-1">None</span>
+                  )}
                 </div>
-                {showAddCounsel && (
-                  <div className="ml-[72px] space-y-1">
-                    <select
-                      value={newCounselRole}
-                      onChange={(e) => setNewCounselRole(e.target.value)}
-                      className="w-full px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                    >
-                      {counselRoleOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <PersonAutocomplete
-                      personTypes={['attorney']}
-                      excludePersonIds={assignedPersonIds}
-                      onSelectPerson={(person) => assignCounselMutation.mutate({ person, role: newCounselRole })}
-                      onCreateNew={(name) => createCounselMutation.mutate({ name, role: newCounselRole })}
-                      onCancel={() => setShowAddCounsel(false)}
-                      placeholder="Search attorneys..."
-                      autoFocus
-                    />
-                  </div>
-                )}
+                <div className="pt-1 shrink-0">
+                  <AddPersonDropdown
+                    roleOptions={counselRoleOptions}
+                    onAssign={(person, role) => assignCounselMutation.mutate({ person, role })}
+                    onCreate={(name, role) => createCounselMutation.mutate({ name, role })}
+                    excludePersonIds={assignedPersonIds}
+                    getPersonTypes={() => ['attorney']}
+                    getPlaceholder={() => 'Search attorneys...'}
+                  />
+                </div>
               </div>
 
               {/* Mediator - always show with add button */}
@@ -762,7 +757,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           />
           <div className="flex flex-wrap gap-1">
             {others.map(o => (
-              <PersonChip key={o.assignment_id} person={o} onOpenDetail={() => openPersonModal(o.id, { caseId })} variant="muted" />
+              <PersonChip key={o.assignment_id} person={o} onOpenDetail={() => openPersonModal(o.id, { caseId })} variant={getOtherVariant(o.role || '')} />
             ))}
             {others.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
           </div>
