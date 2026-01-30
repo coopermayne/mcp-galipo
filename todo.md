@@ -109,6 +109,11 @@ Integration with [docx_template](https://github.com/coopermayne/docx_template) f
 - [ ] Proceeding detail modal - view/edit proceeding with judge, dates, notes
 - [ ] Extend pattern to other entities as needed (events, tasks?)
 
+### Event-to-Task Creation
+- [ ] "Create Task" button on events - opens modal to create a task linked to that event
+- [ ] Modal allows editing title (pre-filled from event) and due date (defaults to event date)
+- [ ] Task is associated with the event's case
+
 ### Daily Docket / Task Planner
 Global task panel (button like chat button, top-right) for planning your day.
 - [ ] **Daily Docket button** - Top-right floating button (like chat) opens task planner panel
