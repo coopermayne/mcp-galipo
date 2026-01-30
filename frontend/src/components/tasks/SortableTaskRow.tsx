@@ -8,6 +8,7 @@ import {
   EditableDate,
   StatusBadge,
   UrgencyBadge,
+  EventLinkBadge,
 } from '../common';
 import type { Task, TaskStatus } from '../../types';
 
@@ -107,12 +108,13 @@ export function SortableTaskRow({
       )}
 
       {/* Description */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2">
         <EditableText
           value={task.description}
           onSave={async (value) => { await onUpdate(task.id, 'description', value); }}
           className="text-sm"
         />
+        <EventLinkBadge eventDescription={task.event_description} eventDate={task.event_date} />
       </div>
 
       {/* Due Date */}

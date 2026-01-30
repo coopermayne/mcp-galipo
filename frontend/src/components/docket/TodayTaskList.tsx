@@ -3,7 +3,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities';
 import { Link } from 'react-router-dom';
 import { GripVertical, Check } from 'lucide-react';
-import { StatusBadge } from '../common';
+import { StatusBadge, EventLinkBadge } from '../common';
 import type { Task } from '../../types';
 
 // Deterministic color mapping for case badges
@@ -73,8 +73,11 @@ function DocketTaskRow({ task, onMarkDone }: DocketTaskRowProps) {
       </Link>
 
       {/* Description */}
-      <div className="flex-1 min-w-0 text-sm text-slate-900 dark:text-slate-100 truncate">
-        {task.description}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <span className="text-sm text-slate-900 dark:text-slate-100 truncate">
+          {task.description}
+        </span>
+        <EventLinkBadge eventDescription={task.event_description} eventDate={task.event_date} />
       </div>
 
       {/* Status */}
