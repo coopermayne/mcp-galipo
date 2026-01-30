@@ -15,6 +15,66 @@ interface DropdownPosition {
   left: number;
 }
 
+// Regex to match mention markdown: [@Name](person:123)
+const MENTION_REGEX = /\[@([^\]]+)\]\(person:(\d+)\)/g;
+
+// Convert markdown to HTML with styled mention chips
+function markdownToHtml(markdown: string): string {
+  // Escape HTML entities first
+  let html = markdown
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Replace mention markdown with styled spans
+  html = html.replace(MENTION_REGEX, (_, name, id) => {
+    return `<span class="mention-chip" data-person-id="${id}" contenteditable="false">@${name}</span>`;
+  });
+
+  // Convert newlines to <br> for display
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
+// Convert HTML back to markdown
+function htmlToMarkdown(html: string): string {
+  // Create a temporary container to parse HTML
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+
+  // Walk through and convert
+  let result = '';
+
+  function processNode(node: Node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent || '';
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+
+      if (el.tagName === 'BR') {
+        result += '\n';
+      } else if (el.classList.contains('mention-chip')) {
+        const personId = el.getAttribute('data-person-id');
+        const name = (el.textContent || '').replace(/^@/, '');
+        result += `[@${name}](person:${personId})`;
+      } else if (el.tagName === 'DIV') {
+        // Divs from contenteditable often represent line breaks
+        if (result.length > 0 && !result.endsWith('\n')) {
+          result += '\n';
+        }
+        el.childNodes.forEach(processNode);
+      } else {
+        el.childNodes.forEach(processNode);
+      }
+    }
+  }
+
+  temp.childNodes.forEach(processNode);
+
+  return result;
+}
+
 export function MentionTextarea({
   value,
   onChange,
@@ -26,86 +86,121 @@ export function MentionTextarea({
   const [searchText, setSearchText] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition>({ top: 0, left: 0 });
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const mirrorRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const lastValueRef = useRef(value);
 
-  // Get filtered persons count for keyboard navigation bounds
+  // Get filtered persons for keyboard navigation
   const filteredPersons = persons.filter((person) =>
     person.name.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  // Calculate cursor position using a mirror element
-  const calculateCursorPosition = useCallback(() => {
-    const textarea = textareaRef.current;
-    const mirror = mirrorRef.current;
-    if (!textarea || !mirror) return { top: 0, left: 0 };
+  // Update editor content when value changes externally (e.g., form reset)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
 
-    // Copy textarea styles to mirror
-    const computed = getComputedStyle(textarea);
-    mirror.style.width = computed.width;
-    mirror.style.padding = computed.padding;
-    mirror.style.fontSize = computed.fontSize;
-    mirror.style.fontFamily = computed.fontFamily;
-    mirror.style.lineHeight = computed.lineHeight;
-    mirror.style.whiteSpace = 'pre-wrap';
-    mirror.style.wordWrap = 'break-word';
-
-    // Get text up to cursor and add a span marker
-    const cursorPos = textarea.selectionStart;
-    const textBeforeCursor = value.substring(0, cursorPos);
-
-    // Create mirror content with marker span
-    mirror.innerHTML = '';
-    const textNode = document.createTextNode(textBeforeCursor);
-    const marker = document.createElement('span');
-    marker.id = 'cursor-marker';
-    mirror.appendChild(textNode);
-    mirror.appendChild(marker);
-
-    // Get marker position relative to textarea
-    const markerRect = marker.getBoundingClientRect();
-    const textareaRect = textarea.getBoundingClientRect();
-
-    return {
-      top: markerRect.top - textareaRect.top + textarea.scrollTop + 20, // 20px below cursor
-      left: Math.min(markerRect.left - textareaRect.left, textareaRect.width - 220), // Keep dropdown in view
-    };
+    // Only update if value changed externally (not from our own edits)
+    if (value !== lastValueRef.current) {
+      const html = markdownToHtml(value);
+      if (editor.innerHTML !== html) {
+        editor.innerHTML = html || '';
+      }
+      lastValueRef.current = value;
+    }
   }, [value]);
 
-  // Detect @ mentions while typing
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newValue = e.target.value;
-      const cursorPos = e.target.selectionStart;
-      onChange(newValue);
+  // Initialize editor content on mount
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (editor && value) {
+      editor.innerHTML = markdownToHtml(value);
+    }
+  }, []);
 
-      // Check for @ pattern before cursor
-      const textBeforeCursor = newValue.substring(0, cursorPos);
-      const atMatch = textBeforeCursor.match(/@(\w*)$/);
+  // Get cursor position relative to editor
+  const getCursorPosition = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return { top: 0, left: 0 };
 
-      if (atMatch) {
-        setMentionStartIndex(cursorPos - atMatch[0].length);
-        setSearchText(atMatch[1]);
-        setHighlightedIndex(0);
-        setShowDropdown(true);
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return { top: 0, left: 0 };
 
-        // Calculate position after state update
-        requestAnimationFrame(() => {
-          setDropdownPosition(calculateCursorPosition());
-        });
-      } else {
-        setShowDropdown(false);
-        setMentionStartIndex(null);
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+
+    return {
+      top: rect.bottom - editorRect.top + editor.scrollTop,
+      left: Math.min(rect.left - editorRect.left, editorRect.width - 220),
+    };
+  }, []);
+
+  // Get text content before cursor
+  const getTextBeforeCursor = useCallback((): string => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return '';
+
+    const range = selection.getRangeAt(0);
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(editorRef.current!);
+    preRange.setEnd(range.startContainer, range.startOffset);
+
+    // Get text content, handling mention chips
+    const temp = document.createElement('div');
+    temp.appendChild(preRange.cloneContents());
+
+    let text = '';
+    function extractText(node: Node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent || '';
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (el.classList.contains('mention-chip')) {
+          const personId = el.getAttribute('data-person-id');
+          const name = (el.textContent || '').replace(/^@/, '');
+          text += `[@${name}](person:${personId})`;
+        } else if (el.tagName === 'BR') {
+          text += '\n';
+        } else {
+          el.childNodes.forEach(extractText);
+        }
       }
-    },
-    [onChange, calculateCursorPosition]
-  );
+    }
+    temp.childNodes.forEach(extractText);
 
-  // Handle keyboard navigation in dropdown
+    return text;
+  }, []);
+
+  // Handle input changes
+  const handleInput = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const markdown = htmlToMarkdown(editor.innerHTML);
+    lastValueRef.current = markdown;
+    onChange(markdown);
+
+    // Check for @ pattern
+    const textBeforeCursor = getTextBeforeCursor();
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      setSearchText(atMatch[1]);
+      setHighlightedIndex(0);
+      setShowDropdown(true);
+      requestAnimationFrame(() => {
+        setDropdownPosition(getCursorPosition());
+      });
+    } else {
+      setShowDropdown(false);
+    }
+  }, [onChange, getTextBeforeCursor, getCursorPosition]);
+
+  // Handle keyboard navigation
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!showDropdown) return;
 
       switch (e.key) {
@@ -118,15 +213,14 @@ export function MentionTextarea({
           setHighlightedIndex((prev) => Math.max(prev - 1, 0));
           break;
         case 'Enter':
-          e.preventDefault();
           if (filteredPersons[highlightedIndex]) {
+            e.preventDefault();
             handleSelectPerson(filteredPersons[highlightedIndex]);
           }
           break;
         case 'Escape':
           e.preventDefault();
           setShowDropdown(false);
-          setMentionStartIndex(null);
           break;
         case 'Tab':
           if (filteredPersons[highlightedIndex]) {
@@ -139,79 +233,104 @@ export function MentionTextarea({
     [showDropdown, highlightedIndex, filteredPersons]
   );
 
-  // Handle person selection from dropdown
+  // Insert a person mention at cursor
   const handleSelectPerson = useCallback(
     (person: CasePerson) => {
-      if (mentionStartIndex === null) return;
+      const editor = editorRef.current;
+      if (!editor) return;
 
-      const textarea = textareaRef.current;
-      if (!textarea) return;
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
 
-      const cursorPos = textarea.selectionStart;
-      const beforeMention = value.substring(0, mentionStartIndex);
-      const afterCursor = value.substring(cursorPos);
-
-      // Insert markdown link format: [@Name](person:id)
-      const mentionLink = `[@${person.name}](person:${person.id})`;
-      const newValue = beforeMention + mentionLink + ' ' + afterCursor;
-
-      onChange(newValue);
-      setShowDropdown(false);
-      setMentionStartIndex(null);
-
-      // Set cursor position after the inserted mention
-      requestAnimationFrame(() => {
-        const newCursorPos = mentionStartIndex + mentionLink.length + 1;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-        textarea.focus();
-      });
-    },
-    [mentionStartIndex, value, onChange]
-  );
-
-  // Close dropdown when cursor moves away from @ mention
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea || !showDropdown) return;
-
-    const handleSelectionChange = () => {
-      if (mentionStartIndex === null) return;
-
-      const cursorPos = textarea.selectionStart;
-      const textBeforeCursor = value.substring(0, cursorPos);
+      // Find and delete the @search text
+      const range = selection.getRangeAt(0);
+      const textBeforeCursor = getTextBeforeCursor();
       const atMatch = textBeforeCursor.match(/@(\w*)$/);
 
-      if (!atMatch) {
-        setShowDropdown(false);
-        setMentionStartIndex(null);
+      if (atMatch) {
+        // Move back to delete the @ and search text
+        const deleteLength = atMatch[0].length;
+
+        // Create a range to delete the @mention text
+        const startContainer = range.startContainer;
+        const startOffset = range.startOffset;
+
+        if (startContainer.nodeType === Node.TEXT_NODE) {
+          const textNode = startContainer as Text;
+          const deleteStart = Math.max(0, startOffset - deleteLength);
+          textNode.deleteData(deleteStart, deleteLength);
+
+          // Insert the mention chip
+          const chip = document.createElement('span');
+          chip.className = 'mention-chip';
+          chip.setAttribute('data-person-id', String(person.id));
+          chip.setAttribute('contenteditable', 'false');
+          chip.textContent = `@${person.name}`;
+
+          // Insert chip and a space after it
+          const newRange = document.createRange();
+          newRange.setStart(textNode, deleteStart);
+          newRange.collapse(true);
+
+          newRange.insertNode(chip);
+
+          // Add a space after the chip and move cursor there
+          const space = document.createTextNode('\u00A0'); // non-breaking space
+          chip.after(space);
+
+          // Move cursor after the space
+          const cursorRange = document.createRange();
+          cursorRange.setStartAfter(space);
+          cursorRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(cursorRange);
+        }
       }
-    };
 
-    // Use a small delay to allow the selection to update
-    const handleClick = () => setTimeout(handleSelectionChange, 0);
-    textarea.addEventListener('click', handleClick);
+      // Update the value
+      const markdown = htmlToMarkdown(editor.innerHTML);
+      lastValueRef.current = markdown;
+      onChange(markdown);
 
-    return () => textarea.removeEventListener('click', handleClick);
-  }, [showDropdown, mentionStartIndex, value]);
+      setShowDropdown(false);
+      editor.focus();
+    },
+    [getTextBeforeCursor, onChange]
+  );
+
+  // Handle paste - convert to plain text
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  }, []);
+
+  const showPlaceholder = !isFocused && !value;
 
   return (
     <div className="relative">
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder}
+        onPaste={handlePaste}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         className={className}
+        style={{ minHeight: '80px' }}
+        suppressContentEditableWarning
       />
 
-      {/* Hidden mirror element for cursor position calculation */}
-      <div
-        ref={mirrorRef}
-        aria-hidden="true"
-        className="absolute top-0 left-0 pointer-events-none invisible overflow-hidden"
-        style={{ position: 'absolute', visibility: 'hidden' }}
-      />
+      {/* Placeholder */}
+      {showPlaceholder && (
+        <div
+          className="absolute top-0 left-0 pointer-events-none text-slate-400 px-3 py-2 text-sm"
+          aria-hidden="true"
+        >
+          {placeholder}
+        </div>
+      )}
 
       {showDropdown && (
         <MentionDropdown
@@ -220,13 +339,30 @@ export function MentionTextarea({
           position={dropdownPosition}
           highlightedIndex={highlightedIndex}
           onSelect={handleSelectPerson}
-          onClose={() => {
-            setShowDropdown(false);
-            setMentionStartIndex(null);
-          }}
+          onClose={() => setShowDropdown(false)}
           onHighlightChange={setHighlightedIndex}
         />
       )}
+
+      {/* Styles for mention chips */}
+      <style>{`
+        .mention-chip {
+          display: inline-flex;
+          align-items: center;
+          background-color: rgb(219 234 254); /* blue-100 */
+          color: rgb(29 78 216); /* blue-700 */
+          padding: 0 6px;
+          border-radius: 4px;
+          font-size: 0.875rem;
+          font-weight: 500;
+          margin: 0 1px;
+          user-select: all;
+        }
+        .dark .mention-chip {
+          background-color: rgb(30 58 138 / 0.4); /* blue-900/40 */
+          color: rgb(147 197 253); /* blue-300 */
+        }
+      `}</style>
     </div>
   );
 }
