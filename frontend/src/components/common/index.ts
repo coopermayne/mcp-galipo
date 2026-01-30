@@ -13,3 +13,4 @@ export { JurisdictionAutocomplete } from './JurisdictionAutocomplete';
 export { AddPersonDropdown } from './AddPersonDropdown';
 export { MentionDropdown } from './MentionDropdown';
 export { MentionTextarea } from './MentionTextarea';
+export { DraggablePersonChip, UnnestDropZone } from './DraggablePersonChip';
