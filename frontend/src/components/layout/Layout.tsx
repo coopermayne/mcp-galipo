@@ -2,7 +2,6 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { Outlet, useMatch, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { ChatButton, ChatPanel } from '../chat';
-import { DocketButton, DocketPanel } from '../docket';
 import { QuickCaseSearch } from '../common';
 
 // Detect if running on Mac
@@ -25,7 +24,6 @@ export const useMobileSidebar = () => useContext(MobileSidebarContext);
 
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isDocketOpen, setIsDocketOpen] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
@@ -63,13 +61,6 @@ export function Layout() {
         return;
       }
 
-      // Ctrl+D (Mac) / Alt+D (Windows) - Daily docket
-      if (key === 'd') {
-        e.preventDefault();
-        setIsDocketOpen((prev) => !prev);
-        return;
-      }
-
       // Ctrl+K (Mac) / Alt+K (Windows) - Chat
       if (key === 'k') {
         e.preventDefault();
@@ -96,10 +87,6 @@ export function Layout() {
         {/* Chat UI */}
         <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
         <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
-
-        {/* Daily Docket */}
-        <DocketButton onClick={() => setIsDocketOpen(true)} isOpen={isDocketOpen} />
-        <DocketPanel isOpen={isDocketOpen} onClose={() => setIsDocketOpen(false)} />
 
         {/* Quick Case Search */}
         <QuickCaseSearch isOpen={isQuickSearchOpen} onClose={() => setIsQuickSearchOpen(false)} />

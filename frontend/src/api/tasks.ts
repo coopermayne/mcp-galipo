@@ -1,4 +1,4 @@
-import type { Task, CreateTaskInput, UpdateTaskInput, DocketTasks, UpdateDocketInput, DocketCategory } from '../types';
+import type { Task, CreateTaskInput, UpdateTaskInput } from '../types';
 import { request } from './common';
 
 export async function getTasks(params?: {
@@ -22,48 +22,6 @@ export async function getTasks(params?: {
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();
   return request(`/tasks${query ? `?${query}` : ''}`);
-}
-
-// ============================================================================
-// Docket API Functions
-// ============================================================================
-
-/**
- * Get all tasks in the daily docket, grouped by category (today, tomorrow, backburner)
- */
-export async function getDocketTasks(excludeDone: boolean = true): Promise<DocketTasks> {
-  return request(`/docket?exclude_done=${excludeDone}`);
-}
-
-/**
- * Update a task's docket category and/or order
- */
-export async function updateDocket(
-  taskId: number,
-  data: UpdateDocketInput
-): Promise<{ success: boolean; task: Task }> {
-  return request(`/docket/${taskId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-/**
- * Add a task to the docket with a specific category
- */
-export async function addToDocket(
-  taskId: number,
-  category: DocketCategory,
-  order?: number
-): Promise<{ success: boolean; task: Task }> {
-  return updateDocket(taskId, { docket_category: category, docket_order: order });
-}
-
-/**
- * Remove a task from the docket (set docket_category to null)
- */
-export async function removeFromDocket(taskId: number): Promise<{ success: boolean; task: Task }> {
-  return updateDocket(taskId, { docket_category: null, docket_order: null });
 }
 
 export async function createTask(data: CreateTaskInput): Promise<{ success: boolean; task: Task }> {
