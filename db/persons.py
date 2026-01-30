@@ -104,10 +104,14 @@ def update_person(person_id: int, **kwargs) -> Optional[dict]:
 
 def search_persons(name: str = None, person_type: str = None, organization: str = None,
                    email: str = None, phone: str = None, case_id: int = None,
-                   archived: bool = False, limit: int = 50, offset: int = 0) -> dict:
+                   include_archived: bool = False, limit: int = 50, offset: int = 0) -> dict:
     """Search persons by various criteria."""
-    conditions = ["p.archived = %s"]
-    params = [archived]
+    conditions = []
+    params = []
+
+    # Only filter out archived if we don't want to include them
+    if not include_archived:
+        conditions.append("p.archived = false")
 
     if name:
         conditions.append("p.name ILIKE %s")
@@ -134,7 +138,7 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
         conditions.append("EXISTS (SELECT 1 FROM case_persons cp WHERE cp.person_id = p.id AND cp.case_id = %s)")
         params.append(case_id)
 
-    where_clause = f"WHERE {' AND '.join(conditions)}"
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
         cur.execute(f"SELECT COUNT(*) as total FROM persons p {where_clause}", params)
