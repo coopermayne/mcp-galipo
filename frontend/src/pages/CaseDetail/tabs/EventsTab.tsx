@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff } from 'lucide-react';
-import { EditableText, EditableDate, EditableTime, ConfirmModal, CreateTaskFromEventModal, CreateTaskButton } from '../../../components/common';
+import { EditableText, EditableDate, EditableTime, DeleteEventModal, CreateTaskFromEventModal, CreateTaskButton } from '../../../components/common';
 import { createEvent, updateEvent, deleteEvent } from '../../../api';
 import type { Event } from '../../../types';
 
@@ -300,14 +300,12 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
         )}
       </div>
 
-      <ConfirmModal
+      <DeleteEventModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
-        title="Delete Event"
-        message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
-        confirmText="Delete Event"
-        variant="danger"
+        eventId={deleteTarget?.id ?? null}
+        eventDescription={deleteTarget?.description ?? ''}
         isLoading={deleteMutation.isPending}
       />
 

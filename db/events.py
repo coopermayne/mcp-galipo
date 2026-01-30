@@ -174,9 +174,21 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
         return serialize_row(dict(row)) if row else None
 
 
-def delete_event(event_id: int) -> bool:
-    """Delete an event."""
+def get_tasks_for_event(event_id: int) -> List[dict]:
+    """Get tasks linked to an event."""
     with get_cursor() as cur:
+        cur.execute("""
+            SELECT id, description FROM tasks WHERE event_id = %s
+        """, (event_id,))
+        return [dict(row) for row in cur.fetchall()]
+
+
+def delete_event(event_id: int) -> bool:
+    """Delete an event and its linked tasks."""
+    with get_cursor() as cur:
+        # Delete linked tasks first
+        cur.execute("DELETE FROM tasks WHERE event_id = %s", (event_id,))
+        # Then delete the event
         cur.execute("DELETE FROM events WHERE id = %s", (event_id,))
         return cur.rowcount > 0
 
