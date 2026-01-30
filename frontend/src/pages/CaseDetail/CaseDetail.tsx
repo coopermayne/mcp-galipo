@@ -120,12 +120,15 @@ export function CaseDetail() {
     );
   }
 
+  const completedTasksCount = caseData.tasks?.filter((t) => t.status === 'Done').length || 0;
+  const activityCount = (caseData.activities?.length || 0) + completedTasksCount;
+
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: FileText },
     { id: 'tasks' as TabType, label: 'Tasks', icon: CheckSquare, count: caseData.tasks?.length },
     { id: 'events' as TabType, label: 'Events', icon: Clock, count: caseData.events?.length },
     { id: 'notes' as TabType, label: 'Notes', icon: StickyNote, count: caseData.notes?.length },
-    { id: 'activity' as TabType, label: 'Activity', icon: History, count: caseData.activities?.length },
+    { id: 'activity' as TabType, label: 'Activity', icon: History, count: activityCount },
     { id: 'settings' as TabType, label: 'Settings', icon: Settings },
   ];
 
