@@ -60,12 +60,12 @@ def get_all_cases_with_data() -> list:
                    p.address, p.organization, p.attributes, p.notes as person_notes,
                    p.archived,
                    cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                   cp.case_notes, cp.is_primary, cp.contact_via_person_id,
+                   cp.case_notes, cp.is_primary, cp.grouped_under_id,
                    cp.assigned_date, cp.created_at as assigned_at,
-                   via.name as contact_via_name
+                   via.name as grouped_under_name
             FROM persons p
             JOIN case_persons cp ON p.id = cp.person_id
-            LEFT JOIN persons via ON cp.contact_via_person_id = via.id
+            LEFT JOIN persons via ON cp.grouped_under_id = via.id
             WHERE cp.case_id = ANY(%s)
             ORDER BY cp.case_id,
                 CASE cp.role

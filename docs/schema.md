@@ -2,7 +2,7 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-01-29 16:52:18 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-01-29 22:05:11 by `scripts/generate_schema_diagram.py`
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
 
@@ -29,7 +29,7 @@ erDiagram
         jsonb case_attributes
         text case_notes
         boolean is_primary
-        int contact_via_person_id FK
+        int grouped_under_id FK
         date assigned_date
         timestamp created_at
     }
@@ -145,7 +145,7 @@ erDiagram
     %% Relationships
     cases ||--o{ activities : "has"
     cases ||--o{ case_persons : "has"
-    persons ||--o{ case_persons : "contact_via_person"
+    persons ||--o{ case_persons : "grouped_under"
     cases ||--o{ events : "has"
     persons ||--o{ judges : "person"
     proceedings ||--o{ judges : "proceeding"
@@ -162,7 +162,7 @@ erDiagram
 |--------|-------|-----------|-----------|
 | cases | activities | case_id | CASCADE |
 | cases | case_persons | case_id | CASCADE |
-| persons | case_persons | contact_via_person_id | NO ACTION |
+| persons | case_persons | grouped_under_id | NO ACTION |
 | persons | case_persons | person_id | CASCADE |
 | cases | events | case_id | CASCADE |
 | persons | judges | person_id | CASCADE |

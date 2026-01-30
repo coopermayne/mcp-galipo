@@ -78,8 +78,8 @@ export interface CasePersonAssignment {
   case_attributes: Record<string, unknown>;
   case_notes?: string;
   is_primary: boolean;
-  contact_via_person_id?: number;
-  contact_via_name?: string;
+  grouped_under_id?: number;
+  grouped_under_name?: string;
   assigned_date?: string;
   created_at: string;
 }
@@ -91,8 +91,8 @@ export interface CasePerson extends Person {
   case_attributes: Record<string, unknown>;
   case_notes?: string;
   is_primary: boolean;
-  contact_via_person_id?: number;
-  contact_via_name?: string;
+  grouped_under_id?: number;
+  grouped_under_name?: string;
   assigned_date?: string;
   assigned_at: string;
   person_notes?: string;
@@ -129,7 +129,7 @@ export interface AssignPersonInput {
   case_attributes?: Record<string, unknown>;
   case_notes?: string;
   is_primary?: boolean;
-  contact_via_person_id?: number;
+  grouped_under_id?: number;
   assigned_date?: string;
 }
 
@@ -139,6 +139,6 @@ export interface UpdateAssignmentInput {
   case_attributes?: Record<string, unknown>;
   case_notes?: string;
   is_primary?: boolean;
-  contact_via_person_id?: number;
+  grouped_under_id?: number | null;
   assigned_date?: string;
 }
