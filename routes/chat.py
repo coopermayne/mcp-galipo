@@ -118,6 +118,8 @@ from services.chat import (
     ToolResult,
     StreamEventType,
     get_tool_definitions,
+    get_mode_system_prompt,
+    get_preset_context,
     execute_tool,
     log_request,
     log_response,
@@ -240,6 +242,9 @@ def register_chat_routes(mcp):
 
         conversation_id = data.get("conversation_id")
         case_context = data.get("case_context")
+        mode = data.get("mode")  # Optional: tasks, events, people, overview, full
+        preset = data.get("preset")  # Optional: priorities, deadlines, overdue, activity
+        _logger.info(f"Chat request - mode: {mode}, preset: {preset}, case_context: {case_context}")
 
         # Generate new conversation ID if not provided
         if not conversation_id:
@@ -266,8 +271,21 @@ def register_chat_routes(mcp):
             messages.pop()
             return api_error(str(e), "CONFIG_ERROR", 500)
 
-        # Get tool definitions
-        tools = get_tool_definitions()
+        # Handle presets (no tools needed - data is pre-fetched)
+        preset_data = None
+        preset_prompt = None
+        if preset:
+            result = get_preset_context(preset, case_context)
+            if result:
+                preset_data, preset_prompt = result
+                _logger.info(f"Preset '{preset}' loaded with data")
+
+        # Get tool definitions (filtered by mode if specified, empty for presets)
+        if preset_data:
+            tools = []  # No tools needed for presets
+        else:
+            tools = get_tool_definitions(mode)
+        _logger.info(f"Tools after filtering: {len(tools)} tools")
 
         # Build system prompt with current date and optional case context
         from datetime import datetime
@@ -295,6 +313,24 @@ Always be helpful and concise. When you need more information to complete a task
             system_prompt += f"""
 
 The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}."""
+
+        # Add mode-specific system prompt if a mode is active
+        mode_prompt = get_mode_system_prompt(mode)
+        if mode_prompt:
+            system_prompt += f"""
+
+{mode_prompt}"""
+
+        # Add preset data and prompt if a preset is active
+        if preset_data and preset_prompt:
+            system_prompt += f"""
+
+{preset_prompt}
+
+DATA:
+```json
+{json.dumps(preset_data, indent=2)}
+```"""
 
         async def generate_sse_events() -> AsyncGenerator[str, None]:
             """Generate SSE events from Claude's streaming response."""

@@ -3,11 +3,13 @@ Tool definitions for the chat feature - generated from MCP tools.
 
 This module dynamically generates tool definitions from the registered MCP tools,
 ensuring the chat feature always has access to the same tools as the MCP server.
+Supports mode-based tool filtering for focused chat interactions.
 """
 
 from typing import Any
 from fastmcp import FastMCP
 from tools import register_tools
+from .modes import get_mode_tools
 
 # Create a local MCP instance to extract tool metadata
 # This doesn't start a server, just gives us access to tool definitions
@@ -56,20 +58,31 @@ def _clean_schema(schema: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
-def get_tool_definitions() -> list[dict[str, Any]]:
+def get_tool_definitions(mode: str | None = None) -> list[dict[str, Any]]:
     """Generate tool definitions from MCP tools for Claude API.
 
     Returns tool definitions in Claude's expected format, automatically
     derived from the registered MCP tools. Internal parameters like
     'context' are filtered out.
 
+    Args:
+        mode: Optional chat mode to filter tools. If provided (and not 'full'),
+              only tools in the mode's allowlist will be returned.
+
     Returns:
         List of tool definitions with name, description, and input_schema.
     """
     definitions = []
 
+    # Get the allowed tools for this mode (empty list = all tools)
+    allowed_tools = get_mode_tools(mode) if mode and mode != "full" else []
+
     for tool in _mcp._tool_manager._tools.values():
         if tool.name in BLACKLIST:
+            continue
+
+        # Filter by mode if an allowlist is specified
+        if allowed_tools and tool.name not in allowed_tools:
             continue
 
         # Clean the schema to remove internal MCP parameters
@@ -84,14 +97,22 @@ def get_tool_definitions() -> list[dict[str, Any]]:
     return definitions
 
 
-def get_tool_names() -> list[str]:
-    """Get list of all available tool names.
+def get_tool_names(mode: str | None = None) -> list[str]:
+    """Get list of available tool names, optionally filtered by mode.
+
+    Args:
+        mode: Optional chat mode to filter tools.
 
     Returns:
         List of tool name strings (excluding blacklisted tools).
     """
-    return [tool.name for tool in _mcp._tool_manager._tools.values()
-            if tool.name not in BLACKLIST]
+    allowed_tools = get_mode_tools(mode) if mode and mode != "full" else []
+
+    return [
+        tool.name for tool in _mcp._tool_manager._tools.values()
+        if tool.name not in BLACKLIST
+        and (not allowed_tools or tool.name in allowed_tools)
+    ]
 
 
 def is_tool_available(name: str) -> bool:
