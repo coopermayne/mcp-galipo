@@ -18,6 +18,7 @@ import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { Loader2, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { TaskItem, TaskItemOverlay } from './TaskItem';
+import { TaskInlineEdit } from './TaskInlineEdit';
 import { ConfirmModal } from '../common';
 import type { Task } from '../../types';
 
@@ -40,7 +41,7 @@ interface TaskFeedProps {
   onMarkDone?: (taskId: number) => Promise<void>;
   /** Callback when task row is clicked */
   onTaskClick?: (task: Task) => void;
-  /** Callback when edit button is clicked */
+  /** Callback when edit button is clicked (opens modal) - if not set, uses inline edit */
   onEditClick?: (task: Task) => void;
   /** Callback when date changes (inline date picker) */
   onDateChange?: (taskId: number, date: string | null) => void;
@@ -52,6 +53,10 @@ interface TaskFeedProps {
   onReorder?: (taskId: number, newIndex: number, tasks: Task[]) => void;
   /** Callback when "Add task" is clicked for a section */
   onAddTask?: (dueDate?: string, caseId?: number) => void;
+  /** Callback when task is updated via inline edit */
+  onInlineEditSave?: (taskId: number, updates: { description?: string; due_date?: string; urgency?: number }) => Promise<void>;
+  /** Enable inline editing when edit button is clicked (instead of using onEditClick) */
+  enableInlineEdit?: boolean;
 }
 
 interface DateGroup {
@@ -298,6 +303,8 @@ export function TaskFeed({
   onEventLinkClick,
   onReorder,
   onAddTask,
+  onInlineEditSave,
+  enableInlineEdit = false,
 }: TaskFeedProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -305,6 +312,7 @@ export function TaskFeed({
   const [recentlyDroppedId, setRecentlyDroppedId] = useState<number | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [completingTaskIds, setCompletingTaskIds] = useState<Set<number>>(new Set());
+  const [inlineEditTaskId, setInlineEditTaskId] = useState<number | null>(null);
 
   // Handle marking a task as done with animation
   const handleMarkDone = useCallback((taskId: number) => {
@@ -415,6 +423,31 @@ export function TaskFeed({
     });
   };
 
+  // Handle edit button click - either start inline edit or call external handler
+  const handleEditClick = useCallback((task: Task) => {
+    if (enableInlineEdit) {
+      setInlineEditTaskId(task.id);
+    } else if (onEditClick) {
+      onEditClick(task);
+    }
+  }, [enableInlineEdit, onEditClick]);
+
+  // Handle inline edit save
+  const handleInlineEditSave = useCallback(async (
+    taskId: number,
+    updates: { description?: string; due_date?: string; urgency?: number }
+  ) => {
+    if (onInlineEditSave) {
+      await onInlineEditSave(taskId, updates);
+    }
+    setInlineEditTaskId(null);
+  }, [onInlineEditSave]);
+
+  // Handle inline edit cancel
+  const handleInlineEditCancel = useCallback(() => {
+    setInlineEditTaskId(null);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -438,23 +471,37 @@ export function TaskFeed({
 
   const renderTaskList = (groupTasks: Task[], showDragHandle: boolean) => (
     <>
-      {groupTasks.map((task) => (
-        <TaskItem
-          key={task.id}
-          task={task}
-          showCase={effectiveShowCase}
-          showDragHandle={showDragHandle}
-          isHighlighted={task.id === recentlyDroppedId}
-          isCompleting={completingTaskIds.has(task.id)}
-          onDelete={handleDeleteClick}
-          onMarkDone={onMarkDone ? () => handleMarkDone(task.id) : undefined}
-          onClick={onTaskClick}
-          onEdit={onEditClick}
-          onDateChange={onDateChange}
-          onCommentClick={onCommentClick}
-          onEventLinkClick={onEventLinkClick}
-        />
-      ))}
+      {groupTasks.map((task) => {
+        // Render inline edit form if this task is being edited
+        if (inlineEditTaskId === task.id) {
+          return (
+            <TaskInlineEdit
+              key={task.id}
+              task={task}
+              onSave={handleInlineEditSave}
+              onCancel={handleInlineEditCancel}
+            />
+          );
+        }
+
+        return (
+          <TaskItem
+            key={task.id}
+            task={task}
+            showCase={effectiveShowCase}
+            showDragHandle={showDragHandle}
+            isHighlighted={task.id === recentlyDroppedId}
+            isCompleting={completingTaskIds.has(task.id)}
+            onDelete={handleDeleteClick}
+            onMarkDone={onMarkDone ? () => handleMarkDone(task.id) : undefined}
+            onClick={onTaskClick}
+            onEdit={handleEditClick}
+            onDateChange={onDateChange}
+            onCommentClick={onCommentClick}
+            onEventLinkClick={onEventLinkClick}
+          />
+        );
+      })}
     </>
   );
 
