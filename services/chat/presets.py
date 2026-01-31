@@ -286,6 +286,142 @@ def get_activity_context() -> dict:
 # Case-specific context fetchers (for case page modes)
 # =============================================================================
 
+def get_case_summary_context(case_id: int) -> dict:
+    """Fetch a summary of a case - status, key dates, and current state."""
+    pacific = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(pacific)
+    two_weeks = now + timedelta(days=14)
+
+    with get_cursor() as cur:
+        # Get case info
+        cur.execute("""
+            SELECT id, case_name, short_name, status, case_summary, date_of_injury
+            FROM cases WHERE id = %s
+        """, (case_id,))
+        case_row = cur.fetchone()
+        if not case_row:
+            return {"error": "Case not found"}
+
+        case_info = {
+            "name": case_row["case_name"],
+            "short_name": case_row["short_name"],
+            "status": case_row["status"],
+            "summary": case_row["case_summary"],
+            "date_of_injury": case_row["date_of_injury"].isoformat() if case_row["date_of_injury"] else None,
+        }
+
+        # Count tasks by status
+        cur.execute("""
+            SELECT status, COUNT(*) as count FROM tasks
+            WHERE case_id = %s GROUP BY status
+        """, (case_id,))
+        task_counts = {row["status"]: row["count"] for row in cur.fetchall()}
+
+        # Get overdue count
+        cur.execute("""
+            SELECT COUNT(*) as count FROM tasks
+            WHERE case_id = %s AND status != 'completed' AND due_date < %s
+        """, (case_id, now.date()))
+        overdue_count = cur.fetchone()["count"]
+
+        # Get upcoming events (next 2 weeks)
+        cur.execute("""
+            SELECT description, date FROM events
+            WHERE case_id = %s AND date >= %s AND date <= %s
+            ORDER BY date ASC LIMIT 5
+        """, (case_id, now.date(), two_weeks.date()))
+        upcoming_events = [{"description": r["description"], "date": r["date"].isoformat()} for r in cur.fetchall()]
+
+        # Get key people (clients and primary contacts)
+        cur.execute("""
+            SELECT p.name, cp.role FROM case_persons cp
+            JOIN persons p ON cp.person_id = p.id
+            WHERE cp.case_id = %s AND (cp.role = 'Client' OR cp.is_primary = true)
+            LIMIT 5
+        """, (case_id,))
+        key_people = [{"name": r["name"], "role": r["role"]} for r in cur.fetchall()]
+
+    return {
+        "case": case_info,
+        "task_counts": task_counts,
+        "overdue_count": overdue_count,
+        "upcoming_events": upcoming_events,
+        "key_people": key_people,
+        "query_date": now.strftime("%Y-%m-%d"),
+    }
+
+
+def get_case_next_steps_context(case_id: int) -> dict:
+    """Fetch what needs to happen next on this case."""
+    pacific = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(pacific)
+    two_weeks = now + timedelta(days=14)
+
+    with get_cursor() as cur:
+        # Get case name
+        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        case_name = row["case_name"] if row else f"Case #{case_id}"
+
+        # Get high priority incomplete tasks
+        cur.execute("""
+            SELECT id, description, due_date, urgency, status
+            FROM tasks
+            WHERE case_id = %s AND status != 'completed'
+            ORDER BY urgency DESC, due_date ASC NULLS LAST
+            LIMIT 10
+        """, (case_id,))
+        priority_tasks = []
+        for row in cur.fetchall():
+            priority_tasks.append({
+                "id": row["id"],
+                "description": row["description"],
+                "due_date": row["due_date"].isoformat() if row["due_date"] else None,
+                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+            })
+
+        # Get upcoming events
+        cur.execute("""
+            SELECT id, description, date, time, location
+            FROM events
+            WHERE case_id = %s AND date >= %s AND date <= %s
+            ORDER BY date ASC
+        """, (case_id, now.date(), two_weeks.date()))
+        upcoming_events = []
+        for row in cur.fetchall():
+            upcoming_events.append({
+                "id": row["id"],
+                "description": row["description"],
+                "date": row["date"].isoformat() if row["date"] else None,
+                "time": str(row["time"]) if row["time"] else None,
+                "location": row["location"],
+            })
+
+        # Get overdue tasks
+        cur.execute("""
+            SELECT id, description, due_date, urgency
+            FROM tasks
+            WHERE case_id = %s AND status != 'completed' AND due_date < %s
+            ORDER BY due_date ASC
+        """, (case_id, now.date()))
+        overdue = []
+        for row in cur.fetchall():
+            overdue.append({
+                "id": row["id"],
+                "description": row["description"],
+                "due_date": row["due_date"].isoformat() if row["due_date"] else None,
+                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+            })
+
+    return {
+        "case": case_name,
+        "priority_tasks": priority_tasks,
+        "upcoming_events": upcoming_events,
+        "overdue_tasks": overdue,
+        "query_date": now.strftime("%Y-%m-%d"),
+    }
+
+
 def get_case_tasks_context(case_id: int) -> dict:
     """Fetch all tasks for a specific case."""
     pacific = ZoneInfo("America/Los_Angeles")
@@ -484,23 +620,38 @@ Give me a brief summary of what's been accomplished across cases.""",
 
 # Case-specific presets (require case_id)
 CASE_PRESETS = {
+    "case_summary": {
+        "fetch": get_case_summary_context,
+        "prompt": """Here's an overview of this case. Give me a concise summary:
+- Current status and key dates
+- Task progress and any overdue items
+- Upcoming events
+- Key people involved
+
+Highlight anything that needs attention.""",
+    },
+    "case_next": {
+        "fetch": get_case_next_steps_context,
+        "prompt": """Based on the tasks, events, and overdue items, tell me what I should focus on next for this case.
+Give me 3-5 actionable next steps, prioritized by urgency and upcoming deadlines.""",
+    },
     "case_tasks": {
         "fetch": get_case_tasks_context,
-        "prompt": """Here are the tasks for this case. Help me manage them.
-You can help me understand priorities, suggest which to tackle first, or answer questions about the task list.
-When I ask to add, update, or complete tasks, confirm what I want to do.""",
+        "prompt": """Here are the tasks for this case.
+Summarize the task status - what's incomplete, what's overdue, and what was recently completed.
+Highlight the most urgent items.""",
     },
     "case_events": {
         "fetch": get_case_events_context,
-        "prompt": """Here are the events for this case. Help me manage the calendar.
-You can help me understand the schedule, identify conflicts, or answer questions about upcoming events.
-When I ask to add or update events, confirm the details.""",
+        "prompt": """Here are the events for this case.
+Summarize the upcoming schedule and note any recent events.
+Highlight anything happening soon that needs preparation.""",
     },
     "case_people": {
         "fetch": get_case_people_context,
-        "prompt": """Here are the people assigned to this case. Help me manage contacts.
-You can help me understand who's involved, their roles, or answer questions about the team.
-When I ask to add or update people, confirm the details.""",
+        "prompt": """Here are the people assigned to this case.
+Summarize who's involved and their roles.
+Group by role type (attorneys, experts, parties, etc.).""",
     },
 }
 
