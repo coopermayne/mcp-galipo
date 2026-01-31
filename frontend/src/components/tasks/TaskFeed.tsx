@@ -28,6 +28,8 @@ type GroupMode = 'date' | 'case' | 'urgency';
 interface TaskFeedProps {
   tasks: Task[];
   isLoading?: boolean;
+  /** Pre-selected case ID for inline creation */
+  caseId?: number;
   /** Show case/project on each row (auto-hidden when grouping by case) */
   showCase?: boolean;
   /** Enable drag-and-drop reordering */
@@ -301,6 +303,7 @@ function AddTaskButton({ onClick }: { onClick?: () => void }) {
 export function TaskFeed({
   tasks,
   isLoading = false,
+  caseId,
   showCase = true,
   sortable = false,
   groupBy = 'date',
@@ -514,11 +517,12 @@ export function TaskFeed({
         </div>
         {!compact && (inlineCreateContext?.groupKey === 'empty' ? (
           <TaskInlineCreate
+            caseId={caseId}
             onSave={handleInlineCreateSave}
             onCancel={handleInlineCreateCancel}
           />
         ) : (onAddTask || enableInlineCreate) && (
-          <AddTaskButton onClick={() => handleAddTaskClick('empty')} />
+          <AddTaskButton onClick={() => handleAddTaskClick('empty', undefined, caseId)} />
         ))}
       </div>
     );

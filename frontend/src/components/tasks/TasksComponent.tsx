@@ -389,6 +389,7 @@ export function TasksComponent({
       <TaskFeed
           tasks={tasks}
           isLoading={isLoading}
+          caseId={caseId}
           showCase={showCase}
           sortable={enableDragDrop}
           groupBy={groupBy}

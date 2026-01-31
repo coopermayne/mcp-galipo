@@ -335,6 +335,7 @@ export function EventsComponent({
       <EventFeed
         events={events}
         isLoading={isLoading}
+        caseId={caseId}
         showCase={showCase}
         groupBy={groupBy}
         maxItems={maxItems}
