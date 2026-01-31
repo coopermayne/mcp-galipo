@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Star, ChevronDown, ChevronUp, Link, Eye, EyeOff } from 'lucide-react';
 import { EditableText, EditableDate, EditableTime, DeleteEventModal, CreateTaskFromEventModal, CreateTaskButton } from '../../../components/common';
-import { createEvent, updateEvent, deleteEvent } from '../../../api';
+import { useEventActions } from '../../../components/events';
+import { createEvent } from '../../../api';
 import type { Event } from '../../../types';
 
 interface EventsTabProps {
@@ -25,6 +26,11 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
     null
   );
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
+
+  // Use shared event actions hook
+  const { update, delete: deleteEvent, isDeleting } = useEventActions({
+    invalidateKeys: [['case', String(caseId)]],
+  });
 
   // Helper to parse date string as local time (not UTC)
   const parseLocalDate = (dateStr: string) => {
@@ -57,23 +63,10 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
       setNewEvent({ date: '', description: '', calculation_note: '', starred: false });
       setIsAdding(false);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteEvent(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      setDeleteTarget(null);
     },
   });
 
@@ -81,11 +74,12 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
     setDeleteTarget({ id: event.id, description: event.description });
   }, []);
 
-  const confirmDelete = useCallback(() => {
+  const confirmDelete = useCallback(async () => {
     if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
+      await deleteEvent(deleteTarget.id);
+      setDeleteTarget(null);
     }
-  }, [deleteTarget, deleteMutation]);
+  }, [deleteTarget, deleteEvent]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,9 +205,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                   )}
                 </button>
                 <button
-                  onClick={() =>
-                    updateMutation.mutate({ id: event.id, data: { starred: !event.starred } })
-                  }
+                  onClick={() => update(event.id, { starred: !event.starred })}
                   className={`p-1 ${event.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
                   title={event.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
                 >
@@ -222,24 +214,18 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                 <div className="flex items-center gap-0">
                   <EditableDate
                     value={event.date}
-                    onSave={(value) =>
-                      updateMutation.mutateAsync({ id: event.id, data: { date: value || undefined } })
-                    }
+                    onSave={(value) => update(event.id, { date: value || undefined })}
                     clearable={false}
                   />
                   <EditableTime
                     value={event.time || null}
-                    onSave={(value) =>
-                      updateMutation.mutateAsync({ id: event.id, data: { time: value || undefined } })
-                    }
+                    onSave={(value) => update(event.id, { time: value || undefined })}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <EditableText
                     value={event.description}
-                    onSave={(value) =>
-                      updateMutation.mutateAsync({ id: event.id, data: { description: value } })
-                    }
+                    onSave={(value) => update(event.id, { description: value })}
                     className="text-sm"
                   />
                 </div>
@@ -269,12 +255,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                     <label className="block text-xs text-slate-400 mb-1">Document Link</label>
                     <EditableText
                       value={event.document_link || ''}
-                      onSave={(value) =>
-                        updateMutation.mutateAsync({
-                          id: event.id,
-                          data: { document_link: value || undefined },
-                        })
-                      }
+                      onSave={(value) => update(event.id, { document_link: value || undefined })}
                       placeholder="Enter URL to related document"
                       className="text-sm"
                     />
@@ -283,12 +264,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
                     <label className="block text-xs text-slate-400 mb-1">Calculation Note</label>
                     <EditableText
                       value={event.calculation_note || ''}
-                      onSave={(value) =>
-                        updateMutation.mutateAsync({
-                          id: event.id,
-                          data: { calculation_note: value || undefined },
-                        })
-                      }
+                      onSave={(value) => update(event.id, { calculation_note: value || undefined })}
                       placeholder="e.g., 30 days from service date"
                       className="text-sm"
                     />
@@ -306,7 +282,7 @@ export function EventsTab({ caseId, events }: EventsTabProps) {
         onConfirm={confirmDelete}
         eventId={deleteTarget?.id ?? null}
         eventDescription={deleteTarget?.description ?? ''}
-        isLoading={deleteMutation.isPending}
+        isLoading={isDeleting}
       />
 
       <CreateTaskFromEventModal

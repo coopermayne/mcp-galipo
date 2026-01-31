@@ -10,33 +10,28 @@ import {
   Mail,
   Calendar,
   Star,
-  ChevronDown,
-  Clock,
   Zap,
   MapPin,
 } from 'lucide-react';
 import {
   EditableText,
   EditableDate,
-  EditableTime,
   PersonAutocomplete,
   AddPersonDropdown,
-  CreateTaskButton,
-  CreateTaskFromEventModal,
   DraggablePersonChip,
   UnnestDropZone,
 } from '../../../components/common';
 import { TasksComponent } from '../../../components/tasks';
+import { EventsComponent } from '../../../components/events';
 import { useEntityModal } from '../../../components/modals';
 import {
   createPerson,
   assignPersonToCase,
   updateCaseAssignment,
-  updateEvent,
 } from '../../../api';
-import type { Case, Constants, Event, CasePerson, Person } from '../../../types';
+import type { Case, Constants, CasePerson, Person } from '../../../types';
 import { ProceedingsSection } from '../components';
-import { getPrimaryPhone, getPrimaryEmail, parseLocalDate } from '../utils';
+import { getPrimaryPhone, getPrimaryEmail } from '../utils';
 import { inferSideFromRole, inferPersonTypeFromRole } from '../../../utils';
 
 interface OverviewTabProps {
@@ -178,8 +173,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   // UI State
   const [showAddDefendant, setShowAddDefendant] = useState(false);
   const [showAddMediator, setShowAddMediator] = useState(false);
-  const [showPastEvents, setShowPastEvents] = useState(false);
-  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
   const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
 
   // Drag sensors
@@ -286,22 +279,10 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
     }),
     [caseData.persons]);
 
-  // Events filtering
-  const events = caseData.events || [];
-  const now = new Date();
-  now.setHours(0, 0, 0, 0); // Compare at midnight local time
-  const futureEvents = useMemo(() =>
-    events.filter(e => parseLocalDate(e.date) >= now)
-      .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()),
-    [events, now]);
-  const pastEvents = useMemo(() =>
-    events.filter(e => parseLocalDate(e.date) < now)
-      .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime()),
-    [events, now]);
-
+  // Starred events for Key Dates section
   const starredEvents = useMemo(() =>
-    events.filter(e => e.starred),
-    [events]);
+    (caseData.events || []).filter(e => e.starred),
+    [caseData.events]);
 
   // Role options
   const clientRoleOptions = ['Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent'];
@@ -484,11 +465,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   const updateNestingMutation = useMutation({
     mutationFn: ({ personId, role, grouped_under_id }: { personId: number; role: string; grouped_under_id: number | null }) =>
       updateCaseAssignment(caseId, personId, { role, grouped_under_id }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
-  });
-
-  const updateEventMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
 
@@ -890,57 +866,18 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
         </div>
 
         {/* Events */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-          <div className="flex items-center justify-between mb-3">
-            <SectionHeader icon={Clock} title="Events" count={showPastEvents ? pastEvents.length : futureEvents.length} />
-            <button
-              onClick={() => setShowPastEvents(!showPastEvents)}
-              className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${showPastEvents ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              {showPastEvents ? 'Past' : 'Upcoming'}
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="space-y-1">
-            {(showPastEvents ? pastEvents : futureEvents).map(event => (
-              <div key={event.id} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
-                <button
-                  onClick={() => updateEventMutation.mutate({ id: event.id, data: { starred: !event.starred } })}
-                  className="shrink-0"
-                >
-                  <Star className={`w-3 h-3 ${event.starred ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
-                </button>
-                <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{event.description}</span>
-                <EditableDate
-                  value={event.date}
-                  onSave={async (value) => { if (value) await updateEventMutation.mutateAsync({ id: event.id, data: { date: value } }); }}
-                  className="text-xs shrink-0"
-                />
-                {event.time && (
-                  <EditableTime
-                    value={event.time}
-                    onSave={async (value) => { await updateEventMutation.mutateAsync({ id: event.id, data: { time: value || undefined } }); }}
-                    className="text-xs shrink-0"
-                  />
-                )}
-                <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
-              </div>
-            ))}
-            {(showPastEvents ? pastEvents : futureEvents).length === 0 && (
-              <p className="text-xs text-slate-400 italic text-center py-4">
-                {showPastEvents ? 'No past events' : 'No upcoming events'}
-              </p>
-            )}
-          </div>
+        <div>
+          <EventsComponent
+            events={caseData.events || []}
+            caseId={caseId}
+            title="Events"
+            showControls
+            hideSearch
+            showCase={false}
+            compact
+          />
         </div>
       </div>
-
-      <CreateTaskFromEventModal
-        isOpen={!!taskFromEvent}
-        onClose={() => setTaskFromEvent(null)}
-        event={taskFromEvent}
-        caseId={caseId}
-      />
     </div>
   );
 }
