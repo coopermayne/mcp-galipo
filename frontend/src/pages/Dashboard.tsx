@@ -23,16 +23,18 @@ export function Dashboard() {
 
       <PageContent variant="full">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-6">
           <StatCard
-            title="Total Cases"
+            title="Total"
+            fullTitle="Total Cases"
             value={stats?.total_cases ?? '-'}
             icon={Briefcase}
             loading={statsLoading}
             href="/cases"
           />
           <StatCard
-            title="Active Cases"
+            title="Active"
+            fullTitle="Active Cases"
             value={stats?.active_cases ?? '-'}
             icon={Briefcase}
             loading={statsLoading}
@@ -40,7 +42,8 @@ export function Dashboard() {
             variant="primary"
           />
           <StatCard
-            title="Pending Tasks"
+            title="Tasks"
+            fullTitle="Pending Tasks"
             value={stats?.pending_tasks ?? '-'}
             icon={CheckSquare}
             loading={statsLoading}
@@ -48,7 +51,8 @@ export function Dashboard() {
             variant="warning"
           />
           <StatCard
-            title="Upcoming Events"
+            title="Events"
+            fullTitle="Upcoming Events"
             value={stats?.upcoming_events ?? '-'}
             icon={Clock}
             loading={statsLoading}
@@ -91,6 +95,7 @@ export function Dashboard() {
 
 interface StatCardProps {
   title: string;
+  fullTitle?: string;
   value: number | string;
   icon: React.ElementType;
   loading?: boolean;
@@ -100,6 +105,7 @@ interface StatCardProps {
 
 function StatCard({
   title,
+  fullTitle,
   value,
   icon: Icon,
   loading,
@@ -114,15 +120,18 @@ function StatCard({
   };
 
   const content = (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm p-4 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
-          <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
-            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : value}
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm p-2 sm:p-4 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-center sm:text-left">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            <span className="sm:hidden">{title}</span>
+            <span className="hidden sm:inline">{fullTitle || title}</span>
+          </p>
+          <p className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 sm:mt-1">
+            {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto sm:mx-0" /> : value}
           </p>
         </div>
-        <div className={`p-2 rounded-lg ${variantStyles[variant]}`}>
+        <div className={`hidden sm:block p-2 rounded-lg ${variantStyles[variant]}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
