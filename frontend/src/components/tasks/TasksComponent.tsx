@@ -382,6 +382,7 @@ export function TasksComponent({
           showDone={showDoneTasks}
           onShowDoneChange={setShowDoneTasks}
           hideGroupBy={hideGroupBy}
+          hideCaseGrouping={!!caseId}
         />
       )}
 
