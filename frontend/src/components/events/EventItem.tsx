@@ -1,146 +1,264 @@
 /**
- * EventItem - Individual event row component
+ * EventItem - Todoist-style event row component
  *
- * Displays event with inline editing, star toggle, and action buttons.
+ * Minimal two-line layout with hover actions (matching TaskItem pattern).
+ * Line 1: star toggle + description
+ * Line 2: case link + date/time
  */
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Trash2 } from 'lucide-react';
-import { EditableText, EditableDate, EditableTime, CreateTaskButton } from '../common';
+import {
+  Star,
+  Calendar,
+  Clock,
+  Inbox,
+  Pencil,
+  Trash2,
+  ListTodo,
+  MoreHorizontal,
+} from 'lucide-react';
 import type { Event } from '../../types';
 
-// Deterministic color mapping for case badges
-const caseColorClasses = [
-  'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
-  'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300',
-  'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-];
-
-const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColorClasses.length];
-
-interface EventItemProps {
+export interface EventItemProps {
   event: Event;
-  onUpdate: (eventId: number, field: string, value: string | boolean | null) => Promise<void>;
-  onDelete: (event: Event) => void;
-  onCreateTask?: (event: Event) => void;
-  /** Show case badge */
+  /** Show the case/project link */
   showCase?: boolean;
-  /** Show star toggle button */
-  showStar?: boolean;
-  /** Show delete button */
-  showDelete?: boolean;
-  /** Show create task button */
-  showCreateTask?: boolean;
-  /** Enable inline editing */
-  enableEdit?: boolean;
-  /** Highlight row (e.g., for overdue) */
-  highlight?: boolean;
-  /** Compact mode */
-  compact?: boolean;
+  /** Callback when star is toggled */
+  onToggleStar?: (event: Event) => void;
+  /** Callback when event row is clicked */
+  onClick?: (event: Event) => void;
+  /** Callback when edit action is clicked */
+  onEdit?: (event: Event) => void;
+  /** Callback when create task action is clicked */
+  onCreateTask?: (event: Event) => void;
+  /** Callback when delete action is clicked */
+  onDelete?: (event: Event) => void;
+  /** Highlight this row (e.g., for overdue) */
+  isHighlighted?: boolean;
+  /** Align to left edge (no left padding) - for flat lists */
+  flush?: boolean;
+}
+
+/**
+ * Format a date relative to today (Todoist style)
+ */
+function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean } {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const diffDays = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const isOverdue = diffDays < 0;
+
+  if (diffDays === 0) {
+    return { text: 'Today', isOverdue: false };
+  } else if (diffDays === 1) {
+    return { text: 'Tomorrow', isOverdue: false };
+  } else if (diffDays === -1) {
+    return { text: 'Yesterday', isOverdue: true };
+  } else {
+    return {
+      text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      isOverdue,
+    };
+  }
+}
+
+/**
+ * Format time for display (12-hour format)
+ */
+function formatTime(timeStr: string): string {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
 export function EventItem({
   event,
-  onUpdate,
-  onDelete,
-  onCreateTask,
   showCase = true,
-  showStar = true,
-  showDelete = true,
-  showCreateTask = true,
-  enableEdit = true,
-  highlight = false,
-  compact = false,
+  onToggleStar,
+  onClick,
+  onEdit,
+  onCreateTask,
+  onDelete,
+  isHighlighted = false,
+  flush = false,
 }: EventItemProps) {
-  const textSize = compact ? 'text-xs' : 'text-sm';
-  const padding = compact ? 'px-2 py-2' : 'px-4 py-3';
-  const iconSize = compact ? 'w-3 h-3' : 'w-4 h-4';
+  const [isHovered, setIsHovered] = useState(false);
+
+  const dateInfo = formatRelativeDate(event.date);
+
+  const handleStarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleStar) {
+      onToggleStar(event);
+    }
+  };
+
+  const handleRowClick = () => {
+    if (onClick) {
+      onClick(event);
+    }
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit(event);
+    }
+  };
+
+  const handleCreateTaskClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onCreateTask) {
+      onCreateTask(event);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(event);
+    }
+  };
 
   return (
     <div
-      className={`flex items-center gap-3 ${padding} hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group ${
-        highlight ? 'bg-red-50 dark:bg-red-900/20' : ''
-      }`}
+      className={`
+        group relative flex items-start gap-2 py-2.5 md:py-2
+        ${flush ? 'px-0' : 'px-3 md:px-2'}
+        border-b border-slate-100 dark:border-slate-800
+        transition-colors duration-150
+        ${onClick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}
+        ${isHighlighted ? 'bg-red-50 dark:bg-red-900/20' : ''}
+      `}
+      onClick={handleRowClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Star toggle */}
-      {showStar && (
-        <button
-          onClick={() => onUpdate(event.id, 'starred', !event.starred)}
-          className={`p-1 shrink-0 ${
-            event.starred ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500'
-          }`}
-          title={event.starred ? 'Unstar' : 'Star'}
-        >
-          <Star className={`${iconSize} ${event.starred ? 'fill-amber-500' : ''}`} />
-        </button>
-      )}
+      {/* Star toggle (like checkbox for tasks) */}
+      <button
+        onClick={handleStarClick}
+        className={`
+          w-5 h-5 mt-0.5 flex-shrink-0 flex items-center justify-center
+          transition-all duration-200 rounded-full
+          ${event.starred
+            ? 'text-amber-500'
+            : 'text-slate-300 dark:text-slate-600 hover:text-amber-400'
+          }
+        `}
+        title={event.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
+      >
+        <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
+      </button>
 
-      {/* Case badge */}
-      {showCase && (
-        <Link
-          to={`/cases/${event.case_id}`}
-          className={`px-2 py-0.5 rounded ${textSize} font-medium hover:opacity-80 w-20 truncate text-center shrink-0 ${getCaseColorClass(event.case_id)}`}
-          title={event.short_name || event.case_name || `Case #${event.case_id}`}
-        >
-          {event.short_name || event.case_name || `Case #${event.case_id}`}
-        </Link>
-      )}
+      {/* Content */}
+      <div className="flex-1 min-w-0 pt-0.5">
+        {/* Title - single line, truncate */}
+        <div className="text-sm leading-snug truncate text-slate-900 dark:text-slate-100">
+          {event.description}
+        </div>
 
-      {/* Description */}
-      <div className="flex-1 min-w-0">
-        {enableEdit ? (
-          <EditableText
-            value={event.description}
-            onSave={(value) => onUpdate(event.id, 'description', value)}
-            className={textSize}
-          />
-        ) : (
-          <span className={`${textSize} text-slate-700 dark:text-slate-300 truncate`}>
-            {event.description}
+        {/* Metadata row: case, date, time - all inline */}
+        <div className="flex items-center mt-0.5 gap-3 flex-wrap">
+          {/* Case/Project link */}
+          {showCase && (
+            <Link
+              to={`/cases/${event.case_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              title={event.case_name || `Case #${event.case_id}`}
+            >
+              <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="max-w-[100px] truncate">
+                {event.short_name || event.case_name || `#${event.case_id}`}
+              </span>
+            </Link>
+          )}
+
+          {/* Date */}
+          <span
+            className={`flex items-center gap-1 text-xs ${
+              dateInfo.isOverdue
+                ? 'text-red-500'
+                : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            <Calendar className="w-3 h-3 flex-shrink-0" />
+            <span>{dateInfo.text}</span>
           </span>
+
+          {/* Time (if set) */}
+          {event.time && (
+            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+              <Clock className="w-3 h-3 flex-shrink-0" />
+              <span>{formatTime(event.time)}</span>
+            </span>
+          )}
+
+          {/* Task count (if any) */}
+          {event.task_count && event.task_count > 0 && (
+            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+              <ListTodo className="w-3 h-3 flex-shrink-0" />
+              <span>{event.task_count} task{event.task_count > 1 ? 's' : ''}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Hover actions - hidden on mobile */}
+      <div
+        className={`hidden md:flex items-start gap-0.5 pt-0.5 transition-opacity ${
+          isHovered ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {onEdit && (
+          <button
+            onClick={handleEditClick}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="Edit"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+        {onCreateTask && (
+          <button
+            onClick={handleCreateTaskClick}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="Create task from event"
+          >
+            <ListTodo className="w-4 h-4" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={handleDeleteClick}
+            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         )}
       </div>
 
-      {/* Date and time */}
-      <div className="flex items-center gap-0 shrink-0">
-        {enableEdit ? (
-          <>
-            <EditableDate
-              value={event.date}
-              onSave={(value) => onUpdate(event.id, 'date', value)}
-              clearable={false}
-            />
-            <EditableTime
-              value={event.time || null}
-              onSave={(value) => onUpdate(event.id, 'time', value)}
-            />
-          </>
-        ) : (
-          <span className={`${textSize} text-slate-500`}>
-            {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            {event.time && ` ${event.time}`}
-          </span>
-        )}
-      </div>
-
-      {/* Create task button */}
-      {showCreateTask && onCreateTask && (
-        <CreateTaskButton event={event} onClick={() => onCreateTask(event)} />
-      )}
-
-      {/* Delete button */}
-      {showDelete && (
+      {/* Mobile: show actions as a dropdown trigger */}
+      <div className="md:hidden flex items-start pt-0.5">
         <button
-          onClick={() => onDelete(event)}
-          className={`p-1 text-slate-400 hover:text-red-400 shrink-0 ${compact ? 'opacity-0 group-hover:opacity-100' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            // On mobile, show all actions - for now just delete
+            if (onDelete) onDelete(event);
+          }}
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
         >
-          <Trash2 className={iconSize} />
+          <MoreHorizontal className="w-4 h-4" />
         </button>
-      )}
+      </div>
     </div>
   );
 }

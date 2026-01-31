@@ -1,14 +1,8 @@
 /**
  * EventsComponent - Self-contained, modular event list component
  *
- * Fully autonomous - fetches and manages its own data. Handles:
- * - Data fetching (by caseId or all events)
- * - Filtering by past/upcoming
- * - Search
- * - Grouping by date category
- * - Inline editing
- * - Delete confirmation
- * - Create task from event
+ * Fully autonomous - fetches and manages its own data.
+ * Matches TasksComponent pattern for consistency.
  *
  * Usage:
  *   <EventsComponent showAllEvents showControls />
@@ -18,10 +12,10 @@ import { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Clock } from 'lucide-react';
-import { EventsControls } from './EventsControls';
+import { EventsControls, type GroupMode } from './EventsControls';
 import { EventFeed } from './EventFeed';
 import { useEventActions } from './useEventActions';
-import { DeleteEventModal, CreateTaskFromEventModal } from '../common';
+import { CreateTaskFromEventModal } from '../common';
 import { getEvents } from '../../api';
 import type { Event } from '../../types';
 
@@ -31,7 +25,7 @@ interface EventsComponentProps {
   caseId?: number;
   /** Fetch all events */
   showAllEvents?: boolean;
-  /** Pass events directly instead of fetching (for case detail where we have the data) */
+  /** Pass events directly instead of fetching */
   events?: Event[];
 
   // Header options
@@ -41,36 +35,32 @@ interface EventsComponentProps {
   viewAllLink?: string;
 
   // Feature flags
-  /** Show search and past/future toggle */
+  /** Show search, view dropdown, and past/future toggle */
   showControls?: boolean;
   /** Hide search when showControls is true */
   hideSearch?: boolean;
+  /** Hide group by dropdown when showControls is true */
+  hideGroupBy?: boolean;
   /** Hide past/future toggle when showControls is true */
   hidePastToggle?: boolean;
-  /** Show case badge on each event */
+  /** Show case link on each event row */
   showCase?: boolean;
-  /** Show star toggle button */
-  showStar?: boolean;
-  /** Show delete button */
-  showDelete?: boolean;
-  /** Show create task button */
-  showCreateTask?: boolean;
-  /** Enable inline editing */
-  enableEdit?: boolean;
 
   // Display options
-  /** Group events by date category (overdue, today, this week, etc.) */
-  groupByDate?: boolean;
-  /** Maximum number of events to display (for preview/compact views) */
+  /** Initial grouping mode */
+  defaultGroupBy?: GroupMode;
+  /** Maximum number of events to display */
   maxItems?: number;
-  /** Compact mode - tighter spacing, smaller elements */
+  /** Compact mode - tighter spacing */
   compact?: boolean;
   /** Initial state for past/future toggle */
   defaultShowPast?: boolean;
   /** Past days to fetch when showing past events */
   pastDays?: number;
+  /** Group events by date category (overdue, today, etc.) - overrides groupBy */
+  groupByDate?: boolean;
 
-  // Callbacks (for parent notification, optional)
+  // Callbacks
   onEventUpdated?: (event: Event) => void;
   onEventDeleted?: (eventId: number) => void;
 }
@@ -88,28 +78,26 @@ export function EventsComponent({
   // Features
   showControls = false,
   hideSearch = false,
+  hideGroupBy = false,
   hidePastToggle = false,
   showCase = true,
-  showStar = true,
-  showDelete = true,
-  showCreateTask = true,
-  enableEdit = true,
 
   // Display
-  groupByDate = false,
+  defaultGroupBy = 'none',
   maxItems,
   compact = false,
   defaultShowPast = false,
   pastDays = 14,
+  groupByDate = false,
 
   // Callbacks
   onEventUpdated,
   onEventDeleted,
 }: EventsComponentProps) {
   // Local UI state
+  const [groupBy, setGroupBy] = useState<GroupMode>(groupByDate ? 'date' : defaultGroupBy);
   const [showPast, setShowPast] = useState(defaultShowPast);
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   // Build invalidation keys based on context
@@ -119,7 +107,7 @@ export function EventsComponent({
   }
 
   // Event actions hook
-  const { update, delete: deleteEvent, isDeleting } = useEventActions({ invalidateKeys });
+  const { delete: deleteEvent, toggleStar } = useEventActions({ invalidateKeys });
 
   // Fetch events (only if not passed directly)
   const { data: fetchedData, isLoading } = useQuery({
@@ -137,7 +125,6 @@ export function EventsComponent({
 
   // Filter passed events by past/future if we got them directly
   const filteredByTime = useMemo(() => {
-    // Get events from props or fetch
     const rawEvents = passedEvents || fetchedData?.events || [];
 
     if (!passedEvents) return rawEvents; // Already filtered by API
@@ -151,11 +138,7 @@ export function EventsComponent({
           const [year, month, day] = e.date.split('-').map(Number);
           return new Date(year, month - 1, day) < now;
         })
-        .sort((a, b) => {
-          const [aY, aM, aD] = a.date.split('-').map(Number);
-          const [bY, bM, bD] = b.date.split('-').map(Number);
-          return new Date(bY, bM - 1, bD).getTime() - new Date(aY, aM - 1, aD).getTime();
-        });
+        .sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
     }
 
     return rawEvents
@@ -163,11 +146,7 @@ export function EventsComponent({
         const [year, month, day] = e.date.split('-').map(Number);
         return new Date(year, month - 1, day) >= now;
       })
-      .sort((a, b) => {
-        const [aY, aM, aD] = a.date.split('-').map(Number);
-        const [bY, bM, bD] = b.date.split('-').map(Number);
-        return new Date(aY, aM - 1, aD).getTime() - new Date(bY, bM - 1, bD).getTime();
-      });
+      .sort((a, b) => a.date.localeCompare(b.date)); // Earliest first
   }, [passedEvents, fetchedData?.events, showPast]);
 
   // Filter by search query
@@ -182,35 +161,30 @@ export function EventsComponent({
     );
   }, [filteredByTime, searchQuery]);
 
-  // Handle event update
-  const handleUpdate = useCallback(
-    async (eventId: number, field: string, value: string | boolean | null) => {
-      const result = await update(eventId, { [field]: value });
+  // Handle star toggle
+  const handleToggleStar = useCallback(
+    async (event: Event) => {
+      const result = await toggleStar(event);
       if (result?.event) {
         onEventUpdated?.(result.event);
       }
     },
-    [update, onEventUpdated]
+    [toggleStar, onEventUpdated]
   );
-
-  // Handle delete request (opens modal)
-  const handleDeleteRequest = useCallback((event: Event) => {
-    setDeleteTarget({ id: event.id, description: event.description });
-  }, []);
-
-  // Confirm delete
-  const confirmDelete = useCallback(async () => {
-    if (deleteTarget) {
-      await deleteEvent(deleteTarget.id);
-      onEventDeleted?.(deleteTarget.id);
-      setDeleteTarget(null);
-    }
-  }, [deleteTarget, deleteEvent, onEventDeleted]);
 
   // Handle create task from event
   const handleCreateTask = useCallback((event: Event) => {
     setTaskFromEvent(event);
   }, []);
+
+  // Handle delete
+  const handleDelete = useCallback(
+    async (event: Event) => {
+      await deleteEvent(event.id);
+      onEventDeleted?.(event.id);
+    },
+    [deleteEvent, onEventDeleted]
+  );
 
   return (
     <>
@@ -238,13 +212,15 @@ export function EventsComponent({
       {/* Controls */}
       {showControls && (
         <EventsControls
+          groupBy={groupBy}
+          onGroupByChange={hideGroupBy ? undefined : setGroupBy}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           showPast={showPast}
           onShowPastChange={setShowPast}
           hideSearch={hideSearch}
+          hideGroupBy={hideGroupBy}
           hidePastToggle={hidePastToggle}
-          compact={compact}
         />
       )}
 
@@ -252,28 +228,14 @@ export function EventsComponent({
       <EventFeed
         events={events}
         isLoading={isLoading}
-        onUpdate={handleUpdate}
-        onDelete={handleDeleteRequest}
-        onCreateTask={showCreateTask ? handleCreateTask : undefined}
         showCase={showCase}
-        showStar={showStar}
-        showDelete={showDelete}
-        showCreateTask={showCreateTask}
-        enableEdit={enableEdit}
-        groupByDate={groupByDate}
+        groupBy={groupBy}
         maxItems={maxItems}
         compact={compact}
         emptyMessage={showPast ? 'No past events' : 'No upcoming events'}
-      />
-
-      {/* Delete confirmation modal */}
-      <DeleteEventModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-        eventId={deleteTarget?.id ?? null}
-        eventDescription={deleteTarget?.description ?? ''}
-        isLoading={isDeleting}
+        onToggleStar={handleToggleStar}
+        onCreateTask={handleCreateTask}
+        onDelete={handleDelete}
       />
 
       {/* Create task from event modal */}
