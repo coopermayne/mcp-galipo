@@ -852,7 +852,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
       {/* Row 4: Tasks & Events side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Tasks */}
-        <div>
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
           <TasksComponent
             caseId={caseId}
             title="Tasks"
@@ -866,7 +866,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
         </div>
 
         {/* Events */}
-        <div>
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
           <EventsComponent
             caseId={caseId}
             title="Events"

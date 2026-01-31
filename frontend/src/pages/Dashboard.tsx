@@ -59,7 +59,7 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Tasks */}
-          <div>
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
             <TasksComponent
               showAllTasks
               title="Tasks"
@@ -73,7 +73,7 @@ export function Dashboard() {
           </div>
 
           {/* Events */}
-          <div>
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
             <EventsComponent
               showAllEvents
               title="Events"
