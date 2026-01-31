@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Clock } from 'lucide-react';
 import { EventsControls, type GroupMode } from './EventsControls';
 import { EventFeed } from './EventFeed';
+import { EventDetailSheet } from './EventDetailSheet';
 import { useEventActions } from './useEventActions';
 import { CreateTaskFromEventModal } from '../common';
 import { getEvents } from '../../api';
@@ -99,6 +100,7 @@ export function EventsComponent({
   const [showPast, setShowPast] = useState(defaultShowPast);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Build invalidation keys based on context
   const invalidateKeys: string[][] = [];
@@ -107,7 +109,7 @@ export function EventsComponent({
   }
 
   // Event actions hook
-  const { update, delete: deleteEvent, toggleStar } = useEventActions({ invalidateKeys });
+  const { create, update, delete: deleteEvent, toggleStar } = useEventActions({ invalidateKeys });
 
   // Fetch events (only if not passed directly)
   const { data: fetchedData, isLoading } = useQuery({
@@ -208,6 +210,92 @@ export function EventsComponent({
     [deleteEvent, onEventDeleted]
   );
 
+  // Handle inline edit save
+  const handleInlineEditSave = useCallback(
+    async (eventId: number, updates: { description?: string; date?: string; time?: string | null }) => {
+      const result = await update(eventId, updates);
+      if (result?.event) {
+        onEventUpdated?.(result.event);
+      }
+    },
+    [update, onEventUpdated]
+  );
+
+  // Handle inline create save
+  const handleInlineCreateSave = useCallback(
+    async (data: { case_id: number; description: string; date: string; time?: string }) => {
+      const result = await create(data);
+      if (result?.event) {
+        onEventUpdated?.(result.event);
+      }
+    },
+    [create, onEventUpdated]
+  );
+
+  // Handle event row click - open detail sheet
+  const handleEventClick = useCallback((event: Event) => {
+    setSelectedEvent(event);
+  }, []);
+
+  // Handle update from detail sheet
+  const handleSheetUpdate = useCallback(
+    async (eventId: number, updates: Partial<Event>) => {
+      const result = await update(eventId, updates);
+      if (result?.event) {
+        setSelectedEvent(result.event);
+        onEventUpdated?.(result.event);
+      }
+    },
+    [update, onEventUpdated]
+  );
+
+  // Handle delete from detail sheet
+  const handleSheetDelete = useCallback(
+    async (eventId: number) => {
+      await deleteEvent(eventId);
+      setSelectedEvent(null);
+      onEventDeleted?.(eventId);
+    },
+    [deleteEvent, onEventDeleted]
+  );
+
+  // Handle star toggle from detail sheet
+  const handleSheetToggleStar = useCallback(
+    async (event: Event) => {
+      const result = await toggleStar(event);
+      if (result?.event) {
+        setSelectedEvent(result.event);
+        onEventUpdated?.(result.event);
+      }
+    },
+    [toggleStar, onEventUpdated]
+  );
+
+  // Navigate to previous event in the list
+  const handlePrevEvent = useCallback(() => {
+    if (!selectedEvent) return;
+    const currentIndex = events.findIndex((e) => e.id === selectedEvent.id);
+    if (currentIndex > 0) {
+      setSelectedEvent(events[currentIndex - 1]);
+    }
+  }, [selectedEvent, events]);
+
+  // Navigate to next event in the list
+  const handleNextEvent = useCallback(() => {
+    if (!selectedEvent) return;
+    const currentIndex = events.findIndex((e) => e.id === selectedEvent.id);
+    if (currentIndex >= 0 && currentIndex < events.length - 1) {
+      setSelectedEvent(events[currentIndex + 1]);
+    }
+  }, [selectedEvent, events]);
+
+  // Check if there are prev/next events
+  const selectedEventIndex = selectedEvent
+    ? events.findIndex((e) => e.id === selectedEvent.id)
+    : -1;
+  const hasPrevEvent = selectedEventIndex > 0;
+  const hasNextEvent = selectedEventIndex >= 0 && selectedEventIndex < events.length - 1;
+
   return (
     <>
       {/* Header */}
@@ -258,8 +346,28 @@ export function EventsComponent({
         onToggleStar={handleToggleStar}
         onDateChange={handleDateChange}
         onTimeChange={handleTimeChange}
+        onClick={handleEventClick}
         onCreateTask={handleCreateTask}
         onDelete={handleDelete}
+        enableInlineEdit
+        onInlineEditSave={handleInlineEditSave}
+        enableInlineCreate
+        onInlineCreateSave={handleInlineCreateSave}
+      />
+
+      {/* Event Detail Sheet */}
+      <EventDetailSheet
+        event={selectedEvent}
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        onToggleStar={handleSheetToggleStar}
+        onUpdate={handleSheetUpdate}
+        onDelete={handleSheetDelete}
+        onCreateTask={handleCreateTask}
+        onPrevEvent={handlePrevEvent}
+        onNextEvent={handleNextEvent}
+        hasPrevEvent={hasPrevEvent}
+        hasNextEvent={hasNextEvent}
       />
 
       {/* Create task from event modal */}

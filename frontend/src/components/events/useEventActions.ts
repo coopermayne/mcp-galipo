@@ -4,8 +4,8 @@
  * Provides update, delete, and star mutations with automatic query invalidation.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateEvent, deleteEvent } from '../../api';
-import type { Event } from '../../types';
+import { createEvent, updateEvent, deleteEvent } from '../../api';
+import type { Event, CreateEventInput } from '../../types';
 
 interface UseEventActionsOptions {
   /** Additional query keys to invalidate on success */
@@ -24,6 +24,11 @@ export function useEventActions({ invalidateKeys = [] }: UseEventActionsOptions 
     });
   };
 
+  const createMutation = useMutation({
+    mutationFn: (data: CreateEventInput) => createEvent(data),
+    onSuccess: invalidateQueries,
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) =>
       updateEvent(id, data),
@@ -34,6 +39,10 @@ export function useEventActions({ invalidateKeys = [] }: UseEventActionsOptions 
     mutationFn: (id: number) => deleteEvent(id),
     onSuccess: invalidateQueries,
   });
+
+  const handleCreate = async (data: CreateEventInput) => {
+    return createMutation.mutateAsync(data);
+  };
 
   const handleUpdate = async (eventId: number, updates: Partial<Event>) => {
     return updateMutation.mutateAsync({ id: eventId, data: updates });
@@ -48,9 +57,11 @@ export function useEventActions({ invalidateKeys = [] }: UseEventActionsOptions 
   };
 
   return {
+    create: handleCreate,
     update: handleUpdate,
     delete: handleDelete,
     toggleStar,
+    isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
   };
