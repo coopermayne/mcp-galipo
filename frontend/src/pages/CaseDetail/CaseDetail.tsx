@@ -8,8 +8,11 @@ import { getCase, getConstants, updateCase, deleteCase } from '../../api';
 import type { Case } from '../../types';
 import { OverviewTab, TasksTab, EventsTab, NotesTab, ActivityTab, SettingsTab } from './tabs';
 import { CaseHeader } from './components';
+import { useSwipe } from '../../hooks';
 
 type TabType = 'overview' | 'tasks' | 'events' | 'notes' | 'activity' | 'settings';
+
+const TAB_ORDER: TabType[] = ['overview', 'tasks', 'events', 'notes', 'activity', 'settings'];
 
 export function CaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +20,25 @@ export function CaseDetail() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const goToNextTab = useCallback(() => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    if (currentIndex < TAB_ORDER.length - 1) {
+      setActiveTab(TAB_ORDER[currentIndex + 1]);
+    }
+  }, [activeTab]);
+
+  const goToPreviousTab = useCallback(() => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(TAB_ORDER[currentIndex - 1]);
+    }
+  }, [activeTab]);
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: goToNextTab,
+    onSwipeRight: goToPreviousTab,
+  });
 
   const caseId = parseInt(id || '0', 10);
 
@@ -168,48 +190,50 @@ export function CaseDetail() {
         </nav>
       </div>
 
-      {activeTab === 'overview' && (
-        <PageContent variant="full">
-          <OverviewTab
-            caseData={caseData}
-            caseId={caseId}
-            constants={constants}
-            onUpdateField={handleUpdateField}
-          />
-        </PageContent>
-      )}
-      {activeTab === 'tasks' && (
-        <PageContent>
-          <TasksTab caseId={caseId} />
-        </PageContent>
-      )}
-      {activeTab === 'events' && (
-        <PageContent>
-          <EventsTab caseId={caseId} />
-        </PageContent>
-      )}
-      {activeTab === 'notes' && (
-        <PageContent>
-          <NotesTab caseId={caseId} notes={caseData.notes || []} persons={caseData.persons || []} />
-        </PageContent>
-      )}
-      {activeTab === 'activity' && (
-        <PageContent>
-          <ActivityTab
-            caseId={caseId}
-            activities={caseData.activities || []}
-            tasks={caseData.tasks || []}
-          />
-        </PageContent>
-      )}
-      {activeTab === 'settings' && (
-        <PageContent>
-          <SettingsTab
-            caseName={caseData.case_name}
-            onDelete={handleDelete}
-          />
-        </PageContent>
-      )}
+      <div {...swipeHandlers} className="flex-1">
+        {activeTab === 'overview' && (
+          <PageContent variant="full">
+            <OverviewTab
+              caseData={caseData}
+              caseId={caseId}
+              constants={constants}
+              onUpdateField={handleUpdateField}
+            />
+          </PageContent>
+        )}
+        {activeTab === 'tasks' && (
+          <PageContent>
+            <TasksTab caseId={caseId} />
+          </PageContent>
+        )}
+        {activeTab === 'events' && (
+          <PageContent>
+            <EventsTab caseId={caseId} />
+          </PageContent>
+        )}
+        {activeTab === 'notes' && (
+          <PageContent>
+            <NotesTab caseId={caseId} notes={caseData.notes || []} persons={caseData.persons || []} />
+          </PageContent>
+        )}
+        {activeTab === 'activity' && (
+          <PageContent>
+            <ActivityTab
+              caseId={caseId}
+              activities={caseData.activities || []}
+              tasks={caseData.tasks || []}
+            />
+          </PageContent>
+        )}
+        {activeTab === 'settings' && (
+          <PageContent>
+            <SettingsTab
+              caseName={caseData.case_name}
+              onDelete={handleDelete}
+            />
+          </PageContent>
+        )}
+      </div>
 
       <ConfirmModal
         isOpen={showDeleteModal}
