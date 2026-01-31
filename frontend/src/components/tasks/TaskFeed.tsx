@@ -606,13 +606,13 @@ export function TaskFeed({
                 {/* Inline create form or Add task button */}
                 {inlineCreateContext?.groupKey === group.key ? (
                   <TaskInlineCreate
-                    caseId={inlineCreateContext.caseId}
+                    caseId={inlineCreateContext.caseId || caseId}
                     dueDate={inlineCreateContext.dueDate}
                     onSave={handleInlineCreateSave}
                     onCancel={handleInlineCreateCancel}
                   />
                 ) : (onAddTask || enableInlineCreate) && (
-                  <AddTaskButton onClick={() => handleAddTaskClick(group.key, group.date?.toISOString().split('T')[0], group.caseId)} />
+                  <AddTaskButton onClick={() => handleAddTaskClick(group.key, group.date?.toISOString().split('T')[0], group.caseId || caseId)} />
                 )}
               </>
             )}
