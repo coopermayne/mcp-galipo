@@ -159,6 +159,14 @@ Track case expenses with smart document processing.
 - [ ] Show client contact info (phones/emails) in the Clients section
 - [ ] Add "Other" section for people not in existing categories (Clients, Defendants, Judges, Experts, etc.)
 
+### Natural Language Date Picker
+Todoist-style date input that interprets natural language as you type.
+- [ ] Parse phrases like "tomorrow", "next friday", "in 2 weeks", "jan 15", "3 days"
+- [ ] Show interpreted date preview below input as user types
+- [ ] Support relative dates (tomorrow, next week) and absolute dates (Jan 15, 2025-02-01)
+- [ ] Handle edge cases: weekday names, "end of month", "in X days/weeks/months"
+- [ ] Integrate with existing date picker - NL input with calendar fallback
+
 ### Other
 - [ ] Person type filtering in autocomplete search
 - [ ] Bulk person assignment
