@@ -17,7 +17,7 @@ import type { SheetFocusMode } from '../components/tasks/TaskDetailSheet';
 import { ToastContainer, useToast } from '../components/common';
 import { getTasks, updateTask, createTask } from '../api';
 import type { Task, TaskStatus } from '../types';
-import { Calendar, Briefcase, LayoutList, Search, Eye, EyeOff } from 'lucide-react';
+import { Calendar, Briefcase, LayoutList, Search, Eye, EyeOff, SlidersHorizontal, Check } from 'lucide-react';
 
 type GroupMode = 'none' | 'date' | 'case';
 
@@ -25,6 +25,7 @@ export function Tasks() {
   const [groupBy, setGroupBy] = useState<GroupMode>('date');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
   const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
@@ -184,7 +185,7 @@ export function Tasks() {
 
       <PageContent>
         {/* Controls */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="mb-6 flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -193,66 +194,83 @@ export function Tasks() {
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              className="w-28 sm:w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
             />
           </div>
 
-          {/* Group by selector */}
-          <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {/* Filter popover */}
+          <div className="relative">
             <button
-              onClick={() => setGroupBy('none')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
-                groupBy === 'none'
-                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                isFilterOpen
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
-              <LayoutList className="w-4 h-4" />
-              <span>List</span>
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>View</span>
             </button>
-            <button
-              onClick={() => setGroupBy('date')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ${
-                groupBy === 'date'
-                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              <span>Date</span>
-            </button>
-            <button
-              onClick={() => setGroupBy('case')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ${
-                groupBy === 'case'
-                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Briefcase className="w-4 h-4" />
-              <span>Case</span>
-            </button>
+
+            {isFilterOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsFilterOpen(false)}
+                />
+                {/* Dropdown */}
+                <div className="absolute left-0 top-full mt-1 w-48 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
+                  <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    Group by
+                  </div>
+                  <button
+                    onClick={() => { setGroupBy('date'); setIsFilterOpen(false); }}
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Date
+                    </span>
+                    {groupBy === 'date' && <Check className="w-4 h-4 text-primary-500" />}
+                  </button>
+                  <button
+                    onClick={() => { setGroupBy('case'); setIsFilterOpen(false); }}
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      Case
+                    </span>
+                    {groupBy === 'case' && <Check className="w-4 h-4 text-primary-500" />}
+                  </button>
+                  <button
+                    onClick={() => { setGroupBy('none'); setIsFilterOpen(false); }}
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <LayoutList className="w-4 h-4" />
+                      List
+                    </span>
+                    {groupBy === 'none' && <Check className="w-4 h-4 text-primary-500" />}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Show Done toggle */}
           <button
             onClick={() => setShowDoneTasks(!showDoneTasks)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
               showDoneTasks
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'border-green-300 dark:border-green-700 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             {showDoneTasks ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
             <span>Done</span>
           </button>
-
-          {/* Task count */}
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            {tasks.length} {showDoneTasks ? 'completed' : 'active'} task{tasks.length !== 1 ? 's' : ''}
-            {searchQuery && ` matching "${searchQuery}"`}
-            {isDeleting && ' (saving...)'}
-          </div>
         </div>
 
         {/* The Todoist-style TaskFeed */}
