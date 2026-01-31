@@ -1,0 +1,153 @@
+"""
+Chat mode configurations.
+
+Defines tool allowlists and system prompt additions for each chat mode,
+enabling focused interactions that are faster, cheaper, and more accurate.
+"""
+
+from typing import Any
+
+# Mode configurations
+# - tools: list of allowed tool names (empty list = all tools)
+# - system_prompt_addition: extra context for the mode
+CHAT_MODES: dict[str, dict[str, Any]] = {
+    "tasks": {
+        "tools": [
+            "get_tasks",
+            "add_task",
+            "update_task",
+            "delete_task",
+            "bulk_update_tasks",
+            "bulk_update_case_tasks",
+            "reorder_task",
+            "get_case_summary",
+            "search",
+        ],
+        "system_prompt_addition": """You are in TASKS mode - help the user add and manage tasks.
+
+When the user wants to add a task:
+1. If they give you enough info (description, and optionally due date/priority), create the task immediately
+2. If info is missing, ask brief clarifying questions (e.g., "When is this due?" or "What priority - low, medium, high, or urgent?")
+3. After creating, confirm what was added
+
+Common task patterns:
+- "Follow up with client" → ask about due date
+- "File MSJ by Friday" → create with due date this Friday
+- "Urgent: respond to discovery" → create with urgent priority
+
+Keep responses brief and action-oriented.""",
+    },
+    "events": {
+        "tools": [
+            "get_events",
+            "add_event",
+            "update_event",
+            "delete_event",
+            "get_calendar",
+            "get_case_summary",
+        ],
+        "system_prompt_addition": """You are in EVENTS mode - help the user add and manage calendar events.
+
+When the user wants to add an event:
+1. If they give you enough info (description and date), create the event immediately
+2. If info is missing, ask brief clarifying questions (e.g., "What date?" or "What time?")
+3. After creating, confirm what was added
+
+Common event patterns:
+- "MSJ on Friday" → Motion for Summary Judgment hearing this Friday
+- "Depo next Tuesday at 10am" → Deposition on Tuesday at 10:00 AM
+- "Mediation March 15" → Mediation on March 15
+
+Keep responses brief and action-oriented.""",
+    },
+    "people": {
+        "tools": [
+            "manage_person",
+            "get_person",
+            "assign_person_to_case",
+            "update_case_assignment",
+            "remove_person_from_case",
+            "search",
+            "get_case_summary",
+        ],
+        "system_prompt_addition": """You are in PEOPLE mode - help the user add and manage case participants.
+
+When the user wants to add a person:
+1. Ask for their role first (Attorney, Expert Witness, Client, Defendant, Judge, etc.)
+2. Get their name and any contact info provided
+3. Create the person and assign them to the case
+
+Common patterns:
+- "Add Dr. Smith as expert" → Create person, assign as Expert Witness
+- "New defense attorney John Doe" → Create person, assign as Attorney on Defendant side
+- "Add the client Maria Garcia" → Create person, assign as Client
+
+Keep responses brief and action-oriented.""",
+    },
+    "overview": {
+        "tools": [
+            "list_cases",
+            "get_case_summary",
+            "get_tasks",
+            "get_events",
+            "get_activities",
+            "get_calendar",
+            "search",
+        ],
+        "system_prompt_addition": """You are in OVERVIEW mode. Provide high-level insights and summaries:
+- Case status and progress
+- Upcoming deadlines and priorities
+- Recent activity summaries
+- Cross-case analytics
+
+This is a read-only mode - do not create, update, or delete data.""",
+    },
+    "full": {
+        "tools": [],  # Empty = all tools available
+        "system_prompt_addition": "",
+    },
+}
+
+
+def get_mode_config(mode: str | None) -> dict[str, Any] | None:
+    """Get the configuration for a specific mode.
+
+    Args:
+        mode: The mode name (tasks, events, people, overview, full) or None.
+
+    Returns:
+        The mode configuration dict, or None if mode is invalid.
+    """
+    if not mode:
+        return None
+    return CHAT_MODES.get(mode)
+
+
+def get_mode_tools(mode: str | None) -> list[str]:
+    """Get the list of allowed tools for a mode.
+
+    Args:
+        mode: The mode name or None.
+
+    Returns:
+        List of tool names. Empty list means all tools are allowed.
+    """
+    config = get_mode_config(mode)
+    if not config:
+        return []
+    return config.get("tools", [])
+
+
+def get_mode_system_prompt(mode: str | None) -> str:
+    """Get the system prompt addition for a mode.
+
+    Args:
+        mode: The mode name or None.
+
+    Returns:
+        The system prompt addition string, or empty string if no mode.
+    """
+    config = get_mode_config(mode)
+    if not config:
+        return ""
+    return config.get("system_prompt_addition", "")

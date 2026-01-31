@@ -53,10 +53,18 @@ export interface ChatMessage {
   usage?: UsageData;
 }
 
+export type ChatMode = 'tasks' | 'events' | 'people' | 'overview' | 'full';
+
+export type ChatPreset =
+  | 'priorities' | 'deadlines' | 'overdue' | 'activity'  // Dashboard presets
+  | 'case_summary' | 'case_next' | 'case_tasks' | 'case_events' | 'case_people';  // Case presets
+
 export interface ChatRequest {
   message: string;
   conversationId?: string;
   caseContext?: number;
+  mode?: ChatMode;
+  preset?: ChatPreset;
 }
 
 export interface ChatResponse {

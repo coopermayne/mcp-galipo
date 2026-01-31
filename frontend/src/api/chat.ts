@@ -30,6 +30,8 @@ export async function* streamChatMessage(req: ChatRequest): AsyncGenerator<Strea
     message: req.message,
     conversation_id: req.conversationId,
     case_context: req.caseContext,
+    mode: req.mode,
+    preset: req.preset,
   };
 
   const response = await fetch(url, {
