@@ -12,13 +12,13 @@ import {
   SlidersHorizontal,
   Calendar,
   Briefcase,
-  LayoutList,
+  LayoutGrid,
   Check,
   Eye,
   EyeOff,
 } from 'lucide-react';
 
-export type GroupMode = 'none' | 'date' | 'case';
+export type GroupMode = 'date' | 'case' | 'urgency';
 
 interface TasksControlsProps {
   /** Current grouping mode */
@@ -126,16 +126,16 @@ export function TasksControls({
                 </button>
                 <button
                   onClick={() => {
-                    onGroupByChange('none');
+                    onGroupByChange('urgency');
                     setIsFilterOpen(false);
                   }}
                   className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
                 >
                   <span className="flex items-center gap-2">
-                    <LayoutList className="w-4 h-4" />
-                    List
+                    <LayoutGrid className="w-4 h-4" />
+                    Urgency
                   </span>
-                  {groupBy === 'none' && (
+                  {groupBy === 'urgency' && (
                     <Check className="w-4 h-4 text-primary-500" />
                   )}
                 </button>

@@ -53,6 +53,8 @@ export interface TaskItemProps {
   isHighlighted?: boolean;
   /** Whether this task is animating out (being marked done) */
   isCompleting?: boolean;
+  /** Align to left edge (no left padding) - for flat lists without headers */
+  flush?: boolean;
   /** Callback when checkbox is clicked (mark done) */
   onMarkDone?: (taskId: number) => void;
   /** Callback when task row is clicked (for inline edit) */
@@ -114,6 +116,7 @@ export function TaskItem({
   disableDrag = false,
   isHighlighted = false,
   isCompleting = false,
+  flush = false,
   onMarkDone,
   onClick,
   onEdit,
@@ -272,7 +275,8 @@ export function TaskItem({
       style={style}
       {...(showDragHandle && isTouchDevice ? { ...attributes, ...listeners } : {})}
       className={`
-        group relative flex items-start gap-2 px-3 py-2.5 md:px-2 md:py-2
+        group relative flex items-start gap-2 py-2.5 md:py-2
+        ${flush ? 'px-0' : 'px-3 md:px-2'}
         border-b border-slate-100 dark:border-slate-800
         transition-opacity duration-300 ease-out
         ${onClick ? 'cursor-pointer' : ''}
@@ -285,19 +289,21 @@ export function TaskItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Drag handle - appears on hover, desktop only */}
-      <div className={`hidden md:flex w-6 flex-shrink-0 items-center justify-center pt-0.5 transition-opacity ${isHovered && showDragHandle ? 'opacity-100' : 'opacity-0'}`}>
-        {showDragHandle && (
-          <button
-            {...attributes}
-            {...listeners}
-            className={`p-0.5 text-slate-400 ${disableDrag ? 'cursor-default' : 'cursor-grab active:cursor-grabbing hover:text-slate-600 dark:hover:text-slate-300'}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+      {/* Drag handle - appears on hover, desktop only (hidden in flush mode) */}
+      {!flush && (
+        <div className={`hidden md:flex w-6 flex-shrink-0 items-center justify-center pt-0.5 transition-opacity ${isHovered && showDragHandle ? 'opacity-100' : 'opacity-0'}`}>
+          {showDragHandle && (
+            <button
+              {...attributes}
+              {...listeners}
+              className={`p-0.5 text-slate-400 ${disableDrag ? 'cursor-default' : 'cursor-grab active:cursor-grabbing hover:text-slate-600 dark:hover:text-slate-300'}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Checkbox */}
       <button

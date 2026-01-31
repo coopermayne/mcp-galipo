@@ -23,7 +23,7 @@ import { TaskInlineCreate } from './TaskInlineCreate';
 import { ConfirmModal } from '../common';
 import type { Task } from '../../types';
 
-type GroupMode = 'none' | 'date' | 'case';
+type GroupMode = 'date' | 'case' | 'urgency';
 
 interface TaskFeedProps {
   tasks: Task[];
@@ -32,8 +32,12 @@ interface TaskFeedProps {
   showCase?: boolean;
   /** Enable drag-and-drop reordering */
   sortable?: boolean;
-  /** How to group tasks: 'none' | 'date' | 'case' */
+  /** How to group tasks: 'none' | 'date' | 'case' | 'urgency' */
   groupBy?: GroupMode;
+  /** Maximum number of tasks to display (for preview/compact views) */
+  maxItems?: number;
+  /** Compact mode - tighter spacing, smaller empty state */
+  compact?: boolean;
   /** Empty state message */
   emptyMessage?: string;
   /** Callback when task is deleted (after confirmation) */
@@ -300,6 +304,8 @@ export function TaskFeed({
   showCase = true,
   sortable = false,
   groupBy = 'date',
+  maxItems,
+  compact = false,
   emptyMessage = 'No tasks',
   onDelete,
   onMarkDone,
@@ -344,23 +350,32 @@ export function TaskFeed({
     }, 400); // Match the CSS animation duration
   }, [onMarkDone]);
 
+  // Apply maxItems limit if specified
+  const limitedTasks = useMemo(() => {
+    if (maxItems && tasks.length > maxItems) {
+      return tasks.slice(0, maxItems);
+    }
+    return tasks;
+  }, [tasks, maxItems]);
+
   // Group tasks based on groupBy mode
   const groups = useMemo(() => {
     switch (groupBy) {
       case 'date':
-        return groupTasksByDate(tasks);
+        return groupTasksByDate(limitedTasks);
       case 'case':
-        return groupTasksByCase(tasks);
-      case 'none':
+        return groupTasksByCase(limitedTasks);
+      case 'urgency':
       default:
+        // Flat list sorted by urgency (high to low)
         return [{
           key: 'all',
           label: '',
           date: null,
-          tasks: sortTasksByUrgencyAndDate(tasks),
+          tasks: sortTasksByUrgency(limitedTasks),
         }];
     }
-  }, [tasks, groupBy]);
+  }, [limitedTasks, groupBy]);
 
   // Hide case column when grouping by case (redundant info)
   const effectiveShowCase = showCase && groupBy !== 'case';
@@ -493,23 +508,26 @@ export function TaskFeed({
 
   if (tasks.length === 0) {
     return (
-      <div className="py-8">
-        <div className="text-center text-slate-500 dark:text-slate-400 py-8">
+      <div className={compact ? "py-2" : "py-8"}>
+        <div className={`text-center text-slate-500 dark:text-slate-400 ${compact ? 'py-2 text-xs' : 'py-8'}`}>
           {emptyMessage}
         </div>
-        {inlineCreateContext?.groupKey === 'empty' ? (
+        {!compact && (inlineCreateContext?.groupKey === 'empty' ? (
           <TaskInlineCreate
             onSave={handleInlineCreateSave}
             onCancel={handleInlineCreateCancel}
           />
         ) : (onAddTask || enableInlineCreate) && (
           <AddTaskButton onClick={() => handleAddTaskClick('empty')} />
-        )}
+        ))}
       </div>
     );
   }
 
   const allTaskIds = tasks.map((t) => t.id);
+
+  // Flush mode (no left padding) when not grouping (urgency mode)
+  const isFlush = groupBy === 'urgency';
 
   const renderTaskList = (groupTasks: Task[], showDragHandle: boolean) => (
     <>
@@ -536,6 +554,7 @@ export function TaskFeed({
             showDragHandle={showDragHandle}
             isHighlighted={task.id === recentlyDroppedId}
             isCompleting={completingTaskIds.has(task.id)}
+            flush={isFlush}
             onDelete={handleDeleteClick}
             onMarkDone={onMarkDone ? () => handleMarkDone(task.id) : undefined}
             onClick={onTaskClick}
