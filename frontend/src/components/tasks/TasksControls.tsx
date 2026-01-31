@@ -35,8 +35,6 @@ interface TasksControlsProps {
   onShowDoneChange: (showDone: boolean) => void;
   /** Hide the group by dropdown (e.g., when only one mode makes sense) */
   hideGroupBy?: boolean;
-  /** Hide the search input */
-  hideSearch?: boolean;
 }
 
 export function TasksControls({
@@ -47,25 +45,22 @@ export function TasksControls({
   showDone,
   onShowDoneChange,
   hideGroupBy = false,
-  hideSearch = false,
 }: TasksControlsProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2">
       {/* Search */}
-      {!hideSearch && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-28 sm:w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-          />
-        </div>
-      )}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-28 sm:w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+        />
+      </div>
 
       {/* View/Group by dropdown */}
       {!hideGroupBy && (

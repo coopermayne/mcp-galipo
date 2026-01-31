@@ -33,8 +33,6 @@ interface EventsControlsProps {
   showPast: boolean;
   /** Callback when past/upcoming toggle changes */
   onShowPastChange: (showPast: boolean) => void;
-  /** Hide the search input */
-  hideSearch?: boolean;
   /** Hide the group by dropdown */
   hideGroupBy?: boolean;
   /** Hide the past/upcoming toggle */
@@ -48,7 +46,6 @@ export function EventsControls({
   onSearchChange,
   showPast,
   onShowPastChange,
-  hideSearch = false,
   hideGroupBy = false,
   hidePastToggle = false,
 }: EventsControlsProps) {
@@ -57,18 +54,16 @@ export function EventsControls({
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2">
       {/* Search */}
-      {!hideSearch && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-28 sm:w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-          />
-        </div>
-      )}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search events..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-28 sm:w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+        />
+      </div>
 
       {/* View/Group by dropdown */}
       {!hideGroupBy && onGroupByChange && (

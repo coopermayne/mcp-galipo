@@ -871,8 +871,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             events={caseData.events || []}
             caseId={caseId}
             title="Events"
-            showControls
-            hideSearch
             showCase={false}
             compact
           />

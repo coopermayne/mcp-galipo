@@ -41,8 +41,6 @@ interface TasksComponentProps {
   // Feature flags
   /** Show search, View dropdown, Done toggle */
   showControls?: boolean;
-  /** Hide search when showControls is true */
-  hideSearch?: boolean;
   /** Hide group by dropdown when showControls is true */
   hideGroupBy?: boolean;
   /** Click task opens detail sheet */
@@ -83,7 +81,6 @@ export function TasksComponent({
 
   // Features
   showControls = true,
-  hideSearch = false,
   hideGroupBy = false,
   showDetailSheet = true,
   enableInlineCreate = false,
@@ -384,7 +381,6 @@ export function TasksComponent({
           onSearchChange={setSearchQuery}
           showDone={showDoneTasks}
           onShowDoneChange={setShowDoneTasks}
-          hideSearch={hideSearch}
           hideGroupBy={hideGroupBy}
         />
       )}
