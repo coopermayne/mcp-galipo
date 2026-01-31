@@ -6,12 +6,14 @@ export async function getEvents(params?: {
   offset?: number;
   includePast?: boolean;
   pastDays?: number;
+  caseId?: number;
 }): Promise<{ events: Event[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   if (params?.includePast) searchParams.set('include_past', 'true');
   if (params?.pastDays) searchParams.set('past_days', String(params.pastDays));
+  if (params?.caseId) searchParams.set('case_id', String(params.caseId));
   const query = searchParams.toString();
   return request(`/events${query ? `?${query}` : ''}`);
 }

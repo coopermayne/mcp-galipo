@@ -118,6 +118,7 @@ export function EventsComponent({
         limit: 100,
         includePast: showPast,
         pastDays: showPast ? pastDays : undefined,
+        caseId: caseId,
       }),
     enabled: !passedEvents && (showAllEvents || !!caseId),
   });
