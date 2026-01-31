@@ -197,6 +197,8 @@ function AddEventButton({ onClick }: { onClick?: () => void }) {
 interface EventFeedProps {
   events: Event[];
   isLoading?: boolean;
+  /** Pre-selected case ID for inline creation */
+  caseId?: number;
   /** Show case link on each row (auto-hidden when grouping by case) */
   showCase?: boolean;
   /** How to group events: 'none' | 'date' | 'case' */
@@ -236,6 +238,7 @@ interface EventFeedProps {
 export function EventFeed({
   events,
   isLoading = false,
+  caseId,
   showCase = true,
   groupBy = 'none',
   maxItems,
@@ -392,11 +395,12 @@ export function EventFeed({
         </div>
         {!compact && (inlineCreateContext?.groupKey === 'empty' ? (
           <EventInlineCreate
+            caseId={caseId}
             onSave={handleInlineCreateSave}
             onCancel={handleInlineCreateCancel}
           />
         ) : (onAddEvent || enableInlineCreate) && (
-          <AddEventButton onClick={() => handleAddEventClick('empty')} />
+          <AddEventButton onClick={() => handleAddEventClick('empty', undefined, caseId)} />
         ))}
       </div>
     );
