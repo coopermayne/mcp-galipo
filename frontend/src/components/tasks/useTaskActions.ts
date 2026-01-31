@@ -21,6 +21,9 @@ export function useTaskActions(options: UseTaskActionsOptions = {}) {
     // Always invalidate these
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
     queryClient.invalidateQueries({ queryKey: ['stats'] });
+    // Events need refresh too (task_count, linked tasks)
+    queryClient.invalidateQueries({ queryKey: ['events'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
 
     // Plus any custom keys passed in
     invalidateKeys.forEach((key) => {
