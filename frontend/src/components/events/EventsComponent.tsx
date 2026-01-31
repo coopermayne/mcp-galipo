@@ -159,7 +159,7 @@ export function EventsComponent({
   // Handle time change
   const handleTimeChange = useCallback(
     async (event: Event, newTime: string | null) => {
-      const result = await update(event.id, { time: newTime });
+      const result = await update(event.id, { time: newTime ?? undefined });
       if (result?.event) {
         onEventUpdated?.(result.event);
       }
@@ -184,7 +184,7 @@ export function EventsComponent({
   // Handle inline edit save
   const handleInlineEditSave = useCallback(
     async (eventId: number, updates: { description?: string; date?: string; time?: string | null }) => {
-      const result = await update(eventId, updates);
+      const result = await update(eventId, { ...updates, time: updates.time ?? undefined });
       if (result?.event) {
         onEventUpdated?.(result.event);
       }

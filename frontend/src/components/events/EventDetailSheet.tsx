@@ -192,7 +192,7 @@ export function EventDetailSheet({
 
   const handleTimeChange = async (time: string | null) => {
     if (onUpdate) {
-      await onUpdate(event.id, { time });
+      await onUpdate(event.id, { time: time ?? undefined });
     }
   };
 
