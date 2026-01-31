@@ -6,3 +6,6 @@ export { TaskDetailSheet } from './TaskDetailSheet';
 export type { SheetFocusMode } from './TaskDetailSheet';
 export { EventLinkPopover } from './EventLinkPopover';
 export { useTaskActions } from './useTaskActions';
+export { TasksComponent } from './TasksComponent';
+export { TasksControls } from './TasksControls';
+export type { GroupMode } from './TasksControls';
