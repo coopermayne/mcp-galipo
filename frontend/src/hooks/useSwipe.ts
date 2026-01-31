@@ -1,4 +1,4 @@
-import { useRef, useCallback, TouchEvent } from 'react';
+import { useRef, useCallback, type TouchEvent } from 'react';
 
 interface SwipeConfig {
   onSwipeLeft?: () => void;
