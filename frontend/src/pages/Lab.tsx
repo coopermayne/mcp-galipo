@@ -249,6 +249,7 @@ export function Lab() {
           onMarkDone={handleMarkDone}
           onUpdate={handleUpdateTask}
           onLinkEvent={handleLinkEvent}
+          onDelete={deleteTask}
           onPrevTask={handlePrevTask}
           onNextTask={handleNextTask}
           hasPrevTask={hasPrevTask}
