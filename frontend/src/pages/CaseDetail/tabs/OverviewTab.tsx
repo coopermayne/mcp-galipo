@@ -545,9 +545,9 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             </div>
             {/* Key People: Judge, Counsel, Experts, Mediator */}
             <div className="space-y-2">
-              {/* Judge - read only, added via Proceedings */}
+              {/* Judge - hidden on mobile (shown in proceedings), visible on desktop */}
               {judges.length > 0 && (
-                <div className="flex items-start gap-2 text-sm">
+                <div className="hidden md:flex items-start gap-2 text-sm">
                   <span className="text-slate-400 w-16 shrink-0 pt-1">Judge:</span>
                   <div className="flex flex-wrap gap-1 flex-1 min-w-0">
                     {judges.map(j => (
