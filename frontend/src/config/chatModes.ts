@@ -20,6 +20,14 @@ export interface ChatModeConfig {
 }
 
 export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity';
+export type CasePresetId = 'case_tasks' | 'case_events' | 'case_people';
+
+// Map chat modes to their corresponding case presets
+export const MODE_TO_CASE_PRESET: Record<string, CasePresetId> = {
+  tasks: 'case_tasks',
+  events: 'case_events',
+  people: 'case_people',
+};
 
 export interface DashboardPreset {
   id: PresetId;

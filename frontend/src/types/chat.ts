@@ -55,7 +55,9 @@ export interface ChatMessage {
 
 export type ChatMode = 'tasks' | 'events' | 'people' | 'overview' | 'full';
 
-export type ChatPreset = 'priorities' | 'deadlines' | 'overdue' | 'activity';
+export type ChatPreset =
+  | 'priorities' | 'deadlines' | 'overdue' | 'activity'  // Dashboard presets
+  | 'case_tasks' | 'case_events' | 'case_people';         // Case presets
 
 export interface ChatRequest {
   message: string;

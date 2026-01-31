@@ -282,7 +282,178 @@ def get_activity_context() -> dict:
     }
 
 
+# =============================================================================
+# Case-specific context fetchers (for case page modes)
+# =============================================================================
+
+def get_case_tasks_context(case_id: int) -> dict:
+    """Fetch all tasks for a specific case."""
+    pacific = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(pacific)
+    four_weeks = now + timedelta(weeks=4)
+
+    with get_cursor() as cur:
+        # Get case name
+        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        case_name = row["case_name"] if row else f"Case #{case_id}"
+
+        # Get incomplete tasks
+        cur.execute("""
+            SELECT id, description, due_date, urgency, status
+            FROM tasks
+            WHERE case_id = %s AND status != 'completed'
+            ORDER BY urgency DESC, due_date ASC NULLS LAST
+        """, (case_id,))
+
+        incomplete = []
+        for row in cur.fetchall():
+            incomplete.append({
+                "id": row["id"],
+                "description": row["description"],
+                "due_date": row["due_date"].isoformat() if row["due_date"] else None,
+                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "status": row["status"],
+            })
+
+        # Get recently completed tasks (last 2 weeks)
+        two_weeks_ago = now - timedelta(days=14)
+        cur.execute("""
+            SELECT id, description, completion_date
+            FROM tasks
+            WHERE case_id = %s AND status = 'completed' AND completion_date >= %s
+            ORDER BY completion_date DESC
+        """, (case_id, two_weeks_ago.date()))
+
+        completed = []
+        for row in cur.fetchall():
+            completed.append({
+                "id": row["id"],
+                "description": row["description"],
+                "completed": row["completion_date"].isoformat() if row["completion_date"] else None,
+            })
+
+        # Count overdue
+        cur.execute("""
+            SELECT COUNT(*) as count FROM tasks
+            WHERE case_id = %s AND status != 'completed' AND due_date < %s
+        """, (case_id, now.date()))
+        overdue_count = cur.fetchone()["count"]
+
+    return {
+        "case": case_name,
+        "incomplete_tasks": incomplete,
+        "recently_completed": completed,
+        "overdue_count": overdue_count,
+        "query_date": now.strftime("%Y-%m-%d"),
+    }
+
+
+def get_case_events_context(case_id: int) -> dict:
+    """Fetch all events for a specific case."""
+    pacific = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(pacific)
+    four_weeks = now + timedelta(weeks=4)
+
+    with get_cursor() as cur:
+        # Get case name
+        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        case_name = row["case_name"] if row else f"Case #{case_id}"
+
+        # Get upcoming events (next 4 weeks)
+        cur.execute("""
+            SELECT id, description, date, time, location
+            FROM events
+            WHERE case_id = %s AND date >= %s AND date <= %s
+            ORDER BY date ASC
+        """, (case_id, now.date(), four_weeks.date()))
+
+        upcoming = []
+        for row in cur.fetchall():
+            upcoming.append({
+                "id": row["id"],
+                "description": row["description"],
+                "date": row["date"].isoformat() if row["date"] else None,
+                "time": str(row["time"]) if row["time"] else None,
+                "location": row["location"],
+            })
+
+        # Get past events (last 2 weeks)
+        two_weeks_ago = now - timedelta(days=14)
+        cur.execute("""
+            SELECT id, description, date, time, location
+            FROM events
+            WHERE case_id = %s AND date >= %s AND date < %s
+            ORDER BY date DESC
+        """, (case_id, two_weeks_ago.date(), now.date()))
+
+        past = []
+        for row in cur.fetchall():
+            past.append({
+                "id": row["id"],
+                "description": row["description"],
+                "date": row["date"].isoformat() if row["date"] else None,
+                "time": str(row["time"]) if row["time"] else None,
+                "location": row["location"],
+            })
+
+    return {
+        "case": case_name,
+        "upcoming_events": upcoming,
+        "recent_past_events": past,
+        "query_date": now.strftime("%Y-%m-%d"),
+        "range_end": four_weeks.strftime("%Y-%m-%d"),
+    }
+
+
+def get_case_people_context(case_id: int) -> dict:
+    """Fetch all people assigned to a specific case."""
+    with get_cursor() as cur:
+        # Get case name
+        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
+        row = cur.fetchone()
+        case_name = row["case_name"] if row else f"Case #{case_id}"
+
+        # Get all assigned people with their roles
+        cur.execute("""
+            SELECT
+                p.id,
+                p.name,
+                p.organization,
+                p.email,
+                p.phone,
+                cp.role,
+                cp.side
+            FROM case_persons cp
+            JOIN persons p ON cp.person_id = p.id
+            WHERE cp.case_id = %s
+            ORDER BY cp.role, p.name
+        """, (case_id,))
+
+        people = []
+        for row in cur.fetchall():
+            people.append({
+                "id": row["id"],
+                "name": row["name"],
+                "organization": row["organization"],
+                "email": row["email"],
+                "phone": row["phone"],
+                "role": row["role"],
+                "side": row["side"],
+            })
+
+    return {
+        "case": case_name,
+        "people": people,
+    }
+
+
+# =============================================================================
 # Preset configurations
+# =============================================================================
+
+# Dashboard presets (no case context)
 PRESETS = {
     "priorities": {
         "fetch": get_priorities_context,
@@ -311,16 +482,51 @@ Give me a brief summary of what's been accomplished across cases.""",
     },
 }
 
+# Case-specific presets (require case_id)
+CASE_PRESETS = {
+    "case_tasks": {
+        "fetch": get_case_tasks_context,
+        "prompt": """Here are the tasks for this case. Help me manage them.
+You can help me understand priorities, suggest which to tackle first, or answer questions about the task list.
+When I ask to add, update, or complete tasks, confirm what I want to do.""",
+    },
+    "case_events": {
+        "fetch": get_case_events_context,
+        "prompt": """Here are the events for this case. Help me manage the calendar.
+You can help me understand the schedule, identify conflicts, or answer questions about upcoming events.
+When I ask to add or update events, confirm the details.""",
+    },
+    "case_people": {
+        "fetch": get_case_people_context,
+        "prompt": """Here are the people assigned to this case. Help me manage contacts.
+You can help me understand who's involved, their roles, or answer questions about the team.
+When I ask to add or update people, confirm the details.""",
+    },
+}
 
-def get_preset_context(preset_id: str) -> tuple[dict, str] | None:
+
+def get_preset_context(preset_id: str, case_id: int | None = None) -> tuple[dict, str] | None:
     """Get the data context and prompt for a preset.
 
     Args:
-        preset_id: The preset identifier (priorities, deadlines, overdue, activity)
+        preset_id: The preset identifier
+            Dashboard presets: priorities, deadlines, overdue, activity
+            Case presets: case_tasks, case_events, case_people
+        case_id: Required for case presets
 
     Returns:
         Tuple of (data_context, prompt) or None if preset not found.
     """
+    # Check case-specific presets first
+    if preset_id in CASE_PRESETS:
+        if not case_id:
+            return None
+        preset = CASE_PRESETS[preset_id]
+        data = preset["fetch"](case_id)
+        prompt = preset["prompt"]
+        return data, prompt
+
+    # Check dashboard presets
     preset = PRESETS.get(preset_id)
     if not preset:
         return None
