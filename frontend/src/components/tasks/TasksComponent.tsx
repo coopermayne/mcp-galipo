@@ -272,6 +272,8 @@ export function TasksComponent({
     async (taskId: number, eventId: number | null) => {
       const result = await updateTask(taskId, { event_id: eventId });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
       if (caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
       }
