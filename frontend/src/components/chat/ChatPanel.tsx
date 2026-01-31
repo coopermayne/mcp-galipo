@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, MessageCircle, RotateCcw, AlertCircle, ArrowLeft } from 'lucide-react';
+import { X, MessageCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { ChatHomeScreen } from './ChatHomeScreen';
-import { ChatSuggestions } from './ChatSuggestions';
 import { streamChatMessage, getChatInfo } from '../../api/chat';
-import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult, ChatMode, ChatPreset } from '../../types';
-import { CHAT_MODES, getModeColorClasses, MODE_TO_CASE_PRESET, type DashboardPreset, type PresetId, type CasePresetId } from '../../config/chatModes';
+import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult } from '../../types';
+import { type DashboardPreset, type PresetId, type CasePreset, type CasePresetId, type ActionStarter, type ChatMode } from '../../config/chatModes';
 
 // Map mutation tools to the query keys they affect
 const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
@@ -59,13 +58,13 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([]);
   const [failedMessageContent, setFailedMessageContent] = useState<string | null>(null);
   const [modelName, setModelName] = useState<string | null>(null);
-  const [mode, setMode] = useState<ChatMode | null>(null);
-  const [activePreset, setActivePreset] = useState<PresetId | null>(null);
+  const [activePreset, setActivePreset] = useState<PresetId | CasePresetId | null>(null);
+  const [activeMode, setActiveMode] = useState<ChatMode | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<ChatInputHandle>(null);
 
   // Determine if we should show the home screen
-  const showHomeScreen = mode === null && messages.length === 0 && !activePreset;
+  const showHomeScreen = messages.length === 0;
 
   // Fetch chat info (model name) on mount
   useEffect(() => {
@@ -95,6 +94,17 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  // Focus input after AI finishes responding in action mode
+  useEffect(() => {
+    if (activeMode && !isLoading && messages.length > 0) {
+      // Small delay to ensure input is rendered
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeMode, isLoading, messages.length]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -243,7 +253,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     }
   }, [queryClient]);
 
-  const handleSend = async (content: string, isRetry = false, presetOverride?: PresetId | CasePresetId) => {
+  const handleSend = async (content: string, isRetry = false, presetOverride?: PresetId | CasePresetId, modeOverride?: ChatMode) => {
     // Abort any existing stream
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -306,12 +316,13 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
 
     try {
       const presetToUse = presetOverride ?? activePreset ?? undefined;
+      const modeToUse = modeOverride ?? activeMode ?? undefined;
       const stream = streamChatMessage({
         message: content,
         conversationId: conversationId ?? undefined,
         caseContext,
-        mode: mode ?? undefined,
         preset: presetToUse,
+        mode: modeToUse,
       });
       // Clear active preset after first use (data is already sent)
       if (presetToUse) {
@@ -366,28 +377,8 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     setToolExecutions([]);
     setIsLoading(false);
     setFailedMessageContent(null);
-    setMode(null); // Reset mode to show home screen
     setActivePreset(null);
-  };
-
-  const handleSelectMode = (selectedMode: ChatMode) => {
-    setMode(selectedMode);
-
-    // For case context with specific modes, send case preset immediately
-    if (caseContext && selectedMode !== 'full') {
-      const casePreset = MODE_TO_CASE_PRESET[selectedMode];
-      if (casePreset) {
-        // Send a greeting message with the case preset
-        const modeConfig = CHAT_MODES[selectedMode];
-        handleSend(`Help me with ${modeConfig.label.toLowerCase()}`, false, casePreset);
-        return;
-      }
-    }
-
-    // Focus input after selecting mode (for full mode or no case context)
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
+    setActiveMode(null);
   };
 
   const handleSendPreset = (preset: DashboardPreset) => {
@@ -395,8 +386,15 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     handleSend(preset.description, false, preset.id);
   };
 
-  const handleBackToHome = () => {
-    setMode(null);
+  const handleSendCasePreset = (preset: CasePreset) => {
+    // Send a simple message - the backend will inject the case-specific data
+    handleSend(preset.description, false, preset.id);
+  };
+
+  const handleSendActionStarter = (starter: ActionStarter) => {
+    // Set the mode for tool filtering and send the initial message
+    setActiveMode(starter.mode);
+    handleSend(starter.initialMessage, false, undefined, starter.mode);
   };
 
   return (
@@ -427,40 +425,21 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 md:py-3 border-b border-slate-200 dark:border-slate-700 safe-area-inset-top">
           <div className="flex items-center gap-3">
-            {/* Back button when in a mode with no messages */}
-            {mode && messages.length === 0 && (
-              <button
-                onClick={handleBackToHome}
-                className="p-2 md:p-1.5 -ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                aria-label="Back to home"
-              >
-                <ArrowLeft className="w-5 h-5 md:w-4 md:h-4" />
-              </button>
-            )}
-            {/* Mode icon or default chat icon */}
-            {mode && mode !== 'full' ? (
-              (() => {
-                const modeConfig = CHAT_MODES[mode];
-                const Icon = modeConfig.icon;
-                const colors = getModeColorClasses(modeConfig.color);
-                return (
-                  <div className={`w-10 h-10 md:w-8 md:h-8 rounded-full ${colors.bg} flex items-center justify-center`}>
-                    <Icon className="w-5 h-5 md:w-4 md:h-4 text-white" />
-                  </div>
-                );
-              })()
-            ) : (
-              <div className="w-10 h-10 md:w-8 md:h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 md:w-4 md:h-4 text-white" />
-              </div>
-            )}
+            <div className="w-10 h-10 md:w-8 md:h-8 rounded-full bg-blue-600 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 md:w-4 md:h-4 text-white" />
+            </div>
             <div>
               <h2 className="text-base md:text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {mode && mode !== 'full' ? CHAT_MODES[mode].label : 'AI Assistant'}
+                AI Assistant
               </h2>
               <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
-                {caseContext ? `Case #${caseContext}` : 'General Chat'}
-                {modelName && <span className="ml-1.5 opacity-70">· {modelName}</span>}
+                {caseContext ? `Case #${caseContext}` : 'General'}
+                {activeMode && (
+                  <span className="ml-1.5 text-blue-600 dark:text-blue-400 font-medium">
+                    · {activeMode.charAt(0).toUpperCase() + activeMode.slice(1)} Mode
+                  </span>
+                )}
+                {modelName && !activeMode && <span className="ml-1.5 opacity-70">· {modelName}</span>}
               </p>
             </div>
           </div>
@@ -514,8 +493,9 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         {showHomeScreen ? (
           <ChatHomeScreen
             caseContext={caseContext}
-            onSelectMode={handleSelectMode}
             onSendPreset={handleSendPreset}
+            onSendCasePreset={handleSendCasePreset}
+            onSendActionStarter={handleSendActionStarter}
           />
         ) : (
           <>
@@ -526,16 +506,10 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
               toolExecutions={toolExecutions}
             />
 
-            {/* Suggestions - show when mode is active and no messages yet */}
-            {mode && mode !== 'full' && messages.length === 0 && (
-              <ChatSuggestions
-                mode={mode}
-                onSelectQuestion={handleSend}
-              />
+            {/* Input - enabled when in an action mode */}
+            {activeMode && (
+              <ChatInput ref={inputRef} onSend={handleSend} isLoading={isLoading} />
             )}
-
-            {/* Input */}
-            <ChatInput ref={inputRef} onSend={handleSend} isLoading={isLoading} />
           </>
         )}
       </div>

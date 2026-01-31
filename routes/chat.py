@@ -323,7 +323,6 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
         # Add preset data and prompt if a preset is active
         if preset_data and preset_prompt:
-            import json
             system_prompt += f"""
 
 {preset_prompt}

@@ -20,14 +20,94 @@ export interface ChatModeConfig {
 }
 
 export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity';
-export type CasePresetId = 'case_tasks' | 'case_events' | 'case_people';
+export type CasePresetId = 'case_summary' | 'case_next' | 'case_tasks' | 'case_events';
+export type ActionStarterId = 'add_events' | 'add_people' | 'add_tasks';
 
-// Map chat modes to their corresponding case presets
-export const MODE_TO_CASE_PRESET: Record<string, CasePresetId> = {
-  tasks: 'case_tasks',
-  events: 'case_events',
-  people: 'case_people',
-};
+export interface CasePreset {
+  id: CasePresetId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  color: string;
+}
+
+export interface ActionStarter {
+  id: ActionStarterId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  color: string;
+  mode: ChatMode;  // The mode to activate (filters tools)
+  initialMessage: string;  // What to send to start the conversation
+}
+
+/**
+ * Action starters - interactive modes for adding/managing data.
+ * These activate focused tool sets and enable the chat input.
+ */
+export const ACTION_STARTERS: ActionStarter[] = [
+  {
+    id: 'add_events',
+    label: 'Add Events',
+    description: 'Schedule hearings, depositions, deadlines',
+    icon: Calendar,
+    color: 'green',
+    mode: 'events',
+    initialMessage: 'I want to add an event.',
+  },
+  {
+    id: 'add_people',
+    label: 'Add People',
+    description: 'Add attorneys, experts, witnesses',
+    icon: Users,
+    color: 'purple',
+    mode: 'people',
+    initialMessage: 'I want to add a person to this case.',
+  },
+  {
+    id: 'add_tasks',
+    label: 'Add Tasks',
+    description: 'Create tasks and to-dos',
+    icon: CheckSquare,
+    color: 'blue',
+    mode: 'tasks',
+    initialMessage: 'I want to add a task.',
+  },
+];
+
+/**
+ * Case-specific presets shown when on a case page.
+ */
+export const CASE_PRESETS: CasePreset[] = [
+  {
+    id: 'case_summary',
+    label: 'Case Overview',
+    description: 'Status, progress, and key info',
+    icon: BarChart3,
+    color: 'blue',
+  },
+  {
+    id: 'case_next',
+    label: 'Next Steps',
+    description: 'What should I do next?',
+    icon: Sparkles,
+    color: 'purple',
+  },
+  {
+    id: 'case_tasks',
+    label: 'Task Status',
+    description: 'Incomplete and overdue tasks',
+    icon: CheckSquare,
+    color: 'green',
+  },
+  {
+    id: 'case_events',
+    label: 'Schedule',
+    description: 'Upcoming events and deadlines',
+    icon: Calendar,
+    color: 'amber',
+  },
+];
 
 export interface DashboardPreset {
   id: PresetId;
