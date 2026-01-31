@@ -107,7 +107,7 @@ export function EventsComponent({
   }
 
   // Event actions hook
-  const { delete: deleteEvent, toggleStar } = useEventActions({ invalidateKeys });
+  const { update, delete: deleteEvent, toggleStar } = useEventActions({ invalidateKeys });
 
   // Fetch events (only if not passed directly)
   const { data: fetchedData, isLoading } = useQuery({
@@ -172,6 +172,17 @@ export function EventsComponent({
     [toggleStar, onEventUpdated]
   );
 
+  // Handle date change
+  const handleDateChange = useCallback(
+    async (event: Event, newDate: string) => {
+      const result = await update(event.id, { date: newDate });
+      if (result?.event) {
+        onEventUpdated?.(result.event);
+      }
+    },
+    [update, onEventUpdated]
+  );
+
   // Handle create task from event
   const handleCreateTask = useCallback((event: Event) => {
     setTaskFromEvent(event);
@@ -234,6 +245,7 @@ export function EventsComponent({
         compact={compact}
         emptyMessage={showPast ? 'No past events' : 'No upcoming events'}
         onToggleStar={handleToggleStar}
+        onDateChange={handleDateChange}
         onCreateTask={handleCreateTask}
         onDelete={handleDelete}
       />
