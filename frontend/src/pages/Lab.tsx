@@ -84,10 +84,21 @@ export function Lab() {
     setSelectedTask(task);
   };
 
+  // Open modal edit (when clicking the task row or other modal triggers)
   const handleEditClick = (task: Task) => {
     setSheetFocusMode('title');
     setSelectedTask(task);
   };
+
+  // Handle inline edit save (when clicking the edit icon)
+  const handleInlineEditSave = useCallback(async (
+    taskId: number,
+    updates: { description?: string; due_date?: string; urgency?: number }
+  ) => {
+    await updateTask(taskId, updates);
+    queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
 
   const handleDateChange = useCallback(async (taskId: number, date: string | null) => {
     await updateTask(taskId, { due_date: date ?? undefined });
@@ -218,6 +229,8 @@ export function Lab() {
             onCommentClick={handleCommentClick}
             onEventLinkClick={handleEventLinkClick}
             onAddTask={handleAddTask}
+            enableInlineEdit={true}
+            onInlineEditSave={handleInlineEditSave}
           />
         </div>
 
