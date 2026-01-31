@@ -141,6 +141,11 @@ export function EventItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Spacer for indentation when grouped (matches TaskItem drag handle area) */}
+      {!flush && (
+        <div className="hidden md:flex w-6 flex-shrink-0" />
+      )}
+
       {/* Star toggle (like checkbox for tasks) */}
       <button
         onClick={handleStarClick}
