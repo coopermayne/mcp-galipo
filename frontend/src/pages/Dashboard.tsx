@@ -1,105 +1,21 @@
-import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Header, PageContent } from '../components/layout';
-import {
-  EditableText,
-  EditableDate,
-  EditableTime,
-  ListPanel,
-  CreateTaskButton,
-  CreateTaskFromEventModal,
-  DeleteEventModal,
-} from '../components/common';
 import { TasksComponent } from '../components/tasks';
-import { getStats, getEvents, updateEvent, deleteEvent } from '../api';
-import type { Event } from '../types';
+import { EventsComponent } from '../components/events';
+import { getStats } from '../api';
 import {
   Briefcase,
   CheckSquare,
   Clock,
-  ChevronRight,
   Loader2,
-  Trash2,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 
-// Deterministic color mapping for case badges (used for events)
-const caseColorClasses = [
-  'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
-  'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300',
-  'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-];
-
-const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColorClasses.length];
-
 export function Dashboard() {
-  const queryClient = useQueryClient();
-  const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: number; description: string } | null>(null);
-  const [showPastEvents, setShowPastEvents] = useState(false);
-  const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
-
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: getStats,
   });
-
-  const { data: eventsData, isLoading: eventsLoading } = useQuery({
-    queryKey: ['dashboard-events', { showPast: showPastEvents }],
-    queryFn: () => getEvents({
-      limit: 10,
-      includePast: showPastEvents,
-      pastDays: 14,
-    }),
-  });
-
-  const updateEventMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
-  });
-
-  const deleteEventMutation = useMutation({
-    mutationFn: (id: number) => deleteEvent(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
-  });
-
-  // Events are already filtered by the API based on showPastEvents
-  const displayEvents = eventsData?.events || [];
-
-  const handleUpdateEvent = useCallback(
-    async (eventId: number, field: string, value: string | null) => {
-      await updateEventMutation.mutateAsync({ id: eventId, data: { [field]: value } });
-    },
-    [updateEventMutation]
-  );
-
-  const handleDeleteEvent = useCallback(
-    (event: Event) => {
-      setDeleteEventTarget({ id: event.id, description: event.description });
-    },
-    []
-  );
-
-  const confirmDeleteEvent = useCallback(() => {
-    if (deleteEventTarget) {
-      deleteEventMutation.mutate(deleteEventTarget.id);
-      setDeleteEventTarget(null);
-    }
-  }, [deleteEventTarget, deleteEventMutation]);
 
   return (
     <>
@@ -156,95 +72,20 @@ export function Dashboard() {
             />
           </div>
 
-          {/* Upcoming Events */}
+          {/* Events */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Events</h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowPastEvents(!showPastEvents)}
-                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
-                    showPastEvents
-                      ? 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  {showPastEvents ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                  {showPastEvents ? 'Past' : 'Upcoming'}
-                </button>
-                <Link
-                  to="/calendar"
-                  className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
-                >
-                  View all <ChevronRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-            <ListPanel>
-              {eventsLoading ? (
-                <ListPanel.Loading />
-              ) : displayEvents.length === 0 ? (
-                <ListPanel.Empty message={showPastEvents ? "No past events" : "No upcoming events"} />
-              ) : (
-                <ListPanel.Body>
-                  {displayEvents.slice(0, 8).map((event) => (
-                    <ListPanel.Row key={event.id}>
-                      <Link
-                        to={`/cases/${event.case_id}`}
-                        className={`px-2 py-0.5 rounded text-xs font-medium hover:opacity-80 w-20 truncate text-center ${getCaseColorClass(event.case_id)}`}
-                        title={event.short_name || event.case_name || `Case #${event.case_id}`}
-                      >
-                        {event.short_name || event.case_name || `Case #${event.case_id}`}
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <EditableText
-                          value={event.description}
-                          onSave={(value) => handleUpdateEvent(event.id, 'description', value)}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-0">
-                        <EditableDate
-                          value={event.date}
-                          onSave={(value) => handleUpdateEvent(event.id, 'date', value)}
-                          clearable={false}
-                        />
-                        <EditableTime
-                          value={event.time || null}
-                          onSave={(value) => handleUpdateEvent(event.id, 'time', value)}
-                        />
-                      </div>
-                      <CreateTaskButton event={event} onClick={() => setTaskFromEvent(event)} />
-                      <button
-                        onClick={() => handleDeleteEvent(event)}
-                        className="p-1 text-slate-500 hover:text-red-400"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </ListPanel.Row>
-                  ))}
-                </ListPanel.Body>
-              )}
-            </ListPanel>
+            <EventsComponent
+              showAllEvents
+              title="Events"
+              viewAllLink="/calendar"
+              showControls
+              hideSearch
+              maxItems={8}
+              compact
+            />
           </div>
         </div>
       </PageContent>
-
-      <DeleteEventModal
-        isOpen={!!deleteEventTarget}
-        onClose={() => setDeleteEventTarget(null)}
-        onConfirm={confirmDeleteEvent}
-        eventId={deleteEventTarget?.id ?? null}
-        eventDescription={deleteEventTarget?.description ?? ''}
-        isLoading={deleteEventMutation.isPending}
-      />
-
-      <CreateTaskFromEventModal
-        isOpen={!!taskFromEvent}
-        onClose={() => setTaskFromEvent(null)}
-        event={taskFromEvent}
-        caseId={taskFromEvent?.case_id ?? 0}
-      />
     </>
   );
 }
