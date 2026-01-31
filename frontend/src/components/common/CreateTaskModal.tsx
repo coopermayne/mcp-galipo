@@ -30,11 +30,12 @@ export function CreateTaskModal({
 
   // Fetch cases for dropdown (only when no preselected case)
   const { data: casesData } = useQuery({
-    queryKey: ['cases-list'],
-    queryFn: () => getCases({ status: 'Active', limit: 100 }),
+    queryKey: ['cases-for-create'],
+    queryFn: () => getCases({ limit: 100 }),
     enabled: isOpen && !preselectedCaseId,
   });
-  const cases = casesData?.cases || [];
+  // Filter out closed cases client-side
+  const cases = (casesData?.cases || []).filter(c => c.status !== 'Closed');
 
   // Reset form when modal opens
   useEffect(() => {

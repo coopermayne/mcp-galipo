@@ -19,6 +19,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { Loader2, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { TaskItem, TaskItemOverlay } from './TaskItem';
 import { TaskInlineEdit } from './TaskInlineEdit';
+import { TaskInlineCreate } from './TaskInlineCreate';
 import { ConfirmModal } from '../common';
 import type { Task } from '../../types';
 
@@ -59,6 +60,10 @@ interface TaskFeedProps {
   onInlineEditSave?: (taskId: number, updates: { description?: string; due_date?: string; urgency?: number }) => Promise<void>;
   /** Enable inline editing when edit button is clicked (instead of using onEditClick) */
   enableInlineEdit?: boolean;
+  /** Callback when a new task is created via inline form */
+  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: number }) => Promise<void>;
+  /** Enable inline task creation (instead of calling onAddTask) */
+  enableInlineCreate?: boolean;
 }
 
 interface DateGroup {
@@ -308,6 +313,8 @@ export function TaskFeed({
   onAddTask,
   onInlineEditSave,
   enableInlineEdit = false,
+  onInlineCreateSave,
+  enableInlineCreate = false,
 }: TaskFeedProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -316,6 +323,7 @@ export function TaskFeed({
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [completingTaskIds, setCompletingTaskIds] = useState<Set<number>>(new Set());
   const [inlineEditTaskId, setInlineEditTaskId] = useState<number | null>(null);
+  const [inlineCreateContext, setInlineCreateContext] = useState<{ groupKey: string; dueDate?: string; caseId?: number } | null>(null);
 
   // Handle marking a task as done with animation
   const handleMarkDone = useCallback((taskId: number) => {
@@ -451,6 +459,30 @@ export function TaskFeed({
     setInlineEditTaskId(null);
   }, []);
 
+  // Handle add task button click - show inline form or call external handler
+  const handleAddTaskClick = useCallback((groupKey: string, dueDate?: string, caseId?: number) => {
+    if (enableInlineCreate) {
+      setInlineCreateContext({ groupKey, dueDate, caseId });
+    } else if (onAddTask) {
+      onAddTask(dueDate, caseId);
+    }
+  }, [enableInlineCreate, onAddTask]);
+
+  // Handle inline create save
+  const handleInlineCreateSave = useCallback(async (
+    data: { case_id: number; description: string; due_date?: string; urgency?: number }
+  ) => {
+    if (onInlineCreateSave) {
+      await onInlineCreateSave(data);
+    }
+    setInlineCreateContext(null);
+  }, [onInlineCreateSave]);
+
+  // Handle inline create cancel
+  const handleInlineCreateCancel = useCallback(() => {
+    setInlineCreateContext(null);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -465,7 +497,14 @@ export function TaskFeed({
         <div className="text-center text-slate-500 dark:text-slate-400 py-8">
           {emptyMessage}
         </div>
-        {onAddTask && <AddTaskButton onClick={() => onAddTask()} />}
+        {inlineCreateContext?.groupKey === 'empty' ? (
+          <TaskInlineCreate
+            onSave={handleInlineCreateSave}
+            onCancel={handleInlineCreateCancel}
+          />
+        ) : (onAddTask || enableInlineCreate) && (
+          <AddTaskButton onClick={() => handleAddTaskClick('empty')} />
+        )}
       </div>
     );
   }
@@ -541,9 +580,16 @@ export function TaskFeed({
                   renderTaskList(group.tasks, false)
                 )}
 
-                {/* Add task button per section */}
-                {onAddTask && (
-                  <AddTaskButton onClick={() => onAddTask(group.date?.toISOString().split('T')[0], group.caseId)} />
+                {/* Inline create form or Add task button */}
+                {inlineCreateContext?.groupKey === group.key ? (
+                  <TaskInlineCreate
+                    caseId={inlineCreateContext.caseId}
+                    dueDate={inlineCreateContext.dueDate}
+                    onSave={handleInlineCreateSave}
+                    onCancel={handleInlineCreateCancel}
+                  />
+                ) : (onAddTask || enableInlineCreate) && (
+                  <AddTaskButton onClick={() => handleAddTaskClick(group.key, group.date?.toISOString().split('T')[0], group.caseId)} />
                 )}
               </>
             )}

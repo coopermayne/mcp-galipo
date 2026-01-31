@@ -14,8 +14,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { TaskFeed, TaskDetailSheet, EventLinkPopover, useTaskActions } from '../components/lab';
 import type { SheetFocusMode } from '../components/lab/TaskDetailSheet';
-import { ToastContainer, useToast, CreateTaskModal } from '../components/common';
-import { getTasks, updateTask } from '../api';
+import { ToastContainer, useToast } from '../components/common';
+import { getTasks, updateTask, createTask } from '../api';
 import type { Task, TaskStatus } from '../types';
 import { Calendar, Briefcase, LayoutList } from 'lucide-react';
 
@@ -29,9 +29,6 @@ export function Lab() {
   const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
   const { toasts, showToast, dismissToast } = useToast();
   const queryClient = useQueryClient();
-
-  // Add task modal state
-  const [createTaskModal, setCreateTaskModal] = useState<{ dueDate?: string; caseId?: number } | null>(null);
 
   // Track previous task states for undo (taskId -> previous status)
   const previousStates = useRef<Map<number, TaskStatus>>(new Map());
@@ -144,9 +141,14 @@ export function Lab() {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }, [queryClient]);
 
-  const handleAddTask = (dueDate?: string, caseId?: number) => {
-    setCreateTaskModal({ dueDate, caseId });
-  };
+  const handleInlineCreateSave = useCallback(async (
+    data: { case_id: number; description: string; due_date?: string; urgency?: number }
+  ) => {
+    await createTask(data);
+    queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['case', data.case_id] });
+  }, [queryClient]);
 
   // Navigation between tasks in the detail sheet
   const selectedTaskIndex = selectedTask ? tasks.findIndex(t => t.id === selectedTask.id) : -1;
@@ -235,9 +237,10 @@ export function Lab() {
             onCommentClick={handleCommentClick}
             onEventLinkClick={handleEventLinkClick}
             onPriorityChange={handlePriorityChange}
-            onAddTask={handleAddTask}
             enableInlineEdit={true}
             onInlineEditSave={handleInlineEditSave}
+            enableInlineCreate={true}
+            onInlineCreateSave={handleInlineCreateSave}
           />
         </div>
 
@@ -268,15 +271,6 @@ export function Lab() {
           />
         )}
       </PageContent>
-
-      {/* Create Task Modal */}
-      <CreateTaskModal
-        isOpen={!!createTaskModal}
-        onClose={() => setCreateTaskModal(null)}
-        caseId={createTaskModal?.caseId}
-        dueDate={createTaskModal?.dueDate}
-        invalidateKeys={[['lab-tasks']]}
-      />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
