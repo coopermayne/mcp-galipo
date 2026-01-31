@@ -868,7 +868,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
         {/* Events */}
         <div>
           <EventsComponent
-            events={caseData.events || []}
             caseId={caseId}
             title="Events"
             showCase={false}
