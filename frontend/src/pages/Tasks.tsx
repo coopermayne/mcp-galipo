@@ -9,7 +9,7 @@
  * - Minimal task rows with hover actions
  * - Priority shown via checkbox color
  */
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { TaskFeed, TaskDetailSheet, EventLinkPopover, useTaskActions } from '../components/tasks';
@@ -17,12 +17,14 @@ import type { SheetFocusMode } from '../components/tasks/TaskDetailSheet';
 import { ToastContainer, useToast } from '../components/common';
 import { getTasks, updateTask, createTask } from '../api';
 import type { Task, TaskStatus } from '../types';
-import { Calendar, Briefcase, LayoutList } from 'lucide-react';
+import { Calendar, Briefcase, LayoutList, Search, Eye, EyeOff } from 'lucide-react';
 
 type GroupMode = 'none' | 'date' | 'case';
 
 export function Tasks() {
   const [groupBy, setGroupBy] = useState<GroupMode>('date');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
   const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
@@ -33,10 +35,12 @@ export function Tasks() {
   // Track previous task states for undo (taskId -> previous status)
   const previousStates = useRef<Map<number, TaskStatus>>(new Map());
 
-  // Fetch active tasks only
+  // Fetch tasks - either done or active based on toggle
   const { data: tasksData, isLoading } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => getTasks({ exclude_status: 'Done', limit: 50 }),
+    queryKey: ['tasks', { showDone: showDoneTasks }],
+    queryFn: () => showDoneTasks
+      ? getTasks({ status: 'Done', limit: 100 })
+      : getTasks({ exclude_status: 'Done', limit: 100 }),
   });
 
   // Use our unified hook for all task actions
@@ -48,7 +52,18 @@ export function Tasks() {
     invalidateKeys: [['tasks']],
   });
 
-  const tasks = tasksData?.tasks || [];
+  const allTasks = tasksData?.tasks || [];
+
+  // Filter tasks by search query
+  const tasks = useMemo(() => {
+    if (!searchQuery.trim()) return allTasks;
+    const query = searchQuery.toLowerCase();
+    return allTasks.filter(task =>
+      task.description.toLowerCase().includes(query) ||
+      task.case_name?.toLowerCase().includes(query) ||
+      task.short_name?.toLowerCase().includes(query)
+    );
+  }, [allTasks, searchQuery]);
 
   // Handle marking done with toast and undo support
   const handleMarkDone = useCallback(async (taskId: number) => {
@@ -169,7 +184,19 @@ export function Tasks() {
 
       <PageContent>
         {/* Controls */}
-        <div className="mb-6 flex items-center gap-2">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
           {/* Group by selector */}
           <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             <button
@@ -207,8 +234,23 @@ export function Tasks() {
             </button>
           </div>
 
-          <div className="text-sm text-slate-500 dark:text-slate-400 ml-2">
-            {tasks.length} tasks
+          {/* Show Done toggle */}
+          <button
+            onClick={() => setShowDoneTasks(!showDoneTasks)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              showDoneTasks
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            {showDoneTasks ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            <span>Done</span>
+          </button>
+
+          {/* Task count */}
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {tasks.length} {showDoneTasks ? 'completed' : 'active'} task{tasks.length !== 1 ? 's' : ''}
+            {searchQuery && ` matching "${searchQuery}"`}
             {isDeleting && ' (saving...)'}
           </div>
         </div>
@@ -221,7 +263,7 @@ export function Tasks() {
             showCase={true}
             sortable={false}
             groupBy={groupBy}
-            emptyMessage="No active tasks"
+            emptyMessage={showDoneTasks ? "No completed tasks" : "No active tasks"}
             onDelete={async (taskId) => { await deleteTask(taskId); }}
             onMarkDone={handleMarkDone}
             onTaskClick={handleTaskClick}
