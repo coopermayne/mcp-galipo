@@ -12,7 +12,6 @@ export function Calendar() {
       <PageContent>
         <EventsComponent
           showAllEvents
-          showControls
           groupByDate
           pastDays={365}
         />

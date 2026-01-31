@@ -8,7 +8,6 @@ export function EventsTab({ caseId }: EventsTabProps) {
   return (
     <EventsComponent
       caseId={caseId}
-      showControls
       groupByDate
       showCase={false}
       pastDays={365}

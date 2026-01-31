@@ -78,6 +78,7 @@ export function Dashboard() {
               showAllEvents
               title="Events"
               viewAllLink="/calendar"
+              showControls={false}
               maxItems={8}
               compact
             />

@@ -870,6 +870,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
           <EventsComponent
             caseId={caseId}
             title="Events"
+            showControls={false}
             showCase={false}
             compact
           />
