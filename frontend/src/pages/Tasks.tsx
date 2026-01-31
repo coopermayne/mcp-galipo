@@ -1,409 +1,164 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragOverlay,
-  rectIntersection,
-  pointerWithin,
-  getFirstCollision,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragOverEvent, DragStartEvent, CollisionDetection, UniqueIdentifier } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+/**
+ * Tasks - Todoist-style task list
+ *
+ * Route: /tasks
+ *
+ * Features:
+ * - Date-based grouping (Overdue, Today, Tomorrow, etc.)
+ * - Case-based grouping (alphabetical)
+ * - Minimal task rows with hover actions
+ * - Priority shown via checkbox color
+ */
+import { useState, useCallback, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
-import { ListPanel, ConfirmModal, StatusBadge, UrgencyBadge } from '../components/common';
-import { UrgencyGroup, CaseGroup, DateGroup } from '../components/tasks';
-import { formatSmartDate } from '../utils/dateFormat';
-import { getTasks, getConstants, updateTask, deleteTask, reorderTask } from '../api';
-import { useDragContext } from '../context/DragContext';
-import type { Task } from '../types';
-import { Filter, Search, LayoutGrid, List, GripVertical, Eye, EyeOff, Calendar } from 'lucide-react';
+import { TaskFeed, TaskDetailSheet, EventLinkPopover, useTaskActions } from '../components/tasks';
+import type { SheetFocusMode } from '../components/tasks/TaskDetailSheet';
+import { ToastContainer, useToast } from '../components/common';
+import { getTasks, updateTask, createTask } from '../api';
+import type { Task, TaskStatus } from '../types';
+import { Calendar, Briefcase, LayoutList } from 'lucide-react';
 
-type ViewMode = 'by-urgency' | 'by-date' | 'by-case';
+type GroupMode = 'none' | 'date' | 'case';
 
 export function Tasks() {
+  const [groupBy, setGroupBy] = useState<GroupMode>('date');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
+  const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
+  const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
+  const { toasts, showToast, dismissToast } = useToast();
   const queryClient = useQueryClient();
-  const { startDrag, endDrag } = useDragContext();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [showDoneTasks, setShowDoneTasks] = useState(false);
-  const [view, setView] = useState<ViewMode>('by-urgency');
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-  // Track the current drag state for cross-container preview
-  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
-  const [overContainer, setOverContainer] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number>(0);
-  const [recentlyDroppedId, setRecentlyDroppedId] = useState<number | null>(null);
-  const lastOverId = useRef<UniqueIdentifier | null>(null);
+  // Track previous task states for undo (taskId -> previous status)
+  const previousStates = useRef<Map<number, TaskStatus>>(new Map());
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
+  // Fetch active tasks only
   const { data: tasksData, isLoading } = useQuery({
-    queryKey: ['tasks', { status: statusFilter || undefined, showDone: showDoneTasks }],
-    queryFn: () => {
-      // If showing done tasks specifically, filter for Done status
-      if (showDoneTasks && !statusFilter) {
-        return getTasks({ status: 'Done' });
-      }
-      // If a specific status is selected, use that
-      if (statusFilter) {
-        return getTasks({ status: statusFilter });
-      }
-      // Otherwise exclude done tasks
-      return getTasks({ exclude_status: 'Done' });
-    },
+    queryKey: ['tasks'],
+    queryFn: () => getTasks({ exclude_status: 'Done', limit: 50 }),
   });
 
-  const { data: constants } = useQuery({
-    queryKey: ['constants'],
-    queryFn: getConstants,
+  // Use our unified hook for all task actions
+  const {
+    markDone,
+    deleteTask,
+    isDeleting,
+  } = useTaskActions({
+    invalidateKeys: [['tasks']],
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) =>
-      updateTask(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
-  });
+  const tasks = tasksData?.tasks || [];
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteTask(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
-  });
+  // Handle marking done with toast and undo support
+  const handleMarkDone = useCallback(async (taskId: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-  const reorderMutation = useMutation({
-    mutationFn: ({ taskId, sortOrder, urgency }: { taskId: number; sortOrder: number; urgency?: number }) =>
-      reorderTask(taskId, sortOrder, urgency),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
-  });
+    // Store previous state for undo
+    previousStates.current.set(taskId, task.status);
 
-  const taskStatusOptions = useMemo(
-    () =>
-      (constants?.task_statuses || []).map((s) => ({
-        value: s,
-        label: s,
-      })),
-    [constants]
-  );
+    // Mark as done
+    await markDone(taskId);
 
-  const urgencyOptions = [
-    { value: '1', label: '1 - Low' },
-    { value: '2', label: '2 - Medium' },
-    { value: '3', label: '3 - High' },
-    { value: '4', label: '4 - Urgent' },
-  ];
-
-  const handleUpdate = useCallback(
-    async (taskId: number, field: string, value: any) => {
-      await updateMutation.mutateAsync({ id: taskId, data: { [field]: value } });
-    },
-    [updateMutation]
-  );
-
-  const handleDelete = useCallback(
-    (taskId: number, description: string) => {
-      setDeleteTarget({ id: taskId, description });
-    },
-    []
-  );
-
-  const confirmDelete = useCallback(() => {
-    if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
-      setDeleteTarget(null);
-    }
-  }, [deleteTarget, deleteMutation]);
-
-  // Filter tasks by search query
-  const filteredTasks = useMemo(() => {
-    if (!tasksData?.tasks) return [];
-
-    if (!searchQuery) return tasksData.tasks;
-
-    const query = searchQuery.toLowerCase();
-    return tasksData.tasks.filter((task) =>
-      task.description.toLowerCase().includes(query) ||
-      (task.case_name && task.case_name.toLowerCase().includes(query)) ||
-      (task.short_name && task.short_name.toLowerCase().includes(query))
-    );
-  }, [tasksData?.tasks, searchQuery]);
-
-  // Group tasks by urgency (for "by urgency" view)
-  const tasksByUrgency = useMemo(() => {
-    const groups: Record<number, Task[]> = { 4: [], 3: [], 2: [], 1: [] };
-    filteredTasks.forEach((task) => {
-      if (groups[task.urgency]) {
-        groups[task.urgency].push(task);
-      } else {
-        groups[2].push(task); // Default to medium if invalid urgency
-      }
-    });
-    return groups;
-  }, [filteredTasks]);
-
-  // Group tasks by case (for "by case" view)
-  const tasksByCase = useMemo(() => {
-    const groups: Record<number, { caseName: string; shortName?: string; tasks: Task[] }> = {};
-    filteredTasks.forEach((task) => {
-      if (!groups[task.case_id]) {
-        groups[task.case_id] = {
-          caseName: task.case_name || `Case #${task.case_id}`,
-          shortName: task.short_name,
-          tasks: [],
-        };
-      }
-      groups[task.case_id].tasks.push(task);
-    });
-    return groups;
-  }, [filteredTasks]);
-
-  // Group tasks by date (for "by date" view)
-  const tasksByDate = useMemo(() => {
-    const groups: Record<string, Task[]> = { overdue: [], today: [], thisWeek: [], nextWeek: [], later: [], noDate: [] };
-    const now = new Date();
-    // Format as YYYY-MM-DD in local timezone (not UTC)
-    const formatLocalDate = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const todayStr = formatLocalDate(now);
-
-    // Calculate end of this week (Sunday)
-    const endOfThisWeek = new Date(now);
-    endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
-    const endOfThisWeekStr = formatLocalDate(endOfThisWeek);
-
-    // Calculate end of next week
-    const endOfNextWeek = new Date(endOfThisWeek);
-    endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
-    const endOfNextWeekStr = formatLocalDate(endOfNextWeek);
-
-    filteredTasks.forEach((task) => {
-      if (!task.due_date) {
-        groups.noDate.push(task);
-      } else if (task.due_date < todayStr) {
-        groups.overdue.push(task);
-      } else if (task.due_date === todayStr) {
-        groups.today.push(task);
-      } else if (task.due_date <= endOfThisWeekStr) {
-        groups.thisWeek.push(task);
-      } else if (task.due_date <= endOfNextWeekStr) {
-        groups.nextWeek.push(task);
-      } else {
-        groups.later.push(task);
-      }
-    });
-
-    // Sort within each group by due_date (earliest first), then by urgency
-    ['overdue', 'today', 'thisWeek', 'nextWeek', 'later'].forEach((key) => {
-      groups[key].sort((a, b) => {
-        if (a.due_date && b.due_date) {
-          const dateCmp = a.due_date.localeCompare(b.due_date);
-          if (dateCmp !== 0) return dateCmp;
+    // Show toast with undo
+    showToast({
+      message: '1 task completed',
+      onUndo: async () => {
+        const prevStatus = previousStates.current.get(taskId);
+        if (prevStatus) {
+          await updateTask(taskId, { status: prevStatus });
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          previousStates.current.delete(taskId);
         }
-        return b.urgency - a.urgency;
-      });
+      },
     });
-    groups.noDate.sort((a, b) => b.urgency - a.urgency);
+  }, [tasks, markDone, showToast, queryClient]);
 
-    return groups;
-  }, [filteredTasks]);
+  const handleTaskClick = (task: Task) => {
+    setSheetFocusMode(null);
+    setSelectedTask(task);
+  };
 
-  // Calculate new sort_order for insertion at a specific index
-  const calculateSortOrderAtIndex = useCallback((tasks: Task[], insertIndex: number): number => {
-    if (tasks.length === 0) return 1000;
+  // Open modal edit (when clicking the task row or other modal triggers)
+  const handleEditClick = (task: Task) => {
+    setSheetFocusMode('title');
+    setSelectedTask(task);
+  };
 
-    // If inserting at the beginning
-    if (insertIndex === 0) {
-      return (tasks[0]?.sort_order || 1000) - 500;
+  // Handle inline edit save (when clicking the edit icon)
+  const handleInlineEditSave = useCallback(async (
+    taskId: number,
+    updates: { description?: string; due_date?: string; urgency?: number }
+  ) => {
+    await updateTask(taskId, updates);
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handleDateChange = useCallback(async (taskId: number, date: string | null) => {
+    await updateTask(taskId, { due_date: date ?? undefined });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handlePriorityChange = useCallback(async (taskId: number, priority: number) => {
+    await updateTask(taskId, { urgency: priority });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handleCommentClick = (task: Task) => {
+    setSheetFocusMode('comment');
+    setSelectedTask(task);
+  };
+
+  const handleEventLinkClick = (task: Task, event?: React.MouseEvent) => {
+    setEventLinkTask(task);
+    setEventLinkAnchor(event?.currentTarget as HTMLElement || null);
+  };
+
+  const handleLinkEvent = useCallback(async (taskId: number, eventId: number | null) => {
+    await updateTask(taskId, { event_id: eventId });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handleCloseEventLink = () => {
+    setEventLinkTask(null);
+    setEventLinkAnchor(null);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedTask(null);
+    setSheetFocusMode(null);
+  };
+
+  const handleUpdateTask = useCallback(async (taskId: number, updates: Partial<Task>) => {
+    await updateTask(taskId, updates);
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
+  const handleInlineCreateSave = useCallback(async (
+    data: { case_id: number; description: string; due_date?: string; urgency?: number }
+  ) => {
+    await createTask(data);
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['case', data.case_id] });
+  }, [queryClient]);
+
+  // Navigation between tasks in the detail sheet
+  const selectedTaskIndex = selectedTask ? tasks.findIndex(t => t.id === selectedTask.id) : -1;
+  const hasPrevTask = selectedTaskIndex > 0;
+  const hasNextTask = selectedTaskIndex >= 0 && selectedTaskIndex < tasks.length - 1;
+
+  const handlePrevTask = () => {
+    if (hasPrevTask) {
+      setSelectedTask(tasks[selectedTaskIndex - 1]);
     }
+  };
 
-    // If inserting at the end
-    if (insertIndex >= tasks.length) {
-      return (tasks[tasks.length - 1]?.sort_order || 0) + 1000;
+  const handleNextTask = () => {
+    if (hasNextTask) {
+      setSelectedTask(tasks[selectedTaskIndex + 1]);
     }
-
-    // Inserting between two items
-    const prevTask = tasks[insertIndex - 1];
-    const nextTask = tasks[insertIndex];
-    return Math.floor(((prevTask?.sort_order || 0) + (nextTask?.sort_order || (prevTask?.sort_order || 0) + 1000)) / 2);
-  }, []);
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { active } = event;
-    const task = filteredTasks.find((t) => t.id === active.id);
-    setActiveTask(task || null);
-    setActiveId(active.id);
-
-    // Initialize over container to the task's current urgency
-    if (task) {
-      setOverContainer(task.urgency);
-      const currentIndex = tasksByUrgency[task.urgency].findIndex((t) => t.id === task.id);
-      setOverIndex(currentIndex);
-      // Notify global drag context
-      startDrag(task, 'tasks-page');
-    }
-  }, [filteredTasks, tasksByUrgency, startDrag]);
-
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const { active, over } = event;
-
-    if (!over || view !== 'by-urgency') return;
-
-    const overId = over.id;
-    const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
-    if (!activeTaskItem) return;
-
-    // Determine the target container
-    let targetContainer: number | null = null;
-    let targetIndex = 0;
-
-    if (typeof overId === 'string' && overId.startsWith('urgency-')) {
-      // Hovering over a container directly (empty area)
-      targetContainer = parseInt(overId.replace('urgency-', ''), 10);
-      // Put at end of container
-      targetIndex = tasksByUrgency[targetContainer].filter((t) => t.id !== active.id).length;
-    } else {
-      // Hovering over a task
-      const overTask = filteredTasks.find((t) => t.id === overId);
-      if (overTask) {
-        targetContainer = overTask.urgency;
-        // Find the index of the task we're hovering over
-        const containerTasks = tasksByUrgency[targetContainer].filter((t) => t.id !== active.id);
-        const overTaskIndex = containerTasks.findIndex((t) => t.id === overId);
-        targetIndex = overTaskIndex >= 0 ? overTaskIndex : containerTasks.length;
-      }
-    }
-
-    if (targetContainer !== null) {
-      // Only update if something changed
-      if (targetContainer !== overContainer || targetIndex !== overIndex) {
-        setOverContainer(targetContainer);
-        setOverIndex(targetIndex);
-      }
-    }
-  }, [filteredTasks, tasksByUrgency, view, overContainer, overIndex]);
-
-  // Handle global drop zone actions
-  const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
-    if (zone === 'done') {
-      await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
-    }
-  }, [updateMutation]);
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-
-    // Get the final position before resetting state
-    const finalContainer = overContainer;
-    const finalIndex = overIndex;
-
-    // Reset drag state
-    setActiveTask(null);
-    setActiveId(null);
-    setOverContainer(null);
-    setOverIndex(0);
-    endDrag();
-
-    if (!over) return;
-
-    const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
-    if (!activeTaskItem) return;
-
-    // Check for global drop zones first
-    const overId = over.id.toString();
-    if (overId.startsWith('drop-')) {
-      const zone = overId.replace('drop-', '');
-      handleGlobalDrop(activeTaskItem.id, zone);
-      return;
-    }
-
-    if (finalContainer === null) return;
-
-    // Highlight the dropped task
-    setRecentlyDroppedId(activeTaskItem.id);
-    setTimeout(() => setRecentlyDroppedId(null), 1500);
-
-    if (view === 'by-urgency') {
-      // Get the tasks in the target container (excluding the active task)
-      const targetTasks = tasksByUrgency[finalContainer].filter((t) => t.id !== active.id);
-
-      // Calculate the new sort order based on the final position
-      const newSortOrder = calculateSortOrderAtIndex(targetTasks, finalIndex);
-
-      // Determine if urgency changed
-      const urgencyChanged = finalContainer !== activeTaskItem.urgency;
-
-      reorderMutation.mutate({
-        taskId: activeTaskItem.id,
-        sortOrder: newSortOrder,
-        urgency: urgencyChanged ? finalContainer : undefined,
-      });
-    } else {
-      // By case view - handle within-case reordering
-      if (typeof over.id === 'number') {
-        const overTask = filteredTasks.find((t) => t.id === over.id);
-        if (overTask && overTask.case_id === activeTaskItem.case_id) {
-          const groupTasks = tasksByCase[activeTaskItem.case_id]?.tasks || [];
-          const oldIndex = groupTasks.findIndex((t) => t.id === activeTaskItem.id);
-          const newIndex = groupTasks.findIndex((t) => t.id === overTask.id);
-
-          if (oldIndex !== newIndex) {
-            const reorderedTasks = arrayMove(groupTasks, oldIndex, newIndex);
-            const targetTasks = reorderedTasks.filter((t) => t.id !== activeTaskItem.id);
-            const insertIdx = reorderedTasks.findIndex((t) => t.id === activeTaskItem.id);
-            const newSortOrder = calculateSortOrderAtIndex(targetTasks, insertIdx);
-
-            reorderMutation.mutate({
-              taskId: activeTaskItem.id,
-              sortOrder: newSortOrder,
-            });
-          }
-        }
-      }
-    }
-  }, [filteredTasks, view, tasksByUrgency, tasksByCase, overContainer, overIndex, calculateSortOrderAtIndex, reorderMutation, endDrag, handleGlobalDrop]);
-
-  // Custom collision detection that prefers items over containers
-  const collisionDetection: CollisionDetection = useCallback((args) => {
-    // First, try to find collisions with droppable items (tasks)
-    const pointerCollisions = pointerWithin(args);
-    const collisions = pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
-
-    // Get the first collision
-    let overId = getFirstCollision(collisions, 'id');
-
-    if (overId !== null) {
-      // If we're over a container, check if there are items we could be over instead
-      if (typeof overId === 'string' && overId.startsWith('urgency-')) {
-        const containerItems = collisions.filter(
-          (collision) => typeof collision.id === 'number'
-        );
-        if (containerItems.length > 0) {
-          overId = containerItems[0].id;
-        }
-      }
-
-      lastOverId.current = overId;
-    }
-
-    return collisions;
-  }, []);
+  };
 
   return (
     <>
@@ -413,217 +168,105 @@ export function Tasks() {
       />
 
       <PageContent>
-        {/* Filters and View Toggle */}
-        <ListPanel className="mb-6">
-          <div className="px-4 py-3 flex items-center gap-4">
-            {/* Search */}
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search tasks or cases..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
-
-            {/* Status Filter */}
-            <Filter className="w-4 h-4 text-slate-400" />
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-500 dark:text-slate-400">Status:</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-              >
-                <option value="">All</option>
-                {constants?.task_statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
-
-            {/* Show Done Toggle */}
+        {/* Controls */}
+        <div className="mb-6 flex items-center gap-2">
+          {/* Group by selector */}
+          <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             <button
-              onClick={() => setShowDoneTasks(!showDoneTasks)}
-              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
-                showDoneTasks
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              onClick={() => setGroupBy('none')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                groupBy === 'none'
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
-              {showDoneTasks ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              Done
+              <LayoutList className="w-4 h-4" />
+              <span>List</span>
             </button>
-
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
-
-            {/* View Toggle */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
-              <button
-                onClick={() => setView('by-urgency')}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
-                  ${view === 'by-urgency'
-                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
-                  }
-                `}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                By Urgency
-              </button>
-              <button
-                onClick={() => setView('by-date')}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
-                  ${view === 'by-date'
-                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
-                  }
-                `}
-              >
-                <Calendar className="w-4 h-4" />
-                By Date
-              </button>
-              <button
-                onClick={() => setView('by-case')}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
-                  ${view === 'by-case'
-                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
-                  }
-                `}
-              >
-                <List className="w-4 h-4" />
-                By Case
-              </button>
-            </div>
+            <button
+              onClick={() => setGroupBy('date')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ${
+                groupBy === 'date'
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Date</span>
+            </button>
+            <button
+              onClick={() => setGroupBy('case')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ${
+                groupBy === 'case'
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Case</span>
+            </button>
           </div>
-        </ListPanel>
 
-        {/* Task List */}
-        {isLoading ? (
-          <ListPanel>
-            <ListPanel.Loading />
-          </ListPanel>
-        ) : filteredTasks.length === 0 ? (
-          <ListPanel>
-            <ListPanel.Empty message="No tasks found" />
-          </ListPanel>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={collisionDetection}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragOver={handleDragOver}
-          >
-            {view === 'by-urgency' ? (
-              // Urgency View - groups from Urgent (4) to Low (1)
-              <div>
-                {[4, 3, 2, 1].map((urgency) => (
-                  <UrgencyGroup
-                    key={urgency}
-                    urgency={urgency}
-                    tasks={tasksByUrgency[urgency]}
-                    activeId={activeId}
-                    dropTargetIndex={overContainer === urgency ? overIndex : null}
-                    taskStatusOptions={taskStatusOptions}
-                    urgencyOptions={urgencyOptions}
-                    onUpdate={handleUpdate}
-                    onDelete={handleDelete}
-                    recentlyDroppedId={recentlyDroppedId}
-                  />
-                ))}
-              </div>
-            ) : view === 'by-date' ? (
-              // Date View - groups: Overdue (if any), Today, This Week, Next Week, Later, No Date
-              <div>
-                {['overdue', 'today', 'thisWeek', 'nextWeek', 'later', 'noDate']
-                  .filter((dateKey) => dateKey !== 'overdue' || tasksByDate[dateKey]?.length > 0)
-                  .map((dateKey) => (
-                    <DateGroup
-                      key={dateKey}
-                      dateKey={dateKey}
-                      tasks={tasksByDate[dateKey]}
-                      taskStatusOptions={taskStatusOptions}
-                      urgencyOptions={urgencyOptions}
-                      onUpdate={handleUpdate}
-                      onDelete={handleDelete}
-                      recentlyDroppedId={recentlyDroppedId}
-                    />
-                  ))}
-              </div>
-            ) : (
-              // Case View - grouped by case (sorted alphabetically by short_name)
-              <div>
-                {Object.entries(tasksByCase)
-                  .sort(([, a], [, b]) => (a.shortName || a.caseName).localeCompare(b.shortName || b.caseName))
-                  .map(([caseId, group]) => (
-                  <CaseGroup
-                    key={caseId}
-                    caseId={parseInt(caseId)}
-                    caseName={group.caseName}
-                    shortName={group.shortName}
-                    tasks={group.tasks}
-                    taskStatusOptions={taskStatusOptions}
-                    urgencyOptions={urgencyOptions}
-                    onUpdate={handleUpdate}
-                    onDelete={handleDelete}
-                    recentlyDroppedId={recentlyDroppedId}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="text-sm text-slate-500 dark:text-slate-400 ml-2">
+            {tasks.length} tasks
+            {isDeleting && ' (saving...)'}
+          </div>
+        </div>
 
-            {/* Drag Overlay - shows the item being dragged */}
-            <DragOverlay dropAnimation={null}>
-              {activeTask && (
-                <div className="shadow-xl rounded-lg overflow-hidden bg-white dark:bg-slate-800 px-4 py-3 flex items-center gap-3 border border-primary-500">
-                  <div className="p-1 text-slate-400">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
-                  {view === 'by-urgency' && (
-                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 w-20 truncate text-center">
-                      {activeTask.short_name || activeTask.case_name}
-                    </span>
-                  )}
-                  <div className="flex-1 min-w-0 text-sm text-slate-900 dark:text-slate-100">
-                    {activeTask.description}
-                  </div>
-                  {activeTask.due_date && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {formatSmartDate(new Date(activeTask.due_date))}
-                    </span>
-                  )}
-                  <StatusBadge status={activeTask.status} />
-                  {view === 'by-case' && <UrgencyBadge urgency={activeTask.urgency} />}
-                </div>
-              )}
-            </DragOverlay>
-          </DndContext>
+        {/* The Todoist-style TaskFeed */}
+        <div className="max-w-2xl">
+          <TaskFeed
+            tasks={tasks}
+            isLoading={isLoading}
+            showCase={true}
+            sortable={false}
+            groupBy={groupBy}
+            emptyMessage="No active tasks"
+            onDelete={async (taskId) => { await deleteTask(taskId); }}
+            onMarkDone={handleMarkDone}
+            onTaskClick={handleTaskClick}
+            onEditClick={handleEditClick}
+            onDateChange={handleDateChange}
+            onCommentClick={handleCommentClick}
+            onEventLinkClick={handleEventLinkClick}
+            onPriorityChange={handlePriorityChange}
+            enableInlineEdit={true}
+            onInlineEditSave={handleInlineEditSave}
+            enableInlineCreate={true}
+            onInlineCreateSave={handleInlineCreateSave}
+          />
+        </div>
+
+        {/* Task Detail Sheet (mobile-first) */}
+        <TaskDetailSheet
+          task={selectedTask}
+          isOpen={!!selectedTask}
+          onClose={handleCloseDetail}
+          onMarkDone={handleMarkDone}
+          onUpdate={handleUpdateTask}
+          onLinkEvent={handleLinkEvent}
+          onDelete={deleteTask}
+          onPrevTask={handlePrevTask}
+          onNextTask={handleNextTask}
+          hasPrevTask={hasPrevTask}
+          hasNextTask={hasNextTask}
+          initialFocus={sheetFocusMode}
+        />
+
+        {/* Event Link Popover */}
+        {eventLinkTask && (
+          <EventLinkPopover
+            task={eventLinkTask}
+            isOpen={!!eventLinkTask}
+            anchorEl={eventLinkAnchor}
+            onClose={handleCloseEventLink}
+            onLinkEvent={handleLinkEvent}
+          />
         )}
       </PageContent>
 
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-        title="Delete Task"
-        message={`Are you sure you want to delete this task?`}
-        confirmText="Delete Task"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
-      />
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </>
   );
 }

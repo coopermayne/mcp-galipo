@@ -1,21 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragOverlay,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent, DragOverEvent, UniqueIdentifier } from '@dnd-kit/core';
-import { Plus, ChevronDown, ChevronUp, Eye, EyeOff, LayoutGrid, Calendar } from 'lucide-react';
-import { ConfirmModal } from '../../../components/common';
-import { SortableTaskRow } from '../../../components/tasks';
-import { createTask, updateTask, deleteTask, reorderTask } from '../../../api';
-import { useDragContext } from '../../../context/DragContext';
+import { Eye, EyeOff, LayoutGrid, Calendar } from 'lucide-react';
+import { TaskFeed, TaskDetailSheet, useTaskActions } from '../../../components/tasks';
+import type { SheetFocusMode } from '../../../components/tasks/TaskDetailSheet';
 import type { Task, Constants } from '../../../types';
-import { DroppableTaskGroup } from '../components';
-import { urgencyConfig, dateGroupConfig } from '../utils';
 
 type TaskViewMode = 'by-urgency' | 'by-date';
 
@@ -25,469 +12,120 @@ interface TasksTabProps {
   constants: Constants | undefined;
 }
 
-export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
-  const queryClient = useQueryClient();
-  const { startDrag, endDrag } = useDragContext();
-  const [view, setView] = useState<TaskViewMode>('by-urgency');
+export function TasksTab({ caseId, tasks }: TasksTabProps) {
+  const [view, setView] = useState<TaskViewMode>('by-date');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [addingToGroup, setAddingToGroup] = useState<string | null>(null);
-  const [newTaskText, setNewTaskText] = useState('');
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(
-    null
-  );
-  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
-  const [overContainer, setOverContainer] = useState<string | null>(null);
-  const [overIndex, setOverIndex] = useState<number>(0);
-  const [recentlyDroppedId, setRecentlyDroppedId] = useState<number | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
-  const createMutation = useMutation({
-    mutationFn: (data: { description: string; urgency?: number; due_date?: string }) =>
-      createTask({ case_id: caseId, ...data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setNewTaskText('');
-      setAddingToGroup(null);
-    },
+  const { markDone, deleteTask, updateField, mutations } = useTaskActions({
+    invalidateKeys: [['case', caseId]],
   });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) => updateTask(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteTask(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
-  });
-
-  const reorderMutation = useMutation({
-    mutationFn: ({
-      taskId,
-      sortOrder,
-      urgency,
-    }: {
-      taskId: number;
-      sortOrder: number;
-      urgency?: number;
-    }) => reorderTask(taskId, sortOrder, urgency),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
-  });
-
-  const taskStatusOptions = useMemo(
-    () => (constants?.task_statuses || []).map((s: string) => ({ value: s, label: s })),
-    [constants]
-  );
-
-  const urgencyOptions = [
-    { value: '1', label: '1 - Low' },
-    { value: '2', label: '2 - Medium' },
-    { value: '3', label: '3 - High' },
-    { value: '4', label: '4 - Urgent' },
-  ];
 
   // Filter tasks based on done toggle
   const filteredTasks = useMemo(() => {
     if (showDoneTasks) {
-      return tasks.filter(t => t.status === 'Done');
+      return tasks.filter((t) => t.status === 'Done');
     }
-    return tasks.filter(t => t.status !== 'Done');
+    return tasks.filter((t) => t.status !== 'Done');
   }, [tasks, showDoneTasks]);
 
-  // Group tasks by urgency
-  const tasksByUrgency = useMemo(() => {
-    const groups: Record<number, Task[]> = { 4: [], 3: [], 2: [], 1: [] };
-    filteredTasks.forEach((task) => {
-      if (groups[task.urgency]) {
-        groups[task.urgency].push(task);
-      } else {
-        groups[2].push(task);
-      }
-    });
-    return groups;
-  }, [filteredTasks]);
+  // Map view to groupBy - TaskFeed uses 'date' for date grouping, 'none' for urgency (flat list sorted by urgency)
+  const groupBy = view === 'by-date' ? 'date' : 'none';
 
-  // Format date as YYYY-MM-DD in local timezone (not UTC)
-  const formatLocalDate = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-  // Group tasks by date (overdue, today, this week, next week, later, no date)
-  const tasksByDate = useMemo(() => {
-    const groups: Record<string, Task[]> = { overdue: [], today: [], thisWeek: [], nextWeek: [], later: [], noDate: [] };
-    const now = new Date();
-    const todayStr = formatLocalDate(now);
-
-    // Calculate end of this week (Sunday)
-    const endOfThisWeek = new Date(now);
-    endOfThisWeek.setDate(now.getDate() + (7 - now.getDay()));
-    const endOfThisWeekStr = formatLocalDate(endOfThisWeek);
-
-    // Calculate end of next week
-    const endOfNextWeek = new Date(endOfThisWeek);
-    endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
-    const endOfNextWeekStr = formatLocalDate(endOfNextWeek);
-
-    filteredTasks.forEach((task) => {
-      if (!task.due_date) {
-        groups.noDate.push(task);
-      } else if (task.due_date < todayStr) {
-        groups.overdue.push(task);
-      } else if (task.due_date === todayStr) {
-        groups.today.push(task);
-      } else if (task.due_date <= endOfThisWeekStr) {
-        groups.thisWeek.push(task);
-      } else if (task.due_date <= endOfNextWeekStr) {
-        groups.nextWeek.push(task);
-      } else {
-        groups.later.push(task);
-      }
-    });
-
-    // Sort within each group by due_date (earliest first), with no-date tasks by urgency
-    ['overdue', 'today', 'thisWeek', 'nextWeek', 'later'].forEach((key) => {
-      groups[key].sort((a, b) => {
-        if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
-        return 0;
-      });
-    });
-    groups.noDate.sort((a, b) => b.urgency - a.urgency);
-
-    return groups;
-  }, [filteredTasks]);
-
-  const toggleCollapse = useCallback((groupKey: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupKey)) {
-        next.delete(groupKey);
-      } else {
-        next.add(groupKey);
-      }
-      return next;
-    });
+  // Handle task click - open detail sheet
+  const handleTaskClick = useCallback((task: Task) => {
+    setSelectedTask(task);
+    setSheetFocusMode(null);
   }, []);
 
-  const handleUpdate = useCallback(
-    async (taskId: number, field: string, value: unknown) => {
-      await updateMutation.mutateAsync({ id: taskId, data: { [field]: value } });
+  // Handle edit click - open sheet with title focused
+  const handleEditClick = useCallback((task: Task) => {
+    setSelectedTask(task);
+    setSheetFocusMode('title');
+  }, []);
+
+  // Handle date change from inline picker
+  const handleDateChange = useCallback(
+    (taskId: number, date: string | null) => {
+      updateField(taskId, 'due_date', date || undefined);
     },
-    [updateMutation]
+    [updateField]
   );
 
-  const handleDelete = useCallback((taskId: number, description: string) => {
-    setDeleteTarget({ id: taskId, description });
+  // Handle priority change
+  const handlePriorityChange = useCallback(
+    (taskId: number, priority: number) => {
+      updateField(taskId, 'urgency', priority);
+    },
+    [updateField]
+  );
+
+  // Handle inline edit save
+  const handleInlineEditSave = useCallback(
+    async (
+      taskId: number,
+      updates: { description?: string; due_date?: string; urgency?: number }
+    ) => {
+      await mutations.update.mutateAsync({ id: taskId, data: updates });
+    },
+    [mutations.update]
+  );
+
+  // Handle inline create
+  const handleInlineCreateSave = useCallback(
+    async (data: {
+      case_id: number;
+      description: string;
+      due_date?: string;
+      urgency?: number;
+    }) => {
+      // Force the case_id to be this case
+      await mutations.create.mutateAsync({ ...data, case_id: caseId });
+    },
+    [mutations.create, caseId]
+  );
+
+  // Handle sheet close
+  const handleSheetClose = useCallback(() => {
+    setSelectedTask(null);
+    setSheetFocusMode(null);
   }, []);
 
-  const confirmDelete = useCallback(() => {
-    if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
-      setDeleteTarget(null);
+  // Handle sheet update
+  const handleSheetUpdate = useCallback(
+    async (taskId: number, updates: Partial<Task>) => {
+      await mutations.update.mutateAsync({ id: taskId, data: updates });
+    },
+    [mutations.update]
+  );
+
+  // Handle event link from sheet
+  const handleLinkEvent = useCallback(
+    (taskId: number, eventId: number | null) => {
+      updateField(taskId, 'event_id', eventId);
+    },
+    [updateField]
+  );
+
+  // Navigation in sheet
+  const selectedTaskIndex = selectedTask
+    ? filteredTasks.findIndex((t) => t.id === selectedTask.id)
+    : -1;
+
+  const handlePrevTask = useCallback(() => {
+    if (selectedTaskIndex > 0) {
+      setSelectedTask(filteredTasks[selectedTaskIndex - 1]);
+      setSheetFocusMode(null);
     }
-  }, [deleteTarget, deleteMutation]);
+  }, [filteredTasks, selectedTaskIndex]);
 
-  const handleAddToGroup = useCallback(
-    (groupKey: string) => {
-      if (!newTaskText.trim()) return;
-      if (view === 'by-urgency') {
-        createMutation.mutate({ description: newTaskText.trim(), urgency: parseInt(groupKey, 10) });
-      } else {
-        // By date view - set due_date based on group
-        const today = formatLocalDate(new Date());
-        let dueDate: string | undefined;
-        if (groupKey === 'today') {
-          dueDate = today;
-        } else if (groupKey === 'later') {
-          // Set to tomorrow
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          dueDate = formatLocalDate(tomorrow);
-        }
-        // overdue and noDate don't set a due date
-        createMutation.mutate({ description: newTaskText.trim(), due_date: dueDate });
-      }
-    },
-    [newTaskText, view, createMutation]
-  );
-
-  // Calculate new sort_order for insertion at a specific index
-  const calculateSortOrderAtIndex = useCallback(
-    (groupTasks: Task[], insertIndex: number): number => {
-      if (groupTasks.length === 0) return 1000;
-      if (insertIndex === 0) return (groupTasks[0]?.sort_order || 1000) - 500;
-      if (insertIndex >= groupTasks.length)
-        return (groupTasks[groupTasks.length - 1]?.sort_order || 0) + 1000;
-      const prevTask = groupTasks[insertIndex - 1];
-      const nextTask = groupTasks[insertIndex];
-      return Math.floor(
-        ((prevTask?.sort_order || 0) + (nextTask?.sort_order || (prevTask?.sort_order || 0) + 1000)) /
-          2
-      );
-    },
-    []
-  );
-
-  // Helper to get the date group key for a task
-  const getDateGroupKey = useCallback((task: Task): string => {
-    if (!task.due_date) return 'noDate';
-    const todayStr = formatLocalDate(new Date());
-    if (task.due_date < todayStr) return 'overdue';
-    if (task.due_date === todayStr) return 'today';
-    return 'later';
-  }, []);
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const { active } = event;
-      const task = filteredTasks.find((t) => t.id === active.id);
-      setActiveTask(task || null);
-      setActiveId(active.id);
-      if (task) {
-        const container = view === 'by-urgency' ? String(task.urgency) : getDateGroupKey(task);
-        setOverContainer(container);
-        const groupTasks =
-          view === 'by-urgency' ? tasksByUrgency[task.urgency] : tasksByDate[getDateGroupKey(task)];
-        setOverIndex(groupTasks.findIndex((t) => t.id === task.id));
-        // Notify global drag context
-        startDrag(task, 'case-detail');
-      }
-    },
-    [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey, startDrag]
-  );
-
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const { active, over } = event;
-      if (!over) return;
-
-      const overId = over.id;
-      const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
-      if (!activeTaskItem) return;
-
-      let targetContainer: string | null = null;
-      let targetIndex = 0;
-
-      if (typeof overId === 'string' && overId.startsWith('group-')) {
-        targetContainer = overId.replace('group-', '');
-        const groupTasks =
-          view === 'by-urgency'
-            ? tasksByUrgency[parseInt(targetContainer, 10)] || []
-            : tasksByDate[targetContainer] || [];
-        targetIndex = groupTasks.filter((t) => t.id !== active.id).length;
-      } else {
-        const overTask = filteredTasks.find((t) => t.id === overId);
-        if (overTask) {
-          targetContainer = view === 'by-urgency' ? String(overTask.urgency) : getDateGroupKey(overTask);
-          const groupTasks =
-            view === 'by-urgency'
-              ? tasksByUrgency[overTask.urgency] || []
-              : tasksByDate[getDateGroupKey(overTask)] || [];
-          const groupTasksFiltered = groupTasks.filter((t) => t.id !== active.id);
-          const overTaskIndex = groupTasksFiltered.findIndex((t) => t.id === overId);
-          targetIndex = overTaskIndex >= 0 ? overTaskIndex : groupTasksFiltered.length;
-        }
-      }
-
-      if (
-        targetContainer !== null &&
-        (targetContainer !== overContainer || targetIndex !== overIndex)
-      ) {
-        setOverContainer(targetContainer);
-        setOverIndex(targetIndex);
-      }
-    },
-    [filteredTasks, view, tasksByUrgency, tasksByDate, getDateGroupKey, overContainer, overIndex]
-  );
-
-  // Handle global drop zone actions
-  const handleGlobalDrop = useCallback(async (taskId: number, zone: string) => {
-    if (zone === 'done') {
-      await updateMutation.mutateAsync({ id: taskId, data: { status: 'Done' } });
+  const handleNextTask = useCallback(() => {
+    if (selectedTaskIndex < filteredTasks.length - 1) {
+      setSelectedTask(filteredTasks[selectedTaskIndex + 1]);
+      setSheetFocusMode(null);
     }
-  }, [updateMutation]);
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      const finalContainer = overContainer;
-      const finalIndex = overIndex;
-
-      setActiveTask(null);
-      setActiveId(null);
-      setOverContainer(null);
-      setOverIndex(0);
-      endDrag();
-
-      if (!over) return;
-
-      const activeTaskItem = filteredTasks.find((t) => t.id === active.id);
-      if (!activeTaskItem) return;
-
-      // Check for global drop zones first
-      const overId = over.id.toString();
-      if (overId.startsWith('drop-')) {
-        const zone = overId.replace('drop-', '');
-        handleGlobalDrop(activeTaskItem.id, zone);
-        return;
-      }
-
-      if (!finalContainer) return;
-
-      const targetTasks =
-        view === 'by-urgency'
-          ? (tasksByUrgency[parseInt(finalContainer, 10)] || []).filter((t) => t.id !== active.id)
-          : (tasksByDate[finalContainer] || []).filter((t) => t.id !== active.id);
-
-      const newSortOrder = calculateSortOrderAtIndex(targetTasks, finalIndex);
-
-      // Highlight the dropped task
-      setRecentlyDroppedId(activeTaskItem.id);
-      setTimeout(() => setRecentlyDroppedId(null), 1500);
-
-      if (view === 'by-urgency') {
-        const newUrgency = parseInt(finalContainer, 10);
-        const urgencyChanged = newUrgency !== activeTaskItem.urgency;
-        reorderMutation.mutate({
-          taskId: activeTaskItem.id,
-          sortOrder: newSortOrder,
-          urgency: urgencyChanged ? newUrgency : undefined,
-        });
-      } else {
-        // By date view - only reorder within the group, don't change the date
-        reorderMutation.mutate({
-          taskId: activeTaskItem.id,
-          sortOrder: newSortOrder,
-        });
-      }
-    },
-    [
-      filteredTasks,
-      view,
-      tasksByUrgency,
-      tasksByDate,
-      overContainer,
-      overIndex,
-      calculateSortOrderAtIndex,
-      reorderMutation,
-      endDrag,
-      handleGlobalDrop,
-    ]
-  );
-
-  const renderTaskGroup = (
-    groupKey: string,
-    groupTasks: Task[],
-    config: { label?: string; color: string; bgColor: string }
-  ) => {
-    const isCollapsed = collapsedGroups.has(groupKey);
-    const isAddingHere = addingToGroup === groupKey;
-    const taskIds = groupTasks.filter((t) => t.id !== activeId).map((t) => t.id);
-    const isDropTarget = overContainer === groupKey;
-
-    return (
-      <div key={groupKey} className="mb-4">
-        {/* Group Header */}
-        <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-t-lg cursor-pointer select-none ${config.bgColor}`}
-          onClick={() => toggleCollapse(groupKey)}
-        >
-          <button className="p-0.5">
-            {isCollapsed ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronUp className="w-4 h-4" />
-            )}
-          </button>
-          <span className={`text-sm font-semibold ${config.color}`}>
-            {config.label || groupKey}
-          </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">({groupTasks.length})</span>
-          <div className="flex-1" />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setAddingToGroup(isAddingHere ? null : groupKey);
-              setNewTaskText('');
-            }}
-            className="p-1 text-slate-500 hover:text-primary-500"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Inline Add Form */}
-        {isAddingHere && (
-          <div className="px-3 py-2 bg-slate-100 dark:bg-slate-700 border-x border-slate-200 dark:border-slate-700">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAddToGroup(groupKey);
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
-                placeholder="New task description..."
-                autoFocus
-                className="flex-1 px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
-              />
-              <button
-                type="submit"
-                disabled={createMutation.isPending || !newTaskText.trim()}
-                className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddingToGroup(null)}
-                className="px-2 py-1.5 text-slate-500 text-sm"
-              >
-                Cancel
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Task List (collapsible) */}
-        {!isCollapsed && (
-          <DroppableTaskGroup
-            groupKey={groupKey}
-            tasks={groupTasks}
-            taskIds={taskIds}
-            activeId={activeId}
-            dropTargetIndex={isDropTarget ? overIndex : null}
-            taskStatusOptions={taskStatusOptions}
-            urgencyOptions={urgencyOptions}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            showUrgency={view === 'by-date'}
-            recentlyDroppedId={recentlyDroppedId}
-          />
-        )}
-      </div>
-    );
-  };
+  }, [filteredTasks, selectedTaskIndex]);
 
   return (
     <>
@@ -531,64 +169,38 @@ export function TasksTab({ caseId, tasks, constants }: TasksTabProps) {
         </button>
       </div>
 
-      {/* Task Groups */}
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        {view === 'by-urgency' ? (
-          <div>
-            {[4, 3, 2, 1].map((urgency) =>
-              renderTaskGroup(String(urgency), tasksByUrgency[urgency], {
-                label: `${urgency} - ${urgencyConfig[urgency].label}`,
-                color: urgencyConfig[urgency].color,
-                bgColor: urgencyConfig[urgency].bgColor,
-              })
-            )}
-          </div>
-        ) : (
-          <div>
-            {['overdue', 'today', 'thisWeek', 'nextWeek', 'later', 'noDate']
-              .filter((dateKey) => dateKey !== 'overdue' || tasksByDate[dateKey]?.length > 0)
-              .map((dateKey) =>
-                renderTaskGroup(
-                  dateKey,
-                  tasksByDate[dateKey] || [],
-                  dateGroupConfig[dateKey]
-                )
-              )}
-          </div>
-        )}
+      {/* Task Feed */}
+      <TaskFeed
+        tasks={filteredTasks}
+        showCase={false}
+        groupBy={groupBy}
+        emptyMessage={showDoneTasks ? 'No completed tasks' : 'No tasks yet'}
+        onDelete={deleteTask}
+        onMarkDone={markDone}
+        onTaskClick={handleTaskClick}
+        onEditClick={handleEditClick}
+        onDateChange={handleDateChange}
+        onPriorityChange={handlePriorityChange}
+        onInlineEditSave={handleInlineEditSave}
+        enableInlineEdit
+        onInlineCreateSave={handleInlineCreateSave}
+        enableInlineCreate
+      />
 
-        {/* Drag Overlay */}
-        <DragOverlay dropAnimation={null}>
-          {activeTask && (
-            <div className="shadow-xl rounded-lg overflow-hidden bg-white dark:bg-slate-800 border border-primary-500">
-              <SortableTaskRow
-                task={activeTask}
-                taskStatusOptions={taskStatusOptions}
-                urgencyOptions={urgencyOptions}
-                onUpdate={() => {}}
-                onDelete={() => {}}
-                showCaseBadge={false}
-                showUrgency={view === 'by-date'}
-              />
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
-
-      <ConfirmModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-        title="Delete Task"
-        message={`Are you sure you want to delete this task?`}
-        confirmText="Delete Task"
-        variant="danger"
-        isLoading={deleteMutation.isPending}
+      {/* Task Detail Sheet */}
+      <TaskDetailSheet
+        task={selectedTask}
+        isOpen={!!selectedTask}
+        onClose={handleSheetClose}
+        onMarkDone={markDone}
+        onUpdate={handleSheetUpdate}
+        onLinkEvent={handleLinkEvent}
+        onDelete={deleteTask}
+        onPrevTask={handlePrevTask}
+        onNextTask={handleNextTask}
+        hasPrevTask={selectedTaskIndex > 0}
+        hasNextTask={selectedTaskIndex < filteredTasks.length - 1}
+        initialFocus={sheetFocusMode}
       />
     </>
   );

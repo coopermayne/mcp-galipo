@@ -23,9 +23,6 @@ import {
   EditableText,
   EditableDate,
   EditableTime,
-  EditableSelect,
-  StatusBadge,
-  UrgencyBadge,
   PersonAutocomplete,
   AddPersonDropdown,
   CreateTaskButton,
@@ -33,7 +30,7 @@ import {
   DraggablePersonChip,
   UnnestDropZone,
 } from '../../../components/common';
-import { DraggableTaskRow } from '../../../components/tasks';
+import { TaskItem, TaskItemOverlay } from '../../../components/tasks';
 import { useEntityModal } from '../../../components/modals';
 import { useDragContext } from '../../../context/DragContext';
 import {
@@ -181,7 +178,7 @@ function SectionHeader({
   );
 }
 
-export function OverviewTab({ caseData, caseId, constants, onUpdateField }: OverviewTabProps) {
+export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProps) {
   const queryClient = useQueryClient();
   const { openPersonModal } = useEntityModal();
   const { startDrag, endDrag } = useDragContext();
@@ -618,8 +615,6 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
     }
   }, [displayedTasks, updateTaskMutation, endDrag, updateNestingMutation]);
 
-  const taskStatusOptions = (constants?.task_statuses || []).map(s => ({ value: s, label: s }));
-
   return (
     <div className="space-y-4">
       {/* Row 1: Case Info + Key Dates */}
@@ -983,23 +978,14 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="space-y-1">
               {displayedTasks.map(task => (
-                <DraggableTaskRow key={task.id} task={task} className="p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group">
-                  <EditableSelect
-                    value={task.status}
-                    options={taskStatusOptions}
-                    onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { status: value as Task['status'] } }); }}
-                    renderValue={(value) => <StatusBadge status={value} />}
-                  />
-                  <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{task.description}</span>
-                  <UrgencyBadge urgency={task.urgency} />
-                  {task.due_date && (
-                    <EditableDate
-                      value={task.due_date}
-                      onSave={async (value) => { await updateTaskMutation.mutateAsync({ id: task.id, data: { due_date: value || undefined } }); }}
-                      className="text-xs"
-                    />
-                  )}
-                </DraggableTaskRow>
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  showCase={false}
+                  onMarkDone={(taskId) => updateTaskMutation.mutate({ id: taskId, data: { status: 'Done' } })}
+                  onDateChange={(taskId, date) => updateTaskMutation.mutate({ id: taskId, data: { due_date: date || undefined } })}
+                  onPriorityChange={(taskId, priority) => updateTaskMutation.mutate({ id: taskId, data: { urgency: priority } })}
+                />
               ))}
               {displayedTasks.length === 0 && (
                 <p className="text-xs text-slate-400 italic text-center py-4">
@@ -1010,14 +996,7 @@ export function OverviewTab({ caseData, caseId, constants, onUpdateField }: Over
 
             {/* Drag overlay */}
             <DragOverlay dropAnimation={null}>
-              {activeTask && (
-                <div className="p-2 bg-white dark:bg-slate-800 shadow-xl rounded-lg border border-primary-500 flex items-center gap-2 text-sm">
-                  <StatusBadge status={activeTask.status} />
-                  <span className="text-slate-700 dark:text-slate-300 truncate">
-                    {activeTask.description}
-                  </span>
-                </div>
-              )}
+              {activeTask && <TaskItemOverlay task={activeTask} />}
             </DragOverlay>
           </DndContext>
         </div>
