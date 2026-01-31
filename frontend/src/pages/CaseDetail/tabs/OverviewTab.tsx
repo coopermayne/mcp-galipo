@@ -12,6 +12,9 @@ import {
   Star,
   Zap,
   MapPin,
+  FileText,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
 import {
   EditableText,
@@ -20,6 +23,7 @@ import {
   AddPersonDropdown,
   DraggablePersonChip,
   UnnestDropZone,
+  ConfirmModal,
 } from '../../../components/common';
 import { TasksComponent } from '../../../components/tasks';
 import { EventsComponent } from '../../../components/events';
@@ -28,6 +32,7 @@ import {
   createPerson,
   assignPersonToCase,
   updateCaseAssignment,
+  updateEvent,
 } from '../../../api';
 import type { Case, Constants, CasePerson, Person } from '../../../types';
 import { ProceedingsSection } from '../components';
@@ -141,6 +146,81 @@ function PersonChip({
   );
 }
 
+// Compact summary - one line with click to expand
+function CompactSummary({
+  value,
+  onSave
+}: {
+  value: string;
+  onSave: (value: string | null) => Promise<void>;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    await onSave(editValue || null);
+    setIsSaving(false);
+    setIsExpanded(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(value);
+    setIsExpanded(false);
+  };
+
+  if (isExpanded) {
+    return (
+      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-slate-400" />
+          <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Summary</h4>
+        </div>
+        <textarea
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          placeholder="Enter case summary..."
+          className="w-full px-2 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 outline-none min-h-[80px] resize-none"
+          autoFocus
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={handleCancel}
+            className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-3 py-1 bg-primary-600 text-white rounded text-xs disabled:opacity-50 hover:bg-primary-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="pt-2 border-t border-slate-100 dark:border-slate-700 cursor-pointer group"
+      onClick={() => setIsExpanded(true)}
+    >
+      <div className="flex items-center gap-2">
+        <FileText className="w-4 h-4 text-slate-400" />
+        <span className="text-sm text-slate-500 dark:text-slate-400 truncate flex-1">
+          {value || <span className="italic text-slate-400">Add summary...</span>}
+        </span>
+        <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+          Edit
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // Compact section header
 function SectionHeader({
   icon: Icon,
@@ -173,6 +253,10 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   // UI State
   const [showAddDefendant, setShowAddDefendant] = useState(false);
   const [showAddMediator, setShowAddMediator] = useState(false);
+  const [showAddKeyDate, setShowAddKeyDate] = useState(false);
+  const [keyDateSearch, setKeyDateSearch] = useState('');
+  const [keyDateSelectedIndex, setKeyDateSelectedIndex] = useState(0);
+  const [eventToUnstar, setEventToUnstar] = useState<{ id: number; description: string } | null>(null);
   const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
 
   // Drag sensors
@@ -283,6 +367,20 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   const starredEvents = useMemo(() =>
     (caseData.events || []).filter(e => e.starred),
     [caseData.events]);
+
+  // Unstarred events (available to add as Key Dates)
+  const unstarredEvents = useMemo(() =>
+    (caseData.events || []).filter(e => !e.starred),
+    [caseData.events]);
+
+  // Filtered unstarred events for search
+  const filteredUnstarredEvents = useMemo(() => {
+    if (!keyDateSearch.trim()) return unstarredEvents;
+    const query = keyDateSearch.toLowerCase();
+    return unstarredEvents.filter(e =>
+      e.description.toLowerCase().includes(query)
+    );
+  }, [unstarredEvents, keyDateSearch]);
 
   // Role options
   const clientRoleOptions = ['Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent'];
@@ -468,6 +566,26 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
 
+  // Mutation for starring an event (adding to Key Dates)
+  const starEventMutation = useMutation({
+    mutationFn: (eventId: number) => updateEvent(eventId, { starred: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setShowAddKeyDate(false);
+      setKeyDateSearch('');
+      setKeyDateSelectedIndex(0);
+    },
+  });
+
+  // Mutation for unstarring an event (removing from Key Dates)
+  const unstarEventMutation = useMutation({
+    mutationFn: (eventId: number) => updateEvent(eventId, { starred: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setEventToUnstar(null);
+    },
+  });
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const activeId = event.active.id.toString();
 
@@ -531,118 +649,198 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Case Info + Key Dates */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Case Details & Court */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Court Proceedings */}
-            <div>
-              <ProceedingsSection
-                caseId={caseId}
-                proceedings={caseData.proceedings || []}
-              />
-            </div>
-            {/* Key People: Judge, Counsel, Experts, Mediator */}
-            <div className="space-y-2">
-              {/* Judge - hidden on mobile (shown in proceedings), visible on desktop */}
-              {judges.length > 0 && (
-                <div className="hidden md:flex items-start gap-2 text-sm">
-                  <span className="text-slate-400 w-16 shrink-0 pt-1">Judge:</span>
-                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                    {judges.map(j => (
-                      <PersonChip key={j.assignment_id} person={j} onOpenDetail={() => openPersonModal(j.id, { caseId })} variant="muted" />
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Row 1: Proceedings, Counsel, Key Dates */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Proceedings + Summary */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+          <ProceedingsSection
+            caseId={caseId}
+            proceedings={caseData.proceedings || []}
+          />
 
-              {/* Counsel - always show with add button */}
-              <div className="flex items-start gap-2 text-sm">
-                <span className="text-slate-400 w-16 shrink-0 pt-1">Counsel:</span>
-                <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                    {groupedCounsel.roots.map(c => {
-                      const children = groupedCounsel.nestedByParent.get(c.id) || [];
-                      return (
-                        <div key={c.assignment_id} className="flex flex-col gap-1">
-                          <DraggablePersonChip
-                            person={c}
-                            onOpenDetail={() => openPersonModal(c.id, { caseId })}
-                            variant={getCounselVariant(c.role || '')}
-                            canBeDropTarget={true}
-                            hasChildren={children.length > 0}
-                          />
-                          {/* Nested persons under this parent */}
-                          {children.map((nested, idx) => (
-                            <DraggablePersonChip
-                              key={nested.assignment_id}
-                              person={nested}
-                              onOpenDetail={() => openPersonModal(nested.id, { caseId })}
-                              variant={getCounselVariant(nested.role || '')}
-                              isNested={true}
-                              isLastChild={idx === children.length - 1}
-                              canBeDropTarget={false}
-                            />
-                          ))}
-                        </div>
-                      );
-                    })}
-                    {counsel.length === 0 && (
-                      <span className="text-xs text-slate-400 italic pt-1">None</span>
-                    )}
-                  </div>
-                  <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && counsel.some(c => c.id === activePerson.id)} sectionId="counsel" />
-                </DndContext>
-                <div className="pt-1 shrink-0">
-                  <AddPersonDropdown
-                    roleOptions={counselRoleOptions}
-                    onAssign={(person, role) => assignCounselMutation.mutate({ person, role })}
-                    onCreate={(name, role) => createCounselMutation.mutate({ name, role })}
-                    excludePersonIds={assignedPersonIds}
-                    getPersonTypes={() => ['attorney']}
-                    getPlaceholder={() => 'Search attorneys...'}
-                  />
-                </div>
-              </div>
+          {/* Compact Summary */}
+          <CompactSummary
+            value={caseData.case_summary || ''}
+            onSave={(value) => onUpdateField('case_summary', value || null)}
+          />
+        </div>
 
-              {/* Mediator - always show with add button */}
-              <div className="space-y-1">
-                <div className="flex items-start gap-2 text-sm">
-                  <span className="text-slate-400 w-16 shrink-0 pt-1">Mediator:</span>
-                  <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                    {mediators.map(m => (
-                      <PersonChip key={m.assignment_id} person={m} onOpenDetail={() => openPersonModal(m.id, { caseId })} variant="muted" />
-                    ))}
-                    {mediators.length === 0 && !showAddMediator && (
-                      <span className="text-xs text-slate-400 italic pt-1">None</span>
-                    )}
-                  </div>
-                  <button onClick={() => setShowAddMediator(!showAddMediator)} className="text-primary-600 hover:text-primary-700 pt-1 shrink-0">
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-                {showAddMediator && (
-                  <div className="ml-[72px]">
-                    <PersonAutocomplete
-                      personTypes={['mediator']}
-                      excludePersonIds={assignedPersonIds}
-                      onSelectPerson={(person) => assignMediatorMutation.mutate(person)}
-                      onCreateNew={(name) => createMediatorMutation.mutate(name)}
-                      onCancel={() => setShowAddMediator(false)}
-                      placeholder="Search mediators..."
-                      autoFocus
-                    />
-                  </div>
+        {/* Counsel & Mediator */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+          {/* Counsel */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-slate-400" />
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Counsel</h4>
+                {counsel.length > 0 && (
+                  <span className="text-xs text-slate-400">({counsel.length})</span>
                 )}
               </div>
+              <AddPersonDropdown
+                roleOptions={counselRoleOptions}
+                onAssign={(person, role) => assignCounselMutation.mutate({ person, role })}
+                onCreate={(name, role) => createCounselMutation.mutate({ name, role })}
+                excludePersonIds={assignedPersonIds}
+                getPersonTypes={() => ['attorney']}
+                getPlaceholder={() => 'Search attorneys...'}
+              />
+            </div>
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <div className="flex flex-wrap gap-1">
+                {groupedCounsel.roots.map(c => {
+                  const children = groupedCounsel.nestedByParent.get(c.id) || [];
+                  return (
+                    <div key={c.assignment_id} className="flex flex-col gap-1">
+                      <DraggablePersonChip
+                        person={c}
+                        onOpenDetail={() => openPersonModal(c.id, { caseId })}
+                        variant={getCounselVariant(c.role || '')}
+                        canBeDropTarget={true}
+                        hasChildren={children.length > 0}
+                      />
+                      {/* Nested persons under this parent */}
+                      {children.map((nested, idx) => (
+                        <DraggablePersonChip
+                          key={nested.assignment_id}
+                          person={nested}
+                          onOpenDetail={() => openPersonModal(nested.id, { caseId })}
+                          variant={getCounselVariant(nested.role || '')}
+                          isNested={true}
+                          isLastChild={idx === children.length - 1}
+                          canBeDropTarget={false}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+                {counsel.length === 0 && (
+                  <span className="text-sm text-slate-400 italic">None</span>
+                )}
+              </div>
+              <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && counsel.some(c => c.id === activePerson.id)} sectionId="counsel" />
+            </DndContext>
+          </div>
+
+          {/* Mediator */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-slate-400" />
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Mediator</h4>
+                {mediators.length > 0 && (
+                  <span className="text-xs text-slate-400">({mediators.length})</span>
+                )}
+              </div>
+              <button onClick={() => setShowAddMediator(!showAddMediator)} className="text-primary-600 hover:text-primary-700">
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {showAddMediator && (
+              <div className="mb-1">
+                <PersonAutocomplete
+                  personTypes={['mediator']}
+                  excludePersonIds={assignedPersonIds}
+                  onSelectPerson={(person) => assignMediatorMutation.mutate(person)}
+                  onCreateNew={(name) => createMediatorMutation.mutate(name)}
+                  onCancel={() => setShowAddMediator(false)}
+                  placeholder="Search mediators..."
+                  autoFocus
+                />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1">
+              {mediators.map(m => (
+                <PersonChip key={m.assignment_id} person={m} onOpenDetail={() => openPersonModal(m.id, { caseId })} variant="muted" />
+              ))}
+              {mediators.length === 0 && !showAddMediator && (
+                <span className="text-sm text-slate-400 italic">None</span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Key Dates */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-          <SectionHeader icon={Calendar} title="Key Dates" count={starredEvents.length + (caseData.date_of_injury ? 1 : 0)} />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Key Dates</h4>
+              {(starredEvents.length > 0 || caseData.date_of_injury) && (
+                <span className="text-xs text-slate-400">({starredEvents.length + (caseData.date_of_injury ? 1 : 0)})</span>
+              )}
+            </div>
+            {unstarredEvents.length > 0 && (
+              <button
+                onClick={() => setShowAddKeyDate(!showAddKeyDate)}
+                className="text-primary-600 hover:text-primary-700"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Add Key Date search */}
+          {showAddKeyDate && (
+            <div className="mb-2 relative">
+              <input
+                type="text"
+                value={keyDateSearch}
+                onChange={(e) => {
+                  setKeyDateSearch(e.target.value);
+                  setKeyDateSelectedIndex(0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setShowAddKeyDate(false);
+                    setKeyDateSearch('');
+                    setKeyDateSelectedIndex(0);
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setKeyDateSelectedIndex(i => Math.min(i + 1, filteredUnstarredEvents.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setKeyDateSelectedIndex(i => Math.max(i - 1, 0));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (filteredUnstarredEvents[keyDateSelectedIndex]) {
+                      starEventMutation.mutate(filteredUnstarredEvents[keyDateSelectedIndex].id);
+                    }
+                  }
+                }}
+                placeholder="Search events..."
+                className="w-full px-2 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 outline-none"
+                autoFocus
+              />
+              {/* Results dropdown */}
+              {filteredUnstarredEvents.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {filteredUnstarredEvents.map((event, idx) => (
+                    <button
+                      key={event.id}
+                      onClick={() => starEventMutation.mutate(event.id)}
+                      className={`w-full px-3 py-2 text-left text-sm flex items-center justify-between ${
+                        idx === keyDateSelectedIndex
+                          ? 'bg-primary-50 dark:bg-primary-900/30'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className="text-slate-700 dark:text-slate-300 truncate">{event.description}</span>
+                      <span className="text-xs text-slate-400 shrink-0 ml-2">
+                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {filteredUnstarredEvents.length === 0 && keyDateSearch && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md shadow-lg p-3 text-sm text-slate-400 italic">
+                  No matching events
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1">
             {/* Date of Injury - always show first */}
             <div className="flex items-center gap-2 text-sm">
@@ -656,10 +854,16 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 clearable={false}
               />
             </div>
-            {/* Starred events - read only */}
+            {/* Starred events - click star to remove */}
             {starredEvents.map(event => (
-              <div key={event.id} className="flex items-center gap-2 text-sm">
-                <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+              <div key={event.id} className="flex items-center gap-2 text-sm group">
+                <button
+                  onClick={() => setEventToUnstar({ id: event.id, description: event.description })}
+                  className="shrink-0 hover:scale-110 transition-transform"
+                  title="Remove from Key Dates"
+                >
+                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                </button>
                 <span className="text-slate-600 dark:text-slate-300 truncate">{event.description}</span>
                 <span className="text-xs text-slate-500 shrink-0">
                   {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -670,23 +874,22 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
               <p className="text-xs text-slate-400 italic">Star events to pin them here</p>
             )}
           </div>
+
+          {/* Confirm unstar modal */}
+          <ConfirmModal
+            isOpen={!!eventToUnstar}
+            onClose={() => setEventToUnstar(null)}
+            onConfirm={() => eventToUnstar && unstarEventMutation.mutate(eventToUnstar.id)}
+            title="Remove Key Date"
+            message={`Remove "${eventToUnstar?.description}" from Key Dates? The event will still exist, just won't be pinned here.`}
+            confirmText="Remove"
+            variant="warning"
+            isLoading={unstarEventMutation.isPending}
+          />
         </div>
       </div>
 
-      {/* Row 2: Case Summary */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Summary</h4>
-        <EditableText
-          value={caseData.case_summary || ''}
-          onSave={(value) => onUpdateField('case_summary', value || null)}
-          placeholder="Enter case summary..."
-          multiline
-          className="text-sm"
-          inputClassName="w-full min-h-[60px]"
-        />
-      </div>
-
-      {/* Row 3: Parties (Clients, Defendants, Experts, Other) */}
+      {/* Row 2: Parties (Clients, Defendants, Experts, Other) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Clients */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
