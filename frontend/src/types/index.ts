@@ -86,6 +86,8 @@ export type {
 
 // Chat types
 export type {
+  ChatMode,
+  ChatPreset,
   ToolCall,
   ToolResult,
   UsageRequest,

@@ -53,10 +53,16 @@ export interface ChatMessage {
   usage?: UsageData;
 }
 
+export type ChatMode = 'tasks' | 'events' | 'people' | 'overview' | 'full';
+
+export type ChatPreset = 'priorities' | 'deadlines' | 'overdue' | 'activity';
+
 export interface ChatRequest {
   message: string;
   conversationId?: string;
   caseContext?: number;
+  mode?: ChatMode;
+  preset?: ChatPreset;
 }
 
 export interface ChatResponse {
