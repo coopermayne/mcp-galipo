@@ -1,38 +1,70 @@
 /**
- * TaskInlineEdit - Todoist-style inline task editor
+ * TaskInlineEdit - Inline task editor matching TaskItem layout
  *
  * Replaces the task row with an editable form when user clicks the edit icon.
- * Has title, description, date picker, and save/cancel buttons.
+ * Layout mirrors TaskItem: title input, then case/date/event row below.
  */
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import { format, parse, isValid, getYear } from 'date-fns';
 import {
   Calendar,
   Flag,
-  Tag,
-  X,
+  Inbox,
+  Link2,
 } from 'lucide-react';
 import type { Task } from '../../types';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export interface TaskInlineEditProps {
   task: Task;
+  /** Show case in metadata row */
+  showCase?: boolean;
   /** Called when user saves changes */
   onSave: (taskId: number, updates: { description?: string; due_date?: string; urgency?: number }) => Promise<void>;
   /** Called when user cancels editing */
   onCancel: () => void;
+  /** Called when event link is clicked */
+  onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
 }
 
 // Priority colors matching TaskItem
 const PRIORITY_OPTIONS = [
-  { value: 4, label: 'Priority 1', color: 'text-red-500' },
-  { value: 3, label: 'Priority 2', color: 'text-orange-500' },
-  { value: 2, label: 'Priority 3', color: 'text-blue-500' },
-  { value: 1, label: 'Priority 4', color: 'text-slate-400' },
+  { value: 4, label: 'Urgent', color: 'text-red-500' },
+  { value: 3, label: 'High', color: 'text-orange-500' },
+  { value: 2, label: 'Medium', color: 'text-blue-500' },
+  { value: 1, label: 'Low', color: 'text-slate-400' },
 ] as const;
 
-export function TaskInlineEdit({ task, onSave, onCancel }: TaskInlineEditProps) {
+/**
+ * Format a date relative to today (matching TaskItem)
+ */
+function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean } {
+  const date = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const isOverdue = diffDays < 0;
+
+  if (diffDays === 0) return { text: 'Today', isOverdue: false };
+  if (diffDays === 1) return { text: 'Tomorrow', isOverdue: false };
+  if (diffDays === -1) return { text: 'Yesterday', isOverdue: true };
+
+  return {
+    text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    isOverdue
+  };
+}
+
+export function TaskInlineEdit({
+  task,
+  showCase = true,
+  onSave,
+  onCancel,
+  onEventLinkClick,
+}: TaskInlineEditProps) {
   const [title, setTitle] = useState(task.description || '');
   const [dueDate, setDueDate] = useState<Date | null>(() => {
     if (!task.due_date) return null;
@@ -57,7 +89,7 @@ export function TaskInlineEdit({ task, onSave, onCancel }: TaskInlineEditProps) 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        // Check if click is on a date picker portal
+        // Check if click is on a date picker portal or priority dropdown
         const datePickerPortal = document.getElementById('datepicker-portal');
         if (datePickerPortal?.contains(event.target as Node)) {
           return;
@@ -101,26 +133,6 @@ export function TaskInlineEdit({ task, onSave, onCancel }: TaskInlineEditProps) 
       e.preventDefault();
       handleSave();
     }
-  };
-
-  const clearDate = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDueDate(null);
-  };
-
-  // Format date for display in chip
-  const formatDateChip = (date: Date): string => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const compareDate = new Date(date);
-    compareDate.setHours(0, 0, 0, 0);
-
-    if (compareDate.getTime() === today.getTime()) return 'Today';
-    if (compareDate.getTime() === tomorrow.getTime()) return 'Tomorrow';
-    return format(date, 'MMM d');
   };
 
   // Custom header for the date picker
@@ -198,13 +210,14 @@ export function TaskInlineEdit({ task, onSave, onCancel }: TaskInlineEditProps) 
   };
 
   const currentPriority = PRIORITY_OPTIONS.find(p => p.value === urgency) || PRIORITY_OPTIONS[3];
+  const dateInfo = dueDate ? formatRelativeDate(format(dueDate, 'yyyy-MM-dd')) : null;
 
   return (
     <div
       ref={containerRef}
-      className="px-3 py-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm"
+      className="px-3 py-2.5 md:px-2 md:py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm"
     >
-      {/* Title input */}
+      {/* Title input - matches TaskItem title styling */}
       <input
         ref={titleRef}
         type="text"
@@ -212,123 +225,135 @@ export function TaskInlineEdit({ task, onSave, onCancel }: TaskInlineEditProps) 
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Task name"
-        className="w-full text-sm font-medium text-slate-900 dark:text-slate-100 bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 mb-2 outline-none focus:border-slate-400 dark:focus:border-slate-500"
+        className="w-full text-sm leading-snug text-slate-900 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400"
       />
 
+      {/* Metadata row - case, date, event, priority */}
+      <div className="flex items-center mt-1 gap-3">
+        {/* Case/Project link (read-only display) */}
+        {showCase && (
+          <Link
+            to={`/cases/${task.case_id}`}
+            className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+            title={task.case_name || `Case #${task.case_id}`}
+          >
+            <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
+          </Link>
+        )}
 
-      {/* Actions row */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          {/* Date picker chip */}
-          <div className="relative">
-            <DatePicker
-              selected={dueDate}
-              onChange={(date: Date | null) => {
-                setDueDate(date);
-                setIsDatePickerOpen(false);
-              }}
-              open={isDatePickerOpen}
-              onClickOutside={() => setIsDatePickerOpen(false)}
-              dateFormat="yyyy-MM-dd"
-              showYearDropdown
-              showMonthDropdown
-              scrollableYearDropdown
-              yearDropdownItemNumber={15}
-              dropdownMode="select"
-              portalId="datepicker-portal"
-              renderCustomHeader={renderDatePickerHeader}
-              customInput={
-                dueDate ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 rounded border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50"
-                  >
-                    <Calendar className="w-3 h-3" />
-                    <span>{formatDateChip(dueDate)}</span>
-                    <button
-                      type="button"
-                      onClick={clearDate}
-                      className="ml-0.5 p-0.5 hover:bg-green-200 dark:hover:bg-green-800 rounded"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                    className="flex items-center gap-1 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-                    title="Set due date"
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </button>
-                )
-              }
-            />
-          </div>
+        {/* Due date picker */}
+        <DatePicker
+          selected={dueDate}
+          onChange={(date: Date | null) => {
+            setDueDate(date);
+            setIsDatePickerOpen(false);
+          }}
+          open={isDatePickerOpen}
+          onClickOutside={() => setIsDatePickerOpen(false)}
+          onInputClick={() => setIsDatePickerOpen(true)}
+          dateFormat="yyyy-MM-dd"
+          showYearDropdown
+          showMonthDropdown
+          scrollableYearDropdown
+          yearDropdownItemNumber={15}
+          dropdownMode="select"
+          portalId="datepicker-portal"
+          renderCustomHeader={renderDatePickerHeader}
+          customInput={
+            dateInfo ? (
+              <button
+                type="button"
+                className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                <Calendar className="w-3 h-3 flex-shrink-0" />
+                <span>{dateInfo.text}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <Calendar className="w-3 h-3 flex-shrink-0" />
+                <span>Add date</span>
+              </button>
+            )
+          }
+        />
 
-          {/* Priority picker */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsPriorityOpen(!isPriorityOpen)}
-              className={`flex items-center gap-1 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded ${currentPriority.color}`}
-              title="Set priority"
-            >
-              <Flag className="w-4 h-4" />
-            </button>
-            {isPriorityOpen && (
-              <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-50">
-                {PRIORITY_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      setUrgency(option.value);
-                      setIsPriorityOpen(false);
-                    }}
-                    className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-600 ${option.color}`}
-                  >
-                    <Flag className="w-4 h-4" />
-                    <span>{option.label}</span>
-                    {option.value === urgency && (
-                      <span className="ml-auto text-primary-500">✓</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Event link */}
+        <button
+          type="button"
+          onClick={(e) => {
+            if (onEventLinkClick) onEventLinkClick(task, e);
+          }}
+          className={`flex items-center gap-1 text-xs hover:underline ${
+            task.event_id
+              ? 'text-primary-500 hover:text-primary-600'
+              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+          }`}
+          title={task.event_id && task.event_description ? task.event_description : 'Link event'}
+        >
+          <Link2 className="w-3 h-3 flex-shrink-0" />
+          <span>
+            {task.event_id && task.event_date
+              ? formatRelativeDate(task.event_date).text
+              : 'Link event'}
+          </span>
+        </button>
 
-          {/* Labels placeholder (for visual consistency with Todoist) */}
+        {/* Priority picker */}
+        <div className="relative">
           <button
             type="button"
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-            title="Add labels"
+            onClick={() => setIsPriorityOpen(!isPriorityOpen)}
+            className={`flex items-center gap-1 text-xs hover:underline ${currentPriority.color}`}
+            title="Set priority"
           >
-            <Tag className="w-4 h-4" />
+            <Flag className="w-3 h-3 flex-shrink-0" />
+            <span>{currentPriority.label}</span>
           </button>
+          {isPriorityOpen && (
+            <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-50 min-w-[100px]">
+              {PRIORITY_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    setUrgency(option.value);
+                    setIsPriorityOpen(false);
+                  }}
+                  className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-600 ${option.color}`}
+                >
+                  <Flag className="w-3 h-3" />
+                  <span>{option.label}</span>
+                  {option.value === urgency && (
+                    <span className="ml-auto text-primary-500">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Cancel / Save buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!title.trim() || isSaving}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed rounded"
-          >
-            {isSaving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+      {/* Actions row: save/cancel */}
+      <div className="flex items-center justify-end mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!title.trim() || isSaving}
+          className="px-2.5 py-1 text-xs font-medium text-white bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed rounded"
+        >
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
       </div>
     </div>
   );
