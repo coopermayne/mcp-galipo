@@ -405,7 +405,7 @@ export function TasksComponent({
           onCommentClick={handleCommentClick}
           onEventLinkClick={handleEventLinkClick}
           onPriorityChange={handlePriorityChange}
-          enableInlineEdit={!compact}
+          enableInlineEdit
           onInlineEditSave={handleInlineEditSave}
           enableInlineCreate={enableInlineCreate && !compact}
           onInlineCreateSave={handleInlineCreateSave}
