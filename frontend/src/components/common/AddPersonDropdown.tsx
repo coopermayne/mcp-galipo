@@ -10,6 +10,10 @@ interface AddPersonDropdownProps {
   excludePersonIds?: number[];
   getPersonTypes?: (role: string) => PersonType[] | undefined;
   getPlaceholder?: (role: string) => string;
+  /** Compact mode shows smaller button inline */
+  compact?: boolean;
+  /** Label to show next to the plus icon (only when compact) */
+  label?: string;
 }
 
 export function AddPersonDropdown({
@@ -19,6 +23,8 @@ export function AddPersonDropdown({
   excludePersonIds = [],
   getPersonTypes,
   getPlaceholder,
+  compact = false,
+  label,
 }: AddPersonDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -83,13 +89,14 @@ export function AddPersonDropdown({
   return (
     <>
       {/* Plus button */}
-      <div className="relative">
+      <div className={`relative ${compact ? 'inline-flex' : ''}`}>
         <button
           ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
-          className={`text-xs text-primary-600 hover:text-primary-700 ${isOpen ? 'invisible' : ''}`}
+          className={`text-xs text-primary-600 hover:text-primary-700 ${isOpen ? 'invisible' : ''} ${compact && label ? 'inline-flex items-center gap-0.5' : ''}`}
         >
-          <Plus className="w-3 h-3" />
+          <Plus className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
+          {compact && label && <span>{label}</span>}
         </button>
 
         {/* Dropdown menu - positioned so X overlaps the + button */}
