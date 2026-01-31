@@ -19,8 +19,13 @@ export function TasksTab({ caseId, tasks }: TasksTabProps) {
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
 
   const { markDone, deleteTask, updateField, mutations } = useTaskActions({
-    invalidateKeys: [['case', caseId]],
+    invalidateKeys: [['case', String(caseId)]],
   });
+
+  // Wrapper for deleteTask to match expected signature
+  const handleDelete = useCallback(async (taskId: number) => {
+    await deleteTask(taskId);
+  }, [deleteTask]);
 
   // Filter tasks based on done toggle
   const filteredTasks = useMemo(() => {
