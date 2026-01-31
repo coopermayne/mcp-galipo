@@ -72,7 +72,7 @@ export function EventsComponent({
   viewAllLink,
 
   // Features
-  showControls = false,
+  showControls = true,
   hideGroupBy = false,
   hidePastToggle = false,
   showCase = true,
