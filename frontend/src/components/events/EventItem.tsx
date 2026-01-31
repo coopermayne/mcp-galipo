@@ -15,7 +15,6 @@ import {
   Inbox,
   Pencil,
   ListTodo,
-  MoreHorizontal,
 } from 'lucide-react';
 import { TimePicker } from '../common';
 import type { Event } from '../../types';
@@ -351,20 +350,6 @@ export function EventItem({
         )}
       </div>
 
-      {/* Mobile: show edit action */}
-      {onEdit && (
-        <div className="md:hidden flex items-start pt-0.5">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(event);
-            }}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

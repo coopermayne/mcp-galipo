@@ -6,11 +6,13 @@ interface EventsTabProps {
 
 export function EventsTab({ caseId }: EventsTabProps) {
   return (
-    <EventsComponent
-      caseId={caseId}
-      groupByDate
-      showCase={false}
-      pastDays={365}
-    />
+    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+      <EventsComponent
+        caseId={caseId}
+        groupByDate
+        showCase={false}
+        pastDays={365}
+      />
+    </div>
   );
 }
