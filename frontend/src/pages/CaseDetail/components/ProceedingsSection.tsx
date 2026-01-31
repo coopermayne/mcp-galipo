@@ -5,7 +5,6 @@ import { useEntityModal } from '../../../components/modals';
 import { JurisdictionAutocomplete, AddPersonDropdown } from '../../../components/common';
 import {
   createProceeding,
-  updateProceeding,
   addProceedingJudge,
   removeProceedingJudge,
   createPerson,
@@ -77,14 +76,6 @@ export function ProceedingsSection({
         jurisdiction_id: data.jurisdiction.id,
         jurisdiction_name: data.jurisdiction.name,
       });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
-      updateProceeding(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     },
   });
 
@@ -160,10 +151,6 @@ export function ProceedingsSection({
 
   const handleRemoveJudge = (proceedingId: number, personId: number) => {
     removeJudgeMutation.mutate({ proceedingId, personId });
-  };
-
-  const handleSetPrimary = (id: number) => {
-    updateMutation.mutate({ id, data: { is_primary: true } });
   };
 
   // Separate primary and other proceedings

@@ -17,7 +17,6 @@ import {
   UserCheck,
 } from 'lucide-react';
 import {
-  EditableText,
   EditableDate,
   PersonAutocomplete,
   AddPersonDropdown,
@@ -303,10 +302,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
     });
     return { roots, nestedByParent };
   }, [defendants]);
-
-  const judges = useMemo(() =>
-    (caseData.persons || []).filter(p => p.role === 'Judge' || p.role === 'Magistrate Judge'),
-    [caseData.persons]);
 
   const counsel = useMemo(() => {
     const counselOrder = ['Opposing Counsel', 'Co-Counsel', 'Referring Attorney'];
