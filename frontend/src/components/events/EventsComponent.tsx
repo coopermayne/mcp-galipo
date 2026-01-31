@@ -327,6 +327,7 @@ export function EventsComponent({
           showPast={showPast}
           onShowPastChange={setShowPast}
           hideGroupBy={hideGroupBy}
+          hideCaseGrouping={!!caseId}
           hidePastToggle={hidePastToggle}
         />
       )}

@@ -35,6 +35,8 @@ interface EventsControlsProps {
   onShowPastChange: (showPast: boolean) => void;
   /** Hide the group by dropdown */
   hideGroupBy?: boolean;
+  /** Hide the "Case" grouping option (when already in a case context) */
+  hideCaseGrouping?: boolean;
   /** Hide the past/upcoming toggle */
   hidePastToggle?: boolean;
 }
@@ -47,6 +49,7 @@ export function EventsControls({
   showPast,
   onShowPastChange,
   hideGroupBy = false,
+  hideCaseGrouping = false,
   hidePastToggle = false,
 }: EventsControlsProps) {
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -107,21 +110,23 @@ export function EventsControls({
                     <Check className="w-4 h-4 text-primary-500" />
                   )}
                 </button>
-                <button
-                  onClick={() => {
-                    onGroupByChange('case');
-                    setIsViewOpen(false);
-                  }}
-                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-                >
-                  <span className="flex items-center gap-2">
-                    <Briefcase className="w-4 h-4" />
-                    Case
-                  </span>
-                  {groupBy === 'case' && (
-                    <Check className="w-4 h-4 text-primary-500" />
-                  )}
-                </button>
+                {!hideCaseGrouping && (
+                  <button
+                    onClick={() => {
+                      onGroupByChange('case');
+                      setIsViewOpen(false);
+                    }}
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      Case
+                    </span>
+                    {groupBy === 'case' && (
+                      <Check className="w-4 h-4 text-primary-500" />
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     onGroupByChange('none');
