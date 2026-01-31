@@ -11,7 +11,6 @@ import {
   Calendar,
   Star,
   ChevronDown,
-  CheckSquare,
   Clock,
   Zap,
   MapPin,
@@ -179,7 +178,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   // UI State
   const [showAddDefendant, setShowAddDefendant] = useState(false);
   const [showAddMediator, setShowAddMediator] = useState(false);
-  const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
   const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
@@ -878,20 +876,16 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
       {/* Row 4: Tasks & Events side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Tasks */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-          <div className="flex items-center justify-between mb-3">
-            <SectionHeader icon={CheckSquare} title="Tasks" />
-          </div>
+        <div>
           <TasksComponent
             caseId={caseId}
-            showControls
-            hideSearch
+            title="Tasks"
+            showControls={false}
             showDetailSheet={false}
+            maxItems={8}
             compact
             defaultGroupBy="urgency"
             showCase={false}
-            showDone={showDoneTasks}
-            onShowDoneChange={setShowDoneTasks}
           />
         </div>
 
