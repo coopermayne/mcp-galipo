@@ -38,8 +38,6 @@ interface EventsComponentProps {
   // Feature flags
   /** Show search, view dropdown, and past/future toggle */
   showControls?: boolean;
-  /** Hide search when showControls is true */
-  hideSearch?: boolean;
   /** Hide group by dropdown when showControls is true */
   hideGroupBy?: boolean;
   /** Hide past/future toggle when showControls is true */
@@ -78,7 +76,6 @@ export function EventsComponent({
 
   // Features
   showControls = false,
-  hideSearch = false,
   hideGroupBy = false,
   hidePastToggle = false,
   showCase = true,
@@ -328,7 +325,6 @@ export function EventsComponent({
           onSearchChange={setSearchQuery}
           showPast={showPast}
           onShowPastChange={setShowPast}
-          hideSearch={hideSearch}
           hideGroupBy={hideGroupBy}
           hidePastToggle={hidePastToggle}
         />
