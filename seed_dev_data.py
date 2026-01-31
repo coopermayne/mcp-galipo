@@ -5,7 +5,7 @@ Development Seed Data for Galipo
 Run this script to populate the database with realistic mock data for development.
 
 Usage:
-    DATABASE_URL="postgresql://..." python seed_dev_data.py
+    python seed_dev_data.py
 
 This will add:
 - 8 cases at various litigation stages
@@ -21,6 +21,10 @@ import os
 import json
 from datetime import datetime, timedelta
 import random
+
+# Load .env file before importing database module
+from dotenv import load_dotenv
+load_dotenv()
 
 # Ensure we can import from the project
 import database as db
