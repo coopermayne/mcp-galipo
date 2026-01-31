@@ -1,5 +1,8 @@
-export { SortableTaskRow } from './SortableTaskRow';
-export { DraggableTaskRow } from './DraggableTaskRow';
-export { UrgencyGroup } from './UrgencyGroup';
-export { CaseGroup } from './CaseGroup';
-export { DateGroup } from './DateGroup';
+export { TaskItem, TaskItemOverlay } from './TaskItem';
+export { TaskInlineEdit } from './TaskInlineEdit';
+export { TaskInlineCreate } from './TaskInlineCreate';
+export { TaskFeed } from './TaskFeed';
+export { TaskDetailSheet } from './TaskDetailSheet';
+export type { SheetFocusMode } from './TaskDetailSheet';
+export { EventLinkPopover } from './EventLinkPopover';
+export { useTaskActions } from './useTaskActions';
