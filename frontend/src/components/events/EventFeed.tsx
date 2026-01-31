@@ -4,9 +4,11 @@
  * Groups events by date category (Overdue, Today, This Week, etc.)
  * Matches TaskFeed pattern for consistency.
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Loader2, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { EventItem } from './EventItem';
+import { EventInlineEdit } from './EventInlineEdit';
+import { EventInlineCreate } from './EventInlineCreate';
 import { ConfirmModal } from '../common';
 import type { Event } from '../../types';
 
@@ -19,6 +21,7 @@ interface EventGroup {
   events: Event[];
   isOverdue?: boolean;
   isCollapsible?: boolean;
+  caseId?: number;
 }
 
 /**
@@ -119,6 +122,7 @@ function groupEventsByCase(events: Event[]): EventGroup[] {
         label: caseName,
         date: null,
         events: [],
+        caseId,
       });
     }
     groups.get(caseId)!.events.push(event);
@@ -211,7 +215,7 @@ interface EventFeedProps {
   onTimeChange?: (event: Event, newTime: string | null) => void;
   /** Callback when event row is clicked */
   onClick?: (event: Event) => void;
-  /** Callback when edit action is clicked */
+  /** Callback when edit action is clicked (opens modal) - if not set, uses inline edit */
   onEdit?: (event: Event) => void;
   /** Callback when create task action is clicked */
   onCreateTask?: (event: Event) => void;
@@ -219,8 +223,14 @@ interface EventFeedProps {
   onDelete?: (event: Event) => void;
   /** Callback when add event is clicked */
   onAddEvent?: () => void;
-  /** Show add event button */
-  showAddButton?: boolean;
+  /** Callback when event is updated via inline edit */
+  onInlineEditSave?: (eventId: number, updates: { description?: string; date?: string; time?: string | null }) => Promise<void>;
+  /** Enable inline editing when edit button is clicked (instead of using onEdit) */
+  enableInlineEdit?: boolean;
+  /** Callback when a new event is created via inline form */
+  onInlineCreateSave?: (data: { case_id: number; description: string; date: string; time?: string }) => Promise<void>;
+  /** Enable inline event creation (instead of calling onAddEvent) */
+  enableInlineCreate?: boolean;
 }
 
 export function EventFeed({
@@ -239,11 +249,16 @@ export function EventFeed({
   onCreateTask,
   onDelete,
   onAddEvent,
-  showAddButton = false,
+  onInlineEditSave,
+  enableInlineEdit = false,
+  onInlineCreateSave,
+  enableInlineCreate = false,
 }: EventFeedProps) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<Event | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [inlineEditEventId, setInlineEditEventId] = useState<number | null>(null);
+  const [inlineCreateContext, setInlineCreateContext] = useState<{ groupKey: string; date?: string; caseId?: number } | null>(null);
 
   // Apply maxItems limit
   const limitedEvents = useMemo(() => {
@@ -305,6 +320,55 @@ export function EventFeed({
     }
   };
 
+  // Handle edit button click - either start inline edit or call external handler
+  const handleEditClick = useCallback((event: Event) => {
+    if (enableInlineEdit) {
+      setInlineEditEventId(event.id);
+    } else if (onEdit) {
+      onEdit(event);
+    }
+  }, [enableInlineEdit, onEdit]);
+
+  // Handle inline edit save
+  const handleInlineEditSave = useCallback(async (
+    eventId: number,
+    updates: { description?: string; date?: string; time?: string | null }
+  ) => {
+    if (onInlineEditSave) {
+      await onInlineEditSave(eventId, updates);
+    }
+    setInlineEditEventId(null);
+  }, [onInlineEditSave]);
+
+  // Handle inline edit cancel
+  const handleInlineEditCancel = useCallback(() => {
+    setInlineEditEventId(null);
+  }, []);
+
+  // Handle add event button click - show inline form or call external handler
+  const handleAddEventClick = useCallback((groupKey: string, date?: string, caseId?: number) => {
+    if (enableInlineCreate) {
+      setInlineCreateContext({ groupKey, date, caseId });
+    } else if (onAddEvent) {
+      onAddEvent();
+    }
+  }, [enableInlineCreate, onAddEvent]);
+
+  // Handle inline create save
+  const handleInlineCreateSave = useCallback(async (
+    data: { case_id: number; description: string; date: string; time?: string }
+  ) => {
+    if (onInlineCreateSave) {
+      await onInlineCreateSave(data);
+    }
+    setInlineCreateContext(null);
+  }, [onInlineCreateSave]);
+
+  // Handle inline create cancel
+  const handleInlineCreateCancel = useCallback(() => {
+    setInlineCreateContext(null);
+  }, []);
+
   // Flush mode (no left padding) when not grouping
   const isFlush = groupBy === 'none';
 
@@ -326,32 +390,54 @@ export function EventFeed({
         >
           {emptyMessage}
         </div>
-        {!compact && showAddButton && onAddEvent && <AddEventButton onClick={onAddEvent} />}
+        {!compact && (inlineCreateContext?.groupKey === 'empty' ? (
+          <EventInlineCreate
+            onSave={handleInlineCreateSave}
+            onCancel={handleInlineCreateCancel}
+          />
+        ) : (onAddEvent || enableInlineCreate) && (
+          <AddEventButton onClick={() => handleAddEventClick('empty')} />
+        ))}
       </div>
     );
   }
 
   const renderEventList = (groupEvents: Event[]) => (
     <>
-      {groupEvents.map((event) => (
-        <EventItem
-          key={event.id}
-          event={event}
-          showCase={effectiveShowCase}
-          onToggleStar={onToggleStar}
-          onDateChange={onDateChange}
-          onTimeChange={onTimeChange}
-          onClick={onClick}
-          onEdit={onEdit}
-          onCreateTask={onCreateTask}
-          onDelete={onDelete ? () => handleDeleteClick(event) : undefined}
-          isHighlighted={
-            groupBy === 'date' &&
-            groups.find((g) => g.events.includes(event))?.isOverdue
-          }
-          flush={isFlush}
-        />
-      ))}
+      {groupEvents.map((event) => {
+        // Render inline edit form if this event is being edited
+        if (inlineEditEventId === event.id) {
+          return (
+            <EventInlineEdit
+              key={event.id}
+              event={event}
+              showCase={effectiveShowCase}
+              onSave={handleInlineEditSave}
+              onCancel={handleInlineEditCancel}
+            />
+          );
+        }
+
+        return (
+          <EventItem
+            key={event.id}
+            event={event}
+            showCase={effectiveShowCase}
+            onToggleStar={onToggleStar}
+            onDateChange={onDateChange}
+            onTimeChange={onTimeChange}
+            onClick={onClick}
+            onEdit={handleEditClick}
+            onCreateTask={onCreateTask}
+            onDelete={onDelete ? () => handleDeleteClick(event) : undefined}
+            isHighlighted={
+              groupBy === 'date' &&
+              groups.find((g) => g.events.includes(event))?.isOverdue
+            }
+            flush={isFlush}
+          />
+        );
+      })}
     </>
   );
 
@@ -382,8 +468,21 @@ export function EventFeed({
                 <>
                   {renderEventList(group.events)}
 
-                  {/* Add event button */}
-                  {showAddButton && onAddEvent && <AddEventButton onClick={onAddEvent} />}
+                  {/* Inline create form or Add event button */}
+                  {inlineCreateContext?.groupKey === group.key ? (
+                    <EventInlineCreate
+                      caseId={inlineCreateContext.caseId}
+                      date={inlineCreateContext.date}
+                      onSave={handleInlineCreateSave}
+                      onCancel={handleInlineCreateCancel}
+                    />
+                  ) : (onAddEvent || enableInlineCreate) && (
+                    <AddEventButton onClick={() => handleAddEventClick(
+                      group.key,
+                      group.date?.toISOString().split('T')[0],
+                      group.caseId
+                    )} />
+                  )}
                 </>
               )}
             </div>
