@@ -475,7 +475,7 @@ export function EventFeed({
                   {/* Inline create form or Add event button */}
                   {inlineCreateContext?.groupKey === group.key ? (
                     <EventInlineCreate
-                      caseId={inlineCreateContext.caseId}
+                      caseId={inlineCreateContext.caseId || caseId}
                       date={inlineCreateContext.date}
                       onSave={handleInlineCreateSave}
                       onCancel={handleInlineCreateCancel}
@@ -484,7 +484,7 @@ export function EventFeed({
                     <AddEventButton onClick={() => handleAddEventClick(
                       group.key,
                       group.date?.toISOString().split('T')[0],
-                      group.caseId
+                      group.caseId || caseId
                     )} />
                   )}
                 </>
