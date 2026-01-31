@@ -7,14 +7,13 @@ import {
   EditableDate,
   EditableTime,
   ListPanel,
-  ConfirmModal,
   CreateTaskButton,
   CreateTaskFromEventModal,
   DeleteEventModal,
 } from '../components/common';
-import { TaskItem } from '../components/tasks';
-import { getStats, getTasks, getEvents, updateTask, deleteTask, updateEvent, deleteEvent } from '../api';
-import type { Task, Event } from '../types';
+import { TasksComponent } from '../components/tasks';
+import { getStats, getEvents, updateEvent, deleteEvent } from '../api';
+import type { Event } from '../types';
 import {
   Briefcase,
   CheckSquare,
@@ -42,20 +41,13 @@ const getCaseColorClass = (caseId: number) => caseColorClasses[caseId % caseColo
 
 export function Dashboard() {
   const queryClient = useQueryClient();
-  const [deleteTaskTarget, setDeleteTaskTarget] = useState<number | null>(null);
   const [deleteEventTarget, setDeleteEventTarget] = useState<{ id: number; description: string } | null>(null);
-  const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: getStats,
-  });
-
-  const { data: tasksData, isLoading: tasksLoading } = useQuery({
-    queryKey: ['dashboard-tasks', { showDone: showDoneTasks }],
-    queryFn: () => getTasks(showDoneTasks ? { status: 'Done', limit: 10 } : { exclude_status: 'Done', limit: 10 }),
   });
 
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
@@ -65,24 +57,6 @@ export function Dashboard() {
       includePast: showPastEvents,
       pastDays: 14,
     }),
-  });
-
-  const updateTaskMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) => updateTask(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
-  });
-
-  const deleteTaskMutation = useMutation({
-    mutationFn: (id: number) => deleteTask(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    },
   });
 
   const updateEventMutation = useMutation({
@@ -103,18 +77,8 @@ export function Dashboard() {
     },
   });
 
-  // Tasks are filtered based on toggle
-  const displayTasks = tasksData?.tasks || [];
-
   // Events are already filtered by the API based on showPastEvents
   const displayEvents = eventsData?.events || [];
-
-  const confirmDeleteTask = useCallback(() => {
-    if (deleteTaskTarget) {
-      deleteTaskMutation.mutate(deleteTaskTarget);
-      setDeleteTaskTarget(null);
-    }
-  }, [deleteTaskTarget, deleteTaskMutation]);
 
   const handleUpdateEvent = useCallback(
     async (eventId: number, field: string, value: string | null) => {
@@ -178,51 +142,18 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Pending Tasks */}
+          {/* Tasks */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Tasks</h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowDoneTasks(!showDoneTasks)}
-                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
-                    showDoneTasks
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  {showDoneTasks ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                  Done
-                </button>
-                <Link
-                  to="/tasks"
-                  className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
-                >
-                  View all <ChevronRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-            <ListPanel>
-              {tasksLoading ? (
-                <ListPanel.Loading />
-              ) : displayTasks.length === 0 ? (
-                <ListPanel.Empty message={showDoneTasks ? "No completed tasks" : "No pending tasks"} />
-              ) : (
-                <ListPanel.Body>
-                  {displayTasks.slice(0, 8).map((task) => (
-                    <TaskItem
-                      key={task.id}
-                      task={task}
-                      showCase={true}
-                      onMarkDone={(taskId) => updateTaskMutation.mutate({ id: taskId, data: { status: 'Done' } })}
-                      onDateChange={(taskId, date) => updateTaskMutation.mutate({ id: taskId, data: { due_date: date || undefined } })}
-                      onPriorityChange={(taskId, priority) => updateTaskMutation.mutate({ id: taskId, data: { urgency: priority } })}
-                      onDelete={(taskId) => setDeleteTaskTarget(taskId)}
-                    />
-                  ))}
-                </ListPanel.Body>
-              )}
-            </ListPanel>
+            <TasksComponent
+              showAllTasks
+              title="Tasks"
+              viewAllLink="/tasks"
+              showControls={false}
+              showDetailSheet={false}
+              maxItems={8}
+              compact
+              defaultGroupBy="urgency"
+            />
           </div>
 
           {/* Upcoming Events */}
@@ -298,17 +229,6 @@ export function Dashboard() {
           </div>
         </div>
       </PageContent>
-
-      <ConfirmModal
-        isOpen={!!deleteTaskTarget}
-        onClose={() => setDeleteTaskTarget(null)}
-        onConfirm={confirmDeleteTask}
-        title="Delete Task"
-        message="Are you sure you want to delete this task?"
-        confirmText="Delete Task"
-        variant="danger"
-        isLoading={deleteTaskMutation.isPending}
-      />
 
       <DeleteEventModal
         isOpen={!!deleteEventTarget}

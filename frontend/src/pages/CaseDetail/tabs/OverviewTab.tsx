@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import {
   Users,
@@ -13,11 +13,8 @@ import {
   ChevronDown,
   CheckSquare,
   Clock,
-  Eye,
-  EyeOff,
   Zap,
   MapPin,
-  LayoutGrid,
 } from 'lucide-react';
 import {
   EditableText,
@@ -30,17 +27,15 @@ import {
   DraggablePersonChip,
   UnnestDropZone,
 } from '../../../components/common';
-import { TaskItem, TaskItemOverlay } from '../../../components/tasks';
+import { TasksComponent } from '../../../components/tasks';
 import { useEntityModal } from '../../../components/modals';
-import { useDragContext } from '../../../context/DragContext';
 import {
   createPerson,
   assignPersonToCase,
   updateCaseAssignment,
-  updateTask,
   updateEvent,
 } from '../../../api';
-import type { Case, Constants, Task, Event, CasePerson, Person } from '../../../types';
+import type { Case, Constants, Event, CasePerson, Person } from '../../../types';
 import { ProceedingsSection } from '../components';
 import { getPrimaryPhone, getPrimaryEmail, parseLocalDate } from '../utils';
 import { inferSideFromRole, inferPersonTypeFromRole } from '../../../utils';
@@ -181,15 +176,11 @@ function SectionHeader({
 export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProps) {
   const queryClient = useQueryClient();
   const { openPersonModal } = useEntityModal();
-  const { startDrag, endDrag } = useDragContext();
-
   // UI State
   const [showAddDefendant, setShowAddDefendant] = useState(false);
   const [showAddMediator, setShowAddMediator] = useState(false);
-  const [taskView, setTaskView] = useState<'urgency' | 'date'>('urgency');
   const [showDoneTasks, setShowDoneTasks] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
   const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
 
@@ -296,27 +287,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
       return true;
     }),
     [caseData.persons]);
-
-  // Tasks filtering
-  const tasks = caseData.tasks || [];
-  const activeTasks = useMemo(() =>
-    tasks.filter(t => t.status !== 'Done'), [tasks]);
-  const doneTasks = useMemo(() =>
-    tasks.filter(t => t.status === 'Done')
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [tasks]);
-
-  const sortedActiveTasks = useMemo(() => {
-    if (taskView === 'urgency') {
-      return [...activeTasks].sort((a, b) => b.urgency - a.urgency);
-    }
-    return [...activeTasks].sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0;
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-    });
-  }, [activeTasks, taskView]);
 
   // Events filtering
   const events = caseData.events || [];
@@ -519,37 +489,22 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
 
-  const updateTaskMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Task> }) => updateTask(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
-  });
-
   const updateEventMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) => updateEvent(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
 
-  const displayedTasks = showDoneTasks ? doneTasks : sortedActiveTasks;
-
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const activeId = event.active.id.toString();
 
-    // Check if this is a person drag
+    // Handle person drag
     if (activeId.startsWith('person-')) {
       const personData = event.active.data.current?.person as CasePerson | undefined;
       if (personData) {
         setActivePerson(personData);
       }
-      return;
     }
-
-    // Otherwise it's a task drag
-    const task = displayedTasks.find((t) => t.id === event.active.id);
-    if (task) {
-      setActiveTask(task);
-      startDrag(task, 'case-overview');
-    }
-  }, [displayedTasks, startDrag]);
+  }, []);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -597,23 +552,8 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
           });
         }
       }
-      return;
     }
-
-    // Handle task drag end
-    setActiveTask(null);
-    endDrag();
-
-    if (!over) return;
-
-    const task = displayedTasks.find((t) => t.id === active.id);
-    if (!task) return;
-
-    const overId = over.id.toString();
-    if (overId === 'drop-done') {
-      updateTaskMutation.mutate({ id: task.id, data: { status: 'Done' } });
-    }
-  }, [displayedTasks, updateTaskMutation, endDrag, updateNestingMutation]);
+  }, [updateNestingMutation]);
 
   return (
     <div className="space-y-4">
@@ -940,65 +880,19 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
         {/* Tasks */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
           <div className="flex items-center justify-between mb-3">
-            <SectionHeader icon={CheckSquare} title="Tasks" count={showDoneTasks ? doneTasks.length : activeTasks.length} />
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-700 rounded-md p-0.5">
-                <button
-                  onClick={() => setTaskView('urgency')}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    taskView === 'urgency'
-                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-                  }`}
-                >
-                  <LayoutGrid className="w-3 h-3" />
-                  Urgency
-                </button>
-                <button
-                  onClick={() => setTaskView('date')}
-                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    taskView === 'date'
-                      ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-                  }`}
-                >
-                  <Calendar className="w-3 h-3" />
-                  Date
-                </button>
-              </div>
-              <button
-                onClick={() => setShowDoneTasks(!showDoneTasks)}
-                className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${showDoneTasks ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                {showDoneTasks ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                Done
-              </button>
-            </div>
+            <SectionHeader icon={CheckSquare} title="Tasks" />
           </div>
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="space-y-1">
-              {displayedTasks.map(task => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  showCase={false}
-                  onMarkDone={(taskId) => updateTaskMutation.mutate({ id: taskId, data: { status: 'Done' } })}
-                  onDateChange={(taskId, date) => updateTaskMutation.mutate({ id: taskId, data: { due_date: date || undefined } })}
-                  onPriorityChange={(taskId, priority) => updateTaskMutation.mutate({ id: taskId, data: { urgency: priority } })}
-                />
-              ))}
-              {displayedTasks.length === 0 && (
-                <p className="text-xs text-slate-400 italic text-center py-4">
-                  {showDoneTasks ? 'No completed tasks' : 'No active tasks'}
-                </p>
-              )}
-            </div>
-
-            {/* Drag overlay */}
-            <DragOverlay dropAnimation={null}>
-              {activeTask && <TaskItemOverlay task={activeTask} />}
-            </DragOverlay>
-          </DndContext>
+          <TasksComponent
+            caseId={caseId}
+            showControls
+            hideSearch
+            showDetailSheet={false}
+            compact
+            defaultGroupBy="urgency"
+            showCase={false}
+            showDone={showDoneTasks}
+            onShowDoneChange={setShowDoneTasks}
+          />
         </div>
 
         {/* Events */}

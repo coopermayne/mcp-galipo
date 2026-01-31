@@ -13,7 +13,9 @@
  *   <TasksComponent caseId={123} showControls showDetailSheet />
  */
 import { useState, useCallback, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronRight } from 'lucide-react';
 import { TasksControls, type GroupMode } from './TasksControls';
 import { TaskFeed } from './TaskFeed';
 import { TaskDetailSheet, type SheetFocusMode } from './TaskDetailSheet';
@@ -30,9 +32,19 @@ interface TasksComponentProps {
   /** Fetch all tasks */
   showAllTasks?: boolean;
 
+  // Header options
+  /** Optional title to display in header */
+  title?: string;
+  /** Optional "View all" link URL */
+  viewAllLink?: string;
+
   // Feature flags
   /** Show search, View dropdown, Done toggle */
   showControls?: boolean;
+  /** Hide search when showControls is true */
+  hideSearch?: boolean;
+  /** Hide group by dropdown when showControls is true */
+  hideGroupBy?: boolean;
   /** Click task opens detail sheet */
   showDetailSheet?: boolean;
   /** Enable inline task creation */
@@ -45,6 +57,14 @@ interface TasksComponentProps {
   defaultGroupBy?: GroupMode;
   /** Show case name on each task row */
   showCase?: boolean;
+  /** Maximum number of tasks to display (for preview/compact views) */
+  maxItems?: number;
+  /** Compact mode - tighter spacing, smaller empty state */
+  compact?: boolean;
+  /** Controlled show done state (external control) */
+  showDone?: boolean;
+  /** Callback when show done changes (for controlled mode) */
+  onShowDoneChange?: (showDone: boolean) => void;
 
   // Callbacks (for parent notification, optional)
   onTaskCreated?: (task: Task) => void;
@@ -57,8 +77,14 @@ export function TasksComponent({
   caseId,
   showAllTasks = false,
 
+  // Header
+  title,
+  viewAllLink,
+
   // Features
   showControls = true,
+  hideSearch = false,
+  hideGroupBy = false,
   showDetailSheet = true,
   enableInlineCreate = false,
   enableDragDrop = false,
@@ -66,6 +92,10 @@ export function TasksComponent({
   // Display
   defaultGroupBy = 'date',
   showCase = true,
+  maxItems,
+  compact = false,
+  showDone: controlledShowDone,
+  onShowDoneChange,
 
   // Callbacks
   onTaskCreated,
@@ -75,8 +105,15 @@ export function TasksComponent({
   // Local UI state
   const [groupBy, setGroupBy] = useState<GroupMode>(defaultGroupBy);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showDoneTasks, setShowDoneTasks] = useState(false);
+  const [internalShowDone, setInternalShowDone] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Support both controlled and uncontrolled modes for showDone
+  const isControlled = controlledShowDone !== undefined;
+  const showDoneTasks = isControlled ? controlledShowDone : internalShowDone;
+  const setShowDoneTasks = isControlled
+    ? (value: boolean) => onShowDoneChange?.(value)
+    : setInternalShowDone;
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
   const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
   const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
@@ -315,6 +352,23 @@ export function TasksComponent({
 
   return (
     <>
+      {/* Header */}
+      {(title || viewAllLink) && (
+        <div className="flex items-center justify-between mb-3">
+          {title && (
+            <h2 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+          )}
+          {viewAllLink && (
+            <Link
+              to={viewAllLink}
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
+            >
+              View all <ChevronRight className="w-4 h-4" />
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Controls */}
       {showControls && (
         <TasksControls
@@ -324,6 +378,8 @@ export function TasksComponent({
           onSearchChange={setSearchQuery}
           showDone={showDoneTasks}
           onShowDoneChange={setShowDoneTasks}
+          hideSearch={hideSearch}
+          hideGroupBy={hideGroupBy}
         />
       )}
 
@@ -334,6 +390,8 @@ export function TasksComponent({
           showCase={showCase}
           sortable={enableDragDrop}
           groupBy={groupBy}
+          maxItems={maxItems}
+          compact={compact}
           emptyMessage={showDoneTasks ? 'No completed tasks' : 'No active tasks'}
           onDelete={handleDeleteTask}
           onMarkDone={handleMarkDone}
@@ -343,9 +401,9 @@ export function TasksComponent({
           onCommentClick={handleCommentClick}
           onEventLinkClick={handleEventLinkClick}
           onPriorityChange={handlePriorityChange}
-          enableInlineEdit={true}
+          enableInlineEdit={!compact}
           onInlineEditSave={handleInlineEditSave}
-          enableInlineCreate={enableInlineCreate}
+          enableInlineCreate={enableInlineCreate && !compact}
           onInlineCreateSave={handleInlineCreateSave}
         />
 
