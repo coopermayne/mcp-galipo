@@ -26,8 +26,6 @@ interface EventsComponentProps {
   caseId?: number;
   /** Fetch all events */
   showAllEvents?: boolean;
-  /** Pass events directly instead of fetching */
-  events?: Event[];
 
   // Header options
   /** Optional title to display in header */
@@ -68,7 +66,6 @@ export function EventsComponent({
   // Data
   caseId,
   showAllEvents = false,
-  events: passedEvents,
 
   // Header
   title,
@@ -108,7 +105,7 @@ export function EventsComponent({
   // Event actions hook
   const { create, update, delete: deleteEvent, toggleStar } = useEventActions({ invalidateKeys });
 
-  // Fetch events (only if not passed directly)
+  // Fetch events
   const { data: fetchedData, isLoading } = useQuery({
     queryKey: caseId
       ? ['events', { case_id: caseId, showPast }]
@@ -120,46 +117,22 @@ export function EventsComponent({
         pastDays: showPast ? pastDays : undefined,
         caseId: caseId,
       }),
-    enabled: !passedEvents && (showAllEvents || !!caseId),
+    enabled: showAllEvents || !!caseId,
   });
 
-  // Filter passed events by past/future if we got them directly
-  const filteredByTime = useMemo(() => {
-    const rawEvents = passedEvents || fetchedData?.events || [];
-
-    if (!passedEvents) return rawEvents; // Already filtered by API
-
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    if (showPast) {
-      return rawEvents
-        .filter((e) => {
-          const [year, month, day] = e.date.split('-').map(Number);
-          return new Date(year, month - 1, day) < now;
-        })
-        .sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
-    }
-
-    return rawEvents
-      .filter((e) => {
-        const [year, month, day] = e.date.split('-').map(Number);
-        return new Date(year, month - 1, day) >= now;
-      })
-      .sort((a, b) => a.date.localeCompare(b.date)); // Earliest first
-  }, [passedEvents, fetchedData?.events, showPast]);
+  const allEvents = fetchedData?.events || [];
 
   // Filter by search query
   const events = useMemo(() => {
-    if (!searchQuery.trim()) return filteredByTime;
+    if (!searchQuery.trim()) return allEvents;
     const query = searchQuery.toLowerCase();
-    return filteredByTime.filter(
+    return allEvents.filter(
       (event) =>
         event.description.toLowerCase().includes(query) ||
         event.case_name?.toLowerCase().includes(query) ||
         event.short_name?.toLowerCase().includes(query)
     );
-  }, [filteredByTime, searchQuery]);
+  }, [allEvents, searchQuery]);
 
   // Handle star toggle
   const handleToggleStar = useCallback(
