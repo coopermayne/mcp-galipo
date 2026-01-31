@@ -180,7 +180,7 @@ export function CaseDetail() {
       )}
       {activeTab === 'tasks' && (
         <PageContent>
-          <TasksTab caseId={caseId} tasks={caseData.tasks || []} constants={constants} />
+          <TasksTab caseId={caseId} />
         </PageContent>
       )}
       {activeTab === 'events' && (
