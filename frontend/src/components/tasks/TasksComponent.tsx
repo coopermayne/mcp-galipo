@@ -15,7 +15,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, CheckSquare } from 'lucide-react';
 import { TasksControls, type GroupMode } from './TasksControls';
 import { TaskFeed } from './TaskFeed';
 import { TaskDetailSheet, type SheetFocusMode } from './TaskDetailSheet';
@@ -356,7 +356,11 @@ export function TasksComponent({
       {(title || viewAllLink) && (
         <div className="flex items-center justify-between mb-3">
           {title && (
-            <h2 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+            <h2 className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+              <CheckSquare className="w-4 h-4 text-slate-400" />
+              <span className="font-semibold">{title}</span>
+              <span className="font-normal text-slate-400">({tasks.length})</span>
+            </h2>
           )}
           {viewAllLink && (
             <Link
