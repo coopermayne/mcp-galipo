@@ -24,7 +24,7 @@ def add_event(case_id: int, date: str, description: str,
         return serialize_row(dict(cur.fetchone()))
 
 
-def get_upcoming_events(limit: int = None, offset: int = None, include_past: bool = False, past_days: int = 14) -> dict:
+def get_upcoming_events(limit: int = None, offset: int = None, include_past: bool = False, past_days: int = 14, case_id: int = None) -> dict:
     """Get events (hearings, depositions, filing deadlines, etc.).
 
     Args:
@@ -32,6 +32,7 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         offset: Pagination offset
         include_past: If True, return past events instead of upcoming
         past_days: When include_past is True, how many days back to include (default 14)
+        case_id: Filter to specific case
     """
     params = []
 
@@ -43,6 +44,10 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         # Upcoming events: today and future
         conditions = ["e.date >= CURRENT_DATE"]
         order = "ORDER BY e.date ASC"
+
+    if case_id:
+        conditions.append("e.case_id = %s")
+        params.append(case_id)
 
     where_clause = f"WHERE {' AND '.join(conditions)}"
 

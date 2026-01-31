@@ -185,7 +185,7 @@ export function CaseDetail() {
       )}
       {activeTab === 'events' && (
         <PageContent>
-          <EventsTab caseId={caseId} events={caseData.events || []} />
+          <EventsTab caseId={caseId} />
         </PageContent>
       )}
       {activeTab === 'notes' && (
