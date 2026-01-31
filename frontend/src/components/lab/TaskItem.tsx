@@ -13,6 +13,7 @@ import DatePicker from 'react-datepicker';
 import { format, parse, isValid, getYear } from 'date-fns';
 import {
   Calendar,
+  Flag,
   GripVertical,
   Pencil,
   MessageSquare,
@@ -31,6 +32,14 @@ const PRIORITY_COLORS = {
   2: 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20',
   1: 'border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50',
 } as const;
+
+// Priority options for the picker
+const PRIORITY_OPTIONS = [
+  { value: 4, label: 'Urgent', color: 'text-red-500' },
+  { value: 3, label: 'High', color: 'text-orange-500' },
+  { value: 2, label: 'Medium', color: 'text-blue-500' },
+  { value: 1, label: 'Low', color: 'text-slate-400' },
+] as const;
 
 export interface TaskItemProps {
   task: Task;
@@ -56,6 +65,8 @@ export interface TaskItemProps {
   onCommentClick?: (task: Task) => void;
   /** Callback when event link button is clicked */
   onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
+  /** Callback when priority changes */
+  onPriorityChange?: (taskId: number, priority: number) => void;
   /** Callback when delete is clicked */
   onDelete?: (taskId: number) => void;
 }
@@ -109,11 +120,13 @@ export function TaskItem({
   onDateChange,
   onCommentClick,
   onEventLinkClick,
+  onPriorityChange,
   onDelete,
 }: TaskItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
 
   // Parse the date for DatePicker
   const selectedDate = task.due_date
@@ -391,6 +404,42 @@ export function TaskItem({
                   : 'Add event'}
               </span>
             </button>
+
+            {/* Priority picker */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setIsPriorityOpen(!isPriorityOpen)}
+                className={`flex items-center gap-1 text-xs hover:underline ${
+                  PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.color || 'text-slate-400'
+                }`}
+                title="Set priority"
+              >
+                <Flag className="w-3 h-3 flex-shrink-0" />
+                <span>{PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.label || 'Low'}</span>
+              </button>
+              {isPriorityOpen && (
+                <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-50 min-w-[100px]">
+                  {PRIORITY_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        if (onPriorityChange) onPriorityChange(task.id, option.value);
+                        setIsPriorityOpen(false);
+                      }}
+                      className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-600 ${option.color}`}
+                    >
+                      <Flag className="w-3 h-3" />
+                      <span>{option.label}</span>
+                      {option.value === task.urgency && (
+                        <span className="ml-auto text-primary-500">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
         </div>
       </div>
 
