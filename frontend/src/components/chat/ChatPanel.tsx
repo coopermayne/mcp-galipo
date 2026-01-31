@@ -7,7 +7,7 @@ import { ChatHomeScreen } from './ChatHomeScreen';
 import { ChatSuggestions } from './ChatSuggestions';
 import { streamChatMessage, getChatInfo } from '../../api/chat';
 import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult, ChatMode, ChatPreset } from '../../types';
-import { CHAT_MODES, getModeColorClasses, type DashboardPreset, type PresetId } from '../../config/chatModes';
+import { CHAT_MODES, getModeColorClasses, MODE_TO_CASE_PRESET, type DashboardPreset, type PresetId, type CasePresetId } from '../../config/chatModes';
 
 // Map mutation tools to the query keys they affect
 const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
@@ -243,7 +243,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     }
   }, [queryClient]);
 
-  const handleSend = async (content: string, isRetry = false, presetOverride?: PresetId) => {
+  const handleSend = async (content: string, isRetry = false, presetOverride?: PresetId | CasePresetId) => {
     // Abort any existing stream
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -372,7 +372,19 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
 
   const handleSelectMode = (selectedMode: ChatMode) => {
     setMode(selectedMode);
-    // Focus input after selecting mode
+
+    // For case context with specific modes, send case preset immediately
+    if (caseContext && selectedMode !== 'full') {
+      const casePreset = MODE_TO_CASE_PRESET[selectedMode];
+      if (casePreset) {
+        // Send a greeting message with the case preset
+        const modeConfig = CHAT_MODES[selectedMode];
+        handleSend(`Help me with ${modeConfig.label.toLowerCase()}`, false, casePreset);
+        return;
+      }
+    }
+
+    // Focus input after selecting mode (for full mode or no case context)
     setTimeout(() => {
       inputRef.current?.focus();
     }, 100);

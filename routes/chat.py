@@ -275,7 +275,7 @@ def register_chat_routes(mcp):
         preset_data = None
         preset_prompt = None
         if preset:
-            result = get_preset_context(preset)
+            result = get_preset_context(preset, case_context)
             if result:
                 preset_data, preset_prompt = result
                 _logger.info(f"Preset '{preset}' loaded with data")
