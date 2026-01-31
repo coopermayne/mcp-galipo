@@ -12,13 +12,12 @@ import { format, parse, isValid, getYear } from 'date-fns';
 import {
   Star,
   Calendar,
-  Clock,
   Inbox,
   Pencil,
-  Trash2,
   ListTodo,
   MoreHorizontal,
 } from 'lucide-react';
+import { TimePicker } from '../common';
 import type { Event } from '../../types';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -30,6 +29,8 @@ export interface EventItemProps {
   onToggleStar?: (event: Event) => void;
   /** Callback when date changes */
   onDateChange?: (event: Event, newDate: string) => void;
+  /** Callback when time changes (null to clear) */
+  onTimeChange?: (event: Event, newTime: string | null) => void;
   /** Callback when event row is clicked */
   onClick?: (event: Event) => void;
   /** Callback when edit action is clicked */
@@ -73,25 +74,15 @@ function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean
   }
 }
 
-/**
- * Format time for display (12-hour format)
- */
-function formatTime(timeStr: string): string {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-}
-
 export function EventItem({
   event,
   showCase = true,
   onToggleStar,
   onDateChange,
+  onTimeChange,
   onClick,
   onEdit,
   onCreateTask,
-  onDelete,
   isHighlighted = false,
   flush = false,
 }: EventItemProps) {
@@ -113,6 +104,12 @@ export function EventItem({
       onDateChange(event, newDateStr);
     }
     setIsDatePickerOpen(false);
+  };
+
+  const handleTimeChange = (newTime: string | null) => {
+    if (onTimeChange) {
+      onTimeChange(event, newTime);
+    }
   };
 
   // Custom header for the date picker (matching TaskItem)
@@ -216,13 +213,6 @@ export function EventItem({
     }
   };
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onDelete) {
-      onDelete(event);
-    }
-  };
-
   return (
     <div
       className={`
@@ -314,12 +304,15 @@ export function EventItem({
             />
           </div>
 
-          {/* Time (if set) */}
-          {event.time && (
-            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-              <Clock className="w-3 h-3 flex-shrink-0" />
-              <span>{formatTime(event.time)}</span>
-            </span>
+          {/* Time (editable with type-to-filter picker) */}
+          {onTimeChange && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <TimePicker
+                value={event.time || null}
+                onChange={handleTimeChange}
+                placeholder="Add time"
+              />
+            </div>
           )}
 
           {/* Task count (if any) */}
@@ -356,30 +349,22 @@ export function EventItem({
             <ListTodo className="w-4 h-4" />
           </button>
         )}
-        {onDelete && (
-          <button
-            onClick={handleDeleteClick}
-            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
-      {/* Mobile: show actions as a dropdown trigger */}
-      <div className="md:hidden flex items-start pt-0.5">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            // On mobile, show all actions - for now just delete
-            if (onDelete) onDelete(event);
-          }}
-          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
-      </div>
+      {/* Mobile: show edit action */}
+      {onEdit && (
+        <div className="md:hidden flex items-start pt-0.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(event);
+            }}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

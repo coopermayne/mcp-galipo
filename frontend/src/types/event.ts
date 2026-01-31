@@ -31,7 +31,7 @@ export interface CreateEventInput {
 export interface UpdateEventInput {
   date?: string;
   description?: string;
-  time?: string;
+  time?: string | null;
   location?: string;
   document_link?: string;
   calculation_note?: string;

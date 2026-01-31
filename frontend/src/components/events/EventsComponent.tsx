@@ -183,6 +183,17 @@ export function EventsComponent({
     [update, onEventUpdated]
   );
 
+  // Handle time change
+  const handleTimeChange = useCallback(
+    async (event: Event, newTime: string | null) => {
+      const result = await update(event.id, { time: newTime });
+      if (result?.event) {
+        onEventUpdated?.(result.event);
+      }
+    },
+    [update, onEventUpdated]
+  );
+
   // Handle create task from event
   const handleCreateTask = useCallback((event: Event) => {
     setTaskFromEvent(event);
@@ -246,6 +257,7 @@ export function EventsComponent({
         emptyMessage={showPast ? 'No past events' : 'No upcoming events'}
         onToggleStar={handleToggleStar}
         onDateChange={handleDateChange}
+        onTimeChange={handleTimeChange}
         onCreateTask={handleCreateTask}
         onDelete={handleDelete}
       />

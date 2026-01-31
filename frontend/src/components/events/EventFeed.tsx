@@ -207,6 +207,8 @@ interface EventFeedProps {
   onToggleStar?: (event: Event) => void;
   /** Callback when date changes */
   onDateChange?: (event: Event, newDate: string) => void;
+  /** Callback when time changes (null to clear) */
+  onTimeChange?: (event: Event, newTime: string | null) => void;
   /** Callback when event row is clicked */
   onClick?: (event: Event) => void;
   /** Callback when edit action is clicked */
@@ -231,6 +233,7 @@ export function EventFeed({
   emptyMessage = 'No events',
   onToggleStar,
   onDateChange,
+  onTimeChange,
   onClick,
   onEdit,
   onCreateTask,
@@ -337,6 +340,7 @@ export function EventFeed({
           showCase={effectiveShowCase}
           onToggleStar={onToggleStar}
           onDateChange={onDateChange}
+          onTimeChange={onTimeChange}
           onClick={onClick}
           onEdit={onEdit}
           onCreateTask={onCreateTask}
