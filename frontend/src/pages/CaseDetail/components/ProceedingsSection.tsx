@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Star, ExternalLink, X } from 'lucide-react';
+import { Plus, Star, ExternalLink, X, Scale } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
 import { JurisdictionAutocomplete, AddPersonDropdown } from '../../../components/common';
 import {
@@ -35,6 +35,7 @@ export function ProceedingsSection({
 
   const judgeRoleOptions = ['Judge', 'Magistrate Judge', 'Presiding', 'Panel'];
 
+  // Create proceeding with full form (for empty state)
   const createMutation = useMutation({
     mutationFn: (data: {
       case_number: string;
@@ -52,6 +53,18 @@ export function ProceedingsSection({
         notes: '',
       });
       setShowAdd(false);
+    },
+  });
+
+  // Create blank proceeding and open modal (for adding when proceedings exist)
+  const createAndOpenMutation = useMutation({
+    mutationFn: () => createProceeding(caseId, { case_number: 'New Proceeding' }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      // Open the modal for the newly created proceeding
+      if (data?.proceeding?.id) {
+        openProceedingModal(data.proceeding.id, { caseId });
+      }
     },
   });
 
@@ -153,48 +166,52 @@ export function ProceedingsSection({
     updateMutation.mutate({ id, data: { is_primary: true } });
   };
 
-  // Sort proceedings with primary first
-  const sortedProceedings = [...proceedings].sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
+  // Separate primary and other proceedings
+  const primaryProceeding = proceedings.find((p) => p.is_primary);
+  const otherProceedings = proceedings.filter((p) => !p.is_primary);
+
+  const handleAddProceeding = () => {
+    createAndOpenMutation.mutate();
+  };
 
   return (
     <div className="space-y-2">
-      {/* Proceedings list */}
-      {sortedProceedings.map((p) => (
-        <div key={p.id} className="group">
+      {/* Section header */}
+      <div className="flex items-center gap-2">
+        <Scale className="w-4 h-4 text-slate-400" />
+        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Proceedings</h4>
+        {proceedings.length > 0 && (
+          <span className="text-xs text-slate-400">({proceedings.length})</span>
+        )}
+      </div>
+
+      {/* Primary proceeding - full display */}
+      {primaryProceeding && (
+        <div className="group">
           {/* Case number row */}
-          <div className="flex items-center gap-2 text-sm">
-            {p.is_primary ? (
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-            ) : (
-              <button
-                onClick={() => handleSetPrimary(p.id)}
-                title="Set as primary"
-                className="w-3.5 h-3.5 text-slate-300 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              >
-                <Star className="w-3.5 h-3.5" />
-              </button>
-            )}
+          <div className="flex items-center gap-1.5 text-sm">
+            <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
             <span
-              className="font-mono font-medium text-slate-800 dark:text-slate-200 cursor-pointer hover:underline"
-              onClick={() => openProceedingModal(p.id, { caseId })}
+              className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200 cursor-pointer hover:underline"
+              onClick={() => openProceedingModal(primaryProceeding.id, { caseId })}
             >
-              {p.case_number}
+              {primaryProceeding.case_number}
             </span>
-            {p.jurisdiction_name && (
+            {primaryProceeding.jurisdiction_name && (
               <>
-                <span className="text-slate-400">·</span>
-                <span className="text-slate-500 dark:text-slate-400 text-xs">
-                  {p.jurisdiction_name}
+                <span className="text-slate-300">·</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  {primaryProceeding.jurisdiction_name}
                 </span>
-                {p.local_rules_link && (
+                {primaryProceeding.local_rules_link && (
                   <a
-                    href={p.local_rules_link}
+                    href={primaryProceeding.local_rules_link}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary-500 hover:text-primary-600"
                     title="View local rules"
                   >
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
               </>
@@ -202,20 +219,20 @@ export function ProceedingsSection({
           </div>
 
           {/* Judges row - indented under case number */}
-          {p.judges && p.judges.length > 0 && (
-            <div className="ml-5 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              {p.judges.map((judge: ProceedingJudge, idx: number) => (
-                <span key={`${judge.person_id}-${judge.role}`} className="text-xs text-slate-500 dark:text-slate-400 group/judge inline-flex items-center gap-0.5">
-                  {idx > 0 && <span className="text-slate-300 mr-1">·</span>}
+          {primaryProceeding.judges && primaryProceeding.judges.length > 0 && (
+            <div className="ml-5 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {primaryProceeding.judges.map((judge: ProceedingJudge, idx: number) => (
+                <span key={`${judge.person_id}-${judge.role}`} className="text-sm text-slate-600 dark:text-slate-400 group/judge inline-flex items-center gap-1">
+                  {idx > 0 && <span className="text-slate-300">·</span>}
                   <span
                     className="cursor-pointer hover:underline"
                     onClick={() => openPersonModal(judge.person_id, { caseId })}
                   >
                     {judge.name}
                   </span>
-                  <span className="text-slate-400">({judge.role})</span>
+                  <span className="text-slate-400 text-xs">({judge.role})</span>
                   <button
-                    onClick={() => handleRemoveJudge(p.id, judge.person_id)}
+                    onClick={() => handleRemoveJudge(primaryProceeding.id, judge.person_id)}
                     className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-slate-400 hover:text-red-400 transition-opacity"
                     title="Remove judge"
                   >
@@ -226,54 +243,88 @@ export function ProceedingsSection({
               {/* Add judge button - inline */}
               <AddPersonDropdown
                 roleOptions={judgeRoleOptions}
-                onAssign={(person, role) => handleSelectJudge(p.id, person, role)}
-                onCreate={(name, role) => handleCreateJudge(p.id, name, role)}
-                excludePersonIds={p.judges?.map((j) => j.person_id) || []}
+                onAssign={(person, role) => handleSelectJudge(primaryProceeding.id, person, role)}
+                onCreate={(name, role) => handleCreateJudge(primaryProceeding.id, name, role)}
+                excludePersonIds={primaryProceeding.judges?.map((j) => j.person_id) || []}
                 getPersonTypes={() => ['judge']}
                 getPlaceholder={() => 'Search judges...'}
                 compact
+                label="Judge"
               />
             </div>
           )}
 
           {/* No judges yet - show add button */}
-          {(!p.judges || p.judges.length === 0) && (
-            <div className="ml-5 mt-0.5">
+          {(!primaryProceeding.judges || primaryProceeding.judges.length === 0) && (
+            <div className="ml-5 mt-1">
               <AddPersonDropdown
                 roleOptions={judgeRoleOptions}
-                onAssign={(person, role) => handleSelectJudge(p.id, person, role)}
-                onCreate={(name, role) => handleCreateJudge(p.id, name, role)}
+                onAssign={(person, role) => handleSelectJudge(primaryProceeding.id, person, role)}
+                onCreate={(name, role) => handleCreateJudge(primaryProceeding.id, name, role)}
                 excludePersonIds={[]}
                 getPersonTypes={() => ['judge']}
                 getPlaceholder={() => 'Search judges...'}
                 compact
-                label="Add judge"
+                label="Judge"
               />
             </div>
           )}
 
           {/* Notes if any */}
-          {p.notes && (
-            <p className="ml-5 mt-0.5 text-xs text-slate-400 italic">{p.notes}</p>
+          {primaryProceeding.notes && (
+            <p className="ml-5 mt-1 text-sm text-slate-400 italic">{primaryProceeding.notes}</p>
           )}
         </div>
-      ))}
+      )}
 
-      {/* Empty state or Add button */}
-      {proceedings.length === 0 && !showAdd ? (
+      {/* Other proceedings - compact display with add button */}
+      {otherProceedings.length > 0 && (
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <span className="text-slate-400">Other:</span>
+          {otherProceedings.map((p, idx) => (
+            <span key={p.id} className="inline-flex items-center">
+              {idx > 0 && <span className="text-slate-300 mx-1">·</span>}
+              <span
+                className="font-mono cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-300"
+                onClick={() => openProceedingModal(p.id, { caseId })}
+              >
+                {p.case_number}
+              </span>
+            </span>
+          ))}
+          <button
+            onClick={handleAddProceeding}
+            disabled={createAndOpenMutation.isPending}
+            className="text-primary-600 hover:text-primary-700 disabled:opacity-50"
+            title="Add proceeding"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Add button when only primary exists (no others) */}
+      {primaryProceeding && otherProceedings.length === 0 && (
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2 text-sm">
+          <span className="text-slate-400">Other:</span>
+          <button
+            onClick={handleAddProceeding}
+            disabled={createAndOpenMutation.isPending}
+            className="text-primary-600 hover:text-primary-700 disabled:opacity-50 inline-flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="text-xs">Add</span>
+          </button>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {proceedings.length === 0 && !showAdd && (
         <button
           onClick={() => setShowAdd(true)}
-          className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
+          className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
         >
-          <Plus className="w-3 h-3" />
-          Add proceeding
-        </button>
-      ) : proceedings.length > 0 && !showAdd && (
-        <button
-          onClick={() => setShowAdd(true)}
-          className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <Plus className="w-3 h-3" />
+          <Plus className="w-3.5 h-3.5" />
           Add proceeding
         </button>
       )}
