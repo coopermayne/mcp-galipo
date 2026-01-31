@@ -106,6 +106,12 @@ export function Lab() {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }, [queryClient]);
 
+  const handlePriorityChange = useCallback(async (taskId: number, priority: number) => {
+    await updateTask(taskId, { urgency: priority });
+    queryClient.invalidateQueries({ queryKey: ['lab-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }, [queryClient]);
+
   const handleCommentClick = (task: Task) => {
     setSheetFocusMode('comment');
     setSelectedTask(task);
@@ -228,6 +234,7 @@ export function Lab() {
             onDateChange={handleDateChange}
             onCommentClick={handleCommentClick}
             onEventLinkClick={handleEventLinkClick}
+            onPriorityChange={handlePriorityChange}
             onAddTask={handleAddTask}
             enableInlineEdit={true}
             onInlineEditSave={handleInlineEditSave}

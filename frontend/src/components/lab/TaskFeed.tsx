@@ -49,6 +49,8 @@ interface TaskFeedProps {
   onCommentClick?: (task: Task) => void;
   /** Callback when event link button is clicked */
   onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
+  /** Callback when priority changes */
+  onPriorityChange?: (taskId: number, priority: number) => void;
   /** Callback when tasks are reordered via drag-and-drop */
   onReorder?: (taskId: number, newIndex: number, tasks: Task[]) => void;
   /** Callback when "Add task" is clicked for a section */
@@ -301,6 +303,7 @@ export function TaskFeed({
   onDateChange,
   onCommentClick,
   onEventLinkClick,
+  onPriorityChange,
   onReorder,
   onAddTask,
   onInlineEditSave,
@@ -501,6 +504,7 @@ export function TaskFeed({
             onDateChange={onDateChange}
             onCommentClick={onCommentClick}
             onEventLinkClick={onEventLinkClick}
+            onPriorityChange={onPriorityChange}
           />
         );
       })}
