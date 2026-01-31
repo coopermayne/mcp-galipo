@@ -478,8 +478,10 @@ export function TaskFeed({
             <TaskInlineEdit
               key={task.id}
               task={task}
+              showCase={effectiveShowCase}
               onSave={handleInlineEditSave}
               onCancel={handleInlineEditCancel}
+              onEventLinkClick={onEventLinkClick}
             />
           );
         }
