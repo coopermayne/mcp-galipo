@@ -21,6 +21,7 @@ import {
   Paperclip,
   Check,
   Link2,
+  Trash2,
 } from 'lucide-react';
 import type { Task } from '../../types';
 import { EventLinkPopover } from './EventLinkPopover';
@@ -46,6 +47,7 @@ interface TaskDetailSheetProps {
   onMarkDone?: (taskId: number) => void;
   onUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   onLinkEvent?: (taskId: number, eventId: number | null) => void;
+  onDelete?: (taskId: number) => void;
   onPrevTask?: () => void;
   onNextTask?: () => void;
   hasPrevTask?: boolean;
@@ -92,6 +94,7 @@ export function TaskDetailSheet({
   onMarkDone,
   onUpdate,
   onLinkEvent,
+  onDelete,
   onPrevTask,
   onNextTask,
   hasPrevTask = false,
@@ -102,11 +105,13 @@ export function TaskDetailSheet({
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [priorityPickerPos, setPriorityPickerPos] = useState({ top: 0, left: 0 });
   const [showEventLinkPopover, setShowEventLinkPopover] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const priorityButtonRef = useRef<HTMLButtonElement>(null);
   const eventLinkButtonRef = useRef<HTMLButtonElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   // Sync title when task changes
   useEffect(() => {
@@ -146,6 +151,7 @@ export function TaskDetailSheet({
   useEffect(() => {
     setShowPriorityPicker(false);
     setShowEventLinkPopover(false);
+    setShowMoreMenu(false);
   }, [task?.id]);
 
   // Prevent body scroll when open
@@ -168,6 +174,8 @@ export function TaskDetailSheet({
           setShowPriorityPicker(false);
         } else if (showEventLinkPopover) {
           setShowEventLinkPopover(false);
+        } else if (showMoreMenu) {
+          setShowMoreMenu(false);
         } else {
           onClose();
         }
@@ -175,7 +183,7 @@ export function TaskDetailSheet({
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose, showPriorityPicker, showEventLinkPopover]);
+  }, [isOpen, onClose, showPriorityPicker, showEventLinkPopover, showMoreMenu]);
 
   if (!isOpen || !task) return null;
 
@@ -281,9 +289,42 @@ export function TaskDetailSheet({
             >
               <ChevronDown className="w-5 h-5" />
             </button>
-            <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
+            <div className="relative">
+              <button
+                ref={moreButtonRef}
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              {/* More menu dropdown with backdrop */}
+              {showMoreMenu && (
+                <>
+                  {/* Invisible backdrop to close menu */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowMoreMenu(false)}
+                  />
+                  <div
+                    className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[140px] z-50"
+                  >
+                    <button
+                      onClick={() => {
+                        if (onDelete && task) {
+                          onDelete(task.id);
+                          onClose();
+                        }
+                        setShowMoreMenu(false);
+                      }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="text-sm">Delete task</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -448,18 +489,30 @@ export function TaskDetailSheet({
                   </button>
                 }
               />
-              {/* Event Link button */}
-              <button
-                ref={eventLinkButtonRef}
-                onClick={() => setShowEventLinkPopover(true)}
-                className="flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-l border-slate-100 dark:border-slate-800"
-                title={task.event_id && task.event_description ? task.event_description : 'Add event'}
-              >
-                <Link2 className={`w-5 h-5 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
-                <span className={`text-sm ${task.event_id ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400'}`}>
-                  {task.event_id && task.event_date ? task.event_date : 'Add event'}
-                </span>
-              </button>
+              {/* Event Link button - only show if case has events or already linked */}
+              {(task.has_events || task.event_id) && (
+                <button
+                  ref={eventLinkButtonRef}
+                  onClick={() => setShowEventLinkPopover(true)}
+                  className="flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-l border-slate-100 dark:border-slate-800 min-w-0"
+                >
+                  <Link2 className={`w-5 h-5 flex-shrink-0 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
+                  {task.event_id && task.event_date ? (
+                    <div className="flex flex-col min-w-0">
+                      <span className={`text-sm ${formatDateDisplay(task.event_date).color}`}>
+                        {formatDateDisplay(task.event_date).text}
+                      </span>
+                      {task.event_description && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {task.event_description}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-slate-400">Add event</span>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Priority */}
