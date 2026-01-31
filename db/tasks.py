@@ -99,7 +99,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
-                   t.sort_order, t.docket_category, t.docket_order, t.created_at
+                   t.sort_order, t.docket_category, t.docket_order, t.created_at,
+                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             LEFT JOIN events e ON t.event_id = e.id
@@ -294,7 +295,8 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
-                   t.sort_order, t.docket_category, t.docket_order
+                   t.sort_order, t.docket_category, t.docket_order,
+                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             LEFT JOIN events e ON t.event_id = e.id
@@ -358,7 +360,8 @@ def get_docket_tasks(exclude_done: bool = True) -> dict:
             SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
-                   t.sort_order, t.docket_category, t.docket_order, t.created_at
+                   t.sort_order, t.docket_category, t.docket_order, t.created_at,
+                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             LEFT JOIN events e ON t.event_id = e.id

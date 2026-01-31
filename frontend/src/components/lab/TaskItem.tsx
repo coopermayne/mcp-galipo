@@ -384,26 +384,35 @@ export function TaskItem({
               />
             </div>
 
-            {/* Event link - always visible */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onEventLinkClick) onEventLinkClick(task, e);
-              }}
-              className={`flex items-center gap-1 text-xs hover:underline ${
-                task.event_id
-                  ? 'text-primary-500 hover:text-primary-600'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-              }`}
-              title={task.event_id && task.event_description ? task.event_description : 'Add event'}
-            >
-              <Link2 className="w-3 h-3 flex-shrink-0" />
-              <span>
-                {task.event_id && task.event_date
-                  ? formatRelativeDate(task.event_date).text
-                  : 'Add event'}
-              </span>
-            </button>
+            {/* Event link - visible when task has events or already linked */}
+            {(task.has_events || task.event_id) && (
+              <div className="relative group/event">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onEventLinkClick) onEventLinkClick(task, e);
+                  }}
+                  className={`flex items-center gap-1 text-xs hover:underline ${
+                    task.event_id
+                      ? 'text-primary-500 hover:text-primary-600'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                >
+                  <Link2 className="w-3 h-3 flex-shrink-0" />
+                  <span>
+                    {task.event_id && task.event_date
+                      ? formatRelativeDate(task.event_date).text
+                      : 'Add event'}
+                  </span>
+                </button>
+                {/* Tooltip showing full event title */}
+                {task.event_id && task.event_description && (
+                  <div className="absolute left-0 bottom-full mb-1 px-2 py-1 text-xs bg-slate-800 dark:bg-slate-600 text-white rounded shadow-lg whitespace-nowrap z-50 opacity-0 group-hover/event:opacity-100 pointer-events-none transition-opacity">
+                    {task.event_description}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Priority picker */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>

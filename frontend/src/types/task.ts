@@ -16,6 +16,7 @@ export interface Task {
   event_id?: number;
   event_description?: string;
   event_date?: string;
+  has_events?: boolean;
   created_at: string;
 }
 
