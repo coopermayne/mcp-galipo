@@ -202,7 +202,7 @@ export function EventItem({
           )}
 
           {/* Task count (if any) */}
-          {event.task_count && event.task_count > 0 && (
+          {event.task_count != null && event.task_count > 0 && (
             <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
               <ListTodo className="w-3 h-3 flex-shrink-0" />
               <span>{event.task_count} task{event.task_count > 1 ? 's' : ''}</span>
