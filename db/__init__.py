@@ -175,6 +175,20 @@ from .webhooks import (
     delete_webhook_log,
 )
 
+# User operations
+from .users import (
+    hash_password,
+    verify_password,
+    get_user_by_id,
+    get_user_by_email,
+    get_all_users,
+    create_user,
+    update_user,
+    update_password,
+    delete_user,
+    authenticate_user,
+)
+
 # Define __all__ for explicit exports
 __all__ = [
     # Validation
@@ -308,4 +322,15 @@ __all__ = [
     "mark_webhook_failed",
     "idempotency_key_exists",
     "delete_webhook_log",
+    # Users
+    "hash_password",
+    "verify_password",
+    "get_user_by_id",
+    "get_user_by_email",
+    "get_all_users",
+    "create_user",
+    "update_user",
+    "update_password",
+    "delete_user",
+    "authenticate_user",
 ]

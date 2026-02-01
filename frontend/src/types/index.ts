@@ -113,3 +113,11 @@ export type {
   TaskTimelineItem,
   TimelineItem,
 } from './timeline';
+
+// User types
+export type {
+  UserPosition,
+  User,
+  CreateUserInput,
+  UpdateUserInput,
+} from './user';

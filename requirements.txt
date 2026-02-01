@@ -1,6 +1,7 @@
 fastmcp
 fastapi
 uvicorn[standard]
+bcrypt
 gunicorn
 python-dotenv
 psycopg2-binary

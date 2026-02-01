@@ -8,22 +8,27 @@ import {
   Download,
   Webhook,
   Users,
+  UserCog,
   X,
   Sun,
   Moon,
-  LogOut,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAuthToken, useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { ProfileDropdown } from '../auth';
 
-const navigation = [
+const baseNavigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Cases', href: '/cases', icon: Briefcase },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Calendar', href: '/calendar', icon: Clock },
   { name: 'CourtListener', href: '/courtlistener', icon: Webhook },
   { name: 'Persons', href: '/persons', icon: Users },
+];
+
+const adminNavigation = [
+  { name: 'Users', href: '/users', icon: UserCog, adminOnly: true },
 ];
 
 interface SidebarProps {
@@ -33,8 +38,16 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isExporting, setIsExporting] = useState(false);
-  const { logout } = useAuth();
+  const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  // Build navigation based on user role
+  const navigation = useMemo(() => {
+    if (user?.isAdmin) {
+      return [...baseNavigation, ...adminNavigation];
+    }
+    return baseNavigation;
+  }, [user?.isAdmin]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -164,13 +177,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
-          <button
-            onClick={logout}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            Sign Out
-          </button>
+        </div>
+
+        {/* User Profile */}
+        <div className="p-3 border-t border-slate-200 dark:border-slate-700">
+          <ProfileDropdown />
         </div>
       </aside>
     </>

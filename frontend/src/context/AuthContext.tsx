@@ -2,12 +2,27 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 
 const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
+
+export interface User {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  initials: string;
+  position: string;
+  isAdmin: boolean;
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  user: User | null;
+  mustChangePassword: boolean;
+  login: (username: string, password: string) => Promise<{ success: boolean; mustChangePassword?: boolean }>;
   logout: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -15,6 +30,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   // Verify stored token on mount
   useEffect(() => {
@@ -30,12 +47,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {
+          const data = await response.json();
           setIsAuthenticated(true);
+          if (data.user) {
+            setUser(data.user);
+            localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+          } else {
+            // Fallback to stored user
+            const storedUser = localStorage.getItem(USER_KEY);
+            if (storedUser) {
+              setUser(JSON.parse(storedUser));
+            }
+          }
         } else {
           localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
         }
       } catch {
         localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
       } finally {
         setIsLoading(false);
       }
@@ -44,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     verifyToken();
   }, []);
 
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (username: string, password: string): Promise<{ success: boolean; mustChangePassword?: boolean }> => {
     try {
       const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
@@ -55,13 +85,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         localStorage.setItem(TOKEN_KEY, data.token);
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        }
         setIsAuthenticated(true);
+
+        if (data.mustChangePassword) {
+          setMustChangePassword(true);
+          return { success: true, mustChangePassword: true };
+        }
+
+        return { success: true, mustChangePassword: false };
+      }
+      return { success: false };
+    } catch {
+      return { success: false };
+    }
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return false;
+
+    try {
+      const response = await fetch('/api/v1/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update token if a new one was provided
+        if (data.token) {
+          localStorage.setItem(TOKEN_KEY, data.token);
+        }
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        }
+        setMustChangePassword(false);
         return true;
       }
       return false;
     } catch {
       return false;
     }
+  }, []);
+
+  const clearMustChangePassword = useCallback(() => {
+    setMustChangePassword(false);
   }, []);
 
   const logout = useCallback(async () => {
@@ -77,11 +154,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setIsAuthenticated(false);
+    setUser(null);
+    setMustChangePassword(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{
+      isAuthenticated,
+      isLoading,
+      user,
+      mustChangePassword,
+      login,
+      logout,
+      changePassword,
+      clearMustChangePassword,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -101,4 +190,5 @@ export function getAuthToken(): string | null {
 
 export function clearAuthToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
 }
