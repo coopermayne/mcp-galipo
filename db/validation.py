@@ -33,6 +33,9 @@ PERSON_SIDES = ["plaintiff", "defendant", "neutral"]
 # Roles that cannot be assigned directly to cases (must go through proceedings)
 JUDGE_ROLES = ["Judge", "Magistrate Judge"]
 
+# Valid user positions
+USER_POSITIONS = ["attorney", "paralegal", "manager", "admin"]
+
 # Default expertise types for experts
 DEFAULT_EXPERTISE_TYPES = [
     "Biomechanics", "Accident Reconstruction", "Medical - Orthopedic",
@@ -122,3 +125,10 @@ def validate_case_person_role(role: str) -> str:
             "Judges must be assigned to proceedings instead."
         )
     return role
+
+
+def validate_user_position(position: str) -> str:
+    """Validate user position against allowed values."""
+    if position not in USER_POSITIONS:
+        raise ValidationError(f"Invalid position '{position}'. Must be one of: {', '.join(USER_POSITIONS)}")
+    return position

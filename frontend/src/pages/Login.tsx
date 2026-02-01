@@ -3,13 +3,15 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Scale, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { ChangePasswordForm } from '../components/auth/ChangePasswordForm';
 
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const { login, changePassword, mustChangePassword } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -17,14 +19,48 @@ export function Login() {
     setError('');
     setIsSubmitting(true);
 
-    const success = await login(username, password);
-    if (success) {
-      navigate('/');
+    const result = await login(username, password);
+    if (result.success) {
+      if (result.mustChangePassword) {
+        setShowChangePassword(true);
+      } else {
+        navigate('/');
+      }
     } else {
-      setError('Invalid username or password');
+      setError('Invalid email or password');
     }
     setIsSubmitting(false);
   };
+
+  const handlePasswordChange = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    const success = await changePassword(currentPassword, newPassword);
+    if (success) {
+      navigate('/');
+    }
+    return success;
+  };
+
+  // Show password change form if required
+  if (showChangePassword || mustChangePassword) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4 transition-colors">
+        <div className="w-full max-w-md">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-8 transition-colors">
+            {/* Logo/Title */}
+            <div className="flex items-center justify-center gap-3 mb-8">
+              <Scale className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Change Password</h1>
+            </div>
+
+            <ChangePasswordForm
+              onSubmit={handlePasswordChange}
+              isFirstLogin={true}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4 transition-colors">
@@ -46,15 +82,15 @@ export function Login() {
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Username
+                Email
               </label>
               <input
                 id="username"
-                type="text"
+                type="email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                placeholder="Enter username"
+                placeholder="Enter email"
                 required
                 autoComplete="username"
                 disabled={isSubmitting}

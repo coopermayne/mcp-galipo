@@ -93,3 +93,13 @@ export { quickCreateTask, quickCreateEvent } from './quickCreate';
 // Webhooks
 export { getWebhooks, getWebhook, deleteWebhook } from './webhooks';
 export type { WebhookLog, GetWebhooksParams } from './webhooks';
+
+// Users
+export {
+  getUsers,
+  getUser,
+  createUser,
+  updateUser,
+  deleteUser,
+  resetUserPassword,
+} from './users';
