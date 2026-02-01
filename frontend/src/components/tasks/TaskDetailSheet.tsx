@@ -220,7 +220,7 @@ export function TaskDetailSheet({
 
   const handleDateChange = async (date: Date | null) => {
     if (onUpdate) {
-      const newDateStr = date ? format(date, 'yyyy-MM-dd') : undefined;
+      const newDateStr = date ? format(date, 'yyyy-MM-dd') : null;
       await onUpdate(task.id, { due_date: newDateStr });
     }
   };
@@ -488,7 +488,20 @@ export function TaskDetailSheet({
                     </span>
                   </button>
                 }
-              />
+              >
+                {/* Clear date button - only shown when a date is set */}
+                {selectedDate && (
+                  <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
+                    <button
+                      type="button"
+                      onClick={() => handleDateChange(null)}
+                      className="w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                    >
+                      Clear date
+                    </button>
+                  </div>
+                )}
+              </DatePicker>
               {/* Event Link button - only show if case has events or already linked */}
               {(task.has_events || task.event_id) && (
                 <button

@@ -387,7 +387,20 @@ export function TaskItem({
                     </button>
                   )
                 }
-              />
+              >
+                {/* Clear date button - only shown when a date is set */}
+                {selectedDate && (
+                  <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
+                    <button
+                      type="button"
+                      onClick={() => handleDateChange(null)}
+                      className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                    >
+                      Clear date
+                    </button>
+                  </div>
+                )}
+              </DatePicker>
             </div>
 
             {/* Event link - visible when task has events or already linked */}

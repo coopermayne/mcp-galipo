@@ -231,7 +231,7 @@ export function TasksComponent({
 
   const handleDateChange = useCallback(
     async (taskId: number, date: string | null) => {
-      const result = await updateTask(taskId, { due_date: date ?? undefined });
+      const result = await updateTask(taskId, { due_date: date });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
