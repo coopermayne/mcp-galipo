@@ -304,7 +304,7 @@ export function EventInlineCreate({
                     value={caseSearch}
                     onChange={(e) => setCaseSearch(e.target.value)}
                     onKeyDown={handleCaseSearchKeyDown}
-                    placeholder="Search cases..."
+                    placeholder="Search..."
                     className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-primary-400"
                   />
                 </div>

@@ -105,6 +105,7 @@ export function StatusPicker({
       ref={popoverRef}
       className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-[9999]"
       style={{ top: position.top, left: position.left, minWidth: 160 }}
+      onClick={(e) => e.stopPropagation()}
     >
       <div className="py-1">
         {STATUS_CONFIG.map((config) => {

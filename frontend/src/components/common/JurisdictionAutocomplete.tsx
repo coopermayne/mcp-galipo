@@ -18,7 +18,7 @@ export function JurisdictionAutocomplete({
   onSelectJurisdiction,
   onCreateNew,
   onCancel,
-  placeholder = 'Search courts...',
+  placeholder = 'Search...',
   autoFocus = false,
 }: JurisdictionAutocompleteProps) {
   const [search, setSearch] = useState('');
