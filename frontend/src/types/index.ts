@@ -122,7 +122,7 @@ export type {
   UpdateUserInput,
 } from './user';
 
-// Tasks layout types
+// Tasks layout types (legacy - kept for backwards compat)
 export type {
   LayoutPreset,
   TasksPanelConfig,
@@ -135,3 +135,24 @@ export {
   createDefaultLayoutConfig,
   adjustPanelsForLayout,
 } from './tasks-layout';
+
+// Panel layout types (universal layout system)
+export type {
+  WidgetType,
+  TasksGroupMode,
+  EventsGroupMode,
+  TasksWidgetConfig,
+  EventsWidgetConfig,
+  WidgetConfig,
+  PanelLayoutConfig,
+} from './panel-layout';
+
+export {
+  LAYOUT_CONTAINER_CLASSES,
+  WIDGET_INFO,
+  createDefaultTasksWidget,
+  createDefaultEventsWidget,
+  createDefaultWidget,
+  getPanelClasses,
+  adjustPanelsForLayout as adjustPanelsForLayoutGeneric,
+} from './panel-layout';
