@@ -42,7 +42,9 @@ def register_proceeding_routes(mcp):
             jurisdiction_id=data.get("jurisdiction_id"),
             sort_order=data.get("sort_order"),
             is_primary=data.get("is_primary", False),
-            notes=data.get("notes")
+            notes=data.get("notes"),
+            courtlistener_docket_id=data.get("courtlistener_docket_id"),
+            pacer_case_id=data.get("pacer_case_id"),
         )
         return JSONResponse({"success": True, "proceeding": result})
 
