@@ -20,7 +20,7 @@ export function PersonAutocomplete({
   onSelectPerson,
   onCreateNew,
   onCancel,
-  placeholder = 'Search or create...',
+  placeholder = 'Search...',
   autoFocus = false,
 }: PersonAutocompleteProps) {
   const [search, setSearch] = useState('');
