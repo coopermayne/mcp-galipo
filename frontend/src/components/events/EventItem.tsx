@@ -217,10 +217,8 @@ export function EventItem({
         ${flush ? 'px-0' : 'px-3 md:px-2'}
         border-b border-slate-100 dark:border-slate-800
         transition-colors duration-150
-        ${onClick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}
         ${isHighlighted ? 'bg-red-50 dark:bg-red-900/20' : ''}
       `}
-      onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -245,8 +243,11 @@ export function EventItem({
         <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
       </button>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0 pt-0.5">
+      {/* Content - clickable area for opening event detail */}
+      <div
+        className={`flex-1 min-w-0 pt-0.5 ${onClick ? 'cursor-pointer' : ''}`}
+        onClick={handleRowClick}
+      >
         {/* Title - single line, truncate */}
         <div className="text-sm leading-snug truncate text-slate-900 dark:text-slate-100">
           {event.description}
