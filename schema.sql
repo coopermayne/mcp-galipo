@@ -35,6 +35,7 @@ CREATE TABLE cases (
     result TEXT,
     date_of_injury DATE,
     case_numbers JSONB DEFAULT '[]',
+    color VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
