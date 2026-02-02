@@ -147,6 +147,7 @@ export function EventLinkPopover({
       ref={popoverRef}
       className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-[9999]"
       style={{ top: position.top, left: position.left, width: 340 }}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Search header */}
       <div className="p-2 border-b border-slate-200 dark:border-slate-700">
@@ -157,7 +158,7 @@ export function EventLinkPopover({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter events..."
+            placeholder="Search..."
             className="w-full pl-8 pr-8 py-1.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-md outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
           />
           {searchQuery && (

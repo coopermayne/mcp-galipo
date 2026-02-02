@@ -63,11 +63,11 @@ export function StatusFilterDropdown({
     onChange(STATUS_CONFIG.map(s => s.value));
   };
 
-  // Display text for the button
+  // Display text for the button (shorter on mobile)
   const allSelected = selectedStatuses.length === STATUS_CONFIG.length;
   const buttonText = allSelected
-    ? 'All statuses'
-    : `${selectedStatuses.length} status${selectedStatuses.length !== 1 ? 'es' : ''}`;
+    ? 'All'
+    : `${selectedStatuses.length}`;
 
   // Check if we have a non-default selection (default is Pending, Active, Blocked)
   const hasNonDefault = selectedStatuses.includes('Done') ||

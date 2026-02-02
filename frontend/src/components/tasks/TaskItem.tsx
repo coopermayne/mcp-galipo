@@ -307,13 +307,11 @@ export function TaskItem({
         ${flush ? 'px-0' : 'px-3 md:px-2'}
         border-b border-slate-100 dark:border-slate-800
         transition-opacity duration-300 ease-out
-        ${onClick ? 'cursor-pointer' : ''}
         ${isDragging ? 'shadow-lg rounded-lg bg-white dark:bg-slate-800 border border-primary-500' : ''}
         ${isHighlighted ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
         ${showDragHandle && isTouchDevice ? 'touch-none active:bg-slate-100 dark:active:bg-slate-700 active:scale-[0.98]' : ''}
         ${isCompleting ? 'opacity-0' : 'opacity-100'}
       `}
-      onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -342,8 +340,11 @@ export function TaskItem({
         />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0 pt-0.5">
+      {/* Content - clickable area for opening task detail */}
+      <div
+        className={`flex-1 min-w-0 pt-0.5 ${onClick ? 'cursor-pointer' : ''}`}
+        onClick={handleRowClick}
+      >
         {/* Title - single line, truncate */}
         <div className={`text-sm leading-snug truncate transition-all duration-200 ${showCompleted ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
           {task.description}
