@@ -35,7 +35,7 @@ def get_priorities_context() -> dict:
                 c.case_name
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
-            WHERE t.status != 'completed'
+            WHERE t.status != 'Done'
               AND c.status != 'Closed'
               AND (t.due_date IS NULL OR t.due_date <= %s)
             ORDER BY
@@ -87,7 +87,7 @@ def get_priorities_context() -> dict:
         cur.execute("""
             SELECT COUNT(*) as count FROM tasks t
             JOIN cases c ON t.case_id = c.id
-            WHERE t.status != 'completed'
+            WHERE t.status != 'Done'
               AND t.due_date < %s
               AND c.status != 'Closed'
         """, (now.date(),))
@@ -150,7 +150,7 @@ def get_deadlines_context() -> dict:
                 c.case_name
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
-            WHERE t.status != 'completed'
+            WHERE t.status != 'Done'
               AND t.due_date IS NOT NULL
               AND t.due_date >= %s
               AND t.due_date <= %s
@@ -195,7 +195,7 @@ def get_overdue_context() -> dict:
                 c.case_name
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
-            WHERE t.status != 'completed'
+            WHERE t.status != 'Done'
               AND t.due_date < %s
               AND c.status != 'Closed'
             ORDER BY t.due_date ASC
@@ -235,7 +235,7 @@ def get_activity_context() -> dict:
                 c.case_name
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
-            WHERE t.status = 'completed'
+            WHERE t.status = 'Done'
               AND t.completion_date >= %s
             ORDER BY t.completion_date DESC
         """, (one_week_ago.date(),))
@@ -320,7 +320,7 @@ def get_case_summary_context(case_id: int) -> dict:
         # Get overdue count
         cur.execute("""
             SELECT COUNT(*) as count FROM tasks
-            WHERE case_id = %s AND status != 'completed' AND due_date < %s
+            WHERE case_id = %s AND status != 'Done' AND due_date < %s
         """, (case_id, now.date()))
         overdue_count = cur.fetchone()["count"]
 
@@ -367,7 +367,7 @@ def get_case_next_steps_context(case_id: int) -> dict:
         cur.execute("""
             SELECT id, description, due_date, urgency, status
             FROM tasks
-            WHERE case_id = %s AND status != 'completed'
+            WHERE case_id = %s AND status != 'Done'
             ORDER BY urgency DESC, due_date ASC NULLS LAST
             LIMIT 10
         """, (case_id,))
@@ -401,7 +401,7 @@ def get_case_next_steps_context(case_id: int) -> dict:
         cur.execute("""
             SELECT id, description, due_date, urgency
             FROM tasks
-            WHERE case_id = %s AND status != 'completed' AND due_date < %s
+            WHERE case_id = %s AND status != 'Done' AND due_date < %s
             ORDER BY due_date ASC
         """, (case_id, now.date()))
         overdue = []
@@ -438,7 +438,7 @@ def get_case_tasks_context(case_id: int) -> dict:
         cur.execute("""
             SELECT id, description, due_date, urgency, status
             FROM tasks
-            WHERE case_id = %s AND status != 'completed'
+            WHERE case_id = %s AND status != 'Done'
             ORDER BY urgency DESC, due_date ASC NULLS LAST
         """, (case_id,))
 
@@ -457,7 +457,7 @@ def get_case_tasks_context(case_id: int) -> dict:
         cur.execute("""
             SELECT id, description, completion_date
             FROM tasks
-            WHERE case_id = %s AND status = 'completed' AND completion_date >= %s
+            WHERE case_id = %s AND status = 'Done' AND completion_date >= %s
             ORDER BY completion_date DESC
         """, (case_id, two_weeks_ago.date()))
 
@@ -472,7 +472,7 @@ def get_case_tasks_context(case_id: int) -> dict:
         # Count overdue
         cur.execute("""
             SELECT COUNT(*) as count FROM tasks
-            WHERE case_id = %s AND status != 'completed' AND due_date < %s
+            WHERE case_id = %s AND status != 'Done' AND due_date < %s
         """, (case_id, now.date()))
         overdue_count = cur.fetchone()["count"]
 
