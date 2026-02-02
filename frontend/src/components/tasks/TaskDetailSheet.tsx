@@ -6,7 +6,6 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import { format, parse, isValid, getYear } from 'date-fns';
 import {
@@ -27,6 +26,7 @@ import type { Task, TaskStatus } from '../../types';
 import { EventLinkPopover } from './EventLinkPopover';
 import { STATUS_CONFIG, getStatusConfig } from './statusConfig';
 import { ActiveStatusIcon } from './ActiveStatusIcon';
+import { CaseChip } from '../common';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority config matching TaskItem
@@ -300,14 +300,13 @@ export function TaskDetailSheet({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-          {/* Project/Case link */}
-          <Link
-            to={`/cases/${task.case_id}`}
-            className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          >
-            <Briefcase className="w-4 h-4" />
-            <span>{task.case_name || task.short_name || `Case #${task.case_id}`}</span>
-          </Link>
+          {/* Project/Case chip */}
+          <CaseChip
+            caseId={task.case_id}
+            caseName={task.case_name}
+            shortName={task.short_name}
+            color={task.case_color}
+          />
 
           {/* Nav + actions */}
           <div className="flex items-center gap-1">
@@ -427,15 +426,15 @@ export function TaskDetailSheet({
           {/* Action rows */}
           <div className="border-t border-slate-100 dark:border-slate-800">
             {/* Case/Project */}
-            <Link
-              to={`/cases/${task.case_id}`}
-              className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800"
-            >
+            <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
               <Briefcase className="w-5 h-5 text-slate-400" />
-              <span className="text-sm text-slate-700 dark:text-slate-300">
-                {task.case_name || task.short_name || `Case #${task.case_id}`}
-              </span>
-            </Link>
+              <CaseChip
+                caseId={task.case_id}
+                caseName={task.case_name}
+                shortName={task.short_name}
+                color={task.case_color}
+              />
+            </div>
 
             {/* Due date + Event Link */}
             <div className="relative border-b border-slate-100 dark:border-slate-800 flex items-center">

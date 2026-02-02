@@ -96,7 +96,7 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         total = cur.fetchone()["total"]
 
         query = f"""
-            SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
+            SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
                    t.sort_order, t.docket_category, t.docket_order, t.created_at,
@@ -292,7 +292,7 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
 
     with get_cursor() as cur:
         cur.execute(f"""
-            SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
+            SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
                    t.sort_order, t.docket_category, t.docket_order,
@@ -357,7 +357,7 @@ def get_docket_tasks(exclude_done: bool = True) -> dict:
 
     with get_cursor() as cur:
         cur.execute(f"""
-            SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
+            SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
                    t.sort_order, t.docket_category, t.docket_order, t.created_at,

@@ -1,3 +1,4 @@
+export { CaseChip } from './CaseChip';
 export { EditableText } from './EditableText';
 export { EditableSelect } from './EditableSelect';
 export { EditableDate } from './EditableDate';

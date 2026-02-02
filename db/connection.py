@@ -775,6 +775,27 @@ def migrate_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_idempotency_key ON webhook_logs(idempotency_key)")
         print("  - Created webhook_logs table (if not exists)")
 
+        # 31. Add color column to cases for colored case chips
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'color'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE cases ADD COLUMN color VARCHAR(20)")
+            print("  - Added color column to cases")
+
+        # Backfill/update existing cases with color names (handles migration from hex to names)
+        cur.execute("SELECT id FROM cases WHERE color IS NULL OR color LIKE '#%' ORDER BY id")
+        case_ids = [row[0] for row in cur.fetchall()]
+        if case_ids:
+            colors = ["blue", "emerald", "amber", "red", "violet", "pink", "cyan", "orange", "indigo", "teal"]
+            for i, case_id in enumerate(case_ids):
+                color = colors[i % len(colors)]
+                cur.execute("UPDATE cases SET color = %s WHERE id = %s", (color, case_id))
+            print(f"  - Backfilled colors for {len(case_ids)} cases")
+
         # 22. Create users table for authentication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -842,6 +863,7 @@ def init_db():
                 result TEXT,
                 date_of_injury DATE,
                 case_numbers JSONB DEFAULT '[]',
+                color VARCHAR(20),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )

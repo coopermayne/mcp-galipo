@@ -6,17 +6,15 @@
  * Line 2: case link + date/time (clickable date picker)
  */
 import { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import { format, parse, isValid, getYear } from 'date-fns';
 import {
   Star,
   Calendar,
-  Inbox,
   Pencil,
   ListTodo,
 } from 'lucide-react';
-import { TimePicker } from '../common';
+import { TimePicker, CaseChip } from '../common';
 import type { Event } from '../../types';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -256,19 +254,14 @@ export function EventItem({
 
         {/* Metadata row: case, date, time - all inline */}
         <div className="flex items-center mt-0.5 gap-3 flex-wrap">
-          {/* Case/Project link */}
+          {/* Case/Project chip */}
           {showCase && (
-            <Link
-              to={`/cases/${event.case_id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-              title={event.case_name || `Case #${event.case_id}`}
-            >
-              <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="max-w-[100px] truncate">
-                {event.short_name || event.case_name || `#${event.case_id}`}
-              </span>
-            </Link>
+            <CaseChip
+              caseId={event.case_id}
+              caseName={event.case_name}
+              shortName={event.short_name}
+              color={event.case_color}
+            />
           )}
 
           {/* Date with inline picker */}
