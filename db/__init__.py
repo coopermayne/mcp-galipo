@@ -153,6 +153,10 @@ from .proceedings import (
     get_proceeding_by_id,
     update_proceeding,
     delete_proceeding,
+    # CourtListener integration
+    get_proceeding_by_courtlistener_docket_id,
+    get_proceeding_by_pacer_case_id,
+    find_proceeding_for_webhook,
     # Proceeding judges
     add_judge_to_proceeding,
     remove_judge_from_proceeding,
@@ -291,6 +295,10 @@ __all__ = [
     "get_proceeding_by_id",
     "update_proceeding",
     "delete_proceeding",
+    # CourtListener integration
+    "get_proceeding_by_courtlistener_docket_id",
+    "get_proceeding_by_pacer_case_id",
+    "find_proceeding_for_webhook",
     # Proceeding judges
     "add_judge_to_proceeding",
     "remove_judge_from_proceeding",
