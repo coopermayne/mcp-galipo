@@ -832,6 +832,8 @@ def migrate_db():
             )
             ON CONFLICT (email) DO NOTHING
         """)
+        # Ensure cmayne@galipolaw.com is an admin (in case user already existed)
+        cur.execute("UPDATE users SET is_admin = TRUE WHERE email = 'cmayne@galipolaw.com'")
         print("  - Created users table and seeded admin user (if not exists)")
 
         print("Database migration complete.")
