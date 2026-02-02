@@ -5,7 +5,6 @@
  * Matches TaskDetailSheet pattern for consistency.
  */
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import { format, parse, isValid, getYear } from 'date-fns';
 import {
@@ -21,7 +20,7 @@ import {
   Trash2,
   ListTodo,
 } from 'lucide-react';
-import { TimePicker } from '../common';
+import { TimePicker, CaseChip } from '../common';
 import type { Event } from '../../types';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -217,14 +216,13 @@ export function EventDetailSheet({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-          {/* Project/Case link */}
-          <Link
-            to={`/cases/${event.case_id}`}
-            className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          >
-            <Briefcase className="w-4 h-4" />
-            <span>{event.case_name || event.short_name || `Case #${event.case_id}`}</span>
-          </Link>
+          {/* Project/Case chip */}
+          <CaseChip
+            caseId={event.case_id}
+            caseName={event.case_name}
+            shortName={event.short_name}
+            color={event.case_color}
+          />
 
           {/* Nav + actions */}
           <div className="flex items-center gap-1">
@@ -343,15 +341,15 @@ export function EventDetailSheet({
           {/* Action rows */}
           <div className="border-t border-slate-100 dark:border-slate-800">
             {/* Case/Project */}
-            <Link
-              to={`/cases/${event.case_id}`}
-              className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800"
-            >
+            <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
               <Briefcase className="w-5 h-5 text-slate-400" />
-              <span className="text-sm text-slate-700 dark:text-slate-300">
-                {event.case_name || event.short_name || `Case #${event.case_id}`}
-              </span>
-            </Link>
+              <CaseChip
+                caseId={event.case_id}
+                caseName={event.case_name}
+                shortName={event.short_name}
+                color={event.case_color}
+              />
+            </div>
 
             {/* Date + Time */}
             <div className="flex items-center border-b border-slate-100 dark:border-slate-800">
