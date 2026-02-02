@@ -221,7 +221,7 @@ export function TaskDetailSheet({
   const handleDateChange = async (date: Date | null) => {
     if (onUpdate) {
       const newDateStr = date ? format(date, 'yyyy-MM-dd') : null;
-      await onUpdate(task.id, { due_date: newDateStr });
+      await onUpdate(task.id, { due_date: newDateStr ?? undefined });
     }
   };
 
