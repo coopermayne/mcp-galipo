@@ -357,6 +357,63 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
         )}
       </div>
 
+      {/* CourtListener Integration */}
+      <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
+          <ExternalLink className="w-4 h-4 text-slate-400" />
+          CourtListener Integration
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Docket ID
+            </label>
+            {readOnly ? (
+              <p className={`text-sm mt-1 ${proceeding.courtlistener_docket_id ? 'font-mono text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+                {proceeding.courtlistener_docket_id || 'Not linked'}
+              </p>
+            ) : (
+              <EditableText
+                value={proceeding.courtlistener_docket_id?.toString() || ''}
+                onSave={(value) => handleUpdateField('courtlistener_docket_id', value ? parseInt(value, 10) : null)}
+                placeholder="e.g., 70905406"
+                className="text-sm font-mono"
+                inputClassName="text-sm font-mono"
+              />
+            )}
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              PACER Case ID
+            </label>
+            {readOnly ? (
+              <p className={`text-sm mt-1 ${proceeding.pacer_case_id ? 'font-mono text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+                {proceeding.pacer_case_id || 'Not set'}
+              </p>
+            ) : (
+              <EditableText
+                value={proceeding.pacer_case_id || ''}
+                onSave={(value) => handleUpdateField('pacer_case_id', value || null)}
+                placeholder="e.g., gov.uscourts.cacd.980378"
+                className="text-sm font-mono"
+                inputClassName="text-sm font-mono"
+              />
+            )}
+          </div>
+          {proceeding.courtlistener_docket_id && (
+            <a
+              href={`https://www.courtlistener.com/docket/${proceeding.courtlistener_docket_id}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+            >
+              View on CourtListener
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
+      </div>
+
       {/* Delete Proceeding button */}
       {!readOnly && (
         <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">

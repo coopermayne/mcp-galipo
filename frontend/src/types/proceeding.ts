@@ -14,6 +14,9 @@ export interface Proceeding {
   jurisdiction_id?: number;
   jurisdiction_name?: string;
   local_rules_link?: string;
+  // CourtListener integration
+  courtlistener_docket_id?: number;
+  pacer_case_id?: string;
   // Multi-judge support
   judges: ProceedingJudge[];
   // Backwards compatibility - first judge
@@ -31,6 +34,8 @@ export interface CreateProceedingInput {
   jurisdiction_id?: number;
   is_primary?: boolean;
   notes?: string;
+  courtlistener_docket_id?: number;
+  pacer_case_id?: string;
 }
 
 export interface UpdateProceedingInput {
@@ -38,6 +43,8 @@ export interface UpdateProceedingInput {
   jurisdiction_id?: number | null;
   is_primary?: boolean;
   notes?: string | null;
+  courtlistener_docket_id?: number | null;
+  pacer_case_id?: string | null;
 }
 
 export interface AddProceedingJudgeInput {

@@ -15,7 +15,8 @@ from .connection import get_cursor, serialize_row, serialize_rows, _NOT_PROVIDED
 
 def add_proceeding(case_id: int, case_number: str, jurisdiction_id: int = None,
                    sort_order: int = None, is_primary: bool = False,
-                   notes: str = None) -> dict:
+                   notes: str = None, courtlistener_docket_id: int = None,
+                   pacer_case_id: str = None) -> dict:
     """Add a proceeding to a case."""
     with get_cursor() as cur:
         # Determine sort_order if not provided
@@ -33,10 +34,13 @@ def add_proceeding(case_id: int, case_number: str, jurisdiction_id: int = None,
             """, (case_id,))
 
         cur.execute("""
-            INSERT INTO proceedings (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, case_number, jurisdiction_id, sort_order, is_primary, notes, created_at, updated_at
-        """, (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes))
+            INSERT INTO proceedings (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes,
+                                     courtlistener_docket_id, pacer_case_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, case_id, case_number, jurisdiction_id, sort_order, is_primary, notes,
+                      courtlistener_docket_id, pacer_case_id, created_at, updated_at
+        """, (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes,
+              courtlistener_docket_id, pacer_case_id))
         row = cur.fetchone()
 
         # Get jurisdiction name if available
@@ -64,7 +68,9 @@ def get_proceedings(case_id: int) -> List[dict]:
     with get_cursor() as cur:
         cur.execute("""
             SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id,
-                   p.sort_order, p.is_primary, p.notes, p.created_at, p.updated_at,
+                   p.sort_order, p.is_primary, p.notes,
+                   p.courtlistener_docket_id, p.pacer_case_id,
+                   p.created_at, p.updated_at,
                    j.name as jurisdiction_name, j.local_rules_link
             FROM proceedings p
             LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
@@ -117,7 +123,9 @@ def get_proceeding_by_id(proceeding_id: int) -> Optional[dict]:
     with get_cursor() as cur:
         cur.execute("""
             SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id,
-                   p.sort_order, p.is_primary, p.notes, p.created_at, p.updated_at,
+                   p.sort_order, p.is_primary, p.notes,
+                   p.courtlistener_docket_id, p.pacer_case_id,
+                   p.created_at, p.updated_at,
                    j.name as jurisdiction_name, j.local_rules_link
             FROM proceedings p
             LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
@@ -160,7 +168,8 @@ def get_proceeding_by_id(proceeding_id: int) -> Optional[dict]:
 def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
                       jurisdiction_id: int = _NOT_PROVIDED,
                       sort_order: int = _NOT_PROVIDED, is_primary: bool = _NOT_PROVIDED,
-                      notes: str = _NOT_PROVIDED) -> Optional[dict]:
+                      notes: str = _NOT_PROVIDED, courtlistener_docket_id: int = _NOT_PROVIDED,
+                      pacer_case_id: str = _NOT_PROVIDED) -> Optional[dict]:
     """Update a proceeding."""
     updates = []
     params = []
@@ -184,6 +193,14 @@ def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
     if notes is not _NOT_PROVIDED:
         updates.append("notes = %s")
         params.append(notes if notes else None)
+
+    if courtlistener_docket_id is not _NOT_PROVIDED:
+        updates.append("courtlistener_docket_id = %s")
+        params.append(courtlistener_docket_id)
+
+    if pacer_case_id is not _NOT_PROVIDED:
+        updates.append("pacer_case_id = %s")
+        params.append(pacer_case_id)
 
     if not updates:
         return get_proceeding_by_id(proceeding_id)
@@ -220,6 +237,61 @@ def delete_proceeding(proceeding_id: int) -> bool:
     with get_cursor() as cur:
         cur.execute("DELETE FROM proceedings WHERE id = %s", (proceeding_id,))
         return cur.rowcount > 0
+
+
+# ============================================================================
+# CourtListener Integration
+# ============================================================================
+
+def get_proceeding_by_courtlistener_docket_id(docket_id: int) -> Optional[dict]:
+    """Find a proceeding by its CourtListener docket ID."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT id FROM proceedings
+            WHERE courtlistener_docket_id = %s
+        """, (docket_id,))
+        row = cur.fetchone()
+        if row:
+            return get_proceeding_by_id(row["id"])
+        return None
+
+
+def get_proceeding_by_pacer_case_id(pacer_case_id: str) -> Optional[dict]:
+    """Find a proceeding by its PACER case ID (e.g., 'gov.uscourts.cacd.980378')."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT id FROM proceedings
+            WHERE pacer_case_id = %s
+        """, (pacer_case_id,))
+        row = cur.fetchone()
+        if row:
+            return get_proceeding_by_id(row["id"])
+        return None
+
+
+def find_proceeding_for_webhook(docket_id: int = None, pacer_case_id: str = None) -> Optional[dict]:
+    """
+    Find a proceeding matching CourtListener webhook data.
+
+    Tries to match by:
+    1. CourtListener docket ID (exact match, most reliable)
+    2. PACER case ID (fallback)
+
+    Returns the proceeding if found, None otherwise.
+    """
+    # Try CourtListener docket ID first (most reliable)
+    if docket_id:
+        proceeding = get_proceeding_by_courtlistener_docket_id(docket_id)
+        if proceeding:
+            return proceeding
+
+    # Fall back to PACER case ID
+    if pacer_case_id:
+        proceeding = get_proceeding_by_pacer_case_id(pacer_case_id)
+        if proceeding:
+            return proceeding
+
+    return None
 
 
 # ============================================================================
