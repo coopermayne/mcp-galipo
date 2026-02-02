@@ -195,7 +195,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search cases..."
+                  placeholder="Search..."
                   className="w-full pl-9 pr-8 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                 />
                 {searchQuery && (

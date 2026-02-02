@@ -349,7 +349,7 @@ export function ProceedingsSection({
                 onSelectJurisdiction={handleSelectJurisdiction}
                 onCreateNew={handleCreateJurisdiction}
                 onCancel={() => setShowAdd(false)}
-                placeholder="Search courts..."
+                placeholder="Search..."
               />
             )}
           </div>

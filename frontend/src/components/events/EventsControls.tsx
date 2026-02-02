@@ -61,7 +61,7 @@ export function EventsControls({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Search events..."
+          placeholder="Search..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-28 sm:w-48 pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"

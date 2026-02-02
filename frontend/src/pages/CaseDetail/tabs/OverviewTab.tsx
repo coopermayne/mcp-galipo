@@ -739,7 +739,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                   onSelectPerson={(person) => assignMediatorMutation.mutate(person)}
                   onCreateNew={(name) => createMediatorMutation.mutate(name)}
                   onCancel={() => setShowAddMediator(false)}
-                  placeholder="Search mediators..."
+                  placeholder="Search..."
                   autoFocus
                 />
               </div>
@@ -803,7 +803,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                     }
                   }
                 }}
-                placeholder="Search events..."
+                placeholder="Search..."
                 className="w-full px-2 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 outline-none"
                 autoFocus
               />
@@ -959,7 +959,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 onSelectPerson={(person) => assignDefendantMutation.mutate(person)}
                 onCreateNew={(name) => createDefendantMutation.mutate(name)}
                 onCancel={() => setShowAddDefendant(false)}
-                placeholder="Search defendants or create new..."
+                placeholder="Search..."
                 autoFocus
               />
             </div>
