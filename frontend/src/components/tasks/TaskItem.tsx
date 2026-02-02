@@ -21,7 +21,8 @@ import {
   Inbox,
   Link2,
 } from 'lucide-react';
-import type { Task } from '../../types';
+import type { Task, TaskStatus } from '../../types';
+import { StatusIndicator } from './StatusIndicator';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority colors for checkbox border (Todoist style)
@@ -55,8 +56,8 @@ export interface TaskItemProps {
   isCompleting?: boolean;
   /** Align to left edge (no left padding) - for flat lists without headers */
   flush?: boolean;
-  /** Callback when checkbox is clicked (mark done) */
-  onMarkDone?: (taskId: number) => void;
+  /** Callback when status is changed */
+  onStatusChange?: (taskId: number, status: TaskStatus) => void;
   /** Callback when task row is clicked (for inline edit) */
   onClick?: (task: Task) => void;
   /** Callback when edit action is clicked */
@@ -117,7 +118,7 @@ export function TaskItem({
   isHighlighted = false,
   isCompleting = false,
   flush = false,
-  onMarkDone,
+  onStatusChange,
   onClick,
   onEdit,
   onDateChange,
@@ -241,15 +242,13 @@ export function TaskItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
   const dateInfo = task.due_date ? formatRelativeDate(task.due_date) : null;
   const isDone = task.status === 'Done';
   const showCompleted = isDone || isCompleting;
 
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onMarkDone) {
-      onMarkDone(task.id);
+  const handleStatusChange = (newStatus: TaskStatus) => {
+    if (onStatusChange) {
+      onStatusChange(task.id, newStatus);
     }
   };
 
@@ -305,31 +304,14 @@ export function TaskItem({
         </div>
       )}
 
-      {/* Checkbox */}
-      <button
-        onClick={handleCheckboxClick}
-        className={`
-          w-5 h-5 mt-0.5 flex-shrink-0 rounded-full border-2
-          transition-all duration-200
-          ${showCompleted
-            ? 'bg-green-500 border-green-500 scale-110'
-            : priorityColor
-          }
-        `}
-        title={showCompleted ? 'Completed' : 'Mark as done'}
-      >
-        {showCompleted && (
-          <svg
-            className="w-full h-full text-white p-0.5 animate-[checkmark_0.2s_ease-out]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        )}
-      </button>
+      {/* Status Indicator */}
+      <div className="mt-0.5">
+        <StatusIndicator
+          status={showCompleted ? 'Done' : task.status}
+          priority={task.urgency}
+          onStatusChange={onStatusChange ? handleStatusChange : undefined}
+        />
+      </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0 pt-0.5">

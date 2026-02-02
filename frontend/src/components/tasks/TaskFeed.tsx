@@ -21,7 +21,7 @@ import { TaskItem, TaskItemOverlay } from './TaskItem';
 import { TaskInlineEdit } from './TaskInlineEdit';
 import { TaskInlineCreate } from './TaskInlineCreate';
 import { ConfirmModal } from '../common';
-import type { Task } from '../../types';
+import type { Task, TaskStatus } from '../../types';
 
 type GroupMode = 'date' | 'case' | 'urgency';
 
@@ -44,8 +44,8 @@ interface TaskFeedProps {
   emptyMessage?: string;
   /** Callback when task is deleted (after confirmation) */
   onDelete?: (taskId: number) => Promise<void>;
-  /** Callback when task is marked done */
-  onMarkDone?: (taskId: number) => Promise<void>;
+  /** Callback when task status changes */
+  onStatusChange?: (taskId: number, status: TaskStatus) => Promise<void>;
   /** Callback when task row is clicked */
   onTaskClick?: (task: Task) => void;
   /** Callback when edit button is clicked (opens modal) - if not set, uses inline edit */
@@ -311,7 +311,7 @@ export function TaskFeed({
   compact = false,
   emptyMessage = 'No tasks',
   onDelete,
-  onMarkDone,
+  onStatusChange,
   onTaskClick,
   onEditClick,
   onDateChange,
@@ -334,24 +334,31 @@ export function TaskFeed({
   const [inlineEditTaskId, setInlineEditTaskId] = useState<number | null>(null);
   const [inlineCreateContext, setInlineCreateContext] = useState<{ groupKey: string; dueDate?: string; caseId?: number } | null>(null);
 
-  // Handle marking a task as done with animation
-  const handleMarkDone = useCallback((taskId: number) => {
-    // Start animation immediately
-    setCompletingTaskIds(prev => new Set(prev).add(taskId));
+  // Handle status change with animation for Done status
+  const handleStatusChange = useCallback((taskId: number, newStatus: TaskStatus) => {
+    // Start animation immediately for Done status
+    if (newStatus === 'Done') {
+      setCompletingTaskIds(prev => new Set(prev).add(taskId));
 
-    // After animation completes, trigger the actual callback
-    setTimeout(() => {
-      if (onMarkDone) {
-        onMarkDone(taskId);
+      // After animation completes, trigger the actual callback
+      setTimeout(() => {
+        if (onStatusChange) {
+          onStatusChange(taskId, newStatus);
+        }
+        // Clean up (the task will be removed from list after refetch anyway)
+        setCompletingTaskIds(prev => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+      }, 400); // Match the CSS animation duration
+    } else {
+      // For other statuses, update immediately
+      if (onStatusChange) {
+        onStatusChange(taskId, newStatus);
       }
-      // Clean up (the task will be removed from list after refetch anyway)
-      setCompletingTaskIds(prev => {
-        const next = new Set(prev);
-        next.delete(taskId);
-        return next;
-      });
-    }, 400); // Match the CSS animation duration
-  }, [onMarkDone]);
+    }
+  }, [onStatusChange]);
 
   // Apply maxItems limit if specified
   const limitedTasks = useMemo(() => {
@@ -560,7 +567,7 @@ export function TaskFeed({
             isCompleting={completingTaskIds.has(task.id)}
             flush={isFlush}
             onDelete={handleDeleteClick}
-            onMarkDone={onMarkDone ? () => handleMarkDone(task.id) : undefined}
+            onStatusChange={onStatusChange ? (taskId, status) => handleStatusChange(taskId, status) : undefined}
             onClick={onTaskClick}
             onEdit={handleEditClick}
             onDateChange={onDateChange}
