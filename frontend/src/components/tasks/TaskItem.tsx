@@ -310,9 +310,11 @@ export function TaskItem({
         ${isHighlighted ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
         ${showDragHandle && isTouchDevice ? 'touch-none active:bg-slate-100 dark:active:bg-slate-700 active:scale-[0.98]' : ''}
         ${isCompleting ? 'opacity-0' : 'opacity-100'}
+        ${onClick ? 'cursor-pointer' : ''}
       `}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleRowClick}
     >
       {/* Drag handle - appears on hover, desktop only (hidden in flush mode) */}
       {!flush && (
@@ -330,8 +332,8 @@ export function TaskItem({
         </div>
       )}
 
-      {/* Status Indicator */}
-      <div className="mt-0.5">
+      {/* Status Indicator - stopPropagation so tapping circle opens status selector, not task detail */}
+      <div className="mt-0.5" onClick={(e) => e.stopPropagation()}>
         <StatusIndicator
           status={showCompleted ? 'Done' : task.status}
           priority={task.urgency}
@@ -339,11 +341,8 @@ export function TaskItem({
         />
       </div>
 
-      {/* Content - clickable area for opening task detail */}
-      <div
-        className={`flex-1 min-w-0 pt-0.5 ${onClick ? 'cursor-pointer' : ''}`}
-        onClick={handleRowClick}
-      >
+      {/* Content */}
+      <div className="flex-1 min-w-0 pt-0.5">
         {/* Title - single line, truncate */}
         <div className={`text-sm leading-snug truncate transition-all duration-200 ${showCompleted ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
           {task.description}
@@ -370,123 +369,167 @@ export function TaskItem({
                 </span>
               )
             ) : (
-              // Due date with inline picker for active tasks
-              <div onClick={(e) => e.stopPropagation()}>
-                <DatePicker
-                  selected={selectedDate}
-                  onChange={handleDateChange}
-                  open={isDatePickerOpen}
-                  onClickOutside={() => setIsDatePickerOpen(false)}
-                  onInputClick={() => setIsDatePickerOpen(true)}
-                  dateFormat="yyyy-MM-dd"
-                  showYearDropdown
-                  showMonthDropdown
-                  scrollableYearDropdown
-                  yearDropdownItemNumber={15}
-                  dropdownMode="select"
-                  portalId="datepicker-portal"
-                  renderCustomHeader={renderDatePickerHeader}
-                  customInput={
-                    dateInfo ? (
-                      <button
-                        ref={dateButtonRef}
-                        className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
-                      >
-                        <Calendar className="w-3 h-3 flex-shrink-0" />
-                        <span>{dateInfo.text}</span>
-                      </button>
-                    ) : (
-                      <button
-                        ref={dateButtonRef}
-                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                      >
-                        <Calendar className="w-3 h-3 flex-shrink-0" />
-                        <span>Add date</span>
-                      </button>
-                    )
-                  }
-                >
-                  {/* Clear date button - only shown when a date is set */}
-                  {selectedDate && (
-                    <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
-                      <button
-                        type="button"
-                        onClick={() => handleDateChange(null)}
-                        className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                      >
-                        Clear date
-                      </button>
-                    </div>
-                  )}
-                </DatePicker>
-              </div>
+              // Due date - inline picker on desktop only, static display on mobile
+              isTouchDevice ? (
+                // Mobile: static display, tap opens task detail
+                dateInfo ? (
+                  <span className={`flex items-center gap-1 text-xs ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    <span>{dateInfo.text}</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs text-slate-400">
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    <span>No date</span>
+                  </span>
+                )
+              ) : (
+                // Desktop: inline picker
+                <div onClick={(e) => e.stopPropagation()}>
+                  <DatePicker
+                    selected={selectedDate}
+                    onChange={handleDateChange}
+                    open={isDatePickerOpen}
+                    onClickOutside={() => setIsDatePickerOpen(false)}
+                    onInputClick={() => setIsDatePickerOpen(true)}
+                    dateFormat="yyyy-MM-dd"
+                    showYearDropdown
+                    showMonthDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={15}
+                    dropdownMode="select"
+                    portalId="datepicker-portal"
+                    renderCustomHeader={renderDatePickerHeader}
+                    customInput={
+                      dateInfo ? (
+                        <button
+                          ref={dateButtonRef}
+                          className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+                        >
+                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          <span>{dateInfo.text}</span>
+                        </button>
+                      ) : (
+                        <button
+                          ref={dateButtonRef}
+                          className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                        >
+                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          <span>Add date</span>
+                        </button>
+                      )
+                    }
+                  >
+                    {/* Clear date button - only shown when a date is set */}
+                    {selectedDate && (
+                      <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
+                        <button
+                          type="button"
+                          onClick={() => handleDateChange(null)}
+                          className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                        >
+                          Clear date
+                        </button>
+                      </div>
+                    )}
+                  </DatePicker>
+                </div>
+              )
             )}
 
             {/* Event link - visible when task has events or already linked (hidden for done tasks) */}
             {!isDone && (task.has_events || task.event_id) && (
-              <div className="relative group/event">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onEventLinkClick) onEventLinkClick(task, e);
-                  }}
-                  className={`flex items-center gap-1 text-xs hover:underline ${
-                    task.event_id
-                      ? 'text-primary-500 hover:text-primary-600'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                  }`}
-                >
+              isTouchDevice ? (
+                // Mobile: static display
+                <span className={`flex items-center gap-1 text-xs ${
+                  task.event_id ? 'text-primary-500' : 'text-slate-400'
+                }`}>
                   <Link2 className="w-3 h-3 flex-shrink-0" />
                   <span>
                     {task.event_id && task.event_date
                       ? formatRelativeDate(task.event_date).text
-                      : 'Add event'}
+                      : 'Event'}
                   </span>
-                </button>
-                {/* Tooltip showing full event title */}
-                {task.event_id && task.event_description && (
-                  <div className="absolute left-0 bottom-full mb-1 px-2 py-1 text-xs bg-slate-800 dark:bg-slate-600 text-white rounded shadow-lg whitespace-nowrap z-50 opacity-0 group-hover/event:opacity-100 pointer-events-none transition-opacity">
-                    {task.event_description}
-                  </div>
-                )}
-              </div>
+                </span>
+              ) : (
+                // Desktop: clickable with popover
+                <div className="relative group/event">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onEventLinkClick) onEventLinkClick(task, e);
+                    }}
+                    className={`flex items-center gap-1 text-xs hover:underline ${
+                      task.event_id
+                        ? 'text-primary-500 hover:text-primary-600'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    <Link2 className="w-3 h-3 flex-shrink-0" />
+                    <span>
+                      {task.event_id && task.event_date
+                        ? formatRelativeDate(task.event_date).text
+                        : 'Add event'}
+                    </span>
+                  </button>
+                  {/* Tooltip showing full event title */}
+                  {task.event_id && task.event_description && (
+                    <div className="absolute left-0 bottom-full mb-1 px-2 py-1 text-xs bg-slate-800 dark:bg-slate-600 text-white rounded shadow-lg whitespace-nowrap z-50 opacity-0 group-hover/event:opacity-100 pointer-events-none transition-opacity">
+                      {task.event_description}
+                    </div>
+                  )}
+                </div>
+              )
             )}
 
-            {/* Priority picker (hidden for done tasks) */}
-            {!isDone && <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={() => setIsPriorityOpen(!isPriorityOpen)}
-                className={`flex items-center gap-1 text-xs hover:underline ${
+            {/* Priority - static on mobile, picker on desktop (hidden for done tasks) */}
+            {!isDone && (
+              isTouchDevice ? (
+                // Mobile: static display
+                <span className={`flex items-center gap-1 text-xs ${
                   PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.color || 'text-slate-400'
-                }`}
-                title="Set priority"
-              >
-                <Flag className="w-3 h-3 flex-shrink-0" />
-                <span>{PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.label || 'Low'}</span>
-              </button>
-              {isPriorityOpen && (
-                <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-50 min-w-[100px]">
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        if (onPriorityChange) onPriorityChange(task.id, option.value);
-                        setIsPriorityOpen(false);
-                      }}
-                      className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-600 ${option.color}`}
-                    >
-                      <Flag className="w-3 h-3" />
-                      <span>{option.label}</span>
-                      {option.value === task.urgency && (
-                        <span className="ml-auto text-primary-500">✓</span>
-                      )}
-                    </button>
-                  ))}
+                }`}>
+                  <Flag className="w-3 h-3 flex-shrink-0" />
+                  <span>{PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.label || 'Low'}</span>
+                </span>
+              ) : (
+                // Desktop: clickable picker
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => setIsPriorityOpen(!isPriorityOpen)}
+                    className={`flex items-center gap-1 text-xs hover:underline ${
+                      PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.color || 'text-slate-400'
+                    }`}
+                    title="Set priority"
+                  >
+                    <Flag className="w-3 h-3 flex-shrink-0" />
+                    <span>{PRIORITY_OPTIONS.find(p => p.value === task.urgency)?.label || 'Low'}</span>
+                  </button>
+                  {isPriorityOpen && (
+                    <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-50 min-w-[100px]">
+                      {PRIORITY_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            if (onPriorityChange) onPriorityChange(task.id, option.value);
+                            setIsPriorityOpen(false);
+                          }}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-600 ${option.color}`}
+                        >
+                          <Flag className="w-3 h-3" />
+                          <span>{option.label}</span>
+                          {option.value === task.urgency && (
+                            <span className="ml-auto text-primary-500">✓</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>}
+              )
+            )}
         </div>
       </div>
 
