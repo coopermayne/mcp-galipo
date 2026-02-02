@@ -11,10 +11,20 @@ import { STATUS_CONFIG } from './statusConfig';
 import { ActiveStatusIcon } from './ActiveStatusIcon';
 import type { TaskStatus } from '../../types';
 
+// Priority-based colors (matches task urgency colors)
+const PRIORITY_COLORS = {
+  4: 'text-red-500',
+  3: 'text-orange-500',
+  2: 'text-blue-500',
+  1: 'text-slate-500 dark:text-slate-400',
+} as const;
+
 interface StatusPickerProps {
   isOpen: boolean;
   anchorEl: HTMLElement | null;
   currentStatus: TaskStatus;
+  /** Priority determines icon color (1-4) */
+  priority?: number;
   onSelect: (status: TaskStatus) => void;
   onClose: () => void;
 }
@@ -23,9 +33,11 @@ export function StatusPicker({
   isOpen,
   anchorEl,
   currentStatus,
+  priority = 1,
   onSelect,
   onClose,
 }: StatusPickerProps) {
+  const color = PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -110,11 +122,11 @@ export function StatusPicker({
               `}
             >
               {config.value === 'Active' ? (
-                <span className="text-slate-500 dark:text-slate-400">
+                <span className={color}>
                   <ActiveStatusIcon className="w-4 h-4" />
                 </span>
               ) : (
-                <Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <Icon className={`w-4 h-4 ${color}`} />
               )}
               <span className="flex-1 text-slate-700 dark:text-slate-200">
                 {config.label}
