@@ -18,6 +18,8 @@ interface TimePickerProps {
   showClear?: boolean;
   /** Additional class names for the container */
   className?: string;
+  /** Disable the picker */
+  disabled?: boolean;
 }
 
 interface TimeOption {
@@ -78,6 +80,7 @@ export function TimePicker({
   placeholder = 'Add time',
   showClear = true,
   className = '',
+  disabled = false,
 }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -178,7 +181,12 @@ export function TimePicker({
       {!isOpen && (
         <button
           onClick={handleOpen}
-          className={`flex items-center gap-1 text-xs hover:underline ${
+          disabled={disabled}
+          className={`flex items-center gap-1 text-xs ${
+            disabled
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:underline'
+          } ${
             value
               ? 'text-slate-500 dark:text-slate-400'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'

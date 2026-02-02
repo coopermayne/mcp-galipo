@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Wrench, Check, X, ChevronDown, ChevronUp, Loader2, Clock } from 'lucide-react';
+import { ToolResultRenderer, hasInteractiveResult } from './ToolResultRenderer';
 import type { ToolExecution } from '../../types';
 
 interface ToolCallIndicatorProps {
@@ -34,81 +35,84 @@ export function ToolCallIndicator({ execution }: ToolCallIndicatorProps) {
     error: 'bg-red-50 dark:bg-red-900/20',
   }[execution.status];
 
+  // Check if this tool has an interactive result to display prominently
+  const showInteractiveResult =
+    execution.status === 'completed' &&
+    execution.result &&
+    !execution.isError &&
+    hasInteractiveResult(execution.name, execution.result, execution.isError);
+
   return (
-    <div className={`rounded-lg border ${statusColors} ${bgColors} overflow-hidden`}>
-      {/* Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-      >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Wrench className="w-3 h-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-          <span className="font-mono text-xs text-slate-700 dark:text-slate-300 truncate">
-            {execution.name}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {duration && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {duration}s
-            </span>
-          )}
-          {statusIcon}
-          {isExpanded ? (
-            <ChevronUp className="w-3 h-3 text-slate-400" />
-          ) : (
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          )}
-        </div>
-      </button>
-
-      {/* Expanded content */}
-      {isExpanded && (
-        <div className="px-3 pb-3 space-y-2 border-t border-slate-200 dark:border-slate-700">
-          {/* Arguments */}
-          {Object.keys(execution.arguments).length > 0 && (
-            <div className="pt-2">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
-                Arguments
-              </span>
-              <pre className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
-                {JSON.stringify(execution.arguments, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {/* Result */}
-          {execution.result && (
-            <div>
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
-                {execution.isError ? 'Error' : 'Result'}
-              </span>
-              <pre
-                className={`text-xs rounded p-2 overflow-x-auto max-h-48 overflow-y-auto ${
-                  execution.isError
-                    ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
-                    : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900'
-                }`}
-              >
-                {formatResult(execution.result)}
-              </pre>
-            </div>
-          )}
-        </div>
+    <div className="space-y-2">
+      {/* Interactive result shown prominently (outside the collapsible) */}
+      {showInteractiveResult && execution.result && (
+        <ToolResultRenderer
+          toolName={execution.name}
+          result={execution.result}
+          isError={execution.isError}
+        />
       )}
+
+      {/* Collapsible tool details header */}
+      <div className={`rounded-lg border ${statusColors} ${bgColors} overflow-hidden`}>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Wrench className="w-3 h-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+            <span className="font-mono text-xs text-slate-700 dark:text-slate-300 truncate">
+              {execution.name}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {duration && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {duration}s
+              </span>
+            )}
+            {statusIcon}
+            {isExpanded ? (
+              <ChevronUp className="w-3 h-3 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            )}
+          </div>
+        </button>
+
+        {/* Expanded content - arguments and raw result for debugging */}
+        {isExpanded && (
+          <div className="px-3 pb-3 space-y-2 border-t border-slate-200 dark:border-slate-700">
+            {/* Arguments */}
+            {Object.keys(execution.arguments).length > 0 && (
+              <div className="pt-2">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+                  Arguments
+                </span>
+                <pre className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
+                  {JSON.stringify(execution.arguments, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {/* Result - show JSON for debugging (even if interactive result shown above) */}
+            {execution.result && (
+              <div>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+                  {execution.isError ? 'Error' : 'Raw Result'}
+                </span>
+                <ToolResultRenderer
+                  toolName={execution.name}
+                  result={execution.result}
+                  isError={execution.isError}
+                  mode="json"
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
-
-/**
- * Format result for display. Try to parse as JSON and pretty print.
- */
-function formatResult(result: string): string {
-  try {
-    const parsed = JSON.parse(result);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return result;
-  }
 }
