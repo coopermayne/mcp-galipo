@@ -69,7 +69,7 @@ interface TaskFeedProps {
   /** Enable inline editing when edit button is clicked (instead of using onEditClick) */
   enableInlineEdit?: boolean;
   /** Callback when a new task is created via inline form */
-  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: number; status?: string }) => Promise<void>;
+  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: number; status?: TaskStatus }) => Promise<void>;
   /** Enable inline task creation (instead of calling onAddTask) */
   enableInlineCreate?: boolean;
   /** Default status for new tasks created via inline form */

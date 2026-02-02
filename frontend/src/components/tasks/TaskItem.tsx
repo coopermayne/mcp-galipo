@@ -267,7 +267,6 @@ export function TaskItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
   const isDone = task.status === 'Done';
   // For active tasks, show due date info
   const dateInfo = task.due_date ? formatRelativeDate(task.due_date) : null;

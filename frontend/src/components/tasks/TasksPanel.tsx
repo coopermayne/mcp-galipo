@@ -239,8 +239,8 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
           showDetailSheet
           enableInlineCreate
           defaultGroupBy={config.groupBy}
-          showDone={config.showDone}
-          onShowDoneChange={(showDone) => onConfigChange({ showDone })}
+          statusFilter={config.showDone ? ['Pending', 'Active', 'Done'] : ['Pending', 'Active']}
+          onStatusFilterChange={(statuses) => onConfigChange({ showDone: statuses.includes('Done') })}
         />
       </div>
     </div>
