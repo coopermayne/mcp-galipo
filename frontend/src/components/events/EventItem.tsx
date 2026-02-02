@@ -11,6 +11,7 @@ import { format, parse, isValid, getYear } from 'date-fns';
 import {
   Star,
   Calendar,
+  Clock,
   Pencil,
   ListTodo,
 } from 'lucide-react';
@@ -86,6 +87,9 @@ export function EventItem({
   const [isHovered, setIsHovered] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Detect touch device for mobile-specific behavior
+  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
 
   const dateInfo = formatRelativeDate(event.date);
 
@@ -218,9 +222,11 @@ export function EventItem({
         border-b border-slate-100 dark:border-slate-800
         transition-colors duration-150
         ${isHighlighted ? 'bg-red-50 dark:bg-red-900/20' : ''}
+        ${onClick ? 'cursor-pointer' : ''}
       `}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleRowClick}
     >
       {/* Spacer for indentation when grouped (matches TaskItem drag handle area) */}
       {!flush && (
@@ -243,11 +249,8 @@ export function EventItem({
         <Star className={`w-4 h-4 ${event.starred ? 'fill-amber-500' : ''}`} />
       </button>
 
-      {/* Content - clickable area for opening event detail */}
-      <div
-        className={`flex-1 min-w-0 pt-0.5 ${onClick ? 'cursor-pointer' : ''}`}
-        onClick={handleRowClick}
-      >
+      {/* Content */}
+      <div className="flex-1 min-w-0 pt-0.5">
         {/* Title - single line, truncate */}
         <div className="text-sm leading-snug truncate text-slate-900 dark:text-slate-100">
           {event.description}
@@ -265,40 +268,58 @@ export function EventItem({
             />
           )}
 
-          {/* Date with inline picker */}
-          <div onClick={(e) => e.stopPropagation()}>
-            <DatePicker
-              selected={selectedDate}
-              onChange={handleDateChange}
-              open={isDatePickerOpen}
-              onClickOutside={() => setIsDatePickerOpen(false)}
-              onInputClick={() => setIsDatePickerOpen(true)}
-              dateFormat="yyyy-MM-dd"
-              showYearDropdown
-              showMonthDropdown
-              scrollableYearDropdown
-              yearDropdownItemNumber={15}
-              dropdownMode="select"
-              portalId="datepicker-portal"
-              renderCustomHeader={renderDatePickerHeader}
-              customInput={
-                <button
-                  ref={dateButtonRef}
-                  className={`flex items-center gap-1 text-xs hover:underline ${
-                    dateInfo.isOverdue
-                      ? 'text-red-500'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  <Calendar className="w-3 h-3 flex-shrink-0" />
-                  <span>{dateInfo.text}</span>
-                </button>
-              }
-            />
-          </div>
+          {/* Date - static on mobile, inline picker on desktop */}
+          {isTouchDevice ? (
+            // Mobile: static display
+            <span className={`flex items-center gap-1 text-xs ${
+              dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'
+            }`}>
+              <Calendar className="w-3 h-3 flex-shrink-0" />
+              <span>{dateInfo.text}</span>
+            </span>
+          ) : (
+            // Desktop: inline picker
+            <div onClick={(e) => e.stopPropagation()}>
+              <DatePicker
+                selected={selectedDate}
+                onChange={handleDateChange}
+                open={isDatePickerOpen}
+                onClickOutside={() => setIsDatePickerOpen(false)}
+                onInputClick={() => setIsDatePickerOpen(true)}
+                dateFormat="yyyy-MM-dd"
+                showYearDropdown
+                showMonthDropdown
+                scrollableYearDropdown
+                yearDropdownItemNumber={15}
+                dropdownMode="select"
+                portalId="datepicker-portal"
+                renderCustomHeader={renderDatePickerHeader}
+                customInput={
+                  <button
+                    ref={dateButtonRef}
+                    className={`flex items-center gap-1 text-xs hover:underline ${
+                      dateInfo.isOverdue
+                        ? 'text-red-500'
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    <span>{dateInfo.text}</span>
+                  </button>
+                }
+              />
+            </div>
+          )}
 
-          {/* Time (editable with type-to-filter picker) */}
-          {onTimeChange && (
+          {/* Time - static on mobile, editable on desktop */}
+          {event.time && isTouchDevice ? (
+            // Mobile: static display
+            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+              <Clock className="w-3 h-3 flex-shrink-0" />
+              <span>{event.time}</span>
+            </span>
+          ) : onTimeChange && !isTouchDevice ? (
+            // Desktop: editable picker
             <div onClick={(e) => e.stopPropagation()}>
               <TimePicker
                 value={event.time || null}
@@ -306,7 +327,7 @@ export function EventItem({
                 placeholder="Add time"
               />
             </div>
-          )}
+          ) : null}
 
           {/* Task count (if any) */}
           {event.task_count != null && event.task_count > 0 && (
