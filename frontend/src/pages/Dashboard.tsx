@@ -73,6 +73,7 @@ export function Dashboard() {
               maxItems={8}
               compact
               defaultGroupBy="urgency"
+              enableInlineCreate
             />
           </div>
 

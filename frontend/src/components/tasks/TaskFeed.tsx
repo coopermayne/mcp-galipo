@@ -292,7 +292,7 @@ function AddTaskButton({ onClick }: { onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-2 py-2 w-full text-left text-sm text-red-500 hover:text-red-600 group"
+      className="flex items-center gap-2 px-2 py-2 w-full text-left text-sm text-blue-500 hover:text-blue-600 group"
     >
       <Plus className="w-4 h-4" />
       <span>Add task</span>
