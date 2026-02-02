@@ -104,7 +104,7 @@ export function PanelLayoutProvider({
     setConfig((prev) => ({
       ...prev,
       panels: prev.panels.map((panel) =>
-        panel.id === panelId ? { ...panel, ...updates } : panel
+        panel.id === panelId ? { ...panel, ...updates } as WidgetConfig : panel
       ),
     }));
   }, []);
