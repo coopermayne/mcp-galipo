@@ -23,6 +23,7 @@ export function TasksWidget({ config, onConfigChange }: TasksWidgetProps) {
       onGroupByChange={(groupBy) => onConfigChange({ groupBy })}
       statusFilter={config.showDone ? ['Pending', 'Active', 'Done'] : ['Pending', 'Active']}
       onStatusFilterChange={(statuses) => onConfigChange({ showDone: statuses.includes('Done') })}
+      searchQuery={config.searchQuery}
     />
   );
 }

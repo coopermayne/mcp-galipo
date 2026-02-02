@@ -7,7 +7,6 @@
  * - Widget content (TasksWidget, EventsWidget, etc.)
  */
 import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Settings2,
   Search,
@@ -17,7 +16,6 @@ import {
   Eye,
   EyeOff,
   Check,
-  X,
   Clock,
 } from 'lucide-react';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
@@ -31,8 +29,6 @@ import type {
   TasksGroupMode,
   EventsGroupMode,
 } from '../../types/panel-layout';
-import type { CaseSummary } from '../../types';
-import { getCases } from '../../api';
 
 interface PanelContainerProps {
   config: WidgetConfig;
@@ -60,15 +56,8 @@ export function PanelContainer({
   onTypeChange,
 }: PanelContainerProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [localSearch, setLocalSearch] = useState(config.searchQuery);
+  const [localSearch, setLocalSearch] = useState(config.searchQuery || '');
   const filterRef = useRef<HTMLDivElement>(null);
-
-  // Fetch cases for the case filter dropdown
-  const { data: casesData } = useQuery({
-    queryKey: ['cases', { limit: 200 }],
-    queryFn: () => getCases({ limit: 200 }),
-  });
-  const cases = casesData?.cases || [];
 
   // Sync local search with config when filter closes
   useEffect(() => {
@@ -111,30 +100,7 @@ export function PanelContainer({
       if (eventConfig.showPast) parts.push('Past');
     }
 
-    // Case filter
-    if (config.caseId) {
-      const caseName = cases.find((c: CaseSummary) => c.id === config.caseId)?.short_name;
-      if (caseName) {
-        parts.push(caseName);
-      }
-    }
-
-    // Search
-    if (config.searchQuery) {
-      parts.push(`"${config.searchQuery}"`);
-    }
-
     return parts.join(' | ');
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onConfigChange({ searchQuery: localSearch });
-  };
-
-  const handleClearSearch = () => {
-    setLocalSearch('');
-    onConfigChange({ searchQuery: '' });
   };
 
   const renderFilters = () => {
@@ -266,77 +232,46 @@ export function PanelContainer({
             onChange={onTypeChange}
           />
 
-          {/* Filter Button */}
-          <button
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
-              isFilterOpen
-                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-            }`}
-          >
-            <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
-              {getFilterSummary()}
-            </span>
-            <Settings2 className="w-4 h-4 flex-shrink-0" />
-          </button>
+          {/* Right side: Search + Filter Button */}
+          <div className="flex items-center gap-2">
+            {/* Inline Search */}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={localSearch}
+                onChange={(e) => {
+                  setLocalSearch(e.target.value);
+                  onConfigChange({ searchQuery: e.target.value });
+                }}
+                className="w-32 sm:w-40 pl-7 pr-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+              />
+            </div>
+
+            {/* Filter Button */}
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors ${
+                isFilterOpen
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+                {getFilterSummary()}
+              </span>
+              <Settings2 className="w-4 h-4 flex-shrink-0" />
+            </button>
+          </div>
         </div>
 
         {/* Filter Dropdown */}
         {isFilterOpen && (
           <div className="absolute left-0 right-0 top-full z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 border-t-0 rounded-b-lg shadow-lg">
             <div className="p-3 space-y-3">
-              {/* Search */}
-              <form onSubmit={handleSearchSubmit}>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                  Search
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder={`Search ${config.type}...`}
-                    value={localSearch}
-                    onChange={(e) => setLocalSearch(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-                  />
-                  {localSearch && (
-                    <button
-                      type="button"
-                      onClick={handleClearSearch}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </form>
-
               {/* Widget-specific filters */}
               {renderFilters()}
-
-              {/* Case Filter */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                  Filter by Case
-                </label>
-                <select
-                  value={config.caseId ?? ''}
-                  onChange={(e) =>
-                    onConfigChange({
-                      caseId: e.target.value ? Number(e.target.value) : undefined,
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-                >
-                  <option value="">All cases</option>
-                  {cases.map((c: CaseSummary) => (
-                    <option key={c.id} value={c.id}>
-                      {c.short_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </div>
         )}
