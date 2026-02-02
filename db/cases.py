@@ -9,6 +9,30 @@ from .connection import get_cursor, serialize_row, serialize_rows
 from .validation import validate_case_status, validate_date_format
 
 
+# Color palette for case chips (10 visually distinct colors)
+# These are color keys that map to Tailwind classes in the frontend
+CASE_COLORS = [
+    "blue",
+    "emerald",
+    "amber",
+    "red",
+    "violet",
+    "pink",
+    "cyan",
+    "orange",
+    "indigo",
+    "teal",
+]
+
+
+def get_next_case_color() -> str:
+    """Get the next color in the rotation based on existing case count."""
+    with get_cursor() as cur:
+        cur.execute("SELECT COUNT(*) as count FROM cases")
+        count = cur.fetchone()["count"]
+        return CASE_COLORS[count % len(CASE_COLORS)]
+
+
 def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                   offset: int = None) -> dict:
     """Get all cases with optional status filter."""
@@ -213,12 +237,15 @@ def create_case(case_name: str, status: str = "Signing Up",
     if short_name is None:
         short_name = case_name.split()[0] if case_name else None
 
+    # Auto-assign color from rotation
+    color = get_next_case_color()
+
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO cases (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO cases (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers, color)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers_json))
+        """, (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers_json, color))
         case_id = cur.fetchone()["id"]
 
     return get_case_by_id(case_id)

@@ -56,7 +56,7 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         total = cur.fetchone()["total"]
 
         query = f"""
-            SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
+            SELECT e.id, e.case_id, c.case_name, c.short_name, c.color as case_color, e.date, e.time, e.location,
                    e.description, e.document_link, e.calculation_note, e.starred,
                    (SELECT COUNT(*) FROM tasks t WHERE t.event_id = e.id) as task_count
             FROM events e
@@ -89,7 +89,7 @@ def get_events(case_id: int = None) -> dict:
         total = cur.fetchone()["total"]
 
         cur.execute(f"""
-            SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
+            SELECT e.id, e.case_id, c.case_name, c.short_name, c.color as case_color, e.date, e.time, e.location,
                    e.description, e.document_link, e.calculation_note, e.starred, e.created_at,
                    (SELECT COUNT(*) FROM tasks t WHERE t.event_id = e.id) as task_count
             FROM events e
@@ -216,7 +216,7 @@ def search_events(query: str = None, case_id: int = None,
 
     with get_cursor() as cur:
         cur.execute(f"""
-            SELECT e.id, e.case_id, c.case_name, c.short_name, e.date, e.time, e.location,
+            SELECT e.id, e.case_id, c.case_name, c.short_name, c.color as case_color, e.date, e.time, e.location,
                    e.description, e.starred
             FROM events e
             JOIN cases c ON e.case_id = c.id
@@ -236,7 +236,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
         if include_events:
             cur.execute("""
                 SELECT e.id, e.date, e.time, e.location, e.description,
-                       e.case_id, c.case_name, c.short_name, 'event' as item_type
+                       e.case_id, c.case_name, c.short_name, c.color as case_color, 'event' as item_type
                 FROM events e
                 JOIN cases c ON e.case_id = c.id
                 WHERE e.date >= CURRENT_DATE AND e.date <= CURRENT_DATE + %s
@@ -248,7 +248,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
             cur.execute("""
                 SELECT t.id, t.due_date as date, NULL as time, NULL as location,
                        t.description, t.status, t.urgency,
-                       t.case_id, c.case_name, c.short_name, 'task' as item_type
+                       t.case_id, c.case_name, c.short_name, c.color as case_color, 'task' as item_type
                 FROM tasks t
                 JOIN cases c ON t.case_id = c.id
                 WHERE t.due_date IS NOT NULL

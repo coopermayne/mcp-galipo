@@ -6,6 +6,7 @@ export interface Event {
   case_id: number;
   case_name?: string;
   short_name?: string;
+  case_color?: string;
   date: string;
   time?: string;
   location?: string;

@@ -8,7 +8,6 @@
 import { useState, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Link } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import { format, parse, isValid, getYear } from 'date-fns';
 import {
@@ -18,11 +17,11 @@ import {
   Pencil,
   MessageSquare,
   MoreHorizontal,
-  Inbox,
   Link2,
 } from 'lucide-react';
 import type { Task, TaskStatus } from '../../types';
 import { StatusIndicator } from './StatusIndicator';
+import { CaseChip } from '../common';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority colors for checkbox border (Todoist style)
@@ -322,17 +321,14 @@ export function TaskItem({
 
         {/* Metadata row: case, date, event link - all inline */}
         <div className="flex items-center mt-0.5 gap-3">
-          {/* Case/Project link */}
+          {/* Case/Project chip */}
           {showCase && (
-            <Link
-              to={`/cases/${task.case_id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-              title={task.case_name || `Case #${task.case_id}`}
-            >
-              <Inbox className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="max-w-[100px] truncate">{task.short_name || task.case_name || `#${task.case_id}`}</span>
-            </Link>
+            <CaseChip
+              caseId={task.case_id}
+              caseName={task.case_name}
+              shortName={task.short_name}
+              color={task.case_color}
+            />
           )}
             {/* Due date with inline picker - wrapped to stop propagation */}
             <div onClick={(e) => e.stopPropagation()}>
@@ -500,8 +496,14 @@ export function TaskItemOverlay({ task }: { task: Task }) {
       <span className="text-sm text-slate-900 dark:text-slate-100 truncate">
         {task.description}
       </span>
-      <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
-        {task.short_name || task.case_name}
+      <span className="ml-auto">
+        <CaseChip
+          caseId={task.case_id}
+          caseName={task.case_name}
+          shortName={task.short_name}
+          color={task.case_color}
+          asSpan
+        />
       </span>
     </div>
   );

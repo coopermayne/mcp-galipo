@@ -7,6 +7,7 @@ export interface Task {
   case_id: number;
   case_name?: string;
   short_name?: string;
+  case_color?: string;
   description: string;
   due_date?: string;
   completion_date?: string;

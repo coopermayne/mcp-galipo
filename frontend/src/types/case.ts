@@ -18,6 +18,7 @@ export interface Case {
   id: number;
   case_name: string;
   short_name?: string;
+  color?: string;
   status: CaseStatus;
   case_summary?: string;
   result?: string;
@@ -37,6 +38,7 @@ export interface CaseSummary {
   id: number;
   case_name: string;
   short_name?: string;
+  color?: string;
   status: CaseStatus;
   judge?: string;
   client_count?: number;

@@ -2,7 +2,7 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-01-29 22:05:11 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-02-02 12:23:41 by `scripts/generate_schema_diagram.py`
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
 
@@ -46,6 +46,7 @@ erDiagram
         jsonb case_numbers
         timestamp created_at
         timestamp updated_at
+        varchar color
     }
 
     events {
@@ -125,6 +126,8 @@ erDiagram
         text notes
         timestamp created_at
         timestamp updated_at
+        bigint courtlistener_docket_id
+        varchar pacer_case_id
     }
 
     tasks {
@@ -140,6 +143,22 @@ erDiagram
         varchar docket_category
         int docket_order
         timestamp created_at
+    }
+
+    users {
+        int id PK
+        varchar email UK
+        varchar password_hash
+        varchar first_name
+        varchar last_name
+        varchar initials
+        varchar bar_number
+        varchar position
+        boolean is_admin
+        boolean must_change_password
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
     }
 
     %% Relationships
