@@ -51,8 +51,12 @@ interface TasksComponentProps {
   enableDragDrop?: boolean;
 
   // Display options
-  /** Initial grouping mode */
+  /** Initial grouping mode (uncontrolled) */
   defaultGroupBy?: GroupMode;
+  /** Controlled grouping mode (external control) */
+  groupBy?: GroupMode;
+  /** Callback when group by changes (for controlled mode) */
+  onGroupByChange?: (groupBy: GroupMode) => void;
   /** Show case name on each task row */
   showCase?: boolean;
   /** Maximum number of tasks to display (for preview/compact views) */
@@ -88,6 +92,8 @@ export function TasksComponent({
 
   // Display
   defaultGroupBy = 'date',
+  groupBy: controlledGroupBy,
+  onGroupByChange,
   showCase = true,
   maxItems,
   compact = false,
@@ -100,15 +106,22 @@ export function TasksComponent({
   onTaskDeleted,
 }: TasksComponentProps) {
   // Local UI state
-  const [groupBy, setGroupBy] = useState<GroupMode>(defaultGroupBy);
+  const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(defaultGroupBy);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalShowDone, setInternalShowDone] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  // Support both controlled and uncontrolled modes for groupBy
+  const isGroupByControlled = controlledGroupBy !== undefined;
+  const groupBy = isGroupByControlled ? controlledGroupBy : internalGroupBy;
+  const setGroupBy = isGroupByControlled
+    ? (value: GroupMode) => onGroupByChange?.(value)
+    : setInternalGroupBy;
+
   // Support both controlled and uncontrolled modes for showDone
-  const isControlled = controlledShowDone !== undefined;
-  const showDoneTasks = isControlled ? controlledShowDone : internalShowDone;
-  const setShowDoneTasks = isControlled
+  const isShowDoneControlled = controlledShowDone !== undefined;
+  const showDoneTasks = isShowDoneControlled ? controlledShowDone : internalShowDone;
+  const setShowDoneTasks = isShowDoneControlled
     ? (value: boolean) => onShowDoneChange?.(value)
     : setInternalShowDone;
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
