@@ -25,6 +25,26 @@ VALID_POSITIONS = ['attorney', 'paralegal', 'manager', 'admin']
 DEFAULT_PASSWORD = 'changeme'
 
 
+def _user_to_camel(user: dict) -> dict:
+    """Convert user dict from snake_case to camelCase for frontend."""
+    if not user:
+        return None
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "firstName": user.get("first_name"),
+        "lastName": user.get("last_name"),
+        "initials": user.get("initials"),
+        "barNumber": user.get("bar_number"),
+        "position": user.get("position"),
+        "isAdmin": user.get("is_admin", False),
+        "mustChangePassword": user.get("must_change_password", False),
+        "isActive": user.get("is_active", True),
+        "createdAt": user.get("created_at"),
+        "updatedAt": user.get("updated_at"),
+    }
+
+
 def register_user_routes(mcp):
     """Register user management routes (admin-only)."""
 
@@ -36,7 +56,7 @@ def register_user_routes(mcp):
 
         include_inactive = request.query_params.get("include_inactive", "false").lower() == "true"
         users = get_all_users(include_inactive=include_inactive)
-        return JSONResponse({"success": True, "data": users})
+        return JSONResponse({"success": True, "data": [_user_to_camel(u) for u in users]})
 
     @mcp.custom_route("/api/v1/users", methods=["POST"])
     async def api_create_user(request):
@@ -83,7 +103,7 @@ def register_user_routes(mcp):
                 is_admin=data.get("isAdmin", False),
                 must_change_password=data.get("mustChangePassword", True),
             )
-            return JSONResponse({"success": True, "data": user}, status_code=201)
+            return JSONResponse({"success": True, "data": _user_to_camel(user)}, status_code=201)
         except Exception as e:
             return JSONResponse(
                 {"success": False, "error": {"message": str(e), "code": "CREATE_FAILED"}},
@@ -105,7 +125,7 @@ def register_user_routes(mcp):
                 status_code=404
             )
 
-        return JSONResponse({"success": True, "data": user})
+        return JSONResponse({"success": True, "data": _user_to_camel(user)})
 
     @mcp.custom_route("/api/v1/users/{user_id}", methods=["PUT"])
     async def api_update_user(request):
@@ -166,7 +186,7 @@ def register_user_routes(mcp):
                 update_data["is_active"] = data["isActive"]
 
             user = update_user(user_id, **update_data)
-            return JSONResponse({"success": True, "data": user})
+            return JSONResponse({"success": True, "data": _user_to_camel(user)})
         except Exception as e:
             return JSONResponse(
                 {"success": False, "error": {"message": str(e), "code": "UPDATE_FAILED"}},
