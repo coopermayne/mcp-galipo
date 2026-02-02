@@ -157,9 +157,10 @@ export function EventsControls({
               ? 'border-slate-300 dark:border-slate-600 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
               : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
           }`}
+          title={showPast ? 'Showing past events' : 'Showing upcoming events'}
         >
           {showPast ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          <span>{showPast ? 'Past' : 'Upcoming'}</span>
+          <span className="hidden sm:inline">{showPast ? 'Past' : 'Soon'}</span>
         </button>
       )}
     </div>
