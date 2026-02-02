@@ -36,6 +36,8 @@ interface TaskFeedProps {
   sortable?: boolean;
   /** How to group tasks: 'none' | 'date' | 'case' | 'urgency' */
   groupBy?: GroupMode;
+  /** When true, ignores groupBy and shows flat list sorted by completion_date desc */
+  showDone?: boolean;
   /** Maximum number of tasks to display (for preview/compact views) */
   maxItems?: number;
   /** Compact mode - tighter spacing, smaller empty state */
@@ -67,9 +69,11 @@ interface TaskFeedProps {
   /** Enable inline editing when edit button is clicked (instead of using onEditClick) */
   enableInlineEdit?: boolean;
   /** Callback when a new task is created via inline form */
-  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: number }) => Promise<void>;
+  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: number; status?: string }) => Promise<void>;
   /** Enable inline task creation (instead of calling onAddTask) */
   enableInlineCreate?: boolean;
+  /** Default status for new tasks created via inline form */
+  defaultCreateStatus?: string;
 }
 
 interface DateGroup {
@@ -241,6 +245,19 @@ function sortTasksByUrgencyAndDate(tasks: Task[]): Task[] {
 }
 
 /**
+ * Sort tasks by completion date (most recent first)
+ * Falls back to created_at if completion_date is not set
+ */
+function sortTasksByCompletionDate(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const dateA = a.completion_date || a.created_at;
+    const dateB = b.completion_date || b.created_at;
+    // Most recent first (descending)
+    return dateB.localeCompare(dateA);
+  });
+}
+
+/**
  * Section header component (Todoist style)
  */
 function SectionHeader({
@@ -292,7 +309,7 @@ function AddTaskButton({ onClick }: { onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-2 py-2 w-full text-left text-sm text-red-500 hover:text-red-600 group"
+      className="flex items-center gap-2 px-2 py-2 w-full text-left text-sm text-blue-500 hover:text-blue-600 group"
     >
       <Plus className="w-4 h-4" />
       <span>Add task</span>
@@ -307,6 +324,7 @@ export function TaskFeed({
   showCase = true,
   sortable = false,
   groupBy = 'date',
+  showDone = false,
   maxItems,
   compact = false,
   emptyMessage = 'No tasks',
@@ -324,6 +342,7 @@ export function TaskFeed({
   enableInlineEdit = false,
   onInlineCreateSave,
   enableInlineCreate = false,
+  defaultCreateStatus,
 }: TaskFeedProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -369,7 +388,17 @@ export function TaskFeed({
   }, [tasks, maxItems]);
 
   // Group tasks based on groupBy mode
+  // When showDone is true, always show flat list sorted by completion date (most recent first)
   const groups = useMemo(() => {
+    if (showDone) {
+      return [{
+        key: 'completed',
+        label: '',
+        date: null,
+        tasks: sortTasksByCompletionDate(limitedTasks),
+      }];
+    }
+
     switch (groupBy) {
       case 'date':
         return groupTasksByDate(limitedTasks);
@@ -385,7 +414,7 @@ export function TaskFeed({
           tasks: sortTasksByUrgency(limitedTasks),
         }];
     }
-  }, [limitedTasks, groupBy]);
+  }, [limitedTasks, groupBy, showDone]);
 
   // Hide case column when grouping by case (redundant info)
   const effectiveShowCase = showCase && groupBy !== 'case';
@@ -525,6 +554,7 @@ export function TaskFeed({
         {!compact && (inlineCreateContext?.groupKey === 'empty' ? (
           <TaskInlineCreate
             caseId={caseId}
+            defaultStatus={defaultCreateStatus}
             onSave={handleInlineCreateSave}
             onCancel={handleInlineCreateCancel}
           />
@@ -537,8 +567,8 @@ export function TaskFeed({
 
   const allTaskIds = tasks.map((t) => t.id);
 
-  // Flush mode (no left padding) when not grouping (urgency mode)
-  const isFlush = groupBy === 'urgency';
+  // Flush mode (no left padding) when not grouping (urgency mode or showDone)
+  const isFlush = groupBy === 'urgency' || showDone;
 
   const renderTaskList = (groupTasks: Task[], showDragHandle: boolean) => (
     <>
@@ -615,6 +645,7 @@ export function TaskFeed({
                   <TaskInlineCreate
                     caseId={inlineCreateContext.caseId || caseId}
                     dueDate={inlineCreateContext.dueDate}
+                    defaultStatus={defaultCreateStatus}
                     onSave={handleInlineCreateSave}
                     onCancel={handleInlineCreateCancel}
                   />

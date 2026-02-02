@@ -1060,6 +1060,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             compact
             defaultGroupBy="urgency"
             showCase={false}
+            enableInlineCreate
           />
         </div>
 

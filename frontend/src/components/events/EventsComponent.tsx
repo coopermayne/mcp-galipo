@@ -44,14 +44,22 @@ interface EventsComponentProps {
   showCase?: boolean;
 
   // Display options
-  /** Initial grouping mode */
+  /** Initial grouping mode (uncontrolled) */
   defaultGroupBy?: GroupMode;
+  /** Controlled grouping mode (external control) */
+  groupBy?: GroupMode;
+  /** Callback when group by changes (for controlled mode) */
+  onGroupByChange?: (groupBy: GroupMode) => void;
   /** Maximum number of events to display */
   maxItems?: number;
   /** Compact mode - tighter spacing */
   compact?: boolean;
-  /** Initial state for past/future toggle */
+  /** Initial state for past/future toggle (uncontrolled) */
   defaultShowPast?: boolean;
+  /** Controlled show past state (external control) */
+  showPast?: boolean;
+  /** Callback when show past changes (for controlled mode) */
+  onShowPastChange?: (showPast: boolean) => void;
   /** Past days to fetch when showing past events */
   pastDays?: number;
   /** Group events by date category (overdue, today, etc.) - overrides groupBy */
@@ -79,9 +87,13 @@ export function EventsComponent({
 
   // Display
   defaultGroupBy = 'none',
+  groupBy: controlledGroupBy,
+  onGroupByChange,
   maxItems,
   compact = false,
   defaultShowPast = false,
+  showPast: controlledShowPast,
+  onShowPastChange,
   pastDays = 14,
   groupByDate = false,
 
@@ -90,9 +102,23 @@ export function EventsComponent({
   onEventDeleted,
 }: EventsComponentProps) {
   // Local UI state
-  const [groupBy, setGroupBy] = useState<GroupMode>(groupByDate ? 'date' : defaultGroupBy);
-  const [showPast, setShowPast] = useState(defaultShowPast);
+  const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(groupByDate ? 'date' : defaultGroupBy);
+  const [internalShowPast, setInternalShowPast] = useState(defaultShowPast);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Support both controlled and uncontrolled modes for groupBy
+  const isGroupByControlled = controlledGroupBy !== undefined;
+  const groupBy = isGroupByControlled ? controlledGroupBy : internalGroupBy;
+  const setGroupBy = isGroupByControlled
+    ? (value: GroupMode) => onGroupByChange?.(value)
+    : setInternalGroupBy;
+
+  // Support both controlled and uncontrolled modes for showPast
+  const isShowPastControlled = controlledShowPast !== undefined;
+  const showPast = isShowPastControlled ? controlledShowPast : internalShowPast;
+  const setShowPast = isShowPastControlled
+    ? (value: boolean) => onShowPastChange?.(value)
+    : setInternalShowPast;
   const [taskFromEvent, setTaskFromEvent] = useState<Event | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 

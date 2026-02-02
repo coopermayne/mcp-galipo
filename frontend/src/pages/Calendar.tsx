@@ -10,7 +10,7 @@ export function Calendar() {
       />
 
       <PageContent>
-        <div className="sm:max-w-2xl sm:bg-white sm:dark:bg-slate-800 sm:rounded-lg sm:border sm:border-slate-200 sm:dark:border-slate-700 sm:p-3">
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
           <EventsComponent
             showAllEvents
             groupByDate

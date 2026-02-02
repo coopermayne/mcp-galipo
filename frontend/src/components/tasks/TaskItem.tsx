@@ -74,7 +74,7 @@ export interface TaskItemProps {
 }
 
 /**
- * Format a date relative to today (Todoist style)
+ * Format a date relative to today (Todoist style) - for due dates
  */
 function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean } {
   const date = new Date(dateStr + 'T00:00:00');
@@ -106,6 +106,32 @@ function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean
       text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       isOverdue: false
     };
+  }
+}
+
+/**
+ * Format a timestamp as relative time (e.g., "2 hours ago", "yesterday")
+ */
+function formatRelativeTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) {
+    return 'just now';
+  } else if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  } else if (diffDays === 1) {
+    return 'yesterday';
+  } else if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 }
 
@@ -241,8 +267,12 @@ export function TaskItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
-  const dateInfo = task.due_date ? formatRelativeDate(task.due_date) : null;
+  const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
   const isDone = task.status === 'Done';
+  // For active tasks, show due date info
+  const dateInfo = task.due_date ? formatRelativeDate(task.due_date) : null;
+  // For done tasks, show relative completion time
+  const completionTimeText = isDone && task.completion_date ? formatRelativeTime(task.completion_date) : null;
   const showCompleted = isDone || isCompleting;
 
   const handleStatusChange = (newStatus: TaskStatus) => {
@@ -330,59 +360,70 @@ export function TaskItem({
               color={task.case_color}
             />
           )}
-            {/* Due date with inline picker - wrapped to stop propagation */}
-            <div onClick={(e) => e.stopPropagation()}>
-              <DatePicker
-                selected={selectedDate}
-                onChange={handleDateChange}
-                open={isDatePickerOpen}
-                onClickOutside={() => setIsDatePickerOpen(false)}
-                onInputClick={() => setIsDatePickerOpen(true)}
-                dateFormat="yyyy-MM-dd"
-                showYearDropdown
-                showMonthDropdown
-                scrollableYearDropdown
-                yearDropdownItemNumber={15}
-                dropdownMode="select"
-                portalId="datepicker-portal"
-                renderCustomHeader={renderDatePickerHeader}
-                customInput={
-                  dateInfo ? (
-                    <button
-                      ref={dateButtonRef}
-                      className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
-                    >
-                      <Calendar className="w-3 h-3 flex-shrink-0" />
-                      <span>{dateInfo.text}</span>
-                    </button>
-                  ) : (
-                    <button
-                      ref={dateButtonRef}
-                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    >
-                      <Calendar className="w-3 h-3 flex-shrink-0" />
-                      <span>Add date</span>
-                    </button>
-                  )
-                }
-              >
-                {/* Clear date button - only shown when a date is set */}
-                {selectedDate && (
-                  <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
-                    <button
-                      type="button"
-                      onClick={() => handleDateChange(null)}
-                      className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                    >
-                      Clear date
-                    </button>
-                  </div>
-                )}
-              </DatePicker>
-            </div>
+            {/* Date display - completion date for done tasks, due date picker for active */}
+            {isDone ? (
+              // Static completion time display for done tasks
+              completionTimeText && (
+                <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                  <Calendar className="w-3 h-3 flex-shrink-0" />
+                  <span>Completed {completionTimeText}</span>
+                </span>
+              )
+            ) : (
+              // Due date with inline picker for active tasks
+              <div onClick={(e) => e.stopPropagation()}>
+                <DatePicker
+                  selected={selectedDate}
+                  onChange={handleDateChange}
+                  open={isDatePickerOpen}
+                  onClickOutside={() => setIsDatePickerOpen(false)}
+                  onInputClick={() => setIsDatePickerOpen(true)}
+                  dateFormat="yyyy-MM-dd"
+                  showYearDropdown
+                  showMonthDropdown
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={15}
+                  dropdownMode="select"
+                  portalId="datepicker-portal"
+                  renderCustomHeader={renderDatePickerHeader}
+                  customInput={
+                    dateInfo ? (
+                      <button
+                        ref={dateButtonRef}
+                        className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+                      >
+                        <Calendar className="w-3 h-3 flex-shrink-0" />
+                        <span>{dateInfo.text}</span>
+                      </button>
+                    ) : (
+                      <button
+                        ref={dateButtonRef}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      >
+                        <Calendar className="w-3 h-3 flex-shrink-0" />
+                        <span>Add date</span>
+                      </button>
+                    )
+                  }
+                >
+                  {/* Clear date button - only shown when a date is set */}
+                  {selectedDate && (
+                    <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
+                      <button
+                        type="button"
+                        onClick={() => handleDateChange(null)}
+                        className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                      >
+                        Clear date
+                      </button>
+                    </div>
+                  )}
+                </DatePicker>
+              </div>
+            )}
 
-            {/* Event link - visible when task has events or already linked */}
-            {(task.has_events || task.event_id) && (
+            {/* Event link - visible when task has events or already linked (hidden for done tasks) */}
+            {!isDone && (task.has_events || task.event_id) && (
               <div className="relative group/event">
                 <button
                   onClick={(e) => {
@@ -411,8 +452,8 @@ export function TaskItem({
               </div>
             )}
 
-            {/* Priority picker */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
+            {/* Priority picker (hidden for done tasks) */}
+            {!isDone && <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 onClick={() => setIsPriorityOpen(!isPriorityOpen)}
@@ -445,7 +486,7 @@ export function TaskItem({
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
         </div>
       </div>
 

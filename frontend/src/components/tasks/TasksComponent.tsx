@@ -52,8 +52,12 @@ interface TasksComponentProps {
   enableDragDrop?: boolean;
 
   // Display options
-  /** Initial grouping mode */
+  /** Initial grouping mode (uncontrolled) */
   defaultGroupBy?: GroupMode;
+  /** Controlled grouping mode (external control) */
+  groupBy?: GroupMode;
+  /** Callback when group by changes (for controlled mode) */
+  onGroupByChange?: (groupBy: GroupMode) => void;
   /** Show case name on each task row */
   showCase?: boolean;
   /** Maximum number of tasks to display (for preview/compact views) */
@@ -89,6 +93,8 @@ export function TasksComponent({
 
   // Display
   defaultGroupBy = 'date',
+  groupBy: controlledGroupBy,
+  onGroupByChange,
   showCase = true,
   maxItems,
   compact = false,
@@ -101,15 +107,22 @@ export function TasksComponent({
   onTaskDeleted,
 }: TasksComponentProps) {
   // Local UI state
-  const [groupBy, setGroupBy] = useState<GroupMode>(defaultGroupBy);
+  const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(defaultGroupBy);
   const [searchQuery, setSearchQuery] = useState('');
   const [internalStatusFilter, setInternalStatusFilter] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTER);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  // Support both controlled and uncontrolled modes for groupBy
+  const isGroupByControlled = controlledGroupBy !== undefined;
+  const groupBy = isGroupByControlled ? controlledGroupBy : internalGroupBy;
+  const setGroupBy = isGroupByControlled
+    ? (value: GroupMode) => onGroupByChange?.(value)
+    : setInternalGroupBy;
+
   // Support both controlled and uncontrolled modes for status filter
-  const isControlled = controlledStatusFilter !== undefined;
-  const statusFilter = isControlled ? controlledStatusFilter : internalStatusFilter;
-  const setStatusFilter = isControlled
+  const isStatusFilterControlled = controlledStatusFilter !== undefined;
+  const statusFilter = isStatusFilterControlled ? controlledStatusFilter : internalStatusFilter;
+  const setStatusFilter = isStatusFilterControlled
     ? (value: TaskStatus[]) => onStatusFilterChange?.(value)
     : setInternalStatusFilter;
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
@@ -214,6 +227,30 @@ export function TasksComponent({
       }
     },
     [allTasks, markDone, showToast, queryClient, caseId, onTaskUpdated]
+  );
+
+  // Handle marking a done task back to pending
+  const handleMarkPending = useCallback(
+    async (taskId: number) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      // Set status back to Pending
+      await updateTask(taskId, { status: 'Pending' });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      if (caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+      }
+
+      // Notify parent
+      onTaskUpdated?.({ ...task, status: 'Pending' });
+
+      // Show toast
+      showToast({
+        message: 'Task restored',
+      });
+    },
+    [tasks, showToast, queryClient, caseId, onTaskUpdated]
   );
 
   const handleTaskClick = (task: Task) => {
@@ -331,6 +368,7 @@ export function TasksComponent({
       description: string;
       due_date?: string;
       urgency?: number;
+      status?: string;
     }) => {
       // If we have a caseId prop and the data doesn't specify one, use the prop
       const createData = caseId && !data.case_id ? { ...data, case_id: caseId } : data;
@@ -410,6 +448,7 @@ export function TasksComponent({
           showCase={showCase}
           sortable={enableDragDrop}
           groupBy={groupBy}
+          showDone={showDoneTasks}
           maxItems={maxItems}
           compact={compact}
           emptyMessage={statusFilter.length === 1 && statusFilter[0] === 'Done' ? 'No completed tasks' : 'No tasks match filters'}
@@ -423,8 +462,9 @@ export function TasksComponent({
           onPriorityChange={handlePriorityChange}
           enableInlineEdit
           onInlineEditSave={handleInlineEditSave}
-          enableInlineCreate={enableInlineCreate && !compact}
+          enableInlineCreate={enableInlineCreate}
           onInlineCreateSave={handleInlineCreateSave}
+          defaultCreateStatus={showDoneTasks ? 'Done' : undefined}
         />
 
       {/* Task Detail Sheet */}

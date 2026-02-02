@@ -31,11 +31,21 @@ def add_task(case_id: int, description: str, due_date: str = None,
         cur.execute("SELECT COALESCE(MAX(sort_order), 0) + 1000 AS next_sort_order FROM tasks")
         new_sort_order = cur.fetchone()["next_sort_order"]
 
-        cur.execute("""
-            INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
-        """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
+        # Set completion_date to today if creating as Done
+        completion_date = "CURRENT_TIMESTAMP" if status == "Done" else None
+
+        if status == "Done":
+            cur.execute("""
+                INSERT INTO tasks (case_id, description, due_date, completion_date, status, urgency, event_id, sort_order)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s)
+                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
+            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
+        else:
+            cur.execute("""
+                INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, docket_category, docket_order, created_at
+            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
         return serialize_row(dict(cur.fetchone()))
 
 
@@ -127,7 +137,7 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
         params.append(status)
         # Auto-set completion_date when marking as Done
         if status == "Done":
-            updates.append("completion_date = CURRENT_DATE")
+            updates.append("completion_date = CURRENT_TIMESTAMP")
 
     if urgency:
         validate_urgency(urgency)
@@ -181,7 +191,7 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         params.append(status)
         # Auto-set completion_date when marking as Done (if not explicitly provided)
         if status == "Done" and completion_date is _NOT_PROVIDED:
-            updates.append("completion_date = CURRENT_DATE")
+            updates.append("completion_date = CURRENT_TIMESTAMP")
         # Clear completion_date when unmarking from Done (if not explicitly provided)
         elif status is not None and status != "Done" and completion_date is _NOT_PROVIDED:
             updates.append("completion_date = NULL")
@@ -234,7 +244,7 @@ def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
     with get_cursor() as cur:
         if status == "Done":
             cur.execute("""
-                UPDATE tasks SET status = %s, completion_date = CURRENT_DATE
+                UPDATE tasks SET status = %s, completion_date = CURRENT_TIMESTAMP
                 WHERE id = ANY(%s)
             """, (status, task_ids))
         else:
@@ -248,7 +258,7 @@ def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
 def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
     """Update all tasks for a case, optionally filtering by current status."""
     validate_task_status(status)
-    completion_clause = ", completion_date = CURRENT_DATE" if status == "Done" else ", completion_date = NULL"
+    completion_clause = ", completion_date = CURRENT_TIMESTAMP" if status == "Done" else ", completion_date = NULL"
     with get_cursor() as cur:
         if current_status:
             validate_task_status(current_status)
