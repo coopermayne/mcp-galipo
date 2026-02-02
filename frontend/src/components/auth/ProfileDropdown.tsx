@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Key, LogOut, ChevronDown } from 'lucide-react';
+import { Key, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ChangePasswordModal } from './ChangePasswordModal';
 

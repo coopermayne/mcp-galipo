@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Key, Eye, EyeOff, Check } from 'lucide-react';
+import { Key, Eye, EyeOff } from 'lucide-react';
 
 interface ChangePasswordFormProps {
   onSubmit: (currentPassword: string, newPassword: string) => Promise<boolean>;
