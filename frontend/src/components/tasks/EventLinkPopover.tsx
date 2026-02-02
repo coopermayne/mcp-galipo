@@ -147,6 +147,7 @@ export function EventLinkPopover({
       ref={popoverRef}
       className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-[9999]"
       style={{ top: position.top, left: position.left, width: 340 }}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Search header */}
       <div className="p-2 border-b border-slate-200 dark:border-slate-700">
