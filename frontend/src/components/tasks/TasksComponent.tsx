@@ -22,6 +22,7 @@ import { TaskDetailSheet, type SheetFocusMode } from './TaskDetailSheet';
 import { EventLinkPopover } from './EventLinkPopover';
 import { useTaskActions } from './useTaskActions';
 import { ToastContainer, useToast } from '../common';
+import { DEFAULT_STATUS_FILTER } from './statusConfig';
 import { getTasks, updateTask, createTask } from '../../api';
 import type { Task, TaskStatus } from '../../types';
 
@@ -59,10 +60,10 @@ interface TasksComponentProps {
   maxItems?: number;
   /** Compact mode - tighter spacing, smaller empty state */
   compact?: boolean;
-  /** Controlled show done state (external control) */
-  showDone?: boolean;
-  /** Callback when show done changes (for controlled mode) */
-  onShowDoneChange?: (showDone: boolean) => void;
+  /** Controlled status filter (external control) */
+  statusFilter?: TaskStatus[];
+  /** Callback when status filter changes (for controlled mode) */
+  onStatusFilterChange?: (statuses: TaskStatus[]) => void;
 
   // Callbacks (for parent notification, optional)
   onTaskCreated?: (task: Task) => void;
@@ -91,8 +92,8 @@ export function TasksComponent({
   showCase = true,
   maxItems,
   compact = false,
-  showDone: controlledShowDone,
-  onShowDoneChange,
+  statusFilter: controlledStatusFilter,
+  onStatusFilterChange,
 
   // Callbacks
   onTaskCreated,
@@ -102,15 +103,15 @@ export function TasksComponent({
   // Local UI state
   const [groupBy, setGroupBy] = useState<GroupMode>(defaultGroupBy);
   const [searchQuery, setSearchQuery] = useState('');
-  const [internalShowDone, setInternalShowDone] = useState(false);
+  const [internalStatusFilter, setInternalStatusFilter] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTER);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // Support both controlled and uncontrolled modes for showDone
-  const isControlled = controlledShowDone !== undefined;
-  const showDoneTasks = isControlled ? controlledShowDone : internalShowDone;
-  const setShowDoneTasks = isControlled
-    ? (value: boolean) => onShowDoneChange?.(value)
-    : setInternalShowDone;
+  // Support both controlled and uncontrolled modes for status filter
+  const isControlled = controlledStatusFilter !== undefined;
+  const statusFilter = isControlled ? controlledStatusFilter : internalStatusFilter;
+  const setStatusFilter = isControlled
+    ? (value: TaskStatus[]) => onStatusFilterChange?.(value)
+    : setInternalStatusFilter;
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
   const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
   const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
@@ -127,21 +128,17 @@ export function TasksComponent({
     invalidateKeys.push(['case', String(caseId)]);
   }
 
-  // Fetch tasks based on props
+  // Fetch all tasks (filtering is done client-side)
   const { data: fetchedData, isLoading } = useQuery({
     queryKey: caseId
-      ? ['tasks', { case_id: caseId, showDone: showDoneTasks }]
-      : ['tasks', { showDone: showDoneTasks }],
+      ? ['tasks', { case_id: caseId }]
+      : ['tasks'],
     queryFn: () => {
       const params: Parameters<typeof getTasks>[0] = { limit: 100 };
       if (caseId) {
         params.case_id = caseId;
       }
-      if (showDoneTasks) {
-        params.status = 'Done';
-      } else {
-        params.exclude_status = 'Done';
-      }
+      // Fetch all statuses - filtering is done client-side
       return getTasks(params);
     },
     enabled: showAllTasks || !!caseId,
@@ -154,50 +151,69 @@ export function TasksComponent({
 
   const allTasks = fetchedData?.tasks || [];
 
-  // Filter tasks by search query
+  // Filter tasks by status and search query
   const tasks = useMemo(() => {
-    if (!searchQuery.trim()) return allTasks;
-    const query = searchQuery.toLowerCase();
-    return allTasks.filter(
-      (task) =>
-        task.description.toLowerCase().includes(query) ||
-        task.case_name?.toLowerCase().includes(query) ||
-        task.short_name?.toLowerCase().includes(query)
-    );
-  }, [allTasks, searchQuery]);
+    let filtered = allTasks;
 
-  // Handle marking done with toast and undo support
-  const handleMarkDone = useCallback(
-    async (taskId: number) => {
-      const task = tasks.find((t) => t.id === taskId);
+    // Filter by status
+    filtered = filtered.filter((task) => statusFilter.includes(task.status));
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (task) =>
+          task.description.toLowerCase().includes(query) ||
+          task.case_name?.toLowerCase().includes(query) ||
+          task.short_name?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [allTasks, statusFilter, searchQuery]);
+
+  // Handle status change with toast and undo support for Done
+  const handleStatusChange = useCallback(
+    async (taskId: number, newStatus: TaskStatus) => {
+      const task = allTasks.find((t) => t.id === taskId);
       if (!task) return;
 
       // Store previous state for undo
       previousStates.current.set(taskId, task.status);
 
-      // Mark as done
-      await markDone(taskId);
+      // Update status
+      if (newStatus === 'Done') {
+        await markDone(taskId);
+      } else {
+        await updateTask(taskId, { status: newStatus });
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        if (caseId) {
+          queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+        }
+      }
 
       // Notify parent
-      onTaskUpdated?.({ ...task, status: 'Done' });
+      onTaskUpdated?.({ ...task, status: newStatus });
 
-      // Show toast with undo
-      showToast({
-        message: '1 task completed',
-        onUndo: async () => {
-          const prevStatus = previousStates.current.get(taskId);
-          if (prevStatus) {
-            await updateTask(taskId, { status: prevStatus });
-            queryClient.invalidateQueries({ queryKey: ['tasks'] });
-            if (caseId) {
-              queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+      // Show toast with undo only when marking as Done
+      if (newStatus === 'Done') {
+        showToast({
+          message: '1 task completed',
+          onUndo: async () => {
+            const prevStatus = previousStates.current.get(taskId);
+            if (prevStatus) {
+              await updateTask(taskId, { status: prevStatus });
+              queryClient.invalidateQueries({ queryKey: ['tasks'] });
+              if (caseId) {
+                queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+              }
+              previousStates.current.delete(taskId);
             }
-            previousStates.current.delete(taskId);
-          }
-        },
-      });
+          },
+        });
+      }
     },
-    [tasks, markDone, showToast, queryClient, caseId, onTaskUpdated]
+    [allTasks, markDone, showToast, queryClient, caseId, onTaskUpdated]
   );
 
   const handleTaskClick = (task: Task) => {
@@ -379,8 +395,8 @@ export function TasksComponent({
           onGroupByChange={setGroupBy}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          showDone={showDoneTasks}
-          onShowDoneChange={setShowDoneTasks}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           hideGroupBy={hideGroupBy}
           hideCaseGrouping={!!caseId}
         />
@@ -396,9 +412,9 @@ export function TasksComponent({
           groupBy={groupBy}
           maxItems={maxItems}
           compact={compact}
-          emptyMessage={showDoneTasks ? 'No completed tasks' : 'No active tasks'}
+          emptyMessage={statusFilter.length === 1 && statusFilter[0] === 'Done' ? 'No completed tasks' : 'No tasks match filters'}
           onDelete={handleDeleteTask}
-          onMarkDone={handleMarkDone}
+          onStatusChange={handleStatusChange}
           onTaskClick={handleTaskClick}
           onEditClick={handleEditClick}
           onDateChange={handleDateChange}
@@ -417,7 +433,7 @@ export function TasksComponent({
           task={selectedTask}
           isOpen={!!selectedTask}
           onClose={handleCloseDetail}
-          onMarkDone={handleMarkDone}
+          onStatusChange={handleStatusChange}
           onUpdate={handleUpdateTask}
           onLinkEvent={handleLinkEvent}
           onDelete={handleDeleteTask}

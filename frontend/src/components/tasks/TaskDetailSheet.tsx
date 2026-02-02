@@ -23,8 +23,10 @@ import {
   Link2,
   Trash2,
 } from 'lucide-react';
-import type { Task } from '../../types';
+import type { Task, TaskStatus } from '../../types';
 import { EventLinkPopover } from './EventLinkPopover';
+import { STATUS_CONFIG, getStatusConfig } from './statusConfig';
+import { ActiveStatusIcon } from './ActiveStatusIcon';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority config matching TaskItem
@@ -44,7 +46,7 @@ interface TaskDetailSheetProps {
   task: Task | null;
   isOpen: boolean;
   onClose: () => void;
-  onMarkDone?: (taskId: number) => void;
+  onStatusChange?: (taskId: number, status: TaskStatus) => void;
   onUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   onLinkEvent?: (taskId: number, eventId: number | null) => void;
   onDelete?: (taskId: number) => void;
@@ -91,7 +93,7 @@ export function TaskDetailSheet({
   task,
   isOpen,
   onClose,
-  onMarkDone,
+  onStatusChange,
   onUpdate,
   onLinkEvent,
   onDelete,
@@ -102,6 +104,8 @@ export function TaskDetailSheet({
   initialFocus = null,
 }: TaskDetailSheetProps) {
   const [editedTitle, setEditedTitle] = useState(task?.description || '');
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [statusPickerPos, setStatusPickerPos] = useState({ top: 0, left: 0 });
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [priorityPickerPos, setPriorityPickerPos] = useState({ top: 0, left: 0 });
   const [showEventLinkPopover, setShowEventLinkPopover] = useState(false);
@@ -109,6 +113,7 @@ export function TaskDetailSheet({
   const titleInputRef = useRef<HTMLInputElement>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
+  const statusButtonRef = useRef<HTMLButtonElement>(null);
   const priorityButtonRef = useRef<HTMLButtonElement>(null);
   const eventLinkButtonRef = useRef<HTMLButtonElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -149,6 +154,7 @@ export function TaskDetailSheet({
 
   // Reset pickers when task changes
   useEffect(() => {
+    setShowStatusPicker(false);
     setShowPriorityPicker(false);
     setShowEventLinkPopover(false);
     setShowMoreMenu(false);
@@ -170,7 +176,9 @@ export function TaskDetailSheet({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        if (showPriorityPicker) {
+        if (showStatusPicker) {
+          setShowStatusPicker(false);
+        } else if (showPriorityPicker) {
           setShowPriorityPicker(false);
         } else if (showEventLinkPopover) {
           setShowEventLinkPopover(false);
@@ -183,7 +191,7 @@ export function TaskDetailSheet({
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose, showPriorityPicker, showEventLinkPopover, showMoreMenu]);
+  }, [isOpen, onClose, showStatusPicker, showPriorityPicker, showEventLinkPopover, showMoreMenu]);
 
   if (!isOpen || !task) return null;
 
@@ -200,9 +208,29 @@ export function TaskDetailSheet({
     : null;
 
   const handleCheckboxClick = () => {
-    if (onMarkDone) {
-      onMarkDone(task.id);
+    // Toggle between Done and Pending on checkbox click
+    if (onStatusChange) {
+      const newStatus = task.status === 'Done' ? 'Pending' : 'Done';
+      onStatusChange(task.id, newStatus);
     }
+  };
+
+  const handleStatusClick = () => {
+    if (statusButtonRef.current) {
+      const rect = statusButtonRef.current.getBoundingClientRect();
+      setStatusPickerPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+    setShowStatusPicker(!showStatusPicker);
+  };
+
+  const handleStatusChange = (newStatus: TaskStatus) => {
+    if (onStatusChange) {
+      onStatusChange(task.id, newStatus);
+    }
+    setShowStatusPicker(false);
   };
 
   const handleTitleBlur = async () => {
@@ -527,6 +555,67 @@ export function TaskDetailSheet({
                 </button>
               )}
             </div>
+
+            {/* Status */}
+            <div className="relative border-b border-slate-100 dark:border-slate-800">
+              <button
+                ref={statusButtonRef}
+                onClick={handleStatusClick}
+                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                {(() => {
+                  const statusConfig = getStatusConfig(task.status);
+                  const StatusIcon = statusConfig.icon;
+                  return (
+                    <>
+                      {task.status === 'Active' ? (
+                        <span className={statusConfig.color}>
+                          <ActiveStatusIcon className="w-5 h-5" />
+                        </span>
+                      ) : (
+                        <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
+                      )}
+                      <span className={`text-sm ${statusConfig.color}`}>
+                        {statusConfig.label}
+                      </span>
+                    </>
+                  );
+                })()}
+              </button>
+            </div>
+
+            {/* Status Picker Dropdown - rendered in portal */}
+            {showStatusPicker && createPortal(
+              <div className="fixed inset-0 z-[9999]" onClick={() => setShowStatusPicker(false)}>
+                <div
+                  className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
+                  style={{ top: statusPickerPos.top, left: statusPickerPos.left }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {STATUS_CONFIG.map((config) => {
+                    const StatusIcon = config.icon;
+                    return (
+                      <button
+                        key={config.value}
+                        onClick={() => handleStatusChange(config.value)}
+                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${config.color}`}
+                      >
+                        {config.value === 'Active' ? (
+                          <ActiveStatusIcon className="w-4 h-4" />
+                        ) : (
+                          <StatusIcon className="w-4 h-4" />
+                        )}
+                        <span className="text-sm flex-1">{config.label}</span>
+                        {task.status === config.value && (
+                          <Check className="w-4 h-4" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>,
+              document.getElementById('datepicker-portal') || document.body
+            )}
 
             {/* Priority */}
             <div className="relative border-b border-slate-100 dark:border-slate-800">

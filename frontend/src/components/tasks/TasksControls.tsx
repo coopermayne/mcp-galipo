@@ -14,9 +14,9 @@ import {
   Briefcase,
   LayoutGrid,
   Check,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
+import { StatusFilterDropdown } from './StatusFilterDropdown';
+import type { TaskStatus } from '../../types';
 
 export type GroupMode = 'date' | 'case' | 'urgency';
 
@@ -29,10 +29,10 @@ interface TasksControlsProps {
   searchQuery: string;
   /** Callback when search query changes */
   onSearchChange: (query: string) => void;
-  /** Whether showing done tasks */
-  showDone: boolean;
-  /** Callback when show done toggle changes */
-  onShowDoneChange: (showDone: boolean) => void;
+  /** Selected status filter */
+  statusFilter: TaskStatus[];
+  /** Callback when status filter changes */
+  onStatusFilterChange: (statuses: TaskStatus[]) => void;
   /** Hide the group by dropdown (e.g., when only one mode makes sense) */
   hideGroupBy?: boolean;
   /** Hide the "Case" grouping option (when already in a case context) */
@@ -44,8 +44,8 @@ export function TasksControls({
   onGroupByChange,
   searchQuery,
   onSearchChange,
-  showDone,
-  onShowDoneChange,
+  statusFilter,
+  onStatusFilterChange,
   hideGroupBy = false,
   hideCaseGrouping = false,
 }: TasksControlsProps) {
@@ -145,18 +145,11 @@ export function TasksControls({
         </div>
       )}
 
-      {/* Show Done toggle */}
-      <button
-        onClick={() => onShowDoneChange(!showDone)}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-          showDone
-            ? 'border-green-300 dark:border-green-700 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
-        }`}
-      >
-        {showDone ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-        <span>Done</span>
-      </button>
+      {/* Status filter dropdown */}
+      <StatusFilterDropdown
+        selectedStatuses={statusFilter}
+        onChange={onStatusFilterChange}
+      />
     </div>
   );
 }
