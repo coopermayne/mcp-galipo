@@ -37,6 +37,14 @@ const PRIORITY_OPTIONS = [
   { value: 1, label: 'Priority 4', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
 ] as const;
 
+// Priority-based colors for status icons
+const URGENCY_COLORS = {
+  4: 'text-red-500',
+  3: 'text-orange-500',
+  2: 'text-blue-500',
+  1: 'text-slate-500 dark:text-slate-400',
+} as const;
+
 const getPriorityConfig = (urgency: number) =>
   PRIORITY_OPTIONS.find(p => p.value === urgency) || PRIORITY_OPTIONS[3];
 
@@ -566,14 +574,15 @@ export function TaskDetailSheet({
                 {(() => {
                   const statusConfig = getStatusConfig(task.status);
                   const StatusIcon = statusConfig.icon;
+                  const urgencyColor = URGENCY_COLORS[task.urgency as keyof typeof URGENCY_COLORS] || URGENCY_COLORS[1];
                   return (
                     <>
                       {task.status === 'Active' ? (
-                        <span className="text-slate-500 dark:text-slate-400">
+                        <span className={urgencyColor}>
                           <ActiveStatusIcon className="w-5 h-5" />
                         </span>
                       ) : (
-                        <StatusIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                        <StatusIcon className={`w-5 h-5 ${urgencyColor}`} />
                       )}
                       <span className="text-sm text-slate-700 dark:text-slate-300">
                         {statusConfig.label}
@@ -592,29 +601,32 @@ export function TaskDetailSheet({
                   style={{ top: statusPickerPos.top, left: statusPickerPos.left }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {STATUS_CONFIG.map((config) => {
-                    const StatusIcon = config.icon;
-                    const isSelected = task.status === config.value;
-                    return (
-                      <button
-                        key={config.value}
-                        onClick={() => handleStatusChange(config.value)}
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
-                      >
-                        {config.value === 'Active' ? (
-                          <span className="text-slate-500 dark:text-slate-400">
-                            <ActiveStatusIcon className="w-4 h-4" />
-                          </span>
-                        ) : (
-                          <StatusIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                        )}
-                        <span className="text-sm flex-1 text-slate-700 dark:text-slate-200">{config.label}</span>
-                        {isSelected && (
-                          <Check className="w-4 h-4 text-primary-500" />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {(() => {
+                    const urgencyColor = URGENCY_COLORS[task.urgency as keyof typeof URGENCY_COLORS] || URGENCY_COLORS[1];
+                    return STATUS_CONFIG.map((config) => {
+                      const StatusIcon = config.icon;
+                      const isSelected = task.status === config.value;
+                      return (
+                        <button
+                          key={config.value}
+                          onClick={() => handleStatusChange(config.value)}
+                          className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
+                        >
+                          {config.value === 'Active' ? (
+                            <span className={urgencyColor}>
+                              <ActiveStatusIcon className="w-4 h-4" />
+                            </span>
+                          ) : (
+                            <StatusIcon className={`w-4 h-4 ${urgencyColor}`} />
+                          )}
+                          <span className="text-sm flex-1 text-slate-700 dark:text-slate-200">{config.label}</span>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-primary-500" />
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>,
               document.getElementById('datepicker-portal') || document.body

@@ -115,6 +115,7 @@ export function StatusIndicator({
         isOpen={isPickerOpen}
         anchorEl={buttonRef.current}
         currentStatus={status}
+        priority={priority}
         onSelect={handleStatusSelect}
         onClose={() => setIsPickerOpen(false)}
       />
