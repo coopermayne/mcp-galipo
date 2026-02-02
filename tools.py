@@ -889,3 +889,311 @@ def register_tools(mcp):
             return {"success": True, "entity": "persons", "results": result["persons"], "total": result["total"]}
 
         return validation_error(f"Invalid entity: '{entity}'", valid_values=["cases", "tasks", "events", "persons"])
+
+    @mcp.tool()
+    def reorder_task(
+        context: Context,
+        task_id: int,
+        new_sort_order: int,
+        new_urgency: Optional[Urgency] = None
+    ) -> dict:
+        """Reorder a task in the list. Optionally change urgency at the same time."""
+        if new_urgency is not None:
+            try:
+                db.validate_urgency(new_urgency)
+            except ValidationError:
+                return invalid_urgency_error(new_urgency)
+        result = db.reorder_task(task_id, new_sort_order, new_urgency)
+        if not result:
+            return not_found_error("Task")
+        return {"success": True, "task": result}
+
+    # =========================================================================
+    # PERSONS (Extended)
+    # =========================================================================
+
+    @mcp.tool()
+    def list_persons(
+        context: Context,
+        person_type: Optional[str] = None,
+        include_archived: bool = False,
+        limit: int = 100,
+        offset: int = 0
+    ) -> dict:
+        """List all persons with optional type filter."""
+        result = db.search_persons(
+            person_type=person_type,
+            include_archived=include_archived,
+            limit=limit,
+            offset=offset
+        )
+        return {"success": True, "persons": result["persons"], "total": result["total"]}
+
+    @mcp.tool()
+    def archive_person(context: Context, person_id: int) -> dict:
+        """Archive a person (soft delete). They won't appear in searches by default."""
+        result = db.archive_person(person_id)
+        if not result:
+            return not_found_error("Person")
+        return {"success": True, "person": result, "message": "Person archived"}
+
+    @mcp.tool()
+    def delete_person(context: Context, person_id: int) -> dict:
+        """Permanently delete a person. Use archive_person for soft delete."""
+        if db.delete_person(person_id):
+            return {"success": True, "message": "Person permanently deleted"}
+        return not_found_error("Person")
+
+    @mcp.tool()
+    def get_case_persons(
+        context: Context,
+        case_id: int,
+        person_type: Optional[str] = None,
+        role: Optional[str] = None,
+        side: Optional[str] = None
+    ) -> dict:
+        """Get all persons assigned to a case with optional filters."""
+        if side and side not in PERSON_SIDE_LIST:
+            return invalid_side_error(side)
+        persons = db.get_case_persons(case_id, person_type=person_type, role=role, side=side)
+        return {"success": True, "persons": persons, "total": len(persons)}
+
+    @mcp.tool()
+    def update_case_assignment(
+        context: Context,
+        case_id: int,
+        person_id: int,
+        role: str,
+        side: Optional[str] = None,
+        case_attributes: Optional[dict] = None,
+        case_notes: Optional[str] = None,
+        is_primary: Optional[bool] = None,
+        grouped_under_id: Optional[int] = None,
+        assigned_date: Optional[str] = None
+    ) -> dict:
+        """Update an existing case-person assignment."""
+        if side:
+            try:
+                db.validate_person_side(side)
+            except ValidationError:
+                return invalid_side_error(side)
+        if assigned_date:
+            try:
+                db.validate_date_format(assigned_date, "assigned_date")
+            except ValidationError:
+                return invalid_date_format_error(assigned_date, "assigned_date")
+        kwargs = {}
+        if side is not None:
+            kwargs['side'] = side
+        if case_attributes is not None:
+            kwargs['case_attributes'] = case_attributes
+        if case_notes is not None:
+            kwargs['case_notes'] = case_notes
+        if is_primary is not None:
+            kwargs['is_primary'] = is_primary
+        if grouped_under_id is not None:
+            kwargs['grouped_under_id'] = grouped_under_id
+        if assigned_date is not None:
+            kwargs['assigned_date'] = assigned_date
+        if not kwargs:
+            return validation_error("No fields to update")
+        result = db.update_case_assignment(case_id, person_id, role, **kwargs)
+        if not result:
+            return not_found_error("Case assignment")
+        return {"success": True, "assignment": result}
+
+    # =========================================================================
+    # USERS (Firm Staff Management)
+    # =========================================================================
+
+    @mcp.tool()
+    def list_users(context: Context, include_inactive: bool = False) -> dict:
+        """List all users (firm staff)."""
+        users = db.get_all_users(include_inactive=include_inactive)
+        return {"success": True, "users": users, "total": len(users)}
+
+    @mcp.tool()
+    def get_user(context: Context, user_id: int) -> dict:
+        """Get a specific user by ID."""
+        user = db.get_user_by_id(user_id)
+        if not user:
+            return not_found_error("User")
+        return {"success": True, "user": user}
+
+    @mcp.tool()
+    def create_user(
+        context: Context,
+        email: str,
+        password: str,
+        first_name: str,
+        last_name: str,
+        initials: str,
+        position: str,
+        bar_number: Optional[str] = None,
+        is_admin: bool = False,
+        must_change_password: bool = True
+    ) -> dict:
+        """Create a new user (firm staff member)."""
+        if not email or "@" not in email:
+            return validation_error("Invalid email address")
+        if len(password) < 8:
+            return validation_error("Password must be at least 8 characters")
+        try:
+            user = db.create_user(
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                initials=initials,
+                position=position,
+                bar_number=bar_number,
+                is_admin=is_admin,
+                must_change_password=must_change_password
+            )
+            return {"success": True, "user": user, "action": "created"}
+        except Exception as e:
+            if "unique" in str(e).lower():
+                return validation_error("A user with this email already exists")
+            raise
+
+    @mcp.tool()
+    def update_user(
+        context: Context,
+        user_id: int,
+        email: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        initials: Optional[str] = None,
+        position: Optional[str] = None,
+        bar_number: Optional[str] = None,
+        is_admin: Optional[bool] = None,
+        is_active: Optional[bool] = None
+    ) -> dict:
+        """Update a user's profile. Use reset_user_password for password changes."""
+        kwargs = {}
+        if email is not None:
+            if "@" not in email:
+                return validation_error("Invalid email address")
+            kwargs['email'] = email
+        if first_name is not None:
+            kwargs['first_name'] = first_name
+        if last_name is not None:
+            kwargs['last_name'] = last_name
+        if initials is not None:
+            kwargs['initials'] = initials
+        if position is not None:
+            kwargs['position'] = position
+        if bar_number is not None:
+            kwargs['bar_number'] = bar_number
+        if is_admin is not None:
+            kwargs['is_admin'] = is_admin
+        if is_active is not None:
+            kwargs['is_active'] = is_active
+        if not kwargs:
+            return validation_error("No fields to update")
+        result = db.update_user(user_id, **kwargs)
+        if not result:
+            return not_found_error("User")
+        return {"success": True, "user": result, "action": "updated"}
+
+    @mcp.tool()
+    def reset_user_password(
+        context: Context,
+        user_id: int,
+        new_password: str,
+        require_change: bool = True
+    ) -> dict:
+        """Reset a user's password. Set require_change=True to force password change on login."""
+        if len(new_password) < 8:
+            return validation_error("Password must be at least 8 characters")
+        success = db.update_password(user_id, new_password, clear_must_change=not require_change)
+        if not success:
+            return not_found_error("User")
+        return {"success": True, "message": "Password reset successfully"}
+
+    @mcp.tool()
+    def delete_user(context: Context, user_id: int, permanent: bool = False) -> dict:
+        """Delete a user. Default is soft-delete (deactivate). Set permanent=True to hard delete."""
+        success = db.delete_user(user_id, hard_delete=permanent)
+        if not success:
+            return not_found_error("User")
+        action = "permanently deleted" if permanent else "deactivated"
+        return {"success": True, "message": f"User {action}"}
+
+    # =========================================================================
+    # STATS & EXPORT
+    # =========================================================================
+
+    @mcp.tool()
+    def get_stats(context: Context) -> dict:
+        """Get dashboard statistics: case counts, task counts, upcoming events, etc."""
+        stats = db.get_dashboard_stats()
+        return {"success": True, "stats": stats}
+
+    @mcp.tool()
+    def get_constants(context: Context) -> dict:
+        """Get system constants: valid statuses, person types, jurisdictions, etc."""
+        person_types = db.get_person_types()
+        jurisdictions = db.get_jurisdictions()
+        return {
+            "success": True,
+            "case_statuses": CASE_STATUS_LIST,
+            "task_statuses": TASK_STATUS_LIST,
+            "activity_types": ACTIVITY_TYPE_LIST,
+            "person_types": [pt["name"] for pt in person_types],
+            "person_sides": PERSON_SIDE_LIST,
+            "jurisdictions": jurisdictions
+        }
+
+    @mcp.tool()
+    def export_all_data(context: Context) -> dict:
+        """Export all case data as JSON. Returns comprehensive data for backup/transfer."""
+        from routes.export import get_all_cases_with_data
+        from datetime import datetime
+        cases = get_all_cases_with_data()
+        return {
+            "success": True,
+            "exported_at": datetime.now().isoformat(),
+            "version": "1.0",
+            "total_cases": len(cases),
+            "cases": cases
+        }
+
+    # =========================================================================
+    # ACTIVITIES (Extended)
+    # =========================================================================
+
+    @mcp.tool()
+    def update_activity(
+        context: Context,
+        activity_id: int,
+        description: Optional[str] = None,
+        activity_type: Optional[ActivityType] = None,
+        minutes: Optional[int] = None,
+        date: Optional[str] = None
+    ) -> dict:
+        """Update an activity/time entry."""
+        if activity_type and activity_type not in ACTIVITY_TYPE_LIST:
+            return validation_error(f"Invalid activity_type: '{activity_type}'", valid_values=ACTIVITY_TYPE_LIST)
+        if date:
+            try:
+                db.validate_date_format(date, "date")
+            except ValidationError:
+                return invalid_date_format_error(date, "date")
+        kwargs = {}
+        if description is not None:
+            if description == "":
+                return validation_error("description cannot be empty")
+            kwargs['description'] = description
+        if activity_type is not None:
+            kwargs['activity_type'] = activity_type
+        if minutes is not None:
+            kwargs['minutes'] = minutes
+        if date is not None:
+            kwargs['date'] = date
+        if not kwargs:
+            return validation_error("No fields to update")
+        result = db.update_activity(activity_id, **kwargs)
+        if not result:
+            return not_found_error("Activity")
+        return {"success": True, "activity": result}

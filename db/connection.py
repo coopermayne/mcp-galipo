@@ -728,27 +728,7 @@ def migrate_db():
             cur.execute("ALTER TABLE case_persons RENAME COLUMN contact_via_person_id TO grouped_under_id")
             print("  - Renamed contact_via_person_id to grouped_under_id")
 
-        # 28. Add docket_category column to tasks for Daily Docket scheduling
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'tasks' AND column_name = 'docket_category'
-            )
-        """)
-        if not cur.fetchone()[0]:
-            cur.execute("ALTER TABLE tasks ADD COLUMN docket_category VARCHAR(20)")
-            print("  - Added docket_category column to tasks")
-
-        # 29. Add docket_order column to tasks for sorting within Daily Docket
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'tasks' AND column_name = 'docket_order'
-            )
-        """)
-        if not cur.fetchone()[0]:
-            cur.execute("ALTER TABLE tasks ADD COLUMN docket_order INTEGER")
-            print("  - Added docket_order column to tasks")
+        # 28-29. (Removed - Daily Docket feature no longer used)
 
         # 30. Create webhook_logs table for storing incoming webhooks
         cur.execute("""
@@ -968,8 +948,6 @@ def init_db():
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
                 urgency INTEGER CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
                 sort_order INTEGER DEFAULT 0,
-                docket_category VARCHAR(20),
-                docket_order INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
