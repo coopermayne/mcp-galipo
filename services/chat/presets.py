@@ -614,7 +614,10 @@ Prioritize by urgency level and how overdue it is.""",
     "activity": {
         "fetch": get_activity_context,
         "prompt": """Here's the recent activity from the past week - completed tasks and logged activities.
-Give me a brief summary of what's been accomplished across cases.""",
+
+Write me a status update I can give to my boss. Group accomplishments by case and summarize what was done in plain language (not a bullet list of task names). For example: "On the Martinez case, we completed discovery responses and scheduled the deposition."
+
+Keep it conversational and highlight meaningful progress. If there's not much activity on a case, don't mention it.""",
     },
 }
 
