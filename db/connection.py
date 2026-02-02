@@ -775,6 +775,44 @@ def migrate_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_idempotency_key ON webhook_logs(idempotency_key)")
         print("  - Created webhook_logs table (if not exists)")
 
+        # 22. Create users table for authentication
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                initials VARCHAR(10) NOT NULL,
+                bar_number VARCHAR(50),
+                position VARCHAR(50) NOT NULL,
+                is_admin BOOLEAN DEFAULT FALSE,
+                must_change_password BOOLEAN DEFAULT TRUE,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active)")
+        # Seed admin user with password: galipo2026
+        cur.execute("""
+            INSERT INTO users (email, password_hash, first_name, last_name, initials, bar_number, position, is_admin, must_change_password)
+            VALUES (
+                'cmayne@galipolaw.com',
+                '$2b$12$RIH.48YzoKP8OWUh6hOxLORtkaHd2.9WqKKCzpv4cbUZaXODHA/N2',
+                'Cooper',
+                'Mayne',
+                'CM',
+                '343691',
+                'attorney',
+                TRUE,
+                TRUE
+            )
+            ON CONFLICT (email) DO NOTHING
+        """)
+        print("  - Created users table and seeded admin user (if not exists)")
+
         print("Database migration complete.")
 
 
