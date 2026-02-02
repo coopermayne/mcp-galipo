@@ -200,6 +200,30 @@ export function TasksComponent({
     [tasks, markDone, showToast, queryClient, caseId, onTaskUpdated]
   );
 
+  // Handle marking a done task back to pending
+  const handleMarkPending = useCallback(
+    async (taskId: number) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      // Set status back to Pending
+      await updateTask(taskId, { status: 'Pending' });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      if (caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+      }
+
+      // Notify parent
+      onTaskUpdated?.({ ...task, status: 'Pending' });
+
+      // Show toast
+      showToast({
+        message: 'Task restored',
+      });
+    },
+    [tasks, showToast, queryClient, caseId, onTaskUpdated]
+  );
+
   const handleTaskClick = (task: Task) => {
     if (showDetailSheet) {
       setSheetFocusMode(null);
@@ -315,6 +339,7 @@ export function TasksComponent({
       description: string;
       due_date?: string;
       urgency?: number;
+      status?: string;
     }) => {
       // If we have a caseId prop and the data doesn't specify one, use the prop
       const createData = caseId && !data.case_id ? { ...data, case_id: caseId } : data;
@@ -394,11 +419,13 @@ export function TasksComponent({
           showCase={showCase}
           sortable={enableDragDrop}
           groupBy={groupBy}
+          showDone={showDoneTasks}
           maxItems={maxItems}
           compact={compact}
           emptyMessage={showDoneTasks ? 'No completed tasks' : 'No active tasks'}
           onDelete={handleDeleteTask}
           onMarkDone={handleMarkDone}
+          onMarkPending={handleMarkPending}
           onTaskClick={handleTaskClick}
           onEditClick={handleEditClick}
           onDateChange={handleDateChange}
@@ -409,6 +436,7 @@ export function TasksComponent({
           onInlineEditSave={handleInlineEditSave}
           enableInlineCreate={enableInlineCreate}
           onInlineCreateSave={handleInlineCreateSave}
+          defaultCreateStatus={showDoneTasks ? 'Done' : undefined}
         />
 
       {/* Task Detail Sheet */}

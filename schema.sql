@@ -118,7 +118,7 @@ CREATE TABLE tasks (
     case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
     event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
     due_date DATE,
-    completion_date DATE,
+    completion_date TIMESTAMP WITH TIME ZONE,
     description TEXT NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'Pending',
     urgency INTEGER CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,

@@ -9,3 +9,5 @@ export { useTaskActions } from './useTaskActions';
 export { TasksComponent } from './TasksComponent';
 export { TasksControls } from './TasksControls';
 export type { GroupMode } from './TasksControls';
+export { TasksLayoutSelector } from './TasksLayoutSelector';
+export { TasksPanel } from './TasksPanel';

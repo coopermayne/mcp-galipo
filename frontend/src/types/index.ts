@@ -121,3 +121,17 @@ export type {
   CreateUserInput,
   UpdateUserInput,
 } from './user';
+
+// Tasks layout types
+export type {
+  LayoutPreset,
+  TasksPanelConfig,
+  TasksLayoutConfig,
+} from './tasks-layout';
+
+export {
+  LAYOUT_PANEL_COUNTS,
+  createDefaultPanel,
+  createDefaultLayoutConfig,
+  adjustPanelsForLayout,
+} from './tasks-layout';

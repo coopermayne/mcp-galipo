@@ -21,8 +21,10 @@ export interface TaskInlineCreateProps {
   caseId?: number;
   /** Pre-filled due date (YYYY-MM-DD format) */
   dueDate?: string;
+  /** Default status for new task (e.g., 'Done' when creating in done view) */
+  defaultStatus?: string;
   /** Called when user saves the new task */
-  onSave: (data: { case_id: number; description: string; due_date?: string; urgency?: number }) => Promise<void>;
+  onSave: (data: { case_id: number; description: string; due_date?: string; urgency?: number; status?: string }) => Promise<void>;
   /** Called when user cancels creation */
   onCancel: () => void;
 }
@@ -59,6 +61,7 @@ function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean
 export function TaskInlineCreate({
   caseId: preselectedCaseId,
   dueDate: prefilledDueDate,
+  defaultStatus,
   onSave,
   onCancel,
 }: TaskInlineCreateProps) {
@@ -178,6 +181,7 @@ export function TaskInlineCreate({
         description: title.trim(),
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         urgency,
+        status: defaultStatus,
       });
     } finally {
       setIsSaving(false);
