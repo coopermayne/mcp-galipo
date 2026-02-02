@@ -89,20 +89,6 @@ export function Cases() {
       <Header
         title="Case Files"
         subtitle="All your active and archived matters"
-        actions={
-          <button
-            onClick={() => setIsCreating(true)}
-            className="
-              inline-flex items-center gap-2 px-4 py-2
-              bg-primary-600 text-white rounded-lg
-              hover:bg-primary-700 transition-colors
-              text-sm font-medium
-            "
-          >
-            <Plus className="w-4 h-4" />
-            New Case
-          </button>
-        }
       />
 
       <PageContent>
@@ -140,6 +126,18 @@ export function Cases() {
                 ))}
               </select>
             </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Add Case Button */}
+            <button
+              onClick={() => setIsCreating(true)}
+              className="flex items-center gap-2 text-sm text-primary-500 hover:text-primary-600"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add case</span>
+            </button>
           </div>
         </ListPanel>
 

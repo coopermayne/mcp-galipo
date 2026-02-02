@@ -407,7 +407,7 @@ export function TasksComponent({
           onPriorityChange={handlePriorityChange}
           enableInlineEdit
           onInlineEditSave={handleInlineEditSave}
-          enableInlineCreate={enableInlineCreate && !compact}
+          enableInlineCreate={enableInlineCreate}
           onInlineCreateSave={handleInlineCreateSave}
         />
 
