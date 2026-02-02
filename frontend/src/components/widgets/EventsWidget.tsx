@@ -22,6 +22,7 @@ export function EventsWidget({ config, onConfigChange }: EventsWidgetProps) {
       showPast={config.showPast}
       onShowPastChange={(showPast) => onConfigChange({ showPast })}
       showCase
+      searchQuery={config.searchQuery}
     />
   );
 }

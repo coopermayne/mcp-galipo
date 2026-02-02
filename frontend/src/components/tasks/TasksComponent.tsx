@@ -68,6 +68,8 @@ interface TasksComponentProps {
   statusFilter?: TaskStatus[];
   /** Callback when status filter changes (for controlled mode) */
   onStatusFilterChange?: (statuses: TaskStatus[]) => void;
+  /** Controlled search query (external control) */
+  searchQuery?: string;
 
   // Callbacks (for parent notification, optional)
   onTaskCreated?: (task: Task) => void;
@@ -100,6 +102,7 @@ export function TasksComponent({
   compact = false,
   statusFilter: controlledStatusFilter,
   onStatusFilterChange,
+  searchQuery: controlledSearchQuery,
 
   // Callbacks
   onTaskCreated,
@@ -108,8 +111,12 @@ export function TasksComponent({
 }: TasksComponentProps) {
   // Local UI state
   const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(defaultGroupBy);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const [internalStatusFilter, setInternalStatusFilter] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTER);
+
+  // Support both controlled and uncontrolled modes for searchQuery
+  const searchQuery = controlledSearchQuery ?? internalSearchQuery;
+  const setSearchQuery = controlledSearchQuery !== undefined ? () => {} : setInternalSearchQuery;
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Support both controlled and uncontrolled modes for groupBy

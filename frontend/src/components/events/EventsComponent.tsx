@@ -64,6 +64,8 @@ interface EventsComponentProps {
   pastDays?: number;
   /** Group events by date category (overdue, today, etc.) - overrides groupBy */
   groupByDate?: boolean;
+  /** Controlled search query (external control) */
+  searchQuery?: string;
 
   // Callbacks
   onEventUpdated?: (event: Event) => void;
@@ -96,6 +98,7 @@ export function EventsComponent({
   onShowPastChange,
   pastDays = 14,
   groupByDate = false,
+  searchQuery: controlledSearchQuery,
 
   // Callbacks
   onEventUpdated,
@@ -104,7 +107,11 @@ export function EventsComponent({
   // Local UI state
   const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(groupByDate ? 'date' : defaultGroupBy);
   const [internalShowPast, setInternalShowPast] = useState(defaultShowPast);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+
+  // Support both controlled and uncontrolled modes for searchQuery
+  const searchQuery = controlledSearchQuery ?? internalSearchQuery;
+  const setSearchQuery = controlledSearchQuery !== undefined ? () => {} : setInternalSearchQuery;
 
   // Support both controlled and uncontrolled modes for groupBy
   const isGroupByControlled = controlledGroupBy !== undefined;
