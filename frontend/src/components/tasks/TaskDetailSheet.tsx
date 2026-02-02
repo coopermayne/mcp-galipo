@@ -569,13 +569,13 @@ export function TaskDetailSheet({
                   return (
                     <>
                       {task.status === 'Active' ? (
-                        <span className={statusConfig.color}>
+                        <span className="text-slate-500 dark:text-slate-400">
                           <ActiveStatusIcon className="w-5 h-5" />
                         </span>
                       ) : (
-                        <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
+                        <StatusIcon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                       )}
-                      <span className={`text-sm ${statusConfig.color}`}>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">
                         {statusConfig.label}
                       </span>
                     </>
@@ -594,20 +594,23 @@ export function TaskDetailSheet({
                 >
                   {STATUS_CONFIG.map((config) => {
                     const StatusIcon = config.icon;
+                    const isSelected = task.status === config.value;
                     return (
                       <button
                         key={config.value}
                         onClick={() => handleStatusChange(config.value)}
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${config.color}`}
+                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
                       >
                         {config.value === 'Active' ? (
-                          <ActiveStatusIcon className="w-4 h-4" />
+                          <span className="text-slate-500 dark:text-slate-400">
+                            <ActiveStatusIcon className="w-4 h-4" />
+                          </span>
                         ) : (
-                          <StatusIcon className="w-4 h-4" />
+                          <StatusIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                         )}
-                        <span className="text-sm flex-1">{config.label}</span>
-                        {task.status === config.value && (
-                          <Check className="w-4 h-4" />
+                        <span className="text-sm flex-1 text-slate-700 dark:text-slate-200">{config.label}</span>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-primary-500" />
                         )}
                       </button>
                     );

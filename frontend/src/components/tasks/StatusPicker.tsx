@@ -106,15 +106,15 @@ export function StatusPicker({
               className={`
                 flex items-center gap-3 w-full px-3 py-2 text-left text-sm
                 hover:bg-slate-50 dark:hover:bg-slate-700
-                ${isSelected ? config.bgColor : ''}
+                ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
               `}
             >
               {config.value === 'Active' ? (
-                <span className={config.color}>
+                <span className="text-slate-500 dark:text-slate-400">
                   <ActiveStatusIcon className="w-4 h-4" />
                 </span>
               ) : (
-                <Icon className={`w-4 h-4 ${config.color}`} />
+                <Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               )}
               <span className="flex-1 text-slate-700 dark:text-slate-200">
                 {config.label}

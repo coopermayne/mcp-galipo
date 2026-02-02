@@ -113,11 +113,11 @@ export function StatusFilterDropdown({
                   {isChecked && <Check className="w-3 h-3 text-white" />}
                 </div>
                 {config.value === 'Active' ? (
-                  <span className={config.color}>
+                  <span className="text-slate-500 dark:text-slate-400">
                     <ActiveStatusIcon className="w-4 h-4" />
                   </span>
                 ) : (
-                  <Icon className={`w-4 h-4 ${config.color}`} />
+                  <Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 )}
                 <span>{config.label}</span>
               </button>
