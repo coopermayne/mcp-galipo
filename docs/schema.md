@@ -2,7 +2,7 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-02-02 12:23:41 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-02-02 12:30:42 by `scripts/generate_schema_diagram.py`
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
 
