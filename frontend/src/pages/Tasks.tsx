@@ -1,33 +1,75 @@
 /**
- * Tasks - Todoist-style task list
+ * Tasks - Multi-panel task management page
  *
  * Route: /tasks
  *
  * Features:
- * - Date-based grouping (Overdue, Today, Tomorrow, etc.)
- * - Case-based grouping (alphabetical)
- * - Minimal task rows with hover actions
- * - Priority shown via checkbox color
+ * - Customizable layout presets (1, 1:1, 1:2, 2:1, 2:2)
+ * - Independent panel filters (showDone, groupBy, caseId, search)
+ * - localStorage persistence for layout and filters
+ * - Independent panel scrolling (no page scroll)
+ *
+ * Uses the universal panel layout system with allowedWidgets=['tasks'].
  */
-import { Header, PageContent } from '../components/layout';
-import { TasksComponent } from '../components/tasks';
+import { Header } from '../components/layout';
+import { LayoutSelector, PanelContainer } from '../components/panels';
+import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
+import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
+import {
+  LAYOUT_CONTAINER_CLASSES,
+  getPanelClasses,
+  createDefaultTasksWidget,
+} from '../types/panel-layout';
+
+const STORAGE_KEY = 'tasks-layout';
+const ALLOWED_WIDGETS: WidgetType[] = ['tasks'];
+
+const DEFAULT_CONFIG: PanelLayoutConfig = {
+  layout: '1',
+  panels: [createDefaultTasksWidget('panel-0')],
+};
+
+function TasksContent() {
+  const { config, setLayout, updatePanel, setPanelType, allowedWidgets } = usePanelLayout();
+
+  return (
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-900">
+      <Header
+        title="Tasks"
+        subtitle="Track your to-dos"
+        actions={<LayoutSelector value={config.layout} onChange={setLayout} />}
+      />
+
+      {/* Panels Grid */}
+      <main
+        className={`flex-1 grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]}`}
+      >
+        {config.panels.map((panel, index) => (
+          <div
+            key={panel.id}
+            className={`min-h-0 ${getPanelClasses(config.layout, index)}`}
+          >
+            <PanelContainer
+              config={panel}
+              allowedWidgets={allowedWidgets}
+              onConfigChange={(updates) => updatePanel(panel.id, updates)}
+              onTypeChange={(type) => setPanelType(panel.id, type)}
+            />
+          </div>
+        ))}
+      </main>
+    </div>
+  );
+}
 
 export function Tasks() {
   return (
-    <>
-      <Header title="Tasks" subtitle="Track your to-dos" />
-
-      <PageContent>
-        <div className="sm:max-w-2xl sm:bg-white sm:dark:bg-slate-800 sm:rounded-lg sm:border sm:border-slate-200 sm:dark:border-slate-700 sm:p-3">
-          <TasksComponent
-            showAllTasks
-            showControls
-            showDetailSheet
-            enableInlineCreate
-            defaultGroupBy="date"
-          />
-        </div>
-      </PageContent>
-    </>
+    <PanelLayoutProvider
+      storageKey={STORAGE_KEY}
+      allowedWidgets={ALLOWED_WIDGETS}
+      defaultConfig={DEFAULT_CONFIG}
+    >
+      <TasksContent />
+    </PanelLayoutProvider>
   );
 }

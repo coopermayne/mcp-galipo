@@ -15,3 +15,5 @@ export { StatusFilterDropdown } from './StatusFilterDropdown';
 export { ActiveStatusIcon } from './ActiveStatusIcon';
 export { STATUS_CONFIG, getStatusConfig, DEFAULT_STATUS_FILTER } from './statusConfig';
 export type { StatusConfig } from './statusConfig';
+export { TasksLayoutSelector } from './TasksLayoutSelector';
+export { TasksPanel } from './TasksPanel';
