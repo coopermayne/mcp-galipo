@@ -816,6 +816,57 @@ def migrate_db():
         cur.execute("UPDATE users SET is_admin = TRUE WHERE email = 'cmayne@example.com'")
         print("  - Created users table and seeded admin user (if not exists)")
 
+        # 32. Add staff user assignments (migration 010)
+        # Attorney's default paralegal
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'paralegal_id'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE users ADD COLUMN paralegal_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_users_paralegal_id ON users(paralegal_id)")
+            print("  - Added paralegal_id column to users")
+
+        # Case staff assignments (arrays of user IDs)
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'cases' AND column_name = 'attorney_ids'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE cases ADD COLUMN attorney_ids INTEGER[] DEFAULT '{}'")
+            cur.execute("ALTER TABLE cases ADD COLUMN paralegal_ids INTEGER[] DEFAULT '{}'")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_cases_attorney_ids ON cases USING GIN(attorney_ids)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_cases_paralegal_ids ON cases USING GIN(paralegal_ids)")
+            print("  - Added attorney_ids and paralegal_ids columns to cases")
+
+        # Event attendees
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'events' AND column_name = 'attendee_ids'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE events ADD COLUMN attendee_ids INTEGER[] DEFAULT '{}'")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_events_attendee_ids ON events USING GIN(attendee_ids)")
+            print("  - Added attendee_ids column to events")
+
+        # Task assignee
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'tasks' AND column_name = 'assignee_id'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE tasks ADD COLUMN assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assignee_id ON tasks(assignee_id)")
+            print("  - Added assignee_id column to tasks")
+
         print("Database migration complete.")
 
 
