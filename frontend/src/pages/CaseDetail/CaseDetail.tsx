@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, FileText, CheckSquare, Clock, StickyNote, History, Settings } from 'lucide-react';
 import { PageContent } from '../../components/layout';
-import { ConfirmModal } from '../../components/common';
+import { ConfirmModal, CreateTaskModal } from '../../components/common';
 import { getCase, getConstants, updateCase, deleteCase } from '../../api';
 import type { Case } from '../../types';
 import { OverviewTab, TasksTab, EventsTab, NotesTab, ActivityTab, SettingsTab } from './tabs';
@@ -20,6 +20,7 @@ export function CaseDetail() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
 
   const goToNextTab = useCallback(() => {
     const currentIndex = TAB_ORDER.indexOf(activeTab);
@@ -95,7 +96,7 @@ export function CaseDetail() {
     [constants]
   );
 
-  // Keyboard shortcuts: 1-6 for tab navigation
+  // Keyboard shortcuts: 1-6 for tab navigation, Ctrl/Cmd+T for new task
   useEffect(() => {
     const tabKeys: Record<string, TabType> = {
       '1': 'overview',
@@ -107,12 +108,19 @@ export function CaseDetail() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger when modifier keys are held
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-
       // Don't trigger when typing in input fields
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Ctrl/Cmd+T: Open new task modal (works even in input fields)
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault();
+        setShowCreateTaskModal(true);
+        return;
+      }
+
+      // Tab switching only works outside of input fields and without modifiers
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isTyping) return;
 
       const tab = tabKeys[e.key];
@@ -244,6 +252,12 @@ export function CaseDetail() {
         confirmText="Delete Case"
         variant="danger"
         isLoading={deleteCaseMutation.isPending}
+      />
+
+      <CreateTaskModal
+        isOpen={showCreateTaskModal}
+        onClose={() => setShowCreateTaskModal(false)}
+        caseId={caseId}
       />
     </>
   );
