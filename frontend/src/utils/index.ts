@@ -5,3 +5,9 @@ export {
   inferPersonTypeFromRole,
   inferSideFromRole,
 } from './personRoleMapping';
+export {
+  parseDateFromText,
+  removeDateFromText,
+  extractDateFromText,
+  type ParsedDate,
+} from './dateParser';
