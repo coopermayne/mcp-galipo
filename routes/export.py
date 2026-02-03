@@ -84,8 +84,7 @@ def get_all_cases_with_data() -> list:
         # 3. Batch fetch all tasks for all cases (with linked event details)
         cur.execute("""
             SELECT t.case_id, t.id, t.due_date, t.completion_date, t.description,
-                   t.status, t.urgency, t.event_id, t.sort_order, t.docket_category,
-                   t.docket_order, t.created_at,
+                   t.status, t.urgency, t.event_id, t.sort_order, t.created_at,
                    e.date as linked_event_date, e.time as linked_event_time,
                    e.description as linked_event_description,
                    e.location as linked_event_location
