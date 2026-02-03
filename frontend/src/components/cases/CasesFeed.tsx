@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { CaseItem } from './CaseItem';
 import type { CaseSummary } from '../../types';
 
-type GroupMode = 'alpha' | 'status';
+type GroupMode = 'alpha' | 'status' | 'none';
 
 interface CaseGroup {
   key: string;
@@ -49,6 +49,19 @@ function groupCasesAlpha(cases: CaseSummary[]): CaseGroup[] {
 }
 
 /**
+ * Return cases as a flat sorted list (no grouping)
+ */
+function flatSortedList(cases: CaseSummary[]): CaseGroup[] {
+  const sorted = [...cases].sort((a, b) => {
+    const nameA = (a.short_name || a.case_name).toLowerCase();
+    const nameB = (b.short_name || b.case_name).toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  return [{ key: 'all', label: '', cases: sorted }];
+}
+
+/**
  * Group cases by status
  */
 function groupCasesByStatus(cases: CaseSummary[]): CaseGroup[] {
@@ -76,7 +89,7 @@ function groupCasesByStatus(cases: CaseSummary[]): CaseGroup[] {
 export function CasesFeed({
   cases,
   isLoading = false,
-  groupBy = 'alpha',
+  groupBy = 'none',
   emptyMessage = 'No cases',
   onClick,
 }: CasesFeedProps) {
@@ -85,8 +98,10 @@ export function CasesFeed({
       case 'status':
         return groupCasesByStatus(cases);
       case 'alpha':
-      default:
         return groupCasesAlpha(cases);
+      case 'none':
+      default:
+        return flatSortedList(cases);
     }
   }, [cases, groupBy]);
 

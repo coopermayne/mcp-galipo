@@ -13,26 +13,33 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, RotateCcw } from 'lucide-react';
 import { Header } from '../components/layout';
 import { PanelContainer } from '../components/panels';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
 import { createCase } from '../api';
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
-import { createDefaultCasesWidget } from '../types/panel-layout';
+import {
+  createDefaultCasesWidget,
+  LAYOUT_CONTAINER_CLASSES,
+  getPanelClasses,
+} from '../types/panel-layout';
 
 const STORAGE_KEY = 'cases-layout';
 const ALLOWED_WIDGETS: WidgetType[] = ['cases'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
-  layout: '1',
-  panels: [createDefaultCasesWidget('panel-0')],
+  layout: '1:1',
+  panels: [
+    { ...createDefaultCasesWidget('panel-0'), showClosed: false },
+    { ...createDefaultCasesWidget('panel-1'), showClosed: true },
+  ],
 };
 
 function CasesContent() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { config, updatePanel, setPanelType, allowedWidgets } = usePanelLayout();
+  const { config, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
@@ -59,21 +66,29 @@ function CasesContent() {
     [newCaseName, createMutation]
   );
 
-  const panel = config.panels[0];
-
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header
         title="Case Files"
         subtitle="All your active and archived matters"
         actions={
-          <button
-            onClick={() => setIsCreating(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add case</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetToDefault}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-text-muted hover:text-text-secondary transition-colors"
+              title="Reset to defaults"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add case</span>
+            </button>
+          </div>
         }
       />
 
@@ -125,16 +140,23 @@ function CasesContent() {
         </div>
       )}
 
-      {/* Cases Panel */}
-      <main className="flex-1 p-4 overflow-hidden">
-        <div className="h-full">
-          <PanelContainer
-            config={panel}
-            allowedWidgets={allowedWidgets}
-            onConfigChange={(updates) => updatePanel(panel.id, updates)}
-            onTypeChange={(type) => setPanelType(panel.id, type)}
-          />
-        </div>
+      {/* Cases Panels Grid */}
+      <main
+        className={`flex-1 grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]}`}
+      >
+        {config.panels.map((panel, index) => (
+          <div
+            key={panel.id}
+            className={`min-h-0 ${getPanelClasses(config.layout, index)}`}
+          >
+            <PanelContainer
+              config={panel}
+              allowedWidgets={allowedWidgets}
+              onConfigChange={(updates) => updatePanel(panel.id, updates)}
+              onTypeChange={(type) => setPanelType(panel.id, type)}
+            />
+          </div>
+        ))}
       </main>
     </div>
   );
