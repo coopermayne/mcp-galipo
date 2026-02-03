@@ -24,7 +24,16 @@ def register_case_routes(mcp):
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
         offset = int(offset)
-        result = await asyncio.to_thread(db.get_all_cases, status, limit=limit, offset=offset)
+
+        # Attorney filter params
+        attorney_ids_param = request.query_params.get("attorney_ids")
+        attorney_ids = [int(x) for x in attorney_ids_param.split(",")] if attorney_ids_param else None
+        unassigned = request.query_params.get("unassigned", "false").lower() == "true"
+
+        result = await asyncio.to_thread(
+            db.get_all_cases, status, limit=limit, offset=offset,
+            attorney_ids=attorney_ids, unassigned=unassigned
+        )
         return JSONResponse({
             "cases": result["cases"],
             "total": result["total"]

@@ -143,8 +143,10 @@ export type {
   WidgetType,
   TasksGroupMode,
   EventsGroupMode,
+  CaseAttorneyFilter,
   TasksWidgetConfig,
   EventsWidgetConfig,
+  CasesWidgetConfig,
   WidgetConfig,
   PanelLayoutConfig,
 } from './panel-layout';

@@ -60,6 +60,45 @@ def _user_to_camel(user: dict) -> dict:
 def register_user_routes(mcp):
     """Register user management routes (admin-only)."""
 
+    @mcp.custom_route("/api/v1/attorneys", methods=["GET"])
+    async def api_get_attorneys(request):
+        """Get all active attorneys (non-admin endpoint for filters)."""
+        if err := auth.require_auth(request):
+            return err
+
+        users = get_all_users(include_inactive=False)
+        attorneys = [
+            {
+                "id": u["id"],
+                "firstName": u.get("first_name"),
+                "lastName": u.get("last_name"),
+                "initials": u.get("initials"),
+            }
+            for u in users
+            if u.get("position") == "attorney"
+        ]
+        return JSONResponse({"success": True, "data": attorneys})
+
+    @mcp.custom_route("/api/v1/staff", methods=["GET"])
+    async def api_get_staff(request):
+        """Get all active staff members (non-admin endpoint for avatars/filters)."""
+        if err := auth.require_auth(request):
+            return err
+
+        users = get_all_users(include_inactive=False)
+        staff = [
+            {
+                "id": u["id"],
+                "firstName": u.get("first_name"),
+                "lastName": u.get("last_name"),
+                "initials": u.get("initials"),
+                "position": u.get("position"),
+            }
+            for u in users
+            if u.get("position") in ("attorney", "paralegal")
+        ]
+        return JSONResponse({"success": True, "data": staff})
+
     @mcp.custom_route("/api/v1/users", methods=["GET"])
     async def api_get_users(request):
         """Get all users (admin-only)."""

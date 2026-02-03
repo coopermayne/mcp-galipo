@@ -7,6 +7,7 @@
  * - Widget content (TasksWidget, EventsWidget, etc.)
  */
 import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Settings2,
   Search,
@@ -20,7 +21,11 @@ import {
   Archive,
   SortAsc,
   Users,
+  User,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { getAttorneys } from '../../api/users';
+import { getUserColorClass } from '../../utils';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
 import { TasksWidget } from '../widgets/TasksWidget';
 import { EventsWidget } from '../widgets/EventsWidget';
@@ -37,6 +42,7 @@ import type {
   EventsGroupMode,
   CasesGroupMode,
   PersonsGroupMode,
+  CaseAttorneyFilter,
 } from '../../types/panel-layout';
 
 interface PanelContainerProps {
@@ -79,6 +85,14 @@ export function PanelContainer({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(config.searchQuery || '');
   const filterRef = useRef<HTMLDivElement>(null);
+  const { user: currentUser } = useAuth();
+
+  // Fetch attorneys list for cases filter
+  const { data: attorneys = [] } = useQuery({
+    queryKey: ['attorneys'],
+    queryFn: getAttorneys,
+    enabled: config.type === 'cases',
+  });
 
   // Sync local search with config when filter closes
   useEffect(() => {
@@ -126,6 +140,10 @@ export function PanelContainer({
       const groupLabel = CASES_GROUP_OPTIONS.find((g) => g.value === casesConfig.groupBy)?.label || 'A-Z';
       const parts = [groupLabel];
       if (casesConfig.showClosed) parts.push('+ Closed');
+      const af = casesConfig.attorneyFilter;
+      if (af === 'mine') parts.push('· Mine');
+      else if (af === 'unassigned') parts.push('· Unassigned');
+      else if (Array.isArray(af)) parts.push(`· ${af.length} atty`);
       return parts.join(' ');
     } else if (config.type === 'persons') {
       const personsConfig = config as PersonsWidgetConfig;
@@ -331,6 +349,97 @@ export function PanelContainer({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Assigned to */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Assigned to
+            </label>
+            <div className="flex flex-wrap gap-1">
+              {/* Quick buttons */}
+              <button
+                onClick={() => onConfigChange({ attorneyFilter: 'all' as CaseAttorneyFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  casesConfig.attorneyFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => onConfigChange({ attorneyFilter: 'mine' as CaseAttorneyFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  casesConfig.attorneyFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Cases
+              </button>
+              <button
+                onClick={() => onConfigChange({ attorneyFilter: 'unassigned' as CaseAttorneyFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  casesConfig.attorneyFilter === 'unassigned'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                Unassigned
+              </button>
+            </div>
+
+            {/* Attorney checkboxes */}
+            {attorneys.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {attorneys.map((attorney) => {
+                  const isChecked = Array.isArray(casesConfig.attorneyFilter) && casesConfig.attorneyFilter.includes(attorney.id);
+                  return (
+                    <button
+                      key={attorney.id}
+                      onClick={() => {
+                        const currentIds = Array.isArray(casesConfig.attorneyFilter) ? casesConfig.attorneyFilter : [];
+                        const newIds = currentIds.includes(attorney.id)
+                          ? currentIds.filter((id: number) => id !== attorney.id)
+                          : [...currentIds, attorney.id];
+                        onConfigChange({ attorneyFilter: (newIds.length === 0 ? 'all' : newIds) as CaseAttorneyFilter });
+                      }}
+                      className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs transition-all ${
+                        isChecked
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                          : 'text-text-secondary hover:bg-bg-hover/50'
+                      }`}
+                    >
+                      <span
+                        className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[8px] font-medium ${getUserColorClass(attorney.id)}`}
+                      >
+                        {attorney.initials}
+                      </span>
+                      <span className="flex-1 text-left">{attorney.firstName} {attorney.lastName}</span>
+                      {isChecked && (
+                        <span className="w-3.5 h-3.5 rounded border border-primary-500 bg-primary-500 flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M2 6l3 3 5-5" />
+                          </svg>
+                        </span>
+                      )}
+                      {!isChecked && (
+                        <span className="w-3.5 h-3.5 rounded border border-border" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       );

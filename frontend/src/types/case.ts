@@ -44,6 +44,8 @@ export interface CaseSummary {
   defendant_count?: number;
   pending_task_count?: number;
   upcoming_event_count?: number;
+  attorney_ids?: number[];
+  paralegal_ids?: number[];
 }
 
 export interface CreateCaseInput {

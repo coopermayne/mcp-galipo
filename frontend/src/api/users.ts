@@ -52,6 +52,31 @@ export async function resetUserPassword(id: number): Promise<string> {
   return response.defaultPassword;
 }
 
+export interface AttorneyRef {
+  id: number;
+  firstName: string;
+  lastName: string;
+  initials: string;
+}
+
+export interface StaffRef {
+  id: number;
+  firstName: string;
+  lastName: string;
+  initials: string;
+  position: 'attorney' | 'paralegal';
+}
+
+export async function getAttorneys(): Promise<AttorneyRef[]> {
+  const response = await request<{ success: boolean; data: AttorneyRef[] }>('/attorneys');
+  return response.data;
+}
+
+export async function getStaff(): Promise<StaffRef[]> {
+  const response = await request<{ success: boolean; data: StaffRef[] }>('/staff');
+  return response.data;
+}
+
 interface UserCaseRef {
   id: number;
   case_name: string;

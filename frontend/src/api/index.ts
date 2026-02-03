@@ -109,4 +109,7 @@ export {
   deleteUser,
   resetUserPassword,
   getUserCases,
+  getAttorneys,
+  getStaff,
 } from './users';
+export type { AttorneyRef, StaffRef } from './users';
