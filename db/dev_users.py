@@ -28,7 +28,7 @@ DEV_USERS = [
     {"email": "dgilbert@galipolaw.com", "first_name": "Darci", "last_name": "Gilbert", "initials": "DG", "bar_number": None, "position": "paralegal", "is_admin": False},
     {"email": "ldeleon@galipolaw.com", "first_name": "Leslie", "last_name": "DeLeon", "initials": "LL", "bar_number": None, "position": "paralegal", "is_admin": False},
     {"email": "amonguia@galipolaw.com", "first_name": "Alejandro", "last_name": "Monguia", "initials": "AM", "bar_number": None, "position": "paralegal", "is_admin": False},
-    {"email": "coopermayne@gmail.com", "first_name": "Test", "last_name": "Paralegal", "initials": "TP", "bar_number": None, "position": "paralegal", "is_admin": False},
+    {"email": "test.paralegal@example.com", "first_name": "Test", "last_name": "Paralegal", "initials": "TP", "bar_number": None, "position": "paralegal", "is_admin": False},
 
     # Attorneys
     {"email": "dalekgalipo@yahoo.com", "first_name": "Dale", "last_name": "Galipo", "initials": "DKG", "bar_number": "144074", "position": "attorney", "is_admin": False},
