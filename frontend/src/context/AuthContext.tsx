@@ -12,6 +12,7 @@ export interface User {
   initials: string;
   position: string;
   isAdmin: boolean;
+  paralegalId?: number | null;
 }
 
 interface AuthContextType {

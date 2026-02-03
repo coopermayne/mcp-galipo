@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, Save } from 'lucide-react';
-import { updateUser } from '../../api/users';
+import { updateUser, getUsers } from '../../api/users';
 import type { User, UpdateUserInput, UserPosition } from '../../types/user';
 
 interface EditUserModalProps {
@@ -22,6 +22,17 @@ export function EditUserModal({ user, onClose }: EditUserModalProps) {
   const [formData, setFormData] = useState<UpdateUserInput>({});
   const [error, setError] = useState('');
 
+  // Fetch all users to get paralegals list
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
+  });
+
+  // Filter to only paralegals (exclude current user if they happen to be one)
+  const paralegals = allUsers.filter(
+    (u) => u.position === 'paralegal' && u.isActive && u.id !== user?.id
+  );
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -33,6 +44,7 @@ export function EditUserModal({ user, onClose }: EditUserModalProps) {
         barNumber: user.barNumber,
         isAdmin: user.isAdmin,
         isActive: user.isActive,
+        paralegalId: user.paralegalId,
       });
     }
   }, [user]);
@@ -169,6 +181,30 @@ export function EditUserModal({ user, onClose }: EditUserModalProps) {
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
+
+          {/* Default Paralegal - only show for attorneys */}
+          {formData.position === 'attorney' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Default Paralegal
+              </label>
+              <select
+                value={formData.paralegalId ?? ''}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  paralegalId: e.target.value ? Number(e.target.value) : null
+                })}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">None</option>
+                {paralegals.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.firstName} {p.lastName} ({p.initials})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
