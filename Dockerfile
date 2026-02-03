@@ -30,4 +30,6 @@ EXPOSE 8000
 # -w 4: 4 worker processes
 # -k uvicorn.workers.UvicornWorker: async worker class
 # --timeout 120: worker timeout in seconds
-CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--timeout", "120"]
+# Single worker for now - OAuth state is in-memory and not shared across workers
+# TODO: Move OAuth state to Redis/database for multi-worker support
+CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "1", "-b", "0.0.0.0:8000", "--timeout", "120"]
