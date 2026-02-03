@@ -6,8 +6,6 @@ Galipo operates as both:
 - An **MCP (Model Context Protocol) server** with 41+ tools for Claude AI integration
 - A **web-based dashboard** built with React for managing cases, tasks, deadlines, and legal team collaboration
 
-**Live URL:** https://your-mcp-host
-
 ## Features
 
 ### Case Management
@@ -106,9 +104,9 @@ cd frontend && npm run dev
 
 1. Go to [Claude.ai](https://claude.ai)
 2. Open **Settings** → **Integrations** (or look for MCP settings)
-3. Add a new MCP server with URL:
+3. Add a new MCP server with your deployment URL:
    ```
-   https://your-mcp-host/sse
+   https://your-deployment-url.com/sse
    ```
 4. Save and start a new conversation
 
