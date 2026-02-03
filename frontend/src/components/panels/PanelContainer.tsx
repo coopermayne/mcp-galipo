@@ -19,20 +19,24 @@ import {
   ArrowDownUp,
   Archive,
   SortAsc,
+  Users,
 } from 'lucide-react';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
 import { TasksWidget } from '../widgets/TasksWidget';
 import { EventsWidget } from '../widgets/EventsWidget';
 import { CasesWidget } from '../cases/CasesWidget';
+import { PersonsWidget } from '../persons/PersonsWidget';
 import type {
   WidgetType,
   WidgetConfig,
   TasksWidgetConfig,
   EventsWidgetConfig,
   CasesWidgetConfig,
+  PersonsWidgetConfig,
   TasksGroupMode,
   EventsGroupMode,
   CasesGroupMode,
+  PersonsGroupMode,
 } from '../../types/panel-layout';
 
 interface PanelContainerProps {
@@ -58,6 +62,12 @@ const CASES_GROUP_OPTIONS: { value: CasesGroupMode; label: string; icon: React.R
   { value: 'none', label: 'A-Z', icon: <SortAsc className="w-3.5 h-3.5" /> },
   { value: 'alpha', label: 'Letter', icon: <SortAsc className="w-3.5 h-3.5" /> },
   { value: 'status', label: 'Status', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+];
+
+const PERSONS_GROUP_OPTIONS: { value: PersonsGroupMode; label: string; icon: React.ReactNode }[] = [
+  { value: 'type', label: 'Type', icon: <Users className="w-3.5 h-3.5" /> },
+  { value: 'alpha', label: 'A-Z', icon: <SortAsc className="w-3.5 h-3.5" /> },
+  { value: 'recent', label: 'Recent', icon: <Clock className="w-3.5 h-3.5" /> },
 ];
 
 export function PanelContainer({
@@ -116,6 +126,12 @@ export function PanelContainer({
       const groupLabel = CASES_GROUP_OPTIONS.find((g) => g.value === casesConfig.groupBy)?.label || 'A-Z';
       const parts = [groupLabel];
       if (casesConfig.showClosed) parts.push('+ Closed');
+      return parts.join(' ');
+    } else if (config.type === 'persons') {
+      const personsConfig = config as PersonsWidgetConfig;
+      const groupLabel = PERSONS_GROUP_OPTIONS.find((g) => g.value === personsConfig.groupBy)?.label || 'Type';
+      const parts = [`By ${groupLabel}`];
+      if (personsConfig.showArchived) parts.push('+ Archived');
       return parts.join(' ');
     }
 
@@ -320,6 +336,67 @@ export function PanelContainer({
       );
     }
 
+    if (config.type === 'persons') {
+      const personsConfig = config as PersonsWidgetConfig;
+      return (
+        <div className="space-y-4">
+          {/* View Mode Toggle - Active vs Archived */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              View
+            </label>
+            <div className="flex p-0.5 rounded-lg bg-bg-hover/50 dark:bg-bg-hover/30">
+              <button
+                onClick={() => onConfigChange({ showArchived: false })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !personsConfig.showArchived
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Active</span>
+              </button>
+              <button
+                onClick={() => onConfigChange({ showArchived: true })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  personsConfig.showArchived
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span>+ Archived</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Group By */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Group by
+            </label>
+            <div className="flex gap-1">
+              {PERSONS_GROUP_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => onConfigChange({ groupBy: option.value })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    personsConfig.groupBy === option.value
+                      ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                      : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                  }`}
+                >
+                  {option.icon}
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -331,6 +408,8 @@ export function PanelContainer({
         return <EventsWidget config={config as EventsWidgetConfig} onConfigChange={onConfigChange} />;
       case 'cases':
         return <CasesWidget config={config as CasesWidgetConfig} onConfigChange={onConfigChange} />;
+      case 'persons':
+        return <PersonsWidget config={config as PersonsWidgetConfig} onConfigChange={onConfigChange} />;
       default:
         return null;
     }
