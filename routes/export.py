@@ -42,7 +42,7 @@ def get_all_cases_with_data() -> list:
         # 1. Get all cases
         cur.execute("""
             SELECT id, case_name, short_name, status, print_code, case_summary,
-                   result, date_of_injury, case_numbers, created_at, updated_at
+                   result, date_of_injury, case_numbers, color, created_at, updated_at
             FROM cases
             ORDER BY case_name
         """)
@@ -81,18 +81,37 @@ def get_all_cases_with_data() -> list:
             case_id = row_dict.pop("case_id")
             persons_by_case[case_id].append(serialize_row(row_dict))
 
-        # 3. Batch fetch all tasks for all cases
+        # 3. Batch fetch all tasks for all cases (with linked event details)
         cur.execute("""
-            SELECT case_id, id, due_date, completion_date, description, status, urgency,
-                   event_id, sort_order, created_at
-            FROM tasks
-            WHERE case_id = ANY(%s)
-            ORDER BY case_id, sort_order ASC
+            SELECT t.case_id, t.id, t.due_date, t.completion_date, t.description,
+                   t.status, t.urgency, t.event_id, t.sort_order, t.docket_category,
+                   t.docket_order, t.created_at,
+                   e.date as linked_event_date, e.time as linked_event_time,
+                   e.description as linked_event_description,
+                   e.location as linked_event_location
+            FROM tasks t
+            LEFT JOIN events e ON t.event_id = e.id
+            WHERE t.case_id = ANY(%s)
+            ORDER BY t.case_id, t.sort_order ASC
         """, (case_ids,))
         tasks_by_case = defaultdict(list)
         for row in cur.fetchall():
             row_dict = dict(row)
             case_id = row_dict.pop("case_id")
+            # Nest linked event details if present
+            if row_dict.get("event_id"):
+                row_dict["linked_event"] = {
+                    "id": row_dict["event_id"],
+                    "date": serialize_value(row_dict.pop("linked_event_date")),
+                    "time": serialize_value(row_dict.pop("linked_event_time")),
+                    "description": row_dict.pop("linked_event_description"),
+                    "location": row_dict.pop("linked_event_location"),
+                }
+            else:
+                row_dict.pop("linked_event_date", None)
+                row_dict.pop("linked_event_time", None)
+                row_dict.pop("linked_event_description", None)
+                row_dict.pop("linked_event_location", None)
             tasks_by_case[case_id].append(serialize_row(row_dict))
 
         # 4. Batch fetch all events for all cases
@@ -135,11 +154,13 @@ def get_all_cases_with_data() -> list:
             case_id = row_dict.pop("case_id")
             activities_by_case[case_id].append(serialize_row(row_dict))
 
-        # 7. Batch fetch all proceedings for all cases (with jurisdiction join)
+        # 7. Batch fetch all proceedings for all cases (with full jurisdiction details)
         cur.execute("""
             SELECT p.case_id, p.id, p.case_number, p.jurisdiction_id, p.sort_order,
                    p.is_primary, p.notes, p.created_at, p.updated_at,
-                   j.name as jurisdiction_name, j.local_rules_link
+                   p.courtlistener_docket_id, p.pacer_case_id,
+                   j.name as jurisdiction_name, j.local_rules_link,
+                   j.notes as jurisdiction_notes
             FROM proceedings p
             LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
             WHERE p.case_id = ANY(%s)
