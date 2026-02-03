@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { Task, TaskStatus } from '../../types';
 import { StatusIndicator } from './StatusIndicator';
+import { AssigneeBadge } from './AssigneeBadge';
 import { CaseChip } from '../common';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -359,6 +360,12 @@ export function TaskItem({
               color={task.case_color}
             />
           )}
+
+          {/* Assignee badge */}
+          {task.assignee && (
+            <AssigneeBadge assignee={task.assignee} />
+          )}
+
             {/* Date display - completion date for done tasks, due date picker for active */}
             {isDone ? (
               // Static completion time display for done tasks

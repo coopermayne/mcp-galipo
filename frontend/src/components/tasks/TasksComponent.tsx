@@ -23,8 +23,10 @@ import { EventLinkPopover } from './EventLinkPopover';
 import { useTaskActions } from './useTaskActions';
 import { ToastContainer, useToast } from '../common';
 import { DEFAULT_STATUS_FILTER } from './statusConfig';
-import { getTasks, updateTask, createTask } from '../../api';
-import type { Task, TaskStatus } from '../../types';
+import { type AssigneeFilterValue } from './AssigneeFilterDropdown';
+import { getTasks, updateTask, createTask, getCaseUsers, getUsers } from '../../api';
+import { useAuth } from '../../context/AuthContext';
+import type { Task, TaskStatus, CaseStaffUser } from '../../types';
 
 interface TasksComponentProps {
   // Data source (one of these):
@@ -109,10 +111,13 @@ export function TasksComponent({
   onTaskUpdated,
   onTaskDeleted,
 }: TasksComponentProps) {
+  const { user: currentUser } = useAuth();
+
   // Local UI state
   const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(defaultGroupBy);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const [internalStatusFilter, setInternalStatusFilter] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTER);
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilterValue>('all');
 
   // Support both controlled and uncontrolled modes for searchQuery
   const searchQuery = controlledSearchQuery ?? internalSearchQuery;
@@ -164,6 +169,41 @@ export function TasksComponent({
     enabled: showAllTasks || !!caseId,
   });
 
+  // Fetch eligible assignees (case staff if caseId, otherwise all users)
+  const { data: eligibleAssignees = [] } = useQuery({
+    queryKey: caseId
+      ? ['case-users', caseId]
+      : ['users'],
+    queryFn: async (): Promise<CaseStaffUser[]> => {
+      if (caseId) {
+        const caseUsers = await getCaseUsers(caseId);
+        // Combine attorneys and paralegals into a single list
+        return [...caseUsers.attorneys, ...caseUsers.paralegals];
+      } else {
+        // For the all-tasks view, fetch all active users
+        const users = await getUsers();
+        return users.map(u => ({
+          id: u.id,
+          email: u.email,
+          first_name: u.firstName,
+          last_name: u.lastName,
+          initials: u.initials,
+          position: u.position,
+          paralegal_id: u.paralegalId ?? undefined,
+        }));
+      }
+    },
+    enabled: showAllTasks || !!caseId,
+  });
+
+  // Get paralegals for filter dropdown (attorneys see their paralegals)
+  const paralegals = useMemo(() => {
+    if (!currentUser) return [];
+    // If current user is an attorney, show their assigned paralegal(s)
+    // For now, just show all paralegals from eligible assignees
+    return eligibleAssignees.filter(u => u.position === 'paralegal');
+  }, [eligibleAssignees, currentUser]);
+
   // Use our unified hook for all task actions
   const { markDone, deleteTask } = useTaskActions({
     invalidateKeys,
@@ -171,7 +211,7 @@ export function TasksComponent({
 
   const allTasks = fetchedData?.tasks || [];
 
-  // Filter tasks by status and search query
+  // Filter tasks by status, search query, and assignee
   const tasks = useMemo(() => {
     let filtered = allTasks;
 
@@ -189,8 +229,19 @@ export function TasksComponent({
       );
     }
 
+    // Filter by assignee
+    if (assigneeFilter !== 'all') {
+      if (assigneeFilter === 'mine') {
+        filtered = filtered.filter((task) => task.assignee_id === currentUser?.id);
+      } else if (assigneeFilter === 'unassigned') {
+        filtered = filtered.filter((task) => task.assignee_id === null || task.assignee_id === undefined);
+      } else if (typeof assigneeFilter === 'number') {
+        filtered = filtered.filter((task) => task.assignee_id === assigneeFilter);
+      }
+    }
+
     return filtered;
-  }, [allTasks, statusFilter, searchQuery]);
+  }, [allTasks, statusFilter, searchQuery, assigneeFilter, currentUser?.id]);
 
   // Handle status change with toast and undo support for Done
   const handleStatusChange = useCallback(
@@ -420,6 +471,9 @@ export function TasksComponent({
           onStatusFilterChange={setStatusFilter}
           hideGroupBy={hideGroupBy}
           hideCaseGrouping={!!caseId}
+          assigneeFilter={assigneeFilter}
+          onAssigneeFilterChange={setAssigneeFilter}
+          paralegals={paralegals}
         />
       )}
 
@@ -465,6 +519,7 @@ export function TasksComponent({
           hasPrevTask={hasPrevTask}
           hasNextTask={hasNextTask}
           initialFocus={sheetFocusMode}
+          eligibleAssignees={eligibleAssignees}
         />
       )}
 

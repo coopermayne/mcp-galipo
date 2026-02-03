@@ -5,3 +5,4 @@ export {
   inferPersonTypeFromRole,
   inferSideFromRole,
 } from './personRoleMapping';
+export { USER_AVATAR_COLORS, getUserColorClass } from './userColors';

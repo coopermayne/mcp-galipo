@@ -21,12 +21,15 @@ import {
   Check,
   Link2,
   Trash2,
+  User,
 } from 'lucide-react';
-import type { Task, TaskStatus } from '../../types';
+import type { Task, TaskStatus, CaseStaffUser } from '../../types';
 import { EventLinkPopover } from './EventLinkPopover';
 import { STATUS_CONFIG, getStatusConfig } from './statusConfig';
 import { ActiveStatusIcon } from './ActiveStatusIcon';
+import { AssigneePicker } from './AssigneePicker';
 import { CaseChip } from '../common';
+import { useAuth } from '../../context/AuthContext';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority config matching TaskItem
@@ -64,6 +67,8 @@ interface TaskDetailSheetProps {
   hasNextTask?: boolean;
   /** What to focus when sheet opens */
   initialFocus?: SheetFocusMode;
+  /** List of users who can be assigned to this task */
+  eligibleAssignees?: CaseStaffUser[];
 }
 
 /**
@@ -110,21 +115,26 @@ export function TaskDetailSheet({
   hasPrevTask = false,
   hasNextTask = false,
   initialFocus = null,
+  eligibleAssignees = [],
 }: TaskDetailSheetProps) {
+  const { user: currentUser } = useAuth();
   const [editedTitle, setEditedTitle] = useState(task?.description || '');
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [statusPickerPos, setStatusPickerPos] = useState({ top: 0, left: 0 });
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [priorityPickerPos, setPriorityPickerPos] = useState({ top: 0, left: 0 });
   const [showEventLinkPopover, setShowEventLinkPopover] = useState(false);
+  const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showAssigneePicker, setShowAssigneePicker] = useState(false);
+  const [assigneePickerAnchor, setAssigneePickerAnchor] = useState<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const statusButtonRef = useRef<HTMLButtonElement>(null);
   const priorityButtonRef = useRef<HTMLButtonElement>(null);
-  const eventLinkButtonRef = useRef<HTMLButtonElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const assigneeButtonRef = useRef<HTMLButtonElement>(null);
 
   // Sync title when task changes
   useEffect(() => {
@@ -166,6 +176,7 @@ export function TaskDetailSheet({
     setShowPriorityPicker(false);
     setShowEventLinkPopover(false);
     setShowMoreMenu(false);
+    setShowAssigneePicker(false);
   }, [task?.id]);
 
   // Prevent body scroll when open
@@ -192,6 +203,8 @@ export function TaskDetailSheet({
           setShowEventLinkPopover(false);
         } else if (showMoreMenu) {
           setShowMoreMenu(false);
+        } else if (showAssigneePicker) {
+          setShowAssigneePicker(false);
         } else {
           onClose();
         }
@@ -199,7 +212,7 @@ export function TaskDetailSheet({
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose, showStatusPicker, showPriorityPicker, showEventLinkPopover, showMoreMenu]);
+  }, [isOpen, onClose, showStatusPicker, showPriorityPicker, showEventLinkPopover, showMoreMenu, showAssigneePicker]);
 
   if (!isOpen || !task) return null;
 
@@ -278,6 +291,15 @@ export function TaskDetailSheet({
     }
     setShowPriorityPicker(false);
   };
+
+  const handleAssigneeChange = async (assigneeId: number | null) => {
+    if (onUpdate) {
+      await onUpdate(task.id, { assignee_id: assigneeId });
+    }
+  };
+
+  // Check if current user is a paralegal (they can't change assignee)
+  const isParalegal = currentUser?.position === 'paralegal';
 
   return (
     <div className="fixed inset-0 z-50">
@@ -540,8 +562,10 @@ export function TaskDetailSheet({
               {/* Event Link button - only show if case has events or already linked */}
               {(task.has_events || task.event_id) && (
                 <button
-                  ref={eventLinkButtonRef}
-                  onClick={() => setShowEventLinkPopover(true)}
+                  onClick={(e) => {
+                    setEventLinkAnchor(e.currentTarget);
+                    setShowEventLinkPopover(true);
+                  }}
                   className="flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-l border-slate-100 dark:border-slate-800 min-w-0"
                 >
                   <Link2 className={`w-5 h-5 flex-shrink-0 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
@@ -631,6 +655,44 @@ export function TaskDetailSheet({
               document.getElementById('datepicker-portal') || document.body
             )}
 
+            {/* Assignee */}
+            <div className="relative border-b border-slate-100 dark:border-slate-800">
+              <button
+                ref={assigneeButtonRef}
+                onClick={(e) => {
+                  if (!isParalegal) {
+                    setAssigneePickerAnchor(e.currentTarget);
+                    setShowAssigneePicker(true);
+                  }
+                }}
+                disabled={isParalegal}
+                className={`flex items-center gap-4 px-4 py-3 w-full text-left ${
+                  isParalegal
+                    ? 'cursor-default'
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <User className="w-5 h-5 text-slate-400" />
+                {task.assignee ? (
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
+                    {task.assignee.first_name} {task.assignee.last_name}
+                  </span>
+                ) : (
+                  <span className="text-sm text-slate-400">Unassigned</span>
+                )}
+              </button>
+            </div>
+
+            {/* Assignee Picker */}
+            <AssigneePicker
+              currentAssigneeId={task.assignee_id ?? null}
+              eligibleAssignees={eligibleAssignees}
+              onChange={handleAssigneeChange}
+              isOpen={showAssigneePicker}
+              onClose={() => setShowAssigneePicker(false)}
+              anchorEl={assigneePickerAnchor}
+            />
+
             {/* Priority */}
             <div className="relative border-b border-slate-100 dark:border-slate-800">
               <button
@@ -676,7 +738,7 @@ export function TaskDetailSheet({
               <EventLinkPopover
                 task={task}
                 isOpen={showEventLinkPopover}
-                anchorEl={eventLinkButtonRef.current}
+                anchorEl={eventLinkAnchor}
                 onClose={() => setShowEventLinkPopover(false)}
                 onLinkEvent={(taskId, eventId) => {
                   if (onLinkEvent) {

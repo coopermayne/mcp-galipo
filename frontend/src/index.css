@@ -148,6 +148,22 @@ body {
   }
 }
 
+/* Dropdown entrance animation */
+@keyframes fadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeSlideIn {
+  animation: fadeSlideIn 150ms ease-out;
+}
+
 /* React DatePicker Custom Styles */
 .react-datepicker {
   font-family: var(--font-family-sans);

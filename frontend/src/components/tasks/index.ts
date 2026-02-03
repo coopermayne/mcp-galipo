@@ -17,3 +17,7 @@ export { STATUS_CONFIG, getStatusConfig, DEFAULT_STATUS_FILTER } from './statusC
 export type { StatusConfig } from './statusConfig';
 export { TasksLayoutSelector } from './TasksLayoutSelector';
 export { TasksPanel } from './TasksPanel';
+export { AssigneeBadge } from './AssigneeBadge';
+export { AssigneePicker } from './AssigneePicker';
+export { AssigneeFilterDropdown } from './AssigneeFilterDropdown';
+export type { AssigneeFilterValue } from './AssigneeFilterDropdown';
