@@ -10,14 +10,11 @@ from typing import Optional
 from .connection import get_connection, serialize_row
 from .validation import (
     validate_case_status,
-    validate_task_status,
-    validate_urgency,
     validate_date_format,
     validate_time_format,
     validate_person_side,
     ValidationError,
     CASE_STATUSES,
-    TASK_STATUSES,
 )
 from psycopg2.extras import RealDictCursor
 
@@ -31,9 +28,8 @@ def import_case(data: dict) -> dict:
             {
                 "case": { case fields },
                 "persons": [ { person + role/side for case assignment } ],
-                "proceedings": [ { case_number, jurisdiction, judge_name } ],
-                "events": [ { event fields } ],
-                "tasks": [ { task fields } ],
+                "proceedings": [ { case_number, jurisdiction, judges[] } ],
+                "events": [ { event fields - hearings, deadlines, depositions, etc. } ],
                 "notes": [ { content } ],
                 "activities": [ { activity fields } ]
             }
@@ -67,7 +63,6 @@ def import_case(data: dict) -> dict:
             "proceedings": [],
             "judges": [],
             "events": [],
-            "tasks": [],
             "notes": [],
             "activities": [],
             "jurisdictions": [],
@@ -118,7 +113,7 @@ def import_case(data: dict) -> dict:
                 for judge in proc_result.get("judges", []):
                     result["created"]["judges"].append(judge)
 
-            # 4. Create events
+            # 4. Create events (hearings, deadlines, depositions, etc.)
             events_data = data.get("events", [])
             for event_data in events_data:
                 event_id = _create_event(cur, case_id, event_data)
@@ -127,22 +122,13 @@ def import_case(data: dict) -> dict:
                     "description": event_data.get("description")
                 })
 
-            # 5. Create tasks
-            tasks_data = data.get("tasks", [])
-            for task_data in tasks_data:
-                task_id = _create_task(cur, case_id, task_data)
-                result["created"]["tasks"].append({
-                    "id": task_id,
-                    "description": task_data.get("description")
-                })
-
-            # 6. Create notes
+            # 5. Create notes
             notes_data = data.get("notes", [])
             for note_data in notes_data:
                 note_id = _create_note(cur, case_id, note_data)
                 result["created"]["notes"].append({"id": note_id})
 
-            # 7. Create activities
+            # 6. Create activities
             activities_data = data.get("activities", [])
             for activity_data in activities_data:
                 activity_id = _create_activity(cur, case_id, activity_data)
@@ -156,8 +142,8 @@ def import_case(data: dict) -> dict:
                 "case_name": case_data.get("case_name"),
                 "persons_created": len(result["created"]["persons"]),
                 "proceedings_created": len(result["created"]["proceedings"]),
+                "judges_assigned": len(result["created"]["judges"]),
                 "events_created": len(result["created"]["events"]),
-                "tasks_created": len(result["created"]["tasks"]),
                 "notes_created": len(result["created"]["notes"]),
                 "activities_created": len(result["created"]["activities"]),
             }
@@ -396,21 +382,27 @@ def _create_proceeding(cur, case_id: int, proc_data: dict, person_name_map: dict
     proceeding_id = cur.fetchone()["id"]
     result["proceeding_id"] = proceeding_id
 
-    # Handle judges - can be specified as judge_name, judge_names, or judges array
-    judge_names = []
+    # Handle judges - can be specified as:
+    #   "judge_name": "Hon. Smith"              (single judge, role auto-detected)
+    #   "judges": ["Hon. Smith", "Mag. Jones"]  (array of names)
+    #   "judges": [                             (array of objects with explicit roles)
+    #       {"name": "Hon. Smith", "role": "Presiding"},
+    #       {"name": "Hon. Jones", "role": "Panel"},
+    #       {"name": "Mag. Wilson", "role": "Magistrate Judge"}
+    #   ]
+    judge_entries = []  # list of {"name": str, "role": str|None}
     if proc_data.get("judge_name"):
-        judge_names.append(proc_data["judge_name"])
-    if proc_data.get("judge_names"):
-        judge_names.extend(proc_data["judge_names"])
+        judge_entries.append({"name": proc_data["judge_name"], "role": None})
     if proc_data.get("judges"):
         for j in proc_data["judges"]:
             if isinstance(j, str):
-                judge_names.append(j)
+                judge_entries.append({"name": j, "role": None})
             elif isinstance(j, dict) and j.get("name"):
-                judge_names.append(j["name"])
+                judge_entries.append({"name": j["name"], "role": j.get("role")})
 
     # Link judges to proceeding
-    for idx, judge_name in enumerate(judge_names):
+    for idx, entry in enumerate(judge_entries):
+        judge_name = entry["name"]
         judge_name_lower = judge_name.lower().strip()
         person_id = person_name_map.get(judge_name_lower)
 
@@ -424,10 +416,13 @@ def _create_proceeding(cur, case_id: int, proc_data: dict, person_name_map: dict
             person_id = cur.fetchone()["id"]
             person_name_map[judge_name_lower] = person_id
 
-        # Determine judge role
-        judge_role = "Judge"
-        if "magistrate" in judge_name_lower:
-            judge_role = "Magistrate Judge"
+        # Determine judge role: explicit > auto-detect from name
+        judge_role = entry["role"]
+        if not judge_role:
+            if "magistrate" in judge_name_lower:
+                judge_role = "Magistrate Judge"
+            else:
+                judge_role = "Judge"
 
         # Add to proceeding
         cur.execute("""
@@ -480,48 +475,6 @@ def _create_event(cur, case_id: int, event_data: dict) -> int:
         event_data.get("document_link"),
         event_data.get("calculation_note"),
         event_data.get("starred", False)
-    ))
-    return cur.fetchone()["id"]
-
-
-def _create_task(cur, case_id: int, task_data: dict) -> int:
-    """Create a task."""
-    description = task_data.get("description")
-    if not description:
-        raise ValidationError("Task description is required")
-
-    status = task_data.get("status", "Pending")
-    if status not in TASK_STATUSES:
-        raise ValidationError(f"Invalid task status '{status}'")
-
-    urgency = task_data.get("urgency", 2)
-    if not isinstance(urgency, int) or urgency < 1 or urgency > 4:
-        raise ValidationError(f"Invalid urgency '{urgency}'. Must be 1-4.")
-
-    due_date = task_data.get("due_date")
-    if due_date:
-        validate_date_format(due_date, "due_date")
-
-    # Get next sort_order for this case
-    cur.execute(
-        "SELECT COALESCE(MAX(sort_order), 0) + 1000 as next_order FROM tasks WHERE case_id = %s",
-        (case_id,)
-    )
-    sort_order = cur.fetchone()["next_order"]
-
-    cur.execute("""
-        INSERT INTO tasks (
-            case_id, description, due_date, status, urgency, sort_order
-        )
-        VALUES (%s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """, (
-        case_id,
-        description,
-        due_date,
-        status,
-        urgency,
-        sort_order
     ))
     return cur.fetchone()["id"]
 
