@@ -203,6 +203,8 @@ interface EventFeedProps {
   showCase?: boolean;
   /** How to group events: 'none' | 'date' | 'case' */
   groupBy?: 'none' | 'date' | 'case';
+  /** When true, sorts in descending order (most recent first) for past events view */
+  showPast?: boolean;
   /** Maximum number of events to display */
   maxItems?: number;
   /** Compact mode - tighter spacing */
@@ -241,6 +243,7 @@ export function EventFeed({
   caseId,
   showCase = true,
   groupBy = 'none',
+  showPast = false,
   maxItems,
   compact = false,
   emptyMessage = 'No events',
@@ -281,16 +284,22 @@ export function EventFeed({
       case 'none':
       default:
         // Flat list sorted by date
+        // For past events: most recent first (descending)
+        // For upcoming events: soonest first (ascending)
         return [
           {
             key: 'all',
             label: '',
             date: null,
-            events: [...limitedEvents].sort((a, b) => a.date.localeCompare(b.date)),
+            events: [...limitedEvents].sort((a, b) =>
+              showPast
+                ? b.date.localeCompare(a.date)  // descending for past
+                : a.date.localeCompare(b.date)  // ascending for upcoming
+            ),
           },
         ];
     }
-  }, [limitedEvents, groupBy]);
+  }, [limitedEvents, groupBy, showPast]);
 
   // Hide case column when grouping by case (redundant info)
   const effectiveShowCase = showCase && groupBy !== 'case';
