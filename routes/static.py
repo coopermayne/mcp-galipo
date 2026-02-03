@@ -83,9 +83,20 @@ def register_static_routes(mcp):
     async def serve_react_app_catchall(request):
         """Catch-all route for SPA client-side routing."""
         path = request.path_params.get("path", "")
-        # Skip API routes
+
+        # Skip routes that should be handled by other handlers
+        # API routes
         if path.startswith("api/"):
             return HTMLResponse("Not found", status_code=404)
+        # MCP/SSE routes (handled by fastmcp)
+        if path in ("sse", "mcp", "messages") or path.startswith("messages/"):
+            return HTMLResponse("Not found", status_code=404)
+        # OAuth routes (handled by auth provider)
+        if path in ("authorize", "login", "token", "register", "oauth"):
+            return HTMLResponse("Not found", status_code=404)
+        if path.startswith(".well-known/"):
+            return HTMLResponse("Not found", status_code=404)
+
         # Serve React app
         html_path = REACT_DIST_DIR / "index.html"
         if html_path.exists():
