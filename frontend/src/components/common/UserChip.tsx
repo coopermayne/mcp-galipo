@@ -22,7 +22,7 @@ export function UserChip({ user, onRemove, size = 'sm', showName = true }: UserC
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${sizeClasses}`}
+      className={`inline-flex items-center gap-1.5 px-1.5 rounded-full border border-border bg-bg-surface ${sizeClasses}`}
       title={fullName}
     >
       {/* Initials circle */}
@@ -32,7 +32,7 @@ export function UserChip({ user, onRemove, size = 'sm', showName = true }: UserC
 
       {/* Name (optional) */}
       {showName && (
-        <span className="text-slate-700 dark:text-slate-300 truncate max-w-[100px]">
+        <span className="text-text-secondary truncate max-w-[100px]">
           {fullName}
         </span>
       )}
@@ -44,9 +44,9 @@ export function UserChip({ user, onRemove, size = 'sm', showName = true }: UserC
             e.stopPropagation();
             onRemove();
           }}
-          className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full transition-colors"
+          className="p-0.5 hover:bg-bg-hover rounded-full transition-colors"
         >
-          <X className="w-3 h-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+          <X className="w-3 h-3 text-text-muted hover:text-text-secondary" />
         </button>
       )}
     </div>

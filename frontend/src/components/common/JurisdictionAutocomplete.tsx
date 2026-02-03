@@ -120,7 +120,7 @@ export function JurisdictionAutocomplete({
     <div className="relative">
       {/* Input */}
       <div className="relative flex items-center">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
         <input
           ref={inputRef}
           type="text"
@@ -132,13 +132,13 @@ export function JurisdictionAutocomplete({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full pl-7 pr-7 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full pl-7 pr-7 py-1.5 text-sm rounded border border-border bg-bg-surface text-text focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-text-secondary"
             title="Cancel"
           >
             <X className="w-3 h-3" />
@@ -150,14 +150,14 @@ export function JurisdictionAutocomplete({
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded shadow-lg max-h-48 overflow-y-auto"
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-surface border border-border rounded shadow-lg max-h-48 overflow-y-auto"
         >
           {isLoading && (
-            <div className="px-3 py-2 text-xs text-slate-400">Loading...</div>
+            <div className="px-3 py-2 text-xs text-text-muted">Loading...</div>
           )}
 
           {!isLoading && results.length === 0 && !showCreateOption && (
-            <div className="px-3 py-2 text-xs text-slate-400">No courts found</div>
+            <div className="px-3 py-2 text-xs text-text-muted">No courts found</div>
           )}
 
           {/* Results */}
@@ -174,14 +174,14 @@ export function JurisdictionAutocomplete({
               className={`w-full px-3 py-2 text-left text-sm ${
                 highlightedIndex === index
                   ? 'bg-primary-50 dark:bg-primary-900/30'
-                  : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  : 'hover:bg-bg-hover'
               }`}
             >
-              <div className="font-medium text-slate-900 dark:text-slate-100">
+              <div className="font-medium text-text">
                 {jurisdiction.name}
               </div>
               {jurisdiction.notes && (
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                <div className="text-xs text-text-secondary truncate">
                   {jurisdiction.notes}
                 </div>
               )}
@@ -198,10 +198,10 @@ export function JurisdictionAutocomplete({
                 setIsOpen(false);
               }}
               onMouseEnter={() => setHighlightedIndex(results.length)}
-              className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 ${
+              className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 border-t border-border ${
                 highlightedIndex === results.length
                   ? 'bg-primary-50 dark:bg-primary-900/30'
-                  : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  : 'hover:bg-bg-hover'
               }`}
             >
               <Plus className="w-3 h-3 text-primary-600" />

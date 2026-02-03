@@ -18,7 +18,7 @@ export function ChatButton({ onClick, isOpen }: ChatButtonProps) {
         flex items-center justify-center
         transition-all duration-200
         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-        dark:focus:ring-offset-slate-900
+        focus:ring-offset-bg
         touch-manipulation
         ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}
       `}

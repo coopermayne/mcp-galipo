@@ -18,7 +18,7 @@ export function StarredEvents({ events }: StarredEventsProps) {
     <>
       {starredEvents.map((event) => (
         <div key={event.id} className="flex items-center gap-4">
-          <span className="text-sm text-slate-400 w-32 shrink-0 flex items-center gap-1">
+          <span className="text-sm text-text-muted w-32 shrink-0 flex items-center gap-1">
             <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
             {event.description.length > 20
               ? event.description.substring(0, 20) + '...'

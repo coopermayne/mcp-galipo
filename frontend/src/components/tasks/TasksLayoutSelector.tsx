@@ -88,7 +88,7 @@ export function TasksLayoutSelector({ value, onChange }: TasksLayoutSelectorProp
         className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
           isOpen
             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            : 'border-border bg-bg-surface text-text-secondary hover:bg-bg-hover'
         }`}
       >
         <LayoutGrid className="w-4 h-4" />
@@ -101,8 +101,8 @@ export function TasksLayoutSelector({ value, onChange }: TasksLayoutSelectorProp
           {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-1 w-48 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
-            <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+          <div className="absolute right-0 top-full mt-1 w-48 py-2 bg-bg-surface border border-border rounded-lg shadow-lg z-50">
+            <div className="px-3 py-1.5 text-xs font-semibold text-text-muted uppercase tracking-wide">
               Layout
             </div>
             {LAYOUT_OPTIONS.map((option) => (
@@ -112,7 +112,7 @@ export function TasksLayoutSelector({ value, onChange }: TasksLayoutSelectorProp
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                className="flex items-center justify-between w-full px-3 py-2 text-sm text-text hover:bg-bg-hover"
               >
                 <span className="flex items-center gap-2">
                   {option.icon}

@@ -124,13 +124,13 @@ export function CreateTaskModal({
         <div
           ref={modalRef}
           tabIndex={-1}
-          className="relative w-full max-w-md transform rounded-xl bg-white dark:bg-slate-800 shadow-xl transition-all"
+          className="relative w-full max-w-md transform rounded-xl bg-bg-surface shadow-xl transition-all"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="absolute top-4 right-4 p-1 text-text-muted hover:text-text rounded-lg hover:bg-bg-hover transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -142,7 +142,7 @@ export function CreateTaskModal({
             </div>
 
             {/* Title */}
-            <h3 className="mt-4 text-lg font-semibold text-center text-slate-900 dark:text-slate-100">
+            <h3 className="mt-4 text-lg font-semibold text-center text-text">
               Create Task
             </h3>
 
@@ -151,13 +151,13 @@ export function CreateTaskModal({
               {/* Case selector (only show if no preselected case) */}
               {!preselectedCaseId && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
                     Case *
                   </label>
                   <select
                     value={selectedCaseId || ''}
                     onChange={(e) => setSelectedCaseId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg-surface text-text text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                   >
                     <option value="">Select a case...</option>
                     {cases.map((c) => (
@@ -170,7 +170,7 @@ export function CreateTaskModal({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   Description *
                 </label>
                 <input
@@ -178,31 +178,31 @@ export function CreateTaskModal({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Task description"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   Due Date
                 </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-bg-surface text-text text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   Urgency
                 </label>
                 <select
                   value={urgency}
                   onChange={(e) => setUrgency(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-bg-surface text-text text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                 >
                   <option value={1}>1 - Low</option>
                   <option value={2}>2 - Normal</option>
@@ -218,14 +218,14 @@ export function CreateTaskModal({
                 type="button"
                 onClick={onClose}
                 disabled={createMutation.isPending}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-bg-hover hover:bg-bg-hover/80 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={createMutation.isPending || !canSubmit}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-800"
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 {createMutation.isPending ? 'Creating...' : 'Create Task'}
               </button>

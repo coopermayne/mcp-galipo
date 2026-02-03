@@ -30,7 +30,7 @@ const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
     const statusIcon = () => {
       switch (status) {
         case 'saving':
-          return <Loader2 className="w-3 h-3 animate-spin text-slate-400" />;
+          return <Loader2 className="w-3 h-3 animate-spin text-text-muted" />;
         case 'saved':
           return <Check className="w-3 h-3 text-green-500" />;
         case 'error':
@@ -50,8 +50,8 @@ const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
             disabled={disabled}
             className={`
               inline-flex items-center py-1 pr-1 rounded
-              text-slate-400 dark:text-slate-500
-              ${disabled ? 'cursor-default opacity-60' : 'cursor-pointer hover:text-slate-600 dark:hover:text-slate-300'}
+              text-text-muted
+              ${disabled ? 'cursor-default opacity-60' : 'cursor-pointer hover:text-text-secondary'}
             `}
             title="Set time"
           >
@@ -68,7 +68,7 @@ const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
         ref={ref}
         className={`
           inline-flex items-center gap-1 py-1 pr-2 text-sm
-          text-slate-600 dark:text-slate-300
+          text-text-secondary
           ${disabled ? 'opacity-60' : ''}
         `}
       >
@@ -78,10 +78,10 @@ const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
           disabled={disabled}
           className={`
             inline-flex items-center gap-1 rounded
-            ${disabled ? 'cursor-default' : 'cursor-pointer hover:text-slate-500 dark:hover:text-slate-200'}
+            ${disabled ? 'cursor-default' : 'cursor-pointer hover:text-text'}
           `}
         >
-          <Clock className="w-3 h-3 text-slate-400" />
+          <Clock className="w-3 h-3 text-text-muted" />
           <span>{formattedTime}</span>
         </button>
         {!disabled && (
@@ -91,7 +91,7 @@ const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(
               e.stopPropagation();
               onClear();
             }}
-            className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+            className="p-0.5 text-text-muted hover:text-text-secondary"
             title="Clear time"
           >
             <X className="w-3 h-3" />
@@ -151,8 +151,8 @@ export function EditableTime({
   if (disabled) {
     if (!value) return null;
     return (
-      <div className={`inline-flex items-center gap-1 px-2 py-1 text-sm text-slate-600 dark:text-slate-300 opacity-60 ${className}`}>
-        <Clock className="w-3 h-3 text-slate-400" />
+      <div className={`inline-flex items-center gap-1 px-2 py-1 text-sm text-text-secondary opacity-60 ${className}`}>
+        <Clock className="w-3 h-3 text-text-muted" />
         <span>{formattedTime}</span>
       </div>
     );

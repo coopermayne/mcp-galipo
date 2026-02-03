@@ -415,7 +415,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
           fixed z-50
           inset-0 md:inset-auto md:top-0 md:right-0 md:bottom-0
           w-full md:w-[600px] lg:w-[700px] xl:w-[800px]
-          bg-white dark:bg-slate-800
+          bg-bg-surface
           shadow-2xl
           flex flex-col
           transition-transform duration-300 ease-in-out
@@ -423,19 +423,19 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 md:py-3 border-b border-slate-200 dark:border-slate-700 safe-area-inset-top">
+        <div className="flex items-center justify-between px-4 py-3 md:py-3 border-b border-border safe-area-inset-top">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 md:w-8 md:h-8 rounded-full bg-blue-600 flex items-center justify-center">
               <MessageCircle className="w-5 h-5 md:w-4 md:h-4 text-white" />
             </div>
             <div>
-              <h2 className="text-base md:text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <h2 className="text-base md:text-sm font-semibold text-text">
                 AI Assistant
               </h2>
-              <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-sm md:text-xs text-text-muted">
                 {caseContext ? `Case #${caseContext}` : 'General'}
                 {activeMode && (
-                  <span className="ml-1.5 text-blue-600 dark:text-blue-400 font-medium">
+                  <span className="ml-1.5 text-blue-600 font-medium">
                     · {activeMode.charAt(0).toUpperCase() + activeMode.slice(1)} Mode
                   </span>
                 )}
@@ -448,14 +448,14 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
             {messages.length > 0 && (
               <button
                 onClick={handleNewConversation}
-                className="text-sm md:text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 md:px-2 md:py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="text-sm md:text-xs text-text-muted hover:text-text px-3 py-1.5 md:px-2 md:py-1 rounded hover:bg-bg-hover transition-colors"
               >
                 New chat
               </button>
             )}
             <button
               onClick={onClose}
-              className="p-2 md:p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="p-2 md:p-1.5 text-text-muted hover:text-text rounded-lg hover:bg-bg-hover transition-colors"
               aria-label="Close chat"
             >
               <X className="w-6 h-6 md:w-5 md:h-5" />
@@ -465,8 +465,8 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
 
         {/* Error Banner with Retry */}
         {failedMessageContent && (
-          <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+          <div className="px-4 py-3 bg-red-50 border-b border-red-200 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-red-700">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span className="text-sm">Message failed to send</span>
             </div>
@@ -476,9 +476,9 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
               className="
                 flex items-center gap-1.5 px-3 py-1.5
                 text-sm font-medium
-                text-red-700 dark:text-red-400
-                bg-red-100 dark:bg-red-900/30
-                hover:bg-red-200 dark:hover:bg-red-900/50
+                text-red-700
+                bg-red-100
+                hover:bg-red-200
                 rounded-lg transition-colors
                 disabled:opacity-50 disabled:cursor-not-allowed
               "

@@ -1,5 +1,14 @@
 // Helper functions for CaseDetail components
 
+import {
+  URGENCY_COLORS,
+  TASK_STATUS_COLORS,
+  DATE_GROUP_COLORS,
+  type UrgencyLevel,
+  type TaskStatusKey,
+  type DateGroupKey,
+} from '../../config/colors';
+
 /**
  * Parse a date string (YYYY-MM-DD) as local time, not UTC.
  * This avoids timezone shift issues where "2026-01-27" parsed as UTC
@@ -26,82 +35,27 @@ export function getPrimaryEmail(
   return primary?.value || emails[0]?.value || null;
 }
 
-// Urgency and Status config for task groups (1-4 scale: Low, Medium, High, Urgent)
+// Re-export color configs with the expected shape for backwards compatibility
 export const urgencyConfig: Record<number, { label: string; color: string; bgColor: string }> = {
-  4: {
-    label: 'Urgent',
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
-  },
-  3: {
-    label: 'High',
-    color: 'text-orange-600 dark:text-orange-400',
-    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
-  },
-  2: {
-    label: 'Medium',
-    color: 'text-amber-600 dark:text-amber-400',
-    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
-  },
-  1: {
-    label: 'Low',
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-50 dark:bg-green-900/20',
-  },
+  4: { label: URGENCY_COLORS[4].label, color: URGENCY_COLORS[4].text, bgColor: URGENCY_COLORS[4].bg },
+  3: { label: URGENCY_COLORS[3].label, color: URGENCY_COLORS[3].text, bgColor: URGENCY_COLORS[3].bg },
+  2: { label: URGENCY_COLORS[2].label, color: URGENCY_COLORS[2].text, bgColor: URGENCY_COLORS[2].bg },
+  1: { label: URGENCY_COLORS[1].label, color: URGENCY_COLORS[1].text, bgColor: URGENCY_COLORS[1].bg },
 };
 
 export const statusConfig: Record<string, { color: string; bgColor: string }> = {
-  Pending: {
-    color: 'text-slate-600 dark:text-slate-400',
-    bgColor: 'bg-slate-50 dark:bg-slate-800/50',
-  },
-  Active: {
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-  },
-  Blocked: {
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
-  },
-  'Awaiting Atty Review': {
-    color: 'text-amber-600 dark:text-amber-400',
-    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
-  },
-  Done: {
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-50 dark:bg-green-900/20',
-  },
+  Pending: { color: TASK_STATUS_COLORS.Pending.text, bgColor: TASK_STATUS_COLORS.Pending.bg },
+  Active: { color: TASK_STATUS_COLORS.Active.text, bgColor: TASK_STATUS_COLORS.Active.bg },
+  Blocked: { color: TASK_STATUS_COLORS.Blocked.text, bgColor: TASK_STATUS_COLORS.Blocked.bg },
+  'Awaiting Atty Review': { color: TASK_STATUS_COLORS['Awaiting Atty Review'].text, bgColor: TASK_STATUS_COLORS['Awaiting Atty Review'].bg },
+  Done: { color: TASK_STATUS_COLORS.Done.text, bgColor: TASK_STATUS_COLORS.Done.bg },
 };
 
 export const dateGroupConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-  overdue: {
-    label: 'Overdue',
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
-  },
-  today: {
-    label: 'Today',
-    color: 'text-amber-600 dark:text-amber-400',
-    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
-  },
-  thisWeek: {
-    label: 'This Week',
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-  },
-  nextWeek: {
-    label: 'Next Week',
-    color: 'text-indigo-600 dark:text-indigo-400',
-    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
-  },
-  later: {
-    label: 'Later',
-    color: 'text-slate-600 dark:text-slate-400',
-    bgColor: 'bg-slate-100 dark:bg-slate-800/50',
-  },
-  noDate: {
-    label: 'No Date',
-    color: 'text-slate-500 dark:text-slate-400',
-    bgColor: 'bg-slate-50 dark:bg-slate-800/50',
-  },
+  overdue: { label: DATE_GROUP_COLORS.overdue.label, color: DATE_GROUP_COLORS.overdue.text, bgColor: DATE_GROUP_COLORS.overdue.bg },
+  today: { label: DATE_GROUP_COLORS.today.label, color: DATE_GROUP_COLORS.today.text, bgColor: DATE_GROUP_COLORS.today.bg },
+  thisWeek: { label: DATE_GROUP_COLORS.thisWeek.label, color: DATE_GROUP_COLORS.thisWeek.text, bgColor: DATE_GROUP_COLORS.thisWeek.bg },
+  nextWeek: { label: DATE_GROUP_COLORS.nextWeek.label, color: DATE_GROUP_COLORS.nextWeek.text, bgColor: DATE_GROUP_COLORS.nextWeek.bg },
+  later: { label: DATE_GROUP_COLORS.later.label, color: DATE_GROUP_COLORS.later.text, bgColor: DATE_GROUP_COLORS.later.bg },
+  noDate: { label: DATE_GROUP_COLORS.noDate.label, color: DATE_GROUP_COLORS.noDate.text, bgColor: DATE_GROUP_COLORS.noDate.bg },
 };

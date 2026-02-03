@@ -29,12 +29,12 @@ export function AssigneeBadge({ assignee, showName = false, size = 'xs' }: Assig
       title={fullName}
     >
       <span
-        className={`inline-flex items-center justify-center rounded-full font-medium transition-all duration-150 group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-slate-200 dark:group-hover:ring-slate-600 ${colorClass} ${sizeClasses}`}
+        className={`inline-flex items-center justify-center rounded-full font-medium transition-all duration-150 group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-border ${colorClass} ${sizeClasses}`}
       >
         {assignee.initials}
       </span>
       {showName && (
-        <span className="text-xs text-slate-600 dark:text-slate-400">
+        <span className="text-xs text-text-secondary">
           {fullName}
         </span>
       )}

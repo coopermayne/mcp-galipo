@@ -75,7 +75,7 @@ export function Layout() {
 
   return (
     <MobileSidebarContext.Provider value={mobileSidebarContext}>
-      <div className="flex min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors">
+      <div className="flex min-h-screen bg-bg transition-colors">
         <Sidebar
           isMobileOpen={isMobileSidebarOpen}
           onMobileClose={() => setIsMobileSidebarOpen(false)}

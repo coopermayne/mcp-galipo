@@ -6,6 +6,7 @@
  */
 import { Circle, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
 import type { TaskStatus } from '../../types';
+import { TASK_STATUS_COLORS } from '../../config/colors';
 
 export interface StatusConfig {
   value: TaskStatus;
@@ -21,29 +22,29 @@ export const STATUS_CONFIG: StatusConfig[] = [
     value: 'Pending',
     label: 'Pending',
     icon: Circle,
-    color: 'text-slate-500',
-    bgColor: 'bg-slate-50 dark:bg-slate-800',
+    color: TASK_STATUS_COLORS.Pending.text,
+    bgColor: TASK_STATUS_COLORS.Pending.bg,
   },
   {
     value: 'Active',
     label: 'Active',
     icon: Circle, // Placeholder - actual UI uses ActiveStatusIcon
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    color: TASK_STATUS_COLORS.Active.text,
+    bgColor: TASK_STATUS_COLORS.Active.bg,
   },
   {
     value: 'Done',
     label: 'Done',
     icon: CheckCircle2,
-    color: 'text-green-500',
-    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    color: TASK_STATUS_COLORS.Done.text,
+    bgColor: TASK_STATUS_COLORS.Done.bg,
   },
   {
     value: 'Blocked',
     label: 'Blocked',
     icon: XCircle,
-    color: 'text-red-500',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    color: TASK_STATUS_COLORS.Blocked.text,
+    bgColor: TASK_STATUS_COLORS.Blocked.bg,
   },
 ];
 

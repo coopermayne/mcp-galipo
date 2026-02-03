@@ -47,7 +47,7 @@ interface EventDetailSheetProps {
  */
 function formatDateDisplay(dateStr: string | undefined): { text: string; color: string } {
   if (!dateStr) {
-    return { text: 'No date', color: 'text-slate-400' };
+    return { text: 'No date', color: 'text-text-muted' };
   }
 
   const [year, month, day] = dateStr.split('-').map(Number);
@@ -69,7 +69,7 @@ function formatDateDisplay(dateStr: string | undefined): { text: string; color: 
   } else {
     return {
       text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      color: 'text-slate-700 dark:text-slate-300',
+      color: 'text-text-secondary',
     };
   }
 }
@@ -206,7 +206,7 @@ export function EventDetailSheet({
       {/* Sheet - slides up from bottom on mobile, centered on desktop */}
       <div
         className="fixed inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
-                   bg-white dark:bg-slate-900
+                   bg-bg-surface
                    rounded-t-2xl sm:rounded-2xl
                    shadow-xl
                    max-h-[90vh] sm:max-h-[80vh] sm:w-full sm:max-w-lg
@@ -215,7 +215,7 @@ export function EventDetailSheet({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           {/* Project/Case chip */}
           <CaseChip
             caseId={event.case_id}
@@ -229,14 +229,14 @@ export function EventDetailSheet({
             <button
               onClick={onPrevEvent}
               disabled={!hasPrevEvent}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30"
+              className="p-2 text-text-muted hover:text-text-secondary disabled:opacity-30"
             >
               <ChevronUp className="w-5 h-5" />
             </button>
             <button
               onClick={onNextEvent}
               disabled={!hasNextEvent}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30"
+              className="p-2 text-text-muted hover:text-text-secondary disabled:opacity-30"
             >
               <ChevronDown className="w-5 h-5" />
             </button>
@@ -244,7 +244,7 @@ export function EventDetailSheet({
               <button
                 ref={moreButtonRef}
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="p-2 text-text-muted hover:text-text-secondary"
               >
                 <MoreHorizontal className="w-5 h-5" />
               </button>
@@ -256,7 +256,7 @@ export function EventDetailSheet({
                     onClick={() => setShowMoreMenu(false)}
                   />
                   <div
-                    className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[160px] z-50"
+                    className="absolute right-0 top-full mt-1 bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden min-w-[160px] z-50"
                   >
                     {onCreateTask && (
                       <button
@@ -264,7 +264,7 @@ export function EventDetailSheet({
                           onCreateTask(event);
                           setShowMoreMenu(false);
                         }}
-                        className="flex items-center gap-3 w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-left text-text-secondary hover:bg-bg-hover"
                       >
                         <ListTodo className="w-4 h-4" />
                         <span className="text-sm">Create task</span>
@@ -289,7 +289,7 @@ export function EventDetailSheet({
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              className="p-2 text-text-muted hover:text-text-secondary"
             >
               <X className="w-5 h-5" />
             </button>
@@ -309,7 +309,7 @@ export function EventDetailSheet({
                   transition-all duration-150 rounded-full
                   ${event.starred
                     ? 'text-amber-500'
-                    : 'text-slate-300 dark:text-slate-600 hover:text-amber-400'
+                    : 'text-text-muted hover:text-amber-400'
                   }
                 `}
               >
@@ -325,12 +325,12 @@ export function EventDetailSheet({
                   onChange={(e) => setEditedDescription(e.target.value)}
                   onBlur={handleDescriptionBlur}
                   onKeyDown={handleDescriptionKeyDown}
-                  className="w-full text-lg font-medium bg-transparent border-none outline-none text-slate-900 dark:text-slate-100"
+                  className="w-full text-lg font-medium bg-transparent border-none outline-none text-text"
                   placeholder="Event description"
                 />
 
                 {/* Notes placeholder */}
-                <div className="flex items-center gap-2 mt-2 text-slate-400">
+                <div className="flex items-center gap-2 mt-2 text-text-muted">
                   <AlignLeft className="w-4 h-4" />
                   <span className="text-sm">Notes</span>
                 </div>
@@ -339,10 +339,10 @@ export function EventDetailSheet({
           </div>
 
           {/* Action rows */}
-          <div className="border-t border-slate-100 dark:border-slate-800">
+          <div className="border-t border-border">
             {/* Case/Project */}
-            <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <Briefcase className="w-5 h-5 text-slate-400" />
+            <div className="flex items-center gap-4 px-4 py-3 border-b border-border">
+              <Briefcase className="w-5 h-5 text-text-muted" />
               <CaseChip
                 caseId={event.case_id}
                 caseName={event.case_name}
@@ -352,7 +352,7 @@ export function EventDetailSheet({
             </div>
 
             {/* Date + Time */}
-            <div className="flex items-center border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center border-b border-border">
               <DatePicker
                 selected={selectedDate}
                 onChange={handleDateChange}
@@ -379,12 +379,12 @@ export function EventDetailSheet({
                     'July', 'August', 'September', 'October', 'November', 'December',
                   ];
                   return (
-                    <div className="flex items-center justify-between px-2 py-2 bg-white dark:bg-slate-700">
+                    <div className="flex items-center justify-between px-2 py-2 bg-bg-surface">
                       <button
                         type="button"
                         onClick={decreaseMonth}
                         disabled={prevMonthButtonDisabled}
-                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+                        className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -394,7 +394,7 @@ export function EventDetailSheet({
                         <select
                           value={months[date.getMonth()]}
                           onChange={(e) => changeMonth(months.indexOf(e.target.value))}
-                          className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+                          className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
                         >
                           {months.map((month) => (
                             <option key={month} value={month}>
@@ -405,7 +405,7 @@ export function EventDetailSheet({
                         <select
                           value={date.getFullYear()}
                           onChange={(e) => changeYear(Number(e.target.value))}
-                          className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+                          className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
                         >
                           {years.map((year) => (
                             <option key={year} value={year}>
@@ -418,7 +418,7 @@ export function EventDetailSheet({
                         type="button"
                         onClick={increaseMonth}
                         disabled={nextMonthButtonDisabled}
-                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+                        className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -430,7 +430,7 @@ export function EventDetailSheet({
                 customInput={
                   <button
                     ref={dateButtonRef}
-                    className="flex items-center gap-4 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                    className="flex items-center gap-4 px-4 py-3 text-left hover:bg-bg-hover"
                   >
                     <Calendar className={`w-5 h-5 ${dateDisplay.color}`} />
                     <span className={`text-sm ${dateDisplay.color}`}>
@@ -439,7 +439,7 @@ export function EventDetailSheet({
                   </button>
                 }
               />
-              <div className="border-l border-slate-100 dark:border-slate-800 px-4 py-3">
+              <div className="border-l border-border px-4 py-3">
                 <TimePicker
                   value={event.time || null}
                   onChange={handleTimeChange}
@@ -451,19 +451,19 @@ export function EventDetailSheet({
             {/* Star/Key Date toggle */}
             <button
               onClick={handleStarClick}
-              className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800"
+              className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-bg-hover border-b border-border"
             >
-              <Star className={`w-5 h-5 ${event.starred ? 'text-amber-500 fill-amber-500' : 'text-slate-400'}`} />
-              <span className={`text-sm ${event.starred ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}`}>
+              <Star className={`w-5 h-5 ${event.starred ? 'text-amber-500 fill-amber-500' : 'text-text-muted'}`} />
+              <span className={`text-sm ${event.starred ? 'text-amber-600 dark:text-amber-400' : 'text-text-secondary'}`}>
                 {event.starred ? 'Key Date' : 'Mark as Key Date'}
               </span>
             </button>
 
             {/* Location (if present) */}
             {event.location && (
-              <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                <MapPin className="w-5 h-5 text-slate-400" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
+              <div className="flex items-center gap-4 px-4 py-3 border-b border-border">
+                <MapPin className="w-5 h-5 text-text-muted" />
+                <span className="text-sm text-text-secondary">
                   {event.location}
                 </span>
               </div>
@@ -471,9 +471,9 @@ export function EventDetailSheet({
 
             {/* Task count */}
             {event.task_count != null && event.task_count > 0 && (
-              <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                <ListTodo className="w-5 h-5 text-slate-400" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
+              <div className="flex items-center gap-4 px-4 py-3 border-b border-border">
+                <ListTodo className="w-5 h-5 text-text-muted" />
+                <span className="text-sm text-text-secondary">
                   {event.task_count} linked task{event.task_count > 1 ? 's' : ''}
                 </span>
               </div>

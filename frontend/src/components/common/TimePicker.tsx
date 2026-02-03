@@ -188,8 +188,8 @@ export function TimePicker({
               : 'hover:underline'
           } ${
             value
-              ? 'text-slate-500 dark:text-slate-400'
-              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+              ? 'text-text-secondary'
+              : 'text-text-muted hover:text-text-secondary'
           }`}
         >
           <Clock className="w-3 h-3 flex-shrink-0" />
@@ -197,7 +197,7 @@ export function TimePicker({
           {value && showClear && (
             <span
               onClick={handleClear}
-              className="ml-0.5 text-slate-400 hover:text-red-500 cursor-pointer"
+              className="ml-0.5 text-text-muted hover:text-red-500 cursor-pointer"
               title="Clear time"
             >
               ×
@@ -210,8 +210,8 @@ export function TimePicker({
       {isOpen && (
         <div className="absolute z-[100] left-0 top-0">
           {/* Input */}
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded shadow-lg">
-            <Clock className="w-3 h-3 ml-2 text-slate-400" />
+          <div className="flex items-center gap-1 bg-bg-surface border border-border rounded shadow-lg">
+            <Clock className="w-3 h-3 ml-2 text-text-muted" />
             <input
               ref={inputRef}
               type="text"
@@ -219,12 +219,12 @@ export function TimePicker({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Type to filter..."
-              className="w-28 px-1 py-1 text-xs bg-transparent text-slate-900 dark:text-slate-100 focus:outline-none"
+              className="w-28 px-1 py-1 text-xs bg-transparent text-text focus:outline-none"
             />
             {value && (
               <button
                 onClick={handleClear}
-                className="p-1 text-slate-400 hover:text-red-500"
+                className="p-1 text-text-muted hover:text-red-500"
                 title="Clear time"
               >
                 <X className="w-3 h-3" />
@@ -235,10 +235,10 @@ export function TimePicker({
           {/* Dropdown */}
           <div
             ref={listRef}
-            className="absolute left-0 top-full mt-1 w-32 max-h-48 overflow-y-auto bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded shadow-lg z-[100]"
+            className="absolute left-0 top-full mt-1 w-32 max-h-48 overflow-y-auto bg-bg-surface border border-border rounded shadow-lg z-[100]"
           >
             {filteredOptions.length === 0 ? (
-              <div className="px-2 py-2 text-xs text-slate-400">No matches</div>
+              <div className="px-2 py-2 text-xs text-text-muted">No matches</div>
             ) : (
               filteredOptions.map((option, index) => (
                 <button
@@ -247,7 +247,7 @@ export function TimePicker({
                   className={`w-full px-2 py-1.5 text-left text-xs ${
                     index === highlightedIndex
                       ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600'
+                      : 'text-text-secondary hover:bg-bg-hover'
                   } ${option.value === value ? 'font-medium' : ''}`}
                 >
                   {option.label}

@@ -82,7 +82,7 @@ export function EditableText({
   const statusIcon = () => {
     switch (status) {
       case 'saving':
-        return <Loader2 className="w-3 h-3 animate-spin text-slate-400" />;
+        return <Loader2 className="w-3 h-3 animate-spin text-text-muted" />;
       case 'saved':
         return <Check className="w-3 h-3 text-green-500" />;
       case 'error':
@@ -105,7 +105,7 @@ export function EditableText({
           onBlur={handleBlur}
           maxLength={maxLength}
           className={`
-            flex-1 min-w-0 px-2 py-1 rounded border border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
+            flex-1 min-w-0 px-2 py-1 rounded border border-primary-500 bg-bg-surface text-text
             focus:border-primary-400 focus:ring-1 focus:ring-primary-500
             outline-none transition-colors
             ${multiline ? 'resize-y min-h-[60px]' : ''}
@@ -123,9 +123,9 @@ export function EditableText({
       <span
         onClick={handleStartEdit}
         className={`
-          flex-1 min-w-0 px-2 py-1 rounded cursor-pointer text-slate-900 dark:text-slate-100
-          hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors
-          ${!value ? 'text-slate-400 dark:text-slate-500 italic' : ''}
+          flex-1 min-w-0 px-2 py-1 rounded cursor-pointer text-text
+          hover:bg-bg-hover transition-colors
+          ${!value ? 'text-text-muted italic' : ''}
           ${disabled ? 'cursor-default hover:bg-transparent' : ''}
         `}
       >

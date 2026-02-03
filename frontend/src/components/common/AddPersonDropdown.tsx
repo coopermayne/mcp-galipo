@@ -103,13 +103,13 @@ export function AddPersonDropdown({
         {isOpen && !selectedRole && (
           <div
             ref={dropdownRef}
-            className="absolute right-[-6px] top-[-6px] z-20 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 min-w-[140px]"
+            className="absolute right-[-6px] top-[-6px] z-20 bg-bg-surface rounded-lg shadow-lg border border-border py-1 min-w-[140px]"
           >
-            <div className="flex items-center justify-between px-2 py-1 border-b border-slate-100 dark:border-slate-700">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Add as...</span>
+            <div className="flex items-center justify-between px-2 py-1 border-b border-border">
+              <span className="text-xs font-medium text-text-muted">Add as...</span>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded"
+                className="p-0.5 text-text-muted hover:text-text rounded"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -118,7 +118,7 @@ export function AddPersonDropdown({
               <button
                 key={opt}
                 onClick={() => handleRoleSelect(opt)}
-                className="w-full px-3 py-1.5 text-left text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                className="w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-bg-hover"
               >
                 {opt}
               </button>
@@ -139,17 +139,17 @@ export function AddPersonDropdown({
           {/* Modal */}
           <div className="flex min-h-full items-center justify-center p-4">
             <div
-              className="relative w-full max-w-md transform rounded-xl bg-white dark:bg-slate-800 shadow-xl transition-all"
+              className="relative w-full max-w-md transform rounded-xl bg-bg-surface shadow-xl transition-all"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h3 className="text-lg font-semibold text-text">
                   Add {selectedRole}
                 </h3>
                 <button
                   onClick={handleClose}
-                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="p-1 text-text-muted hover:text-text rounded-lg hover:bg-bg-hover transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -157,7 +157,7 @@ export function AddPersonDropdown({
 
               {/* Content */}
               <div className="p-4">
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                <p className="text-sm text-text-muted mb-3">
                   Search for an existing person or create a new one.
                 </p>
                 <PersonAutocomplete

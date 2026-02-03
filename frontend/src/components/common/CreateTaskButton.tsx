@@ -15,7 +15,7 @@ export function CreateTaskButton({ event, onClick }: CreateTaskButtonProps) {
   return (
     <button
       onClick={onClick}
-      className="relative p-1 text-slate-500 hover:text-primary-500"
+      className="relative p-1 text-text-muted hover:text-primary-500"
       title="Create task from event"
     >
       <ListTodo className="w-4 h-4" />

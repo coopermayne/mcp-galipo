@@ -38,10 +38,10 @@ export function ChatHomeScreen({
           <MessageCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
         </div>
 
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+        <h3 className="text-lg font-semibold text-text mb-2">
           Case Insights
         </h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center max-w-sm">
+        <p className="text-sm text-text-muted mb-6 text-center max-w-sm">
           Get quick answers about this case
         </p>
 
@@ -66,7 +66,7 @@ export function ChatHomeScreen({
                 </div>
                 <div>
                   <div className={`font-medium ${colors.text}`}>{preset.label}</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                  <div className="text-sm text-text-muted">
                     {preset.description}
                   </div>
                 </div>
@@ -77,7 +77,7 @@ export function ChatHomeScreen({
 
         {/* Action Starters - for adding data */}
         <div className="w-full max-w-sm mt-6">
-          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 px-1">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 px-1">
             Add to Case
           </p>
           <div className="flex flex-wrap gap-2">
@@ -114,10 +114,10 @@ export function ChatHomeScreen({
         <MessageCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
       </div>
 
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+      <h3 className="text-lg font-semibold text-text mb-2">
         Quick Insights
       </h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center max-w-sm">
+      <p className="text-sm text-text-muted mb-6 text-center max-w-sm">
         Get an overview of your cases and tasks
       </p>
 
@@ -142,7 +142,7 @@ export function ChatHomeScreen({
               </div>
               <div>
                 <div className={`font-medium ${colors.text}`}>{preset.label}</div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">
+                <div className="text-sm text-text-muted">
                   {preset.description}
                 </div>
               </div>

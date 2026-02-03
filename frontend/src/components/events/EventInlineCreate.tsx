@@ -206,12 +206,12 @@ export function EventInlineCreate({
       'July', 'August', 'September', 'October', 'November', 'December',
     ];
     return (
-      <div className="flex items-center justify-between px-2 py-2 bg-white dark:bg-slate-700">
+      <div className="flex items-center justify-between px-2 py-2 bg-bg-surface">
         <button
           type="button"
           onClick={decreaseMonth}
           disabled={prevMonthButtonDisabled}
-          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+          className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -221,7 +221,7 @@ export function EventInlineCreate({
           <select
             value={months[date.getMonth()]}
             onChange={(e) => changeMonth(months.indexOf(e.target.value))}
-            className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+            className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
           >
             {months.map((month) => (
               <option key={month} value={month}>
@@ -232,7 +232,7 @@ export function EventInlineCreate({
           <select
             value={date.getFullYear()}
             onChange={(e) => changeYear(Number(e.target.value))}
-            className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+            className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
           >
             {years.map((year) => (
               <option key={year} value={year}>
@@ -245,7 +245,7 @@ export function EventInlineCreate({
           type="button"
           onClick={increaseMonth}
           disabled={nextMonthButtonDisabled}
-          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+          className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -262,7 +262,7 @@ export function EventInlineCreate({
   return (
     <div
       ref={containerRef}
-      className="px-3 py-2.5 md:px-2 md:py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm"
+      className="px-3 py-2.5 md:px-2 md:py-2 border border-border rounded-lg bg-bg-surface shadow-sm"
     >
       {/* Description input */}
       <input
@@ -272,7 +272,7 @@ export function EventInlineCreate({
         onChange={(e) => setDescription(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Event description"
-        className="w-full text-sm leading-snug text-slate-900 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400"
+        className="w-full text-sm leading-snug text-text bg-transparent outline-none placeholder:text-text-muted"
       />
 
       {/* Metadata row - case, date, time */}
@@ -285,7 +285,7 @@ export function EventInlineCreate({
               onClick={() => setIsCaseDropdownOpen(!isCaseDropdownOpen)}
               className={`flex items-center gap-1 text-xs hover:underline ${
                 selectedCaseId
-                  ? 'text-slate-500 dark:text-slate-400'
+                  ? 'text-text-secondary'
                   : 'text-orange-500'
               }`}
             >
@@ -295,9 +295,9 @@ export function EventInlineCreate({
               </span>
             </button>
             {isCaseDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-50 min-w-[220px]">
+              <div className="absolute top-full left-0 mt-1 bg-bg-surface border border-border rounded-lg shadow-lg z-50 min-w-[220px]">
                 {/* Search input */}
-                <div className="p-2 border-b border-slate-100 dark:border-slate-600">
+                <div className="p-2 border-b border-border">
                   <input
                     ref={caseSearchRef}
                     type="text"
@@ -305,7 +305,7 @@ export function EventInlineCreate({
                     onChange={(e) => setCaseSearch(e.target.value)}
                     onKeyDown={handleCaseSearchKeyDown}
                     placeholder="Search..."
-                    className="w-full px-2 py-1 text-xs bg-slate-50 dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-primary-400"
+                    className="w-full px-2 py-1 text-xs bg-bg-hover border border-border rounded text-text placeholder:text-text-muted outline-none focus:border-primary-400"
                   />
                 </div>
                 {/* Case list */}
@@ -321,7 +321,7 @@ export function EventInlineCreate({
                       className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left ${
                         index === highlightedCaseIndex
                           ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600'
+                          : 'text-text-secondary hover:bg-bg-hover'
                       }`}
                     >
                       <Inbox className="w-3 h-3 flex-shrink-0" />
@@ -332,7 +332,7 @@ export function EventInlineCreate({
                     </button>
                   ))}
                   {cases.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-slate-400">
+                    <div className="px-3 py-2 text-xs text-text-muted">
                       {caseSearch ? 'No matching cases' : 'No active cases'}
                     </div>
                   )}
@@ -364,7 +364,7 @@ export function EventInlineCreate({
             dateInfo ? (
               <button
                 type="button"
-                className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+                className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-text-secondary'}`}
               >
                 <Calendar className="w-3 h-3 flex-shrink-0" />
                 <span>{dateInfo.text}</span>
@@ -390,11 +390,11 @@ export function EventInlineCreate({
       </div>
 
       {/* Actions row: save/cancel */}
-      <div className="flex items-center justify-end mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 gap-2">
+      <div className="flex items-center justify-end mt-2 pt-2 border-t border-border gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+          className="px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover rounded"
         >
           Cancel
         </button>
