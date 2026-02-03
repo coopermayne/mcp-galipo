@@ -12,7 +12,7 @@ import { EventInlineCreate } from './EventInlineCreate';
 import { ConfirmModal } from '../common';
 import type { Event } from '../../types';
 
-export type DateGroup = 'overdue' | 'today' | 'thisWeek' | 'thisMonth' | 'later';
+export type DateGroup = 'today' | 'thisWeek' | 'thisMonth' | 'later' | 'past';
 
 interface EventGroup {
   key: string;
@@ -49,62 +49,65 @@ function formatSectionHeader(date: Date): string {
 }
 
 /**
- * Group events by date category
+ * Format section header for past events (reverse order)
  */
-function groupEventsByDate(events: Event[]): EventGroup[] {
+function formatPastSectionHeader(date: Date): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(today);
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  const monthEnd = new Date(today);
-  monthEnd.setDate(monthEnd.getDate() + 30);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 1) {
+    return `${dateStr} · Yesterday · ${dayName}`;
+  } else {
+    return `${dateStr} · ${dayName}`;
+  }
+}
+
+/**
+ * Group events by date category
+ * When showPast is true, groups past events by their actual dates (most recent first)
+ * When showPast is false, groups upcoming events by date (soonest first)
+ */
+function groupEventsByDate(events: Event[], showPast: boolean = false): EventGroup[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const groups: Map<string, EventGroup> = new Map();
-  const overdueEvents: Event[] = [];
 
   for (const event of events) {
     const [year, month, day] = event.date.split('-').map(Number);
     const eventDate = new Date(year, month - 1, day);
-    const diffDays = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) {
-      overdueEvents.push(event);
-    } else {
-      const key = event.date;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          key,
-          label: formatSectionHeader(eventDate),
-          date: eventDate,
-          events: [],
-        });
-      }
-      groups.get(key)!.events.push(event);
+    const key = event.date;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        label: showPast ? formatPastSectionHeader(eventDate) : formatSectionHeader(eventDate),
+        date: eventDate,
+        events: [],
+      });
     }
+    groups.get(key)!.events.push(event);
   }
 
-  const result: EventGroup[] = [];
-
-  // Add overdue section first
-  if (overdueEvents.length > 0) {
-    result.push({
-      key: 'overdue',
-      label: 'Overdue',
-      date: null,
-      events: overdueEvents.sort((a, b) => a.date.localeCompare(b.date)),
-      isOverdue: true,
-      isCollapsible: true,
-    });
-  }
-
-  // Add date groups sorted by date
+  // Sort groups by date
   const sortedGroups = Array.from(groups.values()).sort((a, b) => {
     if (!a.date || !b.date) return 0;
-    return a.date.getTime() - b.date.getTime();
+    // Past events: most recent first (descending)
+    // Upcoming events: soonest first (ascending)
+    return showPast
+      ? b.date.getTime() - a.date.getTime()
+      : a.date.getTime() - b.date.getTime();
   });
-  result.push(...sortedGroups);
 
-  return result;
+  return sortedGroups;
 }
 
 /**
@@ -203,7 +206,7 @@ interface EventFeedProps {
   showCase?: boolean;
   /** How to group events: 'none' | 'date' | 'case' */
   groupBy?: 'none' | 'date' | 'case';
-  /** When true, sorts in descending order (most recent first) for past events view */
+  /** Whether viewing past events (affects date grouping order) */
   showPast?: boolean;
   /** Maximum number of events to display */
   maxItems?: number;
@@ -278,7 +281,7 @@ export function EventFeed({
   const groups = useMemo(() => {
     switch (groupBy) {
       case 'date':
-        return groupEventsByDate(limitedEvents);
+        return groupEventsByDate(limitedEvents, showPast);
       case 'case':
         return groupEventsByCase(limitedEvents);
       case 'none':
@@ -293,8 +296,8 @@ export function EventFeed({
             date: null,
             events: [...limitedEvents].sort((a, b) =>
               showPast
-                ? b.date.localeCompare(a.date)  // descending for past
-                : a.date.localeCompare(b.date)  // ascending for upcoming
+                ? b.date.localeCompare(a.date)  // Past: most recent first
+                : a.date.localeCompare(b.date)  // Upcoming: soonest first
             ),
           },
         ];
@@ -443,10 +446,7 @@ export function EventFeed({
             onEdit={handleEditClick}
             onCreateTask={onCreateTask}
             onDelete={onDelete ? () => handleDeleteClick(event) : undefined}
-            isHighlighted={
-              groupBy === 'date' &&
-              groups.find((g) => g.events.includes(event))?.isOverdue
-            }
+            isHighlighted={false}
             flush={isFlush}
           />
         );
