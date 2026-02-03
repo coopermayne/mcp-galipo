@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { createTask, getCases } from '../../api';
 import { parseDateFromText, removeDateFromText, type ParsedDate } from '../../utils';
+import { INPUT_HIGHLIGHT } from '../../config/colors';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority config matching TaskDetailSheet
@@ -355,7 +356,7 @@ export function CreateTaskModal({
                     aria-hidden="true"
                   >
                     <span>{title.substring(0, detectedDateInfo.startIndex)}</span>
-                    <span className="bg-blue-100 dark:bg-blue-900/50 text-transparent rounded px-0.5">
+                    <span className={`${INPUT_HIGHLIGHT.date} text-transparent rounded px-0.5`}>
                       {title.substring(detectedDateInfo.startIndex, detectedDateInfo.endIndex)}
                     </span>
                     <span>{title.substring(detectedDateInfo.endIndex)}</span>

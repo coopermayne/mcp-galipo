@@ -368,3 +368,13 @@ export function getUrgencyColor(level: number): ColorClasses {
 export function getUrgencyColorClasses(level: number): string {
   return colorToClasses(getUrgencyColor(level));
 }
+
+// =============================================================================
+// INPUT HIGHLIGHT COLORS (for overlay-based text highlighting)
+// Uses transparency so text underneath remains visible
+// =============================================================================
+
+export const INPUT_HIGHLIGHT = {
+  /** Date detection highlight in task/event creation inputs */
+  date: 'bg-primary-500/20 dark:bg-primary-400/25',
+} as const;

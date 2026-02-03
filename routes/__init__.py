@@ -43,7 +43,6 @@ from .notes import register_note_routes
 from .activities import register_activity_routes
 from .proceedings import register_proceeding_routes
 from .chat import register_chat_routes
-from .quick_create import register_quick_create_routes
 from .export import register_export_routes
 from .webhooks import register_webhook_routes
 from .users import register_user_routes
@@ -88,8 +87,6 @@ def register_routes(mcp):
     _logger.debug("Registering chat routes...")
     register_chat_routes(mcp)
     _logger.debug("Chat routes registered successfully!")
-    _logger.debug("Registering quick create routes...")
-    register_quick_create_routes(mcp)
     _logger.debug("Registering export routes...")
     register_export_routes(mcp)
     _logger.debug("Registering webhook routes...")
@@ -118,7 +115,6 @@ __all__ = [
     "register_activity_routes",
     "register_proceeding_routes",
     "register_chat_routes",
-    "register_quick_create_routes",
     "register_export_routes",
     "register_webhook_routes",
     "register_user_routes",

@@ -19,6 +19,7 @@ import {
 import { createEvent, getCases } from '../../api';
 import { TimePicker } from './TimePicker';
 import { parseDateFromText, removeDateFromText, type ParsedDate } from '../../utils';
+import { INPUT_HIGHLIGHT } from '../../config/colors';
 import 'react-datepicker/dist/react-datepicker.css';
 
 interface CreateEventModalProps {
@@ -350,7 +351,7 @@ export function CreateEventModal({
                     aria-hidden="true"
                   >
                     <span>{description.substring(0, detectedDateInfo.startIndex)}</span>
-                    <span className="bg-blue-100 dark:bg-blue-900/50 text-transparent rounded px-0.5">
+                    <span className={`${INPUT_HIGHLIGHT.date} text-transparent rounded px-0.5`}>
                       {description.substring(detectedDateInfo.startIndex, detectedDateInfo.endIndex)}
                     </span>
                     <span>{description.substring(detectedDateInfo.endIndex)}</span>
