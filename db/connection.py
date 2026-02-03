@@ -32,6 +32,11 @@ def get_pool() -> ThreadedConnectionPool:
     """Get or create the database connection pool."""
     global _pool
     if _pool is None:
+        if not DATABASE_URL:
+            raise RuntimeError(
+                "DATABASE_URL environment variable is not set. "
+                "Make sure to export it: set -a && source .env && set +a"
+            )
         _pool = ThreadedConnectionPool(
             minconn=DB_POOL_MIN,
             maxconn=DB_POOL_MAX,
