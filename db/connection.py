@@ -1215,8 +1215,13 @@ def seed_person_types():
 
 
 def seed_db():
-    """Seed all lookup tables."""
+    """Seed all lookup tables and dev users (if in dev environment)."""
     seed_jurisdictions()
     seed_expertise_types()
     seed_person_types()
     print("Database seeded with lookup data.")
+
+    # Seed dev users if in a verified dev environment
+    # This is safe: only runs on localhost + galipo_2/galipo_3 databases
+    from .dev_users import seed_dev_users
+    seed_dev_users()

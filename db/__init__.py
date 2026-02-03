@@ -205,6 +205,14 @@ from .users import (
     get_attorneys_for_paralegal,
 )
 
+# Dev user seeding (safe - only runs in verified dev environments)
+from .dev_users import (
+    seed_dev_users,
+    is_dev_environment,
+    DEV_USERS,
+    DEV_PASSWORD,
+)
+
 # Define __all__ for explicit exports
 __all__ = [
     # Validation
@@ -365,4 +373,9 @@ __all__ = [
     "delete_user",
     "authenticate_user",
     "get_attorneys_for_paralegal",
+    # Dev user seeding
+    "seed_dev_users",
+    "is_dev_environment",
+    "DEV_USERS",
+    "DEV_PASSWORD",
 ]
