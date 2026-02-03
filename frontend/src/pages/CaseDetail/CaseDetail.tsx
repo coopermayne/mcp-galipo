@@ -174,7 +174,6 @@ export function CaseDetail() {
     <>
       <CaseHeader
         caseData={caseData}
-        statusOptions={statusOptions}
         onUpdateField={handleUpdateField}
       />
 
@@ -213,6 +212,7 @@ export function CaseDetail() {
               caseData={caseData}
               caseId={caseId}
               constants={constants}
+              statusOptions={statusOptions}
               onUpdateField={handleUpdateField}
             />
           </PageContent>

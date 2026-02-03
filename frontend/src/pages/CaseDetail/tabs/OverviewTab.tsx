@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import {
@@ -15,17 +15,19 @@ import {
   FileText,
   Briefcase,
   UserCheck,
-  UserCog,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import {
   EditableDate,
+  EditableSelect,
+  StatusBadge,
+  UserSelect,
   PersonAutocomplete,
   AddPersonDropdown,
   DraggablePersonChip,
   UnnestDropZone,
   ConfirmModal,
-  UserChip,
-  UserSelect,
 } from '../../../components/common';
 import { TasksComponent } from '../../../components/tasks';
 import { EventsComponent } from '../../../components/events';
@@ -35,22 +37,22 @@ import {
   assignPersonToCase,
   updateCaseAssignment,
   updateEvent,
+  getUsers,
   assignAttorneyToCase,
   removeAttorneyFromCase,
   assignParalegalToCase,
   removeParalegalFromCase,
-  getUsers,
 } from '../../../api';
 import type { Case, Constants, CasePerson, Person } from '../../../types';
-import { useQuery } from '@tanstack/react-query';
 import { ProceedingsSection } from '../components';
 import { getPrimaryPhone, getPrimaryEmail } from '../utils';
-import { inferSideFromRole, inferPersonTypeFromRole } from '../../../utils';
+import { inferSideFromRole, inferPersonTypeFromRole, getUserColorClass } from '../../../utils';
 
 interface OverviewTabProps {
   caseData: Case;
   caseId: number;
   constants: Constants | undefined;
+  statusOptions: { value: string; label: string }[];
   onUpdateField: (field: string, value: string | number | null) => Promise<void>;
 }
 
@@ -218,7 +220,7 @@ function CompactSummary({
     >
       <div className="flex items-center gap-2">
         <FileText className="w-4 h-4 text-text-muted" />
-        <span className="text-sm text-text-secondary truncate flex-1">
+        <span className="text-sm text-text-secondary line-clamp-2 flex-1">
           {value || <span className="italic text-text-muted">Add summary...</span>}
         </span>
         <span className="text-xs text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
@@ -255,9 +257,10 @@ function SectionHeader({
   );
 }
 
-export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProps) {
+export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: OverviewTabProps) {
   const queryClient = useQueryClient();
   const { openPersonModal } = useEntityModal();
+
   // UI State
   const [showAddDefendant, setShowAddDefendant] = useState(false);
   const [showAddMediator, setShowAddMediator] = useState(false);
@@ -266,18 +269,32 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   const [keyDateSelectedIndex, setKeyDateSelectedIndex] = useState(0);
   const [eventToUnstar, setEventToUnstar] = useState<{ id: number; description: string } | null>(null);
   const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
+  const teamDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch all users for team assignment
+  // Close team dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (teamDropdownRef.current && !teamDropdownRef.current.contains(event.target as Node)) {
+        setShowTeamDropdown(false);
+      }
+    }
+    if (showTeamDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showTeamDropdown]);
+
+  // Fetch users for team assignment
   const { data: allUsers = [] } = useQuery({
     queryKey: ['users'],
     queryFn: () => getUsers(),
   });
 
-  // Filter users by position for dropdowns
   const attorneys = useMemo(() => allUsers.filter(u => u.position === 'attorney'), [allUsers]);
   const paralegals = useMemo(() => allUsers.filter(u => u.position === 'paralegal'), [allUsers]);
 
-  // Team mutations
+  // Team assignment mutations
   const assignAttorneyMutation = useMutation({
     mutationFn: (userId: number) => assignAttorneyToCase(caseId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
@@ -297,6 +314,9 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
     mutationFn: (userId: number) => removeParalegalFromCase(caseId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
   });
+
+  // Combine attorneys and paralegals for display
+  const teamMembers = [...(caseData.attorneys || []), ...(caseData.paralegals || [])];
 
   // Drag sensors
   const sensors = useSensors(
@@ -684,10 +704,145 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Proceedings, Team, Counsel, Key Dates */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Proceedings + Summary */}
-        <div className="bg-bg-surface rounded-lg border border-border p-3 space-y-3">
+      {/* Row 1: Proceedings, Counsel, Key Dates */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Status + Team + Proceedings + Summary */}
+        <div className="bg-bg-surface rounded-lg border border-border p-3 flex flex-col gap-3">
+          {/* Status + Team row */}
+          <div className="flex items-center gap-4">
+            {/* Status */}
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-text-muted" />
+              <span className="text-sm font-medium text-text-secondary">Status</span>
+              <EditableSelect
+                value={caseData.status}
+                options={statusOptions}
+                onSave={(value) => onUpdateField('status', value)}
+                renderValue={(value) => <StatusBadge status={value} />}
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="h-5 w-px bg-border" />
+
+            {/* Team */}
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-text-muted" />
+              <span className="text-sm font-medium text-text-secondary">Team</span>
+              <div className="relative" ref={teamDropdownRef}>
+              <button
+                onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                className="group flex items-center gap-1.5 py-0.5 px-1 -ml-1 rounded-lg hover:bg-bg-hover/50 transition-all"
+              >
+                {teamMembers.length > 0 ? (
+                  <div className="flex items-center">
+                    {teamMembers.slice(0, 4).map((user, idx) => (
+                      <span
+                        key={user.id}
+                        className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-semibold shadow-sm ring-2 ring-bg-surface ${getUserColorClass(user.id)} ${idx > 0 ? '-ml-2' : ''}`}
+                        style={{ zIndex: teamMembers.length - idx }}
+                        title={`${user.first_name} ${user.last_name}`}
+                      >
+                        {user.initials}
+                      </span>
+                    ))}
+                    {teamMembers.length > 4 && (
+                      <span className="inline-flex items-center justify-center w-7 h-7 -ml-2 rounded-full text-[11px] font-semibold bg-bg-hover text-text-muted ring-2 ring-bg-surface">
+                        +{teamMembers.length - 4}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border-2 border-dashed border-border/60 text-text-muted/60 hover:border-border hover:text-text-muted transition-colors">
+                    <Plus className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                <ChevronDown className="w-3.5 h-3.5 text-text-muted/60 group-hover:text-text-muted transition-colors" />
+              </button>
+
+              {/* Team dropdown */}
+              {showTeamDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-80 bg-bg-surface border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                  {/* Attorneys section */}
+                  <div className="p-4 border-b border-border/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Attorneys</span>
+                      <UserSelect
+                        users={attorneys}
+                        selectedIds={caseData.attorney_ids || []}
+                        onSelect={(userId) => assignAttorneyMutation.mutate(userId)}
+                        filterPosition="attorney"
+                        placeholder="Add..."
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {caseData.attorneys?.map(user => (
+                        <div
+                          key={user.id}
+                          className="group/chip inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full bg-bg-hover/70 hover:bg-bg-hover transition-colors"
+                        >
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold shadow-sm ${getUserColorClass(user.id)}`}>
+                            {user.initials}
+                          </span>
+                          <span className="text-sm text-text-secondary font-medium">{user.first_name}</span>
+                          <button
+                            onClick={() => removeAttorneyMutation.mutate(user.id)}
+                            className="p-0.5 rounded-full opacity-0 group-hover/chip:opacity-100 hover:bg-bg-surface transition-all"
+                          >
+                            <X className="w-3 h-3 text-text-muted" />
+                          </button>
+                        </div>
+                      ))}
+                      {(!caseData.attorneys || caseData.attorneys.length === 0) && (
+                        <span className="text-sm text-text-muted/60 italic">None assigned</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Paralegals section */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Paralegals</span>
+                      <UserSelect
+                        users={paralegals}
+                        selectedIds={caseData.paralegal_ids || []}
+                        onSelect={(userId) => assignParalegalMutation.mutate(userId)}
+                        filterPosition="paralegal"
+                        placeholder="Add..."
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {caseData.paralegals?.map(user => (
+                        <div
+                          key={user.id}
+                          className="group/chip inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full bg-bg-hover/70 hover:bg-bg-hover transition-colors"
+                        >
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold shadow-sm ${getUserColorClass(user.id)}`}>
+                            {user.initials}
+                          </span>
+                          <span className="text-sm text-text-secondary font-medium">{user.first_name}</span>
+                          <button
+                            onClick={() => removeParalegalMutation.mutate(user.id)}
+                            className="p-0.5 rounded-full opacity-0 group-hover/chip:opacity-100 hover:bg-bg-surface transition-all"
+                          >
+                            <X className="w-3 h-3 text-text-muted" />
+                          </button>
+                        </div>
+                      ))}
+                      {(!caseData.paralegals || caseData.paralegals.length === 0) && (
+                        <span className="text-sm text-text-muted/60 italic">None assigned</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              </div>
+            </div>
+          </div>
+
+          {/* Horizontal divider */}
+          <div className="border-t border-border" />
+
           <ProceedingsSection
             caseId={caseId}
             proceedings={caseData.proceedings || []}
@@ -698,75 +853,6 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             value={caseData.case_summary || ''}
             onSave={(value) => onUpdateField('case_summary', value || null)}
           />
-        </div>
-
-        {/* Team (Attorneys & Paralegals) */}
-        <div className="bg-bg-surface rounded-lg border border-border p-3 space-y-3">
-          {/* Attorneys */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserCog className="w-4 h-4 text-text-muted" />
-                <h4 className="text-sm font-medium text-text-secondary">Attorneys</h4>
-                {(caseData.attorneys?.length || 0) > 0 && (
-                  <span className="text-xs text-text-muted">({caseData.attorneys?.length})</span>
-                )}
-              </div>
-              <UserSelect
-                users={attorneys}
-                selectedIds={caseData.attorney_ids || []}
-                onSelect={(userId) => assignAttorneyMutation.mutate(userId)}
-                filterPosition="attorney"
-                placeholder="Add attorney..."
-              />
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {caseData.attorneys?.map(user => (
-                <UserChip
-                  key={user.id}
-                  user={user}
-                  onRemove={() => removeAttorneyMutation.mutate(user.id)}
-                  size="sm"
-                />
-              ))}
-              {(!caseData.attorneys || caseData.attorneys.length === 0) && (
-                <span className="text-sm text-text-muted italic">None</span>
-              )}
-            </div>
-          </div>
-
-          {/* Paralegals */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-text-muted" />
-                <h4 className="text-sm font-medium text-text-secondary">Paralegals</h4>
-                {(caseData.paralegals?.length || 0) > 0 && (
-                  <span className="text-xs text-text-muted">({caseData.paralegals?.length})</span>
-                )}
-              </div>
-              <UserSelect
-                users={paralegals}
-                selectedIds={caseData.paralegal_ids || []}
-                onSelect={(userId) => assignParalegalMutation.mutate(userId)}
-                filterPosition="paralegal"
-                placeholder="Add paralegal..."
-              />
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {caseData.paralegals?.map(user => (
-                <UserChip
-                  key={user.id}
-                  user={user}
-                  onRemove={() => removeParalegalMutation.mutate(user.id)}
-                  size="sm"
-                />
-              ))}
-              {(!caseData.paralegals || caseData.paralegals.length === 0) && (
-                <span className="text-sm text-text-muted italic">None</span>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Counsel & Mediator */}
