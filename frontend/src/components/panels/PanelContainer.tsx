@@ -17,17 +17,22 @@ import {
   ListTodo,
   Clock,
   ArrowDownUp,
+  Archive,
+  SortAsc,
 } from 'lucide-react';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
 import { TasksWidget } from '../widgets/TasksWidget';
 import { EventsWidget } from '../widgets/EventsWidget';
+import { CasesWidget } from '../cases/CasesWidget';
 import type {
   WidgetType,
   WidgetConfig,
   TasksWidgetConfig,
   EventsWidgetConfig,
+  CasesWidgetConfig,
   TasksGroupMode,
   EventsGroupMode,
+  CasesGroupMode,
 } from '../../types/panel-layout';
 
 interface PanelContainerProps {
@@ -47,6 +52,11 @@ const EVENTS_GROUP_OPTIONS: { value: EventsGroupMode; label: string; icon: React
   { value: 'date', label: 'Date', icon: <Calendar className="w-3.5 h-3.5" /> },
   { value: 'case', label: 'Case', icon: <Briefcase className="w-3.5 h-3.5" /> },
   { value: 'none', label: 'None', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+];
+
+const CASES_GROUP_OPTIONS: { value: CasesGroupMode; label: string; icon: React.ReactNode }[] = [
+  { value: 'alpha', label: 'A-Z', icon: <SortAsc className="w-3.5 h-3.5" /> },
+  { value: 'status', label: 'Status', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
 ];
 
 export function PanelContainer({
@@ -100,6 +110,12 @@ export function PanelContainer({
       }
       const groupLabel = EVENTS_GROUP_OPTIONS.find((g) => g.value === eventConfig.groupBy)?.label || 'Date';
       return `By ${groupLabel}`;
+    } else if (config.type === 'cases') {
+      const casesConfig = config as CasesWidgetConfig;
+      const groupLabel = CASES_GROUP_OPTIONS.find((g) => g.value === casesConfig.groupBy)?.label || 'A-Z';
+      const parts = [groupLabel];
+      if (casesConfig.showClosed) parts.push('+ Closed');
+      return parts.join(' ');
     }
 
     return '';
@@ -242,6 +258,67 @@ export function PanelContainer({
       );
     }
 
+    if (config.type === 'cases') {
+      const casesConfig = config as CasesWidgetConfig;
+      return (
+        <div className="space-y-4">
+          {/* View Mode Toggle - Active vs Closed */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              View
+            </label>
+            <div className="flex p-0.5 rounded-lg bg-bg-hover/50 dark:bg-bg-hover/30">
+              <button
+                onClick={() => onConfigChange({ showClosed: false })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !casesConfig.showClosed
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>Active</span>
+              </button>
+              <button
+                onClick={() => onConfigChange({ showClosed: true })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  casesConfig.showClosed
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span>+ Closed</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Group By */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Group by
+            </label>
+            <div className="flex gap-1">
+              {CASES_GROUP_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => onConfigChange({ groupBy: option.value })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    casesConfig.groupBy === option.value
+                      ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                      : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                  }`}
+                >
+                  {option.icon}
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -251,6 +328,8 @@ export function PanelContainer({
         return <TasksWidget config={config as TasksWidgetConfig} onConfigChange={onConfigChange} />;
       case 'events':
         return <EventsWidget config={config as EventsWidgetConfig} onConfigChange={onConfigChange} />;
+      case 'cases':
+        return <CasesWidget config={config as CasesWidgetConfig} onConfigChange={onConfigChange} />;
       default:
         return null;
     }

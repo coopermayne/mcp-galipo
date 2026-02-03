@@ -9,13 +9,16 @@
 export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 
 /** Widget types - extend as needed */
-export type WidgetType = 'tasks' | 'events';
+export type WidgetType = 'tasks' | 'events' | 'cases';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
 
 /** Group modes for events widget */
 export type EventsGroupMode = 'none' | 'date' | 'case';
+
+/** Group modes for cases widget */
+export type CasesGroupMode = 'alpha' | 'status';
 
 /** Base config all widgets share */
 interface BaseWidgetConfig {
@@ -41,8 +44,16 @@ export interface EventsWidgetConfig extends BaseWidgetConfig {
   searchQuery: string;
 }
 
+/** Cases widget configuration */
+export interface CasesWidgetConfig extends BaseWidgetConfig {
+  type: 'cases';
+  showClosed: boolean;
+  groupBy: CasesGroupMode;
+  searchQuery: string;
+}
+
 /** Discriminated union of all widget configs */
-export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig;
+export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig;
 
 /** Full layout configuration (stored in localStorage) */
 export interface PanelLayoutConfig {
@@ -92,6 +103,17 @@ export function createDefaultEventsWidget(id: string): EventsWidgetConfig {
   };
 }
 
+/** Default config for cases widget */
+export function createDefaultCasesWidget(id: string): CasesWidgetConfig {
+  return {
+    id,
+    type: 'cases',
+    showClosed: false,
+    groupBy: 'alpha',
+    searchQuery: '',
+  };
+}
+
 /** Create a default widget of the specified type */
 export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig {
   switch (type) {
@@ -99,6 +121,8 @@ export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig 
       return createDefaultTasksWidget(id);
     case 'events':
       return createDefaultEventsWidget(id);
+    case 'cases':
+      return createDefaultCasesWidget(id);
   }
 }
 
@@ -146,4 +170,5 @@ export function adjustPanelsForLayout(
 export const WIDGET_INFO: Record<WidgetType, { label: string; description: string }> = {
   tasks: { label: 'Tasks', description: 'Task list with filters' },
   events: { label: 'Events', description: 'Upcoming events and deadlines' },
+  cases: { label: 'Cases', description: 'Case files and matters' },
 };
