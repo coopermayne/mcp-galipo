@@ -42,7 +42,7 @@ def get_all_cases_with_data() -> list:
         # 1. Get all cases
         cur.execute("""
             SELECT id, case_name, short_name, status, print_code, case_summary,
-                   result, date_of_injury, case_numbers, color, created_at, updated_at
+                   result, date_of_injury, case_numbers, created_at, updated_at
             FROM cases
             ORDER BY case_name
         """)
@@ -157,7 +157,6 @@ def get_all_cases_with_data() -> list:
         cur.execute("""
             SELECT p.case_id, p.id, p.case_number, p.jurisdiction_id, p.sort_order,
                    p.is_primary, p.notes, p.created_at, p.updated_at,
-                   p.courtlistener_docket_id, p.pacer_case_id,
                    j.name as jurisdiction_name, j.local_rules_link,
                    j.notes as jurisdiction_notes
             FROM proceedings p
