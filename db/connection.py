@@ -873,6 +873,28 @@ def migrate_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assignee_id ON tasks(assignee_id)")
             print("  - Added assignee_id column to tasks")
 
+        # 33. Add CourtListener docket ID columns to proceedings (migration 005)
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'proceedings' AND column_name = 'courtlistener_docket_id'
+            )
+        """)
+        if not cur.fetchone()[0]:
+            cur.execute("ALTER TABLE proceedings ADD COLUMN courtlistener_docket_id BIGINT")
+            cur.execute("ALTER TABLE proceedings ADD COLUMN pacer_case_id VARCHAR(100)")
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_proceedings_courtlistener_docket_id
+                ON proceedings(courtlistener_docket_id)
+                WHERE courtlistener_docket_id IS NOT NULL
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_proceedings_pacer_case_id
+                ON proceedings(pacer_case_id)
+                WHERE pacer_case_id IS NOT NULL
+            """)
+            print("  - Added courtlistener_docket_id and pacer_case_id columns to proceedings")
+
         # Run SQL migration files from migrations/ folder
         run_sql_migrations(cur)
 
