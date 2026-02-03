@@ -13,10 +13,10 @@ import {
   Calendar,
   Briefcase,
   LayoutGrid,
-  Eye,
-  EyeOff,
-  Check,
+  CheckCircle2,
+  ListTodo,
   Clock,
+  ArrowDownUp,
 } from 'lucide-react';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
 import { TasksWidget } from '../widgets/TasksWidget';
@@ -38,15 +38,15 @@ interface PanelContainerProps {
 }
 
 const TASKS_GROUP_OPTIONS: { value: TasksGroupMode; label: string; icon: React.ReactNode }[] = [
-  { value: 'date', label: 'Date', icon: <Calendar className="w-4 h-4" /> },
-  { value: 'case', label: 'Case', icon: <Briefcase className="w-4 h-4" /> },
-  { value: 'urgency', label: 'Urgency', icon: <LayoutGrid className="w-4 h-4" /> },
+  { value: 'date', label: 'Date', icon: <Calendar className="w-3.5 h-3.5" /> },
+  { value: 'case', label: 'Case', icon: <Briefcase className="w-3.5 h-3.5" /> },
+  { value: 'urgency', label: 'Urgency', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
 ];
 
 const EVENTS_GROUP_OPTIONS: { value: EventsGroupMode; label: string; icon: React.ReactNode }[] = [
-  { value: 'date', label: 'Date', icon: <Calendar className="w-4 h-4" /> },
-  { value: 'case', label: 'Case', icon: <Briefcase className="w-4 h-4" /> },
-  { value: 'none', label: 'None', icon: <LayoutGrid className="w-4 h-4" /> },
+  { value: 'date', label: 'Date', icon: <Calendar className="w-3.5 h-3.5" /> },
+  { value: 'case', label: 'Case', icon: <Briefcase className="w-3.5 h-3.5" /> },
+  { value: 'none', label: 'None', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
 ];
 
 export function PanelContainer({
@@ -86,117 +86,159 @@ export function PanelContainer({
 
   // Build filter summary text based on widget type
   const getFilterSummary = () => {
-    const parts: string[] = [];
-
     if (config.type === 'tasks') {
       const taskConfig = config as TasksWidgetConfig;
+      if (taskConfig.showDone) {
+        return 'Done';
+      }
       const groupLabel = TASKS_GROUP_OPTIONS.find((g) => g.value === taskConfig.groupBy)?.label || 'Date';
-      parts.push(`By ${groupLabel}`);
-      if (taskConfig.showDone) parts.push('Done');
+      return `By ${groupLabel}`;
     } else if (config.type === 'events') {
       const eventConfig = config as EventsWidgetConfig;
+      if (eventConfig.showPast) {
+        return 'Past';
+      }
       const groupLabel = EVENTS_GROUP_OPTIONS.find((g) => g.value === eventConfig.groupBy)?.label || 'Date';
-      parts.push(`By ${groupLabel}`);
-      if (eventConfig.showPast) parts.push('Past');
+      return `By ${groupLabel}`;
     }
 
-    return parts.join(' | ');
+    return '';
   };
 
   const renderFilters = () => {
     if (config.type === 'tasks') {
       const taskConfig = config as TasksWidgetConfig;
       return (
-        <>
-          {/* Group By */}
+        <div className="space-y-4">
+          {/* View Mode Toggle - Active vs Done */}
           <div>
-            <label className="block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5">
-              Group by
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              View
             </label>
-            <div className="flex gap-1">
-              {TASKS_GROUP_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => onConfigChange({ groupBy: option.value })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-sm transition-colors ${
-                    taskConfig.groupBy === option.value
-                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                      : 'text-text-secondary hover:bg-bg-hover'
-                  }`}
-                >
-                  {option.icon}
-                  {option.label}
-                </button>
-              ))}
+            <div className="flex p-0.5 rounded-lg bg-bg-hover/50 dark:bg-bg-hover/30">
+              <button
+                onClick={() => onConfigChange({ showDone: false })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !taskConfig.showDone
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <ListTodo className="w-3.5 h-3.5" />
+                <span>Active</span>
+              </button>
+              <button
+                onClick={() => onConfigChange({ showDone: true })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  taskConfig.showDone
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Done</span>
+              </button>
             </div>
           </div>
 
-          {/* Show Done Toggle */}
-          <div>
-            <button
-              onClick={() => onConfigChange({ showDone: !taskConfig.showDone })}
-              className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                taskConfig.showDone
-                  ? 'border-green-300 dark:border-green-700 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                  : 'border-border text-text-secondary hover:bg-bg-hover'
-              }`}
-            >
-              {taskConfig.showDone ? (
-                <Eye className="w-4 h-4" />
-              ) : (
-                <EyeOff className="w-4 h-4" />
-              )}
-              <span>Show completed tasks</span>
-              {taskConfig.showDone && <Check className="w-4 h-4 ml-auto" />}
-            </button>
-          </div>
-        </>
+          {/* Group By - Only shown for Active tasks */}
+          {!taskConfig.showDone ? (
+            <div>
+              <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+                Group by
+              </label>
+              <div className="flex gap-1">
+                {TASKS_GROUP_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => onConfigChange({ groupBy: option.value })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      taskConfig.groupBy === option.value
+                        ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                        : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                    }`}
+                  >
+                    {option.icon}
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-bg-hover/30 text-text-muted">
+              <ArrowDownUp className="w-3.5 h-3.5" />
+              <span className="text-xs">Sorted by completion date</span>
+            </div>
+          )}
+        </div>
       );
     }
 
     if (config.type === 'events') {
       const eventConfig = config as EventsWidgetConfig;
       return (
-        <>
-          {/* Group By */}
+        <div className="space-y-4">
+          {/* View Mode Toggle - Upcoming vs Past */}
           <div>
-            <label className="block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5">
-              Group by
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              View
             </label>
-            <div className="flex gap-1">
-              {EVENTS_GROUP_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => onConfigChange({ groupBy: option.value })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-sm transition-colors ${
-                    eventConfig.groupBy === option.value
-                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                      : 'text-text-secondary hover:bg-bg-hover'
-                  }`}
-                >
-                  {option.icon}
-                  {option.label}
-                </button>
-              ))}
+            <div className="flex p-0.5 rounded-lg bg-bg-hover/50 dark:bg-bg-hover/30">
+              <button
+                onClick={() => onConfigChange({ showPast: false })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !eventConfig.showPast
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Upcoming</span>
+              </button>
+              <button
+                onClick={() => onConfigChange({ showPast: true })}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  eventConfig.showPast
+                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
+                    : 'text-text-muted hover:text-text-secondary'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Past</span>
+              </button>
             </div>
           </div>
 
-          {/* Show Past Toggle */}
-          <div>
-            <button
-              onClick={() => onConfigChange({ showPast: !eventConfig.showPast })}
-              className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                eventConfig.showPast
-                  ? 'border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                  : 'border-border text-text-secondary hover:bg-bg-hover'
-              }`}
-            >
-              <Clock className="w-4 h-4" />
-              <span>Show past events</span>
-              {eventConfig.showPast && <Check className="w-4 h-4 ml-auto" />}
-            </button>
-          </div>
-        </>
+          {/* Group By - Only shown for Upcoming events */}
+          {!eventConfig.showPast ? (
+            <div>
+              <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+                Group by
+              </label>
+              <div className="flex gap-1">
+                {EVENTS_GROUP_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => onConfigChange({ groupBy: option.value })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                      eventConfig.groupBy === option.value
+                        ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                        : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                    }`}
+                  >
+                    {option.icon}
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-bg-hover/30 text-text-muted">
+              <ArrowDownUp className="w-3.5 h-3.5" />
+              <span className="text-xs">Most recent first</span>
+            </div>
+          )}
+        </div>
       );
     }
 

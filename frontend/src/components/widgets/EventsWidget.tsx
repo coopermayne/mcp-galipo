@@ -12,12 +12,15 @@ interface EventsWidgetProps {
 }
 
 export function EventsWidget({ config, onConfigChange }: EventsWidgetProps) {
+  // When showing past events, force no grouping (flat list sorted by date)
+  const effectiveGroupBy = config.showPast ? 'none' : config.groupBy;
+
   return (
     <EventsComponent
       caseId={config.caseId}
       showAllEvents={!config.caseId}
       showControls={false}
-      groupBy={config.groupBy}
+      groupBy={effectiveGroupBy}
       onGroupByChange={(groupBy) => onConfigChange({ groupBy })}
       showPast={config.showPast}
       onShowPastChange={(showPast) => onConfigChange({ showPast })}

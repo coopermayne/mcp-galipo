@@ -21,7 +21,7 @@ export function TasksWidget({ config, onConfigChange }: TasksWidgetProps) {
       enableInlineCreate
       groupBy={config.groupBy}
       onGroupByChange={(groupBy) => onConfigChange({ groupBy })}
-      statusFilter={config.showDone ? ['Pending', 'Active', 'Done'] : ['Pending', 'Active']}
+      statusFilter={config.showDone ? ['Done'] : ['Pending', 'Active', 'Blocked']}
       onStatusFilterChange={(statuses) => onConfigChange({ showDone: statuses.includes('Done') })}
       searchQuery={config.searchQuery}
     />

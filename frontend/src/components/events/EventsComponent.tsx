@@ -345,6 +345,7 @@ export function EventsComponent({
         caseId={caseId}
         showCase={showCase}
         groupBy={groupBy}
+        showPast={showPast}
         maxItems={maxItems}
         compact={compact}
         emptyMessage={showPast ? 'No past events' : 'No upcoming events'}
