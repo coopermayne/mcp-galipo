@@ -4,28 +4,28 @@
 import { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { CaseItem } from './CaseItem';
-import type { Case } from '../../types';
+import type { CaseSummary } from '../../types';
 
 type GroupMode = 'alpha' | 'status';
 
 interface CaseGroup {
   key: string;
   label: string;
-  cases: Case[];
+  cases: CaseSummary[];
 }
 
 interface CasesFeedProps {
-  cases: Case[];
+  cases: CaseSummary[];
   isLoading?: boolean;
   groupBy?: GroupMode;
   emptyMessage?: string;
-  onClick?: (caseData: Case) => void;
+  onClick?: (caseData: CaseSummary) => void;
 }
 
 /**
  * Group cases alphabetically by first letter of short_name or case_name
  */
-function groupCasesAlpha(cases: Case[]): CaseGroup[] {
+function groupCasesAlpha(cases: CaseSummary[]): CaseGroup[] {
   const groups: Map<string, CaseGroup> = new Map();
 
   const sorted = [...cases].sort((a, b) => {
@@ -51,7 +51,7 @@ function groupCasesAlpha(cases: Case[]): CaseGroup[] {
 /**
  * Group cases by status
  */
-function groupCasesByStatus(cases: Case[]): CaseGroup[] {
+function groupCasesByStatus(cases: CaseSummary[]): CaseGroup[] {
   const groups: Map<string, CaseGroup> = new Map();
 
   for (const caseData of cases) {

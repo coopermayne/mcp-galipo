@@ -10,7 +10,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CasesFeed } from './CasesFeed';
 import { getCases } from '../../api';
-import type { Case } from '../../types';
+import type { CaseSummary } from '../../types';
 
 type GroupMode = 'alpha' | 'status';
 
@@ -26,7 +26,7 @@ interface CasesComponentProps {
   /** Search query */
   searchQuery?: string;
   /** Callback when a case is clicked */
-  onCaseClick?: (caseData: Case) => void;
+  onCaseClick?: (caseData: CaseSummary) => void;
 }
 
 export function CasesComponent({
