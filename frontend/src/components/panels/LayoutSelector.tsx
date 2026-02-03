@@ -9,7 +9,7 @@
  * - 2:2: Four equal quadrants
  */
 import { useState } from 'react';
-import { LayoutGrid, Check, ChevronDown } from 'lucide-react';
+import { LayoutGrid, Check, ChevronDown, RotateCcw } from 'lucide-react';
 import type { LayoutPreset } from '../../types/panel-layout';
 
 interface LayoutOption {
@@ -74,9 +74,10 @@ const LAYOUT_OPTIONS: LayoutOption[] = [
 interface LayoutSelectorProps {
   value: LayoutPreset;
   onChange: (layout: LayoutPreset) => void;
+  onReset?: () => void;
 }
 
-export function LayoutSelector({ value, onChange }: LayoutSelectorProps) {
+export function LayoutSelector({ value, onChange, onReset }: LayoutSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const currentOption = LAYOUT_OPTIONS.find((opt) => opt.value === value);
@@ -123,6 +124,21 @@ export function LayoutSelector({ value, onChange }: LayoutSelectorProps) {
                 )}
               </button>
             ))}
+            {onReset && (
+              <>
+                <div className="my-1 border-t border-border" />
+                <button
+                  onClick={() => {
+                    onReset();
+                    setIsOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-text-muted hover:bg-bg-hover hover:text-text"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset to defaults
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

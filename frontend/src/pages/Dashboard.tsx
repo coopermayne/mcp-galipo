@@ -28,20 +28,20 @@ const ALLOWED_WIDGETS: WidgetType[] = ['tasks', 'events'];
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultTasksWidget('panel-0'), groupBy: 'urgency' },
-    createDefaultEventsWidget('panel-1'),
+    { ...createDefaultEventsWidget('panel-0'), groupBy: 'date', showPast: false },
+    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: false },
   ],
 };
 
 function DashboardContent() {
-  const { config, setLayout, updatePanel, setPanelType, allowedWidgets } = usePanelLayout();
+  const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header
         title="Dashboard"
         subtitle="Your cases at a glance"
-        actions={<LayoutSelector value={config.layout} onChange={setLayout} />}
+        actions={<LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />}
       />
 
       {/* Panels Grid */}

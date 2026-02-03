@@ -26,6 +26,7 @@ interface PanelLayoutContextType {
   setLayout: (layout: LayoutPreset) => void;
   updatePanel: (panelId: string, updates: Partial<WidgetConfig>) => void;
   setPanelType: (panelId: string, type: WidgetType) => void;
+  resetToDefault: () => void;
 }
 
 const PanelLayoutContext = createContext<PanelLayoutContextType | null>(null);
@@ -118,6 +119,10 @@ export function PanelLayoutProvider({
     }));
   }, []);
 
+  const resetToDefault = useCallback(() => {
+    setConfig(defaultConfig);
+  }, [defaultConfig]);
+
   const value = useMemo(
     () => ({
       config,
@@ -125,8 +130,9 @@ export function PanelLayoutProvider({
       setLayout,
       updatePanel,
       setPanelType,
+      resetToDefault,
     }),
-    [config, allowedWidgets, setLayout, updatePanel, setPanelType]
+    [config, allowedWidgets, setLayout, updatePanel, setPanelType, resetToDefault]
   );
 
   return (

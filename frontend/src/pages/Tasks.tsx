@@ -25,19 +25,22 @@ const STORAGE_KEY = 'tasks-layout';
 const ALLOWED_WIDGETS: WidgetType[] = ['tasks'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
-  layout: '1',
-  panels: [createDefaultTasksWidget('panel-0')],
+  layout: '1:1',
+  panels: [
+    { ...createDefaultTasksWidget('panel-0'), groupBy: 'date', showDone: false },
+    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: true },
+  ],
 };
 
 function TasksContent() {
-  const { config, setLayout, updatePanel, setPanelType, allowedWidgets } = usePanelLayout();
+  const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header
         title="Tasks"
         subtitle="Track your to-dos"
-        actions={<LayoutSelector value={config.layout} onChange={setLayout} />}
+        actions={<LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />}
       />
 
       {/* Panels Grid */}
