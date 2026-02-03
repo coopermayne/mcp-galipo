@@ -101,6 +101,7 @@ from .tasks import (
     delete_task,
     bulk_update_tasks,
     bulk_update_tasks_for_case,
+    reschedule_overdue_tasks,
     search_tasks,
     reorder_task,
 )
@@ -283,6 +284,7 @@ __all__ = [
     "delete_task",
     "bulk_update_tasks",
     "bulk_update_tasks_for_case",
+    "reschedule_overdue_tasks",
     "search_tasks",
     "reorder_task",
     # Events

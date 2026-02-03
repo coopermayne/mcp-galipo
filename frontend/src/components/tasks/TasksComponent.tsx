@@ -23,7 +23,7 @@ import { EventLinkPopover } from './EventLinkPopover';
 import { useTaskActions } from './useTaskActions';
 import { ToastContainer, useToast } from '../common';
 import { DEFAULT_STATUS_FILTER } from './statusConfig';
-import { getTasks, updateTask, createTask } from '../../api';
+import { getTasks, updateTask, createTask, rescheduleOverdueTasks } from '../../api';
 import type { Task, TaskStatus } from '../../types';
 
 interface TasksComponentProps {
@@ -367,6 +367,41 @@ export function TasksComponent({
     [queryClient, caseId, onTaskCreated]
   );
 
+  const handleRescheduleOverdue = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Capture overdue tasks before rescheduling (for undo)
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const overdueTasks = allTasks.filter((task) => {
+      if (!task.due_date || task.status === 'Done') return false;
+      const dueDate = new Date(task.due_date + 'T00:00:00');
+      return dueDate < todayDate;
+    });
+    const previousDates = new Map(overdueTasks.map((t) => [t.id, t.due_date]));
+
+    const result = await rescheduleOverdueTasks(today);
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    if (caseId) {
+      queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+    }
+    if (result.updated > 0) {
+      showToast({
+        message: `${result.updated} task${result.updated === 1 ? '' : 's'} rescheduled to today`,
+        onUndo: async () => {
+          // Restore original due dates
+          for (const [taskId, originalDate] of previousDates) {
+            await updateTask(taskId, { due_date: originalDate });
+          }
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          if (caseId) {
+            queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+          }
+        },
+      });
+    }
+  }, [queryClient, caseId, showToast, allTasks]);
+
   // Navigation between tasks in the detail sheet
   const selectedTaskIndex = selectedTask
     ? tasks.findIndex((t) => t.id === selectedTask.id)
@@ -448,6 +483,7 @@ export function TasksComponent({
           enableInlineCreate={enableInlineCreate}
           onInlineCreateSave={handleInlineCreateSave}
           defaultCreateStatus={statusFilter.length === 1 && statusFilter[0] === 'Done' ? 'Done' : undefined}
+          onRescheduleOverdue={handleRescheduleOverdue}
         />
 
       {/* Task Detail Sheet */}

@@ -34,6 +34,7 @@ export {
   updateTask,
   deleteTask,
   reorderTask,
+  rescheduleOverdueTasks,
 } from './tasks';
 
 // Events
