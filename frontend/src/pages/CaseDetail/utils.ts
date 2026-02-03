@@ -4,9 +4,6 @@ import {
   URGENCY_COLORS,
   TASK_STATUS_COLORS,
   DATE_GROUP_COLORS,
-  type UrgencyLevel,
-  type TaskStatusKey,
-  type DateGroupKey,
 } from '../../config/colors';
 
 /**
