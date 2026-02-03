@@ -19,13 +19,18 @@ def add_proceeding(case_id: int, case_number: str, jurisdiction_id: int = None,
                    pacer_case_id: str = None) -> dict:
     """Add a proceeding to a case."""
     with get_cursor() as cur:
-        # Determine sort_order if not provided
+        # Determine sort_order if not provided, and check if this is the first proceeding
+        cur.execute("""
+            SELECT COUNT(*) as count, COALESCE(MAX(sort_order), 0) + 1 as next_order
+            FROM proceedings WHERE case_id = %s
+        """, (case_id,))
+        result = cur.fetchone()
         if sort_order is None:
-            cur.execute("""
-                SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order
-                FROM proceedings WHERE case_id = %s
-            """, (case_id,))
-            sort_order = cur.fetchone()["next_order"]
+            sort_order = result["next_order"]
+
+        # Auto-set as primary if this is the first proceeding for the case
+        if result["count"] == 0:
+            is_primary = True
 
         # If this is marked as primary, unmark others
         if is_primary:
@@ -233,10 +238,30 @@ def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
 
 
 def delete_proceeding(proceeding_id: int) -> bool:
-    """Delete a proceeding (cascade deletes judges)."""
+    """Delete a proceeding (cascade deletes judges).
+
+    If only one proceeding remains after deletion, it becomes primary automatically.
+    """
     with get_cursor() as cur:
+        # Get case_id before deleting
+        cur.execute("SELECT case_id FROM proceedings WHERE id = %s", (proceeding_id,))
+        row = cur.fetchone()
+        if not row:
+            return False
+        case_id = row["case_id"]
+
         cur.execute("DELETE FROM proceedings WHERE id = %s", (proceeding_id,))
-        return cur.rowcount > 0
+        if cur.rowcount == 0:
+            return False
+
+        # If only one proceeding remains, make it primary
+        cur.execute("""
+            UPDATE proceedings SET is_primary = TRUE
+            WHERE case_id = %s
+            AND (SELECT COUNT(*) FROM proceedings WHERE case_id = %s) = 1
+        """, (case_id, case_id))
+
+        return True
 
 
 # ============================================================================
