@@ -27,11 +27,10 @@ export function StarredEvents({ events }: StarredEventsProps) {
           <div className="flex items-center gap-0">
             <EditableDate
               value={event.date}
-              onSave={async () => {}}
               disabled
               className="text-sm"
             />
-            <EditableTime value={event.time || null} onSave={async () => {}} disabled />
+            <EditableTime value={event.time || null} disabled />
           </div>
         </div>
       ))}
