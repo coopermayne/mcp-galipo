@@ -296,6 +296,8 @@ set -a && source .env && set +a
 | `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
 | `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
 | `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
+| `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP/SSE OAuth authentication (requires MCP_BASE_URL) |
+| `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
 
 Example `.env`:
@@ -307,6 +309,10 @@ PORT=8000
 BACKEND_PORT=8000
 VITE_PORT=5173
 WEBHOOK_SECRET_COURTLISTENER=your-long-random-secret-token
+
+# For remote MCP access via Claude.ai (optional)
+MCP_AUTH_PASSWORD=your-secure-password
+MCP_BASE_URL=https://your-public-url.example.com
 ```
 
 ## Endpoints

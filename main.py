@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 import database as db
 from tools import register_tools
 from routes import register_routes
+from mcp_auth import get_mcp_auth_provider
 
 
 MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
@@ -106,8 +107,9 @@ async def lifespan(app):
     # Shutdown - connection pool cleanup is handled by atexit in db/connection.py
 
 
-# Initialize the MCP server with lifespan
-mcp = FastMCP("Legal Case Management", instructions=MCP_INSTRUCTIONS)
+# Initialize the MCP server with lifespan and optional auth
+auth_provider = get_mcp_auth_provider()
+mcp = FastMCP("Legal Case Management", instructions=MCP_INSTRUCTIONS, auth=auth_provider)
 
 # Register MCP tools (for AI/Claude integration)
 register_tools(mcp)
