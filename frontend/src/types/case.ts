@@ -7,6 +7,7 @@ import type { Note } from './note';
 import type { Activity } from './activity';
 import type { CasePerson } from './person';
 import type { Proceeding } from './proceeding';
+import type { CaseStaffUser } from './user';
 
 export interface CaseNumber {
   number: string;
@@ -32,6 +33,11 @@ export interface Case {
   notes?: Note[];
   activities?: Activity[];
   proceedings?: Proceeding[];
+  // Staff assignments
+  attorney_ids: number[];
+  paralegal_ids: number[];
+  attorneys?: CaseStaffUser[];
+  paralegals?: CaseStaffUser[];
 }
 
 export interface CaseSummary {

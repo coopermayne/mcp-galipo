@@ -20,6 +20,11 @@ export {
   createCase,
   updateCase,
   deleteCase,
+  getCaseUsers,
+  assignAttorneyToCase,
+  removeAttorneyFromCase,
+  assignParalegalToCase,
+  removeParalegalFromCase,
 } from './cases';
 
 // Tasks
@@ -102,4 +107,5 @@ export {
   updateUser,
   deleteUser,
   resetUserPassword,
+  getUserCases,
 } from './users';

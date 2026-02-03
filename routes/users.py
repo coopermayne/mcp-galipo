@@ -29,7 +29,7 @@ def _user_to_camel(user: dict) -> dict:
     """Convert user dict from snake_case to camelCase for frontend."""
     if not user:
         return None
-    return {
+    result = {
         "id": user["id"],
         "email": user["email"],
         "firstName": user.get("first_name"),
@@ -40,9 +40,21 @@ def _user_to_camel(user: dict) -> dict:
         "isAdmin": user.get("is_admin", False),
         "mustChangePassword": user.get("must_change_password", False),
         "isActive": user.get("is_active", True),
+        "paralegalId": user.get("paralegal_id"),
         "createdAt": user.get("created_at"),
         "updatedAt": user.get("updated_at"),
     }
+    # Include nested paralegal object if present
+    if user.get("paralegal"):
+        result["paralegal"] = {
+            "id": user["paralegal"]["id"],
+            "firstName": user["paralegal"].get("first_name"),
+            "lastName": user["paralegal"].get("last_name"),
+            "initials": user["paralegal"].get("initials"),
+        }
+    else:
+        result["paralegal"] = None
+    return result
 
 
 def register_user_routes(mcp):
@@ -184,6 +196,8 @@ def register_user_routes(mcp):
                 update_data["must_change_password"] = data["mustChangePassword"]
             if "isActive" in data:
                 update_data["is_active"] = data["isActive"]
+            if "paralegalId" in data:
+                update_data["paralegal_id"] = data["paralegalId"]
 
             user = update_user(user_id, **update_data)
             return JSONResponse({"success": True, "data": _user_to_camel(user)})
@@ -255,3 +269,17 @@ def register_user_routes(mcp):
             {"success": False, "error": {"message": "Failed to reset password", "code": "RESET_FAILED"}},
             status_code=500
         )
+
+    @mcp.custom_route("/api/v1/users/{user_id}/cases", methods=["GET"])
+    async def api_get_user_cases(request):
+        """Get all cases a user is assigned to (as attorney or paralegal)."""
+        if err := auth.require_auth(request):
+            return err
+
+        from db.cases import get_cases_for_user
+
+        user_id = int(request.path_params["user_id"])
+        role = request.query_params.get("role")  # 'attorney', 'paralegal', or None for both
+
+        cases = get_cases_for_user(user_id, role)
+        return JSONResponse({"success": True, "data": cases})

@@ -268,6 +268,56 @@ def register_tools(mcp):
         return not_found_error("Case")
 
     # =========================================================================
+    # CASE STAFF (Attorneys & Paralegals)
+    # =========================================================================
+
+    @mcp.tool()
+    def get_case_team(context: Context, case_id: int) -> dict:
+        """Get all staff (attorneys and paralegals) assigned to a case."""
+        result = db.get_case_users(case_id)
+        return {"success": True, "attorneys": result["attorneys"], "paralegals": result["paralegals"]}
+
+    @mcp.tool()
+    def assign_user_to_case(
+        context: Context,
+        case_id: int,
+        user_id: int,
+        role: Literal["attorney", "paralegal"]
+    ) -> dict:
+        """Assign a staff user to a case. When assigning an attorney, their default paralegal is auto-assigned."""
+        if role == "attorney":
+            result = db.assign_attorney_to_case(case_id, user_id)
+        else:
+            result = db.assign_paralegal_to_case(case_id, user_id)
+
+        if not result.get("success"):
+            return validation_error(result.get("error", "Failed to assign user"))
+        return result
+
+    @mcp.tool()
+    def remove_user_from_case(
+        context: Context,
+        case_id: int,
+        user_id: int,
+        role: Literal["attorney", "paralegal"]
+    ) -> dict:
+        """Remove a staff user from a case."""
+        if role == "attorney":
+            result = db.remove_attorney_from_case(case_id, user_id)
+        else:
+            result = db.remove_paralegal_from_case(case_id, user_id)
+
+        if not result.get("success"):
+            return validation_error(result.get("error", "Failed to remove user"))
+        return result
+
+    @mcp.tool()
+    def get_user_cases(context: Context, user_id: int, role: Optional[Literal["attorney", "paralegal"]] = None) -> dict:
+        """Get all cases a user is assigned to."""
+        cases = db.get_cases_for_user(user_id, role)
+        return {"success": True, "cases": cases, "total": len(cases)}
+
+    # =========================================================================
     # TASKS
     # =========================================================================
 
@@ -279,7 +329,8 @@ def register_tools(mcp):
         due_date: Optional[str] = None,
         urgency: Urgency = 2,
         status: TaskStatus = "Pending",
-        event_id: Optional[int] = None
+        event_id: Optional[int] = None,
+        assignee_id: Optional[int] = None
     ) -> dict:
         """Add a task to a case. Tasks are internal work (vs events which are calendar items)."""
         try:
@@ -295,7 +346,7 @@ def register_tools(mcp):
                 db.validate_date_format(due_date, "due_date")
             except ValidationError:
                 return invalid_date_format_error(due_date, "due_date")
-        result = db.add_task(case_id, description, due_date, status, urgency, event_id)
+        result = db.add_task(case_id, description, due_date, status, urgency, event_id, assignee_id)
         if not result:
             return not_found_error("Case")
         return {"success": True, "task": result}
@@ -319,9 +370,10 @@ def register_tools(mcp):
         status: Optional[TaskStatus] = None,
         urgency: Optional[Urgency] = None,
         due_date: Optional[str] = None,
-        completion_date: Optional[str] = None
+        completion_date: Optional[str] = None,
+        assignee_id: Optional[int] = None
     ) -> dict:
-        """Update a task. Pass '' to clear optional date fields."""
+        """Update a task. Pass '' to clear optional date fields. Pass 0 for assignee_id to unassign."""
         kwargs = {}
         if description is not None:
             if description == "":
@@ -357,6 +409,8 @@ def register_tools(mcp):
                 except ValidationError:
                     return invalid_date_format_error(completion_date, "completion_date")
                 kwargs['completion_date'] = completion_date
+        if assignee_id is not None:
+            kwargs['assignee_id'] = assignee_id if assignee_id != 0 else None
         if not kwargs:
             return validation_error("No fields to update")
         result = db.update_task_full(task_id, **kwargs)
@@ -483,6 +537,34 @@ def register_tools(mcp):
         """Get combined calendar view of tasks and events."""
         items = db.get_calendar(days, include_tasks, include_events)
         return {"items": items, "total": len(items), "days": days}
+
+    @mcp.tool()
+    def manage_event_attendees(
+        context: Context,
+        event_id: int,
+        action: Literal["list", "add", "remove"],
+        user_id: Optional[int] = None
+    ) -> dict:
+        """Manage event attendees. Actions: 'list' (get all), 'add' (add user), 'remove' (remove user)."""
+        if action == "list":
+            attendees = db.get_event_attendees(event_id)
+            return {"success": True, "attendees": attendees, "total": len(attendees)}
+        elif action == "add":
+            if not user_id:
+                return validation_error("user_id required for 'add' action")
+            result = db.add_event_attendee(event_id, user_id)
+            if not result.get("success"):
+                return validation_error(result.get("error", "Failed to add attendee"))
+            return {"success": True, "attendees": result.get("attendees", [])}
+        elif action == "remove":
+            if not user_id:
+                return validation_error("user_id required for 'remove' action")
+            result = db.remove_event_attendee(event_id, user_id)
+            if not result.get("success"):
+                return validation_error(result.get("error", "Failed to remove attendee"))
+            return {"success": True, "attendees": result.get("attendees", [])}
+        else:
+            return validation_error(f"Invalid action: '{action}'", valid_values=["list", "add", "remove"])
 
     # =========================================================================
     # PERSONS
@@ -1067,9 +1149,11 @@ def register_tools(mcp):
         position: Optional[str] = None,
         bar_number: Optional[str] = None,
         is_admin: Optional[bool] = None,
-        is_active: Optional[bool] = None
+        is_active: Optional[bool] = None,
+        paralegal_id: Optional[int] = None
     ) -> dict:
-        """Update a user's profile. Use reset_user_password for password changes."""
+        """Update a user's profile. Use reset_user_password for password changes.
+        Pass paralegal_id=0 to clear the attorney's default paralegal."""
         kwargs = {}
         if email is not None:
             if "@" not in email:
@@ -1089,6 +1173,8 @@ def register_tools(mcp):
             kwargs['is_admin'] = is_admin
         if is_active is not None:
             kwargs['is_active'] = is_active
+        if paralegal_id is not None:
+            kwargs['paralegal_id'] = paralegal_id if paralegal_id != 0 else None
         if not kwargs:
             return validation_error("No fields to update")
         result = db.update_user(user_id, **kwargs)

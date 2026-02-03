@@ -69,6 +69,13 @@ from .cases import (
     delete_case,
     search_cases,
     get_dashboard_stats,
+    # Staff assignments
+    get_case_users,
+    assign_attorney_to_case,
+    remove_attorney_from_case,
+    assign_paralegal_to_case,
+    remove_paralegal_from_case,
+    get_cases_for_user,
 )
 
 # Person operations
@@ -109,6 +116,11 @@ from .events import (
     search_events,
     get_calendar,
     get_tasks_for_event,
+    # Attendees
+    get_event_attendees,
+    add_event_attendee,
+    remove_event_attendee,
+    get_event_by_id,
 )
 
 # Activity operations
@@ -189,6 +201,7 @@ from .users import (
     update_password,
     delete_user,
     authenticate_user,
+    get_attorneys_for_paralegal,
 )
 
 # Define __all__ for explicit exports
@@ -244,6 +257,13 @@ __all__ = [
     "delete_case",
     "search_cases",
     "get_dashboard_stats",
+    # Case staff assignments
+    "get_case_users",
+    "assign_attorney_to_case",
+    "remove_attorney_from_case",
+    "assign_paralegal_to_case",
+    "remove_paralegal_from_case",
+    "get_cases_for_user",
     # Persons
     "create_person",
     "get_person_by_id",
@@ -275,6 +295,11 @@ __all__ = [
     "search_events",
     "get_calendar",
     "get_tasks_for_event",
+    # Event attendees
+    "get_event_attendees",
+    "add_event_attendee",
+    "remove_event_attendee",
+    "get_event_by_id",
     # Activities
     "add_activity",
     "get_all_activities",
@@ -337,4 +362,5 @@ __all__ = [
     "update_password",
     "delete_user",
     "authenticate_user",
+    "get_attorneys_for_paralegal",
 ]

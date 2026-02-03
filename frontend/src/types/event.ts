@@ -1,6 +1,8 @@
 // Event-related types
 // Event represents calendar items: hearings, depositions, filing deadlines, etc.
 
+import type { CaseStaffUser } from './user';
+
 export interface Event {
   id: number;
   case_id: number;
@@ -15,6 +17,8 @@ export interface Event {
   calculation_note?: string;
   starred?: boolean;
   task_count?: number;
+  attendee_ids?: number[];
+  attendees?: CaseStaffUser[];
   created_at: string;
 }
 

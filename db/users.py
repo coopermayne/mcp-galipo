@@ -24,17 +24,36 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def get_user_by_id(user_id: int) -> Optional[dict]:
-    """Get a user by their ID."""
+    """Get a user by their ID, including paralegal info if set."""
     with get_cursor() as cur:
         cur.execute("""
-            SELECT id, email, first_name, last_name, initials, bar_number,
-                   position, is_admin, must_change_password, is_active,
-                   created_at, updated_at
-            FROM users
-            WHERE id = %s
+            SELECT u.id, u.email, u.first_name, u.last_name, u.initials, u.bar_number,
+                   u.position, u.is_admin, u.must_change_password, u.is_active,
+                   u.paralegal_id, u.created_at, u.updated_at,
+                   p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
+                   p.initials as paralegal_initials
+            FROM users u
+            LEFT JOIN users p ON u.paralegal_id = p.id
+            WHERE u.id = %s
         """, (user_id,))
         row = cur.fetchone()
-        return serialize_row(row) if row else None
+        if not row:
+            return None
+        result = serialize_row(row)
+        # Build nested paralegal object if exists
+        if result.get('paralegal_id'):
+            result['paralegal'] = {
+                'id': result['paralegal_id'],
+                'first_name': result.pop('paralegal_first_name'),
+                'last_name': result.pop('paralegal_last_name'),
+                'initials': result.pop('paralegal_initials'),
+            }
+        else:
+            result.pop('paralegal_first_name', None)
+            result.pop('paralegal_last_name', None)
+            result.pop('paralegal_initials', None)
+            result['paralegal'] = None
+        return result
 
 
 def get_user_by_email(email: str) -> Optional[dict]:
@@ -56,22 +75,45 @@ def get_all_users(include_inactive: bool = False) -> list[dict]:
     with get_cursor() as cur:
         if include_inactive:
             cur.execute("""
-                SELECT id, email, first_name, last_name, initials, bar_number,
-                       position, is_admin, must_change_password, is_active,
-                       created_at, updated_at
-                FROM users
-                ORDER BY last_name, first_name
+                SELECT u.id, u.email, u.first_name, u.last_name, u.initials, u.bar_number,
+                       u.position, u.is_admin, u.must_change_password, u.is_active,
+                       u.paralegal_id, u.created_at, u.updated_at,
+                       p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
+                       p.initials as paralegal_initials
+                FROM users u
+                LEFT JOIN users p ON u.paralegal_id = p.id
+                ORDER BY u.last_name, u.first_name
             """)
         else:
             cur.execute("""
-                SELECT id, email, first_name, last_name, initials, bar_number,
-                       position, is_admin, must_change_password, is_active,
-                       created_at, updated_at
-                FROM users
-                WHERE is_active = TRUE
-                ORDER BY last_name, first_name
+                SELECT u.id, u.email, u.first_name, u.last_name, u.initials, u.bar_number,
+                       u.position, u.is_admin, u.must_change_password, u.is_active,
+                       u.paralegal_id, u.created_at, u.updated_at,
+                       p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
+                       p.initials as paralegal_initials
+                FROM users u
+                LEFT JOIN users p ON u.paralegal_id = p.id
+                WHERE u.is_active = TRUE
+                ORDER BY u.last_name, u.first_name
             """)
-        return serialize_rows(cur.fetchall())
+        rows = cur.fetchall()
+        result = []
+        for row in rows:
+            user = serialize_row(row)
+            if user.get('paralegal_id'):
+                user['paralegal'] = {
+                    'id': user['paralegal_id'],
+                    'first_name': user.pop('paralegal_first_name'),
+                    'last_name': user.pop('paralegal_last_name'),
+                    'initials': user.pop('paralegal_initials'),
+                }
+            else:
+                user.pop('paralegal_first_name', None)
+                user.pop('paralegal_last_name', None)
+                user.pop('paralegal_initials', None)
+                user['paralegal'] = None
+            result.append(user)
+        return result
 
 
 def create_user(
@@ -111,7 +153,8 @@ def update_user(
     bar_number=_NOT_PROVIDED,
     is_admin=_NOT_PROVIDED,
     must_change_password=_NOT_PROVIDED,
-    is_active=_NOT_PROVIDED
+    is_active=_NOT_PROVIDED,
+    paralegal_id=_NOT_PROVIDED
 ) -> Optional[dict]:
     """Update a user's profile fields (not password)."""
     updates = []
@@ -144,6 +187,9 @@ def update_user(
     if is_active is not _NOT_PROVIDED:
         updates.append("is_active = %s")
         params.append(is_active)
+    if paralegal_id is not _NOT_PROVIDED:
+        updates.append("paralegal_id = %s")
+        params.append(paralegal_id)
 
     if not updates:
         return get_user_by_id(user_id)
@@ -156,12 +202,13 @@ def update_user(
             UPDATE users
             SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, email, first_name, last_name, initials, bar_number,
-                      position, is_admin, must_change_password, is_active,
-                      created_at, updated_at
+            RETURNING id
         """, params)
         row = cur.fetchone()
-        return serialize_row(row) if row else None
+        if not row:
+            return None
+    # Re-fetch to include paralegal join
+    return get_user_by_id(user_id)
 
 
 def update_password(user_id: int, new_password: str, clear_must_change: bool = True) -> bool:
@@ -219,3 +266,16 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
     # Remove password_hash before returning
     del user['password_hash']
     return user
+
+
+def get_attorneys_for_paralegal(paralegal_id: int) -> list[dict]:
+    """Get all attorneys who have this paralegal assigned as their default."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT id, email, first_name, last_name, initials, bar_number,
+                   position, is_admin, is_active, created_at, updated_at
+            FROM users
+            WHERE paralegal_id = %s AND is_active = TRUE
+            ORDER BY last_name, first_name
+        """, (paralegal_id,))
+        return serialize_rows(cur.fetchall())
