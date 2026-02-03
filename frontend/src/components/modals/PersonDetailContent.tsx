@@ -49,8 +49,8 @@ function AttributeRow({
     if (!value) return null;
     return (
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-slate-400 w-24 shrink-0">{label}:</span>
-        <span className="text-slate-700 dark:text-slate-300">
+        <span className="text-text-muted w-24 shrink-0">{label}:</span>
+        <span className="text-text-secondary">
           {prefix}{value}{suffix}
         </span>
       </div>
@@ -59,16 +59,16 @@ function AttributeRow({
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-slate-400 w-24 shrink-0">{label}:</span>
+      <span className="text-text-muted w-24 shrink-0">{label}:</span>
       <div className="flex-1 flex items-center gap-1">
-        {prefix && <span className="text-slate-500">{prefix}</span>}
+        {prefix && <span className="text-text-secondary">{prefix}</span>}
         <EditableText
           value={value}
           onSave={onSave}
           placeholder={placeholder || `Add ${label.toLowerCase()}...`}
           className="flex-1"
         />
-        {suffix && value && <span className="text-slate-500">{suffix}</span>}
+        {suffix && value && <span className="text-text-secondary">{suffix}</span>}
       </div>
     </div>
   );
@@ -96,10 +96,10 @@ function EditableExpertises({
     if (!expertises || expertises.length === 0) return null;
     return (
       <div className="flex items-start gap-2 text-sm">
-        <span className="text-slate-400 w-24 shrink-0">Specialties:</span>
+        <span className="text-text-muted w-24 shrink-0">Specialties:</span>
         <div className="flex flex-wrap gap-1">
           {expertises.map((exp, i) => (
-            <span key={i} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">
+            <span key={i} className="px-2 py-0.5 bg-bg-hover rounded text-xs">
               {exp}
             </span>
           ))}
@@ -110,7 +110,7 @@ function EditableExpertises({
 
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span className="text-slate-400 w-24 shrink-0 pt-1">Specialties:</span>
+      <span className="text-text-muted w-24 shrink-0 pt-1">Specialties:</span>
       <div className="flex-1">
         <EditableText
           value={expertises?.join(', ') || ''}
@@ -121,7 +121,7 @@ function EditableExpertises({
         {expertises && expertises.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {expertises.map((exp, i) => (
-              <span key={i} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">
+              <span key={i} className="px-2 py-0.5 bg-bg-hover rounded text-xs">
                 {exp}
               </span>
             ))}
@@ -369,14 +369,14 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
       </div>
     );
   }
 
   if (error || !data?.person) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+      <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
         <AlertCircle className="w-8 h-8 mb-2" />
         <p>Failed to load person details</p>
       </div>
@@ -394,7 +394,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
         </div>
         <div className="flex-1 min-w-0">
           {readOnly ? (
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="text-xl font-semibold text-text">
               {person.name}
             </h2>
           ) : (
@@ -405,13 +405,13 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
               inputClassName="text-xl font-semibold"
             />
           )}
-          <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 capitalize">
+          <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-bg-hover text-text-secondary capitalize">
             {person.person_type}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          className="p-1 text-text-muted hover:text-text-secondary rounded-lg hover:bg-bg-hover transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -419,14 +419,14 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
       {/* Contact Info */}
       <div className="space-y-4 mb-6">
-        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-          <Phone className="w-4 h-4 text-slate-400" />
+        <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+          <Phone className="w-4 h-4 text-text-muted" />
           Contact Information
         </h3>
         <div className="space-y-4 pl-6">
           {/* Phones */}
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
               <Phone className="w-3 h-3" />
               Phone Numbers
             </div>
@@ -440,7 +440,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
           {/* Emails */}
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
               <Mail className="w-3 h-3" />
               Email Addresses
             </div>
@@ -454,9 +454,9 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
           {/* Organization */}
           <div className="flex items-center gap-2 text-sm">
-            <Building className="w-4 h-4 text-slate-400 shrink-0" />
+            <Building className="w-4 h-4 text-text-muted shrink-0" />
             {readOnly ? (
-              <span className={person.organization ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}>
+              <span className={person.organization ? 'text-text-secondary' : 'text-text-muted italic'}>
                 {person.organization || 'No organization'}
               </span>
             ) : (
@@ -471,9 +471,9 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
           {/* Address */}
           <div className="flex items-center gap-2 text-sm">
-            <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+            <MapPin className="w-4 h-4 text-text-muted shrink-0" />
             {readOnly ? (
-              <span className={person.address ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}>
+              <span className={person.address ? 'text-text-secondary' : 'text-text-muted italic'}>
                 {person.address || 'No address'}
               </span>
             ) : (
@@ -491,8 +491,8 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
       {/* Type-Specific Attributes */}
       {person.person_type && (
         <div className="mb-6">
-          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
-            <Briefcase className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-3">
+            <Briefcase className="w-4 h-4 text-text-muted" />
             {person.person_type.charAt(0).toUpperCase() + person.person_type.slice(1)} Details
           </h3>
           <div className="pl-6">
@@ -507,12 +507,12 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
       {/* Notes */}
       <div className="mt-6">
-        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-2">
-          <FileText className="w-4 h-4 text-slate-400" />
+        <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-2">
+          <FileText className="w-4 h-4 text-text-muted" />
           Notes
         </h3>
         {readOnly ? (
-          <p className={`text-sm pl-6 ${person.notes ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+          <p className={`text-sm pl-6 ${person.notes ? 'text-text-secondary' : 'text-text-muted italic'}`}>
             {person.notes || 'No notes'}
           </p>
         ) : (
@@ -531,16 +531,16 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
       {/* Case Assignments */}
       {person.case_assignments && person.case_assignments.length > 0 && (
-        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
-            <Briefcase className="w-4 h-4 text-slate-400" />
+        <div className="mt-6 pt-6 border-t border-border">
+          <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-3">
+            <Briefcase className="w-4 h-4 text-text-muted" />
             Case Assignments ({person.case_assignments.length})
           </h3>
           <div className="space-y-2 pl-6">
             {person.case_assignments.map((assignment) => (
               <div
                 key={assignment.assignment_id}
-                className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm"
+                className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm"
               >
                 <div className="min-w-0">
                   <button
@@ -552,7 +552,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
                   >
                     {assignment.short_name || assignment.case_name || `Case #${assignment.case_id}`}
                   </button>
-                  <span className="text-xs text-slate-500">{assignment.role}</span>
+                  <span className="text-xs text-text-secondary">{assignment.role}</span>
                 </div>
                 {assignment.is_primary && (
                   <span className="text-xs px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
@@ -567,7 +567,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
 
       {/* Remove from Case button - only show when viewing from a case context */}
       {context?.caseId && !readOnly && (
-        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+        <div className="mt-6 pt-6 border-t border-border">
           <button
             onClick={() => setShowRemoveConfirm(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

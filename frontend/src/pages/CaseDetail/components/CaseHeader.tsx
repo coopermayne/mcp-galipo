@@ -116,7 +116,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
         renderValue={(value) => <StatusBadge status={value} />}
       />
       {/* Mobile: show short name */}
-      <span className="md:hidden text-sm font-medium text-slate-700 dark:text-slate-300">
+      <span className="md:hidden text-sm font-medium text-text-secondary">
         {caseData.short_name || ''}
       </span>
       {/* Desktop: show editable case name */}
@@ -124,7 +124,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
         <EditableText
           value={caseData.case_name}
           onSave={(value) => onUpdateField('case_name', value)}
-          className="text-xl font-semibold text-slate-900 dark:text-slate-100"
+          className="text-xl font-semibold text-text"
         />
       </span>
     </div>
@@ -138,7 +138,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
         onSave={(value) => onUpdateField('short_name', value || null)}
         placeholder="short name"
         maxLength={10}
-        className="text-sm text-slate-500 dark:text-slate-400"
+        className="text-sm text-text-muted"
       />
     </span>
   );
@@ -152,8 +152,8 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
         disabled={!prevCase}
         className={`p-2 rounded-lg transition-colors ${
           prevCase
-            ? 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+            ? 'text-text-muted hover:text-text-secondary hover:bg-bg-hover'
+            : 'text-text-muted cursor-not-allowed'
         }`}
         title={prevCase ? `Previous: ${prevCase.short_name || prevCase.case_name} (K)` : 'No previous case'}
       >
@@ -166,8 +166,8 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
         disabled={!nextCase}
         className={`p-2 rounded-lg transition-colors ${
           nextCase
-            ? 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-            : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+            ? 'text-text-muted hover:text-text-secondary hover:bg-bg-hover'
+            : 'text-text-muted cursor-not-allowed'
         }`}
         title={nextCase ? `Next: ${nextCase.short_name || nextCase.case_name} (J)` : 'No next case'}
       >
@@ -178,7 +178,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
       <div className="relative" ref={searchContainerRef}>
         <button
           onClick={() => setShowSearch(!showSearch)}
-          className="p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          className="p-2 rounded-lg text-text-muted hover:text-text-secondary hover:bg-bg-hover transition-colors"
           title="Jump to case (search)"
         >
           <Search className="w-5 h-5" />
@@ -186,22 +186,22 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
 
         {/* Search dropdown */}
         {showSearch && (
-          <div className="absolute top-full right-0 mt-1 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
-            <div className="p-2 border-b border-slate-200 dark:border-slate-700">
+          <div className="absolute top-full right-0 mt-1 w-80 bg-bg-surface border border-border rounded-lg shadow-lg z-50">
+            <div className="p-2 border-b border-border">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-bg-surface text-text placeholder-text-muted focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-secondary"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -210,23 +210,23 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
             </div>
             <div className="max-h-64 overflow-y-auto">
               {filteredCases.length === 0 ? (
-                <div className="p-4 text-center text-sm text-slate-400">No cases found</div>
+                <div className="p-4 text-center text-sm text-text-muted">No cases found</div>
               ) : (
                 filteredCases.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => handleNavigate(c.id)}
-                    className={`w-full px-4 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${
+                    className={`w-full px-4 py-2 text-left hover:bg-bg-hover transition-colors ${
                       c.id === caseData.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       {c.short_name && (
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                        <span className="text-xs font-medium text-text-muted bg-bg-hover px-1.5 py-0.5 rounded">
                           {c.short_name}
                         </span>
                       )}
-                      <span className="text-sm text-slate-900 dark:text-slate-100 truncate">
+                      <span className="text-sm text-text truncate">
                         {c.case_name}
                       </span>
                     </div>

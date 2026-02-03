@@ -23,10 +23,10 @@ export function ChatSuggestions({ mode, onSelectQuestion }: ChatSuggestionsProps
   const colors = getModeColorClasses(modeConfig.color);
 
   return (
-    <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+    <div className="px-4 py-3 border-t border-border bg-bg-hover">
       <div className="flex items-center gap-2 mb-2">
-        <Lightbulb className="w-4 h-4 text-slate-400" />
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+        <Lightbulb className="w-4 h-4 text-text-muted" />
+        <span className="text-xs font-medium text-text-muted">
           Suggested questions
         </span>
       </div>

@@ -21,32 +21,35 @@ import {
   Check,
   Link2,
   Trash2,
+  User,
 } from 'lucide-react';
-import type { Task, TaskStatus } from '../../types';
+import type { Task, TaskStatus, CaseStaffUser } from '../../types';
 import { EventLinkPopover } from './EventLinkPopover';
 import { STATUS_CONFIG, getStatusConfig } from './statusConfig';
 import { ActiveStatusIcon } from './ActiveStatusIcon';
+import { AssigneePicker } from './AssigneePicker';
 import { CaseChip } from '../common';
+import { useAuth } from '../../context/AuthContext';
+import { PRIORITY_COLORS, getPriorityColor } from '../../config/colors';
 import 'react-datepicker/dist/react-datepicker.css';
 
-// Priority config matching TaskItem
-const PRIORITY_OPTIONS = [
-  { value: 4, label: 'Priority 1', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
-  { value: 3, label: 'Priority 2', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  { value: 2, label: 'Priority 3', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  { value: 1, label: 'Priority 4', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
-] as const;
+// Priority options for picker UI
+const PRIORITY_OPTIONS = Object.entries(PRIORITY_COLORS)
+  .sort(([a], [b]) => Number(b) - Number(a)) // Sort by urgency descending (4, 3, 2, 1)
+  .map(([value, config]) => ({
+    value: Number(value),
+    label: config.label,
+    color: config.textClass,
+    bg: config.bgClass,
+  }));
 
 // Priority-based colors for status icons
-const URGENCY_COLORS = {
-  4: 'text-red-500',
-  3: 'text-orange-500',
-  2: 'text-blue-500',
-  1: 'text-slate-500 dark:text-slate-400',
+const URGENCY_TEXT_COLORS = {
+  4: PRIORITY_COLORS[4].textClass,
+  3: PRIORITY_COLORS[3].textClass,
+  2: PRIORITY_COLORS[2].textClass,
+  1: PRIORITY_COLORS[1].textClass,
 } as const;
-
-const getPriorityConfig = (urgency: number) =>
-  PRIORITY_OPTIONS.find(p => p.value === urgency) || PRIORITY_OPTIONS[3];
 
 export type SheetFocusMode = 'title' | 'comment' | 'date' | null;
 
@@ -64,6 +67,8 @@ interface TaskDetailSheetProps {
   hasNextTask?: boolean;
   /** What to focus when sheet opens */
   initialFocus?: SheetFocusMode;
+  /** List of users who can be assigned to this task */
+  eligibleAssignees?: CaseStaffUser[];
 }
 
 /**
@@ -71,7 +76,7 @@ interface TaskDetailSheetProps {
  */
 function formatDateDisplay(dateStr: string | undefined): { text: string; color: string } {
   if (!dateStr) {
-    return { text: 'No due date', color: 'text-slate-400' };
+    return { text: 'No due date', color: 'text-text-muted' };
   }
 
   const date = new Date(dateStr + 'T00:00:00');
@@ -92,7 +97,7 @@ function formatDateDisplay(dateStr: string | undefined): { text: string; color: 
   } else {
     return {
       text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      color: 'text-slate-700 dark:text-slate-300',
+      color: 'text-text-secondary',
     };
   }
 }
@@ -110,21 +115,26 @@ export function TaskDetailSheet({
   hasPrevTask = false,
   hasNextTask = false,
   initialFocus = null,
+  eligibleAssignees = [],
 }: TaskDetailSheetProps) {
+  const { user: currentUser } = useAuth();
   const [editedTitle, setEditedTitle] = useState(task?.description || '');
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [statusPickerPos, setStatusPickerPos] = useState({ top: 0, left: 0 });
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [priorityPickerPos, setPriorityPickerPos] = useState({ top: 0, left: 0 });
   const [showEventLinkPopover, setShowEventLinkPopover] = useState(false);
+  const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showAssigneePicker, setShowAssigneePicker] = useState(false);
+  const [assigneePickerAnchor, setAssigneePickerAnchor] = useState<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
   const statusButtonRef = useRef<HTMLButtonElement>(null);
   const priorityButtonRef = useRef<HTMLButtonElement>(null);
-  const eventLinkButtonRef = useRef<HTMLButtonElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const assigneeButtonRef = useRef<HTMLButtonElement>(null);
 
   // Sync title when task changes
   useEffect(() => {
@@ -166,6 +176,7 @@ export function TaskDetailSheet({
     setShowPriorityPicker(false);
     setShowEventLinkPopover(false);
     setShowMoreMenu(false);
+    setShowAssigneePicker(false);
   }, [task?.id]);
 
   // Prevent body scroll when open
@@ -192,6 +203,8 @@ export function TaskDetailSheet({
           setShowEventLinkPopover(false);
         } else if (showMoreMenu) {
           setShowMoreMenu(false);
+        } else if (showAssigneePicker) {
+          setShowAssigneePicker(false);
         } else {
           onClose();
         }
@@ -199,11 +212,11 @@ export function TaskDetailSheet({
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose, showStatusPicker, showPriorityPicker, showEventLinkPopover, showMoreMenu]);
+  }, [isOpen, onClose, showStatusPicker, showPriorityPicker, showEventLinkPopover, showMoreMenu, showAssigneePicker]);
 
   if (!isOpen || !task) return null;
 
-  const priorityConfig = getPriorityConfig(task.urgency);
+  const priorityConfig = getPriorityColor(task.urgency);
   const dateDisplay = formatDateDisplay(task.due_date);
   const isDone = task.status === 'Done';
 
@@ -279,6 +292,15 @@ export function TaskDetailSheet({
     setShowPriorityPicker(false);
   };
 
+  const handleAssigneeChange = async (assigneeId: number | null) => {
+    if (onUpdate) {
+      await onUpdate(task.id, { assignee_id: assigneeId });
+    }
+  };
+
+  // Check if current user is a paralegal (they can't change assignee)
+  const isParalegal = currentUser?.position === 'paralegal';
+
   return (
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
@@ -290,7 +312,7 @@ export function TaskDetailSheet({
       {/* Sheet - slides up from bottom on mobile, centered on desktop */}
       <div
         className="fixed inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
-                   bg-white dark:bg-slate-900
+                   bg-bg-surface
                    rounded-t-2xl sm:rounded-2xl
                    shadow-xl
                    max-h-[90vh] sm:max-h-[80vh] sm:w-full sm:max-w-lg
@@ -299,7 +321,7 @@ export function TaskDetailSheet({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           {/* Project/Case chip */}
           <CaseChip
             caseId={task.case_id}
@@ -313,14 +335,14 @@ export function TaskDetailSheet({
             <button
               onClick={onPrevTask}
               disabled={!hasPrevTask}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30"
+              className="p-2 text-text-muted hover:text-text-secondary disabled:opacity-30"
             >
               <ChevronUp className="w-5 h-5" />
             </button>
             <button
               onClick={onNextTask}
               disabled={!hasNextTask}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-30"
+              className="p-2 text-text-muted hover:text-text-secondary disabled:opacity-30"
             >
               <ChevronDown className="w-5 h-5" />
             </button>
@@ -328,7 +350,7 @@ export function TaskDetailSheet({
               <button
                 ref={moreButtonRef}
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="p-2 text-text-muted hover:text-text-secondary"
               >
                 <MoreHorizontal className="w-5 h-5" />
               </button>
@@ -341,7 +363,7 @@ export function TaskDetailSheet({
                     onClick={() => setShowMoreMenu(false)}
                   />
                   <div
-                    className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[140px] z-50"
+                    className="absolute right-0 top-full mt-1 bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden min-w-[140px] z-50"
                   >
                     <button
                       onClick={() => {
@@ -362,7 +384,7 @@ export function TaskDetailSheet({
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              className="p-2 text-text-muted hover:text-text-secondary"
             >
               <X className="w-5 h-5" />
             </button>
@@ -381,14 +403,12 @@ export function TaskDetailSheet({
                   w-6 h-6 mt-0.5 flex-shrink-0 rounded-full border-2
                   transition-all duration-150
                   ${isDone
-                    ? 'bg-slate-400 border-slate-400'
-                    : `border-${priorityConfig.color.replace('text-', '')} hover:bg-slate-50 dark:hover:bg-slate-800`
+                    ? 'bg-text-muted border-text-muted'
+                    : 'hover:bg-bg-hover'
                   }
                 `}
                 style={{
-                  borderColor: isDone ? undefined : priorityConfig.color.includes('red') ? '#ef4444' :
-                    priorityConfig.color.includes('orange') ? '#f97316' :
-                    priorityConfig.color.includes('blue') ? '#3b82f6' : '#94a3b8'
+                  borderColor: isDone ? undefined : priorityConfig.hex
                 }}
               >
                 {isDone && (
@@ -409,13 +429,13 @@ export function TaskDetailSheet({
                   onKeyDown={handleTitleKeyDown}
                   className={`
                     w-full text-lg font-medium bg-transparent border-none outline-none
-                    ${isDone ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}
+                    ${isDone ? 'text-text-muted line-through' : 'text-text'}
                   `}
                   placeholder="Task name"
                 />
 
                 {/* Description placeholder */}
-                <div className="flex items-center gap-2 mt-2 text-slate-400">
+                <div className="flex items-center gap-2 mt-2 text-text-muted">
                   <AlignLeft className="w-4 h-4" />
                   <span className="text-sm">Description</span>
                 </div>
@@ -424,10 +444,10 @@ export function TaskDetailSheet({
           </div>
 
           {/* Action rows */}
-          <div className="border-t border-slate-100 dark:border-slate-800">
+          <div className="border-t border-border">
             {/* Case/Project */}
-            <div className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <Briefcase className="w-5 h-5 text-slate-400" />
+            <div className="flex items-center gap-4 px-4 py-3 border-b border-border">
+              <Briefcase className="w-5 h-5 text-text-muted" />
               <CaseChip
                 caseId={task.case_id}
                 caseName={task.case_name}
@@ -437,7 +457,7 @@ export function TaskDetailSheet({
             </div>
 
             {/* Due date + Event Link */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800 flex items-center">
+            <div className="relative border-b border-border flex items-center">
               <DatePicker
                 selected={selectedDate}
                 onChange={handleDateChange}
@@ -464,12 +484,12 @@ export function TaskDetailSheet({
                     'July', 'August', 'September', 'October', 'November', 'December',
                   ];
                   return (
-                    <div className="flex items-center justify-between px-2 py-2 bg-white dark:bg-slate-700">
+                    <div className="flex items-center justify-between px-2 py-2 bg-bg-surface">
                       <button
                         type="button"
                         onClick={decreaseMonth}
                         disabled={prevMonthButtonDisabled}
-                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+                        className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -479,7 +499,7 @@ export function TaskDetailSheet({
                         <select
                           value={months[date.getMonth()]}
                           onChange={(e) => changeMonth(months.indexOf(e.target.value))}
-                          className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+                          className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
                         >
                           {months.map((month) => (
                             <option key={month} value={month}>
@@ -490,7 +510,7 @@ export function TaskDetailSheet({
                         <select
                           value={date.getFullYear()}
                           onChange={(e) => changeYear(Number(e.target.value))}
-                          className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+                          className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
                         >
                           {years.map((year) => (
                             <option key={year} value={year}>
@@ -503,7 +523,7 @@ export function TaskDetailSheet({
                         type="button"
                         onClick={increaseMonth}
                         disabled={nextMonthButtonDisabled}
-                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+                        className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -515,7 +535,7 @@ export function TaskDetailSheet({
                 customInput={
                   <button
                     ref={dateButtonRef}
-                    className="flex items-center gap-4 px-4 py-3 flex-1 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                    className="flex items-center gap-4 px-4 py-3 flex-1 text-left hover:bg-bg-hover"
                   >
                     <Calendar className={`w-5 h-5 ${dateDisplay.color}`} />
                     <span className={`text-sm ${dateDisplay.color}`}>
@@ -526,7 +546,7 @@ export function TaskDetailSheet({
               >
                 {/* Clear date button - only shown when a date is set */}
                 {selectedDate && (
-                  <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
+                  <div className="px-2 pb-2 pt-1 border-t border-border">
                     <button
                       type="button"
                       onClick={() => handleDateChange(null)}
@@ -540,40 +560,42 @@ export function TaskDetailSheet({
               {/* Event Link button - only show if case has events or already linked */}
               {(task.has_events || task.event_id) && (
                 <button
-                  ref={eventLinkButtonRef}
-                  onClick={() => setShowEventLinkPopover(true)}
-                  className="flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 border-l border-slate-100 dark:border-slate-800 min-w-0"
+                  onClick={(e) => {
+                    setEventLinkAnchor(e.currentTarget);
+                    setShowEventLinkPopover(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-3 text-left hover:bg-bg-hover border-l border-border min-w-0"
                 >
-                  <Link2 className={`w-5 h-5 flex-shrink-0 ${task.event_id ? 'text-primary-500' : 'text-slate-400'}`} />
+                  <Link2 className={`w-5 h-5 flex-shrink-0 ${task.event_id ? 'text-primary-500' : 'text-text-muted'}`} />
                   {task.event_id && task.event_date ? (
                     <div className="flex flex-col min-w-0">
                       <span className={`text-sm ${formatDateDisplay(task.event_date).color}`}>
                         {formatDateDisplay(task.event_date).text}
                       </span>
                       {task.event_description && (
-                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        <span className="text-xs text-text-muted truncate">
                           {task.event_description}
                         </span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-sm text-slate-400">Add event</span>
+                    <span className="text-sm text-text-muted">Add event</span>
                   )}
                 </button>
               )}
             </div>
 
             {/* Status */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800">
+            <div className="relative border-b border-border">
               <button
                 ref={statusButtonRef}
                 onClick={handleStatusClick}
-                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-bg-hover"
               >
                 {(() => {
                   const statusConfig = getStatusConfig(task.status);
                   const StatusIcon = statusConfig.icon;
-                  const urgencyColor = URGENCY_COLORS[task.urgency as keyof typeof URGENCY_COLORS] || URGENCY_COLORS[1];
+                  const urgencyColor = URGENCY_TEXT_COLORS[task.urgency as keyof typeof URGENCY_TEXT_COLORS] || URGENCY_TEXT_COLORS[1];
                   return (
                     <>
                       {task.status === 'Active' ? (
@@ -583,7 +605,7 @@ export function TaskDetailSheet({
                       ) : (
                         <StatusIcon className={`w-5 h-5 ${urgencyColor}`} />
                       )}
-                      <span className="text-sm text-slate-700 dark:text-slate-300">
+                      <span className="text-sm text-text-secondary">
                         {statusConfig.label}
                       </span>
                     </>
@@ -596,12 +618,12 @@ export function TaskDetailSheet({
             {showStatusPicker && createPortal(
               <div className="fixed inset-0 z-[9999]" onClick={() => setShowStatusPicker(false)}>
                 <div
-                  className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
+                  className="absolute bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden min-w-[200px]"
                   style={{ top: statusPickerPos.top, left: statusPickerPos.left }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {(() => {
-                    const urgencyColor = URGENCY_COLORS[task.urgency as keyof typeof URGENCY_COLORS] || URGENCY_COLORS[1];
+                    const urgencyColor = URGENCY_TEXT_COLORS[task.urgency as keyof typeof URGENCY_TEXT_COLORS] || URGENCY_TEXT_COLORS[1];
                     return STATUS_CONFIG.map((config) => {
                       const StatusIcon = config.icon;
                       const isSelected = task.status === config.value;
@@ -609,7 +631,7 @@ export function TaskDetailSheet({
                         <button
                           key={config.value}
                           onClick={() => handleStatusChange(config.value)}
-                          className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
+                          className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-bg-hover ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}`}
                         >
                           {config.value === 'Active' ? (
                             <span className={urgencyColor}>
@@ -618,7 +640,7 @@ export function TaskDetailSheet({
                           ) : (
                             <StatusIcon className={`w-4 h-4 ${urgencyColor}`} />
                           )}
-                          <span className="text-sm flex-1 text-slate-700 dark:text-slate-200">{config.label}</span>
+                          <span className="text-sm flex-1 text-text-secondary">{config.label}</span>
                           {isSelected && (
                             <Check className="w-4 h-4 text-primary-500" />
                           )}
@@ -631,15 +653,53 @@ export function TaskDetailSheet({
               document.getElementById('datepicker-portal') || document.body
             )}
 
+            {/* Assignee */}
+            <div className="relative border-b border-border">
+              <button
+                ref={assigneeButtonRef}
+                onClick={(e) => {
+                  if (!isParalegal) {
+                    setAssigneePickerAnchor(e.currentTarget);
+                    setShowAssigneePicker(true);
+                  }
+                }}
+                disabled={isParalegal}
+                className={`flex items-center gap-4 px-4 py-3 w-full text-left ${
+                  isParalegal
+                    ? 'cursor-default'
+                    : 'hover:bg-bg-hover'
+                }`}
+              >
+                <User className="w-5 h-5 text-text-muted" />
+                {task.assignee ? (
+                  <span className="text-sm text-text-secondary">
+                    {task.assignee.first_name} {task.assignee.last_name}
+                  </span>
+                ) : (
+                  <span className="text-sm text-text-muted">Unassigned</span>
+                )}
+              </button>
+            </div>
+
+            {/* Assignee Picker */}
+            <AssigneePicker
+              currentAssigneeId={task.assignee_id ?? null}
+              eligibleAssignees={eligibleAssignees}
+              onChange={handleAssigneeChange}
+              isOpen={showAssigneePicker}
+              onClose={() => setShowAssigneePicker(false)}
+              anchorEl={assigneePickerAnchor}
+            />
+
             {/* Priority */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800">
+            <div className="relative border-b border-border">
               <button
                 ref={priorityButtonRef}
                 onClick={handlePriorityClick}
-                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-bg-hover"
               >
-                <Flag className={`w-5 h-5 ${priorityConfig.color}`} />
-                <span className={`text-sm ${priorityConfig.color}`}>
+                <Flag className={`w-5 h-5 ${priorityConfig.textClass}`} />
+                <span className={`text-sm ${priorityConfig.textClass}`}>
                   {priorityConfig.label}
                 </span>
               </button>
@@ -649,7 +709,7 @@ export function TaskDetailSheet({
             {showPriorityPicker && createPortal(
               <div className="fixed inset-0 z-[9999]" onClick={() => setShowPriorityPicker(false)}>
                 <div
-                  className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px]"
+                  className="absolute bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden min-w-[200px]"
                   style={{ top: priorityPickerPos.top, left: priorityPickerPos.left }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -657,7 +717,7 @@ export function TaskDetailSheet({
                     <button
                       key={option.value}
                       onClick={() => handlePriorityChange(option.value)}
-                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${option.color}`}
+                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-bg-hover ${option.color}`}
                     >
                       <Flag className="w-4 h-4" />
                       <span className="text-sm flex-1">{option.label}</span>
@@ -676,7 +736,7 @@ export function TaskDetailSheet({
               <EventLinkPopover
                 task={task}
                 isOpen={showEventLinkPopover}
-                anchorEl={eventLinkButtonRef.current}
+                anchorEl={eventLinkAnchor}
                 onClose={() => setShowEventLinkPopover(false)}
                 onLinkEvent={(taskId, eventId) => {
                   if (onLinkEvent) {
@@ -690,17 +750,17 @@ export function TaskDetailSheet({
         </div>
 
         {/* Comment input at bottom */}
-        <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3">
+        <div className="border-t border-border px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-full">
+            <div className="w-8 h-8 rounded-full bg-bg-hover flex-shrink-0" />
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-bg-hover rounded-full">
               <input
                 ref={commentInputRef}
                 type="text"
                 placeholder="Comment"
-                className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400"
+                className="flex-1 bg-transparent border-none outline-none text-sm text-text-secondary placeholder-text-muted"
               />
-              <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <button className="text-text-muted hover:text-text-secondary">
                 <Paperclip className="w-4 h-4" />
               </button>
             </div>

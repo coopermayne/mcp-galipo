@@ -59,7 +59,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
       )}
 
       <div>
-        <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label htmlFor="currentPassword" className="block text-sm font-medium text-text-secondary mb-2">
           Current Password
         </label>
         <div className="relative">
@@ -68,7 +68,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
             type={showCurrentPassword ? 'text' : 'password'}
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full px-4 py-2 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            className="w-full px-4 py-2 pr-10 bg-bg-hover border border-border rounded-lg text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
             placeholder="Enter current password"
             required
             autoComplete="current-password"
@@ -77,7 +77,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
           <button
             type="button"
             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
           >
             {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -85,7 +85,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
       </div>
 
       <div>
-        <label htmlFor="newPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label htmlFor="newPassword" className="block text-sm font-medium text-text-secondary mb-2">
           New Password
         </label>
         <div className="relative">
@@ -94,7 +94,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
             type={showNewPassword ? 'text' : 'password'}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full px-4 py-2 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            className="w-full px-4 py-2 pr-10 bg-bg-hover border border-border rounded-lg text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
             placeholder="Enter new password"
             required
             autoComplete="new-password"
@@ -103,18 +103,18 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
           <button
             type="button"
             onClick={() => setShowNewPassword(!showNewPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
           >
             {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-xs text-text-muted">
           Must be at least 8 characters
         </p>
       </div>
 
       <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-secondary mb-2">
           Confirm New Password
         </label>
         <input
@@ -122,7 +122,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+          className="w-full px-4 py-2 bg-bg-hover border border-border rounded-lg text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
           placeholder="Confirm new password"
           required
           autoComplete="new-password"
@@ -136,7 +136,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 border border-border text-text-secondary font-medium rounded-lg hover:bg-bg-hover transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -144,7 +144,7 @@ export function ChangePasswordForm({ onSubmit, onCancel, isFirstLogin = false }:
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-bg-surface"
         >
           <Key className="w-5 h-5" />
           {isSubmitting ? 'Changing...' : 'Change Password'}

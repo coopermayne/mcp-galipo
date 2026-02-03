@@ -36,7 +36,7 @@ function StatusIcon({ status }: { status: string }) {
     case 'failed':
       return <XCircle className="w-4 h-4 text-red-500" />;
     default:
-      return <AlertCircle className="w-4 h-4 text-slate-400" />;
+      return <AlertCircle className="w-4 h-4 text-text-muted" />;
   }
 }
 
@@ -127,9 +127,9 @@ export function Webhooks() {
                 return (
                   <div
                     key={webhook.id}
-                    className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4"
+                    className="bg-bg-surface rounded-lg border border-border p-4"
                   >
-                    <span className="text-slate-400 text-sm">Invalid webhook data</span>
+                    <span className="text-text-muted text-sm">Invalid webhook data</span>
                   </div>
                 );
               }
@@ -145,29 +145,29 @@ export function Webhooks() {
               return (
                 <div
                   key={webhook.id}
-                  className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                  className="bg-bg-surface rounded-lg border border-border p-4 hover:border-border transition-colors"
                 >
                   {/* Header row */}
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
                       {pacerCaseId && (
                         <>
-                          <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                          <span className="font-mono text-xs text-text-muted">
                             {pacerCaseId}
                           </span>
-                          <span className="text-slate-300 dark:text-slate-600">|</span>
+                          <span className="text-text-muted">|</span>
                         </>
                       )}
-                      <span className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
+                      <span className="font-mono text-sm font-medium text-text">
                         Dkt #{entry.entry_number || '—'}
                       </span>
-                      <span className="text-slate-400">·</span>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                      <span className="text-text-muted">·</span>
+                      <span className="text-sm text-text-secondary truncate">
                         {caseName}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                      <span className="text-xs text-text-muted">
                         {formatDate(entry.date_filed)}
                       </span>
                       <StatusIcon status={webhook.processing_status} />
@@ -175,7 +175,7 @@ export function Webhooks() {
                   </div>
 
                   {/* Description */}
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                  <p className="text-sm text-text-secondary mb-3">
                     {truncate(entry.description, 200)}
                   </p>
 
@@ -188,7 +188,7 @@ export function Webhooks() {
                           href={`${COURTLISTENER_BASE}${doc.absolute_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-xs text-slate-700 dark:text-slate-300 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-bg-hover hover:bg-bg-hover rounded text-xs text-text-secondary transition-colors"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <FileText className="w-3 h-3" />
@@ -196,19 +196,19 @@ export function Webhooks() {
                             ? `Attachment ${doc.attachment_number}`
                             : doc.description || `Doc ${doc.document_number}`}
                           {doc.page_count && (
-                            <span className="text-slate-400">({doc.page_count}p)</span>
+                            <span className="text-text-muted">({doc.page_count}p)</span>
                           )}
-                          <ExternalLink className="w-3 h-3 text-slate-400" />
+                          <ExternalLink className="w-3 h-3 text-text-muted" />
                         </a>
                       ))}
                     </div>
                   )}
 
                   {/* Footer with detail link */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                     <button
                       onClick={() => navigate(`/courtlistener/${webhook.id}`)}
-                      className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                      className="text-xs text-primary-600 hover:text-primary-700"
                     >
                       View full payload →
                     </button>
@@ -216,7 +216,7 @@ export function Webhooks() {
                       href={docketUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 inline-flex items-center gap-1"
+                      className="text-xs text-text-muted hover:text-text-secondary inline-flex items-center gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Full docket

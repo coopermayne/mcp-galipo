@@ -27,15 +27,15 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="relative bg-bg-surface rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-text">
             Change Password
           </h2>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded"
+            className="p-1 text-text-muted hover:text-text-secondary rounded"
           >
             <X className="w-5 h-5" />
           </button>

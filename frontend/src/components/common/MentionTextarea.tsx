@@ -349,7 +349,7 @@ export function MentionTextarea({
       {/* Placeholder */}
       {showPlaceholder && (
         <div
-          className="absolute top-0 left-0 pointer-events-none text-slate-400 px-3 py-2 text-sm"
+          className="absolute top-0 left-0 pointer-events-none text-text-muted px-3 py-2 text-sm"
           aria-hidden="true"
         >
           {placeholder}

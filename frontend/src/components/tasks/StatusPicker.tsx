@@ -16,7 +16,7 @@ const PRIORITY_COLORS = {
   4: 'text-red-500',
   3: 'text-orange-500',
   2: 'text-blue-500',
-  1: 'text-slate-500 dark:text-slate-400',
+  1: 'text-text-muted',
 } as const;
 
 interface StatusPickerProps {
@@ -103,7 +103,7 @@ export function StatusPicker({
   return createPortal(
     <div
       ref={popoverRef}
-      className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-[9999]"
+      className="fixed bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden z-[9999]"
       style={{ top: position.top, left: position.left, minWidth: 160 }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -118,7 +118,7 @@ export function StatusPicker({
               onClick={() => onSelect(config.value)}
               className={`
                 flex items-center gap-3 w-full px-3 py-2 text-left text-sm
-                hover:bg-slate-50 dark:hover:bg-slate-700
+                hover:bg-bg-hover
                 ${isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''}
               `}
             >
@@ -129,7 +129,7 @@ export function StatusPicker({
               ) : (
                 <Icon className={`w-4 h-4 ${color}`} />
               )}
-              <span className="flex-1 text-slate-700 dark:text-slate-200">
+              <span className="flex-1 text-text">
                 {config.label}
               </span>
               {isSelected && (

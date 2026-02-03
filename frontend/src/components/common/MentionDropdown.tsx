@@ -50,9 +50,9 @@ export function MentionDropdown({
       <div
         ref={dropdownRef}
         style={{ top: position.top, left: position.left }}
-        className="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded shadow-lg min-w-[200px] max-w-[300px]"
+        className="absolute z-50 bg-bg-surface border border-border rounded shadow-lg min-w-[200px] max-w-[300px]"
       >
-        <div className="px-3 py-2 text-xs text-slate-400">
+        <div className="px-3 py-2 text-xs text-text-muted">
           {persons.length === 0 ? 'No people on this case' : 'No matches found'}
         </div>
       </div>
@@ -63,7 +63,7 @@ export function MentionDropdown({
     <div
       ref={dropdownRef}
       style={{ top: position.top, left: position.left }}
-      className="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded shadow-lg max-h-48 overflow-y-auto min-w-[200px] max-w-[300px]"
+      className="absolute z-50 bg-bg-surface border border-border rounded shadow-lg max-h-48 overflow-y-auto min-w-[200px] max-w-[300px]"
     >
       {filteredPersons.map((person, index) => (
         <button
@@ -75,15 +75,15 @@ export function MentionDropdown({
           className={`w-full px-3 py-2 text-left text-xs flex items-start gap-2 ${
             highlightedIndex === index
               ? 'bg-primary-50 dark:bg-primary-900/30'
-              : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+              : 'hover:bg-bg-hover'
           }`}
         >
-          <User className="w-3 h-3 mt-0.5 text-slate-400 shrink-0" />
+          <User className="w-3 h-3 mt-0.5 text-text-muted shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
+            <div className="font-medium text-text truncate">
               {person.name}
             </div>
-            <div className="text-slate-500 dark:text-slate-400 truncate">
+            <div className="text-text-secondary truncate">
               {person.role}
               {person.organization && ` · ${person.organization}`}
             </div>

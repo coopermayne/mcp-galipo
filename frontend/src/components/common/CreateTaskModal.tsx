@@ -248,12 +248,12 @@ export function CreateTaskModal({
       'July', 'August', 'September', 'October', 'November', 'December',
     ];
     return (
-      <div className="flex items-center justify-between px-2 py-2 bg-white dark:bg-slate-700">
+      <div className="flex items-center justify-between px-2 py-2 bg-bg-surface">
         <button
           type="button"
           onClick={decreaseMonth}
           disabled={prevMonthButtonDisabled}
-          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+          className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -263,7 +263,7 @@ export function CreateTaskModal({
           <select
             value={months[date.getMonth()]}
             onChange={(e) => changeMonth(months.indexOf(e.target.value))}
-            className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+            className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
           >
             {months.map((month) => (
               <option key={month} value={month}>
@@ -274,7 +274,7 @@ export function CreateTaskModal({
           <select
             value={date.getFullYear()}
             onChange={(e) => changeYear(Number(e.target.value))}
-            className="px-2 py-1 text-sm bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded text-slate-900 dark:text-slate-100 cursor-pointer"
+            className="px-2 py-1 text-sm bg-bg-surface border border-border rounded text-text cursor-pointer"
           >
             {years.map((year) => (
               <option key={year} value={year}>
@@ -287,7 +287,7 @@ export function CreateTaskModal({
           type="button"
           onClick={increaseMonth}
           disabled={nextMonthButtonDisabled}
-          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded disabled:opacity-30 text-slate-700 dark:text-slate-200"
+          className="p-1 hover:bg-bg-hover rounded disabled:opacity-30 text-text-secondary"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -310,7 +310,7 @@ export function CreateTaskModal({
       {/* Sheet - slides up from bottom on mobile, centered on desktop */}
       <div
         className="fixed inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
-                   bg-white dark:bg-slate-900
+                   bg-bg-surface
                    rounded-t-2xl sm:rounded-2xl
                    shadow-xl
                    max-h-[90vh] sm:max-h-[80vh] sm:w-full sm:max-w-lg
@@ -319,13 +319,13 @@ export function CreateTaskModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="text-base font-semibold text-text">
             New Task
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="p-2 text-text-muted hover:text-text"
           >
             <X className="w-5 h-5" />
           </button>
@@ -367,7 +367,7 @@ export function CreateTaskModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   onKeyDown={handleTitleKeyDown}
-                  className="w-full text-lg font-medium bg-transparent border-none outline-none text-slate-900 dark:text-slate-100"
+                  className="w-full text-lg font-medium bg-transparent border-none outline-none text-text"
                   placeholder="Task name"
                 />
               </div>
@@ -375,16 +375,16 @@ export function CreateTaskModal({
           </div>
 
           {/* Action rows */}
-          <div className="border-t border-slate-100 dark:border-slate-800">
+          <div className="border-t border-border">
             {/* Case/Project - only show if no preselected case */}
             {!preselectedCaseId && (
-              <div className="relative border-b border-slate-100 dark:border-slate-800">
+              <div className="relative border-b border-border">
                 <button
                   onClick={() => setShowCasePicker(!showCasePicker)}
-                  className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-bg-hover"
                 >
-                  <Briefcase className={`w-5 h-5 ${selectedCaseId ? 'text-slate-600 dark:text-slate-400' : 'text-orange-500'}`} />
-                  <span className={`text-sm ${selectedCaseId ? 'text-slate-700 dark:text-slate-300' : 'text-orange-500'}`}>
+                  <Briefcase className={`w-5 h-5 ${selectedCaseId ? 'text-text-secondary' : 'text-orange-500'}`} />
+                  <span className={`text-sm ${selectedCaseId ? 'text-text' : 'text-orange-500'}`}>
                     {selectedCase?.short_name || selectedCase?.case_name || 'Select case'}
                   </span>
                 </button>
@@ -396,17 +396,17 @@ export function CreateTaskModal({
                       className="fixed inset-0 z-40"
                       onClick={() => setShowCasePicker(false)}
                     />
-                    <div className="absolute left-4 right-4 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-[300px] overflow-hidden">
+                    <div className="absolute left-4 right-4 top-full mt-1 bg-bg-surface border border-border rounded-lg shadow-xl z-50 max-h-[300px] overflow-hidden">
                       {/* Search */}
-                      <div className="p-2 border-b border-slate-100 dark:border-slate-700">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg">
-                          <Inbox className="w-4 h-4 text-slate-400" />
+                      <div className="p-2 border-b border-border">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-bg-hover rounded-lg">
+                          <Inbox className="w-4 h-4 text-text-muted" />
                           <input
                             type="text"
                             value={caseSearch}
                             onChange={(e) => setCaseSearch(e.target.value)}
                             placeholder="Search cases..."
-                            className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400"
+                            className="flex-1 bg-transparent border-none outline-none text-sm text-text placeholder-text-muted"
                             autoFocus
                           />
                         </div>
@@ -421,12 +421,12 @@ export function CreateTaskModal({
                               setShowCasePicker(false);
                               setCaseSearch('');
                             }}
-                            className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                            className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-bg-hover ${
                               c.id === selectedCaseId ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                             }`}
                           >
-                            <Inbox className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm flex-1 text-slate-700 dark:text-slate-200 truncate">
+                            <Inbox className="w-4 h-4 text-text-muted" />
+                            <span className="text-sm flex-1 text-text truncate">
                               {c.short_name || c.case_name}
                             </span>
                             {c.id === selectedCaseId && (
@@ -435,7 +435,7 @@ export function CreateTaskModal({
                           </button>
                         ))}
                         {filteredCases.length === 0 && (
-                          <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                          <div className="px-4 py-3 text-sm text-text-muted text-center">
                             {caseSearch ? 'No matching cases' : 'No active cases'}
                           </div>
                         )}
@@ -447,7 +447,7 @@ export function CreateTaskModal({
             )}
 
             {/* Due date */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800">
+            <div className="relative border-b border-border">
               <DatePicker
                 selected={displayDate}
                 onChange={(date: Date | null) => {
@@ -463,7 +463,7 @@ export function CreateTaskModal({
                 portalId="datepicker-portal"
                 renderCustomHeader={renderDatePickerHeader}
                 customInput={
-                  <button className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800">
+                  <button className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-bg-hover">
                     <Calendar className={`w-5 h-5 ${dateDisplay.color}`} />
                     <span className={`text-sm ${dateDisplay.color}`}>
                       {dateDisplay.text}
@@ -473,7 +473,7 @@ export function CreateTaskModal({
               >
                 {/* Clear date button */}
                 {displayDate && (
-                  <div className="px-2 pb-2 pt-1 border-t border-slate-200 dark:border-slate-600">
+                  <div className="px-2 pb-2 pt-1 border-t border-border">
                     <button
                       type="button"
                       onClick={() => {
@@ -490,10 +490,10 @@ export function CreateTaskModal({
             </div>
 
             {/* Priority */}
-            <div className="relative border-b border-slate-100 dark:border-slate-800">
+            <div className="relative border-b border-border">
               <button
                 onClick={() => setShowPriorityPicker(!showPriorityPicker)}
-                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="flex items-center gap-4 px-4 py-3 w-full text-left hover:bg-bg-hover"
               >
                 <Flag className={`w-5 h-5 ${priorityConfig.color}`} />
                 <span className={`text-sm ${priorityConfig.color}`}>
@@ -508,7 +508,7 @@ export function CreateTaskModal({
                     className="fixed inset-0 z-40"
                     onClick={() => setShowPriorityPicker(false)}
                   />
-                  <div className="absolute left-4 right-4 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
+                  <div className="absolute left-4 right-4 top-full mt-1 bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden z-50">
                     {PRIORITY_OPTIONS.map((option) => (
                       <button
                         key={option.value}
@@ -516,7 +516,7 @@ export function CreateTaskModal({
                           setUrgency(option.value);
                           setShowPriorityPicker(false);
                         }}
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${option.color}`}
+                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-bg-hover ${option.color}`}
                       >
                         <Flag className="w-4 h-4" />
                         <span className="text-sm flex-1">{option.label}</span>
@@ -533,12 +533,12 @@ export function CreateTaskModal({
         </div>
 
         {/* Footer with action buttons */}
-        <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 flex gap-3">
+        <div className="border-t border-border px-4 py-3 flex gap-3">
           <button
             type="button"
             onClick={onClose}
             disabled={createMutation.isPending}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-text-secondary bg-bg-hover hover:bg-bg-hover/80 rounded-lg transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -546,7 +546,7 @@ export function CreateTaskModal({
             type="button"
             onClick={handleSubmit}
             disabled={createMutation.isPending || !canSubmit}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900"
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Task'}
           </button>

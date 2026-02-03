@@ -145,26 +145,26 @@ export function EventLinkPopover({
   return createPortal(
     <div
       ref={popoverRef}
-      className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-[9999]"
+      className="fixed bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden z-[9999]"
       style={{ top: position.top, left: position.left, width: 340 }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Search header */}
-      <div className="p-2 border-b border-slate-200 dark:border-slate-700">
+      <div className="p-2 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             ref={inputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="w-full pl-8 pr-8 py-1.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-md outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
+            className="w-full pl-8 pr-8 py-1.5 text-sm bg-bg-hover border border-border rounded-md outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-text placeholder-text-muted"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
             >
               <X className="w-4 h-4" />
             </button>
@@ -174,11 +174,11 @@ export function EventLinkPopover({
 
       {/* Currently linked event */}
       {task.event_id && (
-        <div className="px-3 py-2 bg-primary-50 dark:bg-primary-900/20 border-b border-slate-200 dark:border-slate-700">
+        <div className="px-3 py-2 bg-primary-50 dark:bg-primary-900/20 border-b border-border">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm min-w-0">
               <Link2 className="w-4 h-4 text-primary-500 flex-shrink-0" />
-              <span className="text-slate-700 dark:text-slate-300 truncate">
+              <span className="text-text-secondary truncate">
                 {task.event_description}
               </span>
             </div>
@@ -196,10 +196,10 @@ export function EventLinkPopover({
       <div className="max-h-[260px] overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="text-center py-6 text-sm text-slate-500">
+          <div className="text-center py-6 text-sm text-text-muted">
             {searchQuery ? 'No matching events' : 'No events in this case'}
           </div>
         ) : (
@@ -208,14 +208,14 @@ export function EventLinkPopover({
               <button
                 key={event.id}
                 onClick={() => handleSelectEvent(event)}
-                className={`w-full px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 ${
+                className={`w-full px-3 py-2.5 text-left hover:bg-bg-hover flex items-center gap-3 ${
                   event.id === task.event_id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                 }`}
               >
-                <div className="flex-shrink-0 w-16 text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex-shrink-0 w-16 text-xs text-text-muted">
                   {formatEventDate(event.date)}
                 </div>
-                <div className="flex-1 min-w-0 text-sm text-slate-900 dark:text-slate-100 truncate">
+                <div className="flex-1 min-w-0 text-sm text-text truncate">
                   {event.description}
                 </div>
                 {event.id === task.event_id && (

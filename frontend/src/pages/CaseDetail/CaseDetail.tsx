@@ -145,7 +145,7 @@ export function CaseDetail() {
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-text-muted" />
       </div>
     );
   }
@@ -153,7 +153,7 @@ export function CaseDetail() {
   if (!caseData) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-slate-400">Case not found</p>
+        <p className="text-text-muted">Case not found</p>
       </div>
     );
   }
@@ -179,7 +179,7 @@ export function CaseDetail() {
       />
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 dark:border-slate-700 px-6">
+      <div className="border-b border-border px-6">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -190,14 +190,14 @@ export function CaseDetail() {
                 ${
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    : 'border-transparent text-text-muted hover:text-text'
                 }
               `}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="px-1.5 py-0.5 text-xs bg-slate-200 dark:bg-slate-700 rounded-full">
+                <span className="px-1.5 py-0.5 text-xs bg-bg-hover rounded-full">
                   {tab.count}
                 </span>
               )}

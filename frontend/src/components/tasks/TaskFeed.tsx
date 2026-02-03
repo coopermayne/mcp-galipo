@@ -279,7 +279,7 @@ function SectionHeader({
         {group.isCollapsible && (
           <button
             onClick={onToggleCollapse}
-            className="p-0.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+            className="p-0.5 text-text-muted hover:text-text"
           >
             {isCollapsed ? (
               <ChevronRight className="w-4 h-4" />
@@ -288,7 +288,7 @@ function SectionHeader({
             )}
           </button>
         )}
-        <h3 className={`text-sm font-semibold ${group.isOverdue ? 'text-slate-900 dark:text-slate-100' : 'text-slate-900 dark:text-slate-100'}`}>
+        <h3 className="text-sm font-semibold text-text">
           {group.label}
         </h3>
       </div>
@@ -543,7 +543,7 @@ export function TaskFeed({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
       </div>
     );
   }
@@ -551,7 +551,7 @@ export function TaskFeed({
   if (tasks.length === 0) {
     return (
       <div className={compact ? "py-2" : "py-8"}>
-        <div className={`text-center text-slate-500 dark:text-slate-400 ${compact ? 'py-2 text-xs' : 'py-8'}`}>
+        <div className={`text-center text-text-secondary ${compact ? 'py-2 text-xs' : 'py-8'}`}>
           {emptyMessage}
         </div>
         {!compact && (inlineCreateContext?.groupKey === 'empty' ? (
@@ -629,7 +629,7 @@ export function TaskFeed({
                   onToggleCollapse={group.isCollapsible ? () => toggleSection(group.key) : undefined}
                   onReschedule={group.isOverdue ? onRescheduleOverdue : undefined}
                 />
-                <div className="border-b border-slate-200 dark:border-slate-700 mx-2" />
+                <div className="border-b border-border mx-2" />
               </>
             )}
 

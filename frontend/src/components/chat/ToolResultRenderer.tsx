@@ -157,7 +157,7 @@ function JsonResult({ result, isError }: { result: string; isError?: boolean }) 
       className={`text-xs rounded p-2 overflow-x-auto max-h-48 overflow-y-auto ${
         isError
           ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
-          : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900'
+          : 'text-text-secondary bg-bg-surface'
       }`}
     >
       {formatted}

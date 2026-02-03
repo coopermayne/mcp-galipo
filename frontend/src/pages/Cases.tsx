@@ -97,26 +97,26 @@ export function Cases() {
           <div className="px-4 py-3 flex items-center gap-4">
             {/* Search */}
             <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
               <input
                 type="text"
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
 
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600" />
+            <div className="h-6 w-px bg-border" />
 
             {/* Status Filter */}
-            <Filter className="w-4 h-4 text-slate-400" />
+            <Filter className="w-4 h-4 text-text-muted" />
             <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-500 dark:text-slate-400">Status:</label>
+              <label className="text-sm text-text-muted">Status:</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                className="px-3 py-1.5 rounded-lg border border-border text-sm bg-bg-surface text-text"
               >
                 <option value="">All</option>
                 {constants?.case_statuses.map((status) => (
@@ -143,7 +143,7 @@ export function Cases() {
 
         {/* Quick Add Form */}
         {isCreating && (
-          <div className="mb-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm transition-colors">
+          <div className="mb-4 bg-bg-surface rounded-lg border border-border p-4 shadow-sm transition-colors">
             <form onSubmit={handleCreateCase} className="flex items-center gap-3">
               <input
                 type="text"
@@ -151,8 +151,8 @@ export function Cases() {
                 onChange={(e) => setNewCaseName(e.target.value)}
                 placeholder="Enter case name (e.g., Martinez v. City of LA)"
                 className="
-                  flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                  bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+                  flex-1 px-3 py-2 rounded-lg border border-border
+                  bg-bg-hover text-text placeholder-text-muted
                   focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                   outline-none text-sm transition-colors
                 "
@@ -178,8 +178,8 @@ export function Cases() {
                   setNewCaseName('');
                 }}
                 className="
-                  px-4 py-2 text-slate-600 dark:text-slate-300 rounded-lg
-                  hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
+                  px-4 py-2 text-text-secondary rounded-lg
+                  hover:bg-bg-hover transition-colors
                   text-sm font-medium
                 "
               >
@@ -205,13 +205,13 @@ export function Cases() {
                 <ListPanel.Row key={caseItem.id}>
                   <button
                     onClick={() => navigate(`/cases/${caseItem.id}`)}
-                    className="flex-1 text-left min-w-0 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                    className="flex-1 text-left min-w-0 hover:text-primary-600 transition-colors"
                   >
-                    <span className="font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400">
+                    <span className="font-medium text-text hover:text-primary-600">
                       {caseItem.short_name || caseItem.case_name}
                     </span>
                     {caseItem.short_name && (
-                      <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                      <span className="block text-xs text-text-muted truncate">
                         {caseItem.case_name}
                       </span>
                     )}

@@ -62,7 +62,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
         cur.execute("""
             SELECT id, email, password_hash, first_name, last_name, initials,
                    bar_number, position, is_admin, must_change_password, is_active,
-                   created_at, updated_at
+                   paralegal_id, created_at, updated_at
             FROM users
             WHERE email = %s
         """, (email.lower(),))
