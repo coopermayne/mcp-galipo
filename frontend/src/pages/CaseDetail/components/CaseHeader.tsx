@@ -3,17 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { Header } from '../../../components/layout';
-import { EditableText, EditableSelect, StatusBadge } from '../../../components/common';
+import { EditableText } from '../../../components/common';
 import { getCases } from '../../../api';
 import type { Case } from '../../../types';
 
 interface CaseHeaderProps {
   caseData: Case;
-  statusOptions: { value: string; label: string }[];
   onUpdateField: (field: string, value: string | number | null) => Promise<void>;
 }
 
-export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeaderProps) {
+export function CaseHeader({ caseData, onUpdateField }: CaseHeaderProps) {
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,20 +105,14 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
     setSearchQuery('');
   };
 
-  // Custom title: Status + Short name (mobile) or Status + Case name (desktop)
+  // Simple title: Case name (consistent with other page headers)
   const title = (
-    <div className="flex items-center gap-3">
-      <EditableSelect
-        value={caseData.status}
-        options={statusOptions}
-        onSave={(value) => onUpdateField('status', value)}
-        renderValue={(value) => <StatusBadge status={value} />}
-      />
-      {/* Mobile: show short name */}
-      <span className="md:hidden text-sm font-medium text-text-secondary">
-        {caseData.short_name || ''}
+    <>
+      {/* Mobile: show short name or truncated case name */}
+      <span className="md:hidden">
+        {caseData.short_name || caseData.case_name}
       </span>
-      {/* Desktop: show editable case name */}
+      {/* Desktop: full editable case name */}
       <span className="hidden md:inline">
         <EditableText
           value={caseData.case_name}
@@ -127,7 +120,7 @@ export function CaseHeader({ caseData, statusOptions, onUpdateField }: CaseHeade
           className="text-xl font-semibold text-text"
         />
       </span>
-    </div>
+    </>
   );
 
   // Editable short name as subtitle (desktop only)
