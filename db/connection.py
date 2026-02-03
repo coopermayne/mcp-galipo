@@ -5,6 +5,7 @@ Database connection pooling, initialization, and migrations.
 import os
 import atexit
 import psycopg2
+from pathlib import Path
 from psycopg2.pool import ThreadedConnectionPool
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
@@ -867,7 +868,76 @@ def migrate_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assignee_id ON tasks(assignee_id)")
             print("  - Added assignee_id column to tasks")
 
+        # Run SQL migration files from migrations/ folder
+        run_sql_migrations(cur)
+
         print("Database migration complete.")
+
+
+def run_sql_migrations(cur):
+    """Run SQL migration files from the migrations/ folder.
+
+    Tracks which migrations have been run in a schema_migrations table.
+    Migration files should be named with a numeric prefix for ordering (e.g., 001_init.sql).
+    """
+    # Create schema_migrations table if it doesn't exist
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            id SERIAL PRIMARY KEY,
+            filename VARCHAR(255) NOT NULL UNIQUE,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Seed with migrations that were already integrated into migrate_db() inline
+    # This prevents them from running again on existing databases
+    already_integrated = [
+        "001_remove_court_id_from_cases.sql",
+        "002_proceeding_judges.sql",
+        "003_rename_proceeding_judges_to_judges.sql",
+        "004_webhook_logs.sql",
+        "005_courtlistener_docket_id.sql",
+        "006_users.sql",
+        "007_ensure_admin_user.sql",
+        "008_completion_date_to_timestamp.sql",
+        "009_case_color.sql",
+        "010_user_assignments.sql",
+    ]
+    for filename in already_integrated:
+        cur.execute(
+            "INSERT INTO schema_migrations (filename) VALUES (%s) ON CONFLICT (filename) DO NOTHING",
+            (filename,)
+        )
+
+    # Get list of already-run migrations
+    cur.execute("SELECT filename FROM schema_migrations")
+    applied = {row[0] for row in cur.fetchall()}
+
+    # Find migrations folder (relative to this file)
+    migrations_dir = Path(__file__).parent.parent / "migrations"
+    if not migrations_dir.exists():
+        return
+
+    # Get all .sql files, sorted by name (numeric prefix ensures order)
+    sql_files = sorted(migrations_dir.glob("*.sql"))
+
+    for sql_file in sql_files:
+        filename = sql_file.name
+        if filename in applied:
+            continue
+
+        print(f"  - Running migration: {filename}")
+        try:
+            sql_content = sql_file.read_text()
+            cur.execute(sql_content)
+            cur.execute(
+                "INSERT INTO schema_migrations (filename) VALUES (%s)",
+                (filename,)
+            )
+            print(f"    ✓ {filename} applied successfully")
+        except Exception as e:
+            print(f"    ✗ {filename} failed: {e}")
+            raise
 
 
 def init_db():
