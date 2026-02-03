@@ -1261,11 +1261,25 @@ def register_tools(mcp):
             "San Diego Superior", "Riverside Superior", "San Bernardino Superior"
             Any other name will create a new jurisdiction.
 
-        tasks[].status (default "Pending"):
-            "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+        proceedings[].judges (multiple judges per proceeding):
+            Each proceeding can have multiple judges (e.g. district judge + magistrate,
+            or appellate panel). Specify as an array of objects with explicit roles:
+            [
+                {"name": "Hon. Jane Wilson", "role": "Judge"},
+                {"name": "Mag. Robert Chen", "role": "Magistrate Judge"}
+            ]
+            For appellate panels:
+            [
+                {"name": "Hon. Smith", "role": "Presiding"},
+                {"name": "Hon. Jones", "role": "Panel"},
+                {"name": "Hon. Davis", "role": "Panel"}
+            ]
+            Valid roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
+            Shortcut: "judge_name": "Hon. Smith" for a single judge.
 
-        tasks[].urgency (default 2):
-            1=Low, 2=Medium, 3=High, 4=Urgent
+        events[] - encompasses ALL calendar items: hearings, deadlines,
+            depositions, CMCs, mediations, trial dates, filing deadlines, etc.
+            Use the description to indicate the type of event.
 
         activities[].type (default "Other"):
             "Meeting", "Filing", "Research", "Drafting", "Document Review",
@@ -1300,6 +1314,10 @@ def register_tools(mcp):
                     "attributes": {"department": "5", "courtroom": "302"}
                 },
                 {
+                    "name": "Mag. Robert Chen",
+                    "role": "Magistrate Judge"
+                },
+                {
                     "name": "Bob Attorney",
                     "role": "Opposing Counsel",
                     "organization": "Smith & Associates LLP",
@@ -1312,7 +1330,10 @@ def register_tools(mcp):
                 {
                     "case_number": "24STCV12345" (REQUIRED),
                     "jurisdiction": "Los Angeles Superior",
-                    "judge_name": "Hon. Jane Wilson",
+                    "judges": [
+                        {"name": "Hon. Jane Wilson", "role": "Judge"},
+                        {"name": "Mag. Robert Chen", "role": "Magistrate Judge"}
+                    ],
                     "is_primary": true
                 }
             ],
@@ -1322,14 +1343,11 @@ def register_tools(mcp):
                     "description": "Case Management Conference" (REQUIRED),
                     "time": "09:00",
                     "location": "Dept 5, Stanley Mosk Courthouse"
-                }
-            ],
-            "tasks": [
+                },
                 {
-                    "description": "Propound written discovery" (REQUIRED),
-                    "due_date": "2024-05-01",
-                    "status": "Pending",
-                    "urgency": 2
+                    "date": "2024-07-01",
+                    "description": "Deadline: Respond to Form Interrogatories",
+                    "calculation_note": "CCP 2030.260(a), 35 days from service"
                 }
             ],
             "notes": [
