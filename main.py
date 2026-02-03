@@ -127,8 +127,8 @@ register_tools(mcp)
 register_routes(mcp)
 
 # Export ASGI app for uvicorn/gunicorn
-# Get the FastAPI app and add lifespan
-app = mcp.http_app()
+# Get the FastAPI app with SSE transport for Claude.ai/Claude Desktop
+app = mcp.http_app(transport="sse")
 app.router.lifespan_context = lifespan
 
 if __name__ == "__main__":
