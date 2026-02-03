@@ -5,9 +5,12 @@ Provides password-protected OAuth 2.1 flow for Claude Desktop/Claude.ai.
 Uses Dynamic Client Registration (RFC 7591) as required by Claude.
 """
 
+import logging
 import os
 import secrets
 import time
+
+logger = logging.getLogger(__name__)
 from urllib.parse import urlencode
 
 from mcp.server.auth.provider import (
@@ -74,6 +77,7 @@ class PasswordOAuthProvider(OAuthProvider):
         if client_info.client_id is None:
             raise ValueError("client_id is required")
         self.clients[client_info.client_id] = client_info
+        logger.info(f"[OAuth] Registered client: {client_info.client_id}")
 
     # --- Authorization ---
 
@@ -106,9 +110,11 @@ class PasswordOAuthProvider(OAuthProvider):
             code_challenge=params.code_challenge,
         )
 
-        return construct_redirect_uri(
+        redirect_url = construct_redirect_uri(
             str(params.redirect_uri), code=code, state=params.state
         )
+        logger.info(f"[OAuth] Created auth code for client {client.client_id}, redirecting to {redirect_url[:100]}...")
+        return redirect_url
 
     # --- Token Exchange ---
 
@@ -117,17 +123,23 @@ class PasswordOAuthProvider(OAuthProvider):
     ) -> AuthorizationCode | None:
         auth_code = self.auth_codes.get(authorization_code)
         if not auth_code:
+            logger.warning(f"[OAuth] Auth code not found: {authorization_code[:20]}...")
             return None
         if auth_code.client_id != client.client_id:
+            logger.warning(f"[OAuth] Auth code client mismatch: {auth_code.client_id} != {client.client_id}")
             return None
         if auth_code.expires_at < time.time():
+            logger.warning(f"[OAuth] Auth code expired for client {client.client_id}")
             del self.auth_codes[authorization_code]
             return None
+        logger.info(f"[OAuth] Auth code validated for client {client.client_id}")
         return auth_code
 
     async def exchange_authorization_code(
         self, client: OAuthClientInformationFull, authorization_code: AuthorizationCode
     ) -> OAuthToken:
+        logger.info(f"[OAuth] Exchanging auth code for client {client.client_id}")
+
         # Consume the auth code
         if authorization_code.code in self.auth_codes:
             del self.auth_codes[authorization_code.code]
@@ -153,6 +165,7 @@ class PasswordOAuthProvider(OAuthProvider):
             expires_at=int(time.time() + REFRESH_TOKEN_EXPIRY),
         )
 
+        logger.info(f"[OAuth] Issued tokens for client {client.client_id}")
         return OAuthToken(
             access_token=access_token,
             token_type="Bearer",
@@ -226,14 +239,19 @@ class PasswordOAuthProvider(OAuthProvider):
     async def load_access_token(self, token: str) -> AccessToken | None:
         access_token = self.access_tokens.get(token)
         if not access_token:
+            logger.warning(f"[OAuth] Token not found: {token[:20]}...")
             return None
         if access_token.expires_at and access_token.expires_at < time.time():
+            logger.warning(f"[OAuth] Token expired for client {access_token.client_id}")
             del self.access_tokens[token]
             return None
         return access_token
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        return await self.load_access_token(token)
+        result = await self.load_access_token(token)
+        if result:
+            logger.info(f"[OAuth] Token verified for client {result.client_id}")
+        return result
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
         if isinstance(token, AccessToken) and token.token in self.access_tokens:
