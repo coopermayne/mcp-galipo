@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, FileText, CheckSquare, Clock, StickyNote, History, Settings } from 'lucide-react';
 import { PageContent } from '../../components/layout';
-import { ConfirmModal, CreateTaskModal } from '../../components/common';
+import { ConfirmModal, CreateTaskModal, CreateEventModal } from '../../components/common';
 import { getCase, getConstants, updateCase, deleteCase } from '../../api';
 import type { Case } from '../../types';
 import { OverviewTab, TasksTab, EventsTab, NotesTab, ActivityTab, SettingsTab } from './tabs';
@@ -21,6 +21,7 @@ export function CaseDetail() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
 
   const goToNextTab = useCallback(() => {
     const currentIndex = TAB_ORDER.indexOf(activeTab);
@@ -116,6 +117,13 @@ export function CaseDetail() {
       if ((e.metaKey || e.ctrlKey) && e.key === 't') {
         e.preventDefault();
         setShowCreateTaskModal(true);
+        return;
+      }
+
+      // Ctrl/Cmd+E: Open new event modal (works even in input fields)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+        e.preventDefault();
+        setShowCreateEventModal(true);
         return;
       }
 
@@ -257,6 +265,12 @@ export function CaseDetail() {
       <CreateTaskModal
         isOpen={showCreateTaskModal}
         onClose={() => setShowCreateTaskModal(false)}
+        caseId={caseId}
+      />
+
+      <CreateEventModal
+        isOpen={showCreateEventModal}
+        onClose={() => setShowCreateEventModal(false)}
         caseId={caseId}
       />
     </>
