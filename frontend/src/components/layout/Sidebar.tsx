@@ -114,15 +114,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 w-64
-          bg-white dark:bg-slate-900 text-slate-900 dark:text-white
-          flex flex-col border-r border-slate-200 dark:border-transparent
+          bg-bg-surface text-text
+          flex flex-col border-r border-border
           transition-transform duration-300 ease-in-out
           md:sticky md:top-0 md:h-screen md:w-56
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
       >
         {/* Logo - matches header height and style */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
             <Scale className="w-6 h-6 text-primary-600 dark:text-primary-400" />
             <span className="font-semibold text-lg">Case Manager</span>
@@ -130,7 +130,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           {/* Close button - mobile only */}
           <button
             onClick={onMobileClose}
-            className="p-2 -mr-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 md:hidden"
+            className="p-2 -mr-2 text-text-muted hover:text-text md:hidden"
           >
             <X className="w-5 h-5" />
           </button>
@@ -148,7 +148,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-primary-600 text-white'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                        : 'text-text-secondary hover:bg-bg-hover hover:text-text'
                     }`
                   }
                 >
@@ -161,18 +161,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-slate-200 dark:border-slate-700 space-y-1">
+        <div className="p-3 border-t border-border space-y-1">
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className={`w-5 h-5 ${isExporting ? 'animate-pulse' : ''}`} />
             {isExporting ? 'Exporting...' : 'Export Data'}
           </button>
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text rounded-lg transition-colors"
           >
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
@@ -180,7 +180,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
 
         {/* User Profile */}
-        <div className="p-3 border-t border-slate-200 dark:border-slate-700">
+        <div className="p-3 border-t border-border">
           <ProfileDropdown />
         </div>
       </aside>

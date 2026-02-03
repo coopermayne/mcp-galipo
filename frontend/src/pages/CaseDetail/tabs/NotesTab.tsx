@@ -61,9 +61,9 @@ export function NotesTab({ caseId, notes, persons }: NotesTabProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+    <div className="bg-bg-surface rounded-lg border border-border" style={{ borderColor: 'var(--theme-border)' }}>
       {/* Add Note */}
-      <form onSubmit={handleCreate} className="p-4 border-b border-slate-200 dark:border-slate-700">
+      <form onSubmit={handleCreate} className="p-4 border-b border-border" style={{ borderColor: 'var(--theme-border)' }}>
         <MentionTextarea
           value={newNote}
           onChange={setNewNote}
@@ -71,8 +71,8 @@ export function NotesTab({ caseId, notes, persons }: NotesTabProps) {
           caseId={caseId}
           placeholder="Add a note... (use @ to mention people)"
           className="
-            w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-            bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+            w-full px-3 py-2 rounded-lg border border-border
+            bg-bg-surface text-text placeholder-text-muted
             focus:border-primary-500 focus:ring-1 focus:ring-primary-500
             outline-none text-sm resize-none min-h-[80px]
           "
@@ -95,22 +95,22 @@ export function NotesTab({ caseId, notes, persons }: NotesTabProps) {
       </form>
 
       {/* Notes List */}
-      <div className="divide-y divide-slate-200 dark:divide-slate-700">
+      <div>
         {notes.length === 0 ? (
-          <div className="p-8 text-center text-slate-400">No notes</div>
+          <div className="p-8 text-center text-text-muted">No notes</div>
         ) : (
-          notes.map((note) => (
-            <div key={note.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700">
+          notes.map((note, index) => (
+            <div key={note.id} className={`p-4 hover:bg-bg-hover ${index > 0 ? 'border-t border-border' : ''}`} style={index > 0 ? { borderColor: 'var(--theme-border)' } : undefined}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <div className="text-sm text-slate-900 dark:text-slate-100 whitespace-pre-wrap">
+                  <div className="text-sm text-text whitespace-pre-wrap">
                     <NoteContent content={note.content} caseId={caseId} />
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">{formatDateTime(note.created_at)}</p>
+                  <p className="text-xs text-text-secondary mt-2">{formatDateTime(note.created_at)}</p>
                 </div>
                 <button
                   onClick={() => handleDelete(note)}
-                  className="p-1 text-slate-500 hover:text-red-400"
+                  className="p-1 text-text-secondary hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
