@@ -65,9 +65,6 @@ class PasswordOAuthProvider(OAuthProvider):
         self.access_tokens: dict[str, AccessToken] = {}
         self.refresh_tokens: dict[str, RefreshToken] = {}
 
-        # Pending authorizations (state -> auth params)
-        self.pending_auths: dict[str, dict] = {}
-
     # --- Client Registration ---
 
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
@@ -286,19 +283,24 @@ class PasswordOAuthProvider(OAuthProvider):
 
         GET: Show login form
         POST: Validate password and complete OAuth authorize
+
+        Note: All OAuth params are passed through hidden form fields (stateless)
+        to support multi-worker deployments where in-memory state isn't shared.
         """
         if request.method == "GET":
             # Get OAuth params from query string
             params = dict(request.query_params)
             state = params.get("state", "")
-
-            # Store pending auth params
-            if state:
-                self.pending_auths[state] = params
+            client_id = params.get("client_id", "")
+            redirect_uri = params.get("redirect_uri", "")
+            scope = params.get("scope", "")
+            code_challenge = params.get("code_challenge", "")
+            code_challenge_method = params.get("code_challenge_method", "")
 
             error = params.get("error", "")
             error_html = f'<p style="color: #ef4444; margin-bottom: 16px;">{error}</p>' if error else ""
 
+            # Pass all OAuth params as hidden fields (stateless - no server memory needed)
             return HTMLResponse(f"""
 <!DOCTYPE html>
 <html>
@@ -378,6 +380,11 @@ class PasswordOAuthProvider(OAuthProvider):
         {error_html}
         <form method="POST">
             <input type="hidden" name="state" value="{state}">
+            <input type="hidden" name="client_id" value="{client_id}">
+            <input type="hidden" name="redirect_uri" value="{redirect_uri}">
+            <input type="hidden" name="scope" value="{scope}">
+            <input type="hidden" name="code_challenge" value="{code_challenge}">
+            <input type="hidden" name="code_challenge_method" value="{code_challenge_method}">
             <label for="password">Password</label>
             <input type="password" id="password" name="password" required autofocus>
             <button type="submit">Connect</button>
@@ -390,20 +397,27 @@ class PasswordOAuthProvider(OAuthProvider):
         # POST: Validate password
         form = await request.form()
         password = form.get("password", "")
+
+        # Get OAuth params from form (stateless - passed through hidden fields)
         state = form.get("state", "")
+        client_id = form.get("client_id", "")
+        redirect_uri = form.get("redirect_uri", "")
+        scope = form.get("scope", "")
+        code_challenge = form.get("code_challenge", "")
 
         if not secrets.compare_digest(str(password), self.password):
-            # Wrong password - redirect back to login with error
-            params = {"error": "Invalid password", "state": state}
+            # Wrong password - redirect back to login with error and all params
+            params = {
+                "error": "Invalid password",
+                "state": state,
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "scope": scope,
+                "code_challenge": code_challenge,
+            }
             return RedirectResponse(f"/login?{urlencode(params)}", status_code=303)
 
-        # Password correct - get original OAuth params
-        auth_params = self.pending_auths.pop(state, {})
-        if not auth_params:
-            return HTMLResponse("Session expired. Please try again.", status_code=400)
-
-        # Get the client
-        client_id = auth_params.get("client_id")
+        # Password correct - validate we have required params
         if not client_id:
             return HTMLResponse("Missing client_id", status_code=400)
 
@@ -412,15 +426,14 @@ class PasswordOAuthProvider(OAuthProvider):
             return HTMLResponse(f"Unknown client: {client_id}", status_code=400)
 
         # Build authorization params
-        redirect_uri = auth_params.get("redirect_uri")
-        scopes = auth_params.get("scope", "").split() if auth_params.get("scope") else []
+        scopes = scope.split() if scope else []
 
         auth_request_params = AuthorizationParams(
-            redirect_uri=redirect_uri,
-            redirect_uri_provided_explicitly=redirect_uri is not None,
-            state=auth_params.get("state"),
+            redirect_uri=redirect_uri if redirect_uri else None,
+            redirect_uri_provided_explicitly=bool(redirect_uri),
+            state=state if state else None,
             scopes=scopes,
-            code_challenge=auth_params.get("code_challenge"),
+            code_challenge=code_challenge if code_challenge else None,
         )
 
         # Call authorize directly - this creates the auth code and returns redirect URI
