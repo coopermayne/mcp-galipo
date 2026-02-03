@@ -42,7 +42,7 @@ def get_all_cases_with_data() -> list:
         # 1. Get all cases
         cur.execute("""
             SELECT id, case_name, short_name, status, print_code, case_summary,
-                   result, date_of_injury, case_numbers, created_at, updated_at
+                   result, date_of_injury, created_at, updated_at
             FROM cases
             ORDER BY case_name
         """)
@@ -198,10 +198,6 @@ def get_all_cases_with_data() -> list:
         for case_row in cases:
             case_id = case_row["id"]
             case_data = serialize_row(case_row)
-
-            # Parse case_numbers JSONB if it's a string
-            if case_data.get("case_numbers") and isinstance(case_data["case_numbers"], str):
-                case_data["case_numbers"] = json.loads(case_data["case_numbers"])
 
             case_data["persons"] = persons_by_case.get(case_id, [])
             case_data["tasks"] = tasks_by_case.get(case_id, [])

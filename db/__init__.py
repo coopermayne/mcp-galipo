@@ -213,6 +213,11 @@ from .dev_users import (
     DEV_PASSWORD,
 )
 
+# Bulk import
+from .import_case import (
+    import_case,
+)
+
 # Define __all__ for explicit exports
 __all__ = [
     # Validation
@@ -378,4 +383,6 @@ __all__ = [
     "is_dev_environment",
     "DEV_USERS",
     "DEV_PASSWORD",
+    # Bulk import
+    "import_case",
 ]
