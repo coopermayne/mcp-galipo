@@ -1,7 +1,7 @@
 """
 Data export API route.
 
-Provides an endpoint to export all case data as JSON.
+Provides endpoints to export case data as JSON or PDF.
 """
 
 import json
@@ -11,6 +11,7 @@ from datetime import datetime, date, time
 from fastapi.responses import Response
 import auth
 from db.connection import get_cursor
+from services.pdf_generator import generate_case_list_pdf
 
 
 def serialize_value(val):
@@ -31,19 +32,24 @@ def serialize_row(row: dict) -> dict:
     return {k: serialize_value(v) for k, v in row.items()}
 
 
-def get_all_cases_with_data() -> list:
+def get_all_cases_with_data(exclude_closed: bool = False) -> list:
     """
     Get all cases with their complete related data.
 
     Optimized to use batch queries instead of N+1 pattern.
     Total queries: ~7 regardless of case count.
+
+    Args:
+        exclude_closed: If True, excludes cases with status 'Closed'.
     """
     with get_cursor() as cur:
         # 1. Get all cases
-        cur.execute("""
+        where = "WHERE status != 'Closed'" if exclude_closed else ""
+        cur.execute(f"""
             SELECT id, case_name, short_name, status, print_code, case_summary,
                    result, date_of_injury, created_at, updated_at
             FROM cases
+            {where}
             ORDER BY case_name
         """)
         cases = [dict(row) for row in cur.fetchall()]
@@ -221,10 +227,31 @@ def register_export_routes(mcp):
 
     @mcp.custom_route("/api/v1/export", methods=["GET"])
     async def api_export_data(request):
-        """Export all case data as JSON file."""
+        """Export case data as JSON or PDF file."""
         if err := auth.require_auth(request):
             return err
 
+        format_type = request.query_params.get("format", "json").lower()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if format_type == "pdf":
+            cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True)
+            try:
+                pdf_buf = await asyncio.to_thread(generate_case_list_pdf, cases)
+            except Exception as e:
+                return Response(
+                    content=json.dumps({"error": {"message": f"PDF generation failed: {e}", "code": "EXPORT_ERROR"}}),
+                    status_code=500,
+                    media_type="application/json",
+                )
+            filename = f"galipo_cases_{timestamp}.pdf"
+            return Response(
+                content=pdf_buf.getvalue(),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        # Default: JSON export (all cases)
         cases = await asyncio.to_thread(get_all_cases_with_data)
 
         data = {
@@ -233,11 +260,7 @@ def register_export_routes(mcp):
             "cases": cases,
         }
 
-        # Generate filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"galipo_export_{timestamp}.json"
-
-        # Return as downloadable JSON file
         content = json.dumps(data, indent=2)
         return Response(
             content=content,

@@ -13,11 +13,11 @@
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, FileText } from 'lucide-react';
 import { Header } from '../components/layout';
 import { LayoutSelector, PanelContainer } from '../components/panels';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
-import { createCase } from '../api';
+import { createCase, exportCaseListPdf } from '../api';
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
 import {
   createDefaultCasesWidget,
@@ -43,6 +43,7 @@ function CasesContent() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: (name: string) => createCase({ case_name: name }),
@@ -55,6 +56,17 @@ function CasesContent() {
       navigate(`/cases/${data.case.id}`);
     },
   });
+
+  const handleExportPdf = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      await exportCaseListPdf();
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, []);
 
   const handleCreateCase = useCallback(
     (e: React.FormEvent) => {
@@ -73,6 +85,19 @@ function CasesContent() {
         subtitle="All your active and archived matters"
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover border border-border rounded-lg transition-colors disabled:opacity-50"
+              title="Export active cases as PDF"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
+            </button>
             <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
             <button
               onClick={() => setIsCreating(true)}
