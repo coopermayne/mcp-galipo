@@ -4,11 +4,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Briefcase } from 'lucide-react';
 import { StatusBadge } from '../common';
-import type { Case } from '../../types';
+import type { CaseSummary } from '../../types';
 
 interface CaseItemProps {
-  caseData: Case;
-  onClick?: (caseData: Case) => void;
+  caseData: CaseSummary;
+  onClick?: (caseData: CaseSummary) => void;
 }
 
 export function CaseItem({ caseData, onClick }: CaseItemProps) {
