@@ -18,7 +18,7 @@ export type TasksGroupMode = 'date' | 'case' | 'urgency';
 export type EventsGroupMode = 'none' | 'date' | 'case';
 
 /** Group modes for cases widget */
-export type CasesGroupMode = 'alpha' | 'status';
+export type CasesGroupMode = 'none' | 'alpha' | 'status';
 
 /** Base config all widgets share */
 interface BaseWidgetConfig {
@@ -109,7 +109,7 @@ export function createDefaultCasesWidget(id: string): CasesWidgetConfig {
     id,
     type: 'cases',
     showClosed: false,
-    groupBy: 'alpha',
+    groupBy: 'none',
     searchQuery: '',
   };
 }

@@ -12,7 +12,7 @@ import { CasesFeed } from './CasesFeed';
 import { getCases } from '../../api';
 import type { CaseSummary } from '../../types';
 
-type GroupMode = 'alpha' | 'status';
+type GroupMode = 'alpha' | 'status' | 'none';
 
 interface CasesComponentProps {
   /** How to group cases */
@@ -30,7 +30,7 @@ interface CasesComponentProps {
 }
 
 export function CasesComponent({
-  groupBy = 'alpha',
+  groupBy = 'none',
   showClosed = false,
   searchQuery = '',
   onCaseClick,
@@ -48,7 +48,11 @@ export function CasesComponent({
     let filtered = allCases;
 
     // Filter by closed status
-    if (!showClosed) {
+    if (showClosed) {
+      // Show ONLY closed cases
+      filtered = filtered.filter((c) => c.status === 'Closed');
+    } else {
+      // Show only active (non-closed) cases
       filtered = filtered.filter((c) => c.status !== 'Closed');
     }
 
