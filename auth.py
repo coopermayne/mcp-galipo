@@ -48,6 +48,7 @@ def authenticate(email: str, password: str) -> Optional[dict]:
                 "initials": user["initials"],
                 "position": user["position"],
                 "isAdmin": user["is_admin"],
+                "paralegalId": user.get("paralegal_id"),
             },
             "mustChangePassword": user["must_change_password"],
         }
@@ -146,6 +147,7 @@ def get_session_user(token: str) -> Optional[dict]:
             "initials": user["initials"],
             "position": user["position"],
             "isAdmin": user["is_admin"],
+            "paralegalId": user.get("paralegal_id"),
         }
     except jwt.ExpiredSignatureError:
         return None
