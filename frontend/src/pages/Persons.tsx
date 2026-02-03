@@ -1,64 +1,46 @@
+/**
+ * Persons - Contact management page
+ *
+ * Route: /persons
+ *
+ * Features:
+ * - PersonsWidget for browsing/filtering persons
+ * - Customizable layout (1, 1:1, etc.)
+ * - Quick person creation
+ * - Manage person types
+ *
+ * Uses the universal panel layout system with allowedWidgets=['persons'].
+ */
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Header, PageContent } from '../components/layout';
-import { ListPanel } from '../components/common';
+import { Plus, Settings, X, Trash2, Loader2 } from 'lucide-react';
+import { Header } from '../components/layout';
+import { LayoutSelector, PanelContainer } from '../components/panels';
+import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
 import {
   getPersons,
   getPersonTypes,
   createPersonType,
   deletePersonType,
 } from '../api';
-import { useEntityModalContext } from '../context/EntityModalContext';
-import type { Person, PersonTypeRecord } from '../types';
+import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
 import {
-  Search,
-  Filter,
-  Phone,
-  Mail,
-  Building2,
-  User,
-  Settings,
-  X,
-  Plus,
-  Trash2,
-  Loader2,
-} from 'lucide-react';
+  createDefaultPersonsWidget,
+  LAYOUT_CONTAINER_CLASSES,
+  getPanelClasses,
+} from '../types/panel-layout';
+import type { PersonTypeRecord } from '../types';
 
-// Helper to get primary contact info
-function getPrimaryPhone(person: Person): string | null {
-  const primary = person.phones?.find((p) => p.primary);
-  return primary?.value || person.phones?.[0]?.value || null;
-}
+const STORAGE_KEY = 'persons-layout';
+const ALLOWED_WIDGETS: WidgetType[] = ['persons'];
 
-function getPrimaryEmail(person: Person): string | null {
-  const primary = person.emails?.find((e) => e.primary);
-  return primary?.value || person.emails?.[0]?.value || null;
-}
-
-// Badge colors for different person types
-const typeColors: Record<string, string> = {
-  client: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  attorney: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  judge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  expert: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  mediator: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
-  witness: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  defendant: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-  interpreter: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
+const DEFAULT_CONFIG: PanelLayoutConfig = {
+  layout: '1:1',
+  panels: [
+    { ...createDefaultPersonsWidget('panel-0'), typeFilter: 'client', groupBy: 'alpha' },
+    { ...createDefaultPersonsWidget('panel-1'), groupBy: 'type' },
+  ],
 };
-
-function PersonTypeBadge({ type }: { type: string }) {
-  const colorClasses =
-    typeColors[type.toLowerCase()] ||
-    'bg-bg-hover text-text-secondary';
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${colorClasses}`}
-    >
-      {type}
-    </span>
-  );
-}
 
 // Manage Types Modal
 function ManageTypesModal({
@@ -217,19 +199,12 @@ function ManageTypesModal({
   );
 }
 
-export function Persons() {
-  const { openModal } = useEntityModalContext();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
-  const [showArchived, setShowArchived] = useState(false);
+function PersonsContent() {
+  const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
+
   const [showManageTypes, setShowManageTypes] = useState(false);
 
-  const { data: personsData, isLoading } = useQuery({
-    queryKey: ['persons', { type: typeFilter || undefined, archived: showArchived || undefined }],
-    queryFn: () => getPersons({ type: typeFilter || undefined, archived: showArchived || undefined }),
-  });
-
-  // Fetch all persons (without type filter) to get accurate counts
+  // Fetch all persons to get type counts
   const { data: allPersonsData } = useQuery({
     queryKey: ['persons', { archived: true }],
     queryFn: () => getPersons({ archived: true, limit: 10000 }),
@@ -241,178 +216,55 @@ export function Persons() {
   });
 
   // Calculate type counts from all persons
-  const allPersons = allPersonsData?.persons;
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    const allPersons = allPersonsData?.persons;
     if (allPersons) {
       for (const p of allPersons) {
         counts[p.person_type] = (counts[p.person_type] || 0) + 1;
       }
     }
     return counts;
-  }, [allPersons]);
-
-  // Filter persons by search query
-  const persons = personsData?.persons;
-  const filteredPersons = useMemo(() => {
-    if (!persons) return [];
-    if (!searchQuery) return persons;
-
-    const query = searchQuery.toLowerCase();
-    return persons.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        (p.organization && p.organization.toLowerCase().includes(query)) ||
-        p.emails?.some((e) => e.value.toLowerCase().includes(query)) ||
-        p.phones?.some((ph) => ph.value.includes(query))
-    );
-  }, [persons, searchQuery]);
+  }, [allPersonsData?.persons]);
 
   return (
-    <>
+    <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header
         title="Persons"
         subtitle="Clients, attorneys, judges, experts, and other contacts"
+        actions={
+          <div className="flex items-center gap-2">
+            <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
+            <button
+              onClick={() => setShowManageTypes(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
+              title="Manage person types"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Types</span>
+            </button>
+          </div>
+        }
       />
 
-      <PageContent>
-        {/* Search and Filters */}
-        <ListPanel className="mb-6">
-          <div className="px-4 py-3 flex items-center gap-4 flex-wrap">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            <div className="h-6 w-px bg-border" />
-
-            {/* Type Filter */}
-            <Filter className="w-4 h-4 text-text-muted" />
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-text-secondary">Type:</label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border border-border text-sm bg-bg-surface text-text"
-              >
-                <option value="">All</option>
-                {personTypesData?.person_types?.map((pt) => (
-                  <option key={pt.id} value={pt.name}>
-                    {pt.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setShowManageTypes(true)}
-                className="p-1.5 text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded transition-colors"
-                title="Manage person types"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="h-6 w-px bg-border" />
-
-            {/* Archived Toggle */}
-            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-                className="rounded border-border text-primary-600 focus:ring-primary-500"
-              />
-              Show archived
-            </label>
+      {/* Panels Grid */}
+      <main
+        className={`flex-1 grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]}`}
+      >
+        {config.panels.map((panel, index) => (
+          <div
+            key={panel.id}
+            className={`min-h-0 ${getPanelClasses(config.layout, index)}`}
+          >
+            <PanelContainer
+              config={panel}
+              allowedWidgets={allowedWidgets}
+              onConfigChange={(updates) => updatePanel(panel.id, updates)}
+              onTypeChange={(type) => setPanelType(panel.id, type)}
+            />
           </div>
-        </ListPanel>
-
-        {/* Persons List */}
-        {isLoading ? (
-          <ListPanel>
-            <ListPanel.Loading />
-          </ListPanel>
-        ) : filteredPersons.length === 0 ? (
-          <ListPanel>
-            <ListPanel.Empty message="No persons found" />
-          </ListPanel>
-        ) : (
-          <ListPanel>
-            <ListPanel.Body>
-              {filteredPersons.map((person) => {
-                const phone = getPrimaryPhone(person);
-                const email = getPrimaryEmail(person);
-
-                return (
-                  <ListPanel.Row
-                    key={person.id}
-                    onClick={() => openModal({ type: 'person', id: person.id })}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {/* Avatar placeholder */}
-                      <div className="w-9 h-9 rounded-full bg-bg-hover flex items-center justify-center flex-shrink-0">
-                        <User className="w-5 h-5 text-text-muted" />
-                      </div>
-
-                      {/* Name and org */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-text truncate">
-                            {person.name}
-                          </span>
-                          {person.archived && (
-                            <span className="text-xs text-text-muted">
-                              (archived)
-                            </span>
-                          )}
-                        </div>
-                        {person.organization && (
-                          <div className="flex items-center gap-1 text-xs text-text-secondary truncate">
-                            <Building2 className="w-3 h-3 flex-shrink-0" />
-                            {person.organization}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Contact info */}
-                    <div className="flex items-center gap-4 text-sm text-text-secondary">
-                      {phone && (
-                        <span className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">{phone}</span>
-                        </span>
-                      )}
-                      {email && (
-                        <span className="flex items-center gap-1.5 max-w-[180px] truncate">
-                          <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="hidden md:inline truncate">{email}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Type badge */}
-                    <PersonTypeBadge type={person.person_type} />
-                  </ListPanel.Row>
-                );
-              })}
-            </ListPanel.Body>
-          </ListPanel>
-        )}
-
-        {/* Results count */}
-        {!isLoading && filteredPersons.length > 0 && (
-          <div className="mt-3 text-sm text-text-secondary">
-            Showing {filteredPersons.length} of {personsData?.total || 0} persons
-          </div>
-        )}
-      </PageContent>
+        ))}
+      </main>
 
       {/* Manage Types Modal */}
       <ManageTypesModal
@@ -421,6 +273,18 @@ export function Persons() {
         personTypes={personTypesData?.person_types || []}
         typeCounts={typeCounts}
       />
-    </>
+    </div>
+  );
+}
+
+export function Persons() {
+  return (
+    <PanelLayoutProvider
+      storageKey={STORAGE_KEY}
+      allowedWidgets={ALLOWED_WIDGETS}
+      defaultConfig={DEFAULT_CONFIG}
+    >
+      <PersonsContent />
+    </PanelLayoutProvider>
   );
 }
