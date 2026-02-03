@@ -113,7 +113,7 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="flex flex-col h-full bg-bg-surface rounded-lg border border-border overflow-hidden">
       {/* Panel Header */}
       <div className="relative flex-shrink-0" ref={filterRef}>
         <button
@@ -121,38 +121,38 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
           className={`w-full flex items-center justify-between px-3 py-2 border-b transition-colors ${
             isFilterOpen
               ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-              : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+              : 'border-border hover:bg-bg-hover'
           }`}
         >
-          <span className="text-sm text-slate-600 dark:text-slate-300 truncate">
+          <span className="text-sm text-text-secondary truncate">
             {getFilterSummary()}
           </span>
-          <Settings2 className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
+          <Settings2 className="w-4 h-4 text-text-muted flex-shrink-0 ml-2" />
         </button>
 
         {/* Filter Dropdown */}
         {isFilterOpen && (
-          <div className="absolute left-0 right-0 top-full z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 border-t-0 rounded-b-lg shadow-lg">
+          <div className="absolute left-0 right-0 top-full z-50 bg-bg-surface border border-border border-t-0 rounded-b-lg shadow-lg">
             <div className="p-3 space-y-3">
               {/* Search */}
               <form onSubmit={handleSearchSubmit}>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5">
                   Search
                 </label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     type="text"
                     placeholder="Search tasks..."
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                    className="w-full pl-9 pr-8 py-2 rounded-lg border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                   />
                   {localSearch && (
                     <button
                       type="button"
                       onClick={handleClearSearch}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-secondary"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -162,7 +162,7 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
 
               {/* Group By */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5">
                   Group by
                 </label>
                 <div className="flex gap-1">
@@ -173,7 +173,7 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-sm transition-colors ${
                         config.groupBy === option.value
                           ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          : 'text-text-secondary hover:bg-bg-hover'
                       }`}
                     >
                       {option.icon}
@@ -185,7 +185,7 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
 
               {/* Case Filter */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wide mb-1.5">
                   Filter by Case
                 </label>
                 <select
@@ -195,7 +195,7 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
                       caseId: e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-bg-surface text-text text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                 >
                   <option value="">All cases</option>
                   {cases.map((c: CaseSummary) => (
@@ -213,7 +213,7 @@ export function TasksPanel({ config, onConfigChange }: TasksPanelProps) {
                   className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
                     config.showDone
                       ? 'border-green-300 dark:border-green-700 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      : 'border-border text-text-secondary hover:bg-bg-hover'
                   }`}
                 >
                   {config.showDone ? (

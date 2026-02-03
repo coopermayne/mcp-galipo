@@ -69,11 +69,11 @@ export function AssigneePicker({
     <div className="fixed inset-0 z-[9999]" onClick={onClose}>
       <div
         ref={dropdownRef}
-        className="absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden min-w-[200px] animate-fadeSlideIn"
+        className="absolute bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden min-w-[200px] animate-fadeSlideIn"
         style={{ top: position.top, left: position.left }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-slate-700">
+        <div className="px-3 py-2 text-xs font-semibold text-text-muted uppercase tracking-wide border-b border-border">
           Assign to
         </div>
 
@@ -87,7 +87,7 @@ export function AssigneePicker({
               <button
                 key={user.id}
                 onClick={() => handleSelect(user.id)}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                className={`flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-bg-hover ${
                   isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                 }`}
               >
@@ -96,7 +96,7 @@ export function AssigneePicker({
                 >
                   {user.initials}
                 </span>
-                <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">
+                <span className="flex-1 text-sm text-text-secondary">
                   {fullName}
                 </span>
                 {isSelected && (
@@ -108,18 +108,18 @@ export function AssigneePicker({
 
           {eligibleAssignees.length === 0 && (
             <div className="px-4 py-6 text-center">
-              <User className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">No team members on this case</p>
+              <User className="w-8 h-8 mx-auto text-text-muted mb-2" />
+              <p className="text-sm text-text-muted">No team members on this case</p>
             </div>
           )}
         </div>
 
         {/* Unassign option */}
         {currentAssigneeId !== null && (
-          <div className="border-t border-slate-100 dark:border-slate-700">
+          <div className="border-t border-border">
             <button
               onClick={() => handleSelect(null)}
-              className="flex items-center gap-3 w-full px-3 py-2.5 text-left text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+              className="flex items-center gap-3 w-full px-3 py-2.5 text-left text-text-muted hover:bg-bg-hover"
             >
               <UserMinus className="w-4 h-4" />
               <span className="text-sm">Unassign</span>

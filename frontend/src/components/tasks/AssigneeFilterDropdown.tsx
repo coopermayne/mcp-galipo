@@ -83,7 +83,7 @@ export function AssigneeFilterDropdown({
         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
           isOpen || hasNonDefault
             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            : 'border-border bg-bg-surface text-text-secondary hover:bg-bg-hover'
         }`}
       >
         <User className="w-4 h-4" />
@@ -91,15 +91,15 @@ export function AssigneeFilterDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1 w-48 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 animate-fadeSlideIn">
-          <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+        <div className="absolute left-0 top-full mt-1 w-48 py-2 bg-bg-surface border border-border rounded-lg shadow-lg z-50 animate-fadeSlideIn">
+          <div className="px-3 py-1.5 text-xs font-semibold text-text-muted uppercase tracking-wide">
             Show tasks
           </div>
 
           {/* All tasks */}
           <button
             onClick={() => handleSelect('all')}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text hover:bg-bg-hover"
           >
             <div className="w-4 h-4" />
             <span className="flex-1">All tasks</span>
@@ -111,7 +111,7 @@ export function AssigneeFilterDropdown({
           {/* My tasks */}
           <button
             onClick={() => handleSelect('mine')}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text hover:bg-bg-hover"
           >
             {currentUser && (
               <span
@@ -129,9 +129,9 @@ export function AssigneeFilterDropdown({
           {/* Unassigned */}
           <button
             onClick={() => handleSelect('unassigned')}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text hover:bg-bg-hover"
           >
-            <User className="w-4 h-4 text-slate-400" />
+            <User className="w-4 h-4 text-text-muted" />
             <span className="flex-1">Unassigned</span>
             {value === 'unassigned' && (
               <Check className="w-4 h-4 text-primary-500" />
@@ -141,15 +141,15 @@ export function AssigneeFilterDropdown({
           {/* Paralegals (for attorneys) */}
           {paralegals.length > 0 && (
             <>
-              <div className="border-t border-slate-100 dark:border-slate-700 my-1" />
-              <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <div className="border-t border-border my-1" />
+              <div className="px-3 py-1.5 text-xs font-semibold text-text-muted uppercase tracking-wide">
                 Team
               </div>
               {paralegals.map((paralegal) => (
                 <button
                   key={paralegal.id}
                   onClick={() => handleSelect(paralegal.id)}
-                  className="flex items-center gap-3 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text hover:bg-bg-hover"
                 >
                   <span
                     className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-medium ${getUserColorClass(paralegal.id)}`}

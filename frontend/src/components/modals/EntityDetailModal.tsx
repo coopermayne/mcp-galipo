@@ -66,7 +66,7 @@ export function EntityDetailModal() {
         <div
           ref={modalRef}
           tabIndex={-1}
-          className="relative w-full max-w-2xl transform rounded-xl bg-white dark:bg-slate-800 shadow-xl transition-all"
+          className="relative w-full max-w-2xl transform rounded-xl bg-bg-surface shadow-xl transition-all"
           onClick={(e) => e.stopPropagation()}
         >
           <ContentComponent

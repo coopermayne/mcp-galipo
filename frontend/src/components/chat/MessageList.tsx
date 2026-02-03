@@ -22,7 +22,7 @@ export function MessageList({ messages, isLoading, toolExecutions = [] }: Messag
   if (messages.length === 0 && !isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
-        <div className="text-center text-slate-500 dark:text-slate-400">
+        <div className="text-center text-text-muted">
           <Bot className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 opacity-50" />
           <p className="text-sm">Start a conversation with your AI assistant.</p>
           <p className="text-xs mt-1 opacity-75">Ask questions about your cases, tasks, or anything else.</p>
@@ -44,14 +44,14 @@ export function MessageList({ messages, isLoading, toolExecutions = [] }: Messag
       {/* Show loading state when waiting for initial response */}
       {isLoading && !messages.some((m) => m.isStreaming) && (
         <div className="flex items-start gap-2 sm:gap-3">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-            <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 dark:text-slate-300" />
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-bg-hover flex items-center justify-center flex-shrink-0">
+            <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-text-secondary" />
           </div>
-          <div className="bg-slate-100 dark:bg-slate-700 rounded-2xl rounded-tl-sm px-3 sm:px-4 py-2.5 sm:py-3">
+          <div className="bg-bg-hover rounded-2xl rounded-tl-sm px-3 sm:px-4 py-2.5 sm:py-3">
             <div className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@ function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
         className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
           isUser
             ? 'bg-blue-600 text-white'
-            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+            : 'bg-bg-hover text-text-secondary'
         }`}
       >
         {isUser ? <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
@@ -101,7 +101,7 @@ function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
               className={`rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 ${
                 isUser
                   ? 'bg-blue-600 text-white rounded-tr-sm'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-tl-sm'
+                  : 'bg-bg-surface text-text rounded-tl-sm'
               }`}
             >
               {isUser ? (
@@ -124,9 +124,9 @@ function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
                 onClick={handleCopy}
                 className={`absolute -top-2 ${isUser ? '-left-2' : '-right-2'}
                   opacity-0 group-hover:opacity-100 focus:opacity-100
-                  p-1.5 rounded-lg bg-white dark:bg-slate-800
-                  shadow-md border border-slate-200 dark:border-slate-600
-                  text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200
+                  p-1.5 rounded-lg bg-bg-surface
+                  shadow-md border border-border
+                  text-text-muted hover:text-text
                   transition-all duration-200 ease-in-out
                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1`}
                 aria-label={copied ? 'Copied!' : 'Copy message'}
@@ -181,7 +181,7 @@ function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
 
         {/* Timestamp */}
         {!message.isStreaming && (
-          <span className="text-xs text-slate-400 dark:text-slate-500 px-1">
+          <span className="text-xs text-text-muted px-1">
             {formatTime(message.timestamp)}
           </span>
         )}
@@ -192,7 +192,7 @@ function MessageBubble({ message, toolExecutions }: MessageBubbleProps) {
 
 function StreamingCursor() {
   return (
-    <span className="inline-block w-1.5 h-4 ml-0.5 bg-slate-600 dark:bg-slate-300 animate-pulse" />
+    <span className="inline-block w-1.5 h-4 ml-0.5 bg-text-secondary animate-pulse" />
   );
 }
 

@@ -19,15 +19,15 @@ export function TokenUsageIndicator({ usage }: TokenUsageIndicatorProps) {
   const formatNumber = (n: number) => n.toLocaleString();
 
   return (
-    <div className="rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 overflow-hidden">
+    <div className="rounded-lg border border-border bg-bg-hover overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-bg-hover transition-colors"
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Coins className="w-3 h-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-          <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+          <Coins className="w-3 h-3 text-text-muted flex-shrink-0" />
+          <span className="font-mono text-xs text-text-secondary">
             {formatNumber(totalTokens)} tokens
           </span>
           {hasCacheData && usage.cache_read_input_tokens && usage.cache_read_input_tokens > 0 && (
@@ -39,18 +39,18 @@ export function TokenUsageIndicator({ usage }: TokenUsageIndicatorProps) {
 
         <div className="flex items-center gap-2 flex-shrink-0">
           {isExpanded ? (
-            <ChevronUp className="w-3 h-3 text-slate-400" />
+            <ChevronUp className="w-3 h-3 text-text-muted" />
           ) : (
-            <ChevronDown className="w-3 h-3 text-slate-400" />
+            <ChevronDown className="w-3 h-3 text-text-muted" />
           )}
         </div>
       </button>
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="border-t border-slate-200 dark:border-slate-700">
+        <div className="border-t border-border">
           {/* Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-700">
+          <div className="flex border-b border-border">
             {(['summary', 'request', 'response'] as TabType[]).map((tab) => (
               <button
                 key={tab}
@@ -58,7 +58,7 @@ export function TokenUsageIndicator({ usage }: TokenUsageIndicatorProps) {
                 className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
                   activeTab === tab
                     ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 -mb-px'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                    : 'text-text-muted hover:text-text-secondary'
                 }`}
               >
                 {tab}
@@ -95,8 +95,8 @@ function SummaryTab({ usage, formatNumber = (n) => n.toLocaleString() }: TabProp
   return (
     <div className="space-y-2 text-xs">
       <div className="flex justify-between">
-        <span className="text-slate-500 dark:text-slate-400">Input tokens</span>
-        <span className="font-mono text-slate-700 dark:text-slate-300">
+        <span className="text-text-muted">Input tokens</span>
+        <span className="font-mono text-text-secondary">
           {formatNumber(usage.input_tokens)}
         </span>
       </div>
@@ -120,15 +120,15 @@ function SummaryTab({ usage, formatNumber = (n) => n.toLocaleString() }: TabProp
       )}
 
       <div className="flex justify-between">
-        <span className="text-slate-500 dark:text-slate-400">Output tokens</span>
-        <span className="font-mono text-slate-700 dark:text-slate-300">
+        <span className="text-text-muted">Output tokens</span>
+        <span className="font-mono text-text-secondary">
           {formatNumber(usage.output_tokens)}
         </span>
       </div>
 
-      <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-        <span className="font-medium text-slate-700 dark:text-slate-300">Total</span>
-        <span className="font-mono font-medium text-slate-900 dark:text-slate-100">
+      <div className="flex justify-between pt-2 border-t border-border">
+        <span className="font-medium text-text-secondary">Total</span>
+        <span className="font-mono font-medium text-text">
           {formatNumber(totalTokens)}
         </span>
       </div>
@@ -140,7 +140,7 @@ function RequestTab({ usage }: TabProps) {
   const [showFullPrompt, setShowFullPrompt] = useState(false);
 
   if (!usage.request) {
-    return <div className="text-xs text-slate-500">No request data available</div>;
+    return <div className="text-xs text-text-muted">No request data available</div>;
   }
 
   const { system_prompt, messages, tools, tool_count } = usage.request;
@@ -152,10 +152,10 @@ function RequestTab({ usage }: TabProps) {
     <div className="space-y-3">
       {/* System prompt */}
       <div>
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+        <span className="text-xs font-medium text-text-muted block mb-1">
           System Prompt
         </span>
-        <pre className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 rounded p-2 overflow-x-auto max-h-32 overflow-y-auto whitespace-pre-wrap">
+        <pre className="text-xs text-text-secondary bg-bg-surface rounded p-2 overflow-x-auto max-h-32 overflow-y-auto whitespace-pre-wrap">
           {truncatedPrompt}
         </pre>
         {system_prompt.length > 500 && (
@@ -171,14 +171,14 @@ function RequestTab({ usage }: TabProps) {
       {/* Tools */}
       {tools && tools.length > 0 && (
         <div>
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+          <span className="text-xs font-medium text-text-muted block mb-1">
             Tools ({tool_count})
           </span>
           <div className="flex flex-wrap gap-1">
             {tools.map((tool: string, i: number) => (
               <span
                 key={i}
-                className="text-xs px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                className="text-xs px-1.5 py-0.5 rounded bg-bg-hover text-text-secondary"
               >
                 {tool}
               </span>
@@ -189,10 +189,10 @@ function RequestTab({ usage }: TabProps) {
 
       {/* Messages */}
       <div>
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+        <span className="text-xs font-medium text-text-muted block mb-1">
           Messages ({messages.length})
         </span>
-        <pre className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 rounded p-2 overflow-x-auto max-h-48 overflow-y-auto">
+        <pre className="text-xs text-text-secondary bg-bg-surface rounded p-2 overflow-x-auto max-h-48 overflow-y-auto">
           {JSON.stringify(messages, null, 2)}
         </pre>
       </div>
@@ -202,7 +202,7 @@ function RequestTab({ usage }: TabProps) {
 
 function ResponseTab({ usage }: TabProps) {
   if (!usage.response) {
-    return <div className="text-xs text-slate-500">No response data available</div>;
+    return <div className="text-xs text-text-muted">No response data available</div>;
   }
 
   const { content, stop_reason, tool_calls } = usage.response;
@@ -211,10 +211,10 @@ function ResponseTab({ usage }: TabProps) {
     <div className="space-y-3">
       {/* Stop reason */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+        <span className="text-xs font-medium text-text-muted">
           Stop reason:
         </span>
-        <span className="text-xs px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-hover text-text-secondary">
           {stop_reason}
         </span>
       </div>
@@ -222,10 +222,10 @@ function ResponseTab({ usage }: TabProps) {
       {/* Content */}
       {content && (
         <div>
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+          <span className="text-xs font-medium text-text-muted block mb-1">
             Content
           </span>
-          <pre className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 rounded p-2 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+          <pre className="text-xs text-text-secondary bg-bg-surface rounded p-2 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
             {content}
           </pre>
         </div>
@@ -234,10 +234,10 @@ function ResponseTab({ usage }: TabProps) {
       {/* Tool calls */}
       {tool_calls && tool_calls.length > 0 && (
         <div>
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
+          <span className="text-xs font-medium text-text-muted block mb-1">
             Tool Calls ({tool_calls.length})
           </span>
-          <pre className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 rounded p-2 overflow-x-auto max-h-48 overflow-y-auto">
+          <pre className="text-xs text-text-secondary bg-bg-surface rounded p-2 overflow-x-auto max-h-48 overflow-y-auto">
             {JSON.stringify(tool_calls, null, 2)}
           </pre>
         </div>

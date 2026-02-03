@@ -144,7 +144,7 @@ export function PersonAutocomplete({
     <div className="relative">
       {/* Input */}
       <div className="relative flex items-center">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted" />
         <input
           ref={inputRef}
           type="text"
@@ -156,13 +156,13 @@ export function PersonAutocomplete({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full pl-7 pr-7 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-full pl-7 pr-7 py-1 text-xs rounded border border-border bg-bg-surface text-text focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-text-secondary"
             title="Cancel"
           >
             <X className="w-3 h-3" />
@@ -174,18 +174,18 @@ export function PersonAutocomplete({
       {isOpen && (search.length > 0 || results.length > 0) && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded shadow-lg max-h-48 overflow-y-auto"
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-surface border border-border rounded shadow-lg max-h-48 overflow-y-auto"
         >
           {isLoading && (
-            <div className="px-3 py-2 text-xs text-slate-400">Searching...</div>
+            <div className="px-3 py-2 text-xs text-text-muted">Searching...</div>
           )}
 
           {!isLoading && results.length === 0 && !showCreateOption && (
-            <div className="px-3 py-2 text-xs text-slate-400">Type to search...</div>
+            <div className="px-3 py-2 text-xs text-text-muted">Type to search...</div>
           )}
 
           {!isLoading && results.length === 0 && showCreateOption && search.length > 0 && (
-            <div className="px-3 py-2 text-xs text-slate-400">No matches found</div>
+            <div className="px-3 py-2 text-xs text-text-muted">No matches found</div>
           )}
 
           {/* Results */}
@@ -202,14 +202,14 @@ export function PersonAutocomplete({
               className={`w-full px-3 py-2 text-left text-xs flex items-start gap-2 ${
                 highlightedIndex === index
                   ? 'bg-primary-50 dark:bg-primary-900/30'
-                  : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  : 'hover:bg-bg-hover'
               }`}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                <div className="font-medium text-text truncate">
                   {person.name}
                 </div>
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-2 text-text-secondary">
                   {person.organization && (
                     <span className="flex items-center gap-1 truncate">
                       <Building2 className="w-3 h-3 shrink-0" />
@@ -224,7 +224,7 @@ export function PersonAutocomplete({
                   )}
                 </div>
               </div>
-              <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded shrink-0">
+              <span className="text-[10px] text-text-muted bg-bg-hover px-1.5 py-0.5 rounded shrink-0">
                 {person.person_type}
               </span>
             </button>
@@ -240,10 +240,10 @@ export function PersonAutocomplete({
                 setIsOpen(false);
               }}
               onMouseEnter={() => setHighlightedIndex(results.length)}
-              className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 border-t border-slate-100 dark:border-slate-700 ${
+              className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 border-t border-border ${
                 highlightedIndex === results.length
                   ? 'bg-primary-50 dark:bg-primary-900/30'
-                  : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  : 'hover:bg-bg-hover'
               }`}
             >
               <Plus className="w-3 h-3 text-primary-600" />

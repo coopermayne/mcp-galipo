@@ -443,16 +443,16 @@ export function TasksComponent({
       {(title || viewAllLink) && (
         <div className="flex items-center justify-between mb-3">
           {title && (
-            <h2 className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <CheckSquare className="w-4 h-4 text-slate-400" />
+            <h2 className="flex items-center gap-2 text-text">
+              <CheckSquare className="w-4 h-4 text-text-muted" />
               <span className="font-semibold">{title}</span>
-              <span className="font-normal text-slate-400">({tasks.length})</span>
+              <span className="font-normal text-text-muted">({tasks.length})</span>
             </h2>
           )}
           {viewAllLink && (
             <Link
               to={viewAllLink}
-              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
+              className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
             >
               View all <ChevronRight className="w-4 h-4" />
             </Link>

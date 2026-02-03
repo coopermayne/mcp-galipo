@@ -165,10 +165,10 @@ export function ProceedingsSection({
     <div className="space-y-2">
       {/* Section header */}
       <div className="flex items-center gap-2">
-        <Scale className="w-4 h-4 text-slate-400" />
-        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Proceedings</h4>
+        <Scale className="w-4 h-4 text-text-muted" />
+        <h4 className="text-sm font-medium text-text-secondary">Proceedings</h4>
         {proceedings.length > 0 && (
-          <span className="text-xs text-slate-400">({proceedings.length})</span>
+          <span className="text-xs text-text-muted">({proceedings.length})</span>
         )}
       </div>
 
@@ -179,15 +179,15 @@ export function ProceedingsSection({
           <div className="flex items-center gap-1.5 text-sm">
             <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
             <span
-              className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200 cursor-pointer hover:underline"
+              className="font-mono text-sm font-medium text-text cursor-pointer hover:underline"
               onClick={() => openProceedingModal(primaryProceeding.id, { caseId })}
             >
               {primaryProceeding.case_number}
             </span>
             {primaryProceeding.jurisdiction_name && (
               <>
-                <span className="text-slate-300">·</span>
-                <span className="text-sm text-slate-500 dark:text-slate-400">
+                <span className="text-text-muted">·</span>
+                <span className="text-sm text-text-secondary">
                   {primaryProceeding.jurisdiction_name}
                 </span>
                 {primaryProceeding.local_rules_link && (
@@ -209,18 +209,18 @@ export function ProceedingsSection({
           {primaryProceeding.judges && primaryProceeding.judges.length > 0 && (
             <div className="ml-5 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {primaryProceeding.judges.map((judge: ProceedingJudge, idx: number) => (
-                <span key={`${judge.person_id}-${judge.role}`} className="text-sm text-slate-600 dark:text-slate-400 group/judge inline-flex items-center gap-1">
-                  {idx > 0 && <span className="text-slate-300">·</span>}
+                <span key={`${judge.person_id}-${judge.role}`} className="text-sm text-text-secondary group/judge inline-flex items-center gap-1">
+                  {idx > 0 && <span className="text-text-muted">·</span>}
                   <span
                     className="cursor-pointer hover:underline"
                     onClick={() => openPersonModal(judge.person_id, { caseId })}
                   >
                     {judge.name}
                   </span>
-                  <span className="text-slate-400 text-xs">({judge.role})</span>
+                  <span className="text-text-muted text-xs">({judge.role})</span>
                   <button
                     onClick={() => handleRemoveJudge(primaryProceeding.id, judge.person_id)}
-                    className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-slate-400 hover:text-red-400 transition-opacity"
+                    className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-text-muted hover:text-red-400 transition-opacity"
                     title="Remove judge"
                   >
                     <X className="w-3 h-3" />
@@ -259,20 +259,20 @@ export function ProceedingsSection({
 
           {/* Notes if any */}
           {primaryProceeding.notes && (
-            <p className="ml-5 mt-1 text-sm text-slate-400 italic">{primaryProceeding.notes}</p>
+            <p className="ml-5 mt-1 text-sm text-text-muted italic">{primaryProceeding.notes}</p>
           )}
         </div>
       )}
 
       {/* Other proceedings - compact display with add button */}
       {otherProceedings.length > 0 && (
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <span className="text-slate-400">Other:</span>
+        <div className="pt-2 border-t border-border flex items-center gap-2 text-sm text-text-secondary">
+          <span className="text-text-muted">Other:</span>
           {otherProceedings.map((p, idx) => (
             <span key={p.id} className="inline-flex items-center">
-              {idx > 0 && <span className="text-slate-300 mx-1">·</span>}
+              {idx > 0 && <span className="text-text-muted mx-1">·</span>}
               <span
-                className="font-mono cursor-pointer hover:underline hover:text-slate-700 dark:hover:text-slate-300"
+                className="font-mono cursor-pointer hover:underline hover:text-text-secondary"
                 onClick={() => openProceedingModal(p.id, { caseId })}
               >
                 {p.case_number}
@@ -292,8 +292,8 @@ export function ProceedingsSection({
 
       {/* Add button when only primary exists (no others) */}
       {primaryProceeding && otherProceedings.length === 0 && (
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2 text-sm">
-          <span className="text-slate-400">Other:</span>
+        <div className="pt-2 border-t border-border flex items-center gap-2 text-sm">
+          <span className="text-text-muted">Other:</span>
           <button
             onClick={handleAddProceeding}
             disabled={createAndOpenMutation.isPending}
@@ -309,7 +309,7 @@ export function ProceedingsSection({
       {proceedings.length === 0 && !showAdd && (
         <button
           onClick={() => setShowAdd(true)}
-          className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 inline-flex items-center gap-1"
+          className="text-sm text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" />
           Add proceeding
@@ -320,7 +320,7 @@ export function ProceedingsSection({
       {showAdd && (
         <form
           onSubmit={handleAdd}
-          className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg space-y-2 border border-slate-200 dark:border-slate-600"
+          className="p-3 bg-bg-hover rounded-lg space-y-2 border border-border"
         >
           <div className="space-y-2">
             <input
@@ -328,18 +328,18 @@ export function ProceedingsSection({
               value={newProceeding.case_number}
               onChange={(e) => setNewProceeding({ ...newProceeding, case_number: e.target.value })}
               placeholder="Case number *"
-              className="w-full px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm focus:border-primary-500 outline-none"
+              className="w-full px-2 py-1.5 rounded border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 outline-none"
               autoFocus
             />
             {newProceeding.jurisdiction_id ? (
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm">
-                <span className="text-slate-900 dark:text-slate-100 flex-1">
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-border bg-bg-surface text-sm">
+                <span className="text-text flex-1">
                   {newProceeding.jurisdiction_name}
                 </span>
                 <button
                   type="button"
                   onClick={handleClearJurisdiction}
-                  className="p-0.5 text-slate-400 hover:text-slate-600"
+                  className="p-0.5 text-text-muted hover:text-text-secondary"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -354,14 +354,14 @@ export function ProceedingsSection({
             )}
           </div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            <label className="flex items-center gap-1.5 text-xs text-text-secondary">
               <input
                 type="checkbox"
                 checked={newProceeding.is_primary}
                 onChange={(e) =>
                   setNewProceeding({ ...newProceeding, is_primary: e.target.checked })
                 }
-                className="rounded border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-700"
+                className="rounded border-border bg-bg-surface"
               />
               Primary
             </label>
@@ -369,7 +369,7 @@ export function ProceedingsSection({
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
-                className="px-2 py-1 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700"
+                className="px-2 py-1 text-xs text-text-secondary hover:text-text"
               >
                 Cancel
               </button>

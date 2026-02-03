@@ -136,7 +136,7 @@ export function EditableContactList({
   const statusIcon = () => {
     switch (status) {
       case 'saving':
-        return <Loader2 className="w-3 h-3 animate-spin text-slate-400" />;
+        return <Loader2 className="w-3 h-3 animate-spin text-text-muted" />;
       case 'saved':
         return <Check className="w-3 h-3 text-green-500" />;
       case 'error':
@@ -161,7 +161,7 @@ export function EditableContactList({
             className={`p-0.5 rounded transition-colors ${
               entry.primary
                 ? 'text-amber-500'
-                : 'text-slate-300 dark:text-slate-600 hover:text-amber-400 dark:hover:text-amber-500'
+                : 'text-text-muted hover:text-amber-400'
             } ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
             title={entry.primary ? 'Primary' : 'Set as primary'}
           >
@@ -178,16 +178,16 @@ export function EditableContactList({
               onKeyDown={handleKeyDown}
               onBlur={handleConfirmEdit}
               placeholder={placeholder}
-              className="flex-1 min-w-0 px-2 py-1 text-sm rounded border border-primary-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="flex-1 min-w-0 px-2 py-1 text-sm rounded border border-primary-500 bg-bg-surface text-text focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           ) : (
             <span
               onClick={() => handleStartEdit(index)}
-              className={`flex-1 min-w-0 px-2 py-1 text-sm rounded cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300 ${
+              className={`flex-1 min-w-0 px-2 py-1 text-sm rounded cursor-pointer hover:bg-bg-hover transition-colors text-text-secondary ${
                 disabled ? 'cursor-default hover:bg-transparent' : ''
               }`}
             >
-              {entry.value || <span className="text-slate-400 italic">{placeholder}</span>}
+              {entry.value || <span className="text-text-muted italic">{placeholder}</span>}
             </span>
           )}
 
@@ -196,7 +196,7 @@ export function EditableContactList({
             value={entry.label || ''}
             onChange={(e) => handleLabelChange(index, e.target.value)}
             disabled={disabled}
-            className="text-xs px-1.5 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
+            className="text-xs px-1.5 py-1 rounded border border-border bg-bg-surface text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50"
           >
             <option value="">No label</option>
             {labels.map((label) => (
@@ -211,7 +211,7 @@ export function EditableContactList({
             <button
               type="button"
               onClick={() => handleDelete(index)}
-              className="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+              className="p-1 text-text-muted hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity"
               title="Remove"
             >
               <X className="w-4 h-4" />
@@ -226,7 +226,7 @@ export function EditableContactList({
           <button
             type="button"
             onClick={handleAdd}
-            className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-bg-hover transition-colors"
           >
             <Plus className="w-3 h-3" />
             Add {type}

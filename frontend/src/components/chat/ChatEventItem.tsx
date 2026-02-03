@@ -96,7 +96,7 @@ export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventIt
   };
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden">
+    <div className="rounded-lg border border-border bg-bg-surface overflow-hidden">
       {/* Success header for newly created events */}
       {isNew && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
@@ -120,7 +120,7 @@ export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventIt
               disabled:opacity-50
               ${event.starred
                 ? 'text-amber-500'
-                : 'text-slate-300 dark:text-slate-600 hover:text-amber-400'
+                : 'text-text-muted hover:text-amber-400'
               }
             `}
             title={event.starred ? 'Remove from Key Dates' : 'Add to Key Dates'}
@@ -129,7 +129,7 @@ export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventIt
           </button>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug">
+            <p className="text-sm font-medium text-text leading-snug">
               {event.description}
             </p>
           </div>
@@ -165,7 +165,7 @@ export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventIt
                   className={`flex items-center gap-1 text-xs hover:underline ${
                     dateInfo.isOverdue
                       ? 'text-red-500'
-                      : 'text-slate-500 dark:text-slate-400'
+                      : 'text-text-secondary'
                   }`}
                   disabled={updateMutation.isPending}
                 >
@@ -188,7 +188,7 @@ export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventIt
 
           {/* Location (if set) */}
           {event.location && (
-            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1 text-xs text-text-secondary">
               <MapPin className="w-3 h-3 flex-shrink-0" />
               <span className="truncate max-w-[120px]">{event.location}</span>
             </span>
@@ -211,7 +211,7 @@ export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventIt
 
         {/* Calculation note (if set) */}
         {event.calculation_note && (
-          <p className="mt-2 ml-7 text-xs text-slate-500 dark:text-slate-400 italic">
+          <p className="mt-2 ml-7 text-xs text-text-secondary italic">
             {event.calculation_note}
           </p>
         )}
