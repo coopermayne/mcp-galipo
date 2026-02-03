@@ -5,17 +5,17 @@
  *
  * Features:
  * - CasesWidget for browsing/filtering cases
+ * - Customizable layout (1, 1:1, etc.)
  * - Quick case creation form
- * - Single panel layout (no layout selector)
  *
  * Uses the universal panel layout system with allowedWidgets=['cases'].
  */
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2, RotateCcw } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Header } from '../components/layout';
-import { PanelContainer } from '../components/panels';
+import { LayoutSelector, PanelContainer } from '../components/panels';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
 import { createCase } from '../api';
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
@@ -39,7 +39,7 @@ const DEFAULT_CONFIG: PanelLayoutConfig = {
 function CasesContent() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { config, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
+  const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
@@ -73,14 +73,7 @@ function CasesContent() {
         subtitle="All your active and archived matters"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={resetToDefault}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-text-muted hover:text-text-secondary transition-colors"
-              title="Reset to defaults"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">Reset</span>
-            </button>
+            <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
             <button
               onClick={() => setIsCreating(true)}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
