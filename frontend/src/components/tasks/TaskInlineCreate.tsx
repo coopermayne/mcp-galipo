@@ -4,7 +4,7 @@
  * Shows an inline form for creating a new task with the same styling
  * as the inline edit form.
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DatePicker from 'react-datepicker';
 import { format, getYear } from 'date-fns';
@@ -12,8 +12,10 @@ import {
   Calendar,
   Flag,
   Inbox,
+  Sparkles,
 } from 'lucide-react';
 import { getCases } from '../../api';
+import { parseDateFromText, removeDateFromText, type ParsedDate } from '../../utils/dateParser';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export interface TaskInlineCreateProps {
@@ -79,6 +81,13 @@ export function TaskInlineCreate({
   const [isCaseDropdownOpen, setIsCaseDropdownOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
   const [highlightedCaseIndex, setHighlightedCaseIndex] = useState(0);
+  const [dateManuallySet, setDateManuallySet] = useState(!!prefilledDueDate);
+
+  // Real-time date detection from title text
+  const detectedDateInfo = useMemo((): ParsedDate | null => {
+    if (dateManuallySet) return null; // Don't detect if user manually set a date
+    return parseDateFromText(title);
+  }, [title, dateManuallySet]);
 
   const titleRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -174,12 +183,21 @@ export function TaskInlineCreate({
     const caseIdToUse = preselectedCaseId || selectedCaseId;
     if (!title.trim() || !caseIdToUse) return;
 
+    // Use manually set date, or auto-detected date from title
+    let finalDescription = title.trim();
+    let finalDate = dueDate;
+
+    if (!dateManuallySet && detectedDateInfo) {
+      finalDate = detectedDateInfo.date;
+      finalDescription = removeDateFromText(title, detectedDateInfo);
+    }
+
     setIsSaving(true);
     try {
       await onSave({
         case_id: caseIdToUse,
-        description: title.trim(),
-        due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
+        description: finalDescription,
+        due_date: finalDate ? format(finalDate, 'yyyy-MM-dd') : undefined,
         urgency,
         status: defaultStatus,
       });
@@ -270,7 +288,12 @@ export function TaskInlineCreate({
   };
 
   const currentPriority = PRIORITY_OPTIONS.find(p => p.value === urgency) || PRIORITY_OPTIONS[2];
-  const dateInfo = dueDate ? formatRelativeDate(format(dueDate, 'yyyy-MM-dd')) : null;
+
+  // Display date: manually set date takes precedence, then auto-detected
+  const displayDate = dueDate || detectedDateInfo?.date || null;
+  const dateInfo = displayDate ? formatRelativeDate(format(displayDate, 'yyyy-MM-dd')) : null;
+  const isDateAutoDetected = !dateManuallySet && !!detectedDateInfo;
+
   const caseIdToUse = preselectedCaseId || selectedCaseId;
   const canSave = title.trim() && caseIdToUse;
 
@@ -279,16 +302,31 @@ export function TaskInlineCreate({
       ref={containerRef}
       className="px-3 py-2.5 md:px-2 md:py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm"
     >
-      {/* Title input */}
-      <input
-        ref={titleRef}
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Task name"
-        className="w-full text-sm leading-snug text-slate-900 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400"
-      />
+      {/* Title input with date highlighting */}
+      <div className="relative">
+        {/* Highlight overlay - shows behind the input */}
+        {detectedDateInfo && (
+          <div
+            className="absolute inset-0 pointer-events-none text-sm leading-snug whitespace-pre text-transparent"
+            aria-hidden="true"
+          >
+            <span>{title.substring(0, detectedDateInfo.startIndex)}</span>
+            <span className="bg-blue-100 dark:bg-blue-900/50 text-transparent rounded px-0.5">
+              {title.substring(detectedDateInfo.startIndex, detectedDateInfo.endIndex)}
+            </span>
+            <span>{title.substring(detectedDateInfo.endIndex)}</span>
+          </div>
+        )}
+        <input
+          ref={titleRef}
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Task name"
+          className="relative w-full text-sm leading-snug text-slate-900 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400"
+        />
+      </div>
 
       {/* Metadata row - case, date, priority */}
       <div className="flex items-center mt-1 gap-3">
@@ -359,9 +397,10 @@ export function TaskInlineCreate({
 
         {/* Due date picker */}
         <DatePicker
-          selected={dueDate}
+          selected={displayDate}
           onChange={(date: Date | null) => {
             setDueDate(date);
+            setDateManuallySet(!!date);
             setIsDatePickerOpen(false);
           }}
           open={isDatePickerOpen}
@@ -379,9 +418,19 @@ export function TaskInlineCreate({
             dateInfo ? (
               <button
                 type="button"
-                className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+                className={`flex items-center gap-1 text-xs hover:underline ${
+                  isDateAutoDetected
+                    ? 'text-blue-500 dark:text-blue-400'
+                    : dateInfo.isOverdue
+                      ? 'text-red-500'
+                      : 'text-slate-500 dark:text-slate-400'
+                }`}
               >
-                <Calendar className="w-3 h-3 flex-shrink-0" />
+                {isDateAutoDetected ? (
+                  <Sparkles className="w-3 h-3 flex-shrink-0" />
+                ) : (
+                  <Calendar className="w-3 h-3 flex-shrink-0" />
+                )}
                 <span>{dateInfo.text}</span>
               </button>
             ) : (

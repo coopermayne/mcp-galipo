@@ -4,13 +4,14 @@
  * Shows an inline form for creating a new event with the same styling
  * as the inline edit form.
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import DatePicker from 'react-datepicker';
 import { format, getYear } from 'date-fns';
-import { Calendar, Inbox } from 'lucide-react';
+import { Calendar, Inbox, Sparkles } from 'lucide-react';
 import { TimePicker } from '../common';
 import { getCases } from '../../api';
+import { parseDateFromText, removeDateFromText, type ParsedDate } from '../../utils/dateParser';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export interface EventInlineCreateProps {
@@ -66,6 +67,13 @@ export function EventInlineCreate({
   const [isCaseDropdownOpen, setIsCaseDropdownOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
   const [highlightedCaseIndex, setHighlightedCaseIndex] = useState(0);
+  const [dateManuallySet, setDateManuallySet] = useState(!!prefilledDate);
+
+  // Real-time date detection from description text
+  const detectedDateInfo = useMemo((): ParsedDate | null => {
+    if (dateManuallySet) return null; // Don't detect if user manually set a date
+    return parseDateFromText(description);
+  }, [description, dateManuallySet]);
 
   const descriptionRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -159,14 +167,24 @@ export function EventInlineCreate({
 
   const handleSave = async () => {
     const caseIdToUse = preselectedCaseId || selectedCaseId;
-    if (!description.trim() || !caseIdToUse || !eventDate) return;
+
+    // Use manually set date, or auto-detected date from description
+    let finalDescription = description.trim();
+    let finalDate = eventDate;
+
+    if (!dateManuallySet && detectedDateInfo) {
+      finalDate = detectedDateInfo.date;
+      finalDescription = removeDateFromText(description, detectedDateInfo);
+    }
+
+    if (!finalDescription || !caseIdToUse || !finalDate) return;
 
     setIsSaving(true);
     try {
       await onSave({
         case_id: caseIdToUse,
-        description: description.trim(),
-        date: format(eventDate, 'yyyy-MM-dd'),
+        description: finalDescription,
+        date: format(finalDate, 'yyyy-MM-dd'),
         time: eventTime || undefined,
       });
     } finally {
@@ -255,25 +273,44 @@ export function EventInlineCreate({
     );
   };
 
-  const dateInfo = eventDate ? formatRelativeDate(format(eventDate, 'yyyy-MM-dd')) : null;
   const caseIdToUse = preselectedCaseId || selectedCaseId;
-  const canSave = description.trim() && caseIdToUse && eventDate;
+  // Display date: manually set date takes precedence, then auto-detected
+  const displayDate = eventDate || detectedDateInfo?.date || null;
+  const dateInfo = displayDate ? formatRelativeDate(format(displayDate, 'yyyy-MM-dd')) : null;
+  const isDateAutoDetected = !dateManuallySet && !!detectedDateInfo;
+
+  const canSave = description.trim() && caseIdToUse && displayDate;
 
   return (
     <div
       ref={containerRef}
       className="px-3 py-2.5 md:px-2 md:py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm"
     >
-      {/* Description input */}
-      <input
-        ref={descriptionRef}
-        type="text"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Event description"
-        className="w-full text-sm leading-snug text-slate-900 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400"
-      />
+      {/* Description input with date highlighting */}
+      <div className="relative">
+        {/* Highlight overlay - shows behind the input */}
+        {detectedDateInfo && (
+          <div
+            className="absolute inset-0 pointer-events-none text-sm leading-snug whitespace-pre text-transparent"
+            aria-hidden="true"
+          >
+            <span>{description.substring(0, detectedDateInfo.startIndex)}</span>
+            <span className="bg-blue-100 dark:bg-blue-900/50 text-transparent rounded px-0.5">
+              {description.substring(detectedDateInfo.startIndex, detectedDateInfo.endIndex)}
+            </span>
+            <span>{description.substring(detectedDateInfo.endIndex)}</span>
+          </div>
+        )}
+        <input
+          ref={descriptionRef}
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Event description"
+          className="relative w-full text-sm leading-snug text-slate-900 dark:text-slate-100 bg-transparent outline-none placeholder:text-slate-400"
+        />
+      </div>
 
       {/* Metadata row - case, date, time */}
       <div className="flex items-center mt-1 gap-3">
@@ -344,9 +381,10 @@ export function EventInlineCreate({
 
         {/* Date picker */}
         <DatePicker
-          selected={eventDate}
+          selected={displayDate}
           onChange={(date: Date | null) => {
             setEventDate(date);
+            setDateManuallySet(!!date);
             setIsDatePickerOpen(false);
           }}
           open={isDatePickerOpen}
@@ -364,9 +402,19 @@ export function EventInlineCreate({
             dateInfo ? (
               <button
                 type="button"
-                className={`flex items-center gap-1 text-xs hover:underline ${dateInfo.isOverdue ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}
+                className={`flex items-center gap-1 text-xs hover:underline ${
+                  isDateAutoDetected
+                    ? 'text-blue-500 dark:text-blue-400'
+                    : dateInfo.isOverdue
+                      ? 'text-red-500'
+                      : 'text-slate-500 dark:text-slate-400'
+                }`}
               >
-                <Calendar className="w-3 h-3 flex-shrink-0" />
+                {isDateAutoDetected ? (
+                  <Sparkles className="w-3 h-3 flex-shrink-0" />
+                ) : (
+                  <Calendar className="w-3 h-3 flex-shrink-0" />
+                )}
                 <span>{dateInfo.text}</span>
               </button>
             ) : (
