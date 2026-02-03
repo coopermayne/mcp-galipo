@@ -92,15 +92,6 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
 
         result = serialize_row(dict(case))
 
-        # Parse case_numbers JSONB
-        if result.get("case_numbers"):
-            case_nums = result["case_numbers"]
-            if isinstance(case_nums, str):
-                case_nums = json.loads(case_nums)
-            result["case_numbers"] = case_nums
-        else:
-            result["case_numbers"] = []
-
         # Expand attorney_ids and paralegal_ids to full user objects
         attorney_ids = result.get("attorney_ids") or []
         paralegal_ids = result.get("paralegal_ids") or []
@@ -250,12 +241,10 @@ def get_all_case_names() -> List[str]:
 
 def create_case(case_name: str, status: str = "Signing Up",
                 print_code: str = None, case_summary: str = None, result: str = None,
-                date_of_injury: str = None, case_numbers: List[dict] = None,
-                short_name: str = None) -> dict:
-    """Create a new case."""
+                date_of_injury: str = None, short_name: str = None) -> dict:
+    """Create a new case. Case numbers are added via proceedings."""
     validate_case_status(status)
     validate_date_format(date_of_injury, "date_of_injury")
-    case_numbers_json = json.dumps(case_numbers) if case_numbers else '[]'
 
     # Default short_name to first word of case_name
     if short_name is None:
@@ -266,20 +255,20 @@ def create_case(case_name: str, status: str = "Signing Up",
 
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO cases (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers, color)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO cases (case_name, short_name, status, print_code, case_summary, result, date_of_injury, color)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (case_name, short_name, status, print_code, case_summary, result, date_of_injury, case_numbers_json, color))
+        """, (case_name, short_name, status, print_code, case_summary, result, date_of_injury, color))
         case_id = cur.fetchone()["id"]
 
     return get_case_by_id(case_id)
 
 
 def update_case(case_id: int, **kwargs) -> Optional[dict]:
-    """Update case fields."""
+    """Update case fields. Case numbers are managed via proceedings."""
     allowed_fields = [
         "case_name", "short_name", "status", "print_code",
-        "case_summary", "result", "date_of_injury", "case_numbers"
+        "case_summary", "result", "date_of_injury"
     ]
 
     updates = []
@@ -295,8 +284,6 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
             validate_case_status(value)
         elif field == "date_of_injury":
             validate_date_format(value, field)
-        elif field == "case_numbers":
-            value = json.dumps(value) if isinstance(value, list) else value
 
         updates.append(f"{field} = %s")
         params.append(value)
@@ -338,7 +325,13 @@ def search_cases(query: str = None, case_number: str = None, person_name: str = 
         params.extend([f"%{query}%", f"%{query}%"])
 
     if case_number:
-        conditions.append("c.case_numbers::text ILIKE %s")
+        # Search in proceedings table
+        conditions.append("""
+            EXISTS (
+                SELECT 1 FROM proceedings p
+                WHERE p.case_id = c.id AND p.case_number ILIKE %s
+            )
+        """)
         params.append(f"%{case_number}%")
 
     if person_name:
@@ -360,21 +353,14 @@ def search_cases(query: str = None, case_number: str = None, person_name: str = 
 
     with get_cursor() as cur:
         cur.execute(f"""
-            SELECT c.id, c.case_name, c.short_name, c.status, c.case_summary,
-                   c.case_numbers
+            SELECT c.id, c.case_name, c.short_name, c.status, c.case_summary
             FROM cases c
             {where_clause}
             ORDER BY c.case_name
             LIMIT %s
         """, params + [limit])
 
-        results = []
-        for row in cur.fetchall():
-            r = dict(row)
-            if r.get("case_numbers") and isinstance(r["case_numbers"], str):
-                r["case_numbers"] = json.loads(r["case_numbers"])
-            results.append(r)
-        return results
+        return [dict(row) for row in cur.fetchall()]
 
 
 def get_case_summary(case_id: int) -> Optional[dict]:

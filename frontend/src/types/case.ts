@@ -9,12 +9,6 @@ import type { CasePerson } from './person';
 import type { Proceeding } from './proceeding';
 import type { CaseStaffUser } from './user';
 
-export interface CaseNumber {
-  number: string;
-  label: string;
-  primary?: boolean;
-}
-
 export interface Case {
   id: number;
   case_name: string;
@@ -26,7 +20,6 @@ export interface Case {
   date_of_injury?: string;
   created_at: string;
   updated_at?: string;
-  case_numbers: CaseNumber[];
   persons: CasePerson[];
   tasks?: Task[];
   events?: Event[];
@@ -60,7 +53,6 @@ export interface CreateCaseInput {
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
-  case_numbers?: CaseNumber[];
 }
 
 export interface UpdateCaseInput {
@@ -70,5 +62,4 @@ export interface UpdateCaseInput {
   case_summary?: string;
   result?: string;
   date_of_injury?: string;
-  case_numbers?: CaseNumber[];
 }

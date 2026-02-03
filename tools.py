@@ -213,10 +213,9 @@ def register_tools(mcp):
         case_summary: Optional[str] = None,
         result: Optional[str] = None,
         date_of_injury: Optional[str] = None,
-        case_numbers: Optional[list] = None,
         short_name: Optional[str] = None
     ) -> dict:
-        """Create a new case."""
+        """Create a new case. Case numbers are added via proceedings (add_proceeding tool)."""
         try:
             db.validate_case_status(status)
         except ValidationError:
@@ -226,7 +225,7 @@ def register_tools(mcp):
                 db.validate_date_format(date_of_injury, "date_of_injury")
             except ValidationError:
                 return invalid_date_format_error(date_of_injury, "date_of_injury")
-        case = db.create_case(case_name, status, print_code, case_summary, result, date_of_injury, case_numbers, short_name)
+        case = db.create_case(case_name, status, print_code, case_summary, result, date_of_injury, short_name)
         return {"success": True, "case": case}
 
     @mcp.tool()
@@ -239,10 +238,9 @@ def register_tools(mcp):
         print_code: Optional[str] = None,
         case_summary: Optional[str] = None,
         result: Optional[str] = None,
-        date_of_injury: Optional[str] = None,
-        case_numbers: Optional[list] = None
+        date_of_injury: Optional[str] = None
     ) -> dict:
-        """Update case fields."""
+        """Update case fields. Case numbers are managed via proceedings."""
         if status:
             try:
                 db.validate_case_status(status)
@@ -255,7 +253,7 @@ def register_tools(mcp):
                 return invalid_date_format_error(date_of_injury, "date_of_injury")
         updated = db.update_case(case_id, case_name=case_name, short_name=short_name, status=status,
                                   print_code=print_code, case_summary=case_summary,
-                                  result=result, date_of_injury=date_of_injury, case_numbers=case_numbers)
+                                  result=result, date_of_injury=date_of_injury)
         if not updated:
             return not_found_error("Case")
         return {"success": True, "case": updated}
@@ -1205,6 +1203,158 @@ def register_tools(mcp):
             return not_found_error("User")
         action = "permanently deleted" if permanent else "deactivated"
         return {"success": True, "message": f"User {action}"}
+
+    # =========================================================================
+    # BULK IMPORT
+    # =========================================================================
+
+    @mcp.tool()
+    def import_case(
+        context: Context,
+        data: dict
+    ) -> dict:
+        """Import a complete case with all related entities in a single transaction.
+
+        This is the primary tool for bulk case import. Pass a structured JSON object
+        containing the case and all related data. Everything is created atomically -
+        if any part fails, nothing is created.
+
+        VALID VALUES:
+
+        case.status (default "Signing Up"):
+            "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
+            "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
+            "Settl. Pend.", "Stayed", "Closed"
+
+        persons[].role (common values - determines case assignment):
+            "Client", "Defendant", "Opposing Counsel", "Defense Counsel", "Co-Counsel",
+            "Judge", "Magistrate Judge", "Plaintiff Expert", "Defense Expert",
+            "Mediator", "Witness", "Lien Holder", "Interpreter", "Court Reporter"
+            Note: Judges are linked to proceedings, not cases directly.
+
+        persons[].side (auto-inferred from role if omitted):
+            "plaintiff", "defendant", "neutral"
+
+        persons[].person_type (auto-inferred from role if omitted):
+            "client", "attorney", "judge", "expert", "mediator", "defendant",
+            "witness", "lien_holder", "interpreter", "court_reporter",
+            "process_server", "investigator", "insurance_adjuster", "guardian"
+
+        persons[].phones (array of contact objects):
+            [{"value": "555-123-4567", "label": "Mobile", "primary": true}]
+            Shortcut: Use "phone": "555-1234" for a single primary phone.
+
+        persons[].emails (array of contact objects):
+            [{"value": "jane@firm.com", "label": "Work", "primary": true}]
+            Shortcut: Use "email": "jane@firm.com" for a single primary email.
+
+        persons[].attributes (JSONB - varies by person type):
+            Attorneys: {"bar_number": "123456"}
+            Judges: {"department": "5", "courtroom": "302", "initials": "JW"}
+            Experts: {"specialties": ["Biomechanics"], "hourly_rate": 500}
+            Mediators: {"style": "evaluative", "half_day_rate": 2500}
+            Clients: {"date_of_birth": "1980-01-01", "preferred_language": "Spanish"}
+
+        proceedings[].jurisdiction (matched by name, or created if new):
+            Default courts: "C.D. Cal.", "E.D. Cal.", "N.D. Cal.", "S.D. Cal.",
+            "9th Cir.", "Los Angeles Superior", "Orange County Superior",
+            "San Diego Superior", "Riverside Superior", "San Bernardino Superior"
+            Any other name will create a new jurisdiction.
+
+        tasks[].status (default "Pending"):
+            "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+
+        tasks[].urgency (default 2):
+            1=Low, 2=Medium, 3=High, 4=Urgent
+
+        activities[].type (default "Other"):
+            "Meeting", "Filing", "Research", "Drafting", "Document Review",
+            "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+
+        INPUT SCHEMA:
+        {
+            "case": {
+                "case_name": "Smith v. Jones" (REQUIRED),
+                "short_name": "Smith v. Jones",
+                "status": "Discovery",
+                "date_of_injury": "2024-01-15",
+                "case_summary": "Motor vehicle accident...",
+                "print_code": "SMJ-001",
+                "color": "blue"  // auto-assigned if omitted
+            },
+            "persons": [
+                {
+                    "name": "John Smith" (REQUIRED),
+                    "role": "Client",
+                    "side": "plaintiff",
+                    "is_primary": true,
+                    "phones": [{"value": "555-123-4567", "label": "Cell", "primary": true}],
+                    "emails": [{"value": "john@example.com", "label": "Personal", "primary": true}],
+                    "organization": "Self-employed",
+                    "attributes": {"date_of_birth": "1980-01-01", "preferred_language": "English"},
+                    "case_notes": "Prefers email contact"
+                },
+                {
+                    "name": "Hon. Jane Wilson",
+                    "role": "Judge",
+                    "attributes": {"department": "5", "courtroom": "302"}
+                },
+                {
+                    "name": "Bob Attorney",
+                    "role": "Opposing Counsel",
+                    "organization": "Smith & Associates LLP",
+                    "phones": [{"value": "555-987-6543", "label": "Office", "primary": true}],
+                    "emails": [{"value": "battorney@smithlaw.com", "label": "Work", "primary": true}],
+                    "attributes": {"bar_number": "123456"}
+                }
+            ],
+            "proceedings": [
+                {
+                    "case_number": "24STCV12345" (REQUIRED),
+                    "jurisdiction": "Los Angeles Superior",
+                    "judge_name": "Hon. Jane Wilson",
+                    "is_primary": true
+                }
+            ],
+            "events": [
+                {
+                    "date": "2024-06-15" (REQUIRED, YYYY-MM-DD),
+                    "description": "Case Management Conference" (REQUIRED),
+                    "time": "09:00",
+                    "location": "Dept 5, Stanley Mosk Courthouse"
+                }
+            ],
+            "tasks": [
+                {
+                    "description": "Propound written discovery" (REQUIRED),
+                    "due_date": "2024-05-01",
+                    "status": "Pending",
+                    "urgency": 2
+                }
+            ],
+            "notes": [
+                {"content": "Client prefers email. Spanish speaker."}
+            ],
+            "activities": [
+                {
+                    "description": "Initial client intake meeting",
+                    "type": "Meeting",
+                    "date": "2024-01-20",
+                    "minutes": 60
+                }
+            ]
+        }
+
+        Returns all created IDs for verification.
+        """
+        context.info(f"Importing case: {data.get('case', {}).get('case_name', 'unknown')}")
+        try:
+            result = db.import_case(data)
+            return result
+        except ValidationError as e:
+            return validation_error(str(e))
+        except Exception as e:
+            return error_response(f"Import failed: {str(e)}", "IMPORT_ERROR")
 
     # =========================================================================
     # STATS & EXPORT

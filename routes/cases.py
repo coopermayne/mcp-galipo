@@ -55,7 +55,6 @@ def register_case_routes(mcp):
             case_summary=data.get("case_summary"),
             result=data.get("result"),
             date_of_injury=data.get("date_of_injury"),
-            case_numbers=data.get("case_numbers"),
             short_name=data.get("short_name")
         )
         return JSONResponse({"success": True, "case": result})

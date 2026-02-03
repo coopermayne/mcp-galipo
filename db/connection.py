@@ -970,7 +970,6 @@ def init_db():
                 case_summary TEXT,
                 result TEXT,
                 date_of_injury DATE,
-                case_numbers JSONB DEFAULT '[]',
                 color VARCHAR(20),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
