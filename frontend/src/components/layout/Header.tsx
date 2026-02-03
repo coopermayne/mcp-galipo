@@ -44,7 +44,7 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
           /* Title + subtitle for main pages */
           <div className="flex items-baseline gap-3">
             <h1 className="text-xl font-semibold text-text">{title}</h1>
-            {subtitle && <span className="text-sm text-text-muted">{subtitle}</span>}
+            {subtitle && <span className="hidden md:inline text-sm text-text-muted">{subtitle}</span>}
           </div>
         ) : showBreadcrumbs ? (
           /* Breadcrumbs for nested pages (e.g., /cases/123) */

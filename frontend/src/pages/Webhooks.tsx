@@ -103,7 +103,7 @@ export function Webhooks() {
   return (
     <>
       <Header
-        title="CourtListener Docket Entries"
+        title="CourtListener"
         subtitle="Incoming filings from subscribed cases"
       />
 
