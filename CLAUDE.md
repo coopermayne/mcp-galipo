@@ -17,13 +17,9 @@ uvicorn main:app --reload --port 8000
 
 # Production server
 python main.py
-
-# Run database migrations
-python migrations/run_migration.py
-
-# Run specific migration
-python migrations/run_migration.py <migration_file.sql>
 ```
+
+Note: Database migrations run automatically on server startup. See "Database Migrations" section below.
 
 ### Frontend (React/Vite)
 ```bash
@@ -51,6 +47,37 @@ python scripts/generate_schema_diagram.py
 ```
 
 **Schema Diagram**: The `docs/schema.md` file contains an auto-generated Mermaid ER diagram of the database schema. It updates automatically via a pre-commit hook when you commit changes to `migrations/` or `db/connection.py`. You can also regenerate it manually with the command above.
+
+### Database Migrations
+
+Migrations run automatically on server startup via `migrate_db()` in `db/connection.py`.
+
+**Adding a new migration:**
+
+1. Create a `.sql` file in `migrations/` with numeric prefix: `011_description.sql`
+2. Write idempotent SQL when possible (use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`)
+3. Deploy - the migration runs automatically on restart
+
+**Example migration file** (`migrations/011_add_foo_column.sql`):
+```sql
+-- Migration: Add foo column to cases
+-- Description: Brief explanation of why
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS foo VARCHAR(100);
+CREATE INDEX IF NOT EXISTS idx_cases_foo ON cases(foo);
+```
+
+**How it works:**
+- `schema_migrations` table tracks which files have been applied
+- On startup, scans `migrations/` for `.sql` files
+- Runs any unapplied migrations in filename order
+- Records successful migrations to prevent re-running
+
+**Important:**
+- Migrations run in a transaction - if one fails, it rolls back
+- Use `IF NOT EXISTS` / `IF EXISTS` for safety
+- Never modify an already-deployed migration - create a new one instead
+- Test migrations locally before deploying to production
 
 ## Architecture
 
