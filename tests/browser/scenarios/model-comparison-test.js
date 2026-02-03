@@ -8,8 +8,8 @@ const { chromium } = require('playwright');
 
 const CONFIG = {
   baseUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-  username: process.env.AUTH_USERNAME || 'asdf',
-  password: process.env.AUTH_PASSWORD || 'asdf',
+  username: process.env.AUTH_EMAIL || 'cmayne@example.com',
+  password: process.env.AUTH_PASSWORD || 'galipo2026',
   headless: process.env.HEADLESS !== 'false'
 };
 

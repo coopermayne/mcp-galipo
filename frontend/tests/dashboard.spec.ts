@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const USERNAME = process.env.APP_USER || 'asdf';
-const PASSWORD = process.env.APP_PASS || 'asdf';
+const USERNAME = process.env.APP_EMAIL || 'cmayne@example.com';
+const PASSWORD = process.env.APP_PASSWORD || 'galipo2026';
 
 // Helper to login before tests
 async function login(page) {
