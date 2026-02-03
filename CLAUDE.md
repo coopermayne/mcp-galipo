@@ -12,8 +12,11 @@ Galipo is a legal case management system for personal injury law firms. It opera
 
 ### Backend (Python/FastAPI)
 ```bash
+# Load env vars first (required for DATABASE_URL)
+set -a && source .env && set +a
+
 # Development server with hot reload
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port $PORT
 
 # Production server
 python main.py
@@ -32,6 +35,9 @@ npm run type-check   # TypeScript type checking
 
 ### Database
 ```bash
+# Load env vars first
+set -a && source .env && set +a
+
 # Connect to database
 psql $DATABASE_URL
 
@@ -268,6 +274,16 @@ The `/verify` skill checks:
 This is critical because the **live production database** receives schema changes automatically when the app restarts after deployment. There is no manual migration step - `migrate_db()` runs on startup.
 
 ## Environment Variables
+
+**IMPORTANT - Loading env vars correctly:**
+```bash
+# ALWAYS use this pattern to load .env:
+set -a && source .env && set +a
+
+# Why? Without `set -a`, variables exist in the shell but are NOT exported
+# to child processes. Python/Node won't see them, causing silent failures
+# (e.g., connecting to wrong database).
+```
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|

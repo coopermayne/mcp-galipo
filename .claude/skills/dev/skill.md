@@ -202,6 +202,18 @@ Then verify:
 2. Check DATABASE_URL in .env matches your local setup
 3. Verify database exists: `psql -l | grep galipo`
 
+### Environment variables not working
+**IMPORTANT:** Always use `set -a && source .env && set +a` to load environment variables.
+
+Without `set -a`, variables are only set in the shell but NOT exported to child processes (like Python). This causes silent failures where Python connects to the wrong database (your username's default database instead of the configured one).
+
+- `set -a` = auto-export all variables
+- `source .env` = load the file
+- `set +a` = turn off auto-export
+
+Wrong: `source .env && python script.py` (Python won't see the variables)
+Right: `set -a && source .env && set +a && python script.py`
+
 ---
 
 Execute these steps, reporting the final status summary to the user.
