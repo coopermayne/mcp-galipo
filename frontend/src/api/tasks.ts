@@ -61,3 +61,12 @@ export async function reorderTask(
     }),
   });
 }
+
+export async function rescheduleOverdueTasks(
+  newDate: string
+): Promise<{ success: boolean; updated: number }> {
+  return request('/tasks/reschedule-overdue', {
+    method: 'POST',
+    body: JSON.stringify({ new_date: newDate }),
+  });
+}

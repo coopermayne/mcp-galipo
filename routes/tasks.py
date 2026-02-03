@@ -110,3 +110,20 @@ def register_task_routes(mcp):
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
+    @mcp.custom_route("/api/v1/tasks/reschedule-overdue", methods=["POST"])
+    async def api_reschedule_overdue_tasks(request):
+        """Reschedule all overdue incomplete tasks to a new date."""
+        if err := auth.require_auth(request):
+            return err
+        data = await request.json()
+        new_date = data.get("new_date")
+
+        if not new_date:
+            return api_error("new_date is required", "VALIDATION_ERROR", 400)
+
+        try:
+            result = await asyncio.to_thread(db.reschedule_overdue_tasks, new_date)
+            return JSONResponse({"success": True, **result})
+        except db.ValidationError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+

@@ -74,6 +74,8 @@ interface TaskFeedProps {
   enableInlineCreate?: boolean;
   /** Default status for new tasks created via inline form */
   defaultCreateStatus?: string;
+  /** Callback when "→ Today" is clicked on overdue section */
+  onRescheduleOverdue?: () => void;
 }
 
 interface DateGroup {
@@ -293,9 +295,9 @@ function SectionHeader({
       {group.isOverdue && onReschedule && (
         <button
           onClick={onReschedule}
-          className="text-sm text-red-500 hover:text-red-600 font-medium"
+          className="text-xs text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
         >
-          Reschedule
+          → Today
         </button>
       )}
     </div>
@@ -343,6 +345,7 @@ export function TaskFeed({
   onInlineCreateSave,
   enableInlineCreate = false,
   defaultCreateStatus,
+  onRescheduleOverdue,
 }: TaskFeedProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; description: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -624,6 +627,7 @@ export function TaskFeed({
                   group={group}
                   isCollapsed={isCollapsed}
                   onToggleCollapse={group.isCollapsible ? () => toggleSection(group.key) : undefined}
+                  onReschedule={group.isOverdue ? onRescheduleOverdue : undefined}
                 />
                 <div className="border-b border-slate-200 dark:border-slate-700 mx-2" />
               </>

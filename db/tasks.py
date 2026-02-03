@@ -290,6 +290,26 @@ def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = 
         return {"updated": cur.rowcount}
 
 
+def reschedule_overdue_tasks(new_date: str) -> dict:
+    """Reschedule all overdue incomplete tasks to a new date.
+
+    Args:
+        new_date: The new due date (YYYY-MM-DD format)
+
+    Returns:
+        dict with 'updated' count
+    """
+    validate_date_format(new_date, "new_date")
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE tasks
+            SET due_date = %s
+            WHERE due_date < CURRENT_DATE
+              AND status != 'Done'
+        """, (new_date,))
+        return {"updated": cur.rowcount}
+
+
 def search_tasks(query: str = None, case_id: int = None, status: str = None,
                  urgency: int = None, assignee_id: int = None, limit: int = 50) -> List[dict]:
     """Search tasks by various criteria."""
