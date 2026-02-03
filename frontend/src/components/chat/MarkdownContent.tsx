@@ -26,11 +26,11 @@ function CodeBlock({ language, code }: CodeBlockProps) {
   return (
     <div className="relative group my-2 rounded-lg overflow-hidden">
       {/* Language badge and copy button */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-slate-800 text-slate-400 text-xs">
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-bg-surface text-text-muted text-xs">
         <span>{language || 'code'}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-700 transition-colors"
+          className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-bg-hover transition-colors"
           aria-label={copied ? 'Copied!' : 'Copy code'}
         >
           {copied ? (
@@ -86,7 +86,7 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: Markdo
             if (isInline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 font-mono text-xs"
+                  className="px-1.5 py-0.5 rounded bg-bg-hover text-text font-mono text-xs"
                   {...props}
                 >
                   {children}
@@ -140,14 +140,14 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: Markdo
           // Style blockquotes
           blockquote({ children }) {
             return (
-              <blockquote className="border-l-4 border-slate-300 dark:border-slate-600 pl-3 my-2 italic text-slate-600 dark:text-slate-400">
+              <blockquote className="border-l-4 border-border pl-3 my-2 italic text-text-secondary">
                 {children}
               </blockquote>
             );
           },
           // Style horizontal rules
           hr() {
-            return <hr className="my-4 border-slate-300 dark:border-slate-600" />;
+            return <hr className="my-4 border-border" />;
           },
           // Style strong/bold
           strong({ children }) {
@@ -168,24 +168,24 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: Markdo
             );
           },
           thead({ children }) {
-            return <thead className="bg-slate-100 dark:bg-slate-700">{children}</thead>;
+            return <thead className="bg-bg-hover">{children}</thead>;
           },
           tbody({ children }) {
-            return <tbody className="divide-y divide-slate-200 dark:divide-slate-600">{children}</tbody>;
+            return <tbody className="divide-y divide-border">{children}</tbody>;
           },
           tr({ children }) {
-            return <tr className="border-b border-slate-200 dark:border-slate-600">{children}</tr>;
+            return <tr className="border-b border-border">{children}</tr>;
           },
           th({ children }) {
             return (
-              <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
+              <th className="px-3 py-2 text-left font-semibold text-text border border-border">
                 {children}
               </th>
             );
           },
           td({ children }) {
             return (
-              <td className="px-3 py-2 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
+              <td className="px-3 py-2 text-text-secondary border border-border">
                 {children}
               </td>
             );

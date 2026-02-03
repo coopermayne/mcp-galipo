@@ -33,7 +33,7 @@ function TasksContent() {
   const { config, setLayout, updatePanel, setPanelType, allowedWidgets } = usePanelLayout();
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-900">
+    <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header
         title="Tasks"
         subtitle="Track your to-dos"

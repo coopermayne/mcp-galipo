@@ -31,7 +31,7 @@ export function WidgetTypeSelector({
   // Show static label if only one widget type is allowed
   if (allowedWidgets.length <= 1) {
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+      <div className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-text-secondary">
         {WIDGET_ICONS[value]}
         <span>{currentInfo?.label || 'Widget'}</span>
       </div>
@@ -45,7 +45,7 @@ export function WidgetTypeSelector({
         className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm font-medium transition-colors ${
           isOpen
             ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            : 'text-text-secondary hover:bg-bg-hover'
         }`}
       >
         {WIDGET_ICONS[value]}
@@ -58,7 +58,7 @@ export function WidgetTypeSelector({
           {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           {/* Dropdown */}
-          <div className="absolute left-0 top-full mt-1 w-48 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
+          <div className="absolute left-0 top-full mt-1 w-48 py-1 bg-bg-surface border border-border rounded-lg shadow-lg z-50">
             {allowedWidgets.map((type) => {
               const info = WIDGET_INFO[type];
               return (
@@ -68,7 +68,7 @@ export function WidgetTypeSelector({
                     onChange(type);
                     setIsOpen(false);
                   }}
-                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-text hover:bg-bg-hover"
                 >
                   <span className="flex items-center gap-2">
                     {WIDGET_ICONS[type]}

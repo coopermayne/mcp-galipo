@@ -28,7 +28,7 @@ const PRIORITY_COLORS = {
   4: 'text-red-500',
   3: 'text-orange-500',
   2: 'text-blue-500',
-  1: 'text-slate-400',
+  1: 'text-text-muted',
 } as const;
 
 // Priority-based border colors for Pending (empty circle)
@@ -36,7 +36,7 @@ const PRIORITY_BORDER_COLORS = {
   4: 'border-red-500',
   3: 'border-orange-500',
   2: 'border-blue-500',
-  1: 'border-slate-300 dark:border-slate-600',
+  1: 'border-border',
 } as const;
 
 // Status icons (symbol indicates status, color indicates priority)

@@ -104,11 +104,11 @@ export function DraggablePersonChip({
 
   const variantClasses: Record<string, string> = {
     primary: 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-200',
-    muted: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+    muted: 'bg-bg-hover text-text-secondary',
     danger: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
     success: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
     warning: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
-    default: 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200',
+    default: 'bg-bg-hover text-text',
   };
   const baseClass = variantClasses[variant] || variantClasses.default;
 
@@ -123,7 +123,7 @@ export function DraggablePersonChip({
     <div className={`relative flex items-center ${isNested ? 'ml-4' : ''}`}>
       {/* Tree connector for nested items */}
       {isNested && (
-        <span className="text-slate-400 dark:text-slate-500 font-mono text-xs mr-1 select-none">
+        <span className="text-text-muted font-mono text-xs mr-1 select-none">
           {isLastChild ? '└─' : '├─'}
         </span>
       )}
@@ -147,7 +147,7 @@ export function DraggablePersonChip({
             className="cursor-grab active:cursor-grabbing touch-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical className="w-3 h-3 text-slate-400" />
+            <GripVertical className="w-3 h-3 text-text-muted" />
           </span>
         )}
 
@@ -186,7 +186,7 @@ export function DraggablePersonChip({
       </div>
       {/* Copy confirmation tooltip */}
       {copiedField && (
-        <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded shadow-lg whitespace-nowrap">
+        <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-bg-surface text-white text-xs rounded shadow-lg whitespace-nowrap">
           {copiedLabels[copiedField]}
         </div>
       )}
@@ -215,7 +215,7 @@ export function UnnestDropZone({ isVisible, sectionId }: UnnestDropZoneProps) {
         mt-2 p-2 border-2 border-dashed rounded-md text-xs text-center transition-colors
         ${isOver
           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-          : 'border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400'}
+          : 'border-border text-text-muted'}
       `}
     >
       Drop here to un-nest

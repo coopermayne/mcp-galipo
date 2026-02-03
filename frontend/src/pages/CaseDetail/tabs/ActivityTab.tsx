@@ -143,19 +143,20 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
   return (
     <div className="space-y-6">
       {/* Activity Creation Form */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+      <div className="bg-bg-surface rounded-lg border border-border" style={{ borderColor: 'var(--theme-border)' }}>
         <button
           onClick={() => setIsFormExpanded(!isFormExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between text-left border-b border-slate-200 dark:border-slate-700"
+          className="w-full px-4 py-3 flex items-center justify-between text-left border-b border-border"
+          style={{ borderColor: 'var(--theme-border)' }}
         >
           <div className="flex items-center gap-2">
-            <Plus className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            <h3 className="font-medium text-slate-900 dark:text-slate-100">Add Activity</h3>
+            <Plus className="w-4 h-4 text-text-muted" />
+            <h3 className="font-medium text-text">Add Activity</h3>
           </div>
           {isFormExpanded ? (
-            <ChevronUp className="w-4 h-4 text-slate-400" />
+            <ChevronUp className="w-4 h-4 text-text-muted" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+            <ChevronDown className="w-4 h-4 text-text-muted" />
           )}
         </button>
 
@@ -168,8 +169,8 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the activity..."
                 className="
-                  w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                  bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+                  w-full px-3 py-2 rounded-lg border border-border
+                  bg-bg-surface text-text placeholder-text-muted
                   focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                   outline-none text-sm resize-none min-h-[60px]
                 "
@@ -179,8 +180,8 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
                   value={activityType}
                   onChange={(e) => setActivityType(e.target.value)}
                   className="
-                    px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                    bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
+                    px-3 py-2 rounded-lg border border-border
+                    bg-bg-surface text-text
                     focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                     outline-none text-sm flex-1 min-w-[140px]
                   "
@@ -197,8 +198,8 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
                   value={activityDate}
                   onChange={(e) => setActivityDate(e.target.value)}
                   className="
-                    px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                    bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
+                    px-3 py-2 rounded-lg border border-border
+                    bg-bg-surface text-text
                     focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                     outline-none text-sm
                   "
@@ -210,8 +211,8 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
                   placeholder="Minutes"
                   min="0"
                   className="
-                    w-24 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                    bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+                    w-24 px-3 py-2 rounded-lg border border-border
+                    bg-bg-surface text-text placeholder-text-muted
                     focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                     outline-none text-sm
                   "
@@ -238,25 +239,25 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
       </div>
 
       {/* Timeline */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+      <div className="bg-bg-surface rounded-lg border border-border" style={{ borderColor: 'var(--theme-border)' }}>
+        <div className="px-4 py-3 border-b border-border" style={{ borderColor: 'var(--theme-border)' }}>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="font-medium text-slate-900 dark:text-slate-100">Timeline</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <h3 className="font-medium text-text">Timeline</h3>
+              <p className="text-xs text-text-muted mt-1">
                 Activities and completed tasks
               </p>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
                 className="
-                  pl-9 pr-8 py-1.5 w-48 rounded-lg border border-slate-300 dark:border-slate-600
-                  bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400
+                  pl-9 pr-8 py-1.5 w-48 rounded-lg border border-border
+                  bg-bg-surface text-text placeholder-text-muted
                   focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                   outline-none text-sm
                 "
@@ -265,7 +266,7 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-text-secondary"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -274,9 +275,9 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
           </div>
         </div>
 
-        <div className="divide-y divide-slate-200 dark:divide-slate-700">
+        <div>
           {timeline.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+            <div className="p-8 text-center text-text-muted">
               {searchQuery ? (
                 <>No results for "{searchQuery}"</>
               ) : (
@@ -284,10 +285,11 @@ export function ActivityTab({ caseId, activities, tasks }: ActivityTabProps) {
               )}
             </div>
           ) : (
-            timeline.map((item) => (
+            timeline.map((item, index) => (
               <div
                 key={`${item.type}-${item.data.id}`}
-                className="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                className={`px-4 py-3 hover:bg-bg-hover ${index > 0 ? 'border-t border-border' : ''}`}
+                style={index > 0 ? { borderColor: 'var(--theme-border)' } : undefined}
               >
                 {item.type === 'activity' ? (
                   <ActivityItem
@@ -333,16 +335,16 @@ function ActivityItem({ activity, onDelete, formatDateTime }: ActivityItemProps)
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-slate-900 dark:text-slate-100">{activity.description}</p>
+            <p className="text-sm text-text">{activity.description}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-xs text-text-muted">
                 {formatDateTime(activity.date)}
               </span>
               <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
                 {activity.type}
               </span>
               {activity.minutes && (
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-text-muted">
                   {activity.minutes} min
                 </span>
               )}
@@ -350,7 +352,7 @@ function ActivityItem({ activity, onDelete, formatDateTime }: ActivityItemProps)
           </div>
           <button
             onClick={() => onDelete(activity)}
-            className="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400"
+            className="p-1 text-text-muted hover:text-red-500 dark:hover:text-red-400"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -374,9 +376,9 @@ function CompletedTaskItem({ task, formatDateTime }: CompletedTaskItemProps) {
         <CheckCircle className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-900 dark:text-slate-100">{task.description}</p>
+        <p className="text-sm text-text">{task.description}</p>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-text-muted">
             {formatDateTime(displayDate)}
           </span>
           <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">

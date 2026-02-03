@@ -95,11 +95,11 @@ function PersonChip({
 
   const variantClasses: Record<string, string> = {
     primary: 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-200',
-    muted: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+    muted: 'bg-bg-hover text-text-secondary',
     danger: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
     success: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
     warning: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200',
-    default: 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200',
+    default: 'bg-bg-hover text-text',
   };
   const baseClass = variantClasses[variant] || variantClasses.default;
 
@@ -146,7 +146,7 @@ function PersonChip({
       </div>
       {/* Copy confirmation tooltip */}
       {copiedField && (
-        <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded shadow-lg whitespace-nowrap">
+        <div className="absolute z-10 top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-bg-surface text-white text-xs rounded shadow-lg whitespace-nowrap">
           {copiedLabels[copiedField]}
         </div>
       )}
@@ -180,22 +180,22 @@ function CompactSummary({
 
   if (isExpanded) {
     return (
-      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+      <div className="space-y-2 pt-2 border-t border-border">
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-slate-400" />
-          <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Summary</h4>
+          <FileText className="w-4 h-4 text-text-muted" />
+          <h4 className="text-sm font-medium text-text-secondary">Summary</h4>
         </div>
         <textarea
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           placeholder="Enter case summary..."
-          className="w-full px-2 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 outline-none min-h-[80px] resize-none"
+          className="w-full px-2 py-1.5 text-sm rounded border border-border bg-bg-surface text-text placeholder-text-muted focus:border-primary-500 outline-none min-h-[80px] resize-none"
           autoFocus
         />
         <div className="flex justify-end gap-2">
           <button
             onClick={handleCancel}
-            className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+            className="px-2 py-1 text-xs text-text-secondary hover:text-text"
           >
             Cancel
           </button>
@@ -213,15 +213,15 @@ function CompactSummary({
 
   return (
     <div
-      className="pt-2 border-t border-slate-100 dark:border-slate-700 cursor-pointer group"
+      className="pt-2 border-t border-border cursor-pointer group"
       onClick={() => setIsExpanded(true)}
     >
       <div className="flex items-center gap-2">
-        <FileText className="w-4 h-4 text-slate-400" />
-        <span className="text-sm text-slate-500 dark:text-slate-400 truncate flex-1">
-          {value || <span className="italic text-slate-400">Add summary...</span>}
+        <FileText className="w-4 h-4 text-text-muted" />
+        <span className="text-sm text-text-secondary truncate flex-1">
+          {value || <span className="italic text-text-muted">Add summary...</span>}
         </span>
-        <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-xs text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
           Edit
         </span>
       </div>
@@ -244,10 +244,10 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-slate-400" />
-        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</h4>
+        <Icon className="w-4 h-4 text-text-muted" />
+        <h4 className="text-sm font-medium text-text-secondary">{title}</h4>
         {count !== undefined && count > 0 && (
-          <span className="text-xs text-slate-400">({count})</span>
+          <span className="text-xs text-text-muted">({count})</span>
         )}
       </div>
       {action}
@@ -687,7 +687,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
       {/* Row 1: Proceedings, Team, Counsel, Key Dates */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Proceedings + Summary */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3 space-y-3">
           <ProceedingsSection
             caseId={caseId}
             proceedings={caseData.proceedings || []}
@@ -701,15 +701,15 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
         </div>
 
         {/* Team (Attorneys & Paralegals) */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3 space-y-3">
           {/* Attorneys */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserCog className="w-4 h-4 text-slate-400" />
-                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Attorneys</h4>
+                <UserCog className="w-4 h-4 text-text-muted" />
+                <h4 className="text-sm font-medium text-text-secondary">Attorneys</h4>
                 {(caseData.attorneys?.length || 0) > 0 && (
-                  <span className="text-xs text-slate-400">({caseData.attorneys?.length})</span>
+                  <span className="text-xs text-text-muted">({caseData.attorneys?.length})</span>
                 )}
               </div>
               <UserSelect
@@ -730,7 +730,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 />
               ))}
               {(!caseData.attorneys || caseData.attorneys.length === 0) && (
-                <span className="text-sm text-slate-400 italic">None</span>
+                <span className="text-sm text-text-muted italic">None</span>
               )}
             </div>
           </div>
@@ -739,10 +739,10 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-slate-400" />
-                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Paralegals</h4>
+                <Users className="w-4 h-4 text-text-muted" />
+                <h4 className="text-sm font-medium text-text-secondary">Paralegals</h4>
                 {(caseData.paralegals?.length || 0) > 0 && (
-                  <span className="text-xs text-slate-400">({caseData.paralegals?.length})</span>
+                  <span className="text-xs text-text-muted">({caseData.paralegals?.length})</span>
                 )}
               </div>
               <UserSelect
@@ -763,22 +763,22 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 />
               ))}
               {(!caseData.paralegals || caseData.paralegals.length === 0) && (
-                <span className="text-sm text-slate-400 italic">None</span>
+                <span className="text-sm text-text-muted italic">None</span>
               )}
             </div>
           </div>
         </div>
 
         {/* Counsel & Mediator */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3 space-y-3">
           {/* Counsel */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-slate-400" />
-                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Counsel</h4>
+                <Briefcase className="w-4 h-4 text-text-muted" />
+                <h4 className="text-sm font-medium text-text-secondary">Counsel</h4>
                 {counsel.length > 0 && (
-                  <span className="text-xs text-slate-400">({counsel.length})</span>
+                  <span className="text-xs text-text-muted">({counsel.length})</span>
                 )}
               </div>
               <AddPersonDropdown
@@ -819,7 +819,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                   );
                 })}
                 {counsel.length === 0 && (
-                  <span className="text-sm text-slate-400 italic">None</span>
+                  <span className="text-sm text-text-muted italic">None</span>
                 )}
               </div>
               <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && counsel.some(c => c.id === activePerson.id)} sectionId="counsel" />
@@ -830,10 +830,10 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-slate-400" />
-                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Mediator</h4>
+                <UserCheck className="w-4 h-4 text-text-muted" />
+                <h4 className="text-sm font-medium text-text-secondary">Mediator</h4>
                 {mediators.length > 0 && (
-                  <span className="text-xs text-slate-400">({mediators.length})</span>
+                  <span className="text-xs text-text-muted">({mediators.length})</span>
                 )}
               </div>
               <button onClick={() => setShowAddMediator(!showAddMediator)} className="text-primary-600 hover:text-primary-700">
@@ -858,20 +858,20 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 <PersonChip key={m.assignment_id} person={m} onOpenDetail={() => openPersonModal(m.id, { caseId })} variant="muted" />
               ))}
               {mediators.length === 0 && !showAddMediator && (
-                <span className="text-sm text-slate-400 italic">None</span>
+                <span className="text-sm text-text-muted italic">None</span>
               )}
             </div>
           </div>
         </div>
 
         {/* Key Dates */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Key Dates</h4>
+              <Calendar className="w-4 h-4 text-text-muted" />
+              <h4 className="text-sm font-medium text-text-secondary">Key Dates</h4>
               {(starredEvents.length > 0 || caseData.date_of_injury) && (
-                <span className="text-xs text-slate-400">({starredEvents.length + (caseData.date_of_injury ? 1 : 0)})</span>
+                <span className="text-xs text-text-muted">({starredEvents.length + (caseData.date_of_injury ? 1 : 0)})</span>
               )}
             </div>
             {unstarredEvents.length > 0 && (
@@ -913,12 +913,12 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                   }
                 }}
                 placeholder="Search..."
-                className="w-full px-2 py-1.5 text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-primary-500 outline-none"
+                className="w-full px-2 py-1.5 text-sm rounded border border-border bg-bg-surface text-text placeholder-text-muted focus:border-primary-500 outline-none"
                 autoFocus
               />
               {/* Results dropdown */}
               {filteredUnstarredEvents.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-bg-surface border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {filteredUnstarredEvents.map((event, idx) => (
                     <button
                       key={event.id}
@@ -926,11 +926,11 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                       className={`w-full px-3 py-2 text-left text-sm flex items-center justify-between ${
                         idx === keyDateSelectedIndex
                           ? 'bg-primary-50 dark:bg-primary-900/30'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                          : 'hover:bg-bg-hover'
                       }`}
                     >
-                      <span className="text-slate-700 dark:text-slate-300 truncate">{event.description}</span>
-                      <span className="text-xs text-slate-400 shrink-0 ml-2">
+                      <span className="text-text-secondary truncate">{event.description}</span>
+                      <span className="text-xs text-text-muted shrink-0 ml-2">
                         {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </span>
                     </button>
@@ -938,7 +938,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 </div>
               )}
               {filteredUnstarredEvents.length === 0 && keyDateSearch && (
-                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md shadow-lg p-3 text-sm text-slate-400 italic">
+                <div className="absolute z-10 w-full mt-1 bg-bg-surface border border-border rounded-md shadow-lg p-3 text-sm text-text-muted italic">
                   No matching events
                 </div>
               )}
@@ -949,7 +949,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             {/* Date of Injury - always show first */}
             <div className="flex items-center gap-2 text-sm">
               <Zap className="w-3 h-3 text-red-500 shrink-0" />
-              <span className="text-slate-600 dark:text-slate-300 truncate">Date of Injury</span>
+              <span className="text-text-secondary truncate">Date of Injury</span>
               <EditableDate
                 value={caseData.date_of_injury || null}
                 onSave={(value) => onUpdateField('date_of_injury', value)}
@@ -968,14 +968,14 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                 >
                   <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                 </button>
-                <span className="text-slate-600 dark:text-slate-300 truncate">{event.description}</span>
-                <span className="text-xs text-slate-500 shrink-0">
+                <span className="text-text-secondary truncate">{event.description}</span>
+                <span className="text-xs text-text-muted shrink-0">
                   {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
             ))}
             {starredEvents.length === 0 && !caseData.date_of_injury && (
-              <p className="text-xs text-slate-400 italic">Star events to pin them here</p>
+              <p className="text-xs text-text-muted italic">Star events to pin them here</p>
             )}
           </div>
 
@@ -996,7 +996,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
       {/* Row 2: Parties (Clients, Defendants, Experts, Other) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Clients */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <SectionHeader
             icon={Users}
             title="Clients"
@@ -1042,14 +1042,14 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                   </div>
                 );
               })}
-              {clients.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
+              {clients.length === 0 && <p className="text-xs text-text-muted italic">None</p>}
             </div>
             <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && clients.some(c => c.id === activePerson.id)} sectionId="clients" />
           </DndContext>
         </div>
 
         {/* Defendants */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <SectionHeader
             icon={Building2}
             title="Defendants"
@@ -1099,14 +1099,14 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
                   </div>
                 );
               })}
-              {defendants.length === 0 && !showAddDefendant && <p className="text-xs text-slate-400 italic">None</p>}
+              {defendants.length === 0 && !showAddDefendant && <p className="text-xs text-text-muted italic">None</p>}
             </div>
             <UnnestDropZone isVisible={activePerson !== null && !!activePerson.grouped_under_id && defendants.some(d => d.id === activePerson.id)} sectionId="defendants" />
           </DndContext>
         </div>
 
         {/* Experts */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <SectionHeader
             icon={Users}
             title="Experts"
@@ -1126,12 +1126,12 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             {experts.map(e => (
               <PersonChip key={e.assignment_id} person={e} onOpenDetail={() => openPersonModal(e.id, { caseId })} variant={getExpertVariant(e.role || '')} />
             ))}
-            {experts.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
+            {experts.length === 0 && <p className="text-xs text-text-muted italic">None</p>}
           </div>
         </div>
 
         {/* Other */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <SectionHeader
             icon={Users}
             title="Other"
@@ -1151,7 +1151,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             {others.map(o => (
               <PersonChip key={o.assignment_id} person={o} onOpenDetail={() => openPersonModal(o.id, { caseId })} variant={getOtherVariant(o.role || '')} />
             ))}
-            {others.length === 0 && <p className="text-xs text-slate-400 italic">None</p>}
+            {others.length === 0 && <p className="text-xs text-text-muted italic">None</p>}
           </div>
         </div>
       </div>
@@ -1159,7 +1159,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
       {/* Row 4: Tasks & Events side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Tasks */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <TasksComponent
             caseId={caseId}
             title="Tasks"
@@ -1174,7 +1174,7 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
         </div>
 
         {/* Events */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-bg-surface rounded-lg border border-border p-3">
           <EventsComponent
             caseId={caseId}
             title="Events"

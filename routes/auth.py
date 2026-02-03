@@ -131,5 +131,6 @@ def register_auth_routes(mcp):
                 "initials": updated_user["initials"],
                 "position": updated_user["position"],
                 "isAdmin": updated_user["is_admin"],
+                "paralegalId": updated_user.get("paralegal_id"),
             },
         })

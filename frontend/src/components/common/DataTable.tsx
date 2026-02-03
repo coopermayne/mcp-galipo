@@ -68,7 +68,7 @@ export function DataTable<T>({
       {searchColumn && (
         <div className="mb-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
               placeholder={searchPlaceholder}
@@ -76,8 +76,8 @@ export function DataTable<T>({
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="
                 w-full pl-9 pr-4 py-2 rounded-lg
-                border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100
-                placeholder-slate-400
+                border border-border bg-bg-surface text-text
+                placeholder-text-muted
                 focus:border-primary-500 focus:ring-1 focus:ring-primary-500
                 outline-none text-sm transition-colors
               "
@@ -87,16 +87,16 @@ export function DataTable<T>({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+      <div className="overflow-x-auto rounded-lg border border-border shadow-sm transition-colors">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+          <thead className="bg-bg-hover border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     className={`
-                      px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-300
+                      px-4 py-3 text-left font-medium text-text-secondary
                       ${header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
                     `}
                     onClick={header.column.getToggleSortingHandler()}
@@ -104,7 +104,7 @@ export function DataTable<T>({
                     <div className="flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span className="text-slate-400 dark:text-slate-500">
+                        <span className="text-text-muted">
                           {{
                             asc: <ChevronUp className="w-4 h-4" />,
                             desc: <ChevronDown className="w-4 h-4" />,
@@ -119,12 +119,12 @@ export function DataTable<T>({
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white dark:bg-slate-800">
+          <tbody className="bg-bg-surface">
             {table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
+                  className="px-4 py-8 text-center text-text-muted"
                 >
                   {emptyMessage}
                 </td>
@@ -135,8 +135,8 @@ export function DataTable<T>({
                   key={row.id}
                   onClick={() => handleRowClick(row.original)}
                   className={`
-                    border-b border-slate-200 dark:border-slate-700 last:border-0
-                    hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors
+                    border-b border-border last:border-0
+                    hover:bg-bg-hover transition-colors
                     ${onRowClick ? 'cursor-pointer' : ''}
                     ${rowClassName ? rowClassName(row) : ''}
                   `}

@@ -74,7 +74,7 @@ function StatusBadge({ status }: { status: string }) {
     completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
     failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    pending: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
+    pending: 'bg-bg-hover text-text-secondary',
   };
 
   const icons: Record<string, React.ReactNode> = {
@@ -172,7 +172,7 @@ export function WebhookDetail() {
         <Header title="Loading..." />
         <PageContent>
           <div className="flex items-center justify-center h-64">
-            <Clock className="w-8 h-8 text-slate-400 animate-spin" />
+            <Clock className="w-8 h-8 text-text-muted animate-spin" />
           </div>
         </PageContent>
       </>
@@ -185,7 +185,7 @@ export function WebhookDetail() {
         <Header title="Webhook Not Found" />
         <PageContent>
           <div className="text-center py-12">
-            <p className="text-slate-500 dark:text-slate-400">Could not load webhook</p>
+            <p className="text-text-muted">Could not load webhook</p>
             <button
               onClick={() => navigate('/courtlistener')}
               className="mt-4 text-primary-600 hover:text-primary-700"
@@ -219,22 +219,22 @@ export function WebhookDetail() {
         actions={
           <div className="flex items-center gap-2">
             {/* Navigation buttons */}
-            <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+            <div className="flex items-center border border-border rounded-lg overflow-hidden">
               <button
                 onClick={goToPrevious}
                 disabled={currentIndex <= 0}
-                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 text-text-secondary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="Previous (k)"
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
-              <span className="px-2 text-xs text-slate-500 dark:text-slate-400 border-x border-slate-200 dark:border-slate-700">
+              <span className="px-2 text-xs text-text-muted border-x border-border">
                 {currentIndex >= 0 ? `${currentIndex + 1}/${webhookIds.length}` : '—'}
               </span>
               <button
                 onClick={goToNext}
                 disabled={currentIndex >= webhookIds.length - 1}
-                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 text-text-secondary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="Next (j)"
               >
                 <ChevronDown className="w-4 h-4" />
@@ -242,7 +242,7 @@ export function WebhookDetail() {
             </div>
             <button
               onClick={() => navigate('/courtlistener')}
-              className="inline-flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-sm font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 text-text-secondary hover:bg-bg-hover rounded-lg transition-colors text-sm font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
@@ -253,26 +253,26 @@ export function WebhookDetail() {
 
       <PageContent>
         {/* Metadata */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 mb-6">
+        <div className="bg-bg-surface rounded-lg border border-border p-4 mb-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</span>
+              <span className="text-xs text-text-muted uppercase tracking-wider">Status</span>
               <div className="mt-1">
                 <StatusBadge status={webhook.processing_status} />
               </div>
             </div>
             <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Source</span>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{webhook.source}</p>
+              <span className="text-xs text-text-muted uppercase tracking-wider">Source</span>
+              <p className="mt-1 text-sm font-medium text-text">{webhook.source}</p>
             </div>
             <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Event Type</span>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{eventTypeName}</p>
+              <span className="text-xs text-text-muted uppercase tracking-wider">Event Type</span>
+              <p className="mt-1 text-sm font-medium text-text">{eventTypeName}</p>
             </div>
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">ID</span>
-                <p className="mt-1 text-sm font-mono text-slate-900 dark:text-slate-100">#{webhook.id}</p>
+                <span className="text-xs text-text-muted uppercase tracking-wider">ID</span>
+                <p className="mt-1 text-sm font-mono text-text">#{webhook.id}</p>
               </div>
               <button
                 onClick={() => setShowDeleteConfirm(true)}
@@ -300,7 +300,7 @@ export function WebhookDetail() {
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                  className="px-3 py-1.5 bg-bg-hover text-text-secondary text-sm font-medium rounded-md hover:bg-bg-elevated transition-colors"
                 >
                   Cancel
                 </button>
@@ -317,19 +317,19 @@ export function WebhookDetail() {
 
           {webhook.idempotency_key && (
             <div className="mt-4">
-              <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Idempotency Key</span>
-              <p className="mt-1 text-xs font-mono text-slate-600 dark:text-slate-400 break-all">{webhook.idempotency_key}</p>
+              <span className="text-xs text-text-muted uppercase tracking-wider">Idempotency Key</span>
+              <p className="mt-1 text-xs font-mono text-text-secondary break-all">{webhook.idempotency_key}</p>
             </div>
           )}
         </div>
 
         {/* Docket Entry Details */}
         {entry && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 mb-6">
+          <div className="bg-bg-surface rounded-lg border border-border p-4 mb-6">
             {/* Entry Header */}
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-1">
+                <div className="flex items-center gap-2 text-sm text-text-muted mb-1">
                   {pacerCaseId && (
                     <span className="font-mono">{pacerCaseId}</span>
                   )}
@@ -339,7 +339,7 @@ export function WebhookDetail() {
                   <span>{entry.date_filed}</span>
                 </div>
                 {caseName && (
-                  <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">
+                  <h3 className="text-lg font-medium text-text">
                     {caseName}
                   </h3>
                 )}
@@ -359,10 +359,10 @@ export function WebhookDetail() {
 
             {/* Description */}
             <div className="mb-4">
-              <h4 className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+              <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">
                 Description
               </h4>
-              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              <p className="text-sm text-text-secondary leading-relaxed">
                 {entry.description}
               </p>
             </div>
@@ -370,24 +370,24 @@ export function WebhookDetail() {
             {/* Documents */}
             {entry.recap_documents && entry.recap_documents.length > 0 && (
               <div>
-                <h4 className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">
                   Documents ({entry.recap_documents.length})
                 </h4>
                 <div className="space-y-2">
                   {entry.recap_documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-bg-hover rounded-lg"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                        <FileText className="w-5 h-5 text-text-muted flex-shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          <p className="text-sm font-medium text-text truncate">
                             {doc.attachment_number
                               ? `Attachment ${doc.attachment_number}: ${doc.description}`
                               : doc.description || `Document ${doc.document_number}`}
                           </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                          <p className="text-xs text-text-muted">
                             {doc.page_count && `${doc.page_count} pages`}
                             {doc.page_count && !doc.is_available && ' · '}
                             {!doc.is_available && <span className="text-amber-600">Not available</span>}
@@ -399,7 +399,7 @@ export function WebhookDetail() {
                           href={`${COURTLISTENER_BASE}${doc.absolute_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded text-sm text-slate-700 dark:text-slate-200 transition-colors flex-shrink-0"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bg-elevated text-text-secondary hover:bg-bg-surface rounded text-sm transition-colors flex-shrink-0"
                         >
                           <span>View PDF</span>
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -414,12 +414,12 @@ export function WebhookDetail() {
         )}
 
         {/* Full Payload */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Full Payload</h3>
+        <div className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border bg-bg-elevated">
+            <h3 className="text-sm font-medium text-text">Full Payload</h3>
           </div>
           <div className="p-4 overflow-x-auto">
-            <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words">
+            <pre className="text-xs font-mono text-text-secondary whitespace-pre-wrap break-words">
               {JSON.stringify(webhook.payload, null, 2)}
             </pre>
           </div>
@@ -427,12 +427,12 @@ export function WebhookDetail() {
 
         {/* Headers */}
         {webhook.headers && Object.keys(webhook.headers).length > 0 && (
-          <div className="mt-6 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-              <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Headers</h3>
+          <div className="mt-6 bg-bg-surface rounded-lg border border-border overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-bg-elevated">
+              <h3 className="text-sm font-medium text-text">Headers</h3>
             </div>
             <div className="p-4 overflow-x-auto">
-              <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words">
+              <pre className="text-xs font-mono text-text-secondary whitespace-pre-wrap break-words">
                 {JSON.stringify(webhook.headers, null, 2)}
               </pre>
             </div>
@@ -440,8 +440,8 @@ export function WebhookDetail() {
         )}
 
         {/* Keyboard hint */}
-        <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
-          Press <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded font-mono">j</kbd> for next, <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded font-mono">k</kbd> for previous
+        <div className="mt-6 text-center text-xs text-text-muted">
+          Press <kbd className="px-1.5 py-0.5 bg-bg-hover rounded font-mono">j</kbd> for next, <kbd className="px-1.5 py-0.5 bg-bg-hover rounded font-mono">k</kbd> for previous
         </div>
       </PageContent>
     </>

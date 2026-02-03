@@ -116,14 +116,14 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
       </div>
     );
   }
 
   if (error || !proceedingData) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+      <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
         <AlertCircle className="w-8 h-8 mb-2" />
         <p>Failed to load proceeding details</p>
       </div>
@@ -151,12 +151,12 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
     <div className="p-6">
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-          <Scale className="w-6 h-6 text-slate-600 dark:text-slate-400" />
+        <div className="w-12 h-12 rounded-full bg-bg-hover flex items-center justify-center">
+          <Scale className="w-6 h-6 text-text-secondary" />
         </div>
         <div className="flex-1 min-w-0">
           {readOnly ? (
-            <h2 className="text-xl font-mono font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="text-xl font-mono font-semibold text-text">
               {proceeding.case_number}
             </h2>
           ) : (
@@ -176,7 +176,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
         </div>
         <button
           onClick={onClose}
-          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          className="p-1 text-text-muted hover:text-text-secondary rounded-lg hover:bg-bg-hover transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -184,12 +184,12 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
 
       {/* Jurisdiction */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <h3 className="text-sm font-medium text-text-secondary mb-2">
           Jurisdiction
         </h3>
         {readOnly ? (
           <div className="flex items-center gap-2">
-            <span className={proceeding.jurisdiction_name ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}>
+            <span className={proceeding.jurisdiction_name ? 'text-text-secondary' : 'text-text-muted italic'}>
               {proceeding.jurisdiction_name || 'No court selected'}
             </span>
             {proceeding.local_rules_link && (
@@ -231,7 +231,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
       {/* Judges */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <h3 className="text-sm font-medium text-text-secondary">
             Assigned Judges
           </h3>
           {!readOnly && (
@@ -247,12 +247,12 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
 
         {/* Add judge form */}
         {showAddJudge && (
-          <div className="mb-3 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+          <div className="mb-3 p-3 bg-bg-hover rounded-lg">
             <div className="flex items-center gap-2">
               <select
                 value={newJudge.person_id}
                 onChange={(e) => setNewJudge({ ...newJudge, person_id: e.target.value })}
-                className="flex-1 px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 outline-none"
+                className="flex-1 px-2 py-1.5 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
               >
                 <option value="">Select judge...</option>
                 {availableJudges.map((j: Person) => (
@@ -264,7 +264,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               <select
                 value={newJudge.role}
                 onChange={(e) => setNewJudge({ ...newJudge, role: e.target.value })}
-                className="px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:border-primary-500 outline-none"
+                className="px-2 py-1.5 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
               >
                 <option value="Judge">Judge</option>
                 <option value="Presiding">Presiding</option>
@@ -283,7 +283,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                   setShowAddJudge(false);
                   setNewJudge({ person_id: '', role: 'Judge' });
                 }}
-                className="p-1.5 text-slate-400 hover:text-slate-600"
+                className="p-1.5 text-text-muted hover:text-text-secondary"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -297,16 +297,16 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
             {proceeding.judges.map((judge: ProceedingJudge) => (
               <div
                 key={`${judge.person_id}-${judge.role}`}
-                className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded text-sm group"
+                className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm group"
               >
-                <span className="text-slate-700 dark:text-slate-300">
+                <span className="text-text-secondary">
                   {judge.name}
-                  <span className="text-slate-400">{formatJudgeRole(judge.role)}</span>
+                  <span className="text-text-muted">{formatJudgeRole(judge.role)}</span>
                 </span>
                 {!readOnly && (
                   <button
                     onClick={() => removeJudgeMutation.mutate(judge.person_id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-red-400 transition-opacity"
                     title="Remove judge"
                   >
                     <X className="w-3 h-3" />
@@ -316,7 +316,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-400 italic">No judges assigned</p>
+          <p className="text-sm text-text-muted italic">No judges assigned</p>
         )}
       </div>
 
@@ -328,21 +328,21 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               type="checkbox"
               checked={proceeding.is_primary}
               onChange={(e) => handleUpdateField('is_primary', e.target.checked)}
-              className="rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-primary-600 focus:ring-primary-500"
+              className="rounded border-border bg-bg-surface text-primary-600 focus:ring-primary-500"
             />
-            <span className="text-slate-700 dark:text-slate-300">Primary Proceeding</span>
+            <span className="text-text-secondary">Primary Proceeding</span>
           </label>
         </div>
       )}
 
       {/* Notes */}
       <div>
-        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-2">
-          <FileText className="w-4 h-4 text-slate-400" />
+        <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-2">
+          <FileText className="w-4 h-4 text-text-muted" />
           Notes
         </h3>
         {readOnly ? (
-          <p className={`text-sm ${proceeding.notes ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+          <p className={`text-sm ${proceeding.notes ? 'text-text-secondary' : 'text-text-muted italic'}`}>
             {proceeding.notes || 'No notes'}
           </p>
         ) : (
@@ -358,18 +358,18 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
       </div>
 
       {/* CourtListener Integration */}
-      <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-3">
-          <ExternalLink className="w-4 h-4 text-slate-400" />
+      <div className="mt-6 pt-6 border-t border-border">
+        <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-3">
+          <ExternalLink className="w-4 h-4 text-text-muted" />
           CourtListener Integration
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <label className="text-xs text-text-secondary uppercase tracking-wider">
               Docket ID
             </label>
             {readOnly ? (
-              <p className={`text-sm mt-1 ${proceeding.courtlistener_docket_id ? 'font-mono text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+              <p className={`text-sm mt-1 ${proceeding.courtlistener_docket_id ? 'font-mono text-text-secondary' : 'text-text-muted italic'}`}>
                 {proceeding.courtlistener_docket_id || 'Not linked'}
               </p>
             ) : (
@@ -383,11 +383,11 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
             )}
           </div>
           <div>
-            <label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <label className="text-xs text-text-secondary uppercase tracking-wider">
               PACER Case ID
             </label>
             {readOnly ? (
-              <p className={`text-sm mt-1 ${proceeding.pacer_case_id ? 'font-mono text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+              <p className={`text-sm mt-1 ${proceeding.pacer_case_id ? 'font-mono text-text-secondary' : 'text-text-muted italic'}`}>
                 {proceeding.pacer_case_id || 'Not set'}
               </p>
             ) : (
@@ -416,7 +416,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
 
       {/* Delete Proceeding button */}
       {!readOnly && (
-        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+        <div className="mt-6 pt-6 border-t border-border">
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

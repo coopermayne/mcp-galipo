@@ -74,23 +74,23 @@ export function UserSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute z-20 right-0 mt-1 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-20 right-0 mt-1 w-56 bg-bg-surface border border-border rounded-lg shadow-lg overflow-hidden">
           {/* Search input */}
-          <div className="p-2 border-b border-slate-200 dark:border-slate-700">
+          <div className="p-2 border-b border-border">
             <input
               ref={inputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search users..."
-              className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary-500"
+              className="w-full px-2 py-1.5 text-sm border border-border rounded bg-bg-surface text-text placeholder-text-muted focus:outline-none focus:border-primary-500"
             />
           </div>
 
           {/* User list */}
           <div className="max-h-48 overflow-y-auto">
             {filteredUsers.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-slate-400 italic">
+              <div className="px-3 py-2 text-sm text-text-muted italic">
                 {search ? 'No matching users' : 'No users available'}
               </div>
             ) : (
@@ -102,16 +102,16 @@ export function UserSelect({
                     setIsOpen(false);
                     setSearch('');
                   }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-bg-hover flex items-center gap-2"
                 >
-                  <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-xs font-medium text-slate-600 dark:text-slate-300">
+                  <span className="w-6 h-6 rounded-full bg-bg-hover flex items-center justify-center text-xs font-medium text-text-secondary">
                     {user.initials}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-slate-700 dark:text-slate-300 truncate">
+                    <div className="text-text-secondary truncate">
                       {user.firstName} {user.lastName}
                     </div>
-                    <div className="text-xs text-slate-400 capitalize">{user.position}</div>
+                    <div className="text-xs text-text-muted capitalize">{user.position}</div>
                   </div>
                 </button>
               ))

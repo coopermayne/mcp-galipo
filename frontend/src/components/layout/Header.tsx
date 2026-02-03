@@ -29,13 +29,13 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
   const showBreadcrumbs = !showTitle && breadcrumbs.length > 1;
 
   return (
-    <header className="h-16 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 flex items-center justify-between transition-colors">
+    <header className="h-16 bg-bg-surface border-b border-border px-4 md:px-6 flex items-center justify-between transition-colors">
       {/* Left side: hamburger (mobile) + title or breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
         {/* Hamburger menu - mobile only */}
         <button
           onClick={toggleMobileSidebar}
-          className="p-2 -ml-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors md:hidden"
+          className="p-2 -ml-2 text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded-lg transition-colors md:hidden"
           aria-label="Open menu"
         >
           <Menu className="w-5 h-5" />
@@ -43,24 +43,24 @@ export function Header({ title, subtitle, actions, breadcrumbLabel }: HeaderProp
         {showTitle ? (
           /* Title + subtitle for main pages */
           <div className="flex items-baseline gap-3">
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
-            {subtitle && <span className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</span>}
+            <h1 className="text-xl font-semibold text-text">{title}</h1>
+            {subtitle && <span className="text-sm text-text-muted">{subtitle}</span>}
           </div>
         ) : showBreadcrumbs ? (
           /* Breadcrumbs for nested pages (e.g., /cases/123) */
-          <nav className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
-            <Link to="/" className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+          <nav className="flex items-center gap-1 text-sm text-text-muted">
+            <Link to="/" className="hover:text-text-secondary transition-colors">
               <Home className="w-4 h-4" />
             </Link>
             {breadcrumbs.map((crumb) => (
               <span key={crumb.path} className="flex items-center gap-1">
                 <ChevronRight className="w-4 h-4" />
                 {crumb.isLast ? (
-                  <span className="text-slate-900 dark:text-slate-100 font-medium">{crumb.label}</span>
+                  <span className="text-text font-medium">{crumb.label}</span>
                 ) : (
                   <Link
                     to={crumb.path}
-                    className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                    className="hover:text-text-secondary transition-colors"
                   >
                     {crumb.label}
                   </Link>

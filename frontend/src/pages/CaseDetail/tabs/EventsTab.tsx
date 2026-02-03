@@ -6,7 +6,7 @@ interface EventsTabProps {
 
 export function EventsTab({ caseId }: EventsTabProps) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+    <div className="bg-bg-surface rounded-lg border border-border p-3">
       <EventsComponent
         caseId={caseId}
         groupByDate

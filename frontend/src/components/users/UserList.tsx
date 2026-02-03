@@ -65,10 +65,10 @@ export function UserList({ onEdit }: UserListProps) {
             {info.row.original.initials}
           </div>
           <div>
-            <div className="font-medium text-slate-900 dark:text-slate-100">
+            <div className="font-medium text-text">
               {info.getValue()}
             </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="text-sm text-text-muted">
               {info.row.original.email}
             </div>
           </div>
@@ -91,7 +91,7 @@ export function UserList({ onEdit }: UserListProps) {
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
           info.getValue()
             ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
-            : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+            : 'bg-bg-hover text-text-secondary'
         }`}>
           {info.getValue() ? <Shield className="w-3 h-3" /> : <ShieldOff className="w-3 h-3" />}
           {info.getValue() ? 'Yes' : 'No'}
@@ -118,21 +118,21 @@ export function UserList({ onEdit }: UserListProps) {
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => handleResetPassword(info.row.original)}
-            className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 rounded hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="p-1.5 text-text-muted hover:text-amber-600 dark:hover:text-amber-400 rounded hover:bg-bg-hover"
             title="Reset Password"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
           <button
             onClick={() => onEdit(info.row.original)}
-            className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="p-1.5 text-text-muted hover:text-blue-600 dark:hover:text-blue-400 rounded hover:bg-bg-hover"
             title="Edit"
           >
             <Pencil className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDelete(info.row.original)}
-            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="p-1.5 text-text-muted hover:text-red-600 dark:hover:text-red-400 rounded hover:bg-bg-hover"
             title="Deactivate"
           >
             <Trash2 className="w-4 h-4" />
@@ -162,26 +162,26 @@ export function UserList({ onEdit }: UserListProps) {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2">
-        <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
           <input
             type="checkbox"
             checked={showInactive}
             onChange={(e) => setShowInactive(e.target.checked)}
-            className="rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500"
+            className="rounded border-border text-primary-600 focus:ring-primary-500"
           />
           Show inactive users
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-          <thead className="bg-slate-50 dark:bg-slate-800">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full">
+          <thead className="bg-bg-elevated border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+                    className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
                   >
                     {header.isPlaceholder ? null : (
                       <div
@@ -196,11 +196,11 @@ export function UserList({ onEdit }: UserListProps) {
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-700">
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+          <tbody className="bg-bg-surface">
+            {table.getRowModel().rows.map((row, index) => (
+              <tr key={row.id} className={`hover:bg-bg-hover ${index > 0 ? 'border-t border-border' : ''}`}>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+                  <td key={cell.id} className="px-4 py-3 text-sm text-text-secondary">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -210,7 +210,7 @@ export function UserList({ onEdit }: UserListProps) {
         </table>
 
         {users.length === 0 && (
-          <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+          <div className="text-center py-12 text-text-muted">
             No users found
           </div>
         )}
