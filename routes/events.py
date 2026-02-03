@@ -110,3 +110,40 @@ def register_event_routes(mcp):
         if deleted:
             return JSONResponse({"success": True})
         return api_error("Event not found", "NOT_FOUND", 404)
+
+    # =========================================================================
+    # Event Attendees
+    # =========================================================================
+
+    @mcp.custom_route("/api/v1/events/{event_id}/attendees", methods=["GET"])
+    async def api_get_event_attendees(request):
+        """Get all attendees for an event."""
+        if err := auth.require_auth(request):
+            return err
+        event_id = int(request.path_params["event_id"])
+        attendees = await asyncio.to_thread(db.get_event_attendees, event_id)
+        return JSONResponse({"success": True, "data": attendees})
+
+    @mcp.custom_route("/api/v1/events/{event_id}/attendees/{user_id}", methods=["POST"])
+    async def api_add_event_attendee(request):
+        """Add an attendee to an event."""
+        if err := auth.require_auth(request):
+            return err
+        event_id = int(request.path_params["event_id"])
+        user_id = int(request.path_params["user_id"])
+        result = await asyncio.to_thread(db.add_event_attendee, event_id, user_id)
+        if not result.get("success"):
+            return api_error(result.get("error", "Failed to add attendee"), "ADD_FAILED", 400)
+        return JSONResponse({"success": True, "data": result})
+
+    @mcp.custom_route("/api/v1/events/{event_id}/attendees/{user_id}", methods=["DELETE"])
+    async def api_remove_event_attendee(request):
+        """Remove an attendee from an event."""
+        if err := auth.require_auth(request):
+            return err
+        event_id = int(request.path_params["event_id"])
+        user_id = int(request.path_params["user_id"])
+        result = await asyncio.to_thread(db.remove_event_attendee, event_id, user_id)
+        if not result.get("success"):
+            return api_error(result.get("error", "Failed to remove attendee"), "REMOVE_FAILED", 400)
+        return JSONResponse({"success": True, "data": result})

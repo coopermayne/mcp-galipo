@@ -261,3 +261,104 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
     # Sort by date
     items.sort(key=lambda x: (str(x.get("date") or "9999-99-99"), str(x.get("time") or "99:99")))
     return items
+
+
+# =============================================================================
+# Event Attendees
+# =============================================================================
+
+def get_event_attendees(event_id: int) -> List[dict]:
+    """Get all attendees for an event with user details."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT attendee_ids FROM events WHERE id = %s
+        """, (event_id,))
+        row = cur.fetchone()
+        if not row:
+            return []
+
+        attendee_ids = row["attendee_ids"] or []
+        if not attendee_ids:
+            return []
+
+        cur.execute("""
+            SELECT id, email, first_name, last_name, initials, position
+            FROM users WHERE id = ANY(%s)
+            ORDER BY last_name, first_name
+        """, (attendee_ids,))
+        return serialize_rows(cur.fetchall())
+
+
+def add_event_attendee(event_id: int, user_id: int) -> dict:
+    """Add an attendee to an event."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT attendee_ids FROM events WHERE id = %s
+        """, (event_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Event not found"}
+
+        attendee_ids = list(row["attendee_ids"] or [])
+        if user_id not in attendee_ids:
+            attendee_ids.append(user_id)
+            cur.execute("""
+                UPDATE events SET attendee_ids = %s
+                WHERE id = %s
+            """, (attendee_ids, event_id))
+
+    return {"success": True, "attendees": get_event_attendees(event_id)}
+
+
+def remove_event_attendee(event_id: int, user_id: int) -> dict:
+    """Remove an attendee from an event."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT attendee_ids FROM events WHERE id = %s
+        """, (event_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Event not found"}
+
+        attendee_ids = list(row["attendee_ids"] or [])
+        if user_id in attendee_ids:
+            attendee_ids.remove(user_id)
+            cur.execute("""
+                UPDATE events SET attendee_ids = %s
+                WHERE id = %s
+            """, (attendee_ids, event_id))
+
+    return {"success": True, "attendees": get_event_attendees(event_id)}
+
+
+def get_event_by_id(event_id: int) -> Optional[dict]:
+    """Get a single event by ID with attendee details."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT e.id, e.case_id, c.case_name, c.short_name, c.color as case_color,
+                   e.date, e.time, e.location, e.description, e.document_link,
+                   e.calculation_note, e.starred, e.attendee_ids, e.created_at,
+                   (SELECT COUNT(*) FROM tasks t WHERE t.event_id = e.id) as task_count
+            FROM events e
+            JOIN cases c ON e.case_id = c.id
+            WHERE e.id = %s
+        """, (event_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        result = serialize_row(dict(row))
+
+        # Expand attendee_ids to full user objects
+        attendee_ids = result.get("attendee_ids") or []
+        if attendee_ids:
+            cur.execute("""
+                SELECT id, email, first_name, last_name, initials, position
+                FROM users WHERE id = ANY(%s)
+                ORDER BY last_name, first_name
+            """, (attendee_ids,))
+            result["attendees"] = serialize_rows(cur.fetchall())
+        else:
+            result["attendees"] = []
+
+        return result

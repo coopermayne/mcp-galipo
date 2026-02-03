@@ -56,7 +56,8 @@ def register_task_routes(mcp):
             data.get("due_date"),
             data.get("status", "Pending"),
             data.get("urgency", 2),
-            data.get("event_id")
+            data.get("event_id"),
+            data.get("assignee_id")
         )
         return JSONResponse({"success": True, "task": result})
 

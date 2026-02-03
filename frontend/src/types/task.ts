@@ -2,6 +2,14 @@
 
 import type { TaskStatus } from './common';
 
+// Assignee info included in task response
+export interface TaskAssignee {
+  id: number;
+  first_name: string;
+  last_name: string;
+  initials: string;
+}
+
 export interface Task {
   id: number;
   case_id: number;
@@ -18,6 +26,8 @@ export interface Task {
   event_description?: string;
   event_date?: string;
   has_events?: boolean;
+  assignee_id?: number | null;
+  assignee?: TaskAssignee | null;
   created_at: string;
 }
 
@@ -28,6 +38,7 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   urgency?: number;
   event_id?: number;
+  assignee_id?: number;
 }
 
 export interface UpdateTaskInput {
@@ -37,4 +48,5 @@ export interface UpdateTaskInput {
   status?: TaskStatus;
   urgency?: number;
   event_id?: number | null;
+  assignee_id?: number | null;
 }

@@ -15,6 +15,7 @@ import {
   FileText,
   Briefcase,
   UserCheck,
+  UserCog,
 } from 'lucide-react';
 import {
   EditableDate,
@@ -23,6 +24,8 @@ import {
   DraggablePersonChip,
   UnnestDropZone,
   ConfirmModal,
+  UserChip,
+  UserSelect,
 } from '../../../components/common';
 import { TasksComponent } from '../../../components/tasks';
 import { EventsComponent } from '../../../components/events';
@@ -32,8 +35,14 @@ import {
   assignPersonToCase,
   updateCaseAssignment,
   updateEvent,
+  assignAttorneyToCase,
+  removeAttorneyFromCase,
+  assignParalegalToCase,
+  removeParalegalFromCase,
+  getUsers,
 } from '../../../api';
 import type { Case, Constants, CasePerson, Person } from '../../../types';
+import { useQuery } from '@tanstack/react-query';
 import { ProceedingsSection } from '../components';
 import { getPrimaryPhone, getPrimaryEmail } from '../utils';
 import { inferSideFromRole, inferPersonTypeFromRole } from '../../../utils';
@@ -257,6 +266,37 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
   const [keyDateSelectedIndex, setKeyDateSelectedIndex] = useState(0);
   const [eventToUnstar, setEventToUnstar] = useState<{ id: number; description: string } | null>(null);
   const [activePerson, setActivePerson] = useState<CasePerson | null>(null);
+
+  // Fetch all users for team assignment
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
+  });
+
+  // Filter users by position for dropdowns
+  const attorneys = useMemo(() => allUsers.filter(u => u.position === 'attorney'), [allUsers]);
+  const paralegals = useMemo(() => allUsers.filter(u => u.position === 'paralegal'), [allUsers]);
+
+  // Team mutations
+  const assignAttorneyMutation = useMutation({
+    mutationFn: (userId: number) => assignAttorneyToCase(caseId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
+  });
+
+  const removeAttorneyMutation = useMutation({
+    mutationFn: (userId: number) => removeAttorneyFromCase(caseId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
+  });
+
+  const assignParalegalMutation = useMutation({
+    mutationFn: (userId: number) => assignParalegalToCase(caseId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
+  });
+
+  const removeParalegalMutation = useMutation({
+    mutationFn: (userId: number) => removeParalegalFromCase(caseId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['case', caseId] }),
+  });
 
   // Drag sensors
   const sensors = useSensors(
@@ -644,8 +684,8 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Proceedings, Counsel, Key Dates */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Row 1: Proceedings, Team, Counsel, Key Dates */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Proceedings + Summary */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
           <ProceedingsSection
@@ -658,6 +698,75 @@ export function OverviewTab({ caseData, caseId, onUpdateField }: OverviewTabProp
             value={caseData.case_summary || ''}
             onSave={(value) => onUpdateField('case_summary', value || null)}
           />
+        </div>
+
+        {/* Team (Attorneys & Paralegals) */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3">
+          {/* Attorneys */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCog className="w-4 h-4 text-slate-400" />
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Attorneys</h4>
+                {(caseData.attorneys?.length || 0) > 0 && (
+                  <span className="text-xs text-slate-400">({caseData.attorneys?.length})</span>
+                )}
+              </div>
+              <UserSelect
+                users={attorneys}
+                selectedIds={caseData.attorney_ids || []}
+                onSelect={(userId) => assignAttorneyMutation.mutate(userId)}
+                filterPosition="attorney"
+                placeholder="Add attorney..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {caseData.attorneys?.map(user => (
+                <UserChip
+                  key={user.id}
+                  user={user}
+                  onRemove={() => removeAttorneyMutation.mutate(user.id)}
+                  size="sm"
+                />
+              ))}
+              {(!caseData.attorneys || caseData.attorneys.length === 0) && (
+                <span className="text-sm text-slate-400 italic">None</span>
+              )}
+            </div>
+          </div>
+
+          {/* Paralegals */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-400" />
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Paralegals</h4>
+                {(caseData.paralegals?.length || 0) > 0 && (
+                  <span className="text-xs text-slate-400">({caseData.paralegals?.length})</span>
+                )}
+              </div>
+              <UserSelect
+                users={paralegals}
+                selectedIds={caseData.paralegal_ids || []}
+                onSelect={(userId) => assignParalegalMutation.mutate(userId)}
+                filterPosition="paralegal"
+                placeholder="Add paralegal..."
+              />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {caseData.paralegals?.map(user => (
+                <UserChip
+                  key={user.id}
+                  user={user}
+                  onRemove={() => removeParalegalMutation.mutate(user.id)}
+                  size="sm"
+                />
+              ))}
+              {(!caseData.paralegals || caseData.paralegals.length === 0) && (
+                <span className="text-sm text-slate-400 italic">None</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Counsel & Mediator */}

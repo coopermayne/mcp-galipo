@@ -101,6 +101,30 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         else:
             result["case_numbers"] = []
 
+        # Expand attorney_ids and paralegal_ids to full user objects
+        attorney_ids = result.get("attorney_ids") or []
+        paralegal_ids = result.get("paralegal_ids") or []
+
+        if attorney_ids:
+            cur.execute("""
+                SELECT id, email, first_name, last_name, initials, position
+                FROM users WHERE id = ANY(%s)
+                ORDER BY last_name, first_name
+            """, (attorney_ids,))
+            result["attorneys"] = serialize_rows(cur.fetchall())
+        else:
+            result["attorneys"] = []
+
+        if paralegal_ids:
+            cur.execute("""
+                SELECT id, email, first_name, last_name, initials, position
+                FROM users WHERE id = ANY(%s)
+                ORDER BY last_name, first_name
+            """, (paralegal_ids,))
+            result["paralegals"] = serialize_rows(cur.fetchall())
+        else:
+            result["paralegals"] = []
+
         # Get persons assigned to this case
         cur.execute("""
             SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
@@ -415,3 +439,175 @@ def get_dashboard_stats() -> dict:
             "upcoming_events": upcoming_events,
             "cases_by_status": cases_by_status
         }
+
+
+# =============================================================================
+# Case Staff Assignments (Attorneys & Paralegals)
+# =============================================================================
+
+def get_case_users(case_id: int) -> dict:
+    """Get all staff users (attorneys and paralegals) assigned to a case."""
+    with get_cursor() as cur:
+        # Get case attorney_ids and paralegal_ids
+        cur.execute("""
+            SELECT attorney_ids, paralegal_ids FROM cases WHERE id = %s
+        """, (case_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"attorneys": [], "paralegals": []}
+
+        attorney_ids = row["attorney_ids"] or []
+        paralegal_ids = row["paralegal_ids"] or []
+
+        attorneys = []
+        paralegals = []
+
+        if attorney_ids:
+            cur.execute("""
+                SELECT id, email, first_name, last_name, initials, position, paralegal_id
+                FROM users WHERE id = ANY(%s)
+                ORDER BY last_name, first_name
+            """, (attorney_ids,))
+            attorneys = serialize_rows(cur.fetchall())
+
+        if paralegal_ids:
+            cur.execute("""
+                SELECT id, email, first_name, last_name, initials, position
+                FROM users WHERE id = ANY(%s)
+                ORDER BY last_name, first_name
+            """, (paralegal_ids,))
+            paralegals = serialize_rows(cur.fetchall())
+
+        return {"attorneys": attorneys, "paralegals": paralegals}
+
+
+def assign_attorney_to_case(case_id: int, user_id: int) -> dict:
+    """
+    Assign an attorney to a case. Auto-assigns their default paralegal if set.
+    Returns updated case staff and list of auto-assigned paralegal IDs.
+    """
+    with get_cursor() as cur:
+        # Get current arrays and attorney's paralegal
+        cur.execute("""
+            SELECT c.attorney_ids, c.paralegal_ids, u.paralegal_id
+            FROM cases c, users u
+            WHERE c.id = %s AND u.id = %s
+        """, (case_id, user_id))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Case or user not found"}
+
+        attorney_ids = list(row["attorney_ids"] or [])
+        paralegal_ids = list(row["paralegal_ids"] or [])
+        attorney_paralegal_id = row["paralegal_id"]
+        auto_assigned = []
+
+        # Add attorney if not already assigned
+        if user_id not in attorney_ids:
+            attorney_ids.append(user_id)
+            cur.execute("""
+                UPDATE cases SET attorney_ids = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (attorney_ids, case_id))
+
+        # Auto-assign attorney's paralegal if set and not already on case
+        if attorney_paralegal_id and attorney_paralegal_id not in paralegal_ids:
+            paralegal_ids.append(attorney_paralegal_id)
+            cur.execute("""
+                UPDATE cases SET paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (paralegal_ids, case_id))
+            auto_assigned.append(attorney_paralegal_id)
+
+    return {
+        "success": True,
+        "case_users": get_case_users(case_id),
+        "auto_assigned_paralegal_ids": auto_assigned
+    }
+
+
+def remove_attorney_from_case(case_id: int, user_id: int) -> dict:
+    """Remove an attorney from a case."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT attorney_ids FROM cases WHERE id = %s
+        """, (case_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Case not found"}
+
+        attorney_ids = list(row["attorney_ids"] or [])
+        if user_id in attorney_ids:
+            attorney_ids.remove(user_id)
+            cur.execute("""
+                UPDATE cases SET attorney_ids = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (attorney_ids, case_id))
+
+    return {"success": True, "case_users": get_case_users(case_id)}
+
+
+def assign_paralegal_to_case(case_id: int, user_id: int) -> dict:
+    """Manually assign a paralegal to a case."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT paralegal_ids FROM cases WHERE id = %s
+        """, (case_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Case not found"}
+
+        paralegal_ids = list(row["paralegal_ids"] or [])
+        if user_id not in paralegal_ids:
+            paralegal_ids.append(user_id)
+            cur.execute("""
+                UPDATE cases SET paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (paralegal_ids, case_id))
+
+    return {"success": True, "case_users": get_case_users(case_id)}
+
+
+def remove_paralegal_from_case(case_id: int, user_id: int) -> dict:
+    """Remove a paralegal from a case."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT paralegal_ids FROM cases WHERE id = %s
+        """, (case_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Case not found"}
+
+        paralegal_ids = list(row["paralegal_ids"] or [])
+        if user_id in paralegal_ids:
+            paralegal_ids.remove(user_id)
+            cur.execute("""
+                UPDATE cases SET paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (paralegal_ids, case_id))
+
+    return {"success": True, "case_users": get_case_users(case_id)}
+
+
+def get_cases_for_user(user_id: int, role: str = None) -> List[dict]:
+    """Get all cases where this user is assigned (as attorney or paralegal)."""
+    with get_cursor() as cur:
+        if role == "attorney":
+            cur.execute("""
+                SELECT id, case_name, short_name, status
+                FROM cases WHERE %s = ANY(attorney_ids)
+                ORDER BY case_name
+            """, (user_id,))
+        elif role == "paralegal":
+            cur.execute("""
+                SELECT id, case_name, short_name, status
+                FROM cases WHERE %s = ANY(paralegal_ids)
+                ORDER BY case_name
+            """, (user_id,))
+        else:
+            cur.execute("""
+                SELECT id, case_name, short_name, status
+                FROM cases WHERE %s = ANY(attorney_ids) OR %s = ANY(paralegal_ids)
+                ORDER BY case_name
+            """, (user_id, user_id))
+        return serialize_rows(cur.fetchall())

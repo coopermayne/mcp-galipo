@@ -51,3 +51,19 @@ export async function resetUserPassword(id: number): Promise<string> {
   });
   return response.defaultPassword;
 }
+
+interface UserCaseRef {
+  id: number;
+  case_name: string;
+  short_name?: string;
+  status: string;
+}
+
+export async function getUserCases(
+  userId: number,
+  role?: 'attorney' | 'paralegal'
+): Promise<UserCaseRef[]> {
+  const params = role ? `?role=${role}` : '';
+  const response = await request<{ success: boolean; data: UserCaseRef[] }>(`/users/${userId}/cases${params}`);
+  return response.data;
+}

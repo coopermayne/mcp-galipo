@@ -11,7 +11,8 @@ from .validation import (
 
 
 def add_task(case_id: int, description: str, due_date: str = None,
-             status: str = "Pending", urgency: int = 2, event_id: int = None) -> dict:
+             status: str = "Pending", urgency: int = 2, event_id: int = None,
+             assignee_id: int = None) -> dict:
     """Add a task to a case."""
     validate_task_status(status)
     validate_urgency(urgency)
@@ -25,22 +26,22 @@ def add_task(case_id: int, description: str, due_date: str = None,
         # Set completion_date to today if creating as Done
         if status == "Done":
             cur.execute("""
-                INSERT INTO tasks (case_id, description, due_date, completion_date, status, urgency, event_id, sort_order)
-                VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s)
-                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
-            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
+                INSERT INTO tasks (case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s)
+                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id, created_at
+            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order, assignee_id))
         else:
             cur.execute("""
-                INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
-            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order))
+                INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order, assignee_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id, created_at
+            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order, assignee_id))
         return serialize_row(dict(cur.fetchone()))
 
 
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: int = None, due_date_from: str = None, due_date_to: str = None,
-              limit: int = None, offset: int = None) -> dict:
+              limit: int = None, offset: int = None, assignee_id: int = None) -> dict:
     """Get tasks with optional filters."""
     conditions = []
     params = []
@@ -74,6 +75,10 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         conditions.append("t.due_date <= %s")
         params.append(due_date_to)
 
+    if assignee_id:
+        conditions.append("t.assignee_id = %s")
+        params.append(assignee_id)
+
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
@@ -84,11 +89,14 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
             SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
-                   t.sort_order, t.created_at,
-                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events
+                   t.sort_order, t.assignee_id, t.created_at,
+                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events,
+                   u.first_name as assignee_first_name, u.last_name as assignee_last_name,
+                   u.initials as assignee_initials
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             LEFT JOIN events e ON t.event_id = e.id
+            LEFT JOIN users u ON t.assignee_id = u.id
             {where_clause}
             ORDER BY t.sort_order ASC
         """
@@ -98,7 +106,25 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
             query += f" OFFSET {offset}"
 
         cur.execute(query, params)
-        return {"tasks": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
+        rows = cur.fetchall()
+        tasks = []
+        for row in rows:
+            task = serialize_row(dict(row))
+            # Build nested assignee object if exists
+            if task.get('assignee_id'):
+                task['assignee'] = {
+                    'id': task['assignee_id'],
+                    'first_name': task.pop('assignee_first_name'),
+                    'last_name': task.pop('assignee_last_name'),
+                    'initials': task.pop('assignee_initials'),
+                }
+            else:
+                task.pop('assignee_first_name', None)
+                task.pop('assignee_last_name', None)
+                task.pop('assignee_initials', None)
+                task['assignee'] = None
+            tasks.append(task)
+        return {"tasks": tasks, "total": total}
 
 
 def update_task(task_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
@@ -136,7 +162,8 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
 
 def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: str = _NOT_PROVIDED,
                      completion_date: str = _NOT_PROVIDED, status: str = _NOT_PROVIDED,
-                     urgency: int = _NOT_PROVIDED, event_id: int = _NOT_PROVIDED) -> Optional[dict]:
+                     urgency: int = _NOT_PROVIDED, event_id: int = _NOT_PROVIDED,
+                     assignee_id: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update all task fields."""
     updates = []
     params = []
@@ -179,6 +206,10 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         updates.append("event_id = %s")
         params.append(event_id)
 
+    if assignee_id is not _NOT_PROVIDED:
+        updates.append("assignee_id = %s")
+        params.append(assignee_id)
+
     if not updates:
         return None
 
@@ -188,10 +219,32 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         cur.execute(f"""
             UPDATE tasks SET {', '.join(updates)}
             WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
+            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id, created_at
         """, params)
         row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+        if not row:
+            return None
+        task = serialize_row(dict(row))
+
+        # Fetch assignee info if set
+        if task.get('assignee_id'):
+            cur.execute("""
+                SELECT first_name, last_name, initials FROM users WHERE id = %s
+            """, (task['assignee_id'],))
+            assignee_row = cur.fetchone()
+            if assignee_row:
+                task['assignee'] = {
+                    'id': task['assignee_id'],
+                    'first_name': assignee_row['first_name'],
+                    'last_name': assignee_row['last_name'],
+                    'initials': assignee_row['initials'],
+                }
+            else:
+                task['assignee'] = None
+        else:
+            task['assignee'] = None
+
+        return task
 
 
 def delete_task(task_id: int) -> bool:
@@ -238,7 +291,7 @@ def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = 
 
 
 def search_tasks(query: str = None, case_id: int = None, status: str = None,
-                 urgency: int = None, limit: int = 50) -> List[dict]:
+                 urgency: int = None, assignee_id: int = None, limit: int = 50) -> List[dict]:
     """Search tasks by various criteria."""
     conditions = []
     params = []
@@ -261,6 +314,10 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         conditions.append("t.urgency = %s")
         params.append(urgency)
 
+    if assignee_id:
+        conditions.append("t.assignee_id = %s")
+        params.append(assignee_id)
+
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
@@ -268,16 +325,36 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
             SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
                    t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
                    e.description as event_description, e.date as event_date,
-                   t.sort_order,
-                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events
+                   t.sort_order, t.assignee_id,
+                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events,
+                   u.first_name as assignee_first_name, u.last_name as assignee_last_name,
+                   u.initials as assignee_initials
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             LEFT JOIN events e ON t.event_id = e.id
+            LEFT JOIN users u ON t.assignee_id = u.id
             {where_clause}
             ORDER BY t.sort_order ASC
             LIMIT %s
         """, params + [limit])
-        return [dict(row) for row in cur.fetchall()]
+        rows = cur.fetchall()
+        tasks = []
+        for row in rows:
+            task = serialize_row(dict(row))
+            if task.get('assignee_id'):
+                task['assignee'] = {
+                    'id': task['assignee_id'],
+                    'first_name': task.pop('assignee_first_name'),
+                    'last_name': task.pop('assignee_last_name'),
+                    'initials': task.pop('assignee_initials'),
+                }
+            else:
+                task.pop('assignee_first_name', None)
+                task.pop('assignee_last_name', None)
+                task.pop('assignee_initials', None)
+                task['assignee'] = None
+            tasks.append(task)
+        return tasks
 
 
 def reorder_task(task_id: int, new_sort_order: int, new_urgency: int = None) -> Optional[dict]:

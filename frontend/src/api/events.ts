@@ -1,4 +1,4 @@
-import type { Event, CreateEventInput, UpdateEventInput } from '../types';
+import type { Event, CreateEventInput, UpdateEventInput, CaseStaffUser } from '../types';
 import { request } from './common';
 
 export async function getEvents(params?: {
@@ -58,4 +58,25 @@ export async function searchEvents(params: {
   if (params.limit) searchParams.set('limit', String(params.limit));
   const queryStr = searchParams.toString();
   return request(`/events/search${queryStr ? `?${queryStr}` : ''}`);
+}
+
+// Event Attendees
+
+export async function getEventAttendees(eventId: number): Promise<CaseStaffUser[]> {
+  const response = await request<{ success: boolean; data: CaseStaffUser[] }>(`/events/${eventId}/attendees`);
+  return response.data;
+}
+
+export async function addEventAttendee(eventId: number, userId: number): Promise<CaseStaffUser[]> {
+  const response = await request<{ success: boolean; data: { attendees: CaseStaffUser[] } }>(`/events/${eventId}/attendees/${userId}`, {
+    method: 'POST',
+  });
+  return response.data.attendees;
+}
+
+export async function removeEventAttendee(eventId: number, userId: number): Promise<CaseStaffUser[]> {
+  const response = await request<{ success: boolean; data: { attendees: CaseStaffUser[] } }>(`/events/${eventId}/attendees/${userId}`, {
+    method: 'DELETE',
+  });
+  return response.data.attendees;
 }

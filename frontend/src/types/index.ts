@@ -28,6 +28,7 @@ export type {
 // Task types
 export type {
   Task,
+  TaskAssignee,
   CreateTaskInput,
   UpdateTaskInput,
 } from './task';
@@ -117,9 +118,11 @@ export type {
 // User types
 export type {
   UserPosition,
+  UserRef,
   User,
   CreateUserInput,
   UpdateUserInput,
+  CaseStaffUser,
 } from './user';
 
 // Tasks layout types (legacy - kept for backwards compat)

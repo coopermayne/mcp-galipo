@@ -82,3 +82,64 @@ def register_case_routes(mcp):
         if deleted:
             return JSONResponse({"success": True})
         return api_error("Case not found", "NOT_FOUND", 404)
+
+    # =========================================================================
+    # Case Staff Assignments (Attorneys & Paralegals)
+    # =========================================================================
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/users", methods=["GET"])
+    async def api_get_case_users(request):
+        """Get all staff users (attorneys and paralegals) assigned to a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        result = await asyncio.to_thread(db.get_case_users, case_id)
+        return JSONResponse({"success": True, "data": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/attorneys/{user_id}", methods=["POST"])
+    async def api_assign_attorney_to_case(request):
+        """Assign an attorney to a case. Auto-assigns their default paralegal."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        user_id = int(request.path_params["user_id"])
+        result = await asyncio.to_thread(db.assign_attorney_to_case, case_id, user_id)
+        if not result.get("success"):
+            return api_error(result.get("error", "Failed to assign"), "ASSIGN_FAILED", 400)
+        return JSONResponse({"success": True, "data": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/attorneys/{user_id}", methods=["DELETE"])
+    async def api_remove_attorney_from_case(request):
+        """Remove an attorney from a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        user_id = int(request.path_params["user_id"])
+        result = await asyncio.to_thread(db.remove_attorney_from_case, case_id, user_id)
+        if not result.get("success"):
+            return api_error(result.get("error", "Failed to remove"), "REMOVE_FAILED", 400)
+        return JSONResponse({"success": True, "data": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/paralegals/{user_id}", methods=["POST"])
+    async def api_assign_paralegal_to_case(request):
+        """Manually assign a paralegal to a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        user_id = int(request.path_params["user_id"])
+        result = await asyncio.to_thread(db.assign_paralegal_to_case, case_id, user_id)
+        if not result.get("success"):
+            return api_error(result.get("error", "Failed to assign"), "ASSIGN_FAILED", 400)
+        return JSONResponse({"success": True, "data": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/paralegals/{user_id}", methods=["DELETE"])
+    async def api_remove_paralegal_from_case(request):
+        """Remove a paralegal from a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        user_id = int(request.path_params["user_id"])
+        result = await asyncio.to_thread(db.remove_paralegal_from_case, case_id, user_id)
+        if not result.get("success"):
+            return api_error(result.get("error", "Failed to remove"), "REMOVE_FAILED", 400)
+        return JSONResponse({"success": True, "data": result})
