@@ -18,7 +18,6 @@ export type {
 
 // Case types
 export type {
-  CaseNumber,
   Case,
   CaseSummary,
   CreateCaseInput,
