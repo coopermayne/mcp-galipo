@@ -16,7 +16,8 @@ import {
   Check,
 } from 'lucide-react';
 import { StatusFilterDropdown } from './StatusFilterDropdown';
-import type { TaskStatus } from '../../types';
+import { AssigneeFilterDropdown, type AssigneeFilterValue } from './AssigneeFilterDropdown';
+import type { TaskStatus, CaseStaffUser } from '../../types';
 
 export type GroupMode = 'date' | 'case' | 'urgency';
 
@@ -37,6 +38,14 @@ interface TasksControlsProps {
   hideGroupBy?: boolean;
   /** Hide the "Case" grouping option (when already in a case context) */
   hideCaseGrouping?: boolean;
+  /** Current assignee filter */
+  assigneeFilter?: AssigneeFilterValue;
+  /** Callback when assignee filter changes */
+  onAssigneeFilterChange?: (value: AssigneeFilterValue) => void;
+  /** Paralegals available for filtering */
+  paralegals?: CaseStaffUser[];
+  /** Hide the assignee filter dropdown */
+  hideAssigneeFilter?: boolean;
 }
 
 export function TasksControls({
@@ -48,6 +57,10 @@ export function TasksControls({
   onStatusFilterChange,
   hideGroupBy = false,
   hideCaseGrouping = false,
+  assigneeFilter = 'all',
+  onAssigneeFilterChange,
+  paralegals = [],
+  hideAssigneeFilter = false,
 }: TasksControlsProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -150,6 +163,15 @@ export function TasksControls({
         selectedStatuses={statusFilter}
         onChange={onStatusFilterChange}
       />
+
+      {/* Assignee filter dropdown */}
+      {!hideAssigneeFilter && onAssigneeFilterChange && (
+        <AssigneeFilterDropdown
+          value={assigneeFilter}
+          onChange={onAssigneeFilterChange}
+          paralegals={paralegals}
+        />
+      )}
     </div>
   );
 }
