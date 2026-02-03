@@ -4,10 +4,11 @@ MCP Tools for Legal Case Management
 All MCP tools in one file to encourage keeping the tool count small.
 """
 
+import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Optional, Literal
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 import database as db
 from database import ValidationError
 
@@ -177,7 +178,7 @@ def register_tools(mcp):
     # =========================================================================
 
     @mcp.tool()
-    def import_case(
+    async def import_case(
         context: Context,
         data: dict
     ) -> dict:
@@ -335,7 +336,7 @@ def register_tools(mcp):
         """
         context.info(f"Importing case: {data.get('case', {}).get('case_name', 'unknown')}")
         try:
-            result = db.import_case(data)
+            result = await asyncio.to_thread(db.import_case, data)
             return result
         except ValidationError as e:
             return validation_error(str(e))
