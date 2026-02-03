@@ -278,10 +278,3 @@ export function getModeColorClasses(color: string): {
 
   return colorMap[color] || colorMap.slate;
 }
-
-/**
- * Get the case-context modes (excludes 'full').
- */
-export function getCaseModes(): ChatModeConfig[] {
-  return [CHAT_MODES.tasks, CHAT_MODES.events, CHAT_MODES.people];
-}

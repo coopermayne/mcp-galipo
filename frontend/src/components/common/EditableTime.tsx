@@ -8,8 +8,8 @@ import { Check, AlertCircle, Loader2, Clock, X } from 'lucide-react';
 interface EditableTimeProps {
   /** Time value in HH:mm format (24-hour) */
   value: string | null;
-  /** Callback when time changes */
-  onSave: (value: string | null) => Promise<unknown>;
+  /** Callback when time changes (required unless disabled) */
+  onSave?: (value: string | null) => Promise<unknown>;
   /** Additional CSS classes */
   className?: string;
   /** Disable editing (read-only display) */
@@ -113,7 +113,7 @@ export function EditableTime({
 }: EditableTimeProps) {
   const { save, status } = useAutoSave({
     onSave: async (newValue: string | null) => {
-      await onSave(newValue);
+      await onSave?.(newValue);
     },
     debounceMs: 0,
   });

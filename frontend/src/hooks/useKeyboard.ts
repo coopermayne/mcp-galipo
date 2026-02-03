@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 
 type KeyHandler = (event: KeyboardEvent) => void;
 
@@ -43,26 +43,4 @@ export function useKeyboard({
   );
 
   return { handleKeyDown };
-}
-
-// Global keyboard shortcuts
-export function useGlobalShortcuts(shortcuts: Record<string, () => void>) {
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Check for Cmd/Ctrl modifier
-      const modifier = event.metaKey || event.ctrlKey;
-      if (!modifier) return;
-
-      const key = event.key.toLowerCase();
-      const combo = `cmd+${key}`;
-
-      if (shortcuts[combo]) {
-        event.preventDefault();
-        shortcuts[combo]();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [shortcuts]);
 }

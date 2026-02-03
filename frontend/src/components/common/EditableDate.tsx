@@ -9,8 +9,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 interface EditableDateProps extends DateFormatOptions {
   /** Date value in YYYY-MM-DD format */
   value: string | null;
-  /** Callback when date changes */
-  onSave: (value: string | null) => Promise<unknown>;
+  /** Callback when date changes (required unless disabled) */
+  onSave?: (value: string | null) => Promise<unknown>;
   /** Placeholder text when no date selected */
   placeholder?: string;
   /** Additional CSS classes */
@@ -113,7 +113,7 @@ export function EditableDate({
   // Auto-save for date
   const { save: saveDate, status } = useAutoSave({
     onSave: async (newValue: string | null) => {
-      await onSave(newValue);
+      await onSave?.(newValue);
     },
     debounceMs: 0,
   });

@@ -1,9 +1,8 @@
-// Map roles to person types for autocomplete filtering
-// When adding a person with a specific role, we filter existing persons by these types
+// Map roles to person types for inference when creating new persons
 
 import type { PersonType } from '../types';
 
-export const roleToPersonTypes: Record<string, PersonType[]> = {
+const roleToPersonTypes: Record<string, PersonType[]> = {
   // Client-related roles
   'Client': ['client'],
   'Guardian Ad Litem': ['client', 'attorney'],
@@ -34,14 +33,6 @@ export const roleToPersonTypes: Record<string, PersonType[]> = {
   'Insurance Adjuster': ['insurance_adjuster', 'attorney'],
   'Lien Holder': ['lien_holder', 'medical_provider'],
 };
-
-/**
- * Get person types to filter by for a given role.
- * Returns undefined if role is not mapped (allow all types).
- */
-export function getPersonTypesForRole(role: string): PersonType[] | undefined {
-  return roleToPersonTypes[role];
-}
 
 /**
  * Infer person type from role when creating a new person.
