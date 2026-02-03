@@ -15,11 +15,15 @@ export async function getCases(params?: {
   status?: string;
   limit?: number;
   offset?: number;
+  attorney_ids?: number[];
+  unassigned?: boolean;
 }): Promise<{ cases: CaseSummary[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.status) searchParams.set('status', params.status);
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
+  if (params?.attorney_ids?.length) searchParams.set('attorney_ids', params.attorney_ids.join(','));
+  if (params?.unassigned) searchParams.set('unassigned', 'true');
   const query = searchParams.toString();
   return request(`/cases${query ? `?${query}` : ''}`);
 }

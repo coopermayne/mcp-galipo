@@ -19,6 +19,7 @@ export function CasesWidget({ config, onConfigChange }: CasesWidgetProps) {
       showClosed={config.showClosed}
       onShowClosedChange={(showClosed) => onConfigChange({ showClosed })}
       searchQuery={config.searchQuery}
+      attorneyFilter={config.attorneyFilter}
     />
   );
 }

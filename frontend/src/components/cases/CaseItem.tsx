@@ -4,10 +4,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Briefcase, Check, Loader2, ChevronDown } from 'lucide-react';
+import { Briefcase, Check, Loader2, ChevronDown, Plus } from 'lucide-react';
 import { updateCase } from '../../api';
 import { getStatusColorClasses } from '../../config/colors';
+import { getUserColorClass } from '../../utils';
+import { TeamDropdown } from './TeamDropdown';
 import type { CaseSummary, CaseStatus } from '../../types';
+import type { StaffRef } from '../../api/users';
 
 const CASE_STATUSES: CaseStatus[] = [
   'Signing Up',
@@ -28,12 +31,14 @@ const CASE_STATUSES: CaseStatus[] = [
 interface CaseItemProps {
   caseData: CaseSummary;
   onClick?: (caseData: CaseSummary) => void;
+  staffMap?: Map<number, StaffRef>;
 }
 
-export function CaseItem({ caseData, onClick }: CaseItemProps) {
+export function CaseItem({ caseData, onClick, staffMap }: CaseItemProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [isTeamOpen, setIsTeamOpen] = useState(false);
   const statusRef = useRef<HTMLDivElement>(null);
 
   const updateMutation = useMutation({
@@ -82,15 +87,66 @@ export function CaseItem({ caseData, onClick }: CaseItemProps) {
       onClick={handleClick}
       className="flex items-center gap-3 px-3 py-2.5 hover:bg-bg-hover cursor-pointer border-b border-border last:border-b-0 transition-colors"
     >
-      {/* Icon */}
+      {/* Attorney avatars - fixed width so case titles always align */}
       <div
-        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{
-          backgroundColor: caseData.color ? `${caseData.color}20` : undefined,
-          color: caseData.color || undefined,
+        className="relative flex-shrink-0 w-10 flex items-center justify-center cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsTeamOpen(!isTeamOpen);
         }}
       >
-        <Briefcase className="w-4 h-4" />
+        {(() => {
+          const attorneyIds = caseData.attorney_ids || [];
+          const attorneys = staffMap ? attorneyIds.map(id => staffMap.get(id)).filter(Boolean) : [];
+
+          if (attorneys.length === 0) {
+            return (
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center border-2 border-dashed border-border/60 text-text-muted/60 hover:border-border hover:text-text-muted transition-colors"
+                title="Assign team"
+              >
+                <Plus className="w-3 h-3" />
+              </div>
+            );
+          }
+
+          if (attorneys.length === 1) {
+            const s = attorneys[0]!;
+            return (
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-semibold hover:ring-2 hover:ring-primary-300 dark:hover:ring-primary-700 transition-all ${getUserColorClass(s.id)}`}
+                title={`${s.firstName} ${s.lastName}`}
+              >
+                {s.initials}
+              </div>
+            );
+          }
+
+          // 2+ attorneys: show first two stacked
+          const shown = attorneys.slice(0, 2);
+          return (
+            <div className="flex -space-x-2" title={attorneys.map(s => `${s!.firstName} ${s!.lastName}`).join(', ')}>
+              {shown.map(s => (
+                <div
+                  key={s!.id}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-semibold ring-2 ring-bg-surface ${getUserColorClass(s!.id)}`}
+                >
+                  {s!.initials}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {isTeamOpen && staffMap && (
+          <TeamDropdown
+            caseId={caseData.id}
+            attorneyIds={caseData.attorney_ids || []}
+            paralegalIds={caseData.paralegal_ids || []}
+            staffMap={staffMap}
+            onClose={() => setIsTeamOpen(false)}
+          />
+        )}
       </div>
 
       {/* Case info */}

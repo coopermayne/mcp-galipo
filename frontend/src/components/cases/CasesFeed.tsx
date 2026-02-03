@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { CaseItem } from './CaseItem';
 import type { CaseSummary } from '../../types';
+import type { StaffRef } from '../../api/users';
 
 type GroupMode = 'alpha' | 'status' | 'none';
 
@@ -20,6 +21,7 @@ interface CasesFeedProps {
   groupBy?: GroupMode;
   emptyMessage?: string;
   onClick?: (caseData: CaseSummary) => void;
+  staffMap?: Map<number, StaffRef>;
 }
 
 /**
@@ -92,6 +94,7 @@ export function CasesFeed({
   groupBy = 'none',
   emptyMessage = 'No cases',
   onClick,
+  staffMap,
 }: CasesFeedProps) {
   const groups = useMemo(() => {
     switch (groupBy) {
@@ -148,6 +151,7 @@ export function CasesFeed({
               key={caseData.id}
               caseData={caseData}
               onClick={onClick}
+              staffMap={staffMap}
             />
           ))}
         </div>

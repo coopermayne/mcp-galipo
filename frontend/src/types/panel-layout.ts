@@ -20,6 +20,9 @@ export type EventsGroupMode = 'none' | 'date' | 'case';
 /** Group modes for cases widget */
 export type CasesGroupMode = 'none' | 'alpha' | 'status';
 
+/** Attorney filter for cases widget */
+export type CaseAttorneyFilter = 'all' | 'mine' | 'unassigned' | number[];
+
 /** Group modes for persons widget */
 export type PersonsGroupMode = 'type' | 'alpha' | 'recent';
 
@@ -53,6 +56,7 @@ export interface CasesWidgetConfig extends BaseWidgetConfig {
   showClosed: boolean;
   groupBy: CasesGroupMode;
   searchQuery: string;
+  attorneyFilter: CaseAttorneyFilter;
 }
 
 /** Persons widget configuration */
@@ -123,6 +127,7 @@ export function createDefaultCasesWidget(id: string): CasesWidgetConfig {
     showClosed: false,
     groupBy: 'none',
     searchQuery: '',
+    attorneyFilter: 'all',
   };
 }
 

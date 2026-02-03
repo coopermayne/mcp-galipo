@@ -34,8 +34,9 @@ def get_next_case_color() -> str:
 
 
 def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
-                  offset: int = None) -> dict:
-    """Get all cases with optional status filter."""
+                  offset: int = None, attorney_ids: List[int] = None,
+                  unassigned: bool = False) -> dict:
+    """Get all cases with optional status filter and attorney filter."""
     conditions = []
     params = []
 
@@ -43,6 +44,12 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         validate_case_status(status_filter)
         conditions.append("c.status = %s")
         params.append(status_filter)
+
+    if attorney_ids:
+        conditions.append("c.attorney_ids && %s::integer[]")
+        params.append(attorney_ids)
+    elif unassigned:
+        conditions.append("(c.attorney_ids IS NULL OR c.attorney_ids = '{}')")
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -54,6 +61,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         # Build query with joins for counts and assigned judge
         query = f"""
             SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
+                   c.attorney_ids, c.paralegal_ids,
                    (SELECT p.name FROM case_persons cp
                     JOIN persons p ON cp.person_id = p.id
                     WHERE cp.case_id = c.id AND cp.role = 'Judge'
