@@ -12,6 +12,7 @@ import { Calendar, Inbox, Sparkles } from 'lucide-react';
 import { TimePicker } from '../common';
 import { getCases } from '../../api';
 import { parseDateFromText, removeDateFromText, type ParsedDate } from '../../utils/dateParser';
+import { INPUT_HIGHLIGHT } from '../../config/colors';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export interface EventInlineCreateProps {
@@ -295,7 +296,7 @@ export function EventInlineCreate({
             aria-hidden="true"
           >
             <span>{description.substring(0, detectedDateInfo.startIndex)}</span>
-            <span className="bg-blue-100 dark:bg-blue-900/50 text-transparent rounded px-0.5">
+            <span className={`${INPUT_HIGHLIGHT.date} text-transparent rounded px-0.5`}>
               {description.substring(detectedDateInfo.startIndex, detectedDateInfo.endIndex)}
             </span>
             <span>{description.substring(detectedDateInfo.endIndex)}</span>

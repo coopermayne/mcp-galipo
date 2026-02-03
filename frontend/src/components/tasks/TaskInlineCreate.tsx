@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { getCases } from '../../api';
 import { parseDateFromText, removeDateFromText, type ParsedDate } from '../../utils/dateParser';
+import { INPUT_HIGHLIGHT } from '../../config/colors';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export interface TaskInlineCreateProps {
@@ -311,7 +312,7 @@ export function TaskInlineCreate({
             aria-hidden="true"
           >
             <span>{title.substring(0, detectedDateInfo.startIndex)}</span>
-            <span className="bg-blue-100 dark:bg-blue-900/50 text-transparent rounded px-0.5">
+            <span className={`${INPUT_HIGHLIGHT.date} text-transparent rounded px-0.5`}>
               {title.substring(detectedDateInfo.startIndex, detectedDateInfo.endIndex)}
             </span>
             <span>{title.substring(detectedDateInfo.endIndex)}</span>
