@@ -156,20 +156,38 @@ def _transform_case(case_data: dict, today: str) -> dict:
     title_rt = RichText()
     title_rt.add(case_name, bold=True, color=CLR_NAVY, size=28)  # 14pt = 28 half-pts
 
-    # Status banner RichText
+    # Status badge RichText (right-aligned in title bar)
     status_rt = RichText()
-    status_rt.add(f"  {status}  ", bold=True, color=colors["text"], size=22)  # 11pt
+    status_rt.add(f" {status} ", bold=True, color=colors["text"], size=20)  # 10pt
 
     # Events with RichText
     event_items = _build_events(events, doi_raw, today)
-    has_events = len(event_items) > 0
 
     # Tasks with RichText (exclude only "Done" status)
     task_items = _build_tasks(tasks, today)
-    has_tasks = len(task_items) > 0
 
     # Notes
     note_items = _build_notes(notes)
+
+    # Timeline (events and tasks zipped side by side)
+    timeline = []
+    max_len = max(len(event_items), len(task_items)) if (event_items or task_items) else 0
+    for i in range(max_len):
+        row = {}
+        if i < len(event_items):
+            row["ev_date"] = event_items[i]["date_rt"]
+            row["ev_desc"] = event_items[i]["desc_rt"]
+        else:
+            row["ev_date"] = ""
+            row["ev_desc"] = ""
+        if i < len(task_items):
+            row["tk_date"] = task_items[i]["date_rt"]
+            row["tk_desc"] = task_items[i]["desc_rt"]
+        else:
+            row["tk_date"] = ""
+            row["tk_desc"] = ""
+        row["bg"] = BG_ALT if i % 2 == 0 else BG_NONE
+        timeline.append(row)
 
     return {
         "case_name": case_name,
@@ -186,10 +204,8 @@ def _transform_case(case_data: dict, today: str) -> dict:
         "title_rt": title_rt,
         "status_rt": status_rt,
         "status_bg": colors["bg"],
-        "has_events": has_events,
-        "events": event_items,
-        "has_tasks": has_tasks,
-        "tasks": task_items,
+        "has_timeline": len(timeline) > 0,
+        "timeline": timeline,
         "notes": note_items if note_items else None,
     }
 
@@ -222,10 +238,8 @@ def _build_events(events: list, doi_raw, today: str) -> list:
         })
         idx += 1
 
-    # Sort: starred first, then by date
-    starred = [e for e in events if e.get("starred")]
-    regular = [e for e in events if not e.get("starred")]
-    all_events = starred + regular
+    # Sort by date (starred events keep visual styling but stay in order)
+    all_events = sorted(events, key=lambda e: e.get("date", ""))
 
     for event in all_events:
         event_date = event.get("date", "")
@@ -278,7 +292,7 @@ def _build_events(events: list, doi_raw, today: str) -> list:
 
 
 def _build_tasks(tasks: list, today: str) -> list:
-    """Build task list with RichText objects. Excludes only 'Done' tasks."""
+    """Build task list with RichText objects. Urgency shown via visual markers."""
     from docxtpl import RichText
 
     # Filter: exclude Done tasks only
@@ -293,7 +307,6 @@ def _build_tasks(tasks: list, today: str) -> list:
         urgency = task.get("urgency", 2)
         if urgency is None:
             urgency = 2
-        urgency_label = URGENCY_LABELS.get(urgency, "Medium")
 
         is_overdue = bool(due_date and due_date < today)
         date_str = _format_date(due_date)
@@ -301,36 +314,31 @@ def _build_tasks(tasks: list, today: str) -> list:
         # Alternating background
         bg = BG_ALT if idx % 2 == 0 else BG_NONE
 
-        # Determine style
         date_rt = RichText()
         desc_rt = RichText()
-        urgency_rt = RichText()
 
         if is_overdue:
             # Overdue: grey italic
             date_rt.add(date_str or "\u2014", color=CLR_GREY, italic=True, size=16)
             desc_rt.add(desc, color=CLR_GREY, italic=True, size=16)
-            urgency_rt.add(urgency_label, color=CLR_GREY, italic=True, size=16)
         elif urgency == 4:
-            # Urgent + future: bold, urgency in red
-            date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=16)
+            # Urgent: red marker + bold
+            date_rt.add(date_str or "\u2014", bold=True, color=CLR_RED, size=16)
+            desc_rt.add("\u25CF ", color=CLR_RED, size=12)
             desc_rt.add(desc, bold=True, color=CLR_NAVY, size=16)
-            urgency_rt.add(urgency_label, bold=True, color=CLR_RED, size=16)
         elif urgency == 3:
-            # High + future: bold navy
+            # High: bold navy
             date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=16)
+            desc_rt.add("\u25CF ", color=CLR_NAVY, size=10)
             desc_rt.add(desc, bold=True, color=CLR_NAVY, size=16)
-            urgency_rt.add(urgency_label, bold=True, color=CLR_NAVY, size=16)
         else:
             # Normal: regular navy
             date_rt.add(date_str or "\u2014", color=CLR_NAVY, size=16)
             desc_rt.add(desc, color=CLR_NAVY, size=16)
-            urgency_rt.add(urgency_label, color=CLR_NAVY, size=16)
 
         items.append({
             "date_rt": date_rt,
             "desc_rt": desc_rt,
-            "urgency_rt": urgency_rt,
             "bg": bg,
         })
 
