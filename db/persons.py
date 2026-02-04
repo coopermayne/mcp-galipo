@@ -163,14 +163,14 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
 
         cur.execute(f"""
             SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
-                   p.attributes, p.notes, p.archived
+                   p.attributes, p.notes, p.archived, p.created_at
             FROM persons p
             {where_clause}
             ORDER BY p.name
             LIMIT %s OFFSET %s
         """, params + [limit, offset])
 
-        persons = [dict(row) for row in cur.fetchall()]
+        persons = serialize_rows([dict(row) for row in cur.fetchall()])
 
         if include_cases and persons:
             person_ids = [p["id"] for p in persons]
