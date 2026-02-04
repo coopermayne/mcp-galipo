@@ -174,6 +174,28 @@ def register_tools(mcp):
         }
 
     # =========================================================================
+    # STAFF / ATTORNEYS
+    # =========================================================================
+
+    @mcp.tool()
+    async def list_attorneys(context: Context) -> dict:
+        """List all active attorneys and their default paralegals.
+
+        Call this BEFORE import_case to find out which attorneys are available
+        for assignment. Each attorney has an id, name, initials, bar_number,
+        and their default paralegal (if set).
+
+        When assigning attorneys to a case via import_case, pass their IDs in
+        the "attorney_ids" field. Their default paralegals will be auto-assigned.
+        """
+        context.info("Listing attorneys")
+        try:
+            attorneys = await asyncio.to_thread(db.get_attorneys)
+            return {"success": True, "attorneys": attorneys}
+        except Exception as e:
+            return error_response(f"Failed to list attorneys: {str(e)}", "QUERY_ERROR")
+
+    # =========================================================================
     # BULK IMPORT
     # =========================================================================
 
@@ -254,8 +276,14 @@ def register_tools(mcp):
             "Meeting", "Filing", "Research", "Drafting", "Document Review",
             "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
 
+        attorney_ids (optional, top-level):
+            Array of user IDs (from list_attorneys) to assign as case attorneys.
+            Each attorney's default paralegal is auto-assigned to the case.
+            Example: "attorney_ids": [1, 3]
+
         INPUT SCHEMA:
         {
+            "attorney_ids": [1, 3],  // optional - call list_attorneys() first
             "case": {
                 "case_name": "Smith v. Jones" (REQUIRED),
                 "short_name": "Smith v. Jones",

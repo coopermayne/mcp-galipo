@@ -268,6 +268,40 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
     return user
 
 
+def get_attorneys() -> list[dict]:
+    """Get all active attorneys with their default paralegal info.
+    Used by MCP to show available attorneys for case assignment."""
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT u.id, u.first_name, u.last_name, u.initials, u.bar_number,
+                   u.paralegal_id,
+                   p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
+                   p.initials as paralegal_initials
+            FROM users u
+            LEFT JOIN users p ON u.paralegal_id = p.id
+            WHERE u.position = 'attorney' AND u.is_active = TRUE
+            ORDER BY u.last_name, u.first_name
+        """)
+        rows = cur.fetchall()
+        result = []
+        for row in rows:
+            attorney = serialize_row(row)
+            if attorney.get('paralegal_id'):
+                attorney['paralegal'] = {
+                    'id': attorney['paralegal_id'],
+                    'first_name': attorney.pop('paralegal_first_name'),
+                    'last_name': attorney.pop('paralegal_last_name'),
+                    'initials': attorney.pop('paralegal_initials'),
+                }
+            else:
+                attorney.pop('paralegal_first_name', None)
+                attorney.pop('paralegal_last_name', None)
+                attorney.pop('paralegal_initials', None)
+                attorney['paralegal'] = None
+            result.append(attorney)
+        return result
+
+
 def get_attorneys_for_paralegal(paralegal_id: int) -> list[dict]:
     """Get all attorneys who have this paralegal assigned as their default."""
     with get_cursor() as cur:
