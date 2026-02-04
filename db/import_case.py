@@ -67,6 +67,8 @@ def import_case(data: dict) -> dict:
             "activities": [],
             "jurisdictions": [],
         },
+        "assigned_attorneys": [],
+        "assigned_paralegals": [],
         "summary": {}
     }
 
@@ -137,6 +139,13 @@ def import_case(data: dict) -> dict:
                     "description": activity_data.get("description")
                 })
 
+            # 7. Assign attorneys (and auto-assign their paralegals)
+            attorney_ids = data.get("attorney_ids", [])
+            if attorney_ids:
+                assigned = _assign_attorneys(cur, case_id, attorney_ids)
+                result["assigned_attorneys"] = assigned["attorneys"]
+                result["assigned_paralegals"] = assigned["paralegals"]
+
             # Build summary
             result["summary"] = {
                 "case_name": case_data.get("case_name"),
@@ -146,6 +155,8 @@ def import_case(data: dict) -> dict:
                 "events_created": len(result["created"]["events"]),
                 "notes_created": len(result["created"]["notes"]),
                 "activities_created": len(result["created"]["activities"]),
+                "attorneys_assigned": len(result["assigned_attorneys"]),
+                "paralegals_auto_assigned": len(result["assigned_paralegals"]),
             }
 
             # Commit happens automatically when context manager exits successfully
@@ -520,3 +531,61 @@ def _create_activity(cur, case_id: int, activity_data: dict) -> int:
         activity_data.get("minutes")
     ))
     return cur.fetchone()["id"]
+
+
+def _assign_attorneys(cur, case_id: int, attorney_ids: list) -> dict:
+    """Assign attorneys to case and auto-assign their default paralegals.
+
+    Uses the same cursor as the import transaction so everything is atomic.
+    """
+    assigned_attorneys = []
+    assigned_paralegals = []
+    paralegal_ids = []
+
+    for user_id in attorney_ids:
+        # Verify the user exists and is an active attorney
+        cur.execute("""
+            SELECT id, first_name, last_name, initials, paralegal_id
+            FROM users
+            WHERE id = %s AND is_active = TRUE AND position = 'attorney'
+        """, (user_id,))
+        row = cur.fetchone()
+        if not row:
+            raise ValidationError(
+                f"Attorney with id={user_id} not found or is not an active attorney. "
+                "Use list_attorneys() to see available attorneys."
+            )
+
+        assigned_attorneys.append({
+            "id": row["id"],
+            "name": f"{row['first_name']} {row['last_name']}",
+            "initials": row["initials"],
+        })
+
+        # Collect their default paralegal
+        if row["paralegal_id"] and row["paralegal_id"] not in paralegal_ids:
+            paralegal_ids.append(row["paralegal_id"])
+
+    # Fetch paralegal details for the response
+    for p_id in paralegal_ids:
+        cur.execute("""
+            SELECT id, first_name, last_name, initials
+            FROM users WHERE id = %s AND is_active = TRUE
+        """, (p_id,))
+        p_row = cur.fetchone()
+        if p_row:
+            assigned_paralegals.append({
+                "id": p_row["id"],
+                "name": f"{p_row['first_name']} {p_row['last_name']}",
+                "initials": p_row["initials"],
+                "auto_assigned": True,
+            })
+
+    # Write attorney_ids and paralegal_ids to the case
+    cur.execute("""
+        UPDATE cases
+        SET attorney_ids = %s, paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (attorney_ids, paralegal_ids, case_id))
+
+    return {"attorneys": assigned_attorneys, "paralegals": assigned_paralegals}
