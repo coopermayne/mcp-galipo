@@ -20,6 +20,7 @@ import {
   createDefaultWidget,
   createDefaultTasksWidget,
   createDefaultEventsWidget,
+  createDefaultClientsWidget,
   createDefaultChartWidget,
 } from '../types/panel-layout';
 
@@ -61,6 +62,10 @@ function loadConfig(
           }
           if (panel.type === 'events') {
             const defaults = createDefaultEventsWidget(panel.id as string);
+            return { ...defaults, ...panel };
+          }
+          if (panel.type === 'clients') {
+            const defaults = createDefaultClientsWidget(panel.id as string);
             return { ...defaults, ...panel };
           }
           if (panel.type === 'chart') {
