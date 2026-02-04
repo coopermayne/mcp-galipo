@@ -162,7 +162,12 @@ def register_person_routes(mcp):
         if err := auth.require_auth(request):
             return err
         person_id = int(request.path_params["person_id"])
-        deleted = await asyncio.to_thread(db.delete_person, person_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_person, person_id)
+        except Exception as e:
+            if "ForeignKeyViolation" in type(e).__name__ or "foreign key" in str(e).lower():
+                return api_error("Person is still referenced by other records", "FK_VIOLATION", 409)
+            raise
         if deleted:
             return JSONResponse({"success": True, "action": "deleted"})
         return api_error("Person not found", "NOT_FOUND", 404)
