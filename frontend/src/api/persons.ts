@@ -70,6 +70,48 @@ export async function deletePerson(
   });
 }
 
+// Duplicate Detection & Merge
+export interface DuplicateGroup {
+  persons: Person[];
+  match_reasons: string[];
+  has_conflicts: boolean;
+}
+
+export async function getDuplicatePersons(): Promise<{ groups: DuplicateGroup[]; total: number }> {
+  return request('/persons/duplicates');
+}
+
+export async function getMergePreview(
+  primaryId: number,
+  secondaryId: number
+): Promise<{
+  primary: Person;
+  secondary: Person;
+  conflicts: {
+    field_conflicts: Array<{ field: string; primary_value: string; secondary_value: string }>;
+    assignment_conflicts: Array<{ case_id: number; role: string; case_name: string; short_name: string }>;
+    judge_conflicts: Array<{ proceeding_id: number; proceeding_name: string }>;
+  };
+  auto_mergeable: boolean;
+}> {
+  return request(`/persons/merge-preview?primary_id=${primaryId}&secondary_id=${secondaryId}`);
+}
+
+export async function mergePersons(
+  primaryId: number,
+  secondaryId: number,
+  fieldResolutions?: Record<string, string>
+): Promise<{ success: boolean; person: Person }> {
+  return request('/persons/merge', {
+    method: 'POST',
+    body: JSON.stringify({
+      primary_id: primaryId,
+      secondary_id: secondaryId,
+      field_resolutions: fieldResolutions || {},
+    }),
+  });
+}
+
 // Case-Person Assignments
 export async function getCasePersons(
   caseId: number,
