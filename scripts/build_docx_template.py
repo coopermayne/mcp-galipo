@@ -154,6 +154,25 @@ def set_page_break_before(para):
     p_pr.append(pb)
 
 
+def add_jinja_tag(doc, tag):
+    """Add a Jinja2 tag as a near-zero-height hidden paragraph.
+
+    These paragraphs remain in the rendered doc as empty lines, so we force
+    exact 1-twip (0.05 pt) line spacing to make them invisible.
+    """
+    p = doc.add_paragraph()
+    p_pr = p._p.get_or_add_pPr()
+    # Space before/after = 0
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:before"), "0")
+    spacing.set(qn("w:after"), "0")
+    spacing.set(qn("w:line"), "1")          # 1 twip ≈ 0 height
+    spacing.set(qn("w:lineRule"), "exact")
+    p_pr.append(spacing)
+    add_run(p, tag, size=1, color=WHITE)
+    return p
+
+
 def build_header_footer(doc):
     """Add header and footer to the default section."""
     section = doc.sections[0]
@@ -220,20 +239,21 @@ def build_cover_page(doc):
     table = doc.add_table(rows=7, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
-    set_table_borders(table, color=FINE_BORDER, sz=2)
+    set_table_borders(table, color=GREY_BORDER, sz=2)
 
     col_widths = [2.0, 1.2, 1.1, 1.4, 0.9]
 
-    # Row 0: Column headers — softer slate background
+    # Row 0: Column headers — light, airy
     headers = ["Case", "Case No.", "Judge", "Clients", "DOI"]
     for i, h in enumerate(headers):
         cell = table.cell(0, i)
-        set_cell_shading(cell, HEADER_BG)
-        set_cell_margins(cell, top=35, bottom=35, left=55, right=55)
+        set_cell_shading(cell, LIGHT_BG)
+        set_cell_margins(cell, top=28, bottom=28, left=55, right=55)
         set_cell_width(cell, col_widths[i])
+        set_cell_borders(cell, bottom=(FINE_BORDER, 4))
         p = cell.paragraphs[0]
         set_paragraph_spacing(p, before=0, after=0)
-        add_run(p, h, size=7, bold=True, color=WHITE)
+        add_run(p, h, size=6.5, bold=True, color=DARK_GREY)
 
     # Row 1: {%tr for phase in phases %}
     p = table.cell(1, 0).paragraphs[0]
@@ -398,19 +418,19 @@ def build_tasks_table(doc):
 
 
 def build_metadata_grid(doc):
-    """Build the 2x3 metadata grid table."""
+    """Build the 2x3 metadata grid table — clean white cells, thin borders."""
     table = doc.add_table(rows=2, cols=3)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
-    set_table_borders(table, color=FINE_BORDER, sz=2)
+    set_table_borders(table, color=GREY_BORDER, sz=2)
 
     grid = [
-        [("CASE NO.", "{{ case.case_number }}", "Consolas"),
-         ("JUDGE", "{{ case.judge }}", "Calibri"),
-         ("DATE OF INJURY", "{{ case.doi }}", "Calibri")],
-        [("JURISDICTION", "{{ case.jurisdiction }}", "Calibri"),
-         ("OPP. COUNSEL", "{{ case.opp_counsel }}", "Calibri"),
-         ("CLIENTS", "{{ case.clients }}", "Calibri")],
+        [("Case No.", "{{ case.case_number }}", "Consolas"),
+         ("Judge", "{{ case.judge }}", "Calibri"),
+         ("Date of Injury", "{{ case.doi }}", "Calibri")],
+        [("Jurisdiction", "{{ case.jurisdiction }}", "Calibri"),
+         ("Opp. Counsel", "{{ case.opp_counsel }}", "Calibri"),
+         ("Clients", "{{ case.clients }}", "Calibri")],
     ]
 
     col_width = 2.4
@@ -418,13 +438,12 @@ def build_metadata_grid(doc):
     for row_idx, row_data in enumerate(grid):
         for col_idx, (label, tag, font) in enumerate(row_data):
             cell = table.cell(row_idx, col_idx)
-            set_cell_shading(cell, LIGHT_BG)
-            set_cell_margins(cell, top=20, bottom=20, left=55, right=55)
+            set_cell_margins(cell, top=22, bottom=22, left=60, right=60)
             set_cell_width(cell, col_width)
 
             p_label = cell.paragraphs[0]
             set_paragraph_spacing(p_label, before=0, after=0)
-            add_run(p_label, label, size=6, bold=True, color=GREY)
+            add_run(p_label, label, size=6.5, color=GREY)
 
             p_val = cell.add_paragraph()
             set_paragraph_spacing(p_val, before=0, after=0)
@@ -468,21 +487,18 @@ def build_title_bar(doc):
     add_run(p, "{% cellbg case.status_bg %}", size=1, color=WHITE)
     add_run(p, "{{r case.status_rt }}", size=10)
 
-    # Accent rule below title bar
+    # Thin rule below title bar
     rule = doc.add_paragraph()
     set_paragraph_spacing(rule, before=0, after=0)
-    set_paragraph_border_bottom(rule, color=ACCENT_HEX, sz=6)
+    set_paragraph_border_bottom(rule, color=GREY_BORDER, sz=4)
 
 
 def build_case_summary(doc):
     """Build case summary as a paragraph with blue left border."""
-    # Conditional: only show if summary exists
-    if_p = doc.add_paragraph()
-    set_paragraph_spacing(if_p, before=0, after=0)
-    add_run(if_p, "{% if case.summary %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% if case.summary %}")
 
     p = doc.add_paragraph()
-    set_paragraph_spacing(p, before=2, after=3)
+    set_paragraph_spacing(p, before=2, after=2)
     # Blue left border
     p_pr = p._p.get_or_add_pPr()
     borders = OxmlElement("w:pBorders")
@@ -493,15 +509,12 @@ def build_case_summary(doc):
     left_b.set(qn("w:space"), "6")
     borders.append(left_b)
     p_pr.append(borders)
-    # Indent the paragraph slightly
     ind = OxmlElement("w:ind")
     ind.set(qn("w:left"), "120")
     p_pr.append(ind)
     add_run(p, "{{ case.summary }}", size=8, italic=True, color=DARK_GREY)
 
-    end_p = doc.add_paragraph()
-    set_paragraph_spacing(end_p, before=0, after=0)
-    add_run(end_p, "{% endif %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% endif %}")
 
 
 def build_timeline_table(doc):
@@ -510,18 +523,19 @@ def build_timeline_table(doc):
     table = doc.add_table(rows=5, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
-    set_table_borders(table, color=FINE_BORDER, sz=2)
+    set_table_borders(table, color=GREY_BORDER, sz=2)
 
     # Col widths: ev_date, ev_desc, DIVIDER, tk_due, tk_desc
     col_widths = [1.2, 2.35, 0.1, 1.0, 2.55]
 
-    # Row 0: Section headers — events (cols 0-1), divider (col 2), tasks (cols 3-4)
+    # Row 0: Section headers — light background, dark text (like the web UI)
     ev_header = table.cell(0, 0).merge(table.cell(0, 1))
-    set_cell_shading(ev_header, HEADER_BG)
-    set_cell_margins(ev_header, top=22, bottom=22, left=50, right=50)
+    set_cell_shading(ev_header, LIGHT_BG)
+    set_cell_margins(ev_header, top=20, bottom=20, left=55, right=55)
+    set_cell_borders(ev_header, bottom=(FINE_BORDER, 4))
     p = ev_header.paragraphs[0]
     set_paragraph_spacing(p, before=0, after=0)
-    add_run(p, "KEY DATES & EVENTS", size=7, bold=True, color=WHITE)
+    add_run(p, "Events", size=8, bold=True, color=NAVY)
 
     div_header = table.cell(0, 2)
     set_cell_shading(div_header, "FFFFFF")
@@ -530,11 +544,12 @@ def build_timeline_table(doc):
     set_paragraph_spacing(div_header.paragraphs[0], before=0, after=0)
 
     tk_header = table.cell(0, 3).merge(table.cell(0, 4))
-    set_cell_shading(tk_header, HEADER_BG)
-    set_cell_margins(tk_header, top=22, bottom=22, left=50, right=50)
+    set_cell_shading(tk_header, LIGHT_BG)
+    set_cell_margins(tk_header, top=20, bottom=20, left=55, right=55)
+    set_cell_borders(tk_header, bottom=(FINE_BORDER, 4))
     p = tk_header.paragraphs[0]
     set_paragraph_spacing(p, before=0, after=0)
-    add_run(p, "OPEN TASKS", size=7, bold=True, color=WHITE)
+    add_run(p, "Tasks", size=8, bold=True, color=NAVY)
 
     # Row 1: Sub-headers
     sub_headers = ["Date", "Description", "", "Due", "Description"]
@@ -545,13 +560,12 @@ def build_timeline_table(doc):
             set_cell_width(cell, 0.1)
             set_cell_margins(cell, top=0, bottom=0, left=0, right=0)
         else:
-            set_cell_shading(cell, LIGHT_BG)
-            set_cell_margins(cell, top=16, bottom=16, left=50, right=50)
+            set_cell_margins(cell, top=14, bottom=14, left=55, right=55)
             set_cell_width(cell, col_widths[i])
         p = cell.paragraphs[0]
         set_paragraph_spacing(p, before=0, after=0)
         if h:
-            add_run(p, h, size=6, bold=True, color=GREY)
+            add_run(p, h, size=6, color=GREY)
 
     # Row 2: {%tr for item in case.timeline %}
     p = table.cell(2, 0).paragraphs[0]
@@ -560,15 +574,15 @@ def build_timeline_table(doc):
     for i in range(1, 5):
         set_paragraph_spacing(table.cell(2, i).paragraphs[0], before=0, after=0)
 
-    # Row 3: Data row
+    # Row 3: Data row — each side has its own bg (empty side stays white)
     data_tags = [
-        ("{{r item.ev_date }}", col_widths[0]),
-        ("{{r item.ev_desc }}", col_widths[1]),
-        ("", col_widths[2]),  # divider
-        ("{{r item.tk_date }}", col_widths[3]),
-        ("{{r item.tk_desc }}", col_widths[4]),
+        ("{{r item.ev_date }}", col_widths[0], "ev_bg"),
+        ("{{r item.ev_desc }}", col_widths[1], "ev_bg"),
+        ("", col_widths[2], None),  # divider
+        ("{{r item.tk_date }}", col_widths[3], "tk_bg"),
+        ("{{r item.tk_desc }}", col_widths[4], "tk_bg"),
     ]
-    for i, (tag, w) in enumerate(data_tags):
+    for i, (tag, w, bg_key) in enumerate(data_tags):
         cell = table.cell(3, i)
         set_cell_width(cell, w)
         if i == 2:  # divider column
@@ -579,7 +593,7 @@ def build_timeline_table(doc):
             set_cell_margins(cell, top=12, bottom=12, left=50, right=50)
             p = cell.paragraphs[0]
             set_paragraph_spacing(p, before=0, after=0)
-            add_run(p, "{% cellbg item.bg %}", size=1, color=WHITE)
+            add_run(p, "{%% cellbg item.%s %%}" % bg_key, size=1, color=WHITE)
             if tag:
                 add_run(p, tag, size=8)
 
@@ -593,15 +607,8 @@ def build_timeline_table(doc):
 
 def build_case_detail(doc):
     """Build per-case detail: title+chip, metadata, summary, timeline, notes."""
-    # --- Outer loop: phases ---
-    outer_start = doc.add_paragraph()
-    set_paragraph_spacing(outer_start, before=0, after=0)
-    add_run(outer_start, "{% for phase in phases %}", size=1, color=WHITE)
-
-    # --- Inner loop: cases in phase ---
-    inner_start = doc.add_paragraph()
-    set_paragraph_spacing(inner_start, before=0, after=0)
-    add_run(inner_start, "{% for case in phase.cases %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% for phase in phases %}")
+    add_jinja_tag(doc, "{% for case in phase.cases %}")
 
     # Page break
     pb_p = doc.add_paragraph()
@@ -612,47 +619,31 @@ def build_case_detail(doc):
     # --- 1. Title bar (case name + status chip) ---
     build_title_bar(doc)
 
-    # --- 2. Metadata grid (2x3) — tight to title ---
+    # --- 2. Metadata grid ---
     build_metadata_grid(doc)
 
-    # --- 3. Summary (below metadata, conditional) ---
+    # --- 3. Summary (conditional) ---
     build_case_summary(doc)
 
-    # --- 4. Other Proceedings (conditional, compact) ---
-    op_p = doc.add_paragraph()
-    set_paragraph_spacing(op_p, before=0, after=0)
-    add_run(op_p, "{% if case.other_proceedings %}", size=1, color=WHITE)
+    # --- 4. Other Proceedings (conditional) ---
+    add_jinja_tag(doc, "{% if case.other_proceedings %}")
 
     op_content = doc.add_paragraph()
     set_paragraph_spacing(op_content, before=1, after=1)
     add_run(op_content, "Other Proceedings: ", size=7.5, bold=True, color=NAVY)
     add_run(op_content, "{{ case.other_proceedings }}", size=7.5, color=DARK_GREY, font_name="Consolas")
 
-    op_end = doc.add_paragraph()
-    set_paragraph_spacing(op_end, before=0, after=0)
-    add_run(op_end, "{% endif %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% endif %}")
 
     # --- 5. Timeline (events + tasks side by side) ---
-    tl_if = doc.add_paragraph()
-    set_paragraph_spacing(tl_if, before=2, after=0)
-    add_run(tl_if, "{% if case.has_timeline %}", size=1, color=WHITE)
-
+    add_jinja_tag(doc, "{% if case.has_timeline %}")
     build_timeline_table(doc)
-
-    tl_end = doc.add_paragraph()
-    set_paragraph_spacing(tl_end, before=0, after=0)
-    add_run(tl_end, "{% endif %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% endif %}")
 
     # --- 6. Recent Notes ---
-    nt_if = doc.add_paragraph()
-    set_paragraph_spacing(nt_if, before=0, after=0)
-    add_run(nt_if, "{% if case.notes %}", size=1, color=WHITE)
-
+    add_jinja_tag(doc, "{% if case.notes %}")
     build_section_heading(doc, "RECENT NOTES")
-
-    nt_loop = doc.add_paragraph()
-    set_paragraph_spacing(nt_loop, before=0, after=0)
-    add_run(nt_loop, "{% for note in case.notes %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% for note in case.notes %}")
 
     note_date_p = doc.add_paragraph()
     set_paragraph_spacing(note_date_p, before=2, after=0)
@@ -671,23 +662,10 @@ def build_case_detail(doc):
     p_pr2.append(borders2)
     add_run(note_content_p, "{{ note.content }}", size=8, color=DARK_GREY)
 
-    nt_loop_end = doc.add_paragraph()
-    set_paragraph_spacing(nt_loop_end, before=0, after=0)
-    add_run(nt_loop_end, "{% endfor %}", size=1, color=WHITE)
-
-    nt_end = doc.add_paragraph()
-    set_paragraph_spacing(nt_end, before=0, after=0)
-    add_run(nt_end, "{% endif %}", size=1, color=WHITE)
-
-    # --- End inner case loop ---
-    inner_end = doc.add_paragraph()
-    set_paragraph_spacing(inner_end, before=0, after=0)
-    add_run(inner_end, "{% endfor %}", size=1, color=WHITE)
-
-    # --- End outer phase loop ---
-    outer_end = doc.add_paragraph()
-    set_paragraph_spacing(outer_end, before=0, after=0)
-    add_run(outer_end, "{% endfor %}", size=1, color=WHITE)
+    add_jinja_tag(doc, "{% endfor %}")
+    add_jinja_tag(doc, "{% endif %}")
+    add_jinja_tag(doc, "{% endfor %}")
+    add_jinja_tag(doc, "{% endfor %}")
 
 
 def build():
