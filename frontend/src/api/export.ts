@@ -1,8 +1,8 @@
 import { getAuthToken } from '../context/AuthContext';
 
-export async function exportCaseListPdf(): Promise<void> {
+async function exportFile(format: 'pdf' | 'docx'): Promise<void> {
   const token = getAuthToken();
-  const response = await fetch('/api/v1/export?format=pdf', {
+  const response = await fetch(`/api/v1/export?format=${format}`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
@@ -13,7 +13,7 @@ export async function exportCaseListPdf(): Promise<void> {
   }
 
   const contentDisposition = response.headers.get('Content-Disposition');
-  let filename = 'galipo_cases.pdf';
+  let filename = `galipo_cases.${format}`;
   if (contentDisposition) {
     const match = contentDisposition.match(/filename="(.+)"/);
     if (match) {
@@ -30,4 +30,12 @@ export async function exportCaseListPdf(): Promise<void> {
   a.click();
   window.URL.revokeObjectURL(url);
   document.body.removeChild(a);
+}
+
+export async function exportCaseListPdf(): Promise<void> {
+  return exportFile('pdf');
+}
+
+export async function exportCaseListDocx(): Promise<void> {
+  return exportFile('docx');
 }
