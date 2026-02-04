@@ -254,8 +254,12 @@ def register_export_routes(mcp):
 
         elif format_type == "docx":
             cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True)
+            user = auth.get_current_user(request)
+            attorney_name = "Attorney"
+            if user:
+                attorney_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Attorney"
             try:
-                docx_buf = await asyncio.to_thread(generate_case_list_docx, cases)
+                docx_buf = await asyncio.to_thread(generate_case_list_docx, cases, attorney_name=attorney_name)
             except Exception as e:
                 return Response(
                     content=json.dumps({"error": {"message": f"DOCX generation failed: {e}", "code": "EXPORT_ERROR"}}),

@@ -1,8 +1,9 @@
 """
 DOCX case report generator.
 
-Generates a case status report as a .docx file using the attorney's
-Word template rendered via docxtpl (Jinja2 templating for DOCX).
+Generates a professional case status report as a .docx file using
+docxtpl (Jinja2 templating for DOCX) with RichText for conditional
+styling — past items grey, urgent tasks bold, starred events highlighted.
 """
 
 import re
@@ -12,13 +13,30 @@ from pathlib import Path
 
 TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "exports" / "case_report_template.docx"
 
+# Urgency labels
+URGENCY_LABELS = {1: "Low", 2: "Medium", 3: "High", 4: "Urgent"}
 
-def generate_case_list_docx(cases: list) -> BytesIO:
-    """Generate a DOCX case status report from the attorney's template."""
+# Colors (hex without #, for RichText)
+CLR_NAVY = "0F172A"
+CLR_GREY = "94A3B8"
+CLR_DARK_GREY = "475569"
+CLR_RED = "DC2626"
+CLR_BLUE = "2F4FF5"
+CLR_WHITE = "FFFFFF"
+
+# Background colors
+BG_LIGHT = "F8FAFC"
+BG_DOI = "FFF5F5"
+BG_ALT = "F1F5F9"
+BG_NONE = "FFFFFF"
+
+
+def generate_case_list_docx(cases: list, attorney_name: str = "Attorney") -> BytesIO:
+    """Generate a DOCX case status report from the template."""
     from docxtpl import DocxTemplate
 
     doc = DocxTemplate(str(TEMPLATE_PATH))
-    context = _build_context(cases)
+    context = _build_context(cases, attorney_name)
     doc.render(context)
 
     buf = BytesIO()
@@ -27,54 +45,290 @@ def generate_case_list_docx(cases: list) -> BytesIO:
     return buf
 
 
-def _build_context(cases: list) -> dict:
+def _build_context(cases: list, attorney_name: str) -> dict:
     """Transform case data into the template context dict."""
+    from docxtpl import RichText
+
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
 
+    transformed = [_transform_case(c, today) for c in cases]
+
     return {
-        "attorney_name": "Attorney",
+        "attorney_name": attorney_name,
         "creation_date": now.strftime("%B %d, %Y"),
-        "cases": [_transform_case(c, today) for c in cases],
+        "case_count": len(cases),
+        "cases": transformed,
     }
 
 
 def _transform_case(case_data: dict, today: str) -> dict:
-    """Transform a single case into template-ready dict."""
+    """Transform a single case into template-ready dict with RichText objects."""
+    from docxtpl import RichText
+
+    persons = case_data.get("persons", [])
+    proceedings = case_data.get("proceedings", [])
     events = case_data.get("events", [])
     tasks = case_data.get("tasks", [])
     notes = case_data.get("notes", [])
 
-    future_events = [
-        {"date": _format_date(e.get("date")), "title": e.get("description", "")}
-        for e in events
-        if e.get("date") and e["date"] >= today
-    ]
+    # Metadata (same helpers as PDF generator)
+    case_name = case_data.get("case_name", "Untitled Case")
+    short_name = case_data.get("short_name") or case_name
+    status = case_data.get("status", "")
+    case_number = _get_primary_case_number(proceedings)
+    judge = _get_judge_name(proceedings, persons)
+    doi_raw = case_data.get("date_of_injury")
+    doi = _format_date(doi_raw) if doi_raw else ""
+    jurisdiction = _get_jurisdiction(proceedings)
+    opp_counsel = ", ".join(_get_persons_by_role(persons, "Opposing Counsel"))
+    clients = ", ".join(_get_persons_by_role(persons, "Client"))
+    other_proceedings = _get_other_proceedings(proceedings)
+    summary = case_data.get("case_summary") or ""
 
-    future_tasks = [
-        {"date": _format_date(t.get("due_date")), "title": t.get("description", "")}
-        for t in tasks
-        if t.get("status") != "Complete"
-    ]
+    # Title RichText: name bold navy + status blue
+    title_rt = RichText()
+    title_rt.add(case_name, bold=True, color=CLR_NAVY, size=28)  # 14pt = 28 half-pts
+    if status:
+        title_rt.add("  ", size=16)
+        title_rt.add(status, color=CLR_BLUE, size=16)  # 8pt
 
-    # Concatenate recent notes (up to 5)
-    note_texts = []
-    for n in notes[:5]:
-        content = (n.get("content") or "").strip()
-        if content:
-            # Strip person mention markdown links
-            content = re.sub(r'\[@([^\]]+)\]\(person:\d+\)', r'\1', content)
-            note_texts.append(content)
-    notes_str = "\n\n".join(note_texts)
+    # Events with RichText
+    event_items = _build_events(events, doi_raw, today)
+    has_events = len(event_items) > 0
+
+    # Tasks with RichText (exclude only "Done" status)
+    task_items = _build_tasks(tasks, today)
+    has_tasks = len(task_items) > 0
+
+    # Notes
+    note_items = _build_notes(notes)
 
     return {
-        "case_name": case_data.get("case_name", ""),
-        "status": case_data.get("status", ""),
-        "summary": case_data.get("case_summary") or "",
-        "future_events": future_events,
-        "future_tasks": future_tasks,
-        "notes": notes_str,
+        "case_name": case_name,
+        "short_name": short_name,
+        "status": status,
+        "case_number": case_number or "\u2014",
+        "judge": judge or "\u2014",
+        "doi": doi or "\u2014",
+        "jurisdiction": jurisdiction or "\u2014",
+        "opp_counsel": opp_counsel or "\u2014",
+        "clients": clients or "\u2014",
+        "other_proceedings": other_proceedings,
+        "summary": summary,
+        "title_rt": title_rt,
+        "has_events": has_events,
+        "events": event_items,
+        "has_tasks": has_tasks,
+        "tasks": task_items,
+        "notes": note_items if note_items else None,
     }
+
+
+def _build_events(events: list, doi_raw, today: str) -> list:
+    """Build event list with RichText objects and background colors."""
+    from docxtpl import RichText
+
+    items = []
+    idx = 0  # for alternating bg
+
+    # DOI row first
+    if doi_raw:
+        doi_str = _format_date(doi_raw)
+        date_rt = RichText()
+        date_rt.add("DOI ", bold=True, color=CLR_RED, size=12)  # 6pt
+        date_rt.add(doi_str, bold=True, color=CLR_NAVY, size=16)
+
+        desc_rt = RichText()
+        desc_rt.add("Date of Injury", bold=True, color=CLR_NAVY, size=16)
+
+        loc_rt = RichText()
+        loc_rt.add("\u2014", color=CLR_GREY, size=16)
+
+        items.append({
+            "date_rt": date_rt,
+            "desc_rt": desc_rt,
+            "loc_rt": loc_rt,
+            "bg": BG_DOI,
+        })
+        idx += 1
+
+    # Sort: starred first, then by date
+    starred = [e for e in events if e.get("starred")]
+    regular = [e for e in events if not e.get("starred")]
+    all_events = starred + regular
+
+    for event in all_events:
+        event_date = event.get("date", "")
+        is_past = bool(event_date and event_date < today)
+        is_starred = event.get("starred", False)
+        date_str = _format_date(event_date)
+        time_str = event.get("time") or ""
+        desc = event.get("description") or ""
+        location = event.get("location") or ""
+
+        # Alternating background
+        bg = BG_ALT if idx % 2 == 0 else BG_NONE
+
+        # Date RichText
+        date_rt = RichText()
+        if is_starred:
+            date_rt.add("\u2605 ", color="D97706" if not is_past else CLR_GREY, size=16)
+        if is_past:
+            date_rt.add(date_str, color=CLR_GREY, italic=True, bold=is_starred, size=16)
+            if time_str:
+                date_rt.add(f" at {time_str}", color=CLR_GREY, italic=True, size=14)
+        else:
+            date_rt.add(date_str, color=CLR_NAVY, bold=is_starred, size=16)
+            if time_str:
+                date_rt.add(f" at {time_str}", color=CLR_DARK_GREY, size=14)
+
+        # Description RichText
+        desc_rt = RichText()
+        if is_past:
+            desc_rt.add(desc, color=CLR_GREY, italic=True, bold=is_starred, size=16)
+        else:
+            desc_rt.add(desc, color=CLR_NAVY, bold=is_starred, size=16)
+
+        # Location RichText
+        loc_rt = RichText()
+        if location:
+            loc_rt.add(location, color=CLR_GREY if is_past else CLR_DARK_GREY, italic=is_past, size=15)
+        else:
+            loc_rt.add("\u2014", color=CLR_GREY, size=15)
+
+        items.append({
+            "date_rt": date_rt,
+            "desc_rt": desc_rt,
+            "loc_rt": loc_rt,
+            "bg": bg,
+        })
+        idx += 1
+
+    return items
+
+
+def _build_tasks(tasks: list, today: str) -> list:
+    """Build task list with RichText objects. Excludes only 'Done' tasks."""
+    from docxtpl import RichText
+
+    # Filter: exclude Done tasks only
+    incomplete = [t for t in tasks if t.get("status") != "Done"]
+    if not incomplete:
+        return []
+
+    items = []
+    for idx, task in enumerate(incomplete):
+        due_date = task.get("due_date") or ""
+        desc = task.get("description") or ""
+        urgency = task.get("urgency", 2)
+        if urgency is None:
+            urgency = 2
+        urgency_label = URGENCY_LABELS.get(urgency, "Medium")
+
+        is_overdue = bool(due_date and due_date < today)
+        date_str = _format_date(due_date)
+
+        # Alternating background
+        bg = BG_ALT if idx % 2 == 0 else BG_NONE
+
+        # Determine style
+        date_rt = RichText()
+        desc_rt = RichText()
+        urgency_rt = RichText()
+
+        if is_overdue:
+            # Overdue: grey italic
+            date_rt.add(date_str or "\u2014", color=CLR_GREY, italic=True, size=16)
+            desc_rt.add(desc, color=CLR_GREY, italic=True, size=16)
+            urgency_rt.add(urgency_label, color=CLR_GREY, italic=True, size=16)
+        elif urgency == 4:
+            # Urgent + future: bold, urgency in red
+            date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=16)
+            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=16)
+            urgency_rt.add(urgency_label, bold=True, color=CLR_RED, size=16)
+        elif urgency == 3:
+            # High + future: bold navy
+            date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=16)
+            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=16)
+            urgency_rt.add(urgency_label, bold=True, color=CLR_NAVY, size=16)
+        else:
+            # Normal: regular navy
+            date_rt.add(date_str or "\u2014", color=CLR_NAVY, size=16)
+            desc_rt.add(desc, color=CLR_NAVY, size=16)
+            urgency_rt.add(urgency_label, color=CLR_NAVY, size=16)
+
+        items.append({
+            "date_rt": date_rt,
+            "desc_rt": desc_rt,
+            "urgency_rt": urgency_rt,
+            "bg": bg,
+        })
+
+    return items
+
+
+def _build_notes(notes: list) -> list:
+    """Build note list (max 5, truncated to 500 chars)."""
+    items = []
+    for note in notes[:5]:
+        content = (note.get("content") or "").strip()
+        if not content:
+            continue
+        # Strip person mention markdown links
+        content = re.sub(r'\[@([^\]]+)\]\(person:\d+\)', r'\1', content)
+        if len(content) > 500:
+            content = content[:497] + "..."
+        created = _format_date(note.get("created_at"))
+        items.append({
+            "date": created,
+            "content": content,
+        })
+    return items
+
+
+# ─── Helpers (mirrored from pdf_generator.py) ───
+
+def _get_primary_case_number(proceedings):
+    if not proceedings:
+        return ""
+    primary = next((p for p in proceedings if p.get("is_primary")), None)
+    if primary:
+        return primary.get("case_number", "")
+    return proceedings[0].get("case_number", "") if proceedings else ""
+
+
+def _get_judge_name(proceedings, persons):
+    for proc in proceedings:
+        judges = proc.get("judges", [])
+        if judges:
+            return judges[0].get("name", "")
+    names = _get_persons_by_role(persons, "Judge")
+    return names[0] if names else ""
+
+
+def _get_jurisdiction(proceedings):
+    for proc in proceedings:
+        name = proc.get("jurisdiction_name")
+        if name:
+            return name
+    return ""
+
+
+def _get_persons_by_role(persons, role):
+    return [p.get("name", "") for p in persons if p.get("role") == role]
+
+
+def _get_other_proceedings(proceedings):
+    """Get non-primary case numbers as comma-separated string."""
+    if not proceedings:
+        return ""
+    others = [
+        p.get("case_number", "")
+        for p in proceedings
+        if not p.get("is_primary") and p.get("case_number")
+    ]
+    return ", ".join(others)
 
 
 def _format_date(date_val) -> str:
