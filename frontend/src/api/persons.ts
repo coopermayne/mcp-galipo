@@ -106,6 +106,18 @@ export async function updateCaseAssignment(
   });
 }
 
+export async function changePersonRole(
+  caseId: number,
+  personId: number,
+  oldRole: string,
+  newRole: string
+): Promise<{ success: boolean; assignment: CasePerson }> {
+  return request(`/cases/${caseId}/persons/${personId}/change-role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ old_role: oldRole, new_role: newRole }),
+  });
+}
+
 export async function removePersonFromCase(
   caseId: number,
   personId: number,

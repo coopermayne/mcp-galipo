@@ -187,6 +187,34 @@ def register_person_routes(mcp):
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
+    @mcp.custom_route("/api/v1/cases/{case_id}/persons/{person_id}/change-role", methods=["PATCH"])
+    async def api_change_person_role(request):
+        """Change a person's role on a case."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        person_id = int(request.path_params["person_id"])
+        data = await request.json()
+
+        old_role = data.get("old_role")
+        new_role = data.get("new_role")
+        if not old_role or not new_role:
+            return api_error("old_role and new_role are required", "VALIDATION_ERROR", 400)
+
+        try:
+            result = await asyncio.to_thread(
+                db.change_person_role,
+                case_id=case_id,
+                person_id=person_id,
+                old_role=old_role,
+                new_role=new_role,
+            )
+            if not result:
+                return api_error("Assignment not found", "NOT_FOUND", 404)
+            return JSONResponse({"success": True, "assignment": result})
+        except db.ValidationError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
     @mcp.custom_route("/api/v1/cases/{case_id}/persons/{person_id}", methods=["DELETE"])
     async def api_remove_person_from_case(request):
         """Remove a person from a case."""

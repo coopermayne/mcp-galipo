@@ -13,9 +13,11 @@ import {
   Loader2,
   AlertCircle,
   UserMinus,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { EditableText, EditableContactList, ConfirmModal } from '../common';
-import { getPerson, updatePerson, removePersonFromCase } from '../../api';
+import { getPerson, updatePerson, removePersonFromCase, changePersonRole } from '../../api';
 import type { Person, UpdatePersonInput } from '../../types';
 
 interface PersonDetailContentProps {
@@ -308,11 +310,21 @@ function AttributesSection({
   return null;
 }
 
+const ALL_ROLE_OPTIONS = [
+  'Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent',
+  'Defendant',
+  'Opposing Counsel', 'Co-Counsel', 'Referring Attorney',
+  'Expert - Plaintiff', 'Expert - Defendant',
+  'Witness', 'Interpreter', 'Insurance Adjuster', 'Lien Holder',
+];
+
 export function PersonDetailContent({ entityId, context, onClose }: PersonDetailContentProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const readOnly = context?.readOnly ?? false;
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [editingRole, setEditingRole] = useState(false);
+  const [selectedNewRole, setSelectedNewRole] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['person', entityId],
@@ -336,6 +348,17 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
       queryClient.invalidateQueries({ queryKey: ['case', context?.caseId] });
       setShowRemoveConfirm(false);
       onClose();
+    },
+  });
+
+  const changeRoleMutation = useMutation({
+    mutationFn: ({ oldRole, newRole }: { oldRole: string; newRole: string }) =>
+      changePersonRole(context!.caseId!, entityId, oldRole, newRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['person', entityId] });
+      queryClient.invalidateQueries({ queryKey: ['case', context?.caseId] });
+      setEditingRole(false);
+      setSelectedNewRole('');
     },
   });
 
@@ -565,18 +588,81 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
         </div>
       )}
 
-      {/* Remove from Case button - only show when viewing from a case context */}
-      {context?.caseId && !readOnly && (
-        <div className="mt-6 pt-6 border-t border-border">
-          <button
-            onClick={() => setShowRemoveConfirm(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-          >
-            <UserMinus className="w-4 h-4" />
-            Remove from case
-          </button>
-        </div>
-      )}
+      {/* Role on this case + Remove - only show when viewing from a case context */}
+      {context?.caseId && !readOnly && (() => {
+        const caseAssignment = person.case_assignments?.find(a => a.case_id === context.caseId);
+        if (!caseAssignment) return null;
+        const currentRole = caseAssignment.role;
+        const availableRoles = ALL_ROLE_OPTIONS.filter(r => r !== currentRole);
+
+        return (
+          <div className="mt-6 pt-6 border-t border-border space-y-3">
+            {/* Role display / edit */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <span className="text-sm text-text-muted">Role:</span>
+              {editingRole ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <select
+                    value={selectedNewRole}
+                    onChange={(e) => setSelectedNewRole(e.target.value)}
+                    className="text-sm bg-bg border border-border rounded px-2 py-1 text-text flex-1"
+                    autoFocus
+                  >
+                    <option value="">Select new role...</option>
+                    {availableRoles.map(role => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (selectedNewRole) {
+                        changeRoleMutation.mutate({ oldRole: currentRole, newRole: selectedNewRole });
+                      }
+                    }}
+                    disabled={!selectedNewRole || changeRoleMutation.isPending}
+                    className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded disabled:opacity-40"
+                  >
+                    {changeRoleMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setEditingRole(false); setSelectedNewRole(''); }}
+                    className="p-1 text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm font-medium text-text">{currentRole}</span>
+                  <button
+                    onClick={() => setEditingRole(true)}
+                    className="p-1 text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded transition-colors"
+                    title="Change role"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+            {changeRoleMutation.isError && (
+              <p className="text-xs text-red-500 px-3">
+                {(changeRoleMutation.error as Error)?.message || 'Failed to change role'}
+              </p>
+            )}
+            <button
+              onClick={() => setShowRemoveConfirm(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            >
+              <UserMinus className="w-4 h-4" />
+              Remove from case
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Remove Confirmation Modal */}
       <ConfirmModal
