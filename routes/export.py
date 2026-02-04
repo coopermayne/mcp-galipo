@@ -33,7 +33,7 @@ def serialize_row(row: dict) -> dict:
     return {k: serialize_value(v) for k, v in row.items()}
 
 
-def get_all_cases_with_data(exclude_closed: bool = False) -> list:
+def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -> list:
     """
     Get all cases with their complete related data.
 
@@ -42,17 +42,25 @@ def get_all_cases_with_data(exclude_closed: bool = False) -> list:
 
     Args:
         exclude_closed: If True, excludes cases with status 'Closed'.
+        user_id: If set, only returns cases where this user is assigned as attorney or paralegal.
     """
     with get_cursor() as cur:
         # 1. Get all cases
-        where = "WHERE status != 'Closed'" if exclude_closed else ""
+        conditions = []
+        params = []
+        if exclude_closed:
+            conditions.append("status != 'Closed'")
+        if user_id:
+            conditions.append("(%s = ANY(attorney_ids) OR %s = ANY(paralegal_ids))")
+            params.extend([user_id, user_id])
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         cur.execute(f"""
             SELECT id, case_name, short_name, status, print_code, case_summary,
                    result, date_of_injury, created_at, updated_at
             FROM cases
             {where}
             ORDER BY case_name
-        """)
+        """, params if params else None)
         cases = [dict(row) for row in cur.fetchall()]
 
         if not cases:
@@ -253,11 +261,13 @@ def register_export_routes(mcp):
             )
 
         elif format_type == "docx":
-            cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True)
             user = auth.get_current_user(request)
             attorney_name = "Attorney"
+            user_id = None
             if user:
                 attorney_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Attorney"
+                user_id = user.get("id")
+            cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True, user_id=user_id)
             try:
                 docx_buf = await asyncio.to_thread(generate_case_list_docx, cases, attorney_name=attorney_name)
             except Exception as e:
