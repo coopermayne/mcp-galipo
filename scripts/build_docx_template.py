@@ -182,7 +182,7 @@ def build_header_footer(doc):
 
 
 def build_cover_page(doc):
-    """Build the cover page with title and summary table."""
+    """Build the cover page with title and phase-grouped summary table."""
     # Title
     title_p = doc.add_paragraph()
     set_paragraph_spacing(title_p, after=2)
@@ -203,17 +203,17 @@ def build_cover_page(doc):
     set_paragraph_spacing(rule_p, after=6)
     set_paragraph_border_bottom(rule_p, color=NAVY_HEX, sz=8)
 
-    # Summary table
-    table = doc.add_table(rows=4, cols=6)
+    # Summary table with phase grouping
+    # Rows: header, {%tr for phase%}, phase header (merged), {%tr for case%}, data, {%tr endfor%}, {%tr endfor%}
+    table = doc.add_table(rows=7, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
     set_table_borders(table, color=GREY_BORDER, sz=2)
 
-    # Set column widths (total ~7 inches for letter with 0.65 margins)
-    col_widths = [1.6, 0.7, 1.1, 1.0, 1.3, 0.9]  # inches
+    col_widths = [2.0, 1.2, 1.1, 1.4, 0.9]
 
-    # Header row
-    headers = ["Case", "Status", "Case No.", "Judge", "Clients", "DOI"]
+    # Row 0: Column headers (no Status column - phase header shows it)
+    headers = ["Case", "Case No.", "Judge", "Clients", "DOI"]
     for i, h in enumerate(headers):
         cell = table.cell(0, i)
         set_cell_shading(cell, NAVY_HEX)
@@ -223,40 +223,57 @@ def build_cover_page(doc):
         set_paragraph_spacing(p, before=0, after=0)
         add_run(p, h, size=7, bold=True, color=WHITE)
 
-    # {%tr for case in cases %}
-    for_cell = table.cell(1, 0)
-    p = for_cell.paragraphs[0]
+    # Row 1: {%tr for phase in phases %}
+    p = table.cell(1, 0).paragraphs[0]
     set_paragraph_spacing(p, before=0, after=0)
-    add_run(p, "{%tr for case in cases %}", size=8)
-    for i in range(1, 6):
-        c = table.cell(1, i)
-        set_paragraph_spacing(c.paragraphs[0], before=0, after=0)
+    add_run(p, "{%tr for phase in phases %}", size=8)
+    for i in range(1, 5):
+        set_paragraph_spacing(table.cell(1, i).paragraphs[0], before=0, after=0)
 
-    # Data row with tags
+    # Row 2: Phase header (merge all cells, colored bg)
+    merged_cell = table.cell(2, 0).merge(table.cell(2, 4))
+    set_cell_margins(merged_cell, top=30, bottom=30, left=50, right=50)
+    p = merged_cell.paragraphs[0]
+    set_paragraph_spacing(p, before=0, after=0)
+    add_run(p, "{% cellbg phase.bg %}", size=1, color=WHITE)
+    add_run(p, "{{r phase.header_rt }}", size=10)
+
+    # Row 3: {%tr for case in phase.cases %}
+    p = table.cell(3, 0).paragraphs[0]
+    set_paragraph_spacing(p, before=0, after=0)
+    add_run(p, "{%tr for case in phase.cases %}", size=8)
+    for i in range(1, 5):
+        set_paragraph_spacing(table.cell(3, i).paragraphs[0], before=0, after=0)
+
+    # Row 4: Data row
     data_tags = [
         ("{{ case.short_name }}", 8, True, None, "Calibri"),
-        ("{{ case.status }}", 8, False, None, "Calibri"),
         ("{{ case.case_number }}", 7.5, False, None, "Consolas"),
         ("{{ case.judge }}", 8, False, None, "Calibri"),
         ("{{ case.clients }}", 8, False, None, "Calibri"),
         ("{{ case.doi }}", 8, False, None, "Calibri"),
     ]
     for i, (tag, sz, bold, clr, font) in enumerate(data_tags):
-        cell = table.cell(2, i)
+        cell = table.cell(4, i)
         set_cell_margins(cell, top=20, bottom=20, left=50, right=50)
         set_cell_width(cell, col_widths[i])
         p = cell.paragraphs[0]
         set_paragraph_spacing(p, before=0, after=0)
         add_run(p, tag, size=sz, bold=bold, font_name=font)
 
-    # {%tr endfor %}
-    end_cell = table.cell(3, 0)
-    p = end_cell.paragraphs[0]
+    # Row 5: {%tr endfor %} (inner: cases)
+    p = table.cell(5, 0).paragraphs[0]
     set_paragraph_spacing(p, before=0, after=0)
     add_run(p, "{%tr endfor %}", size=8)
-    for i in range(1, 6):
-        c = table.cell(3, i)
-        set_paragraph_spacing(c.paragraphs[0], before=0, after=0)
+    for i in range(1, 5):
+        set_paragraph_spacing(table.cell(5, i).paragraphs[0], before=0, after=0)
+
+    # Row 6: {%tr endfor %} (outer: phases)
+    p = table.cell(6, 0).paragraphs[0]
+    set_paragraph_spacing(p, before=0, after=0)
+    add_run(p, "{%tr endfor %}", size=8)
+    for i in range(1, 5):
+        set_paragraph_spacing(table.cell(6, i).paragraphs[0], before=0, after=0)
 
 
 def build_section_heading(doc, text):
@@ -406,27 +423,39 @@ def build_metadata_grid(doc):
 
 
 def build_case_detail(doc):
-    """Build the per-case detail section with all subsections."""
-    # --- Case loop start ---
-    loop_start = doc.add_paragraph()
-    set_paragraph_spacing(loop_start, before=0, after=0)
-    add_run(loop_start, "{% for case in cases %}", size=1, color=WHITE)
+    """Build the per-case detail section with phase grouping and status banners."""
+    # --- Outer loop: phases ---
+    outer_start = doc.add_paragraph()
+    set_paragraph_spacing(outer_start, before=0, after=0)
+    add_run(outer_start, "{% for phase in phases %}", size=1, color=WHITE)
 
-    # Page break (for each case after the first)
-    # We use a conditional: first case no break, rest break
-    break_p = doc.add_paragraph()
-    set_paragraph_spacing(break_p, before=0, after=0)
-    add_run(break_p, "{% if not loop.first %}", size=1, color=WHITE)
+    # --- Inner loop: cases in phase ---
+    inner_start = doc.add_paragraph()
+    set_paragraph_spacing(inner_start, before=0, after=0)
+    add_run(inner_start, "{% for case in phase.cases %}", size=1, color=WHITE)
 
-    # Actual page break paragraph
+    # Page break (always — separates from cover page and between cases)
     pb_p = doc.add_paragraph()
     set_paragraph_spacing(pb_p, before=0, after=0)
     set_page_break_before(pb_p)
-    add_run(pb_p, "{% endif %}", size=1, color=WHITE)
+    add_run(pb_p, " ", size=1, color=WHITE)
+
+    # --- Status banner (1-row table with phase color) ---
+    banner_table = doc.add_table(rows=1, cols=1)
+    banner_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    banner_table.autofit = True
+    remove_table_borders(banner_table)
+    cell = banner_table.cell(0, 0)
+    set_cell_margins(cell, top=40, bottom=40, left=80, right=80)
+    set_cell_width(cell, 7.2)
+    p = cell.paragraphs[0]
+    set_paragraph_spacing(p, before=0, after=0)
+    add_run(p, "{% cellbg case.status_bg %}", size=1, color=WHITE)
+    add_run(p, "{{r case.status_rt }}", size=11)
 
     # --- 1. Title bar ---
     title_p = doc.add_paragraph()
-    set_paragraph_spacing(title_p, before=2, after=4)
+    set_paragraph_spacing(title_p, before=4, after=4)
     set_paragraph_border_bottom(title_p, color=NAVY_HEX, sz=6)
     add_run(title_p, "{{r case.title_rt }}", size=14)
 
@@ -533,10 +562,15 @@ def build_case_detail(doc):
     set_paragraph_spacing(nt_end, before=0, after=0)
     add_run(nt_end, "{% endif %}", size=1, color=WHITE)
 
-    # --- End case loop ---
-    loop_end = doc.add_paragraph()
-    set_paragraph_spacing(loop_end, before=0, after=0)
-    add_run(loop_end, "{% endfor %}", size=1, color=WHITE)
+    # --- End inner case loop ---
+    inner_end = doc.add_paragraph()
+    set_paragraph_spacing(inner_end, before=0, after=0)
+    add_run(inner_end, "{% endfor %}", size=1, color=WHITE)
+
+    # --- End outer phase loop ---
+    outer_end = doc.add_paragraph()
+    set_paragraph_spacing(outer_end, before=0, after=0)
+    add_run(outer_end, "{% endfor %}", size=1, color=WHITE)
 
 
 def build():
