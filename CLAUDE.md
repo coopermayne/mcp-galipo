@@ -326,6 +326,8 @@ MCP_BASE_URL=https://your-public-url.example.com
 
 **Never push automatically.** The user will handle `git push` themselves. Only commit when asked, and stop there.
 
+**NEVER force push to remote main.** Do not run `git push --force`, `git push --force-with-lease`, or any force push variant that overwrites remote main. The user will always handle force pushes manually. This is a hard rule with no exceptions, even if the user asks you to "sync with remote" or "push to main" — only do a regular `git push`, and if it's rejected, stop and let the user handle it.
+
 **Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity and handle pushes manually. This works well with Claude Code since you can watch commits come in and review before pushing.
 
 ## MCP Tools Usage
