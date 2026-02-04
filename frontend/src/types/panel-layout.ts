@@ -12,7 +12,7 @@ export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'calendar';
 
 /** Calendar view modes */
-export type CalendarViewMode = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
+export type CalendarViewMode = 'month' | 'agenda';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
@@ -88,9 +88,6 @@ export interface PersonsWidgetConfig extends BaseWidgetConfig {
 export interface CalendarWidgetConfig extends BaseWidgetConfig {
   type: 'calendar';
   calendarView: CalendarViewMode;
-  showEvents: boolean;
-  showTasks: boolean;
-  caseOwnerFilter: CaseOwnerFilter;
   searchQuery: string;  // Unused by calendar, but required by PanelContainer
 }
 
@@ -179,9 +176,6 @@ export function createDefaultCalendarWidget(id: string): CalendarWidgetConfig {
     id,
     type: 'calendar',
     calendarView: 'month',
-    showEvents: true,
-    showTasks: true,
-    caseOwnerFilter: 'mine',
     searchQuery: '',
   };
 }

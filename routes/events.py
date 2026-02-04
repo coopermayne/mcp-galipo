@@ -16,15 +16,13 @@ def register_event_routes(mcp):
 
     @mcp.custom_route("/api/v1/calendar", methods=["GET"])
     async def api_calendar(request):
-        """Get calendar items for a date range."""
+        """Get calendar events for a date range."""
         if err := auth.require_auth(request):
             return err
         date_from = request.query_params.get("date_from")
         date_to = request.query_params.get("date_to")
         if not date_from or not date_to:
             return api_error("date_from and date_to are required", "VALIDATION_ERROR", 400)
-        include_events = request.query_params.get("include_events", "true").lower() == "true"
-        include_tasks = request.query_params.get("include_tasks", "true").lower() == "true"
         user_id = request.query_params.get("user_id")
         user_id = int(user_id) if user_id else None
 
@@ -32,8 +30,6 @@ def register_event_routes(mcp):
             db.get_calendar_range,
             date_from=date_from,
             date_to=date_to,
-            include_tasks=include_tasks,
-            include_events=include_events,
             user_id=user_id,
         )
         return JSONResponse({"items": items})

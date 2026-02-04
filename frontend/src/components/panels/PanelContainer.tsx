@@ -167,14 +167,6 @@ export function PanelContainer({
       const parts = [`By ${groupLabel}`];
       if (personsConfig.showArchived) parts.push('+ Archived');
       return parts.join(' ');
-    } else if (config.type === 'calendar') {
-      const calConfig = config as CalendarWidgetConfig;
-      const parts: string[] = [];
-      if (calConfig.showEvents && calConfig.showTasks) parts.push('All');
-      else if (calConfig.showEvents) parts.push('Events');
-      else if (calConfig.showTasks) parts.push('Tasks');
-      if (calConfig.caseOwnerFilter === 'mine') parts.push('My Cases');
-      return parts.join(' · ');
     }
 
     return '';
@@ -685,80 +677,6 @@ export function PanelContainer({
       );
     }
 
-    if (config.type === 'calendar') {
-      const calConfig = config as CalendarWidgetConfig;
-      return (
-        <div className="space-y-4">
-          {/* Show toggle: Events / Tasks */}
-          <div>
-            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
-              Show
-            </label>
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => onConfigChange({ showEvents: !calConfig.showEvents })}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  calConfig.showEvents
-                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
-                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                Events
-              </button>
-              <button
-                onClick={() => onConfigChange({ showTasks: !calConfig.showTasks })}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  calConfig.showTasks
-                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
-                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
-                }`}
-              >
-                <ListTodo className="w-3.5 h-3.5" />
-                Tasks
-              </button>
-            </div>
-          </div>
-
-          {/* Cases */}
-          <div>
-            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
-              Cases
-            </label>
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => onConfigChange({ caseOwnerFilter: 'all' as CaseOwnerFilter })}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  calConfig.caseOwnerFilter === 'all'
-                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
-                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
-                }`}
-              >
-                All Cases
-              </button>
-              <button
-                onClick={() => onConfigChange({ caseOwnerFilter: 'mine' as CaseOwnerFilter })}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  calConfig.caseOwnerFilter === 'mine'
-                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
-                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
-                }`}
-              >
-                {currentUser && (
-                  <span
-                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
-                  >
-                    {currentUser.initials}
-                  </span>
-                )}
-                My Cases
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return null;
   };
 
@@ -797,10 +715,10 @@ export function PanelContainer({
             onChange={onTypeChange}
           />
 
-          {/* Right side: Search + Filter Button */}
+          {/* Right side: Search + Filter Button (hidden for calendar) */}
+          {config.type !== 'calendar' && (
           <div className="flex items-center gap-2">
-            {/* Inline Search (hidden for calendar) */}
-            {config.type !== 'calendar' && (
+            {/* Inline Search */}
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
               <input
@@ -814,7 +732,6 @@ export function PanelContainer({
                 className="w-32 sm:w-40 pl-7 pr-2 py-1 rounded border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
               />
             </div>
-            )}
 
             {/* Filter Button */}
             <button
@@ -831,6 +748,7 @@ export function PanelContainer({
               <Settings2 className="w-4 h-4 flex-shrink-0" />
             </button>
           </div>
+          )}
         </div>
 
         {/* Filter Dropdown */}

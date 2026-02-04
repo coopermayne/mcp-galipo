@@ -22,7 +22,7 @@ import {
 } from '../types/panel-layout';
 
 const STORAGE_KEY = 'calendar-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['events'];
+const ALLOWED_WIDGETS: WidgetType[] = ['events', 'calendar'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',

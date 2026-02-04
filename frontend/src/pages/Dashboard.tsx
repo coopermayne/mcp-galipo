@@ -23,7 +23,7 @@ import {
 } from '../types/panel-layout';
 
 const STORAGE_KEY = 'dashboard-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['tasks', 'events', 'calendar'];
+const ALLOWED_WIDGETS: WidgetType[] = ['tasks', 'events'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',

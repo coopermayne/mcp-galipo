@@ -4,6 +4,7 @@ import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addDays }
 import { enUS } from 'date-fns/locale/en-US';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { getCalendarItems } from '../../api/calendar';
 import type { CalendarItem } from '../../types';
 import type { CalendarViewMode } from '../../types/panel-layout';
@@ -20,6 +21,8 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+const ALLOWED_VIEWS: View[] = ['month', 'agenda'];
+
 interface CalendarEvent {
   id: number;
   title: string;
@@ -28,13 +31,11 @@ interface CalendarEvent {
   allDay: boolean;
   caseId: number;
   caseColor?: string;
-  itemType: 'task' | 'event';
 }
 
 function itemToEvent(item: CalendarItem): CalendarEvent {
-  const prefix = item.item_type === 'task' ? '\u2610 ' : '';
   const caseName = item.short_name || item.case_name;
-  const title = `${prefix}${caseName}: ${item.description}`;
+  const title = `${caseName}: ${item.description}`;
 
   let start: Date;
   let allDay = true;
@@ -50,16 +51,7 @@ function itemToEvent(item: CalendarItem): CalendarEvent {
 
   const end = allDay ? start : new Date(start.getTime() + 60 * 60 * 1000);
 
-  return {
-    id: item.id,
-    title,
-    start,
-    end,
-    allDay,
-    caseId: item.case_id,
-    caseColor: item.case_color,
-    itemType: item.item_type,
-  };
+  return { id: item.id, title, start, end, allDay, caseId: item.case_id, caseColor: item.case_color };
 }
 
 // Muted color palette for calendar events
@@ -105,29 +97,18 @@ function AgendaEvent({ event }: { event: CalendarEvent }) {
 }
 
 interface CalendarViewProps {
-  showEvents: boolean;
-  showTasks: boolean;
-  userId?: number;
   calendarView: CalendarViewMode;
   onViewChange: (view: CalendarViewMode) => void;
 }
 
-export function CalendarView({
-  showEvents,
-  showTasks,
-  userId,
-  calendarView,
-  onViewChange,
-}: CalendarViewProps) {
+export function CalendarView({ calendarView, onViewChange }: CalendarViewProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Compute the date range to fetch based on current view/date
-  // We fetch a wider range than displayed to handle week views at month boundaries
   const { dateFrom, dateTo } = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
-    // Pad by 7 days on each side for week views that span month boundaries
     return {
       dateFrom: format(addDays(monthStart, -7), 'yyyy-MM-dd'),
       dateTo: format(addDays(monthEnd, 7), 'yyyy-MM-dd'),
@@ -135,15 +116,14 @@ export function CalendarView({
   }, [currentDate]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['calendar', dateFrom, dateTo, userId, showEvents, showTasks],
+    queryKey: ['calendar', dateFrom, dateTo, user?.id],
     queryFn: () =>
       getCalendarItems({
         dateFrom,
         dateTo,
-        includeEvents: showEvents,
-        includeTasks: showTasks,
-        userId,
+        userId: user?.id,
       }),
+    enabled: !!user,
   });
 
   const events = useMemo(() => {
@@ -152,7 +132,7 @@ export function CalendarView({
   }, [data]);
 
   const eventPropGetter = useCallback((event: CalendarEvent) => {
-    const colors = event.caseColor ? (COLOR_MAP[event.caseColor] || DEFAULT_COLOR) : DEFAULT_COLOR;
+    const colors = getColors(event.caseColor);
     return {
       style: {
         backgroundColor: colors.bg,
@@ -195,6 +175,7 @@ export function CalendarView({
       startAccessor="start"
       endAccessor="end"
       allDayAccessor="allDay"
+      views={ALLOWED_VIEWS}
       view={calendarView}
       onView={handleViewChange}
       date={currentDate}
