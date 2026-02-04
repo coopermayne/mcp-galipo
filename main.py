@@ -6,6 +6,7 @@ Uses PostgreSQL database for persistent storage.
 """
 
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import filelock
@@ -95,7 +96,7 @@ def initialize_database():
 
 
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     """Application lifespan handler.
 
     Initializes database on startup, cleans up on shutdown.
@@ -103,13 +104,18 @@ async def lifespan(app):
     """
     # Startup
     initialize_database()
-    yield
+    yield {}
     # Shutdown - connection pool cleanup is handled by atexit in db/connection.py
 
 
 # Initialize the MCP server with lifespan and optional auth
 auth_provider = get_mcp_auth_provider()
-mcp = FastMCP("Legal Case Management", instructions=MCP_INSTRUCTIONS, auth=auth_provider)
+mcp = FastMCP(
+    "Legal Case Management",
+    instructions=MCP_INSTRUCTIONS,
+    auth=auth_provider,
+    lifespan=lifespan,
+)
 
 # Register MCP tools (for AI/Claude integration)
 register_tools(mcp)
@@ -127,11 +133,10 @@ register_tools(mcp)
 register_routes(mcp)
 
 # Export ASGI app for uvicorn/gunicorn
-# Get the FastAPI app with SSE transport for Claude.ai/Claude Desktop
-app = mcp.http_app(transport="sse")
-app.router.lifespan_context = lifespan
+# Streamable HTTP uses regular HTTP POST/GET instead of persistent SSE connections,
+# which works reliably through proxies and CDNs without timeout/disconnect issues.
+app = mcp.http_app(transport="streamable-http")
 
 if __name__ == "__main__":
-    # Run the MCP server with SSE transport for remote access
     port = int(os.environ.get("PORT", 8000))
-    mcp.run(transport="sse", host="0.0.0.0", port=port)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
