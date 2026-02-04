@@ -13,14 +13,14 @@ flowchart TB
 
     subgraph Server["FastAPI + MCP Server (:8000)"]
         Routes[REST Routes<br/>/api/v1/*]
-        Tools[MCP Tools<br/>/sse]
+        Tools[MCP Tools<br/>/mcp]
         DB_Layer[Database Layer<br/>db/]
     end
 
     Postgres[(PostgreSQL)]
 
     React -->|HTTP| Routes
-    Claude -->|SSE/MCP| Tools
+    Claude -->|Streamable HTTP| Tools
     Routes --> DB_Layer
     Tools --> DB_Layer
     DB_Layer -->|psycopg2| Postgres

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Galipo is a legal case management system for personal injury law firms. It operates as both:
-- An **MCP server** with 41+ tools for Claude AI integration (via FastMCP)
+- An **MCP server** with tools for Claude AI integration (via FastMCP, Streamable HTTP transport)
 - A **React web dashboard** for managing cases, tasks, deadlines, and contacts
 
 ## Commands
@@ -52,7 +52,7 @@ RESET_DB=true python main.py
 python scripts/generate_schema_diagram.py
 ```
 
-**Schema Diagram**: The `docs/schema.md` file contains an auto-generated Mermaid ER diagram of the database schema. It updates automatically via a pre-commit hook when you commit changes to `migrations/` or `db/connection.py`. You can also regenerate it manually with the command above.
+**Schema Diagram**: The `docs/SCHEMA.md` file contains an auto-generated Mermaid ER diagram of the database schema. It updates automatically via a pre-commit hook when you commit changes to `migrations/` or `db/connection.py`. You can also regenerate it manually with the command above.
 
 ### Database Migrations
 
@@ -296,7 +296,7 @@ set -a && source .env && set +a
 | `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
 | `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
 | `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
-| `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP/SSE OAuth authentication (requires MCP_BASE_URL) |
+| `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP OAuth authentication (requires MCP_BASE_URL) |
 | `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
 
@@ -319,7 +319,7 @@ MCP_BASE_URL=https://your-public-url.example.com
 
 - **Frontend**: http://localhost:5173 (Vite dev server)
 - **Backend API**: http://localhost:8000/api/v1/*
-- **MCP Server**: http://localhost:8000/sse
+- **MCP Server**: http://localhost:8000/mcp (Streamable HTTP)
 - **Legacy frontend**: http://localhost:8000/legacy
 
 ## Git Practices
@@ -345,49 +345,6 @@ Project MCP servers are configured in `.mcp.json`:
 
 ### Person Schema Simplification
 
-> **TODO**: Implement this simplified person/case_persons model
+> **TODO**: Implement unified roles schema — see `docs/UNIFIED_ROLES_SCHEMA_PLAN.md` for full plan.
 
-**Overview:** Role drives the UI, not a separate type field. Type is implicit from role + which attributes exist.
-
-**Design Principles:**
-1. **No explicit person_type field** — type is implicit from role + attributes
-2. **Role determines form fields** — "Expert Witness" → show expert fields
-3. **Person-level = inherent/stable** — things that don't change per case
-4. **Case-level = engagement-specific** — negotiated terms for THIS case
-5. **Rates: defaults + overrides** — standard rates on person, override per case
-6. **Custom fields allowed** — at either level
-
-**Person-Level Attributes (`persons.attributes`):**
-
-| Role Context | Attributes |
-|--------------|------------|
-| Attorneys | `bar_number` |
-| Judges | `courtroom`, `department`, `initials` |
-| Experts | `specialties[]`, `hourly_rate`, `deposition_rate`, `trial_rate`, `retainer_fee` |
-| Mediators | `style`, `half_day_rate`, `full_day_rate` |
-| Interpreters | `languages[]`, `hourly_rate` |
-| Clients | `date_of_birth`, `preferred_language`, `emergency_contact` |
-
-**Case-Level Attributes (`case_persons.case_attributes`):**
-
-| Context | Attributes |
-|---------|------------|
-| Rate overrides | Any rate field (wins over person-level) |
-| Experts | `specialty` (which one for this case), `testimony_topic` |
-| Lien holders | `lien_amount`, `lien_type` |
-| Witnesses | `testimony_topic` |
-| Any | `notes` (case-specific) |
-
-**Resolution Logic:**
-```typescript
-const getEffectiveValue = (person, caseAssignment, field) => {
-  return caseAssignment.case_attributes?.[field]
-    ?? person.attributes?.[field];
-};
-```
-
-**Migration:**
-- Drop person_types table (type is implicit)
-- Drop/ignore persons.person_type column
-- Keep expertise_types for autocomplete only
-- Frontend: role-based form fields, not type-based
+**Summary:** Replace `person_type` + `case_persons` with a single `person_roles` table backed by a managed `roles` lookup table. Role drives the UI, not a separate type field.

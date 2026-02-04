@@ -1,177 +1,146 @@
 ---
 name: integrate
-description: Integrate feature branches from parallel repo copies into main
+description: Integrate remote feature branches into main
 ---
 
-# Multi-Repo Branch Integration
+# Remote Branch Integration
 
-Integrates feature branches from your parallel repo copies (mcp-galipo, mcp-galipo_2, mcp-galipo_3) into main, one at a time with proper rebasing.
+Integrates remote feature branches into main, one at a time. Works entirely from remote state — no scanning of local folders or sibling repo copies.
 
 ## Prerequisites
 
-- You should be in one of your galipo repo folders
-- All feature work should be committed in each repo
-- You should have pushed your feature branches to remote
+- You must be in the galipo repo
+- Feature branches must be pushed to origin
+- Local working directory should be clean (or on main)
 
 ## Procedure
 
-### Step 1: Discover Branches
-
-First, find all the repo copies and their current branches:
+### Step 1: Fetch and List Remote Feature Branches
 
 ```bash
-# Get the base directory (parent of current repo)
-BASE_DIR=$(dirname "$(pwd)")
-CURRENT_REPO=$(basename "$(pwd)")
+git fetch origin --prune
 
-echo "=== Branch Status Across Repos ==="
+echo "=== Remote Feature Branches ==="
 echo ""
 
-for repo in mcp-galipo mcp-galipo_2 mcp-galipo_3; do
-    REPO_PATH="$BASE_DIR/$repo"
-    if [ -d "$REPO_PATH/.git" ]; then
-        BRANCH=$(git -C "$REPO_PATH" branch --show-current)
-        STATUS=$(git -C "$REPO_PATH" status --porcelain | wc -l | tr -d ' ')
-        if [ "$STATUS" -gt 0 ]; then
-            DIRTY=" (uncommitted changes!)"
-        else
-            DIRTY=""
-        fi
-        MARKER=""
-        if [ "$repo" = "$CURRENT_REPO" ]; then
-            MARKER=" <-- you are here"
-        fi
-        echo "$repo: $BRANCH$DIRTY$MARKER"
-    fi
+for branch in $(git branch -r | grep -v 'HEAD' | grep -v 'origin/main' | sed 's|origin/||' | tr -d ' '); do
+    COMMITS=$(git rev-list --count origin/main..origin/$branch 2>/dev/null || echo "?")
+    FILES=$(git diff --name-only origin/main...origin/$branch 2>/dev/null | wc -l | tr -d ' ')
+    echo "  $branch  ($COMMITS commits, $FILES files changed)"
 done
 ```
 
-### Step 2: Identify Feature Branches
+If there are no remote feature branches, tell the user and stop.
 
-From the output above, identify which branches need to be merged. Branches named `main` or `master` can be skipped.
+### Step 2: Present Branches and Suggest Order
 
-Ask the user: **"Which branches should I merge, and in what order?"**
+Show the branches sorted by size (fewest commits/files first) and explain:
 
-Suggest ordering by:
-1. Most independent changes first
-2. Foundational/shared changes before dependent ones
-3. Riskiest/largest changes last
+> **Recommended merge order: smallest first, largest last.**
+> Smaller branches merge cleanly and get out of the way. The largest branch goes last so it absorbs any conflicts from the updated main — you only deal with conflicts once, in one place.
+> If any branch is foundational (other branches depend on it), it should go first regardless of size.
 
-### Step 3: Ensure Clean Working States
+**Ask the user: "Which branches do you want to merge, and in what order?"**
 
-Before starting, verify all repos have clean working directories:
+Do NOT proceed until the user explicitly confirms which branches to merge. Never assume — only integrate branches the user asks for.
 
-```bash
-BASE_DIR=$(dirname "$(pwd)")
+### Step 3: Verify Clean Local State
 
-for repo in mcp-galipo mcp-galipo_2 mcp-galipo_3; do
-    REPO_PATH="$BASE_DIR/$repo"
-    if [ -d "$REPO_PATH/.git" ]; then
-        STATUS=$(git -C "$REPO_PATH" status --porcelain)
-        if [ -n "$STATUS" ]; then
-            echo "WARNING: $repo has uncommitted changes:"
-            echo "$STATUS"
-            echo ""
-        fi
-    fi
-done
-```
-
-If any repo has uncommitted changes, stop and ask the user to commit or stash them first.
-
-### Step 4: Merge Each Branch (Repeat for Each)
-
-For each feature branch in the chosen order:
-
-#### 4a. Go to the repo with that branch and ensure it's pushed:
+Before starting, make sure the local repo is clean:
 
 ```bash
-REPO_PATH="$BASE_DIR/$REPO_NAME"
-cd "$REPO_PATH"
-
-# Check if branch is pushed
-git fetch origin
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/$(git branch --show-current) 2>/dev/null || echo "not-pushed")
-
-if [ "$LOCAL" != "$REMOTE" ]; then
-    echo "Branch not pushed or out of sync with remote."
-    echo "Local:  $LOCAL"
-    echo "Remote: $REMOTE"
-    # Ask user if they want to push
+STATUS=$(git status --porcelain)
+if [ -n "$STATUS" ]; then
+    echo "WARNING: You have uncommitted local changes:"
+    echo "$STATUS"
 fi
 ```
 
-#### 4b. Fetch latest main and rebase:
+If there are uncommitted changes, stop and ask the user to commit or stash them first.
+
+### Step 4: Merge Each Branch (One at a Time)
+
+For each feature branch the user selected, in the order they chose:
+
+#### 4a. Checkout the branch locally and rebase onto latest main:
 
 ```bash
 git fetch origin
+git checkout $FEATURE_BRANCH
 git rebase origin/main
 ```
 
 If there are conflicts:
-- Stop and report: "Conflicts detected in [repo]. Please resolve manually, then run `/integrate` again."
+- Stop and report: "Conflicts detected while rebasing `$FEATURE_BRANCH`. Please resolve manually, then run `/integrate` again."
 - Show the conflicting files: `git diff --name-only --diff-filter=U`
+- Do NOT continue to the next branch.
 
-If rebase succeeds:
+If rebase succeeds, push the rebased branch:
 ```bash
-git push --force-with-lease origin $(git branch --show-current)
+git push --force-with-lease origin $FEATURE_BRANCH
 ```
 
-#### 4c. Merge into main:
+#### 4b. Merge into main:
 
 ```bash
-# Switch to main
 git checkout main
 git pull origin main
-
-# Merge the feature branch
 git merge origin/$FEATURE_BRANCH --no-ff -m "Merge branch '$FEATURE_BRANCH'"
-
-# DO NOT PUSH - user handles this via lazygit
-echo "Merged $FEATURE_BRANCH into main locally."
-echo "Use lazygit to review and push when ready."
 ```
 
-#### 4d. Update other repos' main:
+**DO NOT PUSH.** Tell the user:
+> Merged `$FEATURE_BRANCH` into main locally. Review in lazygit and push when ready.
 
-After the user pushes, remind them to update main in other repos:
+**Wait for the user to confirm they've pushed before proceeding to the next branch.** The next branch needs to rebase onto the updated remote main.
+
+#### 4c. Clean up (after user pushes):
 
 ```bash
-# In each other repo:
-git checkout main
-git pull origin main
+# Delete the remote feature branch
+git push origin --delete $FEATURE_BRANCH
+
+# Delete the local feature branch
+git branch -d $FEATURE_BRANCH
 ```
+
+Ask the user before deleting — some people prefer to keep branches around.
+
+Then proceed to the next branch (back to step 4a).
 
 ### Step 5: Final Status
 
-After all branches are merged, show final status:
+After all selected branches are merged:
 
 ```bash
-BASE_DIR=$(dirname "$(pwd)")
+git fetch origin --prune
 
-echo "=== Final Branch Status ==="
-echo ""
-
-for repo in mcp-galipo mcp-galipo_2 mcp-galipo_3; do
-    REPO_PATH="$BASE_DIR/$repo"
-    if [ -d "$REPO_PATH/.git" ]; then
-        BRANCH=$(git -C "$REPO_PATH" branch --show-current)
-        echo "$repo: $BRANCH"
-    fi
-done
+echo "=== Remaining Remote Feature Branches ==="
+REMAINING=$(git branch -r | grep -v 'HEAD' | grep -v 'origin/main' | tr -d ' ')
+if [ -z "$REMAINING" ]; then
+    echo "  None — all feature branches merged."
+else
+    echo "$REMAINING"
+fi
 
 echo ""
-echo "Integration complete. All repos should now be on main."
-echo "You can delete merged feature branches with: git branch -d <branch-name>"
+echo "=== Local main status ==="
+git log --oneline -5
+```
+
+Remind the user to update main in their other repo copies if they use them:
+```bash
+# In each other repo copy:
+git checkout main && git pull origin main
 ```
 
 ## Important Notes
 
-- **No auto-push**: This skill never pushes automatically. Use lazygit to review and push.
-- **Conflicts stop the process**: If a rebase has conflicts, you must resolve manually.
-- **Order matters**: The merge order affects which branch deals with conflicts.
-- **One at a time**: Each branch must be fully merged before starting the next.
+- **Remote-only discovery**: Branch discovery uses `git branch -r`, not local folder scanning. If a branch isn't pushed, it won't show up.
+- **Explicit selection only**: Never merge a branch the user didn't ask for.
+- **No auto-push**: Never pushes main. The user reviews in lazygit and pushes manually.
+- **Conflicts stop everything**: If a rebase has conflicts, stop. Don't skip to the next branch.
+- **One at a time**: Each branch must be fully merged and pushed before starting the next, so subsequent rebases are against the updated main.
+- **Smallest first**: Default recommendation is smallest branches first, largest last. But user's choice overrides.
 
 ## Troubleshooting
 
@@ -201,7 +170,7 @@ git commit
 git merge --abort
 ```
 
-### Reset a Repo to Remote Main
+### Reset Local Main to Remote
 ```bash
 git checkout main
 git fetch origin

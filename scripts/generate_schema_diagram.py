@@ -9,7 +9,7 @@ This script:
 1. Connects to the database using DATABASE_URL from .env
 2. Queries information_schema for tables, columns, and foreign keys
 3. Generates a Mermaid ER diagram
-4. Writes it to docs/schema.md
+4. Writes it to docs/SCHEMA.md
 
 The script is designed to be run automatically via git hooks when
 migration files change.
@@ -447,8 +447,8 @@ Entity-relationship diagram for the Galipo legal case management system.
 {generate_schema_notes()}
 """
 
-            # Write to docs/schema.md
-            output_path = project_root / "docs" / "schema.md"
+            # Write to docs/SCHEMA.md
+            output_path = project_root / "docs" / "SCHEMA.md"
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(markdown)
             print(f"Written to {output_path}")
