@@ -9,7 +9,7 @@
 export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 
 /** Widget types - extend as needed */
-export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons';
+export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'clients';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
@@ -81,8 +81,15 @@ export interface PersonsWidgetConfig extends BaseWidgetConfig {
   searchQuery: string;
 }
 
+/** Clients widget configuration */
+export interface ClientsWidgetConfig extends BaseWidgetConfig {
+  type: 'clients';
+  searchQuery: string;
+  caseOwnerFilter: CaseOwnerFilter;
+}
+
 /** Discriminated union of all widget configs */
-export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig;
+export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | ClientsWidgetConfig;
 
 /** Full layout configuration (stored in localStorage) */
 export interface PanelLayoutConfig {
@@ -160,6 +167,16 @@ export function createDefaultPersonsWidget(id: string): PersonsWidgetConfig {
   };
 }
 
+/** Default config for clients widget */
+export function createDefaultClientsWidget(id: string): ClientsWidgetConfig {
+  return {
+    id,
+    type: 'clients',
+    searchQuery: '',
+    caseOwnerFilter: 'all',
+  };
+}
+
 /** Create a default widget of the specified type */
 export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig {
   switch (type) {
@@ -171,6 +188,8 @@ export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig 
       return createDefaultCasesWidget(id);
     case 'persons':
       return createDefaultPersonsWidget(id);
+    case 'clients':
+      return createDefaultClientsWidget(id);
   }
 }
 
@@ -220,4 +239,5 @@ export const WIDGET_INFO: Record<WidgetType, { label: string; description: strin
   events: { label: 'Events', description: 'Upcoming events and deadlines' },
   cases: { label: 'Cases', description: 'Case files and matters' },
   persons: { label: 'Persons', description: 'Contacts and people' },
+  clients: { label: 'Clients', description: 'Client contacts with case info' },
 };

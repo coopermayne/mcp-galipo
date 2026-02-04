@@ -20,6 +20,8 @@ export async function getPersons(params?: {
   phone?: string;
   case_id?: number;
   unassigned?: boolean;
+  include_cases?: boolean;
+  user_id?: number;
   limit?: number;
   offset?: number;
 }): Promise<{ persons: Person[]; total: number }> {
@@ -31,6 +33,8 @@ export async function getPersons(params?: {
   if (params?.phone) searchParams.set('phone', params.phone);
   if (params?.case_id) searchParams.set('case_id', String(params.case_id));
   if (params?.unassigned) searchParams.set('unassigned', 'true');
+  if (params?.include_cases) searchParams.set('include_cases', 'true');
+  if (params?.user_id) searchParams.set('user_id', String(params.user_id));
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();

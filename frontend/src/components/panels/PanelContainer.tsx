@@ -31,6 +31,7 @@ import { TasksWidget } from '../widgets/TasksWidget';
 import { EventsWidget } from '../widgets/EventsWidget';
 import { CasesWidget } from '../cases/CasesWidget';
 import { PersonsWidget } from '../persons/PersonsWidget';
+import { ClientsWidget } from '../persons/ClientsWidget';
 import type {
   WidgetType,
   WidgetConfig,
@@ -38,6 +39,7 @@ import type {
   EventsWidgetConfig,
   CasesWidgetConfig,
   PersonsWidgetConfig,
+  ClientsWidgetConfig,
   TasksGroupMode,
   EventsGroupMode,
   CasesGroupMode,
@@ -164,6 +166,12 @@ export function PanelContainer({
       const groupLabel = PERSONS_GROUP_OPTIONS.find((g) => g.value === personsConfig.groupBy)?.label || 'Type';
       const parts = [`By ${groupLabel}`];
       if (personsConfig.showUnassigned) parts.push('No Cases');
+      return parts.join(' · ');
+    } else if (config.type === 'clients') {
+      const clientsConfig = config as ClientsWidgetConfig;
+      const parts: string[] = [];
+      if (clientsConfig.caseOwnerFilter === 'mine') parts.push('My Cases');
+      else parts.push('All Cases');
       return parts.join(' · ');
     }
 
@@ -674,6 +682,49 @@ export function PanelContainer({
       );
     }
 
+    if (config.type === 'clients') {
+      const clientsConfig = config as ClientsWidgetConfig;
+      return (
+        <div className="space-y-4">
+          {/* Cases filter */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Cases
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'all' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  clientsConfig.caseOwnerFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All Cases
+              </button>
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'mine' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  clientsConfig.caseOwnerFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Cases
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -687,6 +738,8 @@ export function PanelContainer({
         return <CasesWidget config={config as CasesWidgetConfig} onConfigChange={onConfigChange} />;
       case 'persons':
         return <PersonsWidget config={config as PersonsWidgetConfig} onConfigChange={onConfigChange} />;
+      case 'clients':
+        return <ClientsWidget config={config as ClientsWidgetConfig} onConfigChange={onConfigChange} />;
       default:
         return null;
     }

@@ -104,7 +104,8 @@ def update_person(person_id: int, **kwargs) -> Optional[dict]:
 
 def search_persons(name: str = None, person_type: str = None, organization: str = None,
                    email: str = None, phone: str = None, case_id: int = None,
-                   unassigned: bool = False,
+                   unassigned: bool = False, include_cases: bool = False,
+                   user_id: int = None,
                    limit: int = 50, offset: int = 0) -> dict:
     """Search persons by various criteria."""
     conditions = []
@@ -144,6 +145,16 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
             END
         )""")
 
+    if user_id:
+        conditions.append("""EXISTS (
+            SELECT 1 FROM case_persons cp2
+            JOIN cases c ON cp2.case_id = c.id
+            WHERE cp2.person_id = p.id
+            AND (%s = ANY(c.attorney_ids) OR %s = ANY(c.paralegal_ids))
+        )""")
+        params.append(user_id)
+        params.append(user_id)
+
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
@@ -159,7 +170,33 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
             LIMIT %s OFFSET %s
         """, params + [limit, offset])
 
-        return {"persons": [dict(row) for row in cur.fetchall()], "total": total}
+        persons = [dict(row) for row in cur.fetchall()]
+
+        if include_cases and persons:
+            person_ids = [p["id"] for p in persons]
+            cur.execute("""
+                SELECT cp.person_id, cp.case_id, c.short_name, c.case_name, c.color
+                FROM case_persons cp
+                JOIN cases c ON cp.case_id = c.id
+                WHERE cp.person_id = ANY(%s)
+                ORDER BY c.case_name
+            """, (person_ids,))
+            # Build a map of person_id -> list of case assignments
+            case_map: dict = {}
+            for row in cur.fetchall():
+                pid = row["person_id"]
+                if pid not in case_map:
+                    case_map[pid] = []
+                case_map[pid].append({
+                    "case_id": row["case_id"],
+                    "short_name": row["short_name"],
+                    "case_name": row["case_name"],
+                    "color": row["color"],
+                })
+            for p in persons:
+                p["case_assignments"] = case_map.get(p["id"], [])
+
+        return {"persons": persons, "total": total}
 
 
 def delete_person(person_id: int) -> bool:
