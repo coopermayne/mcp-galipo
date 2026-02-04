@@ -37,7 +37,7 @@ const ALLOWED_WIDGETS: WidgetType[] = ['persons'];
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultPersonsWidget('panel-0'), typeFilter: 'client', groupBy: 'alpha' },
+    { ...createDefaultPersonsWidget('panel-0'), groupBy: 'alpha' },
     { ...createDefaultPersonsWidget('panel-1'), groupBy: 'type' },
   ],
 };
