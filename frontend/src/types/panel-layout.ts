@@ -75,7 +75,7 @@ export interface CasesWidgetConfig extends BaseWidgetConfig {
 /** Persons widget configuration */
 export interface PersonsWidgetConfig extends BaseWidgetConfig {
   type: 'persons';
-  showArchived: boolean;
+  showUnassigned: boolean;
   groupBy: PersonsGroupMode;
   typeFilter?: string;
   searchQuery: string;
@@ -153,7 +153,7 @@ export function createDefaultPersonsWidget(id: string): PersonsWidgetConfig {
   return {
     id,
     type: 'persons',
-    showArchived: false,
+    showUnassigned: false,
     groupBy: 'type',
     typeFilter: undefined,
     searchQuery: '',

@@ -25,7 +25,7 @@ def register_person_routes(mcp):
         email = request.query_params.get("email")
         phone = request.query_params.get("phone")
         case_id = request.query_params.get("case_id")
-        include_archived = request.query_params.get("archived", "false").lower() == "true"
+        unassigned = request.query_params.get("unassigned", "false").lower() == "true"
         limit = int(request.query_params.get("limit", 50))
         offset = int(request.query_params.get("offset", 0))
 
@@ -37,7 +37,7 @@ def register_person_routes(mcp):
             email=email,
             phone=phone,
             case_id=int(case_id) if case_id else None,
-            include_archived=include_archived,
+            unassigned=unassigned,
             limit=limit,
             offset=offset
         )
@@ -94,8 +94,7 @@ def register_person_routes(mcp):
                 address=data.get("address"),
                 organization=data.get("organization"),
                 attributes=data.get("attributes"),
-                notes=data.get("notes"),
-                archived=data.get("archived")
+                notes=data.get("notes")
             )
             if not result:
                 return api_error("Person not found", "NOT_FOUND", 404)
@@ -105,19 +104,13 @@ def register_person_routes(mcp):
 
     @mcp.custom_route("/api/v1/persons/{person_id}", methods=["DELETE"])
     async def api_delete_person(request):
-        """Delete or archive a person."""
+        """Delete a person permanently."""
         if err := auth.require_auth(request):
             return err
         person_id = int(request.path_params["person_id"])
-        permanent = request.query_params.get("permanent", "false").lower() == "true"
-        if permanent:
-            deleted = await asyncio.to_thread(db.delete_person, person_id)
-            if deleted:
-                return JSONResponse({"success": True, "action": "deleted"})
-        else:
-            result = await asyncio.to_thread(db.archive_person, person_id)
-            if result:
-                return JSONResponse({"success": True, "action": "archived"})
+        deleted = await asyncio.to_thread(db.delete_person, person_id)
+        if deleted:
+            return JSONResponse({"success": True, "action": "deleted"})
         return api_error("Person not found", "NOT_FOUND", 404)
 
     # Case-Person assignment routes

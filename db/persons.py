@@ -65,7 +65,7 @@ def get_person_by_id(person_id: int) -> Optional[dict]:
 def update_person(person_id: int, **kwargs) -> Optional[dict]:
     """Update person fields."""
     allowed_fields = ["name", "person_type", "phones", "emails", "address",
-                      "organization", "attributes", "notes", "archived"]
+                      "organization", "attributes", "notes"]
     updates = []
     params = []
 
@@ -104,14 +104,11 @@ def update_person(person_id: int, **kwargs) -> Optional[dict]:
 
 def search_persons(name: str = None, person_type: str = None, organization: str = None,
                    email: str = None, phone: str = None, case_id: int = None,
-                   include_archived: bool = False, limit: int = 50, offset: int = 0) -> dict:
+                   unassigned: bool = False,
+                   limit: int = 50, offset: int = 0) -> dict:
     """Search persons by various criteria."""
     conditions = []
     params = []
-
-    # Only filter out archived if we don't want to include them
-    if not include_archived:
-        conditions.append("p.archived = false")
 
     if name:
         conditions.append("p.name ILIKE %s")
@@ -138,6 +135,15 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
         conditions.append("EXISTS (SELECT 1 FROM case_persons cp WHERE cp.person_id = p.id AND cp.case_id = %s)")
         params.append(case_id)
 
+    if unassigned:
+        # Judges are linked via the judges table (to proceedings), not case_persons
+        conditions.append("""(
+            CASE WHEN p.person_type = 'judge'
+                THEN NOT EXISTS (SELECT 1 FROM judges j WHERE j.person_id = p.id)
+                ELSE NOT EXISTS (SELECT 1 FROM case_persons cp WHERE cp.person_id = p.id)
+            END
+        )""")
+
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_cursor() as cur:
@@ -154,11 +160,6 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
         """, params + [limit, offset])
 
         return {"persons": [dict(row) for row in cur.fetchall()], "total": total}
-
-
-def archive_person(person_id: int) -> Optional[dict]:
-    """Archive a person (soft delete)."""
-    return update_person(person_id, archived=True)
 
 
 def delete_person(person_id: int) -> bool:

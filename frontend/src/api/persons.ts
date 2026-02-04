@@ -19,7 +19,7 @@ export async function getPersons(params?: {
   email?: string;
   phone?: string;
   case_id?: number;
-  archived?: boolean;
+  unassigned?: boolean;
   limit?: number;
   offset?: number;
 }): Promise<{ persons: Person[]; total: number }> {
@@ -30,7 +30,7 @@ export async function getPersons(params?: {
   if (params?.email) searchParams.set('email', params.email);
   if (params?.phone) searchParams.set('phone', params.phone);
   if (params?.case_id) searchParams.set('case_id', String(params.case_id));
-  if (params?.archived) searchParams.set('archived', 'true');
+  if (params?.unassigned) searchParams.set('unassigned', 'true');
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();
@@ -59,11 +59,9 @@ export async function updatePerson(
 }
 
 export async function deletePerson(
-  personId: number,
-  permanent: boolean = false
+  personId: number
 ): Promise<{ success: boolean; action: string }> {
-  const query = permanent ? '?permanent=true' : '';
-  return request(`/persons/${personId}${query}`, {
+  return request(`/persons/${personId}`, {
     method: 'DELETE',
   });
 }

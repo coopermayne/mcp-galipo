@@ -74,9 +74,6 @@ export function PersonItem({ person, onClick }: PersonItemProps) {
           <span className="font-medium text-text text-sm truncate">
             {person.name}
           </span>
-          {person.archived && (
-            <span className="text-xs text-text-muted">(archived)</span>
-          )}
         </div>
         {person.organization && (
           <div className="flex items-center gap-1 text-xs text-text-secondary truncate">
