@@ -59,8 +59,8 @@ export function PersonsComponent({
         (p) =>
           p.name.toLowerCase().includes(query) ||
           (p.organization && p.organization.toLowerCase().includes(query)) ||
-          p.emails?.some((e) => e.value.toLowerCase().includes(query)) ||
-          p.phones?.some((ph) => ph.value.includes(query))
+          p.emails?.some((e) => e.value?.toLowerCase().includes(query)) ||
+          p.phones?.some((ph) => ph.value?.includes(query))
       );
     }
 

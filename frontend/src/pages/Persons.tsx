@@ -16,7 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Settings, X, Trash2, Loader2, Merge } from 'lucide-react';
 import { Header } from '../components/layout';
 import { LayoutSelector, PanelContainer } from '../components/panels';
-import { MergeDuplicatesModal } from '../components/persons';
+import { MergeDuplicatesModal, CleanupPersonsModal } from '../components/persons';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
 import {
   getPersons,
@@ -206,6 +206,7 @@ function PersonsContent() {
 
   const [showManageTypes, setShowManageTypes] = useState(false);
   const [showMergeDuplicates, setShowMergeDuplicates] = useState(false);
+  const [showCleanup, setShowCleanup] = useState(false);
 
   // Fetch all persons to get type counts
   const { data: allPersonsData } = useQuery({
@@ -245,6 +246,14 @@ function PersonsContent() {
             >
               <Merge className="w-4 h-4" />
               <span className="hidden sm:inline">Merge Duplicates</span>
+            </button>
+            <button
+              onClick={() => setShowCleanup(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
+              title="Delete persons not assigned to any case"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Cleanup</span>
             </button>
             <button
               onClick={() => setShowManageTypes(true)}
@@ -289,6 +298,12 @@ function PersonsContent() {
       <MergeDuplicatesModal
         isOpen={showMergeDuplicates}
         onClose={() => setShowMergeDuplicates(false)}
+      />
+
+      {/* Cleanup Unassigned Modal */}
+      <CleanupPersonsModal
+        isOpen={showCleanup}
+        onClose={() => setShowCleanup(false)}
       />
     </div>
   );

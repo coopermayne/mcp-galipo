@@ -6,3 +6,4 @@ export { ClientItem } from './ClientItem';
 export { ClientsComponent } from './ClientsComponent';
 export { ClientsWidget } from './ClientsWidget';
 export { MergeDuplicatesModal } from './MergeDuplicatesModal';
+export { CleanupPersonsModal } from './CleanupPersonsModal';
