@@ -1,34 +1,14 @@
 /**
- * PersonItem - Single person row in the persons feed
+ * ClientItem - Single client row in the clients feed
+ *
+ * Like PersonItem but tailored for clients:
+ * - No type badge (they're all clients)
+ * - Shows CaseChip(s) for each case assignment
  */
 import { User, Phone, Mail, Building2 } from 'lucide-react';
 import { useEntityModalContext } from '../../context/EntityModalContext';
+import { CaseChip } from '../common/CaseChip';
 import type { Person } from '../../types';
-
-// Badge colors for different person types
-const typeColors: Record<string, string> = {
-  client: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  attorney: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  judge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  expert: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  mediator: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
-  witness: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  defendant: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-  interpreter: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
-};
-
-function PersonTypeBadge({ type }: { type: string }) {
-  const colorClasses =
-    typeColors[type.toLowerCase()] ||
-    'bg-bg-hover text-text-secondary';
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${colorClasses}`}
-    >
-      {type}
-    </span>
-  );
-}
 
 function getPrimaryPhone(person: Person): string | null {
   const primary = person.phones?.find((p) => p.primary);
@@ -40,15 +20,16 @@ function getPrimaryEmail(person: Person): string | null {
   return primary?.value || person.emails?.[0]?.value || null;
 }
 
-interface PersonItemProps {
+interface ClientItemProps {
   person: Person;
   onClick?: (person: Person) => void;
 }
 
-export function PersonItem({ person, onClick }: PersonItemProps) {
+export function ClientItem({ person, onClick }: ClientItemProps) {
   const { openModal } = useEntityModalContext();
   const phone = getPrimaryPhone(person);
   const email = getPrimaryEmail(person);
+  const cases = person.case_assignments || [];
 
   const handleClick = () => {
     if (onClick) {
@@ -99,8 +80,24 @@ export function PersonItem({ person, onClick }: PersonItemProps) {
         )}
       </div>
 
-      {/* Type badge */}
-      <PersonTypeBadge type={person.person_type} />
+      {/* Case chip(s) */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {cases.slice(0, 2).map((ca) => (
+          <CaseChip
+            key={ca.case_id}
+            caseId={ca.case_id}
+            caseName={ca.case_name}
+            shortName={ca.short_name}
+            color={ca.color}
+          />
+        ))}
+        {cases.length > 2 && (
+          <span className="text-xs text-text-muted">+{cases.length - 2}</span>
+        )}
+        {cases.length === 0 && (
+          <span className="text-xs text-text-muted italic">No cases</span>
+        )}
+      </div>
     </div>
   );
 }

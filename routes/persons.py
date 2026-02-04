@@ -25,7 +25,9 @@ def register_person_routes(mcp):
         email = request.query_params.get("email")
         phone = request.query_params.get("phone")
         case_id = request.query_params.get("case_id")
-        include_archived = request.query_params.get("archived", "false").lower() == "true"
+        unassigned = request.query_params.get("unassigned", "false").lower() == "true"
+        include_cases = request.query_params.get("include_cases", "false").lower() == "true"
+        user_id = request.query_params.get("user_id")
         limit = int(request.query_params.get("limit", 50))
         offset = int(request.query_params.get("offset", 0))
 
@@ -37,7 +39,9 @@ def register_person_routes(mcp):
             email=email,
             phone=phone,
             case_id=int(case_id) if case_id else None,
-            include_archived=include_archived,
+            unassigned=unassigned,
+            include_cases=include_cases,
+            user_id=int(user_id) if user_id else None,
             limit=limit,
             offset=offset
         )
@@ -64,6 +68,56 @@ def register_person_routes(mcp):
             return JSONResponse({"success": True, "person": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
+
+    # Duplicate detection and merge routes (must be before {person_id} routes)
+    @mcp.custom_route("/api/v1/persons/duplicates", methods=["GET"])
+    async def api_find_duplicates(request):
+        """Find groups of potential duplicate persons."""
+        if err := auth.require_auth(request):
+            return err
+        result = await asyncio.to_thread(db.find_duplicate_persons)
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/persons/merge-preview", methods=["GET"])
+    async def api_merge_preview(request):
+        """Preview what a merge would look like."""
+        if err := auth.require_auth(request):
+            return err
+        primary_id = request.query_params.get("primary_id")
+        secondary_id = request.query_params.get("secondary_id")
+        if not primary_id or not secondary_id:
+            return api_error("primary_id and secondary_id are required", "VALIDATION_ERROR", 400)
+        result = await asyncio.to_thread(
+            db.preview_merge,
+            primary_id=int(primary_id),
+            secondary_id=int(secondary_id)
+        )
+        if "error" in result:
+            return api_error(result["error"], "NOT_FOUND", 404)
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/persons/merge", methods=["POST"])
+    async def api_merge_persons(request):
+        """Merge secondary person into primary person."""
+        if err := auth.require_auth(request):
+            return err
+        data = await request.json()
+        primary_id = data.get("primary_id")
+        secondary_id = data.get("secondary_id")
+        if not primary_id or not secondary_id:
+            return api_error("primary_id and secondary_id are required", "VALIDATION_ERROR", 400)
+        try:
+            result = await asyncio.to_thread(
+                db.merge_persons,
+                primary_id=int(primary_id),
+                secondary_id=int(secondary_id),
+                field_resolutions=data.get("field_resolutions", {})
+            )
+            if isinstance(result, dict) and "error" in result:
+                return api_error(result["error"], "NOT_FOUND", 404)
+            return JSONResponse({"success": True, "person": result})
+        except Exception as e:
+            return api_error(str(e), "MERGE_ERROR", 500)
 
     @mcp.custom_route("/api/v1/persons/{person_id}", methods=["GET"])
     async def api_get_person(request):
@@ -94,8 +148,7 @@ def register_person_routes(mcp):
                 address=data.get("address"),
                 organization=data.get("organization"),
                 attributes=data.get("attributes"),
-                notes=data.get("notes"),
-                archived=data.get("archived")
+                notes=data.get("notes")
             )
             if not result:
                 return api_error("Person not found", "NOT_FOUND", 404)
@@ -105,19 +158,18 @@ def register_person_routes(mcp):
 
     @mcp.custom_route("/api/v1/persons/{person_id}", methods=["DELETE"])
     async def api_delete_person(request):
-        """Delete or archive a person."""
+        """Delete a person permanently."""
         if err := auth.require_auth(request):
             return err
         person_id = int(request.path_params["person_id"])
-        permanent = request.query_params.get("permanent", "false").lower() == "true"
-        if permanent:
+        try:
             deleted = await asyncio.to_thread(db.delete_person, person_id)
-            if deleted:
-                return JSONResponse({"success": True, "action": "deleted"})
-        else:
-            result = await asyncio.to_thread(db.archive_person, person_id)
-            if result:
-                return JSONResponse({"success": True, "action": "archived"})
+        except Exception as e:
+            if "ForeignKeyViolation" in type(e).__name__ or "foreign key" in str(e).lower():
+                return api_error("Person is still referenced by other records", "FK_VIOLATION", 409)
+            raise
+        if deleted:
+            return JSONResponse({"success": True, "action": "deleted"})
         return api_error("Person not found", "NOT_FOUND", 404)
 
     # Case-Person assignment routes

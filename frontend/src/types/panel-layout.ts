@@ -9,7 +9,7 @@
 export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 
 /** Widget types - extend as needed */
-export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'chart';
+export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'clients' | 'chart';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
@@ -75,10 +75,17 @@ export interface CasesWidgetConfig extends BaseWidgetConfig {
 /** Persons widget configuration */
 export interface PersonsWidgetConfig extends BaseWidgetConfig {
   type: 'persons';
-  showArchived: boolean;
+  showUnassigned: boolean;
   groupBy: PersonsGroupMode;
   typeFilter?: string;
   searchQuery: string;
+}
+
+/** Clients widget configuration */
+export interface ClientsWidgetConfig extends BaseWidgetConfig {
+  type: 'clients';
+  searchQuery: string;
+  caseOwnerFilter: CaseOwnerFilter;
 }
 
 /** Chart widget configuration */
@@ -88,7 +95,7 @@ export interface ChartWidgetConfig extends BaseWidgetConfig {
 }
 
 /** Discriminated union of all widget configs */
-export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | ChartWidgetConfig;
+export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | ClientsWidgetConfig | ChartWidgetConfig;
 
 /** Full layout configuration (stored in localStorage) */
 export interface PanelLayoutConfig {
@@ -159,10 +166,20 @@ export function createDefaultPersonsWidget(id: string): PersonsWidgetConfig {
   return {
     id,
     type: 'persons',
-    showArchived: false,
+    showUnassigned: false,
     groupBy: 'type',
     typeFilter: undefined,
     searchQuery: '',
+  };
+}
+
+/** Default config for clients widget */
+export function createDefaultClientsWidget(id: string): ClientsWidgetConfig {
+  return {
+    id,
+    type: 'clients',
+    searchQuery: '',
+    caseOwnerFilter: 'all',
   };
 }
 
@@ -186,6 +203,8 @@ export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig 
       return createDefaultCasesWidget(id);
     case 'persons':
       return createDefaultPersonsWidget(id);
+    case 'clients':
+      return createDefaultClientsWidget(id);
     case 'chart':
       return createDefaultChartWidget(id);
   }
@@ -237,5 +256,6 @@ export const WIDGET_INFO: Record<WidgetType, { label: string; description: strin
   events: { label: 'Events', description: 'Upcoming events and deadlines' },
   cases: { label: 'Cases', description: 'Case files and matters' },
   persons: { label: 'Persons', description: 'Contacts and people' },
+  clients: { label: 'Clients', description: 'Client contacts with case info' },
   chart: { label: 'Chart', description: 'Case pipeline by status' },
 };

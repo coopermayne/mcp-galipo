@@ -16,10 +16,9 @@ export function PersonsWidget({ config, onConfigChange }: PersonsWidgetProps) {
     <PersonsComponent
       groupBy={config.groupBy}
       onGroupByChange={(groupBy) => onConfigChange({ groupBy })}
-      showArchived={config.showArchived}
-      onShowArchivedChange={(showArchived) => onConfigChange({ showArchived })}
       typeFilter={config.typeFilter}
       searchQuery={config.searchQuery}
+      showUnassigned={config.showUnassigned}
     />
   );
 }

@@ -19,7 +19,9 @@ export async function getPersons(params?: {
   email?: string;
   phone?: string;
   case_id?: number;
-  archived?: boolean;
+  unassigned?: boolean;
+  include_cases?: boolean;
+  user_id?: number;
   limit?: number;
   offset?: number;
 }): Promise<{ persons: Person[]; total: number }> {
@@ -30,7 +32,9 @@ export async function getPersons(params?: {
   if (params?.email) searchParams.set('email', params.email);
   if (params?.phone) searchParams.set('phone', params.phone);
   if (params?.case_id) searchParams.set('case_id', String(params.case_id));
-  if (params?.archived) searchParams.set('archived', 'true');
+  if (params?.unassigned) searchParams.set('unassigned', 'true');
+  if (params?.include_cases) searchParams.set('include_cases', 'true');
+  if (params?.user_id) searchParams.set('user_id', String(params.user_id));
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();
@@ -59,12 +63,52 @@ export async function updatePerson(
 }
 
 export async function deletePerson(
-  personId: number,
-  permanent: boolean = false
+  personId: number
 ): Promise<{ success: boolean; action: string }> {
-  const query = permanent ? '?permanent=true' : '';
-  return request(`/persons/${personId}${query}`, {
+  return request(`/persons/${personId}`, {
     method: 'DELETE',
+  });
+}
+
+// Duplicate Detection & Merge
+export interface DuplicateGroup {
+  persons: Person[];
+  match_reasons: string[];
+  has_conflicts: boolean;
+}
+
+export async function getDuplicatePersons(): Promise<{ groups: DuplicateGroup[]; total: number }> {
+  return request('/persons/duplicates');
+}
+
+export async function getMergePreview(
+  primaryId: number,
+  secondaryId: number
+): Promise<{
+  primary: Person;
+  secondary: Person;
+  conflicts: {
+    field_conflicts: Array<{ field: string; primary_value: string; secondary_value: string }>;
+    assignment_conflicts: Array<{ case_id: number; role: string; case_name: string; short_name: string }>;
+    judge_conflicts: Array<{ proceeding_id: number; proceeding_name: string }>;
+  };
+  auto_mergeable: boolean;
+}> {
+  return request(`/persons/merge-preview?primary_id=${primaryId}&secondary_id=${secondaryId}`);
+}
+
+export async function mergePersons(
+  primaryId: number,
+  secondaryId: number,
+  fieldResolutions?: Record<string, string>
+): Promise<{ success: boolean; person: Person }> {
+  return request('/persons/merge', {
+    method: 'POST',
+    body: JSON.stringify({
+      primary_id: primaryId,
+      secondary_id: secondaryId,
+      field_resolutions: fieldResolutions || {},
+    }),
   });
 }
 

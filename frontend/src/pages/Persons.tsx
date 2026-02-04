@@ -13,9 +13,10 @@
  */
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Settings, X, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Settings, X, Trash2, Loader2, Merge } from 'lucide-react';
 import { Header } from '../components/layout';
 import { LayoutSelector, PanelContainer } from '../components/panels';
+import { MergeDuplicatesModal, CleanupPersonsModal } from '../components/persons';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
 import {
   getPersons,
@@ -26,18 +27,19 @@ import {
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
 import {
   createDefaultPersonsWidget,
+  createDefaultClientsWidget,
   LAYOUT_CONTAINER_CLASSES,
   getPanelClasses,
 } from '../types/panel-layout';
 import type { PersonTypeRecord } from '../types';
 
 const STORAGE_KEY = 'persons-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['persons'];
+const ALLOWED_WIDGETS: WidgetType[] = ['persons', 'clients'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultPersonsWidget('panel-0'), typeFilter: 'client', groupBy: 'alpha' },
+    createDefaultClientsWidget('panel-0'),
     { ...createDefaultPersonsWidget('panel-1'), groupBy: 'type' },
   ],
 };
@@ -203,11 +205,13 @@ function PersonsContent() {
   const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
 
   const [showManageTypes, setShowManageTypes] = useState(false);
+  const [showMergeDuplicates, setShowMergeDuplicates] = useState(false);
+  const [showCleanup, setShowCleanup] = useState(false);
 
   // Fetch all persons to get type counts
   const { data: allPersonsData } = useQuery({
-    queryKey: ['persons', { archived: true }],
-    queryFn: () => getPersons({ archived: true, limit: 10000 }),
+    queryKey: ['persons', { all: true }],
+    queryFn: () => getPersons({ limit: 10000 }),
   });
 
   const { data: personTypesData } = useQuery({
@@ -235,6 +239,22 @@ function PersonsContent() {
         actions={
           <div className="flex items-center gap-2">
             <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
+            <button
+              onClick={() => setShowMergeDuplicates(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
+              title="Find and merge duplicate persons"
+            >
+              <Merge className="w-4 h-4" />
+              <span className="hidden sm:inline">Merge Duplicates</span>
+            </button>
+            <button
+              onClick={() => setShowCleanup(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
+              title="Delete persons not assigned to any case"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Cleanup</span>
+            </button>
             <button
               onClick={() => setShowManageTypes(true)}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
@@ -272,6 +292,18 @@ function PersonsContent() {
         onClose={() => setShowManageTypes(false)}
         personTypes={personTypesData?.person_types || []}
         typeCounts={typeCounts}
+      />
+
+      {/* Merge Duplicates Modal */}
+      <MergeDuplicatesModal
+        isOpen={showMergeDuplicates}
+        onClose={() => setShowMergeDuplicates(false)}
+      />
+
+      {/* Cleanup Unassigned Modal */}
+      <CleanupPersonsModal
+        isOpen={showCleanup}
+        onClose={() => setShowCleanup(false)}
       />
     </div>
   );
