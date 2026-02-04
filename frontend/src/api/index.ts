@@ -93,6 +93,9 @@ export {
 // Export
 export { exportCaseListPdf, exportCaseListDocx } from './export';
 
+// Calendar
+export { getCalendarItems } from './calendar';
+
 // Chat
 export { streamChatMessage } from './chat';
 

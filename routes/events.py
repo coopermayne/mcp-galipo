@@ -14,6 +14,30 @@ from .common import api_error, DEFAULT_PAGE_SIZE
 def register_event_routes(mcp):
     """Register event management routes."""
 
+    @mcp.custom_route("/api/v1/calendar", methods=["GET"])
+    async def api_calendar(request):
+        """Get calendar items for a date range."""
+        if err := auth.require_auth(request):
+            return err
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        if not date_from or not date_to:
+            return api_error("date_from and date_to are required", "VALIDATION_ERROR", 400)
+        include_events = request.query_params.get("include_events", "true").lower() == "true"
+        include_tasks = request.query_params.get("include_tasks", "true").lower() == "true"
+        user_id = request.query_params.get("user_id")
+        user_id = int(user_id) if user_id else None
+
+        items = await asyncio.to_thread(
+            db.get_calendar_range,
+            date_from=date_from,
+            date_to=date_to,
+            include_tasks=include_tasks,
+            include_events=include_events,
+            user_id=user_id,
+        )
+        return JSONResponse({"items": items})
+
     @mcp.custom_route("/api/v1/events", methods=["GET"])
     async def api_list_events(request):
         """List events with optional filtering and pagination."""

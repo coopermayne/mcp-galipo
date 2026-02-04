@@ -4,7 +4,7 @@
  * Only shown when there are multiple widget types allowed.
  */
 import { useState } from 'react';
-import { Check, ChevronDown, CheckSquare, Clock, Briefcase, Users } from 'lucide-react';
+import { Check, ChevronDown, CheckSquare, Clock, Briefcase, Users, CalendarDays } from 'lucide-react';
 import type { WidgetType } from '../../types/panel-layout';
 import { WIDGET_INFO } from '../../types/panel-layout';
 
@@ -13,6 +13,7 @@ const WIDGET_ICONS: Record<WidgetType, React.ReactNode> = {
   events: <Clock className="w-4 h-4" />,
   cases: <Briefcase className="w-4 h-4" />,
   persons: <Users className="w-4 h-4" />,
+  calendar: <CalendarDays className="w-4 h-4" />,
 };
 
 interface WidgetTypeSelectorProps {

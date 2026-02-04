@@ -86,6 +86,7 @@ from db import (
     delete_event,
     search_events,
     get_calendar,
+    get_calendar_range,
     add_activity,
     get_all_activities,
     get_activities,

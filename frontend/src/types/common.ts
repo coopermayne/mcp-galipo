@@ -88,5 +88,6 @@ export interface CalendarItem {
   case_id: number;
   case_name: string;
   short_name?: string;
+  case_color?: string;
   item_type: 'task' | 'event';
 }

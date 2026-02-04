@@ -9,7 +9,10 @@
 export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 
 /** Widget types - extend as needed */
-export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons';
+export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'calendar';
+
+/** Calendar view modes */
+export type CalendarViewMode = 'month' | 'week' | 'work_week' | 'day' | 'agenda';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
@@ -81,8 +84,18 @@ export interface PersonsWidgetConfig extends BaseWidgetConfig {
   searchQuery: string;
 }
 
+/** Calendar widget configuration */
+export interface CalendarWidgetConfig extends BaseWidgetConfig {
+  type: 'calendar';
+  calendarView: CalendarViewMode;
+  showEvents: boolean;
+  showTasks: boolean;
+  caseOwnerFilter: CaseOwnerFilter;
+  searchQuery: string;  // Unused by calendar, but required by PanelContainer
+}
+
 /** Discriminated union of all widget configs */
-export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig;
+export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | CalendarWidgetConfig;
 
 /** Full layout configuration (stored in localStorage) */
 export interface PanelLayoutConfig {
@@ -160,6 +173,19 @@ export function createDefaultPersonsWidget(id: string): PersonsWidgetConfig {
   };
 }
 
+/** Default config for calendar widget */
+export function createDefaultCalendarWidget(id: string): CalendarWidgetConfig {
+  return {
+    id,
+    type: 'calendar',
+    calendarView: 'month',
+    showEvents: true,
+    showTasks: true,
+    caseOwnerFilter: 'mine',
+    searchQuery: '',
+  };
+}
+
 /** Create a default widget of the specified type */
 export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig {
   switch (type) {
@@ -171,6 +197,8 @@ export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig 
       return createDefaultCasesWidget(id);
     case 'persons':
       return createDefaultPersonsWidget(id);
+    case 'calendar':
+      return createDefaultCalendarWidget(id);
   }
 }
 
@@ -220,4 +248,5 @@ export const WIDGET_INFO: Record<WidgetType, { label: string; description: strin
   events: { label: 'Events', description: 'Upcoming events and deadlines' },
   cases: { label: 'Cases', description: 'Case files and matters' },
   persons: { label: 'Persons', description: 'Contacts and people' },
+  calendar: { label: 'Calendar', description: 'Monthly/weekly calendar view' },
 };

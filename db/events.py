@@ -242,6 +242,48 @@ def search_events(query: str = None, case_id: int = None,
         return serialize_rows([dict(row) for row in cur.fetchall()])
 
 
+def get_calendar_range(date_from: str, date_to: str, include_tasks: bool = True,
+                       include_events: bool = True, user_id: int = None) -> List[dict]:
+    """Get calendar items for a date range, optionally filtered by user's cases."""
+    items = []
+    params_base = [date_from, date_to]
+    user_condition = ""
+    user_params = []
+
+    if user_id:
+        user_condition = " AND (%s = ANY(c.attorney_ids) OR %s = ANY(c.paralegal_ids))"
+        user_params = [user_id, user_id]
+
+    with get_cursor() as cur:
+        if include_events:
+            cur.execute(f"""
+                SELECT e.id, e.date, e.time, e.location, e.description,
+                       e.case_id, c.case_name, c.short_name, c.color as case_color, 'event' as item_type
+                FROM events e
+                JOIN cases c ON e.case_id = c.id
+                WHERE e.date >= %s AND e.date <= %s{user_condition}
+                ORDER BY e.date, e.time NULLS LAST
+            """, params_base + user_params)
+            items.extend([dict(row) for row in cur.fetchall()])
+
+        if include_tasks:
+            cur.execute(f"""
+                SELECT t.id, t.due_date as date, NULL as time, NULL as location,
+                       t.description, t.status, t.urgency,
+                       t.case_id, c.case_name, c.short_name, c.color as case_color, 'task' as item_type
+                FROM tasks t
+                JOIN cases c ON t.case_id = c.id
+                WHERE t.due_date IS NOT NULL
+                  AND t.due_date >= %s AND t.due_date <= %s
+                  AND t.status != 'Done'{user_condition}
+                ORDER BY t.due_date
+            """, params_base + user_params)
+            items.extend([dict(row) for row in cur.fetchall()])
+
+    items.sort(key=lambda x: (str(x.get("date") or "9999-99-99"), str(x.get("time") or "99:99")))
+    return serialize_rows(items)
+
+
 def get_calendar(days: int = 30, include_tasks: bool = True,
                  include_events: bool = True) -> List[dict]:
     """Get calendar items for the next N days."""

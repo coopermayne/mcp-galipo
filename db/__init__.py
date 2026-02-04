@@ -116,6 +116,7 @@ from .events import (
     delete_event,
     search_events,
     get_calendar,
+    get_calendar_range,
     get_tasks_for_event,
     # Attendees
     get_event_attendees,
@@ -310,6 +311,7 @@ __all__ = [
     "delete_event",
     "search_events",
     "get_calendar",
+    "get_calendar_range",
     "get_tasks_for_event",
     # Event attendees
     "get_event_attendees",
