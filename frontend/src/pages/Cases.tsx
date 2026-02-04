@@ -31,8 +31,8 @@ const ALLOWED_WIDGETS: WidgetType[] = ['cases'];
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultCasesWidget('panel-0'), showClosed: false },
-    { ...createDefaultCasesWidget('panel-1'), showClosed: true },
+    { ...createDefaultCasesWidget('panel-0'), attorneyFilter: 'mine' },
+    { ...createDefaultCasesWidget('panel-1'), attorneyFilter: 'unassigned' },
   ],
 };
 
