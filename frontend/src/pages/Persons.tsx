@@ -206,8 +206,8 @@ function PersonsContent() {
 
   // Fetch all persons to get type counts
   const { data: allPersonsData } = useQuery({
-    queryKey: ['persons', { archived: true }],
-    queryFn: () => getPersons({ archived: true, limit: 10000 }),
+    queryKey: ['persons', { all: true }],
+    queryFn: () => getPersons({ limit: 10000 }),
   });
 
   const { data: personTypesData } = useQuery({

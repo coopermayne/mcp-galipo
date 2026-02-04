@@ -163,8 +163,8 @@ export function PanelContainer({
       const personsConfig = config as PersonsWidgetConfig;
       const groupLabel = PERSONS_GROUP_OPTIONS.find((g) => g.value === personsConfig.groupBy)?.label || 'Type';
       const parts = [`By ${groupLabel}`];
-      if (personsConfig.showArchived) parts.push('+ Archived');
-      return parts.join(' ');
+      if (personsConfig.showUnassigned) parts.push('No Cases');
+      return parts.join(' · ');
     }
 
     return '';
@@ -618,37 +618,6 @@ export function PanelContainer({
       const personsConfig = config as PersonsWidgetConfig;
       return (
         <div className="space-y-4">
-          {/* View Mode Toggle - Active vs Archived */}
-          <div>
-            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
-              View
-            </label>
-            <div className="flex p-0.5 rounded-lg bg-bg-hover/50 dark:bg-bg-hover/30">
-              <button
-                onClick={() => onConfigChange({ showArchived: false })}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  !personsConfig.showArchived
-                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
-                    : 'text-text-muted hover:text-text-secondary'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Active</span>
-              </button>
-              <button
-                onClick={() => onConfigChange({ showArchived: true })}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  personsConfig.showArchived
-                    ? 'bg-bg-surface shadow-sm text-text border border-border/50'
-                    : 'text-text-muted hover:text-text-secondary'
-                }`}
-              >
-                <Archive className="w-3.5 h-3.5" />
-                <span>+ Archived</span>
-              </button>
-            </div>
-          </div>
-
           {/* Group By */}
           <div>
             <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
@@ -669,6 +638,36 @@ export function PanelContainer({
                   {option.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Cases filter */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Cases
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ showUnassigned: false })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !personsConfig.showUnassigned
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => onConfigChange({ showUnassigned: true })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  personsConfig.showUnassigned
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                No Cases
+              </button>
             </div>
           </div>
         </div>

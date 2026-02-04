@@ -63,7 +63,6 @@ from db import (
     get_person_by_id,
     update_person,
     search_persons,
-    archive_person,
     delete_person,
     assign_person_to_case,
     update_case_assignment,

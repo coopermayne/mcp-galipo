@@ -64,7 +64,6 @@ export interface Person {
   notes?: string;
   created_at: string;
   updated_at: string;
-  archived: boolean;
   case_assignments?: CasePersonAssignment[];
 }
 
@@ -119,7 +118,6 @@ export interface UpdatePersonInput {
   organization?: string;
   attributes?: PersonAttributes;
   notes?: string;
-  archived?: boolean;
 }
 
 export interface AssignPersonInput {
