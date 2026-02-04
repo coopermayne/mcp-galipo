@@ -83,7 +83,7 @@ export function LayoutSelector({ value, onChange, onReset }: LayoutSelectorProps
   const currentOption = LAYOUT_OPTIONS.find((opt) => opt.value === value);
 
   return (
-    <div className="relative">
+    <div className="hidden lg:block relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
