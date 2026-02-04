@@ -67,6 +67,7 @@ from db import (
     delete_person,
     assign_person_to_case,
     update_case_assignment,
+    change_person_role,
     remove_person_from_case,
     get_case_persons,
     add_task,

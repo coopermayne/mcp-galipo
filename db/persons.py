@@ -267,6 +267,66 @@ def update_case_assignment(case_id: int, person_id: int, role: str, **kwargs) ->
         return serialize_row(dict(cur.fetchone()))
 
 
+def change_person_role(case_id: int, person_id: int, old_role: str, new_role: str) -> Optional[dict]:
+    """Change a person's role on a case.
+
+    Atomically updates the role, clears grouped_under_id on the changed row,
+    and clears grouped_under_id on any other rows that were grouped under this person.
+    """
+    validate_case_person_role(new_role)
+
+    if old_role == new_role:
+        return None
+
+    with get_cursor() as cur:
+        # Check new role doesn't already exist for this person+case
+        cur.execute("""
+            SELECT id FROM case_persons
+            WHERE case_id = %s AND person_id = %s AND role = %s
+        """, (case_id, person_id, new_role))
+        if cur.fetchone():
+            raise ValidationError(f"Person already has role '{new_role}' on this case")
+
+        # Get the assignment id before updating
+        cur.execute("""
+            SELECT id FROM case_persons
+            WHERE case_id = %s AND person_id = %s AND role = %s
+        """, (case_id, person_id, old_role))
+        row = cur.fetchone()
+        if not row:
+            return None
+        assignment_id = row["id"]
+
+        # Update role and clear grouped_under_id
+        cur.execute("""
+            UPDATE case_persons
+            SET role = %s, grouped_under_id = NULL
+            WHERE id = %s
+        """, (new_role, assignment_id))
+
+        # Clear grouped_under_id on anyone grouped under this person in this case
+        cur.execute("""
+            UPDATE case_persons
+            SET grouped_under_id = NULL
+            WHERE case_id = %s AND grouped_under_id = %s
+        """, (case_id, person_id))
+
+        # Return full assignment details
+        cur.execute("""
+            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
+                   p.attributes, p.notes as person_notes,
+                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
+                   cp.case_notes, cp.is_primary, cp.grouped_under_id,
+                   cp.assigned_date, cp.created_at as assigned_at,
+                   via.name as grouped_under_name
+            FROM persons p
+            JOIN case_persons cp ON p.id = cp.person_id
+            LEFT JOIN persons via ON cp.grouped_under_id = via.id
+            WHERE cp.id = %s
+        """, (assignment_id,))
+        return serialize_row(dict(cur.fetchone()))
+
+
 def remove_person_from_case(case_id: int, person_id: int, role: str = None) -> bool:
     """Remove a person from a case."""
     with get_cursor() as cur:

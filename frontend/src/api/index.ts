@@ -64,6 +64,7 @@ export {
   getCasePersons,
   assignPersonToCase,
   updateCaseAssignment,
+  changePersonRole,
   removePersonFromCase,
   getExpertiseTypes,
   createExpertiseType,
