@@ -30,6 +30,30 @@ BG_DOI = "FFF5F5"
 BG_ALT = "F1F5F9"
 BG_NONE = "FFFFFF"
 
+# Status ordering (case lifecycle flow)
+STATUS_ORDER = [
+    'Signing Up', 'Prospective', 'Pre-Filing', 'Pleadings',
+    'Discovery', 'Expert Discovery', 'Pre-trial', 'Trial',
+    'Post-Trial', 'Appeal', 'Settl. Pend.', 'Stayed', 'Closed',
+]
+
+# Status colors for DOCX (text color, background color) - matches frontend Tailwind
+STATUS_COLORS = {
+    'Signing Up':       {"text": "1D4ED8", "bg": "DBEAFE"},
+    'Prospective':      {"text": "7E22CE", "bg": "F3E8FF"},
+    'Pre-Filing':       {"text": "4338CA", "bg": "E0E7FF"},
+    'Pleadings':        {"text": "0E7490", "bg": "CFFAFE"},
+    'Discovery':        {"text": "0369A1", "bg": "E0F2FE"},
+    'Expert Discovery': {"text": "0F766E", "bg": "CCFBF1"},
+    'Pre-trial':        {"text": "B45309", "bg": "FEF3C7"},
+    'Trial':            {"text": "C2410C", "bg": "FFEDD5"},
+    'Post-Trial':       {"text": "BE123C", "bg": "FFE4E6"},
+    'Appeal':           {"text": "B91C1C", "bg": "FEE2E2"},
+    'Settl. Pend.':     {"text": "4D7C0F", "bg": "ECFCCB"},
+    'Stayed':           {"text": "334155", "bg": "F1F5F9"},
+    'Closed':           {"text": "6B7280", "bg": "F3F4F6"},
+}
+
 
 def generate_case_list_docx(cases: list, attorney_name: str = "Attorney") -> BytesIO:
     """Generate a DOCX case status report from the template."""
@@ -46,19 +70,59 @@ def generate_case_list_docx(cases: list, attorney_name: str = "Attorney") -> Byt
 
 
 def _build_context(cases: list, attorney_name: str) -> dict:
-    """Transform case data into the template context dict."""
+    """Transform case data into the template context dict, grouped by phase."""
     from docxtpl import RichText
 
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
 
-    transformed = [_transform_case(c, today) for c in cases]
+    # Group cases by status
+    by_status = {}
+    for c in cases:
+        status = c.get("status", "")
+        by_status.setdefault(status, []).append(c)
+
+    phases = []
+    for status in STATUS_ORDER:
+        if status not in by_status:
+            continue
+        phase_cases = [_transform_case(c, today) for c in by_status[status]]
+        colors = STATUS_COLORS.get(status, {"text": CLR_NAVY, "bg": "F1F5F9"})
+
+        header_rt = RichText()
+        header_rt.add(status, bold=True, color=colors["text"], size=20)
+        header_rt.add(f"  ({len(phase_cases)})", color=CLR_GREY, size=16)
+
+        phases.append({
+            "name": status,
+            "count": len(phase_cases),
+            "cases": phase_cases,
+            "color": colors["text"],
+            "bg": colors["bg"],
+            "header_rt": header_rt,
+        })
+
+    # Handle any statuses not in STATUS_ORDER
+    for status, case_list in by_status.items():
+        if status not in STATUS_ORDER:
+            phase_cases = [_transform_case(c, today) for c in case_list]
+            header_rt = RichText()
+            header_rt.add(status or "Other", bold=True, color=CLR_NAVY, size=20)
+            header_rt.add(f"  ({len(phase_cases)})", color=CLR_GREY, size=16)
+            phases.append({
+                "name": status or "Other",
+                "count": len(phase_cases),
+                "cases": phase_cases,
+                "color": CLR_NAVY,
+                "bg": "F1F5F9",
+                "header_rt": header_rt,
+            })
 
     return {
         "attorney_name": attorney_name,
         "creation_date": now.strftime("%B %d, %Y"),
         "case_count": len(cases),
-        "cases": transformed,
+        "phases": phases,
     }
 
 
@@ -86,12 +150,15 @@ def _transform_case(case_data: dict, today: str) -> dict:
     other_proceedings = _get_other_proceedings(proceedings)
     summary = case_data.get("case_summary") or ""
 
-    # Title RichText: name bold navy + status blue
+    colors = STATUS_COLORS.get(status, {"text": CLR_NAVY, "bg": "F1F5F9"})
+
+    # Title RichText: just the case name (status shown in banner)
     title_rt = RichText()
     title_rt.add(case_name, bold=True, color=CLR_NAVY, size=28)  # 14pt = 28 half-pts
-    if status:
-        title_rt.add("  ", size=16)
-        title_rt.add(status, color=CLR_BLUE, size=16)  # 8pt
+
+    # Status banner RichText
+    status_rt = RichText()
+    status_rt.add(f"  {status}  ", bold=True, color=colors["text"], size=22)  # 11pt
 
     # Events with RichText
     event_items = _build_events(events, doi_raw, today)
@@ -117,6 +184,8 @@ def _transform_case(case_data: dict, today: str) -> dict:
         "other_proceedings": other_proceedings,
         "summary": summary,
         "title_rt": title_rt,
+        "status_rt": status_rt,
+        "status_bg": colors["bg"],
         "has_events": has_events,
         "events": event_items,
         "has_tasks": has_tasks,
