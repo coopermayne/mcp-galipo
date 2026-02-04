@@ -39,7 +39,7 @@ export function PersonsComponent({
   // Fetch persons
   const { data: personsData, isLoading } = useQuery({
     queryKey: ['persons', { type: typeFilter, unassigned: showUnassigned || undefined }],
-    queryFn: () => getPersons({ type: typeFilter || undefined, unassigned: showUnassigned || undefined }),
+    queryFn: () => getPersons({ type: typeFilter || undefined, unassigned: showUnassigned || undefined, limit: 10000 }),
   });
 
   // Filter persons
