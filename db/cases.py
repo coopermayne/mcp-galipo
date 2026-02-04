@@ -394,18 +394,30 @@ def get_case_summary(case_id: int) -> Optional[dict]:
         return serialize_row(dict(row))
 
 
-def get_dashboard_stats() -> dict:
-    """Get dashboard statistics."""
+def get_dashboard_stats(attorney_ids: list[int] | None = None) -> dict:
+    """Get dashboard statistics, optionally filtered to cases assigned to given attorneys."""
     with get_cursor() as cur:
+        attorney_filter = ""
+        params: tuple = ()
+        if attorney_ids:
+            attorney_filter = " WHERE attorney_ids && %s::integer[]"
+            params = (attorney_ids,)
+
         # Total cases
-        cur.execute("SELECT COUNT(*) as total FROM cases")
+        cur.execute(f"SELECT COUNT(*) as total FROM cases{attorney_filter}", params)
         total_cases = cur.fetchone()["total"]
 
         # Active cases (not Closed or Settl. Pend.)
-        cur.execute("""
-            SELECT COUNT(*) as active FROM cases
-            WHERE status NOT IN ('Closed', 'Settl. Pend.')
-        """)
+        if attorney_ids:
+            cur.execute("""
+                SELECT COUNT(*) as active FROM cases
+                WHERE status NOT IN ('Closed', 'Settl. Pend.') AND attorney_ids && %s::integer[]
+            """, (attorney_ids,))
+        else:
+            cur.execute("""
+                SELECT COUNT(*) as active FROM cases
+                WHERE status NOT IN ('Closed', 'Settl. Pend.')
+            """)
         active_cases = cur.fetchone()["active"]
 
         # Pending tasks
@@ -420,10 +432,10 @@ def get_dashboard_stats() -> dict:
         upcoming_events = cur.fetchone()["upcoming"]
 
         # Cases by status
-        cur.execute("""
-            SELECT status, COUNT(*) as count FROM cases
+        cur.execute(f"""
+            SELECT status, COUNT(*) as count FROM cases{attorney_filter}
             GROUP BY status ORDER BY count DESC
-        """)
+        """, params)
         cases_by_status = {row["status"]: row["count"] for row in cur.fetchall()}
 
         return {

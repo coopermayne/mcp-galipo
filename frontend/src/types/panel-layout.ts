@@ -9,7 +9,7 @@
 export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 
 /** Widget types - extend as needed */
-export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons';
+export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'chart';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
@@ -81,8 +81,14 @@ export interface PersonsWidgetConfig extends BaseWidgetConfig {
   searchQuery: string;
 }
 
+/** Chart widget configuration */
+export interface ChartWidgetConfig extends BaseWidgetConfig {
+  type: 'chart';
+  caseOwnerFilter: CaseOwnerFilter;
+}
+
 /** Discriminated union of all widget configs */
-export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig;
+export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | ChartWidgetConfig;
 
 /** Full layout configuration (stored in localStorage) */
 export interface PanelLayoutConfig {
@@ -160,6 +166,15 @@ export function createDefaultPersonsWidget(id: string): PersonsWidgetConfig {
   };
 }
 
+/** Default config for chart widget */
+export function createDefaultChartWidget(id: string): ChartWidgetConfig {
+  return {
+    id,
+    type: 'chart',
+    caseOwnerFilter: 'all',
+  };
+}
+
 /** Create a default widget of the specified type */
 export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig {
   switch (type) {
@@ -171,6 +186,8 @@ export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig 
       return createDefaultCasesWidget(id);
     case 'persons':
       return createDefaultPersonsWidget(id);
+    case 'chart':
+      return createDefaultChartWidget(id);
   }
 }
 
@@ -220,4 +237,5 @@ export const WIDGET_INFO: Record<WidgetType, { label: string; description: strin
   events: { label: 'Events', description: 'Upcoming events and deadlines' },
   cases: { label: 'Cases', description: 'Case files and matters' },
   persons: { label: 'Persons', description: 'Contacts and people' },
+  chart: { label: 'Chart', description: 'Case pipeline by status' },
 };

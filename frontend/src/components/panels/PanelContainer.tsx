@@ -29,6 +29,7 @@ import { getUserColorClass } from '../../utils';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
 import { TasksWidget } from '../widgets/TasksWidget';
 import { EventsWidget } from '../widgets/EventsWidget';
+import { ChartWidget } from '../widgets/ChartWidget';
 import { CasesWidget } from '../cases/CasesWidget';
 import { PersonsWidget } from '../persons/PersonsWidget';
 import type {
@@ -38,6 +39,7 @@ import type {
   EventsWidgetConfig,
   CasesWidgetConfig,
   PersonsWidgetConfig,
+  ChartWidgetConfig,
   TasksGroupMode,
   EventsGroupMode,
   CasesGroupMode,
@@ -86,7 +88,8 @@ export function PanelContainer({
   onTypeChange,
 }: PanelContainerProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [localSearch, setLocalSearch] = useState(config.searchQuery || '');
+  const configSearchQuery = 'searchQuery' in config ? (config as { searchQuery: string }).searchQuery : '';
+  const [localSearch, setLocalSearch] = useState(configSearchQuery || '');
   const filterRef = useRef<HTMLDivElement>(null);
   const { user: currentUser } = useAuth();
 
@@ -100,9 +103,9 @@ export function PanelContainer({
   // Sync local search with config when filter closes
   useEffect(() => {
     if (!isFilterOpen) {
-      setLocalSearch(config.searchQuery);
+      setLocalSearch(configSearchQuery);
     }
-  }, [isFilterOpen, config.searchQuery]);
+  }, [isFilterOpen, configSearchQuery]);
 
   // Close filter on click outside
   useEffect(() => {
@@ -111,7 +114,7 @@ export function PanelContainer({
     function handleClickOutside(e: MouseEvent) {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         // Apply search on close
-        if (localSearch !== config.searchQuery) {
+        if (localSearch !== configSearchQuery) {
           onConfigChange({ searchQuery: localSearch });
         }
         setIsFilterOpen(false);
@@ -120,7 +123,7 @@ export function PanelContainer({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isFilterOpen, localSearch, config.searchQuery, onConfigChange]);
+  }, [isFilterOpen, localSearch, configSearchQuery, onConfigChange]);
 
   // Build filter summary text based on widget type
   const getFilterSummary = () => {
@@ -165,6 +168,9 @@ export function PanelContainer({
       const parts = [`By ${groupLabel}`];
       if (personsConfig.showArchived) parts.push('+ Archived');
       return parts.join(' ');
+    } else if (config.type === 'chart') {
+      const chartConfig = config as ChartWidgetConfig;
+      return chartConfig.caseOwnerFilter === 'mine' ? 'My Cases' : 'All Cases';
     }
 
     return '';
@@ -675,6 +681,48 @@ export function PanelContainer({
       );
     }
 
+    if (config.type === 'chart') {
+      const chartConfig = config as ChartWidgetConfig;
+      return (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Cases
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'all' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  chartConfig.caseOwnerFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All Cases
+              </button>
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'mine' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  chartConfig.caseOwnerFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Cases
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -688,6 +736,8 @@ export function PanelContainer({
         return <CasesWidget config={config as CasesWidgetConfig} onConfigChange={onConfigChange} />;
       case 'persons':
         return <PersonsWidget config={config as PersonsWidgetConfig} onConfigChange={onConfigChange} />;
+      case 'chart':
+        return <ChartWidget config={config as ChartWidgetConfig} />;
       default:
         return null;
     }
@@ -713,20 +763,22 @@ export function PanelContainer({
 
           {/* Right side: Search + Filter Button */}
           <div className="flex items-center gap-2">
-            {/* Inline Search */}
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={localSearch}
-                onChange={(e) => {
-                  setLocalSearch(e.target.value);
-                  onConfigChange({ searchQuery: e.target.value });
-                }}
-                className="w-32 sm:w-40 pl-7 pr-2 py-1 rounded border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
-              />
-            </div>
+            {/* Inline Search (hidden for chart widget) */}
+            {config.type !== 'chart' && (
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={localSearch}
+                  onChange={(e) => {
+                    setLocalSearch(e.target.value);
+                    onConfigChange({ searchQuery: e.target.value });
+                  }}
+                  className="w-32 sm:w-40 pl-7 pr-2 py-1 rounded border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                />
+              </div>
+            )}
 
             {/* Filter Button */}
             <button
