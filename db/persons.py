@@ -200,8 +200,9 @@ def search_persons(name: str = None, person_type: str = None, organization: str 
 
 
 def delete_person(person_id: int) -> bool:
-    """Permanently delete a person."""
+    """Permanently delete a person. Clears grouped_under references first."""
     with get_cursor() as cur:
+        cur.execute("UPDATE case_persons SET grouped_under_id = NULL WHERE grouped_under_id = %s", (person_id,))
         cur.execute("DELETE FROM persons WHERE id = %s", (person_id,))
         return cur.rowcount > 0
 
@@ -306,8 +307,14 @@ def update_case_assignment(case_id: int, person_id: int, role: str, **kwargs) ->
 
 
 def remove_person_from_case(case_id: int, person_id: int, role: str = None) -> bool:
-    """Remove a person from a case."""
+    """Remove a person from a case. Severs any grouped_under relationships first."""
     with get_cursor() as cur:
+        # Clear grouped_under references pointing to this person on this case
+        cur.execute("""
+            UPDATE case_persons SET grouped_under_id = NULL
+            WHERE case_id = %s AND grouped_under_id = %s
+        """, (case_id, person_id))
+
         if role:
             cur.execute("""
                 DELETE FROM case_persons
