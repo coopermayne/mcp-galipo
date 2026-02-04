@@ -7,7 +7,7 @@
  * - allowedWidgets: which widget types can be selected
  * - defaultConfig: initial layout configuration
  */
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import type {
   LayoutPreset,
@@ -87,6 +87,20 @@ function saveConfig(storageKey: string, config: PanelLayoutConfig): void {
   localStorage.setItem(storageKey, JSON.stringify(config));
 }
 
+const lgQuery = '(min-width: 1024px)';
+const lgMql = typeof window !== 'undefined' ? window.matchMedia(lgQuery) : null;
+function subscribeLg(cb: () => void) {
+  lgMql?.addEventListener('change', cb);
+  return () => lgMql?.removeEventListener('change', cb);
+}
+function getSnapshotLg() {
+  return lgMql?.matches ?? true;
+}
+
+function useIsLg() {
+  return useSyncExternalStore(subscribeLg, getSnapshotLg);
+}
+
 interface PanelLayoutProviderProps {
   children: ReactNode;
   /** localStorage key for persistence */
@@ -144,16 +158,26 @@ export function PanelLayoutProvider({
     setConfig(defaultConfig);
   }, [defaultConfig]);
 
+  const isLg = useIsLg();
+
+  const effectiveConfig = useMemo<PanelLayoutConfig>(
+    () =>
+      isLg
+        ? config
+        : { layout: '1' as LayoutPreset, panels: [config.panels[0]] },
+    [isLg, config]
+  );
+
   const value = useMemo(
     () => ({
-      config,
+      config: effectiveConfig,
       allowedWidgets,
       setLayout,
       updatePanel,
       setPanelType,
       resetToDefault,
     }),
-    [config, allowedWidgets, setLayout, updatePanel, setPanelType, resetToDefault]
+    [effectiveConfig, allowedWidgets, setLayout, updatePanel, setPanelType, resetToDefault]
   );
 
   return (
