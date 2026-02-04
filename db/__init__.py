@@ -89,6 +89,9 @@ from .persons import (
     update_case_assignment,
     remove_person_from_case,
     get_case_persons,
+    find_duplicate_persons,
+    preview_merge,
+    merge_persons,
 )
 
 # Task operations
@@ -288,6 +291,9 @@ __all__ = [
     "update_case_assignment",
     "remove_person_from_case",
     "get_case_persons",
+    "find_duplicate_persons",
+    "preview_merge",
+    "merge_persons",
     # Tasks
     "add_task",
     "get_tasks",

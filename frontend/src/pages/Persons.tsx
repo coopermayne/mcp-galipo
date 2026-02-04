@@ -13,9 +13,10 @@
  */
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Settings, X, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Settings, X, Trash2, Loader2, Merge } from 'lucide-react';
 import { Header } from '../components/layout';
 import { LayoutSelector, PanelContainer } from '../components/panels';
+import { MergeDuplicatesModal } from '../components/persons';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
 import {
   getPersons,
@@ -204,6 +205,7 @@ function PersonsContent() {
   const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
 
   const [showManageTypes, setShowManageTypes] = useState(false);
+  const [showMergeDuplicates, setShowMergeDuplicates] = useState(false);
 
   // Fetch all persons to get type counts
   const { data: allPersonsData } = useQuery({
@@ -236,6 +238,14 @@ function PersonsContent() {
         actions={
           <div className="flex items-center gap-2">
             <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
+            <button
+              onClick={() => setShowMergeDuplicates(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
+              title="Find and merge duplicate persons"
+            >
+              <Merge className="w-4 h-4" />
+              <span className="hidden sm:inline">Merge Duplicates</span>
+            </button>
             <button
               onClick={() => setShowManageTypes(true)}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
@@ -273,6 +283,12 @@ function PersonsContent() {
         onClose={() => setShowManageTypes(false)}
         personTypes={personTypesData?.person_types || []}
         typeCounts={typeCounts}
+      />
+
+      {/* Merge Duplicates Modal */}
+      <MergeDuplicatesModal
+        isOpen={showMergeDuplicates}
+        onClose={() => setShowMergeDuplicates(false)}
       />
     </div>
   );
