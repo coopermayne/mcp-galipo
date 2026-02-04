@@ -18,6 +18,8 @@ import type {
 import {
   adjustPanelsForLayout,
   createDefaultWidget,
+  createDefaultTasksWidget,
+  createDefaultEventsWidget,
 } from '../types/panel-layout';
 
 interface PanelLayoutContextType {
@@ -42,7 +44,7 @@ function loadConfig(
       const parsed = JSON.parse(stored);
       // Validate the structure
       if (parsed.layout && Array.isArray(parsed.panels)) {
-        // Migrate old panel configs that don't have a 'type' field
+        // Migrate old panel configs: add missing fields with defaults
         const migratedPanels = parsed.panels.map((panel: Record<string, unknown>, index: number) => {
           if (!panel.type) {
             // Old format - migrate to new format with default widget type
@@ -50,6 +52,15 @@ function loadConfig(
               (panel.id as string) || `panel-${index}`,
               defaultWidgetType
             );
+          }
+          // Fill in missing fields from defaults for each widget type
+          if (panel.type === 'tasks') {
+            const defaults = createDefaultTasksWidget(panel.id as string);
+            return { ...defaults, ...panel };
+          }
+          if (panel.type === 'events') {
+            const defaults = createDefaultEventsWidget(panel.id as string);
+            return { ...defaults, ...panel };
           }
           return panel;
         });

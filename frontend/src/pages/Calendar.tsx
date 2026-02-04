@@ -27,8 +27,8 @@ const ALLOWED_WIDGETS: WidgetType[] = ['events'];
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultEventsWidget('panel-0'), groupBy: 'date', showPast: false },
-    { ...createDefaultEventsWidget('panel-1'), groupBy: 'date', showPast: true },
+    { ...createDefaultEventsWidget('panel-0'), groupBy: 'date', showPast: false, caseOwnerFilter: 'mine', attendeeFilter: 'all' },
+    { ...createDefaultEventsWidget('panel-1'), groupBy: 'date', showPast: false, caseOwnerFilter: 'mine', attendeeFilter: 'mine' },
   ],
 };
 

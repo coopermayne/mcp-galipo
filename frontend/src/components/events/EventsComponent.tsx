@@ -66,6 +66,10 @@ interface EventsComponentProps {
   groupByDate?: boolean;
   /** Controlled search query (external control) */
   searchQuery?: string;
+  /** Filter to events in cases assigned to this user ID */
+  userId?: number;
+  /** Filter to events where this user is an attendee */
+  attendeeId?: number;
 
   // Callbacks
   onEventUpdated?: (event: Event) => void;
@@ -99,6 +103,8 @@ export function EventsComponent({
   pastDays = 14,
   groupByDate = false,
   searchQuery: controlledSearchQuery,
+  userId,
+  attendeeId,
 
   // Callbacks
   onEventUpdated,
@@ -142,13 +148,15 @@ export function EventsComponent({
   const { data: fetchedData, isLoading } = useQuery({
     queryKey: caseId
       ? ['events', { case_id: caseId, showPast }]
-      : ['events', { showPast }],
+      : ['events', { showPast, userId, attendeeId }],
     queryFn: () =>
       getEvents({
         limit: 100,
         includePast: showPast,
         pastDays: showPast ? pastDays : undefined,
         caseId: caseId,
+        userId: userId,
+        attendeeId: attendeeId,
       }),
     enabled: showAllEvents || !!caseId,
   });

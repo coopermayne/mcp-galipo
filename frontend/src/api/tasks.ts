@@ -10,6 +10,7 @@ export async function getTasks(params?: {
   due_date_to?: string;
   limit?: number;
   offset?: number;
+  user_id?: number;
 }): Promise<{ tasks: Task[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.case_id) searchParams.set('case_id', String(params.case_id));
@@ -20,6 +21,7 @@ export async function getTasks(params?: {
   if (params?.due_date_to) searchParams.set('due_date_to', params.due_date_to);
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
+  if (params?.user_id) searchParams.set('user_id', String(params.user_id));
   const query = searchParams.toString();
   return request(`/tasks${query ? `?${query}` : ''}`);
 }
