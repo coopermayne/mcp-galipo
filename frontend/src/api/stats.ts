@@ -2,8 +2,9 @@ import type { DashboardStats, Constants, Jurisdiction } from '../types';
 import { request } from './common';
 
 // Stats & Constants
-export async function getStats(): Promise<DashboardStats> {
-  return request<DashboardStats>('/stats');
+export async function getStats(attorneyIds?: number[]): Promise<DashboardStats> {
+  const params = attorneyIds?.length ? `?attorney_ids=${attorneyIds.join(',')}` : '';
+  return request<DashboardStats>(`/stats${params}`);
 }
 
 export async function getConstants(): Promise<Constants> {

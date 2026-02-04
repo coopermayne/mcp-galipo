@@ -209,6 +209,23 @@ export const CASE_STATUS_COLORS = {
 
 export type CaseStatusKey = keyof typeof CASE_STATUS_COLORS;
 
+/** Hex colors for SVG fills - matches the Tailwind -500 shade used in status badges */
+export const CASE_STATUS_HEX_COLORS: Record<string, string> = {
+  'Signing Up': '#3b82f6',     // blue-500
+  Prospective: '#a855f7',      // purple-500
+  'Pre-Filing': '#6366f1',     // indigo-500
+  Pleadings: '#06b6d4',        // cyan-500
+  Discovery: '#0ea5e9',        // sky-500
+  'Expert Discovery': '#14b8a6', // teal-500
+  'Pre-trial': '#f59e0b',      // amber-500
+  Trial: '#f97316',            // orange-500
+  'Post-Trial': '#f43f5e',     // rose-500
+  Appeal: '#ef4444',           // red-500
+  'Settl. Pend.': '#84cc16',   // lime-500
+  Stayed: '#64748b',           // slate-500
+  Closed: '#6b7280',           // gray-500
+};
+
 // =============================================================================
 // EVENT STATUS COLORS
 // =============================================================================

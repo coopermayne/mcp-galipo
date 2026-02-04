@@ -5,7 +5,24 @@ import { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { CaseItem } from './CaseItem';
 import type { CaseSummary } from '../../types';
+import type { CaseStatus } from '../../types/common';
 import type { StaffRef } from '../../api/users';
+
+const STATUS_ORDER: CaseStatus[] = [
+  'Signing Up',
+  'Prospective',
+  'Pre-Filing',
+  'Pleadings',
+  'Discovery',
+  'Expert Discovery',
+  'Pre-trial',
+  'Trial',
+  'Post-Trial',
+  'Appeal',
+  'Settl. Pend.',
+  'Stayed',
+  'Closed',
+];
 
 type GroupMode = 'alpha' | 'status' | 'none';
 
@@ -77,15 +94,21 @@ function groupCasesByStatus(cases: CaseSummary[]): CaseGroup[] {
     groups.get(key)!.cases.push(caseData);
   }
 
-  // Sort cases within each group alphabetically
-  return Array.from(groups.values()).map((group) => ({
-    ...group,
-    cases: group.cases.sort((a, b) => {
-      const nameA = (a.short_name || a.case_name).toLowerCase();
-      const nameB = (b.short_name || b.case_name).toLowerCase();
-      return nameA.localeCompare(nameB);
-    }),
-  }));
+  // Sort groups by case flow order, sort cases within each group alphabetically
+  return Array.from(groups.values())
+    .sort((a, b) => {
+      const idxA = STATUS_ORDER.indexOf(a.key as CaseStatus);
+      const idxB = STATUS_ORDER.indexOf(b.key as CaseStatus);
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    })
+    .map((group) => ({
+      ...group,
+      cases: group.cases.sort((a, b) => {
+        const nameA = (a.short_name || a.case_name).toLowerCase();
+        const nameB = (b.short_name || b.case_name).toLowerCase();
+        return nameA.localeCompare(nameB);
+      }),
+    }));
 }
 
 export function CasesFeed({
