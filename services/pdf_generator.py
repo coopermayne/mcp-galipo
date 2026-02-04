@@ -12,11 +12,10 @@ from html import escape
 from collections import defaultdict
 from datetime import datetime
 
-from weasyprint import HTML
-
 
 def generate_case_list_pdf(cases: list) -> BytesIO:
     """Generate a professional PDF case status report."""
+    from weasyprint import HTML
     html = _build_html(cases)
     buf = BytesIO()
     HTML(string=html).write_pdf(buf)
@@ -107,6 +106,7 @@ def _render_case_page(case_data: dict) -> str:
     judge = escape(_get_judge_name(proceedings, persons) or '\u2014')
     jurisdiction = escape(_get_jurisdiction(proceedings) or '\u2014')
     opp_counsel = escape(', '.join(_get_persons_by_role(persons, 'Opposing Counsel')) or '\u2014')
+    clients = escape(', '.join(_get_persons_by_role(persons, 'Client')) or '\u2014')
 
     short_line = ''
     if short_name and short_name != case_data.get('case_name'):
@@ -134,7 +134,7 @@ def _render_case_page(case_data: dict) -> str:
         <div class="meta-item"><span class="meta-label">DOI</span> <span class="meta-value">{doi}</span></div>
         <div class="meta-item"><span class="meta-label">Jurisdiction</span> <span class="meta-value">{jurisdiction}</span></div>
         <div class="meta-item"><span class="meta-label">Opp. Counsel</span> <span class="meta-value">{opp_counsel}</span></div>
-        <div class="meta-item"><span class="meta-label">Clients</span> <span class="meta-value">{escape(', '.join(_get_persons_by_role(persons, 'Client')) or '\u2014')}</span></div>
+        <div class="meta-item"><span class="meta-label">Clients</span> <span class="meta-value">{clients}</span></div>
       </div>
 
       {summary_html}

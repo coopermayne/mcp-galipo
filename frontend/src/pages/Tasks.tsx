@@ -27,8 +27,8 @@ const ALLOWED_WIDGETS: WidgetType[] = ['tasks'];
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultTasksWidget('panel-0'), groupBy: 'date', showDone: false },
-    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: true },
+    { ...createDefaultTasksWidget('panel-0'), groupBy: 'date', showDone: false, caseOwnerFilter: 'mine', assigneeFilter: 'all' },
+    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: false, caseOwnerFilter: 'mine', assigneeFilter: 'mine' },
   ],
 };
 

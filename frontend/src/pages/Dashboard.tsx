@@ -28,8 +28,8 @@ const ALLOWED_WIDGETS: WidgetType[] = ['tasks', 'events'];
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultEventsWidget('panel-0'), groupBy: 'date', showPast: false },
-    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: false },
+    { ...createDefaultEventsWidget('panel-0'), groupBy: 'date', showPast: false, caseOwnerFilter: 'mine', attendeeFilter: 'all' },
+    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: false, caseOwnerFilter: 'mine', assigneeFilter: 'all' },
   ],
 };
 

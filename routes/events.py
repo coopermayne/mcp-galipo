@@ -24,11 +24,15 @@ def register_event_routes(mcp):
         include_past = request.query_params.get("include_past", "false").lower() == "true"
         past_days = request.query_params.get("past_days")
         case_id = request.query_params.get("case_id")
+        user_id = request.query_params.get("user_id")
+        attendee_id = request.query_params.get("attendee_id")
 
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
         offset = int(offset)
         past_days = int(past_days) if past_days else 14
         case_id = int(case_id) if case_id else None
+        user_id = int(user_id) if user_id else None
+        attendee_id = int(attendee_id) if attendee_id else None
 
         result = await asyncio.to_thread(
             db.get_upcoming_events,
@@ -36,7 +40,9 @@ def register_event_routes(mcp):
             offset=offset,
             include_past=include_past,
             past_days=past_days,
-            case_id=case_id
+            case_id=case_id,
+            user_id=user_id,
+            attendee_id=attendee_id
         )
         return JSONResponse(result)
 

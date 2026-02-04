@@ -72,6 +72,12 @@ interface TasksComponentProps {
   onStatusFilterChange?: (statuses: TaskStatus[]) => void;
   /** Controlled search query (external control) */
   searchQuery?: string;
+  /** Controlled assignee filter (external control) */
+  assigneeFilter?: AssigneeFilterValue;
+  /** Callback when assignee filter changes (for controlled mode) */
+  onAssigneeFilterChange?: (value: AssigneeFilterValue) => void;
+  /** Filter to tasks in cases assigned to this user ID */
+  userId?: number;
 
   // Callbacks (for parent notification, optional)
   onTaskCreated?: (task: Task) => void;
@@ -105,6 +111,9 @@ export function TasksComponent({
   statusFilter: controlledStatusFilter,
   onStatusFilterChange,
   searchQuery: controlledSearchQuery,
+  assigneeFilter: controlledAssigneeFilter,
+  onAssigneeFilterChange,
+  userId,
 
   // Callbacks
   onTaskCreated,
@@ -117,7 +126,7 @@ export function TasksComponent({
   const [internalGroupBy, setInternalGroupBy] = useState<GroupMode>(defaultGroupBy);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const [internalStatusFilter, setInternalStatusFilter] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTER);
-  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilterValue>('all');
+  const [internalAssigneeFilter, setInternalAssigneeFilter] = useState<AssigneeFilterValue>(controlledAssigneeFilter ?? 'all');
 
   // Support both controlled and uncontrolled modes for searchQuery
   const searchQuery = controlledSearchQuery ?? internalSearchQuery;
@@ -137,6 +146,13 @@ export function TasksComponent({
   const setStatusFilter = isStatusFilterControlled
     ? (value: TaskStatus[]) => onStatusFilterChange?.(value)
     : setInternalStatusFilter;
+
+  // Support both controlled and uncontrolled modes for assignee filter
+  const isAssigneeFilterControlled = controlledAssigneeFilter !== undefined;
+  const assigneeFilter = isAssigneeFilterControlled ? controlledAssigneeFilter : internalAssigneeFilter;
+  const setAssigneeFilter = isAssigneeFilterControlled
+    ? (value: AssigneeFilterValue) => onAssigneeFilterChange?.(value)
+    : setInternalAssigneeFilter;
   const [sheetFocusMode, setSheetFocusMode] = useState<SheetFocusMode>(null);
   const [eventLinkTask, setEventLinkTask] = useState<Task | null>(null);
   const [eventLinkAnchor, setEventLinkAnchor] = useState<HTMLElement | null>(null);
@@ -153,17 +169,19 @@ export function TasksComponent({
     invalidateKeys.push(['case', String(caseId)]);
   }
 
-  // Fetch all tasks (filtering is done client-side)
+  // Fetch all tasks (status/assignee filtering is done client-side)
   const { data: fetchedData, isLoading } = useQuery({
     queryKey: caseId
       ? ['tasks', { case_id: caseId }]
-      : ['tasks'],
+      : ['tasks', { userId }],
     queryFn: () => {
       const params: Parameters<typeof getTasks>[0] = { limit: 100 };
       if (caseId) {
         params.case_id = caseId;
       }
-      // Fetch all statuses - filtering is done client-side
+      if (userId) {
+        params.user_id = userId;
+      }
       return getTasks(params);
     },
     enabled: showAllTasks || !!caseId,

@@ -32,6 +32,9 @@ interface BaseWidgetConfig {
   type: WidgetType;
 }
 
+/** Assignee filter for tasks widget */
+export type TaskAssigneeFilter = 'all' | 'mine' | 'unassigned' | number;
+
 /** Tasks widget configuration */
 export interface TasksWidgetConfig extends BaseWidgetConfig {
   type: 'tasks';
@@ -39,7 +42,15 @@ export interface TasksWidgetConfig extends BaseWidgetConfig {
   groupBy: TasksGroupMode;
   caseId?: number;
   searchQuery: string;
+  assigneeFilter: TaskAssigneeFilter;
+  caseOwnerFilter: CaseOwnerFilter;
 }
+
+/** Case owner filter for events/tasks widgets */
+export type CaseOwnerFilter = 'all' | 'mine';
+
+/** Attendee filter for events widget */
+export type EventAttendeeFilter = 'all' | 'mine';
 
 /** Events widget configuration */
 export interface EventsWidgetConfig extends BaseWidgetConfig {
@@ -48,6 +59,8 @@ export interface EventsWidgetConfig extends BaseWidgetConfig {
   groupBy: EventsGroupMode;
   caseId?: number;
   searchQuery: string;
+  caseOwnerFilter: CaseOwnerFilter;
+  attendeeFilter: EventAttendeeFilter;
 }
 
 /** Cases widget configuration */
@@ -104,6 +117,8 @@ export function createDefaultTasksWidget(id: string): TasksWidgetConfig {
     groupBy: 'urgency',
     caseId: undefined,
     searchQuery: '',
+    assigneeFilter: 'all',
+    caseOwnerFilter: 'mine',
   };
 }
 
@@ -116,6 +131,8 @@ export function createDefaultEventsWidget(id: string): EventsWidgetConfig {
     groupBy: 'date',
     caseId: undefined,
     searchQuery: '',
+    caseOwnerFilter: 'mine',
+    attendeeFilter: 'all',
   };
 }
 

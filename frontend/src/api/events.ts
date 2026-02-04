@@ -7,6 +7,8 @@ export async function getEvents(params?: {
   includePast?: boolean;
   pastDays?: number;
   caseId?: number;
+  userId?: number;
+  attendeeId?: number;
 }): Promise<{ events: Event[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set('limit', String(params.limit));
@@ -14,6 +16,8 @@ export async function getEvents(params?: {
   if (params?.includePast) searchParams.set('include_past', 'true');
   if (params?.pastDays) searchParams.set('past_days', String(params.pastDays));
   if (params?.caseId) searchParams.set('case_id', String(params.caseId));
+  if (params?.userId) searchParams.set('user_id', String(params.userId));
+  if (params?.attendeeId) searchParams.set('attendee_id', String(params.attendeeId));
   const query = searchParams.toString();
   return request(`/events${query ? `?${query}` : ''}`);
 }

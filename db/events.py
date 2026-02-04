@@ -24,7 +24,7 @@ def add_event(case_id: int, date: str, description: str,
         return serialize_row(dict(cur.fetchone()))
 
 
-def get_upcoming_events(limit: int = None, offset: int = None, include_past: bool = False, past_days: int = 14, case_id: int = None) -> dict:
+def get_upcoming_events(limit: int = None, offset: int = None, include_past: bool = False, past_days: int = 14, case_id: int = None, user_id: int = None, attendee_id: int = None) -> dict:
     """Get events (hearings, depositions, filing deadlines, etc.).
 
     Args:
@@ -33,6 +33,8 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         include_past: If True, return past events instead of upcoming
         past_days: When include_past is True, how many days back to include (default 14)
         case_id: Filter to specific case
+        user_id: Filter to events in cases where this user is assigned (attorney or paralegal)
+        attendee_id: Filter to events where this user is an attendee
     """
     params = []
 
@@ -49,10 +51,23 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         conditions.append("e.case_id = %s")
         params.append(case_id)
 
+    if user_id:
+        conditions.append("(%s = ANY(c.attorney_ids) OR %s = ANY(c.paralegal_ids))")
+        params.append(user_id)
+        params.append(user_id)
+
+    if attendee_id:
+        conditions.append("%s = ANY(e.attendee_ids)")
+        params.append(attendee_id)
+
     where_clause = f"WHERE {' AND '.join(conditions)}"
 
+    # Need cases join for count when filtering by user_id (cases table has attorney_ids/paralegal_ids)
+    needs_case_join = bool(user_id)
+    count_from = "FROM events e JOIN cases c ON e.case_id = c.id" if needs_case_join else "FROM events e"
+
     with get_cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) as total FROM events e {where_clause}", params)
+        cur.execute(f"SELECT COUNT(*) as total {count_from} {where_clause}", params)
         total = cur.fetchone()["total"]
 
         query = f"""

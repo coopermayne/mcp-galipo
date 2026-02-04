@@ -41,8 +41,13 @@ def add_task(case_id: int, description: str, due_date: str = None,
 
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: int = None, due_date_from: str = None, due_date_to: str = None,
-              limit: int = None, offset: int = None, assignee_id: int = None) -> dict:
-    """Get tasks with optional filters."""
+              limit: int = None, offset: int = None, assignee_id: int = None,
+              user_id: int = None) -> dict:
+    """Get tasks with optional filters.
+
+    Args:
+        user_id: Filter to tasks in cases where this user is assigned (attorney or paralegal)
+    """
     conditions = []
     params = []
 
@@ -79,10 +84,18 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         conditions.append("t.assignee_id = %s")
         params.append(assignee_id)
 
+    if user_id:
+        conditions.append("(%s = ANY(c.attorney_ids) OR %s = ANY(c.paralegal_ids))")
+        params.append(user_id)
+        params.append(user_id)
+
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
+    # Need cases join for count when filtering by user_id
+    count_from = "FROM tasks t JOIN cases c ON t.case_id = c.id" if user_id else "FROM tasks t"
+
     with get_cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) as total FROM tasks t {where_clause}", params)
+        cur.execute(f"SELECT COUNT(*) as total {count_from} {where_clause}", params)
         total = cur.fetchone()["total"]
 
         query = f"""

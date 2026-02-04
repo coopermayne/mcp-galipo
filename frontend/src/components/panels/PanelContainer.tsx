@@ -43,6 +43,9 @@ import type {
   CasesGroupMode,
   PersonsGroupMode,
   CaseAttorneyFilter,
+  TaskAssigneeFilter,
+  CaseOwnerFilter,
+  EventAttendeeFilter,
 } from '../../types/panel-layout';
 
 interface PanelContainerProps {
@@ -123,18 +126,29 @@ export function PanelContainer({
   const getFilterSummary = () => {
     if (config.type === 'tasks') {
       const taskConfig = config as TasksWidgetConfig;
+      const parts: string[] = [];
       if (taskConfig.showDone) {
-        return 'Done';
+        parts.push('Done');
+      } else {
+        const groupLabel = TASKS_GROUP_OPTIONS.find((g) => g.value === taskConfig.groupBy)?.label || 'Date';
+        parts.push(`By ${groupLabel}`);
       }
-      const groupLabel = TASKS_GROUP_OPTIONS.find((g) => g.value === taskConfig.groupBy)?.label || 'Date';
-      return `By ${groupLabel}`;
+      if (taskConfig.caseOwnerFilter === 'mine') parts.push('My Cases');
+      if (taskConfig.assigneeFilter === 'mine') parts.push('My Tasks');
+      else if (taskConfig.assigneeFilter === 'unassigned') parts.push('Unassigned');
+      return parts.join(' · ');
     } else if (config.type === 'events') {
       const eventConfig = config as EventsWidgetConfig;
+      const parts: string[] = [];
       if (eventConfig.showPast) {
-        return 'Past';
+        parts.push('Past');
+      } else {
+        const groupLabel = EVENTS_GROUP_OPTIONS.find((g) => g.value === eventConfig.groupBy)?.label || 'Date';
+        parts.push(`By ${groupLabel}`);
       }
-      const groupLabel = EVENTS_GROUP_OPTIONS.find((g) => g.value === eventConfig.groupBy)?.label || 'Date';
-      return `By ${groupLabel}`;
+      if (eventConfig.caseOwnerFilter === 'mine') parts.push('My Cases');
+      if (eventConfig.attendeeFilter === 'mine') parts.push('Attending');
+      return parts.join(' · ');
     } else if (config.type === 'cases') {
       const casesConfig = config as CasesWidgetConfig;
       const groupLabel = CASES_GROUP_OPTIONS.find((g) => g.value === casesConfig.groupBy)?.label || 'A-Z';
@@ -221,6 +235,89 @@ export function PanelContainer({
               <span className="text-xs">Sorted by completion date</span>
             </div>
           )}
+
+          {/* Assigned to */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Assigned to
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ assigneeFilter: 'all' as TaskAssigneeFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  taskConfig.assigneeFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => onConfigChange({ assigneeFilter: 'mine' as TaskAssigneeFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  taskConfig.assigneeFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Tasks
+              </button>
+              <button
+                onClick={() => onConfigChange({ assigneeFilter: 'unassigned' as TaskAssigneeFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  taskConfig.assigneeFilter === 'unassigned'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                Unassigned
+              </button>
+            </div>
+          </div>
+
+          {/* Cases */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Cases
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'all' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  taskConfig.caseOwnerFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All Cases
+              </button>
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'mine' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  taskConfig.caseOwnerFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Cases
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -289,6 +386,78 @@ export function PanelContainer({
               <span className="text-xs">Most recent first</span>
             </div>
           )}
+
+          {/* Cases filter */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Cases
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'all' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  eventConfig.caseOwnerFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All Cases
+              </button>
+              <button
+                onClick={() => onConfigChange({ caseOwnerFilter: 'mine' as CaseOwnerFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  eventConfig.caseOwnerFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Cases
+              </button>
+            </div>
+          </div>
+
+          {/* Attending */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Attending
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ attendeeFilter: 'all' as EventAttendeeFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  eventConfig.attendeeFilter === 'all'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All Events
+              </button>
+              <button
+                onClick={() => onConfigChange({ attendeeFilter: 'mine' as EventAttendeeFilter })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  eventConfig.attendeeFilter === 'mine'
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                {currentUser && (
+                  <span
+                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[8px] font-medium ${getUserColorClass(currentUser.id)}`}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
+                My Events
+              </button>
+            </div>
+          </div>
         </div>
       );
     }

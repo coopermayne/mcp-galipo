@@ -25,6 +25,7 @@ def register_task_routes(mcp):
         urgency = request.query_params.get("urgency")
         due_date_from = request.query_params.get("due_date_from")
         due_date_to = request.query_params.get("due_date_to")
+        user_id = request.query_params.get("user_id")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
@@ -39,7 +40,8 @@ def register_task_routes(mcp):
             due_date_from=due_date_from,
             due_date_to=due_date_to,
             limit=limit,
-            offset=offset
+            offset=offset,
+            user_id=int(user_id) if user_id else None
         )
         return JSONResponse(result)
 
