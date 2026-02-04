@@ -10,14 +10,14 @@
  *
  * Uses the universal panel layout system with allowedWidgets=['cases'].
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2, FileText } from 'lucide-react';
+import { Plus, Loader2, FileText, ChevronDown } from 'lucide-react';
 import { Header } from '../components/layout';
 import { LayoutSelector, PanelContainer } from '../components/panels';
 import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
-import { createCase, exportCaseListPdf } from '../api';
+import { createCase, exportCaseListPdf, exportCaseListDocx } from '../api';
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
 import {
   createDefaultCasesWidget,
@@ -44,6 +44,20 @@ function CasesContent() {
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [exportMenuOpen]);
 
   const createMutation = useMutation({
     mutationFn: (name: string) => createCase({ case_name: name }),
@@ -57,10 +71,15 @@ function CasesContent() {
     },
   });
 
-  const handleExportPdf = useCallback(async () => {
+  const handleExport = useCallback(async (format: 'pdf' | 'docx') => {
+    setExportMenuOpen(false);
     setIsExporting(true);
     try {
-      await exportCaseListPdf();
+      if (format === 'docx') {
+        await exportCaseListDocx();
+      } else {
+        await exportCaseListPdf();
+      }
     } catch (error) {
       console.error('Export failed:', error);
     } finally {
@@ -85,19 +104,38 @@ function CasesContent() {
         subtitle="All your active and archived matters"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportPdf}
-              disabled={isExporting}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover border border-border rounded-lg transition-colors disabled:opacity-50"
-              title="Export active cases as PDF"
-            >
-              {isExporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FileText className="w-4 h-4" />
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => setExportMenuOpen((v) => !v)}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover border border-border rounded-lg transition-colors disabled:opacity-50"
+                title="Export active cases"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 mt-1 w-44 bg-bg-surface border border-border rounded-lg shadow-lg z-50 py-1">
+                  <button
+                    onClick={() => handleExport('pdf')}
+                    className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg-hover transition-colors"
+                  >
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={() => handleExport('docx')}
+                    className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg-hover transition-colors"
+                  >
+                    Export as DOCX
+                  </button>
+                </div>
               )}
-              <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
-            </button>
+            </div>
             <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
             <button
               onClick={() => setIsCreating(true)}

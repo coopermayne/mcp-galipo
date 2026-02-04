@@ -1,7 +1,7 @@
 """
 Data export API route.
 
-Provides endpoints to export case data as JSON or PDF.
+Provides endpoints to export case data as JSON, PDF, or DOCX.
 """
 
 import json
@@ -12,6 +12,7 @@ from fastapi.responses import Response
 import auth
 from db.connection import get_cursor
 from services.pdf_generator import generate_case_list_pdf
+from services.docx_generator import generate_case_list_docx
 
 
 def serialize_value(val):
@@ -248,6 +249,23 @@ def register_export_routes(mcp):
             return Response(
                 content=pdf_buf.getvalue(),
                 media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        elif format_type == "docx":
+            cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True)
+            try:
+                docx_buf = await asyncio.to_thread(generate_case_list_docx, cases)
+            except Exception as e:
+                return Response(
+                    content=json.dumps({"error": {"message": f"DOCX generation failed: {e}", "code": "EXPORT_ERROR"}}),
+                    status_code=500,
+                    media_type="application/json",
+                )
+            filename = f"galipo_cases_{timestamp}.docx"
+            return Response(
+                content=docx_buf.getvalue(),
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
 

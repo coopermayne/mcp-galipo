@@ -91,7 +91,7 @@ export {
 } from './proceedings';
 
 // Export
-export { exportCaseListPdf } from './export';
+export { exportCaseListPdf, exportCaseListDocx } from './export';
 
 // Chat
 export { streamChatMessage } from './chat';
