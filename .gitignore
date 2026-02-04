@@ -19,3 +19,4 @@ tests/browser/node_modules/
 # Production data exports (don't commit these)
 data.csv
 courtlistener_samples.json
+.playwright-mcp/
