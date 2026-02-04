@@ -10,13 +10,6 @@ import { useEntityModalContext } from '../../context/EntityModalContext';
 import { CaseChip } from '../common/CaseChip';
 import type { Person } from '../../types';
 
-interface CaseAssignment {
-  case_id: number;
-  short_name: string;
-  case_name: string;
-  color: string;
-}
-
 function getPrimaryPhone(person: Person): string | null {
   const primary = person.phones?.find((p) => p.primary);
   return primary?.value || person.phones?.[0]?.value || null;
@@ -28,7 +21,7 @@ function getPrimaryEmail(person: Person): string | null {
 }
 
 interface ClientItemProps {
-  person: Person & { case_assignments?: CaseAssignment[] };
+  person: Person;
   onClick?: (person: Person) => void;
 }
 

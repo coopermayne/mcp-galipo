@@ -72,6 +72,7 @@ export interface CasePersonAssignment {
   case_id: number;
   case_name?: string;
   short_name?: string;
+  color?: string;
   role: string;
   side?: PersonSide;
   case_attributes: Record<string, unknown>;
