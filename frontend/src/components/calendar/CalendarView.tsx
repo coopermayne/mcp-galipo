@@ -86,6 +86,24 @@ const COLOR_MAP: Record<string, { bg: string; text: string }> = {
 
 const DEFAULT_COLOR = { bg: '#e0e7ff', text: '#3730a3' };
 
+function getColors(caseColor?: string) {
+  return caseColor ? (COLOR_MAP[caseColor] || DEFAULT_COLOR) : DEFAULT_COLOR;
+}
+
+/** Custom agenda event component - shows colored dot instead of full-row background */
+function AgendaEvent({ event }: { event: CalendarEvent }) {
+  const colors = getColors(event.caseColor);
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+        style={{ backgroundColor: colors.text }}
+      />
+      <span>{event.title}</span>
+    </span>
+  );
+}
+
 interface CalendarViewProps {
   showEvents: boolean;
   showTasks: boolean;
@@ -183,6 +201,9 @@ export function CalendarView({
       onNavigate={handleNavigate}
       onSelectEvent={handleSelectEvent}
       eventPropGetter={eventPropGetter}
+      components={{
+        agenda: { event: AgendaEvent },
+      }}
       popup
       style={{ height: '100%' }}
     />
