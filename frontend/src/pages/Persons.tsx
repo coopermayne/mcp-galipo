@@ -26,18 +26,19 @@ import {
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
 import {
   createDefaultPersonsWidget,
+  createDefaultClientsWidget,
   LAYOUT_CONTAINER_CLASSES,
   getPanelClasses,
 } from '../types/panel-layout';
 import type { PersonTypeRecord } from '../types';
 
 const STORAGE_KEY = 'persons-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['persons'];
+const ALLOWED_WIDGETS: WidgetType[] = ['persons', 'clients'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
   panels: [
-    { ...createDefaultPersonsWidget('panel-0'), groupBy: 'alpha' },
+    createDefaultClientsWidget('panel-0'),
     { ...createDefaultPersonsWidget('panel-1'), groupBy: 'type' },
   ],
 };

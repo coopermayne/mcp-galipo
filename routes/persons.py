@@ -26,6 +26,8 @@ def register_person_routes(mcp):
         phone = request.query_params.get("phone")
         case_id = request.query_params.get("case_id")
         unassigned = request.query_params.get("unassigned", "false").lower() == "true"
+        include_cases = request.query_params.get("include_cases", "false").lower() == "true"
+        user_id = request.query_params.get("user_id")
         limit = int(request.query_params.get("limit", 50))
         offset = int(request.query_params.get("offset", 0))
 
@@ -38,6 +40,8 @@ def register_person_routes(mcp):
             phone=phone,
             case_id=int(case_id) if case_id else None,
             unassigned=unassigned,
+            include_cases=include_cases,
+            user_id=int(user_id) if user_id else None,
             limit=limit,
             offset=offset
         )

@@ -20,6 +20,7 @@ import {
   createDefaultWidget,
   createDefaultTasksWidget,
   createDefaultEventsWidget,
+  createDefaultClientsWidget,
 } from '../types/panel-layout';
 
 interface PanelLayoutContextType {
@@ -60,6 +61,10 @@ function loadConfig(
           }
           if (panel.type === 'events') {
             const defaults = createDefaultEventsWidget(panel.id as string);
+            return { ...defaults, ...panel };
+          }
+          if (panel.type === 'clients') {
+            const defaults = createDefaultClientsWidget(panel.id as string);
             return { ...defaults, ...panel };
           }
           return panel;
