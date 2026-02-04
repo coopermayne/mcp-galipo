@@ -709,7 +709,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
         {/* Status + Team + Proceedings + Summary */}
         <div className="bg-bg-surface rounded-lg border border-border p-3 flex flex-col gap-3">
           {/* Status + Team row */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap min-w-0">
             {/* Status */}
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-text-muted" />
@@ -726,10 +726,10 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
             <div className="h-5 w-px bg-border" />
 
             {/* Team */}
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-text-muted" />
-              <span className="text-sm font-medium text-text-secondary">Team</span>
-              <div className="relative" ref={teamDropdownRef}>
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="w-4 h-4 text-text-muted shrink-0" />
+              <span className="text-sm font-medium text-text-secondary shrink-0">Team</span>
+              <div className="relative min-w-0" ref={teamDropdownRef}>
               <button
                 onClick={() => setShowTeamDropdown(!showTeamDropdown)}
                 className="group flex items-center gap-1.5 py-0.5 px-1 -ml-1 rounded-lg hover:bg-bg-hover/50 transition-all"
