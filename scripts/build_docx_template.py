@@ -417,37 +417,33 @@ def build_tasks_table(doc):
         set_paragraph_spacing(table.cell(3, i).paragraphs[0], before=0, after=0)
 
 
-def build_metadata_grid(doc):
-    """Build the 2x3 metadata grid table — clean white cells, thin borders."""
-    table = doc.add_table(rows=2, cols=3)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = True
-    set_table_borders(table, color=GREY_BORDER, sz=2)
+def build_case_info(doc):
+    """Build compact case info as styled paragraphs instead of a grid.
 
-    grid = [
-        [("Case No.", "{{ case.case_number }}", "Consolas"),
-         ("Judge", "{{ case.judge }}", "Calibri"),
-         ("Date of Injury", "{{ case.doi }}", "Calibri")],
-        [("Jurisdiction", "{{ case.jurisdiction }}", "Calibri"),
-         ("Opp. Counsel", "{{ case.opp_counsel }}", "Calibri"),
-         ("Clients", "{{ case.clients }}", "Calibri")],
-    ]
+    Line 1: 2:25-cv-01537-CSK (E.D. Cal.), Judge Troy L. Nunley
+    Line 2: DOI: Jun 10, 2024  ·  Client: Evgeniy Gubanov
+    Line 3: Co-Counsel: Name  |  Defense: Name, Name
+    """
+    # Line 1: Case info (case number + jurisdiction + judge)
+    add_jinja_tag(doc, "{% if case.has_info %}")
+    p1 = doc.add_paragraph()
+    set_paragraph_spacing(p1, before=2, after=0)
+    add_run(p1, "{{r case.case_info_rt }}", size=9)
+    add_jinja_tag(doc, "{% endif %}")
 
-    col_width = 2.4
+    # Line 2: DOI + clients
+    add_jinja_tag(doc, "{% if case.has_detail %}")
+    p2 = doc.add_paragraph()
+    set_paragraph_spacing(p2, before=0, after=0)
+    add_run(p2, "{{r case.detail_rt }}", size=8)
+    add_jinja_tag(doc, "{% endif %}")
 
-    for row_idx, row_data in enumerate(grid):
-        for col_idx, (label, tag, font) in enumerate(row_data):
-            cell = table.cell(row_idx, col_idx)
-            set_cell_margins(cell, top=22, bottom=22, left=60, right=60)
-            set_cell_width(cell, col_width)
-
-            p_label = cell.paragraphs[0]
-            set_paragraph_spacing(p_label, before=0, after=0)
-            add_run(p_label, label, size=6.5, color=GREY)
-
-            p_val = cell.add_paragraph()
-            set_paragraph_spacing(p_val, before=0, after=0)
-            add_run(p_val, tag, size=8.5, font_name=font)
+    # Line 3: Counsel (conditional)
+    add_jinja_tag(doc, "{% if case.has_counsel %}")
+    p3 = doc.add_paragraph()
+    set_paragraph_spacing(p3, before=0, after=0)
+    add_run(p3, "{{r case.counsel_rt }}", size=8)
+    add_jinja_tag(doc, "{% endif %}")
 
 
 def build_title_bar(doc):
@@ -619,8 +615,8 @@ def build_case_detail(doc):
     # --- 1. Title bar (case name + status chip) ---
     build_title_bar(doc)
 
-    # --- 2. Metadata grid ---
-    build_metadata_grid(doc)
+    # --- 2. Case info (compact paragraphs) ---
+    build_case_info(doc)
 
     # --- 3. Summary (conditional) ---
     build_case_summary(doc)
@@ -637,12 +633,15 @@ def build_case_detail(doc):
 
     # --- 5. Timeline (events + tasks side by side) ---
     add_jinja_tag(doc, "{% if case.has_timeline %}")
+    # Small spacer before timeline
+    sp = doc.add_paragraph()
+    set_paragraph_spacing(sp, before=4, after=0)
     build_timeline_table(doc)
     add_jinja_tag(doc, "{% endif %}")
 
     # --- 6. Recent Notes ---
     add_jinja_tag(doc, "{% if case.notes %}")
-    build_section_heading(doc, "RECENT NOTES")
+    build_section_heading(doc, "Notes")
     add_jinja_tag(doc, "{% for note in case.notes %}")
 
     note_date_p = doc.add_paragraph()

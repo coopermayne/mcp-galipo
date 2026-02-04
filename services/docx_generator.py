@@ -145,7 +145,6 @@ def _transform_case(case_data: dict, today: str) -> dict:
     doi_raw = case_data.get("date_of_injury")
     doi = _format_date(doi_raw) if doi_raw else ""
     jurisdiction = _get_jurisdiction(proceedings)
-    opp_counsel = ", ".join(_get_persons_by_role(persons, "Opposing Counsel"))
     clients = ", ".join(_get_persons_by_role(persons, "Client"))
     other_proceedings = _get_other_proceedings(proceedings)
     summary = case_data.get("case_summary") or ""
@@ -159,6 +158,43 @@ def _transform_case(case_data: dict, today: str) -> dict:
     # Status badge RichText (right-aligned in title bar)
     status_rt = RichText()
     status_rt.add(f" {status} ", bold=True, color=colors["text"], size=20)  # 10pt
+
+    # Case info line: "2:25-cv-01537-CSK (E.D. Cal.), Judge Troy L. Nunley"
+    case_info_rt = RichText()
+    has_info = bool(case_number or judge)
+    if case_number:
+        case_info_rt.add(case_number, bold=True, color=CLR_NAVY, size=18)
+        if jurisdiction:
+            case_info_rt.add(f" ({jurisdiction})", color=CLR_DARK_GREY, size=17)
+        if judge:
+            case_info_rt.add(", ", color=CLR_GREY, size=17)
+    if judge:
+        case_info_rt.add(f"Judge {judge}", color=CLR_NAVY, size=17)
+
+    # Detail line: "DOI: Jun 10, 2024  ·  Client: Evgeniy Gubanov"
+    detail_rt = RichText()
+    has_detail = bool(doi or clients)
+    if doi:
+        detail_rt.add("DOI: ", color=CLR_GREY, size=15)
+        detail_rt.add(doi, color=CLR_NAVY, size=16)
+    if doi and clients:
+        detail_rt.add("   \u00b7   ", color=CLR_GREY, size=15)
+    if clients:
+        detail_rt.add("Client: ", color=CLR_GREY, size=15)
+        detail_rt.add(clients, color=CLR_NAVY, size=16)
+
+    # Counsel line: all counsel grouped by side
+    plaintiff_counsel, defense_counsel = _get_counsel_groups(persons)
+    counsel_rt = RichText()
+    has_counsel = bool(plaintiff_counsel or defense_counsel)
+    if plaintiff_counsel:
+        counsel_rt.add("Co-Counsel: ", color=CLR_GREY, size=15)
+        counsel_rt.add(", ".join(plaintiff_counsel), color=CLR_NAVY, size=16)
+    if plaintiff_counsel and defense_counsel:
+        counsel_rt.add("   |   ", color=CLR_GREY, size=15)
+    if defense_counsel:
+        counsel_rt.add("Defense: ", color=CLR_GREY, size=15)
+        counsel_rt.add(", ".join(defense_counsel), color=CLR_NAVY, size=16)
 
     # Events with RichText
     event_items = _build_events(events, doi_raw, today)
@@ -197,13 +233,18 @@ def _transform_case(case_data: dict, today: str) -> dict:
         "judge": judge or "\u2014",
         "doi": doi or "\u2014",
         "jurisdiction": jurisdiction or "\u2014",
-        "opp_counsel": opp_counsel or "\u2014",
         "clients": clients or "\u2014",
         "other_proceedings": other_proceedings,
         "summary": summary,
         "title_rt": title_rt,
         "status_rt": status_rt,
         "status_bg": colors["bg"],
+        "case_info_rt": case_info_rt,
+        "has_info": has_info,
+        "detail_rt": detail_rt,
+        "has_detail": has_detail,
+        "counsel_rt": counsel_rt,
+        "has_counsel": has_counsel,
         "has_timeline": len(timeline) > 0,
         "timeline": timeline,
         "notes": note_items if note_items else None,
@@ -394,6 +435,22 @@ def _get_jurisdiction(proceedings):
 
 def _get_persons_by_role(persons, role):
     return [p.get("name", "") for p in persons if p.get("role") == role]
+
+
+def _get_counsel_groups(persons):
+    """Get counsel names grouped into plaintiff-side and defense-side lists."""
+    plaintiff = []
+    defense = []
+    for p in persons:
+        role = p.get("role", "")
+        name = p.get("name", "")
+        if not name:
+            continue
+        if role in ("Co-Counsel", "Public Defender", "Criminal Defense Attorney"):
+            plaintiff.append(name)
+        elif role in ("Opposing Counsel", "Prosecutor"):
+            defense.append(name)
+    return plaintiff, defense
 
 
 def _get_other_proceedings(proceedings):
