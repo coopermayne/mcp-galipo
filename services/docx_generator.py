@@ -170,23 +170,23 @@ def _transform_case(case_data: dict, today: str) -> dict:
     note_items = _build_notes(notes)
 
     # Timeline (events and tasks zipped side by side)
+    # Each side gets its own bg — empty side stays white (no phantom rows)
     timeline = []
     max_len = max(len(event_items), len(task_items)) if (event_items or task_items) else 0
     for i in range(max_len):
         row = {}
-        if i < len(event_items):
-            row["ev_date"] = event_items[i]["date_rt"]
-            row["ev_desc"] = event_items[i]["desc_rt"]
-        else:
-            row["ev_date"] = ""
-            row["ev_desc"] = ""
-        if i < len(task_items):
-            row["tk_date"] = task_items[i]["date_rt"]
-            row["tk_desc"] = task_items[i]["desc_rt"]
-        else:
-            row["tk_date"] = ""
-            row["tk_desc"] = ""
-        row["bg"] = BG_ALT if i % 2 == 0 else BG_NONE
+        has_ev = i < len(event_items)
+        has_tk = i < len(task_items)
+        alt_bg = BG_ALT if i % 2 == 0 else BG_NONE
+
+        row["ev_date"] = event_items[i]["date_rt"] if has_ev else ""
+        row["ev_desc"] = event_items[i]["desc_rt"] if has_ev else ""
+        row["ev_bg"] = alt_bg if has_ev else BG_NONE
+
+        row["tk_date"] = task_items[i]["date_rt"] if has_tk else ""
+        row["tk_desc"] = task_items[i]["desc_rt"] if has_tk else ""
+        row["tk_bg"] = alt_bg if has_tk else BG_NONE
+
         timeline.append(row)
 
     return {
