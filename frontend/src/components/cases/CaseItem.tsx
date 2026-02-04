@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Briefcase, Check, Loader2, ChevronDown, Plus } from 'lucide-react';
+import { Check, Loader2, ChevronDown, Plus } from 'lucide-react';
 import { updateCase } from '../../api';
 import { getStatusColorClasses } from '../../config/colors';
 import { getUserColorClass } from '../../utils';
