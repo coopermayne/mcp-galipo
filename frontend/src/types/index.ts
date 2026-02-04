@@ -147,6 +147,7 @@ export type {
   TasksWidgetConfig,
   EventsWidgetConfig,
   CasesWidgetConfig,
+  ChartWidgetConfig,
   WidgetConfig,
   PanelLayoutConfig,
 } from './panel-layout';
@@ -156,6 +157,7 @@ export {
   WIDGET_INFO,
   createDefaultTasksWidget,
   createDefaultEventsWidget,
+  createDefaultChartWidget,
   createDefaultWidget,
   getPanelClasses,
   adjustPanelsForLayout as adjustPanelsForLayoutGeneric,

@@ -21,6 +21,7 @@ import {
   createDefaultTasksWidget,
   createDefaultEventsWidget,
   createDefaultClientsWidget,
+  createDefaultChartWidget,
 } from '../types/panel-layout';
 
 interface PanelLayoutContextType {
@@ -65,6 +66,10 @@ function loadConfig(
           }
           if (panel.type === 'clients') {
             const defaults = createDefaultClientsWidget(panel.id as string);
+            return { ...defaults, ...panel };
+          }
+          if (panel.type === 'chart') {
+            const defaults = createDefaultChartWidget(panel.id as string);
             return { ...defaults, ...panel };
           }
           return panel;

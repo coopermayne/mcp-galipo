@@ -19,7 +19,9 @@ def register_stats_routes(mcp):
         """Get dashboard statistics."""
         if err := auth.require_auth(request):
             return err
-        stats = await asyncio.to_thread(db.get_dashboard_stats)
+        attorney_ids_param = request.query_params.get("attorney_ids")
+        attorney_ids = [int(x) for x in attorney_ids_param.split(",") if x.strip()] if attorney_ids_param else None
+        stats = await asyncio.to_thread(db.get_dashboard_stats, attorney_ids=attorney_ids)
         return JSONResponse(stats)
 
     @mcp.custom_route("/api/v1/constants", methods=["GET"])
