@@ -1,21 +1,16 @@
 """
 Pleading document generator with modular fragment support.
 
-Generates legal pleadings (motions, oppositions, replies) using a base template
-and optional fragment sections that can be included based on document type.
-
-Document types and their fragments:
-- Opposition: base + memo
-- Motion: base + notice + memo
-- Reply: base + memo
-- Joint Report: base + body (no memo structure)
+Generates legal pleadings using a base template and optional subdocument
+fragments (notice, meet & confer, TOC, TOA, certificate of compliance)
+that are conditionally included based on user selection.
 """
 
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from docxtpl import DocxTemplate
 
@@ -192,29 +187,6 @@ def generate_pleading(
     doc.save(buf)
     buf.seek(0)
     return buf
-
-
-def generate_opposition(context: PleadingContext) -> BytesIO:
-    """Generate an opposition brief (no notice section)."""
-    context.include_notice = False
-    context.include_meet_confer = False
-    return generate_pleading(context)
-
-
-def generate_motion(context: PleadingContext) -> BytesIO:
-    """Generate a motion with notice and meet-and-confer."""
-    context.include_notice = True
-    context.include_meet_confer = True
-    return generate_pleading(context)
-
-
-def generate_reply(context: PleadingContext) -> BytesIO:
-    """Generate a reply brief (no notice, typically shorter)."""
-    context.include_notice = False
-    context.include_meet_confer = False
-    context.include_toc = False  # Replies often don't need TOC
-    context.include_toa = False
-    return generate_pleading(context)
 
 
 # Helper to create context from the Templates page data
