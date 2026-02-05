@@ -6,20 +6,42 @@ import { request } from '../api/common';
 import { useAuth } from '../context/AuthContext';
 import type { CaseInfo } from '../types/template';
 
-// Document sections that can be included/excluded
-const DOCUMENT_SECTIONS = [
-  { key: 'notice', label: 'Notice of Motion', description: 'Required for motions' },
-  { key: 'meet_confer', label: 'Meet & Confer', description: 'L.R. 7-3 compliance statement' },
-  { key: 'toc', label: 'Table of Contents', description: 'Auto-generated TOC' },
-  { key: 'toa', label: 'Table of Authorities', description: 'Case citations index' },
-  { key: 'memo', label: 'Memorandum', description: 'Memorandum of Points and Authorities' },
+// Primary document types — user picks one
+const DOCUMENT_TYPES = [
+  { key: 'memo', label: 'Memorandum', description: 'Points and Authorities' },
+  { key: 'generic', label: 'Generic Pleading', description: 'General pleading body' },
   { key: 'declaration', label: 'Declaration', description: 'Declaration in support' },
-  { key: 'joint_stip', label: 'Joint Stipulation', description: 'Joint stipulation document' },
-  { key: 'generic', label: 'Generic Pleading', description: 'Generic pleading body' },
+  { key: 'joint_stip', label: 'Joint Stipulation', description: 'Joint stipulation' },
+] as const;
+
+type DocumentType = typeof DOCUMENT_TYPES[number]['key'];
+
+// Sub-options that only apply to memo/generic
+const SUB_OPTIONS = [
+  { key: 'notice', label: 'Notice of Motion', description: 'Required for motions' },
+  { key: 'meet_confer', label: 'Meet & Confer', description: 'L.R. 7-3 compliance' },
+  { key: 'toc', label: 'Table of Contents' },
+  { key: 'toa', label: 'Table of Authorities' },
   { key: 'cert_compliance', label: 'Certificate of Compliance', description: 'Word count certification' },
 ] as const;
 
-type SectionKey = typeof DOCUMENT_SECTIONS[number]['key'];
+type SubOptionKey = typeof SUB_OPTIONS[number]['key'];
+
+// Which sub-options are available per document type
+const SUB_OPTIONS_FOR_TYPE: Record<DocumentType, SubOptionKey[]> = {
+  memo: ['notice', 'meet_confer', 'toc', 'toa', 'cert_compliance'],
+  generic: ['toc', 'toa'],
+  declaration: [],
+  joint_stip: [],
+};
+
+// Default sub-options when selecting a type
+const DEFAULT_SUB_OPTIONS: Record<DocumentType, SubOptionKey[]> = {
+  memo: ['toc', 'toa'],
+  generic: [],
+  declaration: [],
+  joint_stip: [],
+};
 
 interface Attorney {
   id: number;
@@ -159,7 +181,8 @@ export function Templates() {
   const [isImprovingName, setIsImprovingName] = useState(false);
   const [isGeneratingFilename, setIsGeneratingFilename] = useState(false);
   const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
-  const [selectedSections, setSelectedSections] = useState<Set<SectionKey>>(new Set(['toc', 'toa']));
+  const [documentType, setDocumentType] = useState<DocumentType>('memo');
+  const [selectedSubOptions, setSelectedSubOptions] = useState<Set<SubOptionKey>>(new Set(DEFAULT_SUB_OPTIONS.memo));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Attorney selection
@@ -268,12 +291,32 @@ export function Templates() {
     setCaseInfo(prev => ({ ...prev, [field]: value || null }));
   }, []);
 
+  const handleDocumentTypeChange = useCallback((type: DocumentType) => {
+    setDocumentType(type);
+    setSelectedSubOptions(new Set(DEFAULT_SUB_OPTIONS[type]));
+  }, []);
+
+  const toggleSubOption = useCallback((key: SubOptionKey) => {
+    setSelectedSubOptions(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   const handleImproveDocumentName = useCallback(async () => {
     setIsImprovingName(true);
     try {
       const result = await improveDocumentName(documentName, caseInfo.motion_title || '');
       setDocumentName(result.document_name);
-      setSelectedSections(new Set(result.sections as SectionKey[]));
+      // Map AI sections to document type + sub-options
+      const sections = result.sections as string[];
+      const primaryTypes: DocumentType[] = ['memo', 'generic', 'declaration', 'joint_stip'];
+      const detectedType = primaryTypes.find(t => sections.includes(t)) || 'memo';
+      setDocumentType(detectedType);
+      const availableSubs = SUB_OPTIONS_FOR_TYPE[detectedType];
+      setSelectedSubOptions(new Set(sections.filter((s): s is SubOptionKey => availableSubs.includes(s as SubOptionKey))));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to improve document name');
     } finally {
@@ -281,14 +324,6 @@ export function Templates() {
     }
   }, [caseInfo, documentName]);
 
-  const toggleSection = useCallback((key: SectionKey) => {
-    setSelectedSections(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
 
   const handleGenerateFilename = useCallback(async () => {
     if (!documentName.trim()) {
@@ -309,6 +344,10 @@ export function Templates() {
   const handleGenerateDocument = useCallback(async () => {
     setHasAttemptedSubmit(true);
 
+    if (!validationState.isValid) {
+      setError(`Missing required fields: ${validationState.missingFields.join(', ')}`);
+      return;
+    }
     if (!documentName.trim()) {
       setError('Enter a document name');
       return;
@@ -330,13 +369,14 @@ export function Templates() {
         bar_number: selectedAttorney.barNumber || null,
         email: selectedAttorney.email || '',
       };
-      await generateDocument(caseInfo, signingAttorney, documentName, filename, Array.from(selectedSections));
+      const sections = [documentType, ...Array.from(selectedSubOptions)];
+      await generateDocument(caseInfo, signingAttorney, documentName, filename, sections);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate document');
     } finally {
       setIsGeneratingDocument(false);
     }
-  }, [caseInfo, selectedAttorney, documentName, filename, selectedSections]);
+  }, [caseInfo, selectedAttorney, documentName, filename, documentType, selectedSubOptions, validationState]);
 
   const sparkleButton = (onClick: () => void, loading: boolean, disabled?: boolean) => (
     <button
@@ -422,17 +462,8 @@ export function Templates() {
           </div>
         )}
 
-        {/* Validation Summary */}
-        {hasAttemptedSubmit && !validationState.isValid && (
-          <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              Missing: {validationState.missingFields.join(', ')}
-            </p>
-          </div>
-        )}
 
-        {/* Case Information */}
+{/* Case Information */}
         <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
           <SectionHeader
             icon={<FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
@@ -613,44 +644,85 @@ export function Templates() {
               />
             </div>
 
-            {/* Section Selection */}
+            {/* Document Type */}
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-2">
-                Include Sections
+                Document Type
               </label>
               <div className="flex flex-wrap gap-1.5">
-                {DOCUMENT_SECTIONS.map((section) => {
-                  const isSelected = selectedSections.has(section.key);
+                {DOCUMENT_TYPES.map((type) => {
+                  const isSelected = documentType === type.key;
                   return (
                     <button
-                      key={section.key}
+                      key={type.key}
                       type="button"
-                      onClick={() => toggleSection(section.key)}
+                      onClick={() => handleDocumentTypeChange(type.key)}
                       className={`
-                        inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium
+                        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
                         transition-all duration-150 border
                         ${isSelected
                           ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700'
                           : 'bg-bg text-text-secondary border-border hover:border-primary-300 dark:hover:border-primary-700'
                         }
                       `}
-                      title={section.description}
+                      title={type.description}
                     >
                       <span className={`
-                        w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0
+                        w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0
                         ${isSelected
-                          ? 'bg-primary-500 border-primary-500 text-white'
+                          ? 'border-primary-500'
                           : 'border-current'
                         }
                       `}>
-                        {isSelected && <Check className="w-2.5 h-2.5" />}
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />}
                       </span>
-                      {section.label}
+                      {type.label}
                     </button>
                   );
                 })}
               </div>
             </div>
+
+            {/* Sub-options (only when relevant) */}
+            {SUB_OPTIONS_FOR_TYPE[documentType].length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-2">
+                  Include Sections
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUB_OPTIONS.filter(opt => SUB_OPTIONS_FOR_TYPE[documentType].includes(opt.key)).map((option) => {
+                    const isSelected = selectedSubOptions.has(option.key);
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => toggleSubOption(option.key)}
+                        className={`
+                          inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium
+                          transition-all duration-150 border
+                          ${isSelected
+                            ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700'
+                            : 'bg-bg text-text-secondary border-border hover:border-primary-300 dark:hover:border-primary-700'
+                          }
+                        `}
+                        title={option.description}
+                      >
+                        <span className={`
+                          w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0
+                          ${isSelected
+                            ? 'bg-primary-500 border-primary-500 text-white'
+                            : 'border-current'
+                          }
+                        `}>
+                          {isSelected && <Check className="w-2.5 h-2.5" />}
+                        </span>
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Generate Button */}
             <button
