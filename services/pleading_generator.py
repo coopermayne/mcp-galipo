@@ -20,6 +20,16 @@ from dataclasses import dataclass, field
 from docxtpl import DocxTemplate
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates" / "pleadings"
+FRAGMENTS_DIR = TEMPLATES_DIR / "fragments"
+
+# Fragment files for each optional section
+FRAGMENT_FILES = {
+    "notice": "notice.docx",
+    "meet_confer": "meet_confer.docx",
+    "toc": "toc.docx",
+    "toa": "toa.docx",
+    "cert_compliance": "cert_compliance.docx",
+}
 
 
 @dataclass
@@ -106,13 +116,13 @@ class PleadingContext:
             "firm_phone": self.firm_phone,
             "firm_fax": self.firm_fax,
 
-            # Section toggles
-            "notice_and_confer": self.include_notice,
-            "meet_and_confer": self.include_meet_confer,
+            # Section toggles (names match Jinja2 conditionals in template)
+            "include_notice": self.include_notice,
+            "include_meet_confer": self.include_meet_confer,
             "include_toc": self.include_toc,
             "include_toa": self.include_toa,
-            "cert_of_compliance": self.include_cert_compliance,
-            "proof_of_service": self.include_proof_of_service,
+            "include_cert_compliance": self.include_cert_compliance,
+            "include_proof_of_service": self.include_proof_of_service,
 
             # Content
             "introduction": self.introduction,
@@ -128,10 +138,14 @@ class PleadingContext:
 
 def generate_pleading(
     context: PleadingContext,
-    template_name: str = "base.docx"
+    template_name: str = "base_subdoc.docx"
 ) -> BytesIO:
     """
     Generate a pleading document from template and context.
+
+    Uses subdocuments for modular section inclusion. Each optional section
+    (notice, meet_confer, toc, toa, cert_compliance) is loaded as a subdoc
+    and conditionally included based on context flags.
 
     Args:
         context: PleadingContext with all document data
@@ -146,7 +160,33 @@ def generate_pleading(
         raise FileNotFoundError(f"Template not found: {template_path}")
 
     doc = DocxTemplate(str(template_path))
-    doc.render(context.to_dict())
+
+    # Build context dict
+    ctx = context.to_dict()
+
+    # Load subdocs for each section that's enabled
+    # The subdocs are rendered with the same context, so they can use variables
+    subdoc_mapping = {
+        "notice": ("subdoc_notice", context.include_notice),
+        "meet_confer": ("subdoc_meet_confer", context.include_meet_confer),
+        "toc": ("subdoc_toc", context.include_toc),
+        "toa": ("subdoc_toa", context.include_toa),
+        "cert_compliance": ("subdoc_cert_compliance", context.include_cert_compliance),
+    }
+
+    for section_key, (subdoc_var, is_included) in subdoc_mapping.items():
+        if is_included:
+            fragment_path = FRAGMENTS_DIR / FRAGMENT_FILES[section_key]
+            if fragment_path.exists():
+                subdoc = doc.new_subdoc(str(fragment_path))
+                ctx[subdoc_var] = subdoc
+            else:
+                ctx[subdoc_var] = ""  # Fragment not found, skip
+        else:
+            ctx[subdoc_var] = ""  # Not included, empty
+
+    # Render with context including subdocs
+    doc.render(ctx)
 
     buf = BytesIO()
     doc.save(buf)
