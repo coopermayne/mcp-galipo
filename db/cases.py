@@ -59,15 +59,21 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         total = cur.fetchone()["total"]
 
         # Build query with joins for counts and assigned judge
+        # Note: Judges are now in the standalone judges table, linked via proceeding_judges
         query = f"""
             SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
                    c.attorney_ids, c.paralegal_ids,
-                   (SELECT p.name FROM case_persons cp
-                    JOIN persons p ON cp.person_id = p.id
-                    WHERE cp.case_id = c.id AND cp.role = 'Judge'
-                    LIMIT 1) as judge,
-                   (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Client') as client_count,
-                   (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id AND cp.role = 'Defendant') as defendant_count,
+                   (SELECT j.name FROM proceedings p
+                    JOIN proceeding_judges pj ON p.id = pj.proceeding_id
+                    JOIN judges j ON pj.judge_id = j.id
+                    WHERE p.case_id = c.id AND p.is_primary = true
+                    ORDER BY pj.sort_order LIMIT 1) as judge,
+                   (SELECT COUNT(*) FROM person_roles pr
+                    JOIN roles r ON pr.role_id = r.id
+                    WHERE pr.case_id = c.id AND r.name = 'Client') as client_count,
+                   (SELECT COUNT(*) FROM person_roles pr
+                    JOIN roles r ON pr.role_id = r.id
+                    WHERE pr.case_id = c.id AND r.name = 'Defendant') as defendant_count,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
                    (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id AND e.date >= CURRENT_DATE) as upcoming_event_count
             FROM cases c
@@ -124,25 +130,19 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         else:
             result["paralegals"] = []
 
-        # Get persons assigned to this case
+        # Get persons assigned to this case via person_roles
         cur.execute("""
-            SELECT p.id, p.person_type, p.name, p.phones, p.emails, p.organization,
-                   p.attributes, p.notes as person_notes,
-                   cp.id as assignment_id, cp.role, cp.side, cp.case_attributes,
-                   cp.case_notes, cp.is_primary, cp.grouped_under_id,
-                   cp.assigned_date, cp.created_at as assigned_at,
+            SELECT p.id, p.name, p.phones, p.emails, p.organization, p.notes as person_notes,
+                   pr.id as assignment_id, pr.role_id, pr.attributes, pr.notes as role_notes,
+                   pr.is_primary, pr.grouped_under_id, pr.assigned_date, pr.created_at as assigned_at,
+                   r.name as role_name, r.category as role_category, r.sort_order as role_sort_order,
                    via.name as grouped_under_name
             FROM persons p
-            JOIN case_persons cp ON p.id = cp.person_id
-            LEFT JOIN persons via ON cp.grouped_under_id = via.id
-            WHERE cp.case_id = %s
-            ORDER BY
-                CASE cp.role
-                    WHEN 'Client' THEN 1
-                    WHEN 'Defendant' THEN 2
-                    ELSE 3
-                END,
-                p.name
+            JOIN person_roles pr ON p.id = pr.person_id
+            JOIN roles r ON pr.role_id = r.id
+            LEFT JOIN persons via ON pr.grouped_under_id = via.id
+            WHERE pr.case_id = %s
+            ORDER BY r.category, r.sort_order, p.name
         """, (case_id,))
         result["persons"] = serialize_rows([dict(row) for row in cur.fetchall()])
 
@@ -189,14 +189,14 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         """, (case_id,))
         proceedings = [dict(row) for row in cur.fetchall()]
 
-        # Fetch judges for all proceedings in one query
+        # Fetch judges for all proceedings in one query (judges are now standalone)
         if proceedings:
             proceeding_ids = [p["id"] for p in proceedings]
             cur.execute("""
-                SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
-                       per.name as judge_name
-                FROM judges pj
-                JOIN persons per ON pj.person_id = per.id
+                SELECT pj.proceeding_id, pj.judge_id, pj.role, pj.sort_order,
+                       j.name as judge_name
+                FROM proceeding_judges pj
+                JOIN judges j ON pj.judge_id = j.id
                 WHERE pj.proceeding_id = ANY(%s)
                 ORDER BY pj.sort_order, pj.id
             """, (proceeding_ids,))
@@ -208,7 +208,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
                 if pid not in judges_by_proceeding:
                     judges_by_proceeding[pid] = []
                 judges_by_proceeding[pid].append({
-                    "person_id": row["person_id"],
+                    "judge_id": row["judge_id"],
                     "name": row["judge_name"],
                     "role": row["role"],
                     "sort_order": row["sort_order"]
@@ -220,7 +220,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
                 # For backwards compatibility, set judge_name from first judge
                 if p["judges"]:
                     p["judge_name"] = p["judges"][0]["name"]
-                    p["judge_id"] = p["judges"][0]["person_id"]
+                    p["judge_id"] = p["judges"][0]["judge_id"]
                 else:
                     p["judge_name"] = None
                     p["judge_id"] = None
@@ -345,9 +345,9 @@ def search_cases(query: str = None, case_number: str = None, person_name: str = 
     if person_name:
         conditions.append("""
             EXISTS (
-                SELECT 1 FROM case_persons cp
-                JOIN persons p ON cp.person_id = p.id
-                WHERE cp.case_id = c.id AND p.name ILIKE %s
+                SELECT 1 FROM person_roles pr
+                JOIN persons p ON pr.person_id = p.id
+                WHERE pr.case_id = c.id AND p.name ILIKE %s
             )
         """)
         params.append(f"%{person_name}%")
@@ -378,7 +378,7 @@ def get_case_summary(case_id: int) -> Optional[dict]:
             SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
                    c.case_summary, c.date_of_injury, c.result,
                    c.created_at, c.updated_at,
-                   (SELECT COUNT(*) FROM case_persons cp WHERE cp.case_id = c.id) as person_count,
+                   (SELECT COUNT(*) FROM person_roles pr WHERE pr.case_id = c.id) as person_count,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id) as task_count,
                    (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
                    (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id) as event_count,

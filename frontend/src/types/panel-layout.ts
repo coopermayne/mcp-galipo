@@ -24,7 +24,7 @@ export type CasesGroupMode = 'none' | 'alpha' | 'status';
 export type CaseAttorneyFilter = 'all' | 'mine' | 'unassigned' | number[];
 
 /** Group modes for persons widget */
-export type PersonsGroupMode = 'type' | 'alpha' | 'recent';
+export type PersonsGroupMode = 'category' | 'alpha' | 'recent';
 
 /** Base config all widgets share */
 interface BaseWidgetConfig {
@@ -176,7 +176,7 @@ export function createDefaultPersonsWidget(id: string): PersonsWidgetConfig {
     id,
     type: 'persons',
     showUnassigned: false,
-    groupBy: 'type',
+    groupBy: 'category',
     typeFilter: undefined,
     searchQuery: '',
   };

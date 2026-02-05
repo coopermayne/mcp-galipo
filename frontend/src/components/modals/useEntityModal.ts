@@ -18,9 +18,17 @@ export function useEntityModal() {
     [openModal]
   );
 
+  const openJudgeModal = useCallback(
+    (id: number, context?: { readOnly?: boolean }) => {
+      openModal({ type: 'judge', id, context });
+    },
+    [openModal]
+  );
+
   return {
     openPersonModal,
     openProceedingModal,
+    openJudgeModal,
     closeModal,
   };
 }

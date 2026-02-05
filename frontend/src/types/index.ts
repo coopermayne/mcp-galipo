@@ -5,8 +5,8 @@
 export type {
   CaseStatus,
   TaskStatus,
-  PersonType,
-  PersonSide,
+  RoleCategory,
+  RoleRef,
   PhoneEntry,
   EmailEntry,
   Jurisdiction,
@@ -52,16 +52,31 @@ export type {
   UpdateActivityInput,
 } from './activity';
 
+// Role types
+export type {
+  Role,
+  CreateRoleInput,
+  UpdateRoleInput,
+} from './role';
+
+// Judge types
+export type {
+  Judge,
+  JudgeProceeding,
+  CreateJudgeInput,
+  UpdateJudgeInput,
+} from './judge';
+
 // Person types
 export type {
   ExpertiseType,
-  PersonTypeRecord,
-  JudgeAttributes,
+  PersonRoleRef,
   ExpertAttributes,
   AttorneyAttributes,
   MediatorAttributes,
   ClientAttributes,
   PersonAttributes,
+  PersonRole,
   Person,
   CasePersonAssignment,
   CasePerson,
@@ -69,6 +84,7 @@ export type {
   UpdatePersonInput,
   AssignPersonInput,
   UpdateAssignmentInput,
+  ChangeRoleInput,
 } from './person';
 
 // Proceeding types

@@ -45,6 +45,8 @@ export function DraggablePersonChip({
   // Parents with children can't be nested under others (only one level of nesting)
   const canBeDragged = !isDragDisabled && !hasChildren;
 
+  const roleName = person.role?.name || '';
+
   // Draggable setup
   const {
     attributes,
@@ -53,7 +55,7 @@ export function DraggablePersonChip({
     transform,
     isDragging,
   } = useDraggable({
-    id: `person-${person.id}-${person.role}`,
+    id: `person-${person.id}-${roleName}`,
     data: { person, hasChildren },
     disabled: !canBeDragged,
   });
@@ -63,7 +65,7 @@ export function DraggablePersonChip({
     setNodeRef: setDropRef,
     isOver,
   } = useDroppable({
-    id: `drop-person-${person.id}-${person.role}`,
+    id: `drop-person-${person.id}-${roleName}`,
     data: { person },
     disabled: !canBeDropTarget || isDragging,
   });
@@ -157,8 +159,8 @@ export function DraggablePersonChip({
         <span className="font-medium">
           {person.name}
         </span>
-        {person.role && !['Client', 'Defendant'].includes(person.role) && (
-          <span className="text-xs opacity-70">({person.role})</span>
+        {roleName && !['Client', 'Defendant'].includes(roleName) && (
+          <span className="text-xs opacity-70">({roleName})</span>
         )}
         {/* Contact icons - copy to clipboard on click */}
         {(phone || email || hasAddress) && (

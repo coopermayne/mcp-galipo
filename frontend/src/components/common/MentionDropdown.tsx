@@ -84,7 +84,7 @@ export function MentionDropdown({
               {person.name}
             </div>
             <div className="text-text-secondary truncate">
-              {person.role}
+              {person.role?.name}
               {person.organization && ` · ${person.organization}`}
             </div>
           </div>

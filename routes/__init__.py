@@ -39,6 +39,8 @@ from .cases import register_case_routes
 from .tasks import register_task_routes
 from .events import register_event_routes
 from .persons import register_person_routes
+from .roles import register_role_routes
+from .judges import register_judge_routes
 from .notes import register_note_routes
 from .activities import register_activity_routes
 from .proceedings import register_proceeding_routes

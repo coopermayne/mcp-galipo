@@ -24,11 +24,16 @@ export type TaskStatus =
   | 'Blocked'
   | 'Awaiting Atty Review';
 
-// Person-related shared types
-// PersonType is extensible - any string is allowed. Common types include:
-// client, attorney, judge, expert, mediator, defendant, witness, lien_holder, interpreter, etc.
-export type PersonType = string;
-export type PersonSide = 'plaintiff' | 'defendant' | 'neutral';
+// Role categories for the unified roles system
+export type RoleCategory = 'client' | 'internal_team' | 'opposing_team' | 'third_party';
+
+// Role interface for constants response
+export interface RoleRef {
+  id: number;
+  name: string;
+  category: RoleCategory;
+  sort_order: number;
+}
 
 // Contact info types (shared across person and other entities)
 export interface PhoneEntry {
@@ -71,8 +76,8 @@ export interface Constants {
   case_statuses: string[];
   task_statuses: string[];
   activity_types: string[];
-  person_types?: string[];
-  person_sides?: string[];
+  role_categories: string[];
+  roles: RoleRef[];
   jurisdictions?: Jurisdiction[];
 }
 

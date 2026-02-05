@@ -3,6 +3,9 @@ Bulk case import - creates a case with all related entities in a single transact
 
 Optimized for Claude AI to parse unstructured case summaries into structured JSON,
 then import everything at once.
+
+Uses the unified roles schema: persons + person_roles + roles.
+Judges are standalone entities linked to proceedings via proceeding_judges.
 """
 
 import json
@@ -12,7 +15,6 @@ from .validation import (
     validate_case_status,
     validate_date_format,
     validate_time_format,
-    validate_person_side,
     ValidationError,
     CASE_STATUSES,
 )
@@ -27,7 +29,7 @@ def import_case(data: dict) -> dict:
         data: Dictionary with structure:
             {
                 "case": { case fields },
-                "persons": [ { person + role/side for case assignment } ],
+                "persons": [ { person + role_name for case assignment } ],
                 "proceedings": [ { case_number, jurisdiction, judges[] } ],
                 "events": [ { event fields - hearings, deadlines, depositions, etc. } ],
                 "notes": [ { content } ],
@@ -59,7 +61,7 @@ def import_case(data: dict) -> dict:
         "case_id": None,
         "created": {
             "persons": [],
-            "case_persons": [],
+            "person_roles": [],
             "proceedings": [],
             "judges": [],
             "events": [],
@@ -82,8 +84,6 @@ def import_case(data: dict) -> dict:
             result["case_id"] = case_id
 
             # 2. Create persons and assign to case
-            # Build a name -> person_id map for linking judges to proceedings
-            person_name_map = {}
             persons_data = data.get("persons", [])
             for person_data in persons_data:
                 person_result = _create_person_and_assign(cur, case_id, person_data)
@@ -91,19 +91,17 @@ def import_case(data: dict) -> dict:
                     "id": person_result["person_id"],
                     "name": person_data.get("name")
                 })
-                if person_result.get("case_person_id"):
-                    result["created"]["case_persons"].append({
-                        "id": person_result["case_person_id"],
+                if person_result.get("person_role_id"):
+                    result["created"]["person_roles"].append({
+                        "id": person_result["person_role_id"],
                         "person_id": person_result["person_id"],
-                        "role": person_data.get("role")
+                        "role_name": person_result.get("role_name")
                     })
-                # Track by name for judge linking
-                person_name_map[person_data.get("name", "").lower().strip()] = person_result["person_id"]
 
             # 3. Create proceedings with judges
             proceedings_data = data.get("proceedings", [])
             for proc_data in proceedings_data:
-                proc_result = _create_proceeding(cur, case_id, proc_data, person_name_map)
+                proc_result = _create_proceeding(cur, case_id, proc_data)
                 result["created"]["proceedings"].append({
                     "id": proc_result["proceeding_id"],
                     "case_number": proc_data.get("case_number")
@@ -201,18 +199,19 @@ def _create_case(cur, case_data: dict) -> int:
 
 
 def _create_person_and_assign(cur, case_id: int, person_data: dict) -> dict:
-    """Create a person and optionally assign to the case."""
-    result = {"person_id": None, "case_person_id": None}
+    """Create a person and optionally assign to the case with a role."""
+    result = {"person_id": None, "person_role_id": None, "role_name": None}
 
     name = person_data.get("name")
     if not name:
         raise ValidationError("Person name is required")
 
-    # Determine person_type from role if not explicitly provided
-    role = person_data.get("role", "")
-    person_type = person_data.get("person_type")
-    if not person_type:
-        person_type = _infer_person_type(role)
+    # Get the role by name (required for assignment)
+    role_name = person_data.get("role") or person_data.get("role_name")
+    role_id = None
+    if role_name:
+        role_id = _get_or_create_role_id(cur, role_name)
+        result["role_name"] = role_name
 
     # Prepare contact info
     phones = person_data.get("phones", [])
@@ -224,124 +223,90 @@ def _create_person_and_assign(cur, case_id: int, person_data: dict) -> dict:
     if person_data.get("email") and not emails:
         emails = [{"value": person_data["email"], "primary": True}]
 
-    # Create the person
+    # Create the person (no person_type in new schema)
     cur.execute("""
-        INSERT INTO persons (
-            person_type, name, phones, emails, address,
-            organization, attributes, notes
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO persons (name, phones, emails, address, organization, notes)
+        VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING id
     """, (
-        person_type,
         name,
         json.dumps(phones),
         json.dumps(emails),
         person_data.get("address"),
         person_data.get("organization"),
-        json.dumps(person_data.get("attributes", {})),
         person_data.get("notes")
     ))
     person_id = cur.fetchone()["id"]
     result["person_id"] = person_id
 
-    # Assign to case if role is provided (and not a judge role - judges go on proceedings)
-    if role and role not in ["Judge", "Magistrate Judge"]:
-        side = person_data.get("side")
-        if side:
-            validate_person_side(side)
-        else:
-            # Infer side from role
-            side = _infer_side(role)
-
+    # Assign to case if role is provided
+    if role_id:
         cur.execute("""
-            INSERT INTO case_persons (
-                case_id, person_id, role, side, case_attributes,
-                case_notes, is_primary, assigned_date
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (case_id, person_id, role) DO UPDATE SET
-                side = EXCLUDED.side,
-                case_attributes = EXCLUDED.case_attributes,
-                case_notes = EXCLUDED.case_notes,
+            INSERT INTO person_roles (person_id, role_id, case_id, attributes, notes,
+                                      is_primary, assigned_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT uq_person_roles_case DO UPDATE SET
+                attributes = EXCLUDED.attributes,
+                notes = EXCLUDED.notes,
                 is_primary = EXCLUDED.is_primary
             RETURNING id
         """, (
-            case_id,
             person_id,
-            role,
-            side,
-            json.dumps(person_data.get("case_attributes", {})),
-            person_data.get("case_notes"),
+            role_id,
+            case_id,
+            json.dumps(person_data.get("attributes", {})),
+            person_data.get("role_notes"),
             person_data.get("is_primary", False),
             person_data.get("assigned_date")
         ))
-        result["case_person_id"] = cur.fetchone()["id"]
+        result["person_role_id"] = cur.fetchone()["id"]
 
     return result
 
 
-def _infer_person_type(role: str) -> str:
-    """Infer person_type from role."""
-    role_lower = role.lower() if role else ""
+def _get_or_create_role_id(cur, role_name: str) -> int:
+    """Get role ID by name, inferring category if we need to create it."""
+    # Try to find existing role
+    cur.execute("SELECT id FROM roles WHERE LOWER(name) = LOWER(%s)", (role_name,))
+    row = cur.fetchone()
+    if row:
+        return row["id"]
 
-    mapping = {
-        "client": "client",
-        "plaintiff": "client",
-        "defendant": "defendant",
-        "opposing counsel": "attorney",
-        "defense counsel": "attorney",
-        "co-counsel": "attorney",
-        "attorney": "attorney",
-        "counsel": "attorney",
-        "judge": "judge",
-        "magistrate": "judge",
-        "expert": "expert",
-        "plaintiff expert": "expert",
-        "defense expert": "expert",
-        "mediator": "mediator",
-        "arbitrator": "mediator",
-        "witness": "witness",
-        "lien holder": "lien_holder",
-        "lienholder": "lien_holder",
-        "interpreter": "interpreter",
-        "court reporter": "court_reporter",
-        "process server": "process_server",
-        "investigator": "investigator",
-        "insurance adjuster": "insurance_adjuster",
-        "adjuster": "insurance_adjuster",
-        "guardian": "guardian",
-    }
+    # Infer category from role name
+    category = _infer_role_category(role_name)
 
-    for key, value in mapping.items():
-        if key in role_lower:
-            return value
-
-    return "attorney"  # Default fallback
+    # Create the role
+    cur.execute("""
+        INSERT INTO roles (name, category, sort_order)
+        VALUES (%s, %s, 99)
+        RETURNING id
+    """, (role_name, category))
+    return cur.fetchone()["id"]
 
 
-def _infer_side(role: str) -> str:
-    """Infer side from role."""
-    role_lower = role.lower() if role else ""
+def _infer_role_category(role_name: str) -> str:
+    """Infer role category from role name."""
+    role_lower = role_name.lower() if role_name else ""
 
-    plaintiff_keywords = ["client", "plaintiff", "co-counsel", "plaintiff expert"]
-    defendant_keywords = ["defendant", "defense", "opposing"]
-    neutral_keywords = ["judge", "mediator", "arbitrator", "court reporter", "interpreter"]
+    # Client category
+    if any(k in role_lower for k in ["client", "plaintiff"]):
+        return "client"
 
-    for keyword in plaintiff_keywords:
-        if keyword in role_lower:
-            return "plaintiff"
-    for keyword in defendant_keywords:
-        if keyword in role_lower:
-            return "defendant"
-    for keyword in neutral_keywords:
-        if keyword in role_lower:
-            return "neutral"
+    # Internal team
+    if any(k in role_lower for k in ["lead attorney", "associate attorney", "paralegal",
+                                      "case manager", "legal assistant"]):
+        return "internal_team"
 
-    return "neutral"  # Default fallback
+    # Opposing team
+    if any(k in role_lower for k in ["defense counsel", "opposing counsel", "defendant",
+                                      "defense expert"]):
+        return "opposing_team"
+
+    # Default to third_party
+    return "third_party"
 
 
-def _create_proceeding(cur, case_id: int, proc_data: dict, person_name_map: dict) -> dict:
+def _create_proceeding(cur, case_id: int, proc_data: dict) -> dict:
     """Create a proceeding with jurisdiction and judges."""
     result = {
         "proceeding_id": None,
@@ -411,21 +376,25 @@ def _create_proceeding(cur, case_id: int, proc_data: dict, person_name_map: dict
             elif isinstance(j, dict) and j.get("name"):
                 judge_entries.append({"name": j["name"], "role": j.get("role")})
 
-    # Link judges to proceeding
+    # Link judges to proceeding - judges are now standalone entities
     for idx, entry in enumerate(judge_entries):
         judge_name = entry["name"]
         judge_name_lower = judge_name.lower().strip()
-        person_id = person_name_map.get(judge_name_lower)
 
-        if not person_id:
-            # Judge wasn't in persons list, create them
+        # Check if judge already exists
+        cur.execute("SELECT id FROM judges WHERE LOWER(name) = LOWER(%s)", (judge_name,))
+        judge_row = cur.fetchone()
+
+        if judge_row:
+            judge_id = judge_row["id"]
+        else:
+            # Create new judge
             cur.execute("""
-                INSERT INTO persons (person_type, name, phones, emails, attributes)
-                VALUES ('judge', %s, '[]', '[]', '{}')
+                INSERT INTO judges (name, phones, emails, jurisdiction_id)
+                VALUES (%s, '[]', '[]', %s)
                 RETURNING id
-            """, (judge_name,))
-            person_id = cur.fetchone()["id"]
-            person_name_map[judge_name_lower] = person_id
+            """, (judge_name, jurisdiction_id))
+            judge_id = cur.fetchone()["id"]
 
         # Determine judge role: explicit > auto-detect from name
         judge_role = entry["role"]
@@ -435,19 +404,19 @@ def _create_proceeding(cur, case_id: int, proc_data: dict, person_name_map: dict
             else:
                 judge_role = "Judge"
 
-        # Add to proceeding
+        # Add to proceeding via proceeding_judges
         cur.execute("""
-            INSERT INTO judges (proceeding_id, person_id, role, sort_order)
+            INSERT INTO proceeding_judges (proceeding_id, judge_id, role, sort_order)
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT (proceeding_id, person_id) DO NOTHING
+            ON CONFLICT (proceeding_id, judge_id) DO NOTHING
             RETURNING id
-        """, (proceeding_id, person_id, judge_role, idx))
+        """, (proceeding_id, judge_id, judge_role, idx))
 
         row = cur.fetchone()
         if row:
             result["judges"].append({
                 "id": row["id"],
-                "person_id": person_id,
+                "judge_id": judge_id,
                 "name": judge_name,
                 "role": judge_role
             })

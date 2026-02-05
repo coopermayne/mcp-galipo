@@ -1,39 +1,41 @@
 import type {
   Person,
   CasePerson,
-  PersonType,
-  PersonTypeRecord,
+  RoleCategory,
   ExpertiseType,
   CreatePersonInput,
   UpdatePersonInput,
   AssignPersonInput,
   UpdateAssignmentInput,
+  ChangeRoleInput,
 } from '../types';
 import { request } from './common';
 
 // Persons
 export async function getPersons(params?: {
   name?: string;
-  type?: PersonType;
+  role_id?: number;
+  category?: RoleCategory;
   organization?: string;
   email?: string;
   phone?: string;
   case_id?: number;
   unassigned?: boolean;
-  include_cases?: boolean;
+  include_roles?: boolean;
   user_id?: number;
   limit?: number;
   offset?: number;
 }): Promise<{ persons: Person[]; total: number }> {
   const searchParams = new URLSearchParams();
   if (params?.name) searchParams.set('name', params.name);
-  if (params?.type) searchParams.set('type', params.type);
+  if (params?.role_id) searchParams.set('role_id', String(params.role_id));
+  if (params?.category) searchParams.set('category', params.category);
   if (params?.organization) searchParams.set('organization', params.organization);
   if (params?.email) searchParams.set('email', params.email);
   if (params?.phone) searchParams.set('phone', params.phone);
   if (params?.case_id) searchParams.set('case_id', String(params.case_id));
   if (params?.unassigned) searchParams.set('unassigned', 'true');
-  if (params?.include_cases) searchParams.set('include_cases', 'true');
+  if (params?.include_roles) searchParams.set('include_roles', 'true');
   if (params?.user_id) searchParams.set('user_id', String(params.user_id));
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
@@ -70,6 +72,14 @@ export async function deletePerson(
   });
 }
 
+export async function archivePerson(
+  personId: number
+): Promise<{ success: boolean; person: Person }> {
+  return request(`/persons/${personId}/archive`, {
+    method: 'POST',
+  });
+}
+
 // Duplicate Detection & Merge
 export interface DuplicateGroup {
   persons: Person[];
@@ -89,8 +99,7 @@ export async function getMergePreview(
   secondary: Person;
   conflicts: {
     field_conflicts: Array<{ field: string; primary_value: string; secondary_value: string }>;
-    assignment_conflicts: Array<{ case_id: number; role: string; case_name: string; short_name: string }>;
-    judge_conflicts: Array<{ proceeding_id: number; proceeding_name: string }>;
+    role_conflicts: Array<{ case_id: number; role_id: number; role_name: string; case_name: string }>;
   };
   auto_mergeable: boolean;
 }> {
@@ -112,19 +121,17 @@ export async function mergePersons(
   });
 }
 
-// Case-Person Assignments
+// Case-Person Assignments (via person_roles)
 export async function getCasePersons(
   caseId: number,
   params?: {
-    type?: PersonType;
-    role?: string;
-    side?: string;
+    role_id?: number;
+    category?: RoleCategory;
   }
 ): Promise<{ success: boolean; persons: CasePerson[]; total: number }> {
   const searchParams = new URLSearchParams();
-  if (params?.type) searchParams.set('type', params.type);
-  if (params?.role) searchParams.set('role', params.role);
-  if (params?.side) searchParams.set('side', params.side);
+  if (params?.role_id) searchParams.set('role_id', String(params.role_id));
+  if (params?.category) searchParams.set('category', params.category);
   const query = searchParams.toString();
   return request(`/cases/${caseId}/persons${query ? `?${query}` : ''}`);
 }
@@ -141,10 +148,10 @@ export async function assignPersonToCase(
 
 export async function updateCaseAssignment(
   caseId: number,
-  personId: number,
+  assignmentId: number,
   data: UpdateAssignmentInput
 ): Promise<{ success: boolean; assignment: CasePerson }> {
-  return request(`/cases/${caseId}/persons/${personId}`, {
+  return request(`/cases/${caseId}/person-roles/${assignmentId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -153,21 +160,20 @@ export async function updateCaseAssignment(
 export async function changePersonRole(
   caseId: number,
   personId: number,
-  oldRole: string,
-  newRole: string
+  data: ChangeRoleInput
 ): Promise<{ success: boolean; assignment: CasePerson }> {
   return request(`/cases/${caseId}/persons/${personId}/change-role`, {
     method: 'PATCH',
-    body: JSON.stringify({ old_role: oldRole, new_role: newRole }),
+    body: JSON.stringify(data),
   });
 }
 
 export async function removePersonFromCase(
   caseId: number,
   personId: number,
-  role?: string
+  roleId?: number
 ): Promise<{ success: boolean }> {
-  const query = role ? `?role=${encodeURIComponent(role)}` : '';
+  const query = roleId ? `?role_id=${roleId}` : '';
   return request(`/cases/${caseId}/persons/${personId}${query}`, {
     method: 'DELETE',
   });
@@ -185,38 +191,5 @@ export async function createExpertiseType(
   return request('/expertise-types', {
     method: 'POST',
     body: JSON.stringify({ name, description }),
-  });
-}
-
-// Person Types
-export async function getPersonTypes(): Promise<{ success: boolean; person_types: PersonTypeRecord[]; total: number }> {
-  return request('/person-types');
-}
-
-export async function createPersonType(
-  name: string,
-  description?: string
-): Promise<{ success: boolean; person_type: PersonTypeRecord }> {
-  return request('/person-types', {
-    method: 'POST',
-    body: JSON.stringify({ name, description }),
-  });
-}
-
-export async function updatePersonType(
-  typeId: number,
-  data: { name?: string; description?: string }
-): Promise<{ success: boolean; person_type: PersonTypeRecord }> {
-  return request(`/person-types/${typeId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deletePersonType(
-  typeId: number
-): Promise<{ success: boolean }> {
-  return request(`/person-types/${typeId}`, {
-    method: 'DELETE',
   });
 }

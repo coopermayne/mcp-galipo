@@ -78,7 +78,7 @@ const CASES_GROUP_OPTIONS: { value: CasesGroupMode; label: string; icon: React.R
 ];
 
 const PERSONS_GROUP_OPTIONS: { value: PersonsGroupMode; label: string; icon: React.ReactNode }[] = [
-  { value: 'type', label: 'Type', icon: <Users className="w-3.5 h-3.5" /> },
+  { value: 'category', label: 'Category', icon: <Users className="w-3.5 h-3.5" /> },
   { value: 'alpha', label: 'A-Z', icon: <SortAsc className="w-3.5 h-3.5" /> },
   { value: 'recent', label: 'Recent', icon: <Clock className="w-3.5 h-3.5" /> },
 ];

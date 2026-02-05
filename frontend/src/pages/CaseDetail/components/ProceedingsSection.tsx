@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, ExternalLink, X, Scale } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
-import { JurisdictionAutocomplete, AddPersonDropdown } from '../../../components/common';
+import { JurisdictionAutocomplete, JudgeAutocomplete } from '../../../components/common';
 import {
   createProceeding,
   addProceedingJudge,
   removeProceedingJudge,
-  createPerson,
+  createJudge,
   createJurisdiction,
 } from '../../../api';
-import type { Proceeding, Jurisdiction, ProceedingJudge, Person } from '../../../types';
+import type { Proceeding, Jurisdiction, ProceedingJudge, Judge } from '../../../types';
 
 interface ProceedingsSectionProps {
   caseId: number;
@@ -22,8 +22,10 @@ export function ProceedingsSection({
   proceedings,
 }: ProceedingsSectionProps) {
   const queryClient = useQueryClient();
-  const { openProceedingModal, openPersonModal } = useEntityModal();
+  const { openProceedingModal, openJudgeModal } = useEntityModal();
   const [showAdd, setShowAdd] = useState(false);
+  const [addingJudgeToProceeding, setAddingJudgeToProceeding] = useState<number | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>('Judge');
   const [newProceeding, setNewProceeding] = useState({
     case_number: '',
     jurisdiction_id: null as number | null,
@@ -80,30 +82,33 @@ export function ProceedingsSection({
   });
 
   const addJudgeMutation = useMutation({
-    mutationFn: async ({ proceedingId, personId, role }: { proceedingId: number; personId: number; role: string }) => {
-      return addProceedingJudge(proceedingId, { person_id: personId, role });
+    mutationFn: async ({ proceedingId, judgeId, role }: { proceedingId: number; judgeId: number; role: string }) => {
+      return addProceedingJudge(proceedingId, { judge_id: judgeId, role });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      setAddingJudgeToProceeding(null);
     },
   });
 
   const createAndAddJudgeMutation = useMutation({
     mutationFn: async ({ proceedingId, name, role }: { proceedingId: number; name: string; role: string }) => {
-      const personResult = await createPerson({ person_type: 'judge', name });
-      const personId = personResult.person.id;
-      const judgeResult = await addProceedingJudge(proceedingId, { person_id: personId, role });
-      return { personId, judgeResult };
+      const judgeResult = await createJudge({ name });
+      const judgeId = judgeResult.judge.id;
+      const assignResult = await addProceedingJudge(proceedingId, { judge_id: judgeId, role });
+      return { judgeId, assignResult };
     },
-    onSuccess: ({ personId }) => {
+    onSuccess: ({ judgeId }) => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      openPersonModal(personId, { caseId });
+      queryClient.invalidateQueries({ queryKey: ['judges'] });
+      setAddingJudgeToProceeding(null);
+      openJudgeModal(judgeId);
     },
   });
 
   const removeJudgeMutation = useMutation({
-    mutationFn: ({ proceedingId, personId }: { proceedingId: number; personId: number }) =>
-      removeProceedingJudge(proceedingId, personId),
+    mutationFn: ({ proceedingId, judgeId }: { proceedingId: number; judgeId: number }) =>
+      removeProceedingJudge(proceedingId, judgeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     },
@@ -141,16 +146,16 @@ export function ProceedingsSection({
     });
   };
 
-  const handleSelectJudge = (proceedingId: number, person: Person, role: string) => {
-    addJudgeMutation.mutate({ proceedingId, personId: person.id, role });
+  const handleSelectJudge = (proceedingId: number, judge: Judge) => {
+    addJudgeMutation.mutate({ proceedingId, judgeId: judge.id, role: selectedRole });
   };
 
-  const handleCreateJudge = (proceedingId: number, name: string, role: string) => {
-    createAndAddJudgeMutation.mutate({ proceedingId, name, role });
+  const handleCreateJudge = (proceedingId: number, name: string) => {
+    createAndAddJudgeMutation.mutate({ proceedingId, name, role: selectedRole });
   };
 
-  const handleRemoveJudge = (proceedingId: number, personId: number) => {
-    removeJudgeMutation.mutate({ proceedingId, personId });
+  const handleRemoveJudge = (proceedingId: number, judgeId: number) => {
+    removeJudgeMutation.mutate({ proceedingId, judgeId });
   };
 
   // Separate primary and other proceedings
@@ -159,6 +164,49 @@ export function ProceedingsSection({
 
   const handleAddProceeding = () => {
     createAndOpenMutation.mutate();
+  };
+
+  const renderAddJudgeUI = (proceeding: Proceeding) => {
+    const isAdding = addingJudgeToProceeding === proceeding.id;
+
+    if (!isAdding) {
+      return (
+        <button
+          onClick={() => {
+            setAddingJudgeToProceeding(proceeding.id);
+            setSelectedRole('Judge');
+          }}
+          className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-0.5"
+        >
+          <Plus className="w-2.5 h-2.5" />
+          <span>Judge</span>
+        </button>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2 mt-1">
+        <select
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+          className="px-2 py-1 text-xs rounded border border-border bg-bg-surface text-text focus:border-primary-500 outline-none"
+        >
+          {judgeRoleOptions.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <div className="flex-1 max-w-[200px]">
+          <JudgeAutocomplete
+            excludeJudgeIds={proceeding.judges?.map((j) => j.judge_id) || []}
+            onSelectJudge={(judge) => handleSelectJudge(proceeding.id, judge)}
+            onCreateNew={(name) => handleCreateJudge(proceeding.id, name)}
+            onCancel={() => setAddingJudgeToProceeding(null)}
+            placeholder="Search judges..."
+            autoFocus
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -209,17 +257,17 @@ export function ProceedingsSection({
           {primaryProceeding.judges && primaryProceeding.judges.length > 0 && (
             <div className="ml-5 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {primaryProceeding.judges.map((judge: ProceedingJudge, idx: number) => (
-                <span key={`${judge.person_id}-${judge.role}`} className="text-sm text-text-secondary group/judge inline-flex items-center gap-1">
+                <span key={`${judge.judge_id}-${judge.role}`} className="text-sm text-text-secondary group/judge inline-flex items-center gap-1">
                   {idx > 0 && <span className="text-text-muted">·</span>}
                   <span
                     className="cursor-pointer hover:underline"
-                    onClick={() => openPersonModal(judge.person_id, { caseId })}
+                    onClick={() => openJudgeModal(judge.judge_id)}
                   >
                     {judge.name}
                   </span>
                   <span className="text-text-muted text-xs">({judge.role})</span>
                   <button
-                    onClick={() => handleRemoveJudge(primaryProceeding.id, judge.person_id)}
+                    onClick={() => handleRemoveJudge(primaryProceeding.id, judge.judge_id)}
                     className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-text-muted hover:text-red-400 transition-opacity"
                     title="Remove judge"
                   >
@@ -228,32 +276,14 @@ export function ProceedingsSection({
                 </span>
               ))}
               {/* Add judge button - inline */}
-              <AddPersonDropdown
-                roleOptions={judgeRoleOptions}
-                onAssign={(person, role) => handleSelectJudge(primaryProceeding.id, person, role)}
-                onCreate={(name, role) => handleCreateJudge(primaryProceeding.id, name, role)}
-                excludePersonIds={primaryProceeding.judges?.map((j) => j.person_id) || []}
-                getPersonTypes={() => ['judge']}
-                getPlaceholder={() => 'Search judges...'}
-                compact
-                label="Judge"
-              />
+              {renderAddJudgeUI(primaryProceeding)}
             </div>
           )}
 
           {/* No judges yet - show add button */}
           {(!primaryProceeding.judges || primaryProceeding.judges.length === 0) && (
             <div className="ml-5 mt-1">
-              <AddPersonDropdown
-                roleOptions={judgeRoleOptions}
-                onAssign={(person, role) => handleSelectJudge(primaryProceeding.id, person, role)}
-                onCreate={(name, role) => handleCreateJudge(primaryProceeding.id, name, role)}
-                excludePersonIds={[]}
-                getPersonTypes={() => ['judge']}
-                getPlaceholder={() => 'Search judges...'}
-                compact
-                label="Judge"
-              />
+              {renderAddJudgeUI(primaryProceeding)}
             </div>
           )}
 

@@ -4,8 +4,8 @@ Proceedings management functions.
 A proceeding represents a court filing within a case. A single case (matter) can have
 multiple proceedings across different courts (e.g., state court -> federal removal -> appeal).
 
-Each proceeding can have multiple judges (for panels, magistrate+judge combos, etc.)
-via the judges table.
+Judges are now standalone entities (not persons) linked via the proceeding_judges table.
+Use db/judges.py for judge management.
 """
 
 from typing import Optional, List
@@ -88,10 +88,10 @@ def get_proceedings(case_id: int) -> List[dict]:
         if proceedings:
             proceeding_ids = [p["id"] for p in proceedings]
             cur.execute("""
-                SELECT pj.proceeding_id, pj.person_id, pj.role, pj.sort_order,
-                       per.name as judge_name
-                FROM judges pj
-                JOIN persons per ON pj.person_id = per.id
+                SELECT pj.proceeding_id, pj.judge_id, pj.role, pj.sort_order,
+                       jdg.name as judge_name
+                FROM proceeding_judges pj
+                JOIN judges jdg ON pj.judge_id = jdg.id
                 WHERE pj.proceeding_id = ANY(%s)
                 ORDER BY pj.sort_order, pj.id
             """, (proceeding_ids,))
@@ -103,7 +103,7 @@ def get_proceedings(case_id: int) -> List[dict]:
                 if pid not in judges_by_proceeding:
                     judges_by_proceeding[pid] = []
                 judges_by_proceeding[pid].append({
-                    "person_id": row["person_id"],
+                    "judge_id": row["judge_id"],
                     "name": row["judge_name"],
                     "role": row["role"],
                     "sort_order": row["sort_order"]
@@ -115,7 +115,7 @@ def get_proceedings(case_id: int) -> List[dict]:
                 # For backwards compatibility, set judge_name from first judge
                 if p["judges"]:
                     p["judge_name"] = p["judges"][0]["name"]
-                    p["judge_id"] = p["judges"][0]["person_id"]
+                    p["judge_id"] = p["judges"][0]["judge_id"]
                 else:
                     p["judge_name"] = None
                     p["judge_id"] = None
@@ -144,16 +144,16 @@ def get_proceeding_by_id(proceeding_id: int) -> Optional[dict]:
 
         # Fetch judges for this proceeding
         cur.execute("""
-            SELECT pj.person_id, pj.role, pj.sort_order,
-                   per.name as judge_name
-            FROM judges pj
-            JOIN persons per ON pj.person_id = per.id
+            SELECT pj.judge_id, pj.role, pj.sort_order,
+                   jdg.name as judge_name
+            FROM proceeding_judges pj
+            JOIN judges jdg ON pj.judge_id = jdg.id
             WHERE pj.proceeding_id = %s
             ORDER BY pj.sort_order, pj.id
         """, (proceeding_id,))
 
         proceeding["judges"] = [{
-            "person_id": r["person_id"],
+            "judge_id": r["judge_id"],
             "name": r["judge_name"],
             "role": r["role"],
             "sort_order": r["sort_order"]
@@ -162,7 +162,7 @@ def get_proceeding_by_id(proceeding_id: int) -> Optional[dict]:
         # For backwards compatibility
         if proceeding["judges"]:
             proceeding["judge_name"] = proceeding["judges"][0]["name"]
-            proceeding["judge_id"] = proceeding["judges"][0]["person_id"]
+            proceeding["judge_id"] = proceeding["judges"][0]["judge_id"]
         else:
             proceeding["judge_name"] = None
             proceeding["judge_id"] = None
@@ -238,7 +238,7 @@ def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
 
 
 def delete_proceeding(proceeding_id: int) -> bool:
-    """Delete a proceeding (cascade deletes judges).
+    """Delete a proceeding (cascade deletes proceeding_judges).
 
     If only one proceeding remains after deletion, it becomes primary automatically.
     """
@@ -317,103 +317,3 @@ def find_proceeding_for_webhook(docket_id: int = None, pacer_case_id: str = None
             return proceeding
 
     return None
-
-
-# ============================================================================
-# Proceeding Judges Management
-# ============================================================================
-
-def add_judge_to_proceeding(proceeding_id: int, person_id: int, role: str = "Judge",
-                            sort_order: int = None) -> dict:
-    """Add a judge to a proceeding."""
-    with get_cursor() as cur:
-        # Determine sort_order if not provided
-        if sort_order is None:
-            cur.execute("""
-                SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order
-                FROM judges WHERE proceeding_id = %s
-            """, (proceeding_id,))
-            sort_order = cur.fetchone()["next_order"]
-
-        cur.execute("""
-            INSERT INTO judges (proceeding_id, person_id, role, sort_order)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (proceeding_id, person_id) DO UPDATE SET role = EXCLUDED.role, sort_order = EXCLUDED.sort_order
-            RETURNING id, proceeding_id, person_id, role, sort_order, created_at
-        """, (proceeding_id, person_id, role, sort_order))
-        row = cur.fetchone()
-
-        # Get judge name
-        cur.execute("SELECT name FROM persons WHERE id = %s", (person_id,))
-        person = cur.fetchone()
-
-        return serialize_row({
-            **dict(row),
-            "name": person["name"] if person else None
-        })
-
-
-def remove_judge_from_proceeding(proceeding_id: int, person_id: int) -> bool:
-    """Remove a judge from a proceeding."""
-    with get_cursor() as cur:
-        cur.execute("""
-            DELETE FROM judges
-            WHERE proceeding_id = %s AND person_id = %s
-        """, (proceeding_id, person_id))
-        return cur.rowcount > 0
-
-
-def get_judges(proceeding_id: int) -> List[dict]:
-    """Get all judges for a proceeding."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT pj.id, pj.proceeding_id, pj.person_id, pj.role, pj.sort_order, pj.created_at,
-                   per.name as judge_name
-            FROM judges pj
-            JOIN persons per ON pj.person_id = per.id
-            WHERE pj.proceeding_id = %s
-            ORDER BY pj.sort_order, pj.id
-        """, (proceeding_id,))
-        return serialize_rows([{
-            **dict(row),
-            "name": row["judge_name"]
-        } for row in cur.fetchall()])
-
-
-def update_proceeding_judge(proceeding_id: int, person_id: int, role: str = _NOT_PROVIDED,
-                            sort_order: int = _NOT_PROVIDED) -> Optional[dict]:
-    """Update a judge's role or sort_order on a proceeding."""
-    updates = []
-    params = []
-
-    if role is not _NOT_PROVIDED:
-        updates.append("role = %s")
-        params.append(role)
-
-    if sort_order is not _NOT_PROVIDED:
-        updates.append("sort_order = %s")
-        params.append(sort_order)
-
-    if not updates:
-        return None
-
-    params.extend([proceeding_id, person_id])
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE judges SET {', '.join(updates)}
-            WHERE proceeding_id = %s AND person_id = %s
-            RETURNING id, proceeding_id, person_id, role, sort_order, created_at
-        """, params)
-        row = cur.fetchone()
-        if not row:
-            return None
-
-        # Get judge name
-        cur.execute("SELECT name FROM persons WHERE id = %s", (person_id,))
-        person = cur.fetchone()
-
-        return serialize_row({
-            **dict(row),
-            "name": person["name"] if person else None
-        })
