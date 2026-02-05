@@ -167,7 +167,7 @@ def register_template_routes(mcp):
             return api_error("document_name is required", "MISSING_FIELD", 400)
 
         try:
-            filename = generate_filename(document_name)
+            filename = await asyncio.to_thread(generate_filename, document_name)
         except Exception as e:
             _logger.error(f"Failed to generate filename: {e}")
             return api_error("Failed to generate filename", "GENERATE_ERROR", 500)
