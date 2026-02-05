@@ -4,6 +4,9 @@ import type { ReactNode } from 'react';
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 
+// Dev mode: skip auth entirely (set VITE_DEV_SKIP_AUTH=true in .env)
+const DEV_SKIP_AUTH = import.meta.env.VITE_DEV_SKIP_AUTH === 'true';
+
 export interface User {
   id: number;
   email: string;
@@ -34,9 +37,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  // Verify stored token on mount
+  // Verify stored token on mount (or auto-auth in dev mode)
   useEffect(() => {
     const verifyToken = async () => {
+      // Dev mode: fetch user from backend (which skips auth and returns DEV_AUTH_USER)
+      if (DEV_SKIP_AUTH) {
+        try {
+          const response = await fetch('/api/v1/auth/verify');
+          if (response.ok) {
+            const data = await response.json();
+            setIsAuthenticated(true);
+            setUser(data.user);
+          }
+        } catch {
+          // Fallback if backend not ready
+          setIsAuthenticated(true);
+          setUser({ id: 0, email: 'dev@localhost', firstName: 'Dev', lastName: 'User', initials: 'DU', position: 'admin', isAdmin: true });
+        }
+        setIsLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem(TOKEN_KEY);
       if (!token) {
         setIsLoading(false);
