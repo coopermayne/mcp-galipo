@@ -185,29 +185,53 @@ class CaseExtractor:
         Returns:
             Dict with 'document_name' and 'filename' suggestions
         """
+        from datetime import datetime
+        today_date = datetime.now().strftime('%Y.%m.%d')
+
         plaintiffs = case_info.get("plaintiffs") or "Unknown"
         defendants = case_info.get("defendants") or "Unknown"
         motion_title = case_info.get("motion_title") or "Unknown Document"
 
-        prompt = f"""You are helping a lawyer create a response document. They uploaded a legal document with the following information:
+        prompt = f"""You are helping a lawyer create a RESPONSE document. They uploaded a legal document titled:
 
-- Document/Motion Title: {motion_title}
-- Plaintiffs: {plaintiffs}
-- Defendants: {defendants}
+"{motion_title}"
 
-Your task is to suggest:
-1. **document_name**: The formal title for the RESPONSE document they are creating. For example:
-   - If they uploaded a "Motion to Compel Discovery", suggest "Opposition to Motion to Compel Discovery"
-   - If they uploaded an "Opposition to Motion for Summary Judgment", suggest "Reply in Support of Motion for Summary Judgment"
-   - If they uploaded a "Complaint", suggest "Answer to Complaint"
-   - If they uploaded a "Demurrer", suggest "Opposition to Demurrer"
+Today's date: {today_date}
 
-2. **filename**: A short, filesystem-friendly filename ending in .docx. Format: LastName_v_DefendantName_Abbrev.docx
-   - Use last names only (e.g., "DOE" not "JOHN DOE")
-   - Use common abbreviations: Opp (Opposition), MTC (Motion to Compel), MSJ (Motion for Summary Judgment), MTD (Motion to Dismiss), Reply, Answer, Dem (Demurrer)
-   - Example: "Doe_v_Acme_Opp_MTC.docx"
+## CRITICAL RULES FOR document_name:
 
-Use the submit_document_names tool to provide your suggestions."""
+The litigation sequence is: Motion → Opposition → Reply
+
+1. If the uploaded title contains "Opposition" → suggest a "Reply in Support of [the underlying motion]"
+   - "Opposition to Motion to Compel" → "Reply in Support of Motion to Compel"
+   - "Opposition to Motion for Summary Judgment" → "Reply in Support of Motion for Summary Judgment"
+
+2. If the uploaded title is a Motion (but NOT an Opposition) → suggest "Opposition to [that motion]"
+   - "Motion to Compel Discovery" → "Opposition to Motion to Compel Discovery"
+   - "Motion for Summary Judgment" → "Opposition to Motion for Summary Judgment"
+
+3. If the uploaded title is a "Complaint" → suggest "Answer to Complaint"
+
+4. If the uploaded title is a "Demurrer" → suggest "Opposition to Demurrer"
+
+## RULES FOR filename:
+Format: {today_date} [abbreviation].docx
+
+Abbreviations:
+- Opposition → Opp
+- Motion to Dismiss → MTD
+- Motion for Summary Judgment → MSJ
+- Motion to Compel → Mot to Compel
+- Motion to Compel Discovery → Mot to Compel Disc
+- Reply in Support of → Reply ISO
+
+Examples:
+- document_name="Opposition to Motion to Compel" → filename="{today_date} Opp Mot to Compel.docx"
+- document_name="Reply in Support of Motion to Compel" → filename="{today_date} Reply ISO Mot to Compel.docx"
+- document_name="Opposition to Motion for Summary Judgment" → filename="{today_date} Opp MSJ.docx"
+- document_name="Reply in Support of Motion for Summary Judgment" → filename="{today_date} Reply ISO MSJ.docx"
+
+Use the submit_document_names tool with your suggestions."""
 
         message = self.client.messages.create(
             model=self.model,
