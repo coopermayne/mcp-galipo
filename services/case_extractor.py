@@ -76,7 +76,7 @@ IMPROVE_NAME_TOOL = {
             "sections": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "List of sections to include. Options: 'notice' (Notice of Motion), 'meet_confer' (Meet & Confer statement), 'toc' (Table of Contents), 'toa' (Table of Authorities), 'cert_compliance' (Certificate of Compliance)"
+                "description": "List of sections to include. Options: 'notice' (Notice of Motion), 'meet_confer' (Meet & Confer statement), 'toc' (Table of Contents), 'toa' (Table of Authorities), 'memo' (Memorandum of Points and Authorities), 'declaration' (Declaration), 'joint_stip' (Joint Stipulation), 'generic' (Generic Pleading), 'cert_compliance' (Certificate of Compliance)"
             }
         },
         "required": ["document_name", "sections"]
@@ -226,17 +226,21 @@ Motion → Opposition → Reply
 5. If the user has typed something specific, clean it up and format it properly
 
 ## SECTION RULES:
-Available sections: notice, meet_confer, toc, toa, cert_compliance
+Available sections: notice, meet_confer, toc, toa, memo, declaration, joint_stip, generic, cert_compliance
 
-- **Motions** (we're filing a motion): include notice, meet_confer, toc, toa
-- **Oppositions** (responding to a motion): include toc, toa, cert_compliance
-- **Replies** (responding to an opposition): usually just cert_compliance (short doc)
-- **Answers** (to complaints): none of these sections typically
+- **Motions** (we're filing a motion): include notice, meet_confer, memo, toc, toa
+- **Oppositions** (responding to a motion): include memo, toc, toa, cert_compliance
+- **Replies** (responding to an opposition): include memo, cert_compliance (short doc)
+- **Answers** (to complaints): generic
+- **Declarations**: declaration (no memo, no toc/toa)
+- **Joint Notices/Stipulations**: joint_stip (no memo, no toc/toa)
 
 ## EXAMPLES:
-- "Opposition to Motion for Summary Judgment" → sections: ["toc", "toa", "cert_compliance"]
-- "Motion to Compel Discovery" → sections: ["notice", "meet_confer", "toc", "toa"]
-- "Reply in Support of Motion to Compel" → sections: ["cert_compliance"]
+- "Opposition to Motion for Summary Judgment" → sections: ["memo", "toc", "toa", "cert_compliance"]
+- "Motion to Compel Discovery" → sections: ["notice", "meet_confer", "memo", "toc", "toa"]
+- "Reply in Support of Motion to Compel" → sections: ["memo", "cert_compliance"]
+- "Declaration of John Doe" → sections: ["declaration"]
+- "Joint Stipulation to Continue Trial" → sections: ["joint_stip"]
 
 Use the submit_document_name tool with your improved title and recommended sections."""
 
@@ -257,7 +261,7 @@ Use the submit_document_name tool with your improved title and recommended secti
             if block.type == "tool_use" and block.name == "submit_document_name":
                 return {
                     "document_name": block.input.get("document_name", ""),
-                    "sections": block.input.get("sections", ["toc", "toa"]),
+                    "sections": block.input.get("sections", ["memo", "toc", "toa"]),
                 }
 
         raise ValueError("Failed to improve document name")

@@ -27,6 +27,10 @@ const DOCUMENT_SECTIONS = [
   { key: 'meet_confer', label: 'Meet & Confer', description: 'L.R. 7-3 compliance statement' },
   { key: 'toc', label: 'Table of Contents', description: 'Auto-generated TOC' },
   { key: 'toa', label: 'Table of Authorities', description: 'Case citations index' },
+  { key: 'memo', label: 'Memorandum', description: 'Memorandum of Points and Authorities' },
+  { key: 'declaration', label: 'Declaration', description: 'Declaration in support' },
+  { key: 'joint_stip', label: 'Joint Stipulation', description: 'Joint stipulation document' },
+  { key: 'generic', label: 'Generic Pleading', description: 'Generic pleading body' },
   { key: 'cert_compliance', label: 'Certificate of Compliance', description: 'Word count certification' },
 ] as const;
 
