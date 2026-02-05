@@ -62,6 +62,27 @@ EXTRACT_CASE_INFO_TOOL = {
 }
 
 
+# Tool definition for document name suggestions
+SUGGEST_NAMES_TOOL = {
+    "name": "submit_document_names",
+    "description": "Submit the suggested document name and filename for the response document being created.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "document_name": {
+                "type": "string",
+                "description": "The formal title for the response document (e.g., 'Opposition to Motion to Compel Discovery')"
+            },
+            "filename": {
+                "type": "string",
+                "description": "A short, filesystem-friendly filename with .docx extension (e.g., 'Doe_v_Acme_Opp_MTC.docx')"
+            }
+        },
+        "required": ["document_name", "filename"]
+    }
+}
+
+
 SYSTEM_PROMPT = """You are a legal document analyzer. Your task is to extract case information from legal documents.
 
 Extract the following information if present:
@@ -154,6 +175,63 @@ class CaseExtractor:
             "courtroom": clean_value(result.get("courtroom")),
         }
 
+    def suggest_document_names(self, case_info: dict) -> dict:
+        """
+        Use AI to suggest document name and filename for a response document.
+
+        Args:
+            case_info: Dict with case information from extraction
+
+        Returns:
+            Dict with 'document_name' and 'filename' suggestions
+        """
+        plaintiffs = case_info.get("plaintiffs") or "Unknown"
+        defendants = case_info.get("defendants") or "Unknown"
+        motion_title = case_info.get("motion_title") or "Unknown Document"
+
+        prompt = f"""You are helping a lawyer create a response document. They uploaded a legal document with the following information:
+
+- Document/Motion Title: {motion_title}
+- Plaintiffs: {plaintiffs}
+- Defendants: {defendants}
+
+Your task is to suggest:
+1. **document_name**: The formal title for the RESPONSE document they are creating. For example:
+   - If they uploaded a "Motion to Compel Discovery", suggest "Opposition to Motion to Compel Discovery"
+   - If they uploaded an "Opposition to Motion for Summary Judgment", suggest "Reply in Support of Motion for Summary Judgment"
+   - If they uploaded a "Complaint", suggest "Answer to Complaint"
+   - If they uploaded a "Demurrer", suggest "Opposition to Demurrer"
+
+2. **filename**: A short, filesystem-friendly filename ending in .docx. Format: LastName_v_DefendantName_Abbrev.docx
+   - Use last names only (e.g., "DOE" not "JOHN DOE")
+   - Use common abbreviations: Opp (Opposition), MTC (Motion to Compel), MSJ (Motion for Summary Judgment), MTD (Motion to Dismiss), Reply, Answer, Dem (Demurrer)
+   - Example: "Doe_v_Acme_Opp_MTC.docx"
+
+Use the submit_document_names tool to provide your suggestions."""
+
+        message = self.client.messages.create(
+            model=self.model,
+            max_tokens=256,
+            tools=[SUGGEST_NAMES_TOOL],
+            tool_choice={"type": "tool", "name": "submit_document_names"},
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        # Find the tool use block
+        for block in message.content:
+            if block.type == "tool_use" and block.name == "submit_document_names":
+                return {
+                    "document_name": block.input.get("document_name", ""),
+                    "filename": block.input.get("filename", "document.docx"),
+                }
+
+        raise ValueError("Failed to generate document name suggestions")
+
 
 # Module-level convenience function
 _extractor: Optional[CaseExtractor] = None
@@ -184,7 +262,7 @@ def extract_case_info(text: str) -> dict:
 
 def suggest_document_names(case_info: dict) -> dict:
     """
-    Generate suggested document name and filename for a RESPONSE to the uploaded document.
+    Use AI to generate suggested document name and filename for a RESPONSE document.
 
     The uploaded PDF is typically a motion/document we're responding TO, so we suggest
     the appropriate response type (opposition, reply, answer, etc.)
@@ -195,143 +273,5 @@ def suggest_document_names(case_info: dict) -> dict:
     Returns:
         Dict with 'document_name' and 'filename' suggestions
     """
-    plaintiffs = case_info.get("plaintiffs") or ""
-    defendants = case_info.get("defendants") or ""
-    motion_title = case_info.get("motion_title") or ""
-
-    # Extract first plaintiff last name
-    plaintiff_name = ""
-    if plaintiffs:
-        first_plaintiff = plaintiffs.split(";")[0].split(",")[0].strip()
-        words = first_plaintiff.split()
-        plaintiff_name = words[-1] if words else first_plaintiff
-
-    # Extract first defendant last name or company name
-    defendant_name = ""
-    if defendants:
-        first_defendant = defendants.split(";")[0].split(",")[0].strip()
-        words = first_defendant.split()
-        skip_words = {"COUNTY", "CITY", "STATE", "THE", "OF", "A", "AN"}
-        for word in words:
-            if word.upper() not in skip_words:
-                defendant_name = word.title()
-                break
-        if not defendant_name and words:
-            defendant_name = words[0].title()
-
-    # Determine the response document name based on the uploaded document
-    response_name, response_abbrev = _suggest_response_document(motion_title)
-
-    # Generate filename - short, filesystem-friendly
-    # Format: PlaintiffLastName_v_DefendantName_DocType.docx
-    filename_parts = []
-    if plaintiff_name:
-        filename_parts.append(_sanitize_filename(plaintiff_name))
-    if defendant_name:
-        if filename_parts:
-            filename_parts.append("v")
-        filename_parts.append(_sanitize_filename(defendant_name))
-    if response_abbrev:
-        filename_parts.append(response_abbrev)
-
-    if filename_parts:
-        filename = "_".join(filename_parts) + ".docx"
-    else:
-        filename = "document.docx"
-
-    return {
-        "document_name": response_name,
-        "filename": filename,
-    }
-
-
-def _suggest_response_document(motion_title: str) -> tuple[str, str]:
-    """
-    Suggest the appropriate response document based on the uploaded document.
-
-    Returns:
-        Tuple of (full document name, filename abbreviation)
-    """
-    if not motion_title:
-        return ("Opposition to Motion", "Opp")
-
-    title_lower = motion_title.lower()
-
-    # If already an opposition, suggest a reply
-    if "opposition" in title_lower:
-        # Extract what the opposition is to
-        if "motion to compel" in title_lower:
-            return ("Reply in Support of Motion to Compel", "Reply_MTC")
-        elif "motion for summary judgment" in title_lower or "msj" in title_lower:
-            return ("Reply in Support of Motion for Summary Judgment", "Reply_MSJ")
-        elif "motion to dismiss" in title_lower or "mtd" in title_lower:
-            return ("Reply in Support of Motion to Dismiss", "Reply_MTD")
-        elif "demurrer" in title_lower:
-            return ("Reply in Support of Demurrer", "Reply_Dem")
-        else:
-            return ("Reply in Support of Motion", "Reply")
-
-    # If already a reply, not much to do - maybe a sur-reply
-    if "reply" in title_lower:
-        return ("Sur-Reply", "SurReply")
-
-    # Standard motions -> Opposition
-    if "motion to compel" in title_lower:
-        return ("Opposition to Motion to Compel", "Opp_MTC")
-    if "motion for summary judgment" in title_lower or "summary judgment" in title_lower:
-        return ("Opposition to Motion for Summary Judgment", "Opp_MSJ")
-    if "motion to dismiss" in title_lower:
-        return ("Opposition to Motion to Dismiss", "Opp_MTD")
-    if "motion to strike" in title_lower:
-        return ("Opposition to Motion to Strike", "Opp_MTS")
-    if "motion for sanctions" in title_lower:
-        return ("Opposition to Motion for Sanctions", "Opp_Sanctions")
-    if "motion to quash" in title_lower:
-        return ("Opposition to Motion to Quash", "Opp_MTQ")
-    if "motion for protective order" in title_lower:
-        return ("Opposition to Motion for Protective Order", "Opp_MPO")
-    if "motion to seal" in title_lower:
-        return ("Opposition to Motion to Seal", "Opp_Seal")
-    if "motion for leave" in title_lower:
-        return ("Opposition to Motion for Leave", "Opp_Leave")
-    if "motion to amend" in title_lower:
-        return ("Opposition to Motion to Amend", "Opp_Amend")
-    if "motion for reconsideration" in title_lower:
-        return ("Opposition to Motion for Reconsideration", "Opp_Recon")
-    if "motion to continue" in title_lower or "motion for continuance" in title_lower:
-        return ("Opposition to Motion for Continuance", "Opp_Cont")
-
-    # Demurrer -> Opposition to Demurrer
-    if "demurrer" in title_lower:
-        return ("Opposition to Demurrer", "Opp_Dem")
-
-    # Complaint -> Answer
-    if "complaint" in title_lower:
-        return ("Answer to Complaint", "Answer")
-
-    # Generic motion
-    if "motion" in title_lower:
-        # Try to extract the motion type
-        # "Motion for X" or "Motion to X"
-        import re
-        match = re.search(r"motion\s+(for|to)\s+(.+)", title_lower)
-        if match:
-            motion_type = match.group(2).strip()
-            # Capitalize properly
-            motion_type_title = " ".join(w.capitalize() for w in motion_type.split())
-            return (f"Opposition to Motion {match.group(1).capitalize()} {motion_type_title}", "Opp")
-        return ("Opposition to Motion", "Opp")
-
-    # Default - just oppose whatever it is
-    return (f"Opposition to {motion_title}", "Opp")
-
-
-def _sanitize_filename(name: str) -> str:
-    """Make a string safe for use in a filename."""
-    import re
-    # Remove special characters, keep alphanumeric and spaces
-    clean = re.sub(r'[^\w\s-]', '', name)
-    # Replace spaces with nothing, capitalize
-    clean = clean.replace(' ', '').strip()
-    # Limit length
-    return clean[:20] if clean else "Doc"
+    extractor = get_extractor()
+    return extractor.suggest_document_names(case_info)
