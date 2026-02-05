@@ -302,12 +302,14 @@ export function Templates() {
           <section className="flex items-center gap-3 p-3 bg-bg-surface border border-border rounded-lg">
             <FileText className="w-5 h-5 text-primary-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <button
-                onClick={handleClick}
+              <a
+                href={URL.createObjectURL(uploadedFile)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
               >
                 {uploadedFile.name}
-              </button>
+              </a>
               <p className="text-xs text-text-muted">
                 {(uploadedFile.size / 1024).toFixed(1)} KB
               </p>
@@ -319,13 +321,6 @@ export function Templates() {
             >
               <X className="w-4 h-4" />
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleFileInputChange}
-              className="hidden"
-            />
           </section>
         )}
 
