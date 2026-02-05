@@ -109,6 +109,7 @@ main.py                    # FastAPI + MCP server entry point
     ├── pages/            # Route pages (Dashboard, Cases, CaseDetail/, etc.)
     ├── components/       # UI components by domain (cases/, tasks/, calendar/)
     ├── api/              # API client functions
+    ├── config/           # App configuration (colors.ts, etc.)
     ├── types/            # TypeScript interfaces
     └── context/          # Auth & Theme contexts
 ```
@@ -127,6 +128,66 @@ main.py                    # FastAPI + MCP server entry point
 - **@dnd-kit** for drag-and-drop task reordering
 - **Tailwind CSS** for styling (utility classes)
 - API calls go through `frontend/src/api/` functions
+
+### Frontend Colors & Theming - IMPORTANT
+
+Colors are managed in two files - use the right one for your use case:
+
+**1. `frontend/src/index.css`** - CSS custom properties & theme variables
+- `--color-primary-*` - Primary brand palette (50-950)
+- `--color-urgency-*` - Urgency scale (1-4)
+- `--color-status-*` - Status colors (pending, active, done, blocked)
+- `--theme-bg-*`, `--theme-text-*`, `--theme-border-*` - Semantic theme tokens
+
+Use these for general theming via utility classes:
+```tsx
+// ✅ Semantic theme classes (auto dark mode)
+<div className="bg-bg-surface text-text border-border">
+<span className="text-text-muted">
+
+// ✅ Primary color from CSS vars
+<button className="bg-primary-500 hover:bg-primary-600">
+```
+
+**2. `frontend/src/config/colors.ts`** - Badge/status color mappings
+
+**All badge, pill, chip, and status colors MUST be imported from this file.**
+
+Never hardcode Tailwind color classes like `bg-blue-100 text-blue-700` directly in components:
+
+```tsx
+// ✅ CORRECT - import from centralized config
+import { getStatusColor, CASE_STATUS_COLORS, getBadgeColorById } from '@/config/colors';
+
+// For status badges (task, case, event statuses)
+const color = getStatusColor(status);
+<span className={`${color.bg} ${color.text}`}>{status}</span>
+
+// For case status specifically
+const color = CASE_STATUS_COLORS[caseStatus];
+
+// For user avatars, case chips, or ID-based coloring
+const colorClasses = getBadgeColorClassesById(userId);
+
+// ❌ WRONG - hardcoded colors
+<span className="bg-blue-100 text-blue-700">{status}</span>
+```
+
+**What's in `colors.ts`:**
+- `BADGE_PALETTE` - colorful palette for distinguishing items (users, cases)
+- `TASK_STATUS_COLORS` - Pending, Active, Done, Blocked, etc.
+- `CASE_STATUS_COLORS` - Discovery, Trial, Closed, etc.
+- `EVENT_STATUS_COLORS` - Met, Missed
+- `PRIORITY_COLORS` - priority 1-4 with hex values for inline styles
+- `URGENCY_COLORS` - Low, Medium, High, Urgent
+- `DATE_GROUP_COLORS` - overdue, today, this week, later
+- Helper functions: `getStatusColor()`, `getBadgeColorById()`, `colorToClasses()`
+
+**Why this matters:**
+- Ensures consistent colors across the app
+- All colors have dark mode variants built in
+- Single place to update if palette changes
+- Prevents color drift between similar components
 
 ### Database
 - **JSONB columns** for flexible data (e.g., `persons.attributes` stores type-specific fields like hourly_rate, bar_number)
