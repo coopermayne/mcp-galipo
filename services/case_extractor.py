@@ -184,7 +184,10 @@ def extract_case_info(text: str) -> dict:
 
 def suggest_document_names(case_info: dict) -> dict:
     """
-    Generate suggested document name and filename based on case information.
+    Generate suggested document name and filename for a RESPONSE to the uploaded document.
+
+    The uploaded PDF is typically a motion/document we're responding TO, so we suggest
+    the appropriate response type (opposition, reply, answer, etc.)
 
     Args:
         case_info: Dict with case information (plaintiffs, defendants, motion_title, case_number)
@@ -192,17 +195,13 @@ def suggest_document_names(case_info: dict) -> dict:
     Returns:
         Dict with 'document_name' and 'filename' suggestions
     """
-    import re
-
     plaintiffs = case_info.get("plaintiffs") or ""
     defendants = case_info.get("defendants") or ""
     motion_title = case_info.get("motion_title") or ""
-    case_number = case_info.get("case_number") or ""
 
     # Extract first plaintiff last name
     plaintiff_name = ""
     if plaintiffs:
-        # Take first name, get last word (likely last name)
         first_plaintiff = plaintiffs.split(";")[0].split(",")[0].strip()
         words = first_plaintiff.split()
         plaintiff_name = words[-1] if words else first_plaintiff
@@ -211,9 +210,7 @@ def suggest_document_names(case_info: dict) -> dict:
     defendant_name = ""
     if defendants:
         first_defendant = defendants.split(";")[0].split(",")[0].strip()
-        # For companies, take first meaningful word
         words = first_defendant.split()
-        # Skip common prefixes
         skip_words = {"COUNTY", "CITY", "STATE", "THE", "OF", "A", "AN"}
         for word in words:
             if word.upper() not in skip_words:
@@ -222,17 +219,11 @@ def suggest_document_names(case_info: dict) -> dict:
         if not defendant_name and words:
             defendant_name = words[0].title()
 
-    # Generate document name - this is the formal title
-    # If we have a motion title, use it; otherwise create a generic one
-    if motion_title:
-        document_name = motion_title
-    else:
-        document_name = "Opposition to Motion"
+    # Determine the response document name based on the uploaded document
+    response_name, response_abbrev = _suggest_response_document(motion_title)
 
     # Generate filename - short, filesystem-friendly
     # Format: PlaintiffLastName_v_DefendantName_DocType.docx
-    doc_abbrev = _abbreviate_motion_type(motion_title)
-
     filename_parts = []
     if plaintiff_name:
         filename_parts.append(_sanitize_filename(plaintiff_name))
@@ -240,8 +231,8 @@ def suggest_document_names(case_info: dict) -> dict:
         if filename_parts:
             filename_parts.append("v")
         filename_parts.append(_sanitize_filename(defendant_name))
-    if doc_abbrev:
-        filename_parts.append(doc_abbrev)
+    if response_abbrev:
+        filename_parts.append(response_abbrev)
 
     if filename_parts:
         filename = "_".join(filename_parts) + ".docx"
@@ -249,61 +240,90 @@ def suggest_document_names(case_info: dict) -> dict:
         filename = "document.docx"
 
     return {
-        "document_name": document_name,
+        "document_name": response_name,
         "filename": filename,
     }
 
 
-def _abbreviate_motion_type(motion_title: str) -> str:
-    """Generate a short abbreviation for the motion type."""
+def _suggest_response_document(motion_title: str) -> tuple[str, str]:
+    """
+    Suggest the appropriate response document based on the uploaded document.
+
+    Returns:
+        Tuple of (full document name, filename abbreviation)
+    """
     if not motion_title:
-        return "Doc"
+        return ("Opposition to Motion", "Opp")
 
     title_lower = motion_title.lower()
 
-    # Common motion type abbreviations
+    # If already an opposition, suggest a reply
     if "opposition" in title_lower:
+        # Extract what the opposition is to
         if "motion to compel" in title_lower:
-            return "Opp_MTC"
+            return ("Reply in Support of Motion to Compel", "Reply_MTC")
         elif "motion for summary judgment" in title_lower or "msj" in title_lower:
-            return "Opp_MSJ"
+            return ("Reply in Support of Motion for Summary Judgment", "Reply_MSJ")
         elif "motion to dismiss" in title_lower or "mtd" in title_lower:
-            return "Opp_MTD"
+            return ("Reply in Support of Motion to Dismiss", "Reply_MTD")
         elif "demurrer" in title_lower:
-            return "Opp_Dem"
+            return ("Reply in Support of Demurrer", "Reply_Dem")
         else:
-            return "Opp"
-    elif "reply" in title_lower:
-        if "motion to compel" in title_lower:
-            return "Reply_MTC"
-        elif "motion for summary judgment" in title_lower:
-            return "Reply_MSJ"
-        else:
-            return "Reply"
-    elif "motion to compel" in title_lower:
-        return "MTC"
-    elif "motion for summary judgment" in title_lower or "summary judgment" in title_lower:
-        return "MSJ"
-    elif "motion to dismiss" in title_lower:
-        return "MTD"
-    elif "demurrer" in title_lower:
-        return "Demurrer"
-    elif "complaint" in title_lower:
-        return "Complaint"
-    elif "answer" in title_lower:
-        return "Answer"
-    elif "declaration" in title_lower:
-        return "Decl"
-    elif "notice" in title_lower:
-        return "Notice"
-    elif "subpoena" in title_lower:
-        return "Subpoena"
-    elif "judgment" in title_lower:
-        return "Judgment"
-    else:
-        # Take first few words
-        words = motion_title.split()[:3]
-        return "_".join(w.title() for w in words if len(w) > 2)[:20]
+            return ("Reply in Support of Motion", "Reply")
+
+    # If already a reply, not much to do - maybe a sur-reply
+    if "reply" in title_lower:
+        return ("Sur-Reply", "SurReply")
+
+    # Standard motions -> Opposition
+    if "motion to compel" in title_lower:
+        return ("Opposition to Motion to Compel", "Opp_MTC")
+    if "motion for summary judgment" in title_lower or "summary judgment" in title_lower:
+        return ("Opposition to Motion for Summary Judgment", "Opp_MSJ")
+    if "motion to dismiss" in title_lower:
+        return ("Opposition to Motion to Dismiss", "Opp_MTD")
+    if "motion to strike" in title_lower:
+        return ("Opposition to Motion to Strike", "Opp_MTS")
+    if "motion for sanctions" in title_lower:
+        return ("Opposition to Motion for Sanctions", "Opp_Sanctions")
+    if "motion to quash" in title_lower:
+        return ("Opposition to Motion to Quash", "Opp_MTQ")
+    if "motion for protective order" in title_lower:
+        return ("Opposition to Motion for Protective Order", "Opp_MPO")
+    if "motion to seal" in title_lower:
+        return ("Opposition to Motion to Seal", "Opp_Seal")
+    if "motion for leave" in title_lower:
+        return ("Opposition to Motion for Leave", "Opp_Leave")
+    if "motion to amend" in title_lower:
+        return ("Opposition to Motion to Amend", "Opp_Amend")
+    if "motion for reconsideration" in title_lower:
+        return ("Opposition to Motion for Reconsideration", "Opp_Recon")
+    if "motion to continue" in title_lower or "motion for continuance" in title_lower:
+        return ("Opposition to Motion for Continuance", "Opp_Cont")
+
+    # Demurrer -> Opposition to Demurrer
+    if "demurrer" in title_lower:
+        return ("Opposition to Demurrer", "Opp_Dem")
+
+    # Complaint -> Answer
+    if "complaint" in title_lower:
+        return ("Answer to Complaint", "Answer")
+
+    # Generic motion
+    if "motion" in title_lower:
+        # Try to extract the motion type
+        # "Motion for X" or "Motion to X"
+        import re
+        match = re.search(r"motion\s+(for|to)\s+(.+)", title_lower)
+        if match:
+            motion_type = match.group(2).strip()
+            # Capitalize properly
+            motion_type_title = " ".join(w.capitalize() for w in motion_type.split())
+            return (f"Opposition to Motion {match.group(1).capitalize()} {motion_type_title}", "Opp")
+        return ("Opposition to Motion", "Opp")
+
+    # Default - just oppose whatever it is
+    return (f"Opposition to {motion_title}", "Opp")
 
 
 def _sanitize_filename(name: str) -> str:
