@@ -136,11 +136,17 @@ function FormField({
 }
 
 export function Templates() {
+  const emptyCaseInfo: CaseInfo = {
+    court: null, case_number: null, plaintiffs: null, defendants: null,
+    judge: null, magistrate_judge: null, motion_title: null,
+    hearing_date: null, hearing_time: null, courtroom: null,
+  };
+
   const [isDragging, setIsDragging] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [caseInfo, setCaseInfo] = useState<CaseInfo | null>(null);
+  const [caseInfo, setCaseInfo] = useState<CaseInfo>(emptyCaseInfo);
   const [signingAttorney, setSigningAttorney] = useState<SigningAttorney | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [documentName, setDocumentName] = useState('');
@@ -153,8 +159,6 @@ export function Templates() {
 
   // Calculate validation state
   const validationState = useMemo(() => {
-    if (!caseInfo) return { isValid: false, missingFields: [] };
-
     const missingFields = CASE_INFO_FIELDS
       .filter(f => f.required && !caseInfo[f.key as keyof CaseInfo]?.trim())
       .map(f => f.label);
@@ -184,8 +188,6 @@ export function Templates() {
       setSigningAttorney(response.signing_attorney);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to extract case information');
-      setCaseInfo(null);
-      setSigningAttorney(null);
     } finally {
       setIsExtracting(false);
     }
@@ -224,7 +226,7 @@ export function Templates() {
 
   const handleClearFile = useCallback(() => {
     setUploadedFile(null);
-    setCaseInfo(null);
+    setCaseInfo(emptyCaseInfo);
     setSigningAttorney(null);
     setDocumentName('');
     setFilename('');
@@ -236,12 +238,10 @@ export function Templates() {
   }, []);
 
   const updateCaseInfo = useCallback((field: keyof CaseInfo, value: string) => {
-    setCaseInfo(prev => prev ? { ...prev, [field]: value || null } : null);
+    setCaseInfo(prev => ({ ...prev, [field]: value || null }));
   }, []);
 
   const handleImproveDocumentName = useCallback(async () => {
-    if (!caseInfo) return;
-
     setIsImprovingName(true);
     try {
       const result = await improveDocumentName(documentName, caseInfo.motion_title || '');
@@ -285,8 +285,8 @@ export function Templates() {
   }, [documentName]);
 
   const handleGenerateDocument = useCallback(async () => {
-    if (!caseInfo || !signingAttorney) {
-      setError('Missing case info or signing attorney');
+    if (!signingAttorney) {
+      setError('Missing signing attorney — upload a PDF first or fill in attorney info');
       return;
     }
     if (!documentName.trim()) {
@@ -317,84 +317,64 @@ export function Templates() {
       />
 
       <PageContent className="space-y-4 scrollbar-hide">
-        {/* Upload Zone - Full size when no file, compact when file uploaded */}
-        {!uploadedFile || isExtracting ? (
-          <section
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onClick={handleClick}
-            className={`
-              relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
-              transition-all duration-200
-              ${isDragging
-                ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 scale-[1.01]'
-                : 'border-border hover:border-primary-400 hover:bg-bg-hover'
-              }
-              ${isExtracting ? 'pointer-events-none opacity-60' : ''}
-            `}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleFileInputChange}
-              className="hidden"
-            />
+        {/* Upload Zone - compact, always visible as optional quick-fill */}
+        <section
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`
+            relative border border-dashed rounded-lg p-2.5 cursor-pointer
+            transition-all duration-200
+            ${isDragging
+              ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
+              : 'border-border hover:border-primary-400 hover:bg-bg-hover'
+            }
+            ${isExtracting ? 'pointer-events-none opacity-60' : ''}
+          `}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
 
-            {isExtracting ? (
-              <div className="flex items-center justify-center gap-3 py-2">
-                <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-text">Analyzing document...</p>
-                  <p className="text-xs text-text-muted">Extracting case information from {uploadedFile?.name}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-3 py-2">
-                <div className={`
-                  p-2.5 rounded-full transition-colors duration-200
-                  ${isDragging ? 'bg-primary-100 dark:bg-primary-800' : 'bg-bg-hover'}
-                `}>
-                  <Upload className="w-6 h-6 text-text-muted" />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-text">
-                    Drag and drop a PDF here, or click to browse
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    We'll analyze the first 2 pages for case information
-                  </p>
-                </div>
-              </div>
-            )}
-          </section>
-        ) : (
-          /* Compact file display after upload */
-          <section className="flex items-center gap-3 p-3 bg-bg-surface border border-border rounded-lg">
-            <FileText className="w-5 h-5 text-primary-500 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
+          {isExtracting ? (
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" />
+              <p className="text-xs text-text-muted">Analyzing {uploadedFile?.name}...</p>
+            </div>
+          ) : uploadedFile ? (
+            <div className="flex items-center gap-3">
+              <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
               <a
                 href={URL.createObjectURL(uploadedFile)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
+                className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline truncate flex-1"
+                onClick={(e) => e.stopPropagation()}
               >
                 {uploadedFile.name}
               </a>
+              <span className="text-xs text-text-muted">{(uploadedFile.size / 1024).toFixed(1)} KB</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleClearFile(); }}
+                className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text transition-colors"
+                title="Clear file"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2" onClick={handleClick}>
+              <Upload className="w-4 h-4 text-text-muted flex-shrink-0" />
               <p className="text-xs text-text-muted">
-                {(uploadedFile.size / 1024).toFixed(1)} KB
+                <span className="font-medium text-text">Drop a PDF</span> to auto-fill case info, or fill in manually below
               </p>
             </div>
-            <button
-              onClick={handleClearFile}
-              className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text transition-colors"
-              title="Clear file"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* Error Display */}
         {error && (
@@ -404,9 +384,8 @@ export function Templates() {
           </div>
         )}
 
-        {/* Form Sections */}
-        {caseInfo && (
-          <div className="space-y-4 animate-fadeSlideIn">
+        {/* Form Sections - always visible */}
+        <div className="space-y-4">
             {/* Validation Summary */}
             {hasAttemptedSubmit && !validationState.isValid && (
               <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
@@ -450,7 +429,7 @@ export function Templates() {
                       <button
                         type="button"
                         onClick={handleImproveDocumentName}
-                        disabled={isImprovingName || !caseInfo}
+                        disabled={isImprovingName}
                         className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-600 dark:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Improve document name"
                       >
@@ -666,7 +645,6 @@ export function Templates() {
               </section>
             )}
           </div>
-        )}
       </PageContent>
     </div>
   );
