@@ -20,8 +20,8 @@ type DocumentType = typeof DOCUMENT_TYPES[number]['key'];
 const SUB_OPTIONS = [
   { key: 'notice', label: 'Notice of Motion', description: 'Required for motions' },
   { key: 'meet_confer', label: 'Meet & Confer', description: 'L.R. 7-3 compliance' },
-  { key: 'toc', label: 'Table of Contents' },
-  { key: 'toa', label: 'Table of Authorities' },
+  { key: 'toc', label: 'Table of Contents', description: 'Auto-generated TOC' },
+  { key: 'toa', label: 'Table of Authorities', description: 'Case citations index' },
   { key: 'cert_compliance', label: 'Certificate of Compliance', description: 'Word count certification' },
 ] as const;
 
