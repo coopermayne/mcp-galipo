@@ -24,9 +24,3 @@ export interface ExtractCaseInfoResponse {
   case_info: CaseInfo;
   signing_attorney: SigningAttorney;
 }
-
-export interface SuggestDocumentNamesResponse {
-  success: boolean;
-  document_name: string;
-  filename: string;
-}

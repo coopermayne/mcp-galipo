@@ -1,18 +1,18 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X } from 'lucide-react';
 import { Header, PageContent } from '../components/layout';
-import { extractCaseInfo, suggestDocumentNames } from '../api/templates';
+import { extractCaseInfo, improveDocumentName, generateFilename } from '../api/templates';
 import type { CaseInfo, SigningAttorney } from '../types/template';
 
 // Field configuration for validation and display
 const CASE_INFO_FIELDS = [
   { key: 'court', label: 'Court', required: true, multiline: true, rows: 2 },
   { key: 'case_number', label: 'Case Number', required: true },
-  { key: 'plaintiffs', label: 'Plaintiff(s)', required: true },
-  { key: 'defendants', label: 'Defendant(s)', required: true },
+  { key: 'plaintiffs', label: 'Plaintiff(s)', required: true, autoExpand: true },
+  { key: 'defendants', label: 'Defendant(s)', required: true, autoExpand: true },
   { key: 'judge', label: 'Judge', required: true },
   { key: 'magistrate_judge', label: 'Magistrate Judge', required: false },
-  { key: 'motion_title', label: 'Motion Title', required: false },
+  { key: 'motion_title', label: 'Motion Title', required: false, autoExpand: true },
 ] as const;
 
 const HEARING_INFO_FIELDS = [
@@ -31,6 +31,7 @@ interface FormFieldProps {
   placeholder?: string;
   showValidation?: boolean;
   rightElement?: React.ReactNode;
+  autoExpand?: boolean;
 }
 
 function FormField({
@@ -43,6 +44,7 @@ function FormField({
   placeholder,
   showValidation = false,
   rightElement,
+  autoExpand = false,
 }: FormFieldProps) {
   const isEmpty = !value?.trim();
   const hasError = showValidation && required && isEmpty;
@@ -58,9 +60,20 @@ function FormField({
         ? 'border-green-300 dark:border-green-500/50 focus:ring-green-500/30'
         : 'border-border focus:ring-primary-500/30 focus:border-primary-500'
     }
-    ${multiline ? 'resize-none' : ''}
+    ${(multiline || autoExpand) ? 'resize-none overflow-hidden' : ''}
     ${rightElement ? 'pr-10' : ''}
   `;
+
+  // For auto-expand, calculate minimum rows based on content
+  const getAutoExpandRows = () => {
+    if (!autoExpand || !value) return 1;
+    // Estimate ~40 chars per line in the typical column width
+    const estimatedLines = Math.ceil(value.length / 40);
+    return Math.max(1, Math.min(estimatedLines, 3)); // Cap at 3 rows
+  };
+
+  const useTextarea = multiline || autoExpand;
+  const effectiveRows = autoExpand ? getAutoExpandRows() : rows;
 
   return (
     <div className="space-y-1">
@@ -72,13 +85,14 @@ function FormField({
         {isValid && <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400" />}
       </label>
       <div className="relative">
-        {multiline ? (
+        {useTextarea ? (
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            rows={rows}
+            rows={effectiveRows}
             className={inputClasses}
             placeholder={placeholder}
+            title={value || undefined}
           />
         ) : (
           <input
@@ -87,6 +101,7 @@ function FormField({
             onChange={(e) => onChange(e.target.value)}
             className={inputClasses}
             placeholder={placeholder}
+            title={value || undefined}
           />
         )}
         {rightElement && (
@@ -115,7 +130,8 @@ export function Templates() {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [documentName, setDocumentName] = useState('');
   const [filename, setFilename] = useState('');
-  const [isSuggestingNames, setIsSuggestingNames] = useState(false);
+  const [isImprovingName, setIsImprovingName] = useState(false);
+  const [isGeneratingFilename, setIsGeneratingFilename] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate validation state
@@ -206,36 +222,36 @@ export function Templates() {
     setCaseInfo(prev => prev ? { ...prev, [field]: value || null } : null);
   }, []);
 
-  const handleSuggestNames = useCallback(async () => {
+  const handleImproveDocumentName = useCallback(async () => {
     if (!caseInfo) return;
 
-    setIsSuggestingNames(true);
+    setIsImprovingName(true);
     try {
-      const suggestions = await suggestDocumentNames(caseInfo);
-      setDocumentName(suggestions.document_name);
-      setFilename(suggestions.filename);
+      const improved = await improveDocumentName(documentName, caseInfo.motion_title || '');
+      setDocumentName(improved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate suggestions');
+      setError(err instanceof Error ? err.message : 'Failed to improve document name');
     } finally {
-      setIsSuggestingNames(false);
+      setIsImprovingName(false);
     }
-  }, [caseInfo]);
+  }, [caseInfo, documentName]);
 
-  const SuggestButton = ({ onClick, loading }: { onClick: () => void; loading: boolean }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={loading || !caseInfo}
-      className="p-1 rounded hover:bg-primary-100 dark:hover:bg-primary-900/50 text-primary-600 dark:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      title="AI Suggest"
-    >
-      {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
-      ) : (
-        <Sparkles className="w-4 h-4" />
-      )}
-    </button>
-  );
+  const handleGenerateFilename = useCallback(async () => {
+    if (!documentName.trim()) {
+      setError('Enter a document name first');
+      return;
+    }
+
+    setIsGeneratingFilename(true);
+    try {
+      const generated = await generateFilename(documentName);
+      setFilename(generated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate filename');
+    } finally {
+      setIsGeneratingFilename(false);
+    }
+  }, [documentName]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
@@ -244,7 +260,7 @@ export function Templates() {
         subtitle="Extract case information from legal documents"
       />
 
-      <PageContent className="space-y-4">
+      <PageContent className="space-y-4 scrollbar-hide">
         {/* Upload Zone - Full size when no file, compact when file uploaded */}
         {!uploadedFile || isExtracting ? (
           <section
@@ -348,23 +364,9 @@ export function Templates() {
             {/* Document Output Section */}
             <section className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden">
               <div className="px-4 py-3 border-b border-emerald-200/50 dark:border-emerald-700/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <h2 className="text-sm font-semibold text-text">Output Document</h2>
-                  </div>
-                  <button
-                    onClick={handleSuggestNames}
-                    disabled={isSuggestingNames || !caseInfo}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSuggestingNames ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3 h-3" />
-                    )}
-                    AI Suggest
-                  </button>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h2 className="text-sm font-semibold text-text">Output Document</h2>
                 </div>
               </div>
               <div className="p-4">
@@ -373,15 +375,43 @@ export function Templates() {
                     label="Document Name"
                     value={documentName}
                     onChange={setDocumentName}
-                    placeholder="Opposition to Motion to Compel"
-                    rightElement={<SuggestButton onClick={handleSuggestNames} loading={isSuggestingNames} />}
+                    placeholder="Type a name or click ✨ to suggest"
+                    rightElement={
+                      <button
+                        type="button"
+                        onClick={handleImproveDocumentName}
+                        disabled={isImprovingName || !caseInfo}
+                        className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-600 dark:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Improve document name"
+                      >
+                        {isImprovingName ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                      </button>
+                    }
                   />
                   <FormField
                     label="Filename"
                     value={filename}
                     onChange={setFilename}
-                    placeholder="Doe_v_Acme_Opp_MTC.docx"
-                    rightElement={<SuggestButton onClick={handleSuggestNames} loading={isSuggestingNames} />}
+                    placeholder="Click ✨ to generate from name"
+                    rightElement={
+                      <button
+                        type="button"
+                        onClick={handleGenerateFilename}
+                        disabled={isGeneratingFilename || !documentName.trim()}
+                        className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-600 dark:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Generate filename from document name"
+                      >
+                        {isGeneratingFilename ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                      </button>
+                    }
                   />
                 </div>
               </div>
@@ -425,6 +455,7 @@ export function Templates() {
                     onChange={(v) => updateCaseInfo('motion_title', v)}
                     placeholder="Motion to Compel Discovery"
                     showValidation={hasAttemptedSubmit}
+                    autoExpand
                   />
                 </div>
 
@@ -436,6 +467,7 @@ export function Templates() {
                     required
                     placeholder="JOHN DOE"
                     showValidation={hasAttemptedSubmit}
+                    autoExpand
                   />
                   <FormField
                     label="Defendant(s)"
@@ -444,6 +476,7 @@ export function Templates() {
                     required
                     placeholder="ACME CORPORATION"
                     showValidation={hasAttemptedSubmit}
+                    autoExpand
                   />
                 </div>
 

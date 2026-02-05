@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 import auth
 from db.users import get_user_by_id
 from services.pdf_extractor import extract_text_from_pdf
-from services.case_extractor import extract_case_info, suggest_document_names
+from services.case_extractor import extract_case_info, improve_document_name, generate_filename
 from .common import api_error
 
 _logger = logging.getLogger("routes.templates")
@@ -107,13 +107,16 @@ def register_template_routes(mcp):
             "signing_attorney": signing_attorney,
         })
 
-    @mcp.custom_route("/api/v1/templates/suggest-names", methods=["POST"])
-    async def api_suggest_document_names(request):
+    @mcp.custom_route("/api/v1/templates/improve-name", methods=["POST"])
+    async def api_improve_document_name(request):
         """
-        Suggest document name and filename based on case information.
+        Improve/clean up a document name based on user input and context.
 
-        Accepts JSON with case_info fields.
-        Returns suggested document_name and filename.
+        Accepts JSON with:
+        - user_input: What the user has typed (may be empty)
+        - motion_title: The title of the uploaded document
+
+        Returns improved document_name.
         """
         if err := auth.require_auth(request):
             return err
@@ -124,15 +127,50 @@ def register_template_routes(mcp):
             _logger.error(f"Failed to parse JSON: {e}")
             return api_error("Invalid JSON", "INVALID_REQUEST", 400)
 
-        case_info = data.get("case_info", {})
+        user_input = data.get("user_input", "")
+        motion_title = data.get("motion_title", "")
 
         try:
-            suggestions = await asyncio.to_thread(suggest_document_names, case_info)
+            document_name = await asyncio.to_thread(improve_document_name, user_input, motion_title)
         except Exception as e:
-            _logger.error(f"Failed to generate suggestions: {e}")
-            return api_error("Failed to generate suggestions", "SUGGESTION_ERROR", 500)
+            _logger.error(f"Failed to improve document name: {e}")
+            return api_error("Failed to improve document name", "IMPROVE_ERROR", 500)
 
         return JSONResponse({
             "success": True,
-            **suggestions,
+            "document_name": document_name,
+        })
+
+    @mcp.custom_route("/api/v1/templates/generate-filename", methods=["POST"])
+    async def api_generate_filename(request):
+        """
+        Generate a filename from a document name.
+
+        Accepts JSON with:
+        - document_name: The formal document title
+
+        Returns generated filename.
+        """
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            data = await request.json()
+        except Exception as e:
+            _logger.error(f"Failed to parse JSON: {e}")
+            return api_error("Invalid JSON", "INVALID_REQUEST", 400)
+
+        document_name = data.get("document_name", "")
+        if not document_name:
+            return api_error("document_name is required", "MISSING_FIELD", 400)
+
+        try:
+            filename = await asyncio.to_thread(generate_filename, document_name)
+        except Exception as e:
+            _logger.error(f"Failed to generate filename: {e}")
+            return api_error("Failed to generate filename", "GENERATE_ERROR", 500)
+
+        return JSONResponse({
+            "success": True,
+            "filename": filename,
         })
