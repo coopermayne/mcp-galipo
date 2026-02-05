@@ -1,25 +1,10 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
-import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X, Download, Check } from 'lucide-react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X, Download, Check, Calendar, ChevronDown } from 'lucide-react';
 import { Header, PageContent } from '../components/layout';
 import { extractCaseInfo, improveDocumentName, generateFilename, generateDocument } from '../api/templates';
-import type { CaseInfo, SigningAttorney } from '../types/template';
-
-// Field configuration for validation and display
-const CASE_INFO_FIELDS = [
-  { key: 'court', label: 'Court', required: true, multiline: true, rows: 2 },
-  { key: 'case_number', label: 'Case Number', required: true },
-  { key: 'plaintiffs', label: 'Plaintiff(s)', required: true, autoExpand: true },
-  { key: 'defendants', label: 'Defendant(s)', required: true, autoExpand: true },
-  { key: 'judge', label: 'Judge', required: true },
-  { key: 'magistrate_judge', label: 'Magistrate Judge', required: false },
-  { key: 'motion_title', label: 'Motion Title', required: false, autoExpand: true },
-] as const;
-
-const HEARING_INFO_FIELDS = [
-  { key: 'hearing_date', label: 'Hearing Date', required: false, placeholder: 'January 15, 2025' },
-  { key: 'hearing_time', label: 'Hearing Time', required: false, placeholder: '10:00 a.m.' },
-  { key: 'courtroom', label: 'Courtroom', required: false, placeholder: 'Courtroom 10A' },
-] as const;
+import { request } from '../api/common';
+import { useAuth } from '../context/AuthContext';
+import type { CaseInfo } from '../types/template';
 
 // Document sections that can be included/excluded
 const DOCUMENT_SECTIONS = [
@@ -35,6 +20,15 @@ const DOCUMENT_SECTIONS = [
 ] as const;
 
 type SectionKey = typeof DOCUMENT_SECTIONS[number]['key'];
+
+interface Attorney {
+  id: number;
+  firstName: string;
+  lastName: string;
+  initials: string;
+  barNumber?: string | null;
+  email?: string | null;
+}
 
 interface FormFieldProps {
   label: string;
@@ -79,12 +73,10 @@ function FormField({
     ${rightElement ? 'pr-10' : ''}
   `;
 
-  // For auto-expand, calculate minimum rows based on content
   const getAutoExpandRows = () => {
     if (!autoExpand || !value) return 1;
-    // Estimate ~40 chars per line in the typical column width
     const estimatedLines = Math.ceil(value.length / 40);
-    return Math.max(1, Math.min(estimatedLines, 3)); // Cap at 3 rows
+    return Math.max(1, Math.min(estimatedLines, 3));
   };
 
   const useTextarea = multiline || autoExpand;
@@ -135,7 +127,21 @@ function FormField({
   );
 }
 
+function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle?: string }) {
+  return (
+    <div className="px-4 py-2.5 border-b border-border bg-bg-hover/50">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h2 className="text-sm font-semibold text-text">{title}</h2>
+        {subtitle && <span className="text-xs text-text-muted">{subtitle}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function Templates() {
+  const { user } = useAuth();
+
   const emptyCaseInfo: CaseInfo = {
     court: null, case_number: null, plaintiffs: null, defendants: null,
     judge: null, magistrate_judge: null, motion_title: null,
@@ -147,7 +153,6 @@ export function Templates() {
   const [error, setError] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [caseInfo, setCaseInfo] = useState<CaseInfo>(emptyCaseInfo);
-  const [signingAttorney, setSigningAttorney] = useState<SigningAttorney | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [documentName, setDocumentName] = useState('');
   const [filename, setFilename] = useState('');
@@ -157,11 +162,46 @@ export function Templates() {
   const [selectedSections, setSelectedSections] = useState<Set<SectionKey>>(new Set(['toc', 'toa']));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate validation state
+  // Attorney selection
+  const [attorneys, setAttorneys] = useState<Attorney[]>([]);
+  const [selectedAttorneyId, setSelectedAttorneyId] = useState<number | null>(null);
+
+  // Fetch attorneys on mount
+  useEffect(() => {
+    async function fetchAttorneys() {
+      try {
+        const data = await request<{ success: boolean; data: Attorney[] }>('/attorneys');
+        // Exclude Dale Galipo (he's the firm owner, always on signature block)
+        const filtered = data.data.filter(a =>
+          !(a.firstName === 'Dale' && a.lastName === 'Galipo')
+        );
+        setAttorneys(filtered);
+
+        // Default to current logged-in user if they're in the attorney list
+        if (user) {
+          const match = filtered.find(a => a.id === user.id);
+          if (match) setSelectedAttorneyId(match.id);
+        }
+      } catch {
+        // Silently fail — user can still type manually
+      }
+    }
+    fetchAttorneys();
+  }, [user]);
+
+  const selectedAttorney = useMemo(
+    () => attorneys.find(a => a.id === selectedAttorneyId) || null,
+    [attorneys, selectedAttorneyId]
+  );
+
   const validationState = useMemo(() => {
-    const missingFields = CASE_INFO_FIELDS
-      .filter(f => f.required && !caseInfo[f.key as keyof CaseInfo]?.trim())
-      .map(f => f.label);
+    const missingFields = [
+      !caseInfo.court?.trim() && 'Court',
+      !caseInfo.case_number?.trim() && 'Case Number',
+      !caseInfo.plaintiffs?.trim() && 'Plaintiff(s)',
+      !caseInfo.defendants?.trim() && 'Defendant(s)',
+      !caseInfo.judge?.trim() && 'Judge',
+    ].filter(Boolean) as string[];
 
     return {
       isValid: missingFields.length === 0,
@@ -185,7 +225,6 @@ export function Templates() {
     try {
       const response = await extractCaseInfo(file);
       setCaseInfo(response.case_info);
-      setSigningAttorney(response.signing_attorney);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to extract case information');
     } finally {
@@ -196,11 +235,8 @@ export function Templates() {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
     const file = e.dataTransfer.files[0];
-    if (file) {
-      handleFile(file);
-    }
+    if (file) handleFile(file);
   }, [handleFile]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -215,26 +251,17 @@ export function Templates() {
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      handleFile(file);
-    }
+    if (file) handleFile(file);
   }, [handleFile]);
-
-  const handleClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
 
   const handleClearFile = useCallback(() => {
     setUploadedFile(null);
     setCaseInfo(emptyCaseInfo);
-    setSigningAttorney(null);
     setDocumentName('');
     setFilename('');
     setHasAttemptedSubmit(false);
     setError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
   const updateCaseInfo = useCallback((field: keyof CaseInfo, value: string) => {
@@ -246,7 +273,6 @@ export function Templates() {
     try {
       const result = await improveDocumentName(documentName, caseInfo.motion_title || '');
       setDocumentName(result.document_name);
-      // Set AI-recommended sections
       setSelectedSections(new Set(result.sections as SectionKey[]));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to improve document name');
@@ -258,11 +284,8 @@ export function Templates() {
   const toggleSection = useCallback((key: SectionKey) => {
     setSelectedSections(prev => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
@@ -272,7 +295,6 @@ export function Templates() {
       setError('Enter a document name first');
       return;
     }
-
     setIsGeneratingFilename(true);
     try {
       const generated = await generateFilename(documentName);
@@ -285,39 +307,55 @@ export function Templates() {
   }, [documentName]);
 
   const handleGenerateDocument = useCallback(async () => {
-    if (!signingAttorney) {
-      setError('Missing signing attorney — upload a PDF first or fill in attorney info');
-      return;
-    }
+    setHasAttemptedSubmit(true);
+
     if (!documentName.trim()) {
-      setError('Enter a document name first');
+      setError('Enter a document name');
       return;
     }
     if (!filename.trim()) {
-      setError('Enter a filename first');
+      setError('Enter a filename');
+      return;
+    }
+    if (!selectedAttorney) {
+      setError('Select a signing attorney');
       return;
     }
 
     setIsGeneratingDocument(true);
     setError(null);
     try {
+      const signingAttorney = {
+        name: `${selectedAttorney.firstName} ${selectedAttorney.lastName}`,
+        bar_number: selectedAttorney.barNumber || null,
+        email: selectedAttorney.email || '',
+      };
       await generateDocument(caseInfo, signingAttorney, documentName, filename, Array.from(selectedSections));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate document');
     } finally {
       setIsGeneratingDocument(false);
     }
-  }, [caseInfo, signingAttorney, documentName, filename, selectedSections]);
+  }, [caseInfo, selectedAttorney, documentName, filename, selectedSections]);
+
+  const sparkleButton = (onClick: () => void, loading: boolean, disabled?: boolean) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading || disabled}
+      className="p-1 rounded hover:bg-primary-100 dark:hover:bg-primary-800/50 text-primary-600 dark:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      title="AI suggest"
+    >
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+    </button>
+  );
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
-      <Header
-        title="Templates"
-        subtitle="Extract case information from legal documents"
-      />
+      <Header title="Templates" subtitle="Generate pleading documents" />
 
-      <PageContent className="space-y-4 scrollbar-hide">
-        {/* Upload Zone - compact, always visible as optional quick-fill */}
+      <PageContent className="space-y-3 scrollbar-hide">
+        {/* Upload Zone */}
         <section
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -367,10 +405,10 @@ export function Templates() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2" onClick={handleClick}>
+            <div className="flex items-center gap-2" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-4 h-4 text-text-muted flex-shrink-0" />
               <p className="text-xs text-text-muted">
-                <span className="font-medium text-text">Drop a PDF</span> to auto-fill case info, or fill in manually below
+                <span className="font-medium text-text">Drop a PDF</span> to auto-fill, or fill in manually below
               </p>
             </div>
           )}
@@ -384,267 +422,251 @@ export function Templates() {
           </div>
         )}
 
-        {/* Form Sections - always visible */}
-        <div className="space-y-4">
-            {/* Validation Summary */}
-            {hasAttemptedSubmit && !validationState.isValid && (
-              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Missing: {validationState.missingFields.join(', ')}
-                </p>
-              </div>
-            )}
+        {/* Validation Summary */}
+        {hasAttemptedSubmit && !validationState.isValid && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              Missing: {validationState.missingFields.join(', ')}
+            </p>
+          </div>
+        )}
 
-            {/* Document Output Section */}
-            <section className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden">
-              <div className="px-4 py-3 border-b border-emerald-200/50 dark:border-emerald-700/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <h2 className="text-sm font-semibold text-text">Output Document</h2>
-                  </div>
-                  <button
-                    onClick={handleGenerateDocument}
-                    disabled={isGeneratingDocument || !documentName.trim() || !filename.trim()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isGeneratingDocument ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Download className="w-3.5 h-3.5" />
-                    )}
-                    Generate Document
-                  </button>
-                </div>
-              </div>
-              <div className="p-4 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    label="Document Name"
-                    value={documentName}
-                    onChange={setDocumentName}
-                    placeholder="Type a name or click ✨ to suggest"
-                    rightElement={
-                      <button
-                        type="button"
-                        onClick={handleImproveDocumentName}
-                        disabled={isImprovingName}
-                        className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-600 dark:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Improve document name"
-                      >
-                        {isImprovingName ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-4 h-4" />
-                        )}
-                      </button>
-                    }
-                  />
-                  <FormField
-                    label="Filename"
-                    value={filename}
-                    onChange={setFilename}
-                    placeholder="Click ✨ to generate from name"
-                    rightElement={
-                      <button
-                        type="button"
-                        onClick={handleGenerateFilename}
-                        disabled={isGeneratingFilename || !documentName.trim()}
-                        className="p-1 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-600 dark:text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Generate filename from document name"
-                      >
-                        {isGeneratingFilename ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-4 h-4" />
-                        )}
-                      </button>
-                    }
-                  />
-                </div>
+        {/* Case Information */}
+        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+          <SectionHeader
+            icon={<FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
+            title="Case Information"
+          />
+          <div className="p-4 space-y-3">
+            <FormField
+              label="Court"
+              value={caseInfo.court || ''}
+              onChange={(v) => updateCaseInfo('court', v)}
+              required
+              multiline
+              rows={2}
+              placeholder="UNITED STATES DISTRICT COURT&#10;CENTRAL DISTRICT OF CALIFORNIA"
+              showValidation={hasAttemptedSubmit}
+            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <FormField
+                label="Case Number"
+                value={caseInfo.case_number || ''}
+                onChange={(v) => updateCaseInfo('case_number', v)}
+                required
+                placeholder="2:24-cv-01234-ABC-XYZ"
+                showValidation={hasAttemptedSubmit}
+              />
+              <FormField
+                label="Motion Title"
+                value={caseInfo.motion_title || ''}
+                onChange={(v) => updateCaseInfo('motion_title', v)}
+                placeholder="Motion to Compel Discovery"
+                autoExpand
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <FormField
+                label="Plaintiff(s)"
+                value={caseInfo.plaintiffs || ''}
+                onChange={(v) => updateCaseInfo('plaintiffs', v)}
+                required
+                placeholder="JOHN DOE"
+                showValidation={hasAttemptedSubmit}
+                autoExpand
+              />
+              <FormField
+                label="Defendant(s)"
+                value={caseInfo.defendants || ''}
+                onChange={(v) => updateCaseInfo('defendants', v)}
+                required
+                placeholder="ACME CORPORATION"
+                showValidation={hasAttemptedSubmit}
+                autoExpand
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <FormField
+                label="Judge"
+                value={caseInfo.judge || ''}
+                onChange={(v) => updateCaseInfo('judge', v)}
+                required
+                placeholder="Hon. John Smith"
+                showValidation={hasAttemptedSubmit}
+              />
+              <FormField
+                label="Magistrate Judge"
+                value={caseInfo.magistrate_judge || ''}
+                onChange={(v) => updateCaseInfo('magistrate_judge', v)}
+                placeholder="Magistrate Judge Jane Doe"
+              />
+            </div>
+          </div>
+        </section>
 
-                {/* Section Selection */}
+        {/* Hearing Information */}
+        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+          <SectionHeader
+            icon={<Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
+            title="Hearing Information"
+            subtitle="(Optional)"
+          />
+          <div className="p-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <FormField
+                label="Hearing Date"
+                value={caseInfo.hearing_date || ''}
+                onChange={(v) => updateCaseInfo('hearing_date', v)}
+                placeholder="January 15, 2025"
+              />
+              <FormField
+                label="Hearing Time"
+                value={caseInfo.hearing_time || ''}
+                onChange={(v) => updateCaseInfo('hearing_time', v)}
+                placeholder="10:00 a.m."
+              />
+              <FormField
+                label="Courtroom"
+                value={caseInfo.courtroom || ''}
+                onChange={(v) => updateCaseInfo('courtroom', v)}
+                placeholder="Courtroom 10A"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Signing Attorney */}
+        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+          <SectionHeader
+            icon={<User className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
+            title="Signing Attorney"
+          />
+          <div className="p-4">
+            {attorneys.length > 0 ? (
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-2">
-                    Include Sections
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {DOCUMENT_SECTIONS.map((section) => {
-                      const isSelected = selectedSections.has(section.key);
-                      return (
-                        <button
-                          key={section.key}
-                          type="button"
-                          onClick={() => toggleSection(section.key)}
-                          className={`
-                            inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium
-                            transition-all duration-150 border
-                            ${isSelected
-                              ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                              : 'bg-bg-surface text-text-secondary border-border hover:border-emerald-300 dark:hover:border-emerald-700'
-                            }
-                          `}
-                          title={section.description}
-                        >
-                          <span className={`
-                            w-3.5 h-3.5 rounded border flex items-center justify-center
-                            ${isSelected
-                              ? 'bg-emerald-500 border-emerald-500 text-white'
-                              : 'border-current'
-                            }
-                          `}>
-                            {isSelected && <Check className="w-2.5 h-2.5" />}
-                          </span>
-                          {section.label}
-                        </button>
-                      );
-                    })}
+                  <label className="block text-xs font-medium text-text-secondary mb-1">Attorney</label>
+                  <div className="relative">
+                    <select
+                      value={selectedAttorneyId ?? ''}
+                      onChange={(e) => setSelectedAttorneyId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full appearance-none px-2.5 py-1.5 pr-8 bg-bg border border-border rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-200"
+                    >
+                      <option value="">Select attorney...</option>
+                      {attorneys.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.firstName} {a.lastName}
+                          {a.barNumber ? ` (SBN ${a.barNumber})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
                   </div>
                 </div>
-              </div>
-            </section>
-
-            {/* Case Information Section */}
-            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-border bg-bg-hover/50">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                  <h2 className="text-sm font-semibold text-text">Case Information</h2>
-                </div>
-              </div>
-
-              <div className="p-4 space-y-3">
-                {/* Court - Full Width */}
-                <FormField
-                  label="Court"
-                  value={caseInfo.court || ''}
-                  onChange={(v) => updateCaseInfo('court', v)}
-                  required
-                  multiline
-                  rows={2}
-                  placeholder="UNITED STATES DISTRICT COURT&#10;CENTRAL DISTRICT OF CALIFORNIA"
-                  showValidation={hasAttemptedSubmit}
-                />
-
-                {/* Two Column Grid */}
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FormField
-                    label="Case Number"
-                    value={caseInfo.case_number || ''}
-                    onChange={(v) => updateCaseInfo('case_number', v)}
-                    required
-                    placeholder="2:24-cv-01234-ABC-XYZ"
-                    showValidation={hasAttemptedSubmit}
-                  />
-                  <FormField
-                    label="Motion Title"
-                    value={caseInfo.motion_title || ''}
-                    onChange={(v) => updateCaseInfo('motion_title', v)}
-                    placeholder="Motion to Compel Discovery"
-                    showValidation={hasAttemptedSubmit}
-                    autoExpand
-                  />
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FormField
-                    label="Plaintiff(s)"
-                    value={caseInfo.plaintiffs || ''}
-                    onChange={(v) => updateCaseInfo('plaintiffs', v)}
-                    required
-                    placeholder="JOHN DOE"
-                    showValidation={hasAttemptedSubmit}
-                    autoExpand
-                  />
-                  <FormField
-                    label="Defendant(s)"
-                    value={caseInfo.defendants || ''}
-                    onChange={(v) => updateCaseInfo('defendants', v)}
-                    required
-                    placeholder="ACME CORPORATION"
-                    showValidation={hasAttemptedSubmit}
-                    autoExpand
-                  />
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FormField
-                    label="Judge"
-                    value={caseInfo.judge || ''}
-                    onChange={(v) => updateCaseInfo('judge', v)}
-                    required
-                    placeholder="Hon. John Smith"
-                    showValidation={hasAttemptedSubmit}
-                  />
-                  <FormField
-                    label="Magistrate Judge"
-                    value={caseInfo.magistrate_judge || ''}
-                    onChange={(v) => updateCaseInfo('magistrate_judge', v)}
-                    placeholder="Magistrate Judge Jane Doe"
-                    showValidation={hasAttemptedSubmit}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Hearing Information Section */}
-            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-border bg-bg-hover/50">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <h2 className="text-sm font-semibold text-text">Hearing Information</h2>
-                  <span className="text-xs text-text-muted">(Optional)</span>
-                </div>
-              </div>
-
-              <div className="p-4">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {HEARING_INFO_FIELDS.map((field) => (
-                    <FormField
-                      key={field.key}
-                      label={field.label}
-                      value={caseInfo[field.key as keyof CaseInfo] || ''}
-                      onChange={(v) => updateCaseInfo(field.key as keyof CaseInfo, v)}
-                      placeholder={field.placeholder}
-                      showValidation={hasAttemptedSubmit}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Signing Attorney Section */}
-            {signingAttorney && (
-              <section className="bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-primary-900/30 dark:to-primary-800/20 rounded-lg border border-primary-200 dark:border-primary-800 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-primary-200/50 dark:border-primary-700/50">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                    <h2 className="text-sm font-semibold text-text">Signing Attorney</h2>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                      {signingAttorney.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {selectedAttorney && (
+                  <div className="flex items-center gap-3 px-3 py-2 bg-bg-hover/50 rounded-md">
+                    <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-xs">
+                      {selectedAttorney.initials}
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-semibold text-text">{signingAttorney.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-text-muted">
-                        {signingAttorney.bar_number && (
-                          <span>Bar No. <span className="font-mono">{signingAttorney.bar_number}</span></span>
-                        )}
-                        <span>{signingAttorney.email}</span>
-                      </div>
+                    <div className="space-y-0.5 text-xs text-text-muted">
+                      {selectedAttorney.barNumber && (
+                        <span>Bar No. <span className="font-mono">{selectedAttorney.barNumber}</span></span>
+                      )}
+                      {selectedAttorney.barNumber && selectedAttorney.email && <span className="mx-1.5">&middot;</span>}
+                      {selectedAttorney.email && <span>{selectedAttorney.email}</span>}
                     </div>
                   </div>
-                </div>
-              </section>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-text-muted">No attorneys found. Add attorneys in the admin panel.</p>
             )}
           </div>
+        </section>
+
+        {/* Output Document */}
+        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+          <SectionHeader
+            icon={<Download className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
+            title="Output Document"
+          />
+          <div className="p-4 space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FormField
+                label="Document Name"
+                value={documentName}
+                onChange={setDocumentName}
+                required
+                placeholder="Opposition to Motion for Summary Judgment"
+                showValidation={hasAttemptedSubmit}
+                rightElement={sparkleButton(handleImproveDocumentName, isImprovingName)}
+              />
+              <FormField
+                label="Filename"
+                value={filename}
+                onChange={setFilename}
+                required
+                placeholder="2026.02.05 Opp MSJ.docx"
+                showValidation={hasAttemptedSubmit}
+                rightElement={sparkleButton(handleGenerateFilename, isGeneratingFilename, !documentName.trim())}
+              />
+            </div>
+
+            {/* Section Selection */}
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-2">
+                Include Sections
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {DOCUMENT_SECTIONS.map((section) => {
+                  const isSelected = selectedSections.has(section.key);
+                  return (
+                    <button
+                      key={section.key}
+                      type="button"
+                      onClick={() => toggleSection(section.key)}
+                      className={`
+                        inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium
+                        transition-all duration-150 border
+                        ${isSelected
+                          ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700'
+                          : 'bg-bg text-text-secondary border-border hover:border-primary-300 dark:hover:border-primary-700'
+                        }
+                      `}
+                      title={section.description}
+                    >
+                      <span className={`
+                        w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0
+                        ${isSelected
+                          ? 'bg-primary-500 border-primary-500 text-white'
+                          : 'border-current'
+                        }
+                      `}>
+                        {isSelected && <Check className="w-2.5 h-2.5" />}
+                      </span>
+                      {section.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={handleGenerateDocument}
+              disabled={isGeneratingDocument}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isGeneratingDocument ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Generate Document
+            </button>
+          </div>
+        </section>
       </PageContent>
     </div>
   );

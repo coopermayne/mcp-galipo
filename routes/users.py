@@ -73,6 +73,8 @@ def register_user_routes(mcp):
                 "firstName": u.get("first_name"),
                 "lastName": u.get("last_name"),
                 "initials": u.get("initials"),
+                "barNumber": u.get("bar_number"),
+                "email": u.get("email"),
             }
             for u in users
             if u.get("position") == "attorney"
