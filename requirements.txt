@@ -11,3 +11,4 @@ PyJWT
 weasyprint
 docxtpl
 pypdf
+docxcompose
