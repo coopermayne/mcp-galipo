@@ -10,3 +10,4 @@ filelock
 PyJWT
 weasyprint
 docxtpl
+pypdf

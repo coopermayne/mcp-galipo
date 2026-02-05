@@ -163,3 +163,10 @@ export {
   getPanelClasses,
   adjustPanelsForLayout as adjustPanelsForLayoutGeneric,
 } from './panel-layout';
+
+// Template types
+export type {
+  CaseInfo,
+  SigningAttorney,
+  ExtractCaseInfoResponse,
+} from './template';

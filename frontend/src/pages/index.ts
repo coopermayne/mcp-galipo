@@ -8,3 +8,4 @@ export { WebhookDetail } from './WebhookDetail';
 export { Login } from './Login';
 export { Persons } from './Persons';
 export { Users } from './Users';
+export { Templates } from './Templates';

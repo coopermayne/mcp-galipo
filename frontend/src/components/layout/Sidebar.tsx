@@ -9,6 +9,7 @@ import {
   Webhook,
   Users,
   UserCog,
+  FileText,
   X,
   Sun,
   Moon,
@@ -23,6 +24,7 @@ const baseNavigation = [
   { name: 'Cases', href: '/cases', icon: Briefcase },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Calendar', href: '/calendar', icon: Clock },
+  { name: 'Templates', href: '/templates', icon: FileText },
   { name: 'CourtListener', href: '/courtlistener', icon: Webhook },
   { name: 'Persons', href: '/persons', icon: Users },
 ];

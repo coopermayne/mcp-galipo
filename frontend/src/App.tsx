@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/layout';
-import { Dashboard, Cases, CaseDetail, Tasks, Calendar, Webhooks, WebhookDetail, Login, Persons, Users } from './pages';
+import { Dashboard, Cases, CaseDetail, Tasks, Calendar, Webhooks, WebhookDetail, Login, Persons, Users, Templates } from './pages';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { EntityModalProvider } from './context/EntityModalContext';
@@ -45,6 +45,7 @@ function App() {
                     <Route path="courtlistener/:id" element={<WebhookDetail />} />
                     <Route path="persons" element={<Persons />} />
                     <Route path="users" element={<Users />} />
+                    <Route path="templates" element={<Templates />} />
                   </Route>
                 </Routes>
                 <EntityDetailModal />
