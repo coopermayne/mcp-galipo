@@ -266,3 +266,45 @@ flowchart TB
 | Backend | psycopg2 | PostgreSQL driver |
 | Database | PostgreSQL | Primary database |
 | Database | JSONB | Flexible data storage |
+
+## Frontend Color & Theme System
+
+Colors are centralized in two files to ensure consistency and dark mode support:
+
+```mermaid
+flowchart TB
+    subgraph CSS["index.css - CSS Custom Properties"]
+        Primary["--color-primary-*<br/>Brand palette (50-950)"]
+        Urgency["--color-urgency-*<br/>1-4 scale"]
+        Status["--color-status-*<br/>pending, active, done, blocked"]
+        Theme["--theme-bg-*, --theme-text-*<br/>Semantic tokens (light/dark)"]
+    end
+
+    subgraph TS["config/colors.ts - TypeScript Mappings"]
+        Badge["BADGE_PALETTE<br/>User/case chips"]
+        TaskStatus["TASK_STATUS_COLORS"]
+        CaseStatus["CASE_STATUS_COLORS"]
+        Priority["PRIORITY_COLORS<br/>With hex for SVG"]
+        Helpers["getStatusColor()<br/>getBadgeColorById()"]
+    end
+
+    subgraph Usage["Component Usage"]
+        Semantic["Semantic classes<br/>bg-bg-surface, text-text"]
+        Badges["Status badges<br/>Import from colors.ts"]
+    end
+
+    CSS --> Semantic
+    TS --> Badges
+```
+
+**When to use which:**
+
+| Use Case | Source | Example |
+|----------|--------|---------|
+| Backgrounds, text, borders | `index.css` semantic classes | `bg-bg-surface`, `text-text-muted` |
+| Primary brand color | `index.css` primary vars | `bg-primary-500`, `text-primary-600` |
+| Status badges (task, case, event) | `config/colors.ts` | `getStatusColor(status)` |
+| User avatars, case chips | `config/colors.ts` | `getBadgeColorById(userId)` |
+| Priority indicators | `config/colors.ts` | `PRIORITY_COLORS[level].hex` |
+
+**Important:** Never hardcode color classes like `bg-blue-100 text-blue-700` in components. Always import from `@/config/colors` for badges/status or use semantic theme classes.
