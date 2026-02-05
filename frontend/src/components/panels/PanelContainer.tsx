@@ -796,7 +796,7 @@ export function PanelContainer({
   };
 
   return (
-    <div className="flex flex-col h-full bg-bg-surface rounded-lg border border-border overflow-hidden">
+    <div className="flex flex-col w-full h-full bg-bg-surface rounded-lg border border-border overflow-hidden">
       {/* Panel Header */}
       <div className="relative flex-shrink-0" ref={filterRef}>
         <div

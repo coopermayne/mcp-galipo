@@ -17,6 +17,7 @@ import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutConte
 import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
 import {
   LAYOUT_CONTAINER_CLASSES,
+  LAYOUT_MAX_WIDTH_CLASSES,
   getPanelClasses,
   createDefaultTasksWidget,
   createDefaultEventsWidget,
@@ -46,12 +47,12 @@ function DashboardContent() {
 
       {/* Panels Grid */}
       <main
-        className={`flex-1 grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]}`}
+        className={`flex-1 w-full grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]} ${LAYOUT_MAX_WIDTH_CLASSES[config.layout]}`}
       >
         {config.panels.map((panel, index) => (
           <div
             key={panel.id}
-            className={`min-h-0 ${getPanelClasses(config.layout, index)}`}
+            className={`min-h-0 w-full ${getPanelClasses(config.layout, index)}`}
           >
             <PanelContainer
               config={panel}
