@@ -6,6 +6,7 @@ fragments (notice, meet & confer, TOC, TOA, certificate of compliance)
 that are conditionally included based on user selection.
 """
 
+import tempfile
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
@@ -171,8 +172,12 @@ def generate_pleading(
     # Build context dict
     ctx = context.to_dict()
 
-    # Load subdocs for each section that's enabled
-    # The subdocs are rendered with the same context, so they can use variables
+    # Load subdocs for each section that's enabled.
+    # Most fragments are pre-rendered (Jinja2 resolved) before insertion,
+    # since docxtpl subdocs don't process template tags.
+    # TOC and TOA are inserted directly (no pre-rendering) to preserve Word field codes.
+    STATIC_FRAGMENTS = {"toc", "toa"}
+
     subdoc_mapping = {
         "notice": ("subdoc_notice", context.include_notice),
         "meet_confer": ("subdoc_meet_confer", context.include_meet_confer),
@@ -185,19 +190,38 @@ def generate_pleading(
         "cert_compliance": ("subdoc_cert_compliance", context.include_cert_compliance),
     }
 
-    for section_key, (subdoc_var, is_included) in subdoc_mapping.items():
-        if is_included:
-            fragment_path = FRAGMENTS_DIR / FRAGMENT_FILES[section_key]
-            if fragment_path.exists():
-                subdoc = doc.new_subdoc(str(fragment_path))
-                ctx[subdoc_var] = subdoc
+    temp_files = []
+    try:
+        for section_key, (subdoc_var, is_included) in subdoc_mapping.items():
+            if is_included:
+                fragment_path = FRAGMENTS_DIR / FRAGMENT_FILES[section_key]
+                if fragment_path.exists():
+                    if section_key in STATIC_FRAGMENTS:
+                        # Insert directly to preserve Word field codes
+                        subdoc = doc.new_subdoc(str(fragment_path))
+                    else:
+                        # Pre-render to resolve Jinja2 variables
+                        frag_doc = DocxTemplate(str(fragment_path))
+                        frag_doc.render(ctx)
+                        tmp = tempfile.NamedTemporaryFile(suffix='.docx', delete=False)
+                        frag_doc.save(tmp.name)
+                        temp_files.append(tmp.name)
+                        subdoc = doc.new_subdoc(tmp.name)
+                    ctx[subdoc_var] = subdoc
+                else:
+                    ctx[subdoc_var] = ""
             else:
-                ctx[subdoc_var] = ""  # Fragment not found, skip
-        else:
-            ctx[subdoc_var] = ""  # Not included, empty
+                ctx[subdoc_var] = ""
 
-    # Render with context including subdocs
-    doc.render(ctx)
+        # Render base template with subdocs
+        doc.render(ctx)
+    finally:
+        import os
+        for tmp_path in temp_files:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     buf = BytesIO()
     doc.save(buf)
