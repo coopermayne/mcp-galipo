@@ -13,6 +13,7 @@ export interface User {
   firstName: string;
   lastName: string;
   initials: string;
+  barNumber?: string | null;
   position: string;
   isAdmin: boolean;
   paralegalId?: number | null;

@@ -50,6 +50,7 @@ def authenticate(email: str, password: str) -> Optional[dict]:
                 "firstName": user["first_name"],
                 "lastName": user["last_name"],
                 "initials": user["initials"],
+                "barNumber": user.get("bar_number"),
                 "position": user["position"],
                 "isAdmin": user["is_admin"],
                 "paralegalId": user.get("paralegal_id"),
