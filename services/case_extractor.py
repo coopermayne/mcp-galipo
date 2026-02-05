@@ -180,3 +180,138 @@ def extract_case_info(text: str) -> dict:
         Dict with extracted case information fields
     """
     return get_extractor().extract_case_info(text)
+
+
+def suggest_document_names(case_info: dict) -> dict:
+    """
+    Generate suggested document name and filename based on case information.
+
+    Args:
+        case_info: Dict with case information (plaintiffs, defendants, motion_title, case_number)
+
+    Returns:
+        Dict with 'document_name' and 'filename' suggestions
+    """
+    import re
+
+    plaintiffs = case_info.get("plaintiffs") or ""
+    defendants = case_info.get("defendants") or ""
+    motion_title = case_info.get("motion_title") or ""
+    case_number = case_info.get("case_number") or ""
+
+    # Extract first plaintiff last name
+    plaintiff_name = ""
+    if plaintiffs:
+        # Take first name, get last word (likely last name)
+        first_plaintiff = plaintiffs.split(";")[0].split(",")[0].strip()
+        words = first_plaintiff.split()
+        plaintiff_name = words[-1] if words else first_plaintiff
+
+    # Extract first defendant last name or company name
+    defendant_name = ""
+    if defendants:
+        first_defendant = defendants.split(";")[0].split(",")[0].strip()
+        # For companies, take first meaningful word
+        words = first_defendant.split()
+        # Skip common prefixes
+        skip_words = {"COUNTY", "CITY", "STATE", "THE", "OF", "A", "AN"}
+        for word in words:
+            if word.upper() not in skip_words:
+                defendant_name = word.title()
+                break
+        if not defendant_name and words:
+            defendant_name = words[0].title()
+
+    # Generate document name - this is the formal title
+    # If we have a motion title, use it; otherwise create a generic one
+    if motion_title:
+        document_name = motion_title
+    else:
+        document_name = "Opposition to Motion"
+
+    # Generate filename - short, filesystem-friendly
+    # Format: PlaintiffLastName_v_DefendantName_DocType.docx
+    doc_abbrev = _abbreviate_motion_type(motion_title)
+
+    filename_parts = []
+    if plaintiff_name:
+        filename_parts.append(_sanitize_filename(plaintiff_name))
+    if defendant_name:
+        if filename_parts:
+            filename_parts.append("v")
+        filename_parts.append(_sanitize_filename(defendant_name))
+    if doc_abbrev:
+        filename_parts.append(doc_abbrev)
+
+    if filename_parts:
+        filename = "_".join(filename_parts) + ".docx"
+    else:
+        filename = "document.docx"
+
+    return {
+        "document_name": document_name,
+        "filename": filename,
+    }
+
+
+def _abbreviate_motion_type(motion_title: str) -> str:
+    """Generate a short abbreviation for the motion type."""
+    if not motion_title:
+        return "Doc"
+
+    title_lower = motion_title.lower()
+
+    # Common motion type abbreviations
+    if "opposition" in title_lower:
+        if "motion to compel" in title_lower:
+            return "Opp_MTC"
+        elif "motion for summary judgment" in title_lower or "msj" in title_lower:
+            return "Opp_MSJ"
+        elif "motion to dismiss" in title_lower or "mtd" in title_lower:
+            return "Opp_MTD"
+        elif "demurrer" in title_lower:
+            return "Opp_Dem"
+        else:
+            return "Opp"
+    elif "reply" in title_lower:
+        if "motion to compel" in title_lower:
+            return "Reply_MTC"
+        elif "motion for summary judgment" in title_lower:
+            return "Reply_MSJ"
+        else:
+            return "Reply"
+    elif "motion to compel" in title_lower:
+        return "MTC"
+    elif "motion for summary judgment" in title_lower or "summary judgment" in title_lower:
+        return "MSJ"
+    elif "motion to dismiss" in title_lower:
+        return "MTD"
+    elif "demurrer" in title_lower:
+        return "Demurrer"
+    elif "complaint" in title_lower:
+        return "Complaint"
+    elif "answer" in title_lower:
+        return "Answer"
+    elif "declaration" in title_lower:
+        return "Decl"
+    elif "notice" in title_lower:
+        return "Notice"
+    elif "subpoena" in title_lower:
+        return "Subpoena"
+    elif "judgment" in title_lower:
+        return "Judgment"
+    else:
+        # Take first few words
+        words = motion_title.split()[:3]
+        return "_".join(w.title() for w in words if len(w) > 2)[:20]
+
+
+def _sanitize_filename(name: str) -> str:
+    """Make a string safe for use in a filename."""
+    import re
+    # Remove special characters, keep alphanumeric and spaces
+    clean = re.sub(r'[^\w\s-]', '', name)
+    # Replace spaces with nothing, capitalize
+    clean = clean.replace(' ', '').strip()
+    # Limit length
+    return clean[:20] if clean else "Doc"

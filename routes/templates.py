@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 import auth
 from db.users import get_user_by_id
 from services.pdf_extractor import extract_text_from_pdf
-from services.case_extractor import extract_case_info
+from services.case_extractor import extract_case_info, suggest_document_names
 from .common import api_error
 
 _logger = logging.getLogger("routes.templates")
@@ -105,4 +105,34 @@ def register_template_routes(mcp):
             "success": True,
             "case_info": case_info,
             "signing_attorney": signing_attorney,
+        })
+
+    @mcp.custom_route("/api/v1/templates/suggest-names", methods=["POST"])
+    async def api_suggest_document_names(request):
+        """
+        Suggest document name and filename based on case information.
+
+        Accepts JSON with case_info fields.
+        Returns suggested document_name and filename.
+        """
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            data = await request.json()
+        except Exception as e:
+            _logger.error(f"Failed to parse JSON: {e}")
+            return api_error("Invalid JSON", "INVALID_REQUEST", 400)
+
+        case_info = data.get("case_info", {})
+
+        try:
+            suggestions = await asyncio.to_thread(suggest_document_names, case_info)
+        except Exception as e:
+            _logger.error(f"Failed to generate suggestions: {e}")
+            return api_error("Failed to generate suggestions", "SUGGESTION_ERROR", 500)
+
+        return JSONResponse({
+            "success": True,
+            **suggestions,
         })
