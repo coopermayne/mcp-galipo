@@ -1,9 +1,5 @@
 export { formatSmartDate, type DateFormatOptions } from './dateFormat';
 export {
-  inferPersonTypeFromRole,
-  inferSideFromRole,
-} from './personRoleMapping';
-export {
   parseDateFromText,
   removeDateFromText,
   extractDateFromText,

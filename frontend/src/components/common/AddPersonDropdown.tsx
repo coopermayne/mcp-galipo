@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { PersonAutocomplete } from './PersonAutocomplete';
-import type { Person, PersonType } from '../../types';
+import type { Person, RoleCategory } from '../../types';
 
 interface AddPersonDropdownProps {
   roleOptions: string[];
   onAssign: (person: Person, role: string) => void;
   onCreate: (name: string, role: string) => void;
   excludePersonIds?: number[];
-  getPersonTypes?: (role: string) => PersonType[] | undefined;
+  getRoleCategory?: (role: string) => RoleCategory | undefined;
   getPlaceholder?: (role: string) => string;
   /** Compact mode shows smaller button inline */
   compact?: boolean;
@@ -21,7 +21,7 @@ export function AddPersonDropdown({
   onAssign,
   onCreate,
   excludePersonIds = [],
-  getPersonTypes,
+  getRoleCategory,
   getPlaceholder,
   compact = false,
   label,
@@ -83,7 +83,7 @@ export function AddPersonDropdown({
     }
   };
 
-  const personTypes = selectedRole && getPersonTypes ? getPersonTypes(selectedRole) : undefined;
+  const roleCategory = selectedRole && getRoleCategory ? getRoleCategory(selectedRole) : undefined;
   const placeholder = selectedRole && getPlaceholder ? getPlaceholder(selectedRole) : 'Search or create new...';
 
   return (
@@ -161,7 +161,7 @@ export function AddPersonDropdown({
                   Search for an existing person or create a new one.
                 </p>
                 <PersonAutocomplete
-                  personTypes={personTypes}
+                  roleCategory={roleCategory}
                   excludePersonIds={excludePersonIds}
                   onSelectPerson={handleAssign}
                   onCreateNew={handleCreate}

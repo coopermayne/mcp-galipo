@@ -334,9 +334,10 @@ def get_case_summary_context(case_id: int) -> dict:
 
         # Get key people (clients and primary contacts)
         cur.execute("""
-            SELECT p.name, cp.role FROM case_persons cp
-            JOIN persons p ON cp.person_id = p.id
-            WHERE cp.case_id = %s AND (cp.role = 'Client' OR cp.is_primary = true)
+            SELECT p.name, r.name as role FROM person_roles pr
+            JOIN persons p ON pr.person_id = p.id
+            JOIN roles r ON pr.role_id = r.id
+            WHERE pr.case_id = %s AND (r.name = 'Client' OR pr.is_primary = true)
             LIMIT 5
         """, (case_id,))
         key_people = [{"name": r["name"], "role": r["role"]} for r in cur.fetchall()]
@@ -557,14 +558,13 @@ def get_case_people_context(case_id: int) -> dict:
                 p.id,
                 p.name,
                 p.organization,
-                p.email,
-                p.phone,
-                cp.role,
-                cp.side
-            FROM case_persons cp
-            JOIN persons p ON cp.person_id = p.id
-            WHERE cp.case_id = %s
-            ORDER BY cp.role, p.name
+                r.name as role,
+                r.category
+            FROM person_roles pr
+            JOIN persons p ON pr.person_id = p.id
+            JOIN roles r ON pr.role_id = r.id
+            WHERE pr.case_id = %s
+            ORDER BY r.category, r.sort_order, p.name
         """, (case_id,))
 
         people = []
@@ -573,10 +573,8 @@ def get_case_people_context(case_id: int) -> dict:
                 "id": row["id"],
                 "name": row["name"],
                 "organization": row["organization"],
-                "email": row["email"],
-                "phone": row["phone"],
                 "role": row["role"],
-                "side": row["side"],
+                "category": row["category"],
             })
 
     return {

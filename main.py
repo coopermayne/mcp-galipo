@@ -24,33 +24,25 @@ IMPORTANT: Call the get_current_time tool at the start of any session to know th
 
 This server provides tools to manage cases, tasks, events, contacts, and notes.
 
-PERSON TYPES (for manage_person):
-- client: The injured party/plaintiff
-- attorney: Lawyers (opposing counsel, co-counsel, etc.)
-- judge: Judges and magistrates (assigned to proceedings, not cases directly)
-- expert: Expert witnesses (medical, accident reconstruction, economics, etc.)
-- mediator: Mediators and arbitrators
-- defendant: Named defendants (individuals or entity representatives)
-- witness: Fact witnesses
-- lien_holder: Medical providers, insurance companies with liens
-- interpreter: Court interpreters
+ROLES SYSTEM (unified person-role management):
+Persons are assigned to cases with roles from these categories:
+- client: "Client"
+- internal_team: "Lead Attorney", "Co-Counsel", "Paralegal", "Case Manager"
+- opposing_team: "Defendant", "Defense Counsel", "Defense Paralegal", "Defense Expert"
+- third_party: "Plaintiff Expert", "Mediator", "Witness", "Lien Holder", "Court Reporter", "Interpreter", "Process Server"
 
-CASE ROLES (for assign_person_to_case):
-Common roles: Client, Defendant, Opposing Counsel, Co-Counsel, Plaintiff Expert, Defense Expert, Mediator, Witness, Lien Holder
-- Use side="plaintiff", "defendant", or "neutral" to indicate which side they're on
-
-JUDGE ROLES (for add_proceeding_judge):
-- "Judge" - District/Superior Court Judge
-- "Magistrate Judge" - Federal Magistrate Judge
-- "Presiding" - Presiding judge on a panel
-- "Panel" - Panel member (appellate courts)
+JUDGES (standalone entities):
+Judges are NOT persons - they are standalone entities assigned to proceedings.
+- Create judges with create_judge(name, jurisdiction_id, ...)
+- Assign to proceedings with add_judge_to_proceeding(proceeding_id, judge_id, role)
+- Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
 
 JURISDICTIONS & PROCEEDINGS WORKFLOW:
 1. Call list_jurisdictions() to see existing courts
 2. If the court exists, note its jurisdiction_id
 3. If not, call manage_jurisdiction(name="USDC - Central District") to create it
 4. Call add_proceeding(case_id, case_number, jurisdiction_id) to link the case to the court
-5. Call add_proceeding_judge() to assign judges to the proceeding (not the case)
+5. Call add_judge_to_proceeding() to assign judges to the proceeding
 
 DATA ENTRY GUIDELINES:
 - Skip vacated, canceled, or stricken events/deadlines - do not add these to the system

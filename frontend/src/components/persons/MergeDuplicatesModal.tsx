@@ -406,9 +406,11 @@ function PersonRow({ person }: { person: Person }) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text truncate">{person.name}</span>
           <span className="text-xs text-text-muted">#{person.id}</span>
-          <span className="px-1.5 py-0.5 text-[10px] rounded bg-bg-hover text-text-secondary capitalize">
-            {person.person_type}
-          </span>
+          {person.roles?.[0] && (
+            <span className="px-1.5 py-0.5 text-[10px] rounded bg-bg-hover text-text-secondary">
+              {person.roles[0].role.name}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3 text-xs text-text-muted">
           {person.organization && <span>{person.organization}</span>}
@@ -506,41 +508,22 @@ function MergeResolution({
         </div>
       </div>
 
-      {/* Assignment conflicts info */}
-      {conflicts.assignment_conflicts.length > 0 && (
+      {/* Role conflicts info */}
+      {conflicts.role_conflicts && conflicts.role_conflicts.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-text mb-2 flex items-center gap-2">
             <Briefcase className="w-4 h-4 text-amber-500" />
-            Overlapping case assignments ({conflicts.assignment_conflicts.length})
+            Overlapping role assignments ({conflicts.role_conflicts.length})
           </h3>
           <p className="text-xs text-text-muted mb-2">
             Both persons are assigned to the same case with the same role. Primary's assignment will be kept.
           </p>
           <div className="space-y-1">
-            {conflicts.assignment_conflicts.map((ac, i) => (
+            {conflicts.role_conflicts.map((rc: { case_id: number; role_id: number; role_name: string; case_name: string }, i: number) => (
               <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-bg-hover rounded text-sm">
                 <Briefcase className="w-3.5 h-3.5 text-text-muted" />
-                <span className="text-text">{ac.short_name || ac.case_name}</span>
-                <span className="text-text-muted">as {ac.role}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Judge conflicts info */}
-      {conflicts.judge_conflicts.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-text mb-2">
-            Overlapping judge assignments ({conflicts.judge_conflicts.length})
-          </h3>
-          <p className="text-xs text-text-muted mb-2">
-            Both assigned as judge on the same proceeding. Primary's assignment will be kept.
-          </p>
-          <div className="space-y-1">
-            {conflicts.judge_conflicts.map((jc, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-bg-hover rounded text-sm">
-                <span className="text-text">{jc.proceeding_name}</span>
+                <span className="text-text">{rc.case_name}</span>
+                <span className="text-text-muted">as {rc.role_name}</span>
               </div>
             ))}
           </div>

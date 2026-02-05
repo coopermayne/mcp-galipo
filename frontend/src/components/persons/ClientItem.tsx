@@ -8,7 +8,7 @@
 import { User, Phone, Mail, Building2 } from 'lucide-react';
 import { useEntityModalContext } from '../../context/EntityModalContext';
 import { CaseChip } from '../common/CaseChip';
-import type { Person } from '../../types';
+import type { Person, PersonRole } from '../../types';
 
 function getPrimaryPhone(person: Person): string | null {
   const primary = person.phones?.find((p) => p.primary);
@@ -29,7 +29,8 @@ export function ClientItem({ person, onClick }: ClientItemProps) {
   const { openModal } = useEntityModalContext();
   const phone = getPrimaryPhone(person);
   const email = getPrimaryEmail(person);
-  const cases = person.case_assignments || [];
+  // Get case roles (roles with case_id)
+  const caseRoles = (person.roles || []).filter((r: PersonRole) => r.case_id);
 
   const handleClick = () => {
     if (onClick) {
@@ -82,19 +83,19 @@ export function ClientItem({ person, onClick }: ClientItemProps) {
 
       {/* Case chip(s) */}
       <div className="flex items-center gap-1 flex-shrink-0">
-        {cases.slice(0, 2).map((ca) => (
+        {caseRoles.slice(0, 2).map((r: PersonRole) => (
           <CaseChip
-            key={ca.case_id}
-            caseId={ca.case_id}
-            caseName={ca.case_name}
-            shortName={ca.short_name}
-            color={ca.color}
+            key={r.case_id}
+            caseId={r.case_id!}
+            caseName={r.case_name}
+            shortName={r.short_name}
+            color={r.color}
           />
         ))}
-        {cases.length > 2 && (
-          <span className="text-xs text-text-muted">+{cases.length - 2}</span>
+        {caseRoles.length > 2 && (
+          <span className="text-xs text-text-muted">+{caseRoles.length - 2}</span>
         )}
-        {cases.length === 0 && (
+        {caseRoles.length === 0 && (
           <span className="text-xs text-text-muted italic">No cases</span>
         )}
       </div>

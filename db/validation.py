@@ -20,18 +20,8 @@ ACTIVITY_TYPES = [
     "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
 ]
 
-# Default person types (seeded into person_types table)
-DEFAULT_PERSON_TYPES = [
-    "client", "attorney", "judge", "expert", "mediator", "defendant",
-    "witness", "lien_holder", "interpreter", "court_reporter",
-    "process_server", "investigator", "insurance_adjuster", "guardian"
-]
-
-# Sides in a case
-PERSON_SIDES = ["plaintiff", "defendant", "neutral"]
-
-# Roles that cannot be assigned directly to cases (must go through proceedings)
-JUDGE_ROLES = ["Judge", "Magistrate Judge"]
+# Role categories for the unified roles system
+ROLE_CATEGORIES = ["client", "internal_team", "opposing_team", "third_party"]
 
 # Valid user positions
 USER_POSITIONS = ["attorney", "paralegal", "manager", "admin"]
@@ -56,6 +46,31 @@ DEFAULT_JURISDICTIONS = [
     {"name": "San Diego Superior", "local_rules_link": None},
     {"name": "Riverside Superior", "local_rules_link": None},
     {"name": "San Bernardino Superior", "local_rules_link": None},
+]
+
+# Default roles for the unified roles system (seeded in migration)
+DEFAULT_ROLES = [
+    # Client category
+    {"name": "Client", "category": "client", "sort_order": 1},
+    # Internal Team
+    {"name": "Lead Attorney", "category": "internal_team", "sort_order": 1},
+    {"name": "Associate Attorney", "category": "internal_team", "sort_order": 2},
+    {"name": "Paralegal", "category": "internal_team", "sort_order": 3},
+    {"name": "Case Manager", "category": "internal_team", "sort_order": 4},
+    {"name": "Legal Assistant", "category": "internal_team", "sort_order": 5},
+    # Opposing Team
+    {"name": "Defense Counsel", "category": "opposing_team", "sort_order": 1},
+    {"name": "Defendant", "category": "opposing_team", "sort_order": 2},
+    {"name": "Defense Expert", "category": "opposing_team", "sort_order": 3},
+    # Third Party
+    {"name": "Plaintiff Expert", "category": "third_party", "sort_order": 1},
+    {"name": "Medical Provider", "category": "third_party", "sort_order": 2},
+    {"name": "Witness", "category": "third_party", "sort_order": 3},
+    {"name": "Insurance Adjuster", "category": "third_party", "sort_order": 4},
+    {"name": "Court Reporter", "category": "third_party", "sort_order": 5},
+    {"name": "Process Server", "category": "third_party", "sort_order": 6},
+    {"name": "Mediator", "category": "third_party", "sort_order": 7},
+    {"name": "Arbitrator", "category": "third_party", "sort_order": 8},
 ]
 
 
@@ -103,28 +118,11 @@ def validate_time_format(time_str: str, field_name: str = "time") -> str:
     return time_str
 
 
-def validate_person_type(person_type: str) -> str:
-    """Validate person type is a non-empty string. Any type is allowed."""
-    if not person_type or not person_type.strip():
-        raise ValidationError("Person type cannot be empty")
-    return person_type.strip()
-
-
-def validate_person_side(side: str) -> str:
-    """Validate person side against allowed values."""
-    if side and side not in PERSON_SIDES:
-        raise ValidationError(f"Invalid side '{side}'. Must be one of: {', '.join(PERSON_SIDES)}")
-    return side
-
-
-def validate_case_person_role(role: str) -> str:
-    """Validate that a case_person role is not a judge role (judges go on proceedings)."""
-    if role in JUDGE_ROLES:
-        raise ValidationError(
-            f"Role '{role}' cannot be assigned directly to a case. "
-            "Judges must be assigned to proceedings instead."
-        )
-    return role
+def validate_role_category(category: str) -> str:
+    """Validate role category against allowed values."""
+    if category not in ROLE_CATEGORIES:
+        raise ValidationError(f"Invalid role category '{category}'. Must be one of: {', '.join(ROLE_CATEGORIES)}")
+    return category
 
 
 def validate_user_position(position: str) -> str:

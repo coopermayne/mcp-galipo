@@ -3,24 +3,26 @@
  *
  * Fetches and manages person data. Handles:
  * - Data fetching
- * - Filtering by type and search
- * - Grouping by type, alpha, or recent
+ * - Filtering by category and search
+ * - Grouping by category, alpha, or recent
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PersonsFeed } from './PersonsFeed';
 import { getPersons } from '../../api';
-import type { Person } from '../../types';
+import type { Person, RoleCategory } from '../../types';
 
-type GroupMode = 'type' | 'alpha' | 'recent';
+type GroupMode = 'category' | 'alpha' | 'recent';
 
 interface PersonsComponentProps {
   /** How to group persons */
   groupBy?: GroupMode;
   /** Callback when group by changes */
   onGroupByChange?: (groupBy: GroupMode) => void;
-  /** Filter by person type */
-  typeFilter?: string;
+  /** Filter by role category */
+  categoryFilter?: RoleCategory;
+  /** Filter by role_id */
+  roleFilter?: number;
   /** Search query */
   searchQuery?: string;
   /** Show only persons not assigned to any case */
@@ -30,16 +32,23 @@ interface PersonsComponentProps {
 }
 
 export function PersonsComponent({
-  groupBy = 'type',
-  typeFilter,
+  groupBy = 'category',
+  categoryFilter,
+  roleFilter,
   searchQuery = '',
   showUnassigned = false,
   onPersonClick,
 }: PersonsComponentProps) {
-  // Fetch persons
+  // Fetch persons with role data
   const { data: personsData, isLoading } = useQuery({
-    queryKey: ['persons', { type: typeFilter, unassigned: showUnassigned || undefined }],
-    queryFn: () => getPersons({ type: typeFilter || undefined, unassigned: showUnassigned || undefined, limit: 10000 }),
+    queryKey: ['persons', { category: categoryFilter, role_id: roleFilter, unassigned: showUnassigned || undefined }],
+    queryFn: () => getPersons({
+      category: categoryFilter || undefined,
+      role_id: roleFilter || undefined,
+      unassigned: showUnassigned || undefined,
+      include_roles: true,
+      limit: 10000,
+    }),
   });
 
   // Filter persons
@@ -47,9 +56,11 @@ export function PersonsComponent({
     const allPersons = personsData?.persons || [];
     let filtered = allPersons;
 
-    // Filter by type if specified
-    if (typeFilter) {
-      filtered = filtered.filter((p) => p.person_type === typeFilter);
+    // Filter by category if specified (and not already filtered at API level)
+    if (categoryFilter && !roleFilter) {
+      filtered = filtered.filter((p) =>
+        p.roles?.some((r) => r.role.category === categoryFilter)
+      );
     }
 
     // Filter by search query
@@ -65,7 +76,7 @@ export function PersonsComponent({
     }
 
     return filtered;
-  }, [personsData?.persons, typeFilter, searchQuery]);
+  }, [personsData?.persons, categoryFilter, roleFilter, searchQuery]);
 
   return (
     <PersonsFeed

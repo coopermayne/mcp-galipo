@@ -54,6 +54,25 @@ export {
   deleteNote,
 } from './notes';
 
+// Roles
+export {
+  getRoles,
+  getRole,
+  createRole,
+  updateRole,
+  deleteRole,
+} from './roles';
+
+// Judges
+export {
+  getJudges,
+  searchJudges,
+  getJudge,
+  createJudge,
+  updateJudge,
+  deleteJudge,
+} from './judges';
+
 // Persons
 export {
   getPersons,
@@ -61,6 +80,7 @@ export {
   createPerson,
   updatePerson,
   deletePerson,
+  archivePerson,
   getCasePersons,
   assignPersonToCase,
   updateCaseAssignment,
@@ -68,10 +88,6 @@ export {
   removePersonFromCase,
   getExpertiseTypes,
   createExpertiseType,
-  getPersonTypes,
-  createPersonType,
-  updatePersonType,
-  deletePersonType,
   getDuplicatePersons,
   getMergePreview,
   mergePersons,
