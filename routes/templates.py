@@ -7,12 +7,13 @@ Provides endpoints for:
 
 import asyncio
 import logging
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 import auth
 from db.users import get_user_by_id
 from services.pdf_extractor import extract_text_from_pdf
 from services.case_extractor import extract_case_info, improve_document_name, generate_filename
+from services.pleading_generator import context_from_case_info, generate_pleading
 from .common import api_error
 
 _logger = logging.getLogger("routes.templates")
@@ -131,14 +132,15 @@ def register_template_routes(mcp):
         motion_title = data.get("motion_title", "")
 
         try:
-            document_name = await asyncio.to_thread(improve_document_name, user_input, motion_title)
+            result = await asyncio.to_thread(improve_document_name, user_input, motion_title)
         except Exception as e:
             _logger.error(f"Failed to improve document name: {e}")
             return api_error("Failed to improve document name", "IMPROVE_ERROR", 500)
 
         return JSONResponse({
             "success": True,
-            "document_name": document_name,
+            "document_name": result["document_name"],
+            "sections": result["sections"],
         })
 
     @mcp.custom_route("/api/v1/templates/generate-filename", methods=["POST"])
@@ -174,3 +176,65 @@ def register_template_routes(mcp):
             "success": True,
             "filename": filename,
         })
+
+    @mcp.custom_route("/api/v1/templates/generate-document", methods=["POST"])
+    async def api_generate_document(request):
+        """
+        Generate a pleading document from case info.
+
+        Accepts JSON with:
+        - case_info: Dict with court, case_number, plaintiffs, etc.
+        - signing_attorney: Dict with name, bar_number, email
+        - document_name: Title for the document being created
+        - filename: Desired filename for download
+
+        Returns the generated .docx file.
+        """
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            data = await request.json()
+        except Exception as e:
+            _logger.error(f"Failed to parse JSON: {e}")
+            return api_error("Invalid JSON", "INVALID_REQUEST", 400)
+
+        case_info = data.get("case_info", {})
+        signing_attorney = data.get("signing_attorney", {})
+        document_name = data.get("document_name", "")
+        filename = data.get("filename", "document.docx")
+        sections = data.get("sections", [])  # List of section keys to include
+
+        # Ensure filename has .docx extension
+        if not filename.lower().endswith(".docx"):
+            filename += ".docx"
+
+        try:
+            # Create context from the form data
+            ctx = context_from_case_info(case_info, signing_attorney, document_name)
+
+            # Override section flags based on user selection
+            ctx.include_notice = "notice" in sections
+            ctx.include_meet_confer = "meet_confer" in sections
+            ctx.include_toc = "toc" in sections
+            ctx.include_toa = "toa" in sections
+            ctx.include_cert_compliance = "cert_compliance" in sections
+
+            # Generate the document
+            doc_buffer = await asyncio.to_thread(generate_pleading, ctx)
+
+        except FileNotFoundError as e:
+            _logger.error(f"Template not found: {e}")
+            return api_error("Template not found", "TEMPLATE_ERROR", 500)
+        except Exception as e:
+            _logger.error(f"Failed to generate document: {e}")
+            return api_error("Failed to generate document", "GENERATE_ERROR", 500)
+
+        # Return as downloadable file
+        return StreamingResponse(
+            doc_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )

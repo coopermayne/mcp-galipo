@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X } from 'lucide-react';
+import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X, Download, Check } from 'lucide-react';
 import { Header, PageContent } from '../components/layout';
-import { extractCaseInfo, improveDocumentName, generateFilename } from '../api/templates';
+import { extractCaseInfo, improveDocumentName, generateFilename, generateDocument } from '../api/templates';
 import type { CaseInfo, SigningAttorney } from '../types/template';
 
 // Field configuration for validation and display
@@ -20,6 +20,17 @@ const HEARING_INFO_FIELDS = [
   { key: 'hearing_time', label: 'Hearing Time', required: false, placeholder: '10:00 a.m.' },
   { key: 'courtroom', label: 'Courtroom', required: false, placeholder: 'Courtroom 10A' },
 ] as const;
+
+// Document sections that can be included/excluded
+const DOCUMENT_SECTIONS = [
+  { key: 'notice', label: 'Notice of Motion', description: 'Required for motions' },
+  { key: 'meet_confer', label: 'Meet & Confer', description: 'L.R. 7-3 compliance statement' },
+  { key: 'toc', label: 'Table of Contents', description: 'Auto-generated TOC' },
+  { key: 'toa', label: 'Table of Authorities', description: 'Case citations index' },
+  { key: 'cert_compliance', label: 'Certificate of Compliance', description: 'Word count certification' },
+] as const;
+
+type SectionKey = typeof DOCUMENT_SECTIONS[number]['key'];
 
 interface FormFieldProps {
   label: string;
@@ -132,6 +143,8 @@ export function Templates() {
   const [filename, setFilename] = useState('');
   const [isImprovingName, setIsImprovingName] = useState(false);
   const [isGeneratingFilename, setIsGeneratingFilename] = useState(false);
+  const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
+  const [selectedSections, setSelectedSections] = useState<Set<SectionKey>>(new Set(['toc', 'toa']));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate validation state
@@ -227,14 +240,28 @@ export function Templates() {
 
     setIsImprovingName(true);
     try {
-      const improved = await improveDocumentName(documentName, caseInfo.motion_title || '');
-      setDocumentName(improved);
+      const result = await improveDocumentName(documentName, caseInfo.motion_title || '');
+      setDocumentName(result.document_name);
+      // Set AI-recommended sections
+      setSelectedSections(new Set(result.sections as SectionKey[]));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to improve document name');
     } finally {
       setIsImprovingName(false);
     }
   }, [caseInfo, documentName]);
+
+  const toggleSection = useCallback((key: SectionKey) => {
+    setSelectedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
 
   const handleGenerateFilename = useCallback(async () => {
     if (!documentName.trim()) {
@@ -252,6 +279,31 @@ export function Templates() {
       setIsGeneratingFilename(false);
     }
   }, [documentName]);
+
+  const handleGenerateDocument = useCallback(async () => {
+    if (!caseInfo || !signingAttorney) {
+      setError('Missing case info or signing attorney');
+      return;
+    }
+    if (!documentName.trim()) {
+      setError('Enter a document name first');
+      return;
+    }
+    if (!filename.trim()) {
+      setError('Enter a filename first');
+      return;
+    }
+
+    setIsGeneratingDocument(true);
+    setError(null);
+    try {
+      await generateDocument(caseInfo, signingAttorney, documentName, filename, Array.from(selectedSections));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate document');
+    } finally {
+      setIsGeneratingDocument(false);
+    }
+  }, [caseInfo, signingAttorney, documentName, filename, selectedSections]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
@@ -364,12 +416,26 @@ export function Templates() {
             {/* Document Output Section */}
             <section className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden">
               <div className="px-4 py-3 border-b border-emerald-200/50 dark:border-emerald-700/50">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <h2 className="text-sm font-semibold text-text">Output Document</h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <h2 className="text-sm font-semibold text-text">Output Document</h2>
+                  </div>
+                  <button
+                    onClick={handleGenerateDocument}
+                    disabled={isGeneratingDocument || !documentName.trim() || !filename.trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isGeneratingDocument ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    Generate Document
+                  </button>
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-4 space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     label="Document Name"
@@ -413,6 +479,45 @@ export function Templates() {
                       </button>
                     }
                   />
+                </div>
+
+                {/* Section Selection */}
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-2">
+                    Include Sections
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {DOCUMENT_SECTIONS.map((section) => {
+                      const isSelected = selectedSections.has(section.key);
+                      return (
+                        <button
+                          key={section.key}
+                          type="button"
+                          onClick={() => toggleSection(section.key)}
+                          className={`
+                            inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium
+                            transition-all duration-150 border
+                            ${isSelected
+                              ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                              : 'bg-bg-surface text-text-secondary border-border hover:border-emerald-300 dark:hover:border-emerald-700'
+                            }
+                          `}
+                          title={section.description}
+                        >
+                          <span className={`
+                            w-3.5 h-3.5 rounded border flex items-center justify-center
+                            ${isSelected
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'border-current'
+                            }
+                          `}>
+                            {isSelected && <Check className="w-2.5 h-2.5" />}
+                          </span>
+                          {section.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </section>

@@ -65,16 +65,21 @@ EXTRACT_CASE_INFO_TOOL = {
 # Tool definition for document name improvement
 IMPROVE_NAME_TOOL = {
     "name": "submit_document_name",
-    "description": "Submit the improved/suggested document name.",
+    "description": "Submit the improved/suggested document name and recommended sections to include.",
     "input_schema": {
         "type": "object",
         "properties": {
             "document_name": {
                 "type": "string",
                 "description": "The formal title for the response document (e.g., 'Opposition to Motion to Compel Discovery')"
+            },
+            "sections": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of sections to include. Options: 'notice' (Notice of Motion), 'meet_confer' (Meet & Confer statement), 'toc' (Table of Contents), 'toa' (Table of Authorities), 'cert_compliance' (Certificate of Compliance)"
             }
         },
-        "required": ["document_name"]
+        "required": ["document_name", "sections"]
     }
 }
 
@@ -187,7 +192,7 @@ class CaseExtractor:
             "courtroom": clean_value(result.get("courtroom")),
         }
 
-    def improve_document_name(self, user_input: str, motion_title: str) -> str:
+    def improve_document_name(self, user_input: str, motion_title: str) -> dict:
         """
         Use AI to improve/clean up a document name based on user input and context.
 
@@ -196,7 +201,7 @@ class CaseExtractor:
             motion_title: The title of the uploaded document for context
 
         Returns:
-            Improved document name string
+            Dict with 'document_name' and 'sections' (list of section keys to include)
         """
         prompt = f"""You are helping a lawyer create a RESPONSE document.
 
@@ -207,29 +212,37 @@ The user has started typing a document name:
 "{user_input}"
 
 ## YOUR TASK:
-Improve or complete the document name. If the user input is empty or unclear, suggest an appropriate response document title.
+1. Improve or complete the document name
+2. Recommend which sections to include based on document type
 
 ## LITIGATION SEQUENCE:
 Motion → Opposition → Reply
 
-## RULES:
+## DOCUMENT NAME RULES:
 1. If responding to an "Opposition" → suggest "Reply in Support of [underlying motion]"
 2. If responding to a Motion → suggest "Opposition to [that motion]"
 3. If responding to a "Complaint" → suggest "Answer to Complaint"
 4. If responding to a "Demurrer" → suggest "Opposition to Demurrer"
 5. If the user has typed something specific, clean it up and format it properly
-6. Use proper legal document naming conventions (Title Case, formal language)
+
+## SECTION RULES:
+Available sections: notice, meet_confer, toc, toa, cert_compliance
+
+- **Motions** (we're filing a motion): include notice, meet_confer, toc, toa
+- **Oppositions** (responding to a motion): include toc, toa, cert_compliance
+- **Replies** (responding to an opposition): usually just cert_compliance (short doc)
+- **Answers** (to complaints): none of these sections typically
 
 ## EXAMPLES:
-- User types "opp to mtc" → "Opposition to Motion to Compel"
-- User types "reply" (responding to "Opposition to MSJ") → "Reply in Support of Motion for Summary Judgment"
-- User types nothing (responding to "Motion for Summary Judgment") → "Opposition to Motion for Summary Judgment"
+- "Opposition to Motion for Summary Judgment" → sections: ["toc", "toa", "cert_compliance"]
+- "Motion to Compel Discovery" → sections: ["notice", "meet_confer", "toc", "toa"]
+- "Reply in Support of Motion to Compel" → sections: ["cert_compliance"]
 
-Use the submit_document_name tool with your improved title."""
+Use the submit_document_name tool with your improved title and recommended sections."""
 
         message = self.client.messages.create(
             model=self.model,
-            max_tokens=128,
+            max_tokens=256,
             tools=[IMPROVE_NAME_TOOL],
             tool_choice={"type": "tool", "name": "submit_document_name"},
             messages=[
@@ -242,7 +255,10 @@ Use the submit_document_name tool with your improved title."""
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_document_name":
-                return block.input.get("document_name", "")
+                return {
+                    "document_name": block.input.get("document_name", ""),
+                    "sections": block.input.get("sections", ["toc", "toa"]),
+                }
 
         raise ValueError("Failed to improve document name")
 
@@ -332,7 +348,7 @@ def extract_case_info(text: str) -> dict:
     return get_extractor().extract_case_info(text)
 
 
-def improve_document_name(user_input: str, motion_title: str) -> str:
+def improve_document_name(user_input: str, motion_title: str) -> dict:
     """
     Use AI to improve/clean up a document name based on user input and context.
 
@@ -341,7 +357,7 @@ def improve_document_name(user_input: str, motion_title: str) -> str:
         motion_title: The title of the uploaded document for context
 
     Returns:
-        Improved document name string
+        Dict with 'document_name' and 'sections' (list of section keys to include)
     """
     return get_extractor().improve_document_name(user_input, motion_title)
 
