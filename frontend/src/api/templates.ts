@@ -1,4 +1,4 @@
-import type { ExtractCaseInfoResponse, SuggestDocumentNamesResponse, CaseInfo } from '../types/template';
+import type { ExtractCaseInfoResponse } from '../types/template';
 import { getAuthToken, clearAuthToken } from '../context/AuthContext';
 import { ApiError, API_BASE } from './common';
 
@@ -39,13 +39,14 @@ export async function extractCaseInfo(file: File): Promise<ExtractCaseInfoRespon
 }
 
 /**
- * Get AI-suggested document name and filename based on case info.
+ * Improve/clean up a document name based on user input and context.
  *
- * @param caseInfo - The case information to base suggestions on
- * @returns Suggested document_name and filename
+ * @param userInput - What the user has typed (may be empty)
+ * @param motionTitle - The title of the uploaded document for context
+ * @returns Improved document_name
  */
-export async function suggestDocumentNames(caseInfo: CaseInfo): Promise<SuggestDocumentNamesResponse> {
-  const url = `${API_BASE}/templates/suggest-names`;
+export async function improveDocumentName(userInput: string, motionTitle: string): Promise<string> {
+  const url = `${API_BASE}/templates/improve-name`;
   const token = getAuthToken();
 
   const response = await fetch(url, {
@@ -54,7 +55,7 @@ export async function suggestDocumentNames(caseInfo: CaseInfo): Promise<SuggestD
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ case_info: caseInfo }),
+    body: JSON.stringify({ user_input: userInput, motion_title: motionTitle }),
   });
 
   const data = await response.json();
@@ -68,5 +69,38 @@ export async function suggestDocumentNames(caseInfo: CaseInfo): Promise<SuggestD
     throw new ApiError(error.message, error.code, response.status);
   }
 
-  return data;
+  return data.document_name;
+}
+
+/**
+ * Generate a filename from a document name.
+ *
+ * @param documentName - The formal document title
+ * @returns Generated filename
+ */
+export async function generateFilename(documentName: string): Promise<string> {
+  const url = `${API_BASE}/templates/generate-filename`;
+  const token = getAuthToken();
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ document_name: documentName }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken();
+      window.location.href = '/login';
+    }
+    const error = data.error || { message: 'Unknown error', code: 'UNKNOWN' };
+    throw new ApiError(error.message, error.code, response.status);
+  }
+
+  return data.filename;
 }

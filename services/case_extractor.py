@@ -62,23 +62,35 @@ EXTRACT_CASE_INFO_TOOL = {
 }
 
 
-# Tool definition for document name suggestions
-SUGGEST_NAMES_TOOL = {
-    "name": "submit_document_names",
-    "description": "Submit the suggested document name and filename for the response document being created.",
+# Tool definition for document name improvement
+IMPROVE_NAME_TOOL = {
+    "name": "submit_document_name",
+    "description": "Submit the improved/suggested document name.",
     "input_schema": {
         "type": "object",
         "properties": {
             "document_name": {
                 "type": "string",
                 "description": "The formal title for the response document (e.g., 'Opposition to Motion to Compel Discovery')"
-            },
-            "filename": {
-                "type": "string",
-                "description": "A short, filesystem-friendly filename with .docx extension (e.g., 'Doe_v_Acme_Opp_MTC.docx')"
             }
         },
-        "required": ["document_name", "filename"]
+        "required": ["document_name"]
+    }
+}
+
+# Tool definition for filename generation
+GENERATE_FILENAME_TOOL = {
+    "name": "submit_filename",
+    "description": "Submit the generated filename.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "filename": {
+                "type": "string",
+                "description": "A short, filesystem-friendly filename with .docx extension (e.g., '2026.02.05 Opp MSJ.docx')"
+            }
+        },
+        "required": ["filename"]
     }
 }
 
@@ -175,69 +187,51 @@ class CaseExtractor:
             "courtroom": clean_value(result.get("courtroom")),
         }
 
-    def suggest_document_names(self, case_info: dict) -> dict:
+    def improve_document_name(self, user_input: str, motion_title: str) -> str:
         """
-        Use AI to suggest document name and filename for a response document.
+        Use AI to improve/clean up a document name based on user input and context.
 
         Args:
-            case_info: Dict with case information from extraction
+            user_input: What the user has typed so far (may be empty or partial)
+            motion_title: The title of the uploaded document for context
 
         Returns:
-            Dict with 'document_name' and 'filename' suggestions
+            Improved document name string
         """
-        from datetime import datetime
-        today_date = datetime.now().strftime('%Y.%m.%d')
+        prompt = f"""You are helping a lawyer create a RESPONSE document.
 
-        plaintiffs = case_info.get("plaintiffs") or "Unknown"
-        defendants = case_info.get("defendants") or "Unknown"
-        motion_title = case_info.get("motion_title") or "Unknown Document"
-
-        prompt = f"""You are helping a lawyer create a RESPONSE document. They uploaded a legal document titled:
-
+The uploaded document (what they're responding to) is titled:
 "{motion_title}"
 
-Today's date: {today_date}
+The user has started typing a document name:
+"{user_input}"
 
-## CRITICAL RULES FOR document_name:
+## YOUR TASK:
+Improve or complete the document name. If the user input is empty or unclear, suggest an appropriate response document title.
 
-The litigation sequence is: Motion → Opposition → Reply
+## LITIGATION SEQUENCE:
+Motion → Opposition → Reply
 
-1. If the uploaded title contains "Opposition" → suggest a "Reply in Support of [the underlying motion]"
-   - "Opposition to Motion to Compel" → "Reply in Support of Motion to Compel"
-   - "Opposition to Motion for Summary Judgment" → "Reply in Support of Motion for Summary Judgment"
+## RULES:
+1. If responding to an "Opposition" → suggest "Reply in Support of [underlying motion]"
+2. If responding to a Motion → suggest "Opposition to [that motion]"
+3. If responding to a "Complaint" → suggest "Answer to Complaint"
+4. If responding to a "Demurrer" → suggest "Opposition to Demurrer"
+5. If the user has typed something specific, clean it up and format it properly
+6. Use proper legal document naming conventions (Title Case, formal language)
 
-2. If the uploaded title is a Motion (but NOT an Opposition) → suggest "Opposition to [that motion]"
-   - "Motion to Compel Discovery" → "Opposition to Motion to Compel Discovery"
-   - "Motion for Summary Judgment" → "Opposition to Motion for Summary Judgment"
+## EXAMPLES:
+- User types "opp to mtc" → "Opposition to Motion to Compel"
+- User types "reply" (responding to "Opposition to MSJ") → "Reply in Support of Motion for Summary Judgment"
+- User types nothing (responding to "Motion for Summary Judgment") → "Opposition to Motion for Summary Judgment"
 
-3. If the uploaded title is a "Complaint" → suggest "Answer to Complaint"
-
-4. If the uploaded title is a "Demurrer" → suggest "Opposition to Demurrer"
-
-## RULES FOR filename:
-Format: {today_date} [abbreviation].docx
-
-Abbreviations:
-- Opposition → Opp
-- Motion to Dismiss → MTD
-- Motion for Summary Judgment → MSJ
-- Motion to Compel → Mot to Compel
-- Motion to Compel Discovery → Mot to Compel Disc
-- Reply in Support of → Reply ISO
-
-Examples:
-- document_name="Opposition to Motion to Compel" → filename="{today_date} Opp Mot to Compel.docx"
-- document_name="Reply in Support of Motion to Compel" → filename="{today_date} Reply ISO Mot to Compel.docx"
-- document_name="Opposition to Motion for Summary Judgment" → filename="{today_date} Opp MSJ.docx"
-- document_name="Reply in Support of Motion for Summary Judgment" → filename="{today_date} Reply ISO MSJ.docx"
-
-Use the submit_document_names tool with your suggestions."""
+Use the submit_document_name tool with your improved title."""
 
         message = self.client.messages.create(
             model=self.model,
-            max_tokens=256,
-            tools=[SUGGEST_NAMES_TOOL],
-            tool_choice={"type": "tool", "name": "submit_document_names"},
+            max_tokens=128,
+            tools=[IMPROVE_NAME_TOOL],
+            tool_choice={"type": "tool", "name": "submit_document_name"},
             messages=[
                 {
                     "role": "user",
@@ -246,15 +240,69 @@ Use the submit_document_names tool with your suggestions."""
             ]
         )
 
-        # Find the tool use block
         for block in message.content:
-            if block.type == "tool_use" and block.name == "submit_document_names":
-                return {
-                    "document_name": block.input.get("document_name", ""),
-                    "filename": block.input.get("filename", "document.docx"),
-                }
+            if block.type == "tool_use" and block.name == "submit_document_name":
+                return block.input.get("document_name", "")
 
-        raise ValueError("Failed to generate document name suggestions")
+        raise ValueError("Failed to improve document name")
+
+    def generate_filename(self, document_name: str) -> str:
+        """
+        Generate a filesystem-friendly filename from a document name.
+
+        Args:
+            document_name: The formal document title
+
+        Returns:
+            A short filename with date and abbreviations
+        """
+        from datetime import datetime
+        today_date = datetime.now().strftime('%Y.%m.%d')
+
+        prompt = f"""Generate a short, filesystem-friendly filename for this legal document:
+
+Document name: "{document_name}"
+Today's date: {today_date}
+
+## RULES:
+Format: {today_date} [abbreviation].docx
+
+Use these abbreviations:
+- Opposition → Opp
+- Motion to Dismiss → MTD
+- Motion for Summary Judgment → MSJ
+- Motion to Compel → MTC
+- Motion to Compel Discovery → MTC Disc
+- Reply in Support of → Reply ISO
+- Motion for Judgment on the Pleadings → MJOP
+- Motion in Limine → MIL
+
+## EXAMPLES:
+- "Opposition to Motion to Compel" → "{today_date} Opp MTC.docx"
+- "Reply in Support of Motion to Compel" → "{today_date} Reply ISO MTC.docx"
+- "Opposition to Motion for Summary Judgment" → "{today_date} Opp MSJ.docx"
+- "Opposition to Motion for Judgment as a Matter of Law" → "{today_date} Opp JMOL.docx"
+
+Use the submit_filename tool with your generated filename."""
+
+        message = self.client.messages.create(
+            model=self.model,
+            max_tokens=64,
+            tools=[GENERATE_FILENAME_TOOL],
+            tool_choice={"type": "tool", "name": "submit_filename"},
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        for block in message.content:
+            if block.type == "tool_use" and block.name == "submit_filename":
+                return block.input.get("filename", "document.docx")
+
+        raise ValueError("Failed to generate filename")
 
 
 # Module-level convenience function
@@ -284,18 +332,28 @@ def extract_case_info(text: str) -> dict:
     return get_extractor().extract_case_info(text)
 
 
-def suggest_document_names(case_info: dict) -> dict:
+def improve_document_name(user_input: str, motion_title: str) -> str:
     """
-    Use AI to generate suggested document name and filename for a RESPONSE document.
-
-    The uploaded PDF is typically a motion/document we're responding TO, so we suggest
-    the appropriate response type (opposition, reply, answer, etc.)
+    Use AI to improve/clean up a document name based on user input and context.
 
     Args:
-        case_info: Dict with case information (plaintiffs, defendants, motion_title, case_number)
+        user_input: What the user has typed (may be empty or partial)
+        motion_title: The title of the uploaded document for context
 
     Returns:
-        Dict with 'document_name' and 'filename' suggestions
+        Improved document name string
     """
-    extractor = get_extractor()
-    return extractor.suggest_document_names(case_info)
+    return get_extractor().improve_document_name(user_input, motion_title)
+
+
+def generate_filename(document_name: str) -> str:
+    """
+    Generate a filesystem-friendly filename from a document name.
+
+    Args:
+        document_name: The formal document title
+
+    Returns:
+        A short filename with date and abbreviations
+    """
+    return get_extractor().generate_filename(document_name)

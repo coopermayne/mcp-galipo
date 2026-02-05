@@ -152,6 +152,16 @@ body {
   background-color: var(--theme-text-secondary);
 }
 
+/* Hide scrollbar utility - hides scrollbar but keeps scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
 /* Focus styles for accessibility */
 *:focus-visible {
   @apply outline-2 outline-offset-2 outline-primary-500;
