@@ -90,8 +90,8 @@ def _build_context(cases: list, attorney_name: str) -> dict:
         colors = STATUS_COLORS.get(status, {"text": CLR_NAVY, "bg": "F1F5F9"})
 
         header_rt = RichText()
-        header_rt.add(status, bold=True, color=colors["text"], size=20)
-        header_rt.add(f"  ({len(phase_cases)})", color=CLR_GREY, size=16)
+        header_rt.add(status, bold=True, color=colors["text"], size=28)
+        header_rt.add(f"  ({len(phase_cases)})", color=CLR_GREY, size=24)
 
         phases.append({
             "name": status,
@@ -107,8 +107,8 @@ def _build_context(cases: list, attorney_name: str) -> dict:
         if status not in STATUS_ORDER:
             phase_cases = [_transform_case(c, today) for c in case_list]
             header_rt = RichText()
-            header_rt.add(status or "Other", bold=True, color=CLR_NAVY, size=20)
-            header_rt.add(f"  ({len(phase_cases)})", color=CLR_GREY, size=16)
+            header_rt.add(status or "Other", bold=True, color=CLR_NAVY, size=28)
+            header_rt.add(f"  ({len(phase_cases)})", color=CLR_GREY, size=24)
             phases.append({
                 "name": status or "Other",
                 "count": len(phase_cases),
@@ -153,48 +153,48 @@ def _transform_case(case_data: dict, today: str) -> dict:
 
     # Title RichText: just the case name (status shown in banner)
     title_rt = RichText()
-    title_rt.add(case_name, bold=True, color=CLR_NAVY, size=28)  # 14pt = 28 half-pts
+    title_rt.add(case_name, bold=True, color=CLR_NAVY, size=28)  # 14pt
 
     # Status badge RichText (right-aligned in title bar)
     status_rt = RichText()
-    status_rt.add(f" {status} ", bold=True, color=colors["text"], size=20)  # 10pt
+    status_rt.add(f" {status} ", bold=True, color=colors["text"], size=24)  # 12pt
 
     # Case info line: "2:25-cv-01537-CSK (E.D. Cal.), Judge Troy L. Nunley"
     case_info_rt = RichText()
     has_info = bool(case_number or judge)
     if case_number:
-        case_info_rt.add(case_number, bold=True, color=CLR_NAVY, size=18)
+        case_info_rt.add(case_number, bold=True, color=CLR_NAVY, size=28)
         if jurisdiction:
-            case_info_rt.add(f" ({jurisdiction})", color=CLR_DARK_GREY, size=17)
+            case_info_rt.add(f" ({jurisdiction})", color=CLR_DARK_GREY, size=24)
         if judge:
-            case_info_rt.add(", ", color=CLR_GREY, size=17)
+            case_info_rt.add(", ", color=CLR_GREY, size=24)
     if judge:
-        case_info_rt.add(f"Judge {judge}", color=CLR_NAVY, size=17)
+        case_info_rt.add(f"Judge {judge}", color=CLR_NAVY, size=28)
 
     # Detail line: "DOI: Jun 10, 2024  ·  Client: Evgeniy Gubanov"
     detail_rt = RichText()
     has_detail = bool(doi or clients)
     if doi:
-        detail_rt.add("DOI: ", color=CLR_GREY, size=15)
-        detail_rt.add(doi, color=CLR_NAVY, size=16)
+        detail_rt.add("DOI: ", color=CLR_GREY, size=24)
+        detail_rt.add(doi, color=CLR_NAVY, size=24)
     if doi and clients:
-        detail_rt.add("   \u00b7   ", color=CLR_GREY, size=15)
+        detail_rt.add("   \u00b7   ", color=CLR_GREY, size=24)
     if clients:
-        detail_rt.add("Client: ", color=CLR_GREY, size=15)
-        detail_rt.add(clients, color=CLR_NAVY, size=16)
+        detail_rt.add("Client: ", color=CLR_GREY, size=24)
+        detail_rt.add(clients, color=CLR_NAVY, size=24)
 
     # Counsel line: all counsel grouped by side
     plaintiff_counsel, defense_counsel = _get_counsel_groups(persons)
     counsel_rt = RichText()
     has_counsel = bool(plaintiff_counsel or defense_counsel)
     if plaintiff_counsel:
-        counsel_rt.add("Co-Counsel: ", color=CLR_GREY, size=15)
-        counsel_rt.add(", ".join(plaintiff_counsel), color=CLR_NAVY, size=16)
+        counsel_rt.add("Co-Counsel: ", color=CLR_GREY, size=24)
+        counsel_rt.add(", ".join(plaintiff_counsel), color=CLR_NAVY, size=24)
     if plaintiff_counsel and defense_counsel:
-        counsel_rt.add("   |   ", color=CLR_GREY, size=15)
+        counsel_rt.add("   |   ", color=CLR_GREY, size=24)
     if defense_counsel:
-        counsel_rt.add("Defense: ", color=CLR_GREY, size=15)
-        counsel_rt.add(", ".join(defense_counsel), color=CLR_NAVY, size=16)
+        counsel_rt.add("Defense: ", color=CLR_GREY, size=24)
+        counsel_rt.add(", ".join(defense_counsel), color=CLR_NAVY, size=24)
 
     # Events with RichText
     event_items = _build_events(events, doi_raw, today)
@@ -204,26 +204,6 @@ def _transform_case(case_data: dict, today: str) -> dict:
 
     # Notes
     note_items = _build_notes(notes)
-
-    # Timeline (events and tasks zipped side by side)
-    # Each side gets its own bg — empty side stays white (no phantom rows)
-    timeline = []
-    max_len = max(len(event_items), len(task_items)) if (event_items or task_items) else 0
-    for i in range(max_len):
-        row = {}
-        has_ev = i < len(event_items)
-        has_tk = i < len(task_items)
-        alt_bg = BG_ALT if i % 2 == 0 else BG_NONE
-
-        row["ev_date"] = event_items[i]["date_rt"] if has_ev else ""
-        row["ev_desc"] = event_items[i]["desc_rt"] if has_ev else ""
-        row["ev_bg"] = alt_bg if has_ev else BG_NONE
-
-        row["tk_date"] = task_items[i]["date_rt"] if has_tk else ""
-        row["tk_desc"] = task_items[i]["desc_rt"] if has_tk else ""
-        row["tk_bg"] = alt_bg if has_tk else BG_NONE
-
-        timeline.append(row)
 
     return {
         "case_name": case_name,
@@ -245,8 +225,10 @@ def _transform_case(case_data: dict, today: str) -> dict:
         "has_detail": has_detail,
         "counsel_rt": counsel_rt,
         "has_counsel": has_counsel,
-        "has_timeline": len(timeline) > 0,
-        "timeline": timeline,
+        "has_timeline": len(event_items) > 0,
+        "event_items": event_items,
+        "task_items": task_items,
+        "has_tasks": len(task_items) > 0,
         "notes": note_items if note_items else None,
     }
 
@@ -262,14 +244,14 @@ def _build_events(events: list, doi_raw, today: str) -> list:
     if doi_raw:
         doi_str = _format_date(doi_raw)
         date_rt = RichText()
-        date_rt.add("DOI ", bold=True, color=CLR_RED, size=12)  # 6pt
-        date_rt.add(doi_str, bold=True, color=CLR_NAVY, size=16)
+        date_rt.add("DOI ", bold=True, color=CLR_RED, size=24)
+        date_rt.add(doi_str, bold=True, color=CLR_NAVY, size=28)
 
         desc_rt = RichText()
-        desc_rt.add("Date of Injury", bold=True, color=CLR_NAVY, size=16)
+        desc_rt.add("Date of Injury", bold=True, color=CLR_NAVY, size=28)
 
         loc_rt = RichText()
-        loc_rt.add("\u2014", color=CLR_GREY, size=16)
+        loc_rt.add("\u2014", color=CLR_GREY, size=24)
 
         items.append({
             "date_rt": date_rt,
@@ -297,29 +279,29 @@ def _build_events(events: list, doi_raw, today: str) -> list:
         # Date RichText
         date_rt = RichText()
         if is_starred:
-            date_rt.add("\u2605 ", color="D97706" if not is_past else CLR_GREY, size=16)
+            date_rt.add("\u2605 ", color="D97706" if not is_past else CLR_GREY, size=24)
         if is_past:
-            date_rt.add(date_str, color=CLR_GREY, italic=True, bold=is_starred, size=16)
+            date_rt.add(date_str, color=CLR_GREY, italic=True, bold=is_starred, size=24)
             if time_str:
-                date_rt.add(f" at {time_str}", color=CLR_GREY, italic=True, size=14)
+                date_rt.add(f" at {time_str}", color=CLR_GREY, italic=True, size=24)
         else:
-            date_rt.add(date_str, color=CLR_NAVY, bold=is_starred, size=16)
+            date_rt.add(date_str, color=CLR_NAVY, bold=is_starred, size=24)
             if time_str:
-                date_rt.add(f" at {time_str}", color=CLR_DARK_GREY, size=14)
+                date_rt.add(f" at {time_str}", color=CLR_DARK_GREY, size=24)
 
         # Description RichText
         desc_rt = RichText()
         if is_past:
-            desc_rt.add(desc, color=CLR_GREY, italic=True, bold=is_starred, size=16)
+            desc_rt.add(desc, color=CLR_GREY, italic=True, bold=is_starred, size=24)
         else:
-            desc_rt.add(desc, color=CLR_NAVY, bold=is_starred, size=16)
+            desc_rt.add(desc, color=CLR_NAVY, bold=is_starred, size=24)
 
         # Location RichText
         loc_rt = RichText()
         if location:
-            loc_rt.add(location, color=CLR_GREY if is_past else CLR_DARK_GREY, italic=is_past, size=15)
+            loc_rt.add(location, color=CLR_GREY if is_past else CLR_DARK_GREY, italic=is_past, size=24)
         else:
-            loc_rt.add("\u2014", color=CLR_GREY, size=15)
+            loc_rt.add("\u2014", color=CLR_GREY, size=24)
 
         items.append({
             "date_rt": date_rt,
@@ -360,22 +342,22 @@ def _build_tasks(tasks: list, today: str) -> list:
 
         if is_overdue:
             # Overdue: grey italic
-            date_rt.add(date_str or "\u2014", color=CLR_GREY, italic=True, size=16)
-            desc_rt.add(desc, color=CLR_GREY, italic=True, size=16)
+            date_rt.add(date_str or "\u2014", color=CLR_GREY, italic=True, size=24)
+            desc_rt.add(desc, color=CLR_GREY, italic=True, size=24)
         elif urgency == 4:
             # Urgent: red marker + bold
-            date_rt.add(date_str or "\u2014", bold=True, color=CLR_RED, size=16)
-            desc_rt.add("\u25CF ", color=CLR_RED, size=12)
-            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=16)
+            date_rt.add(date_str or "\u2014", bold=True, color=CLR_RED, size=28)
+            desc_rt.add("\u25CF ", color=CLR_RED, size=24)
+            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=28)
         elif urgency == 3:
             # High: bold navy
-            date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=16)
-            desc_rt.add("\u25CF ", color=CLR_NAVY, size=10)
-            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=16)
+            date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=28)
+            desc_rt.add("\u25CF ", color=CLR_NAVY, size=24)
+            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=28)
         else:
             # Normal: regular navy
-            date_rt.add(date_str or "\u2014", color=CLR_NAVY, size=16)
-            desc_rt.add(desc, color=CLR_NAVY, size=16)
+            date_rt.add(date_str or "\u2014", color=CLR_NAVY, size=24)
+            desc_rt.add(desc, color=CLR_NAVY, size=24)
 
         items.append({
             "date_rt": date_rt,
