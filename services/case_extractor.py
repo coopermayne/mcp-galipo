@@ -83,21 +83,100 @@ IMPROVE_NAME_TOOL = {
     }
 }
 
-# Tool definition for filename generation
-GENERATE_FILENAME_TOOL = {
-    "name": "submit_filename",
-    "description": "Submit the generated filename.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "filename": {
-                "type": "string",
-                "description": "A short, filesystem-friendly filename with .docx extension (e.g., '2026.02.05 Opp MSJ.docx')"
-            }
-        },
-        "required": ["filename"]
-    }
-}
+# Motion abbreviations for filename generation (longest match first)
+_MOTION_ABBREVIATIONS = [
+    ("Motion for Summary Judgment", "MSJ"),
+    ("Motion for Summary Adjudication", "MSA"),
+    ("Motion for Judgment on the Pleadings", "MJOP"),
+    ("Motion for Judgment as a Matter of Law", "JMOL"),
+    ("Motion to Compel Further Discovery", "MTC Further Disc"),
+    ("Motion to Compel Discovery", "MTC Disc"),
+    ("Motion to Compel Arbitration", "MTC Arb"),
+    ("Motion to Compel", "MTC"),
+    ("Motion to Dismiss", "MTD"),
+    ("Motion to Strike", "MTS"),
+    ("Motion to Quash", "MTQ"),
+    ("Motion to Remand", "MTR"),
+    ("Motion to Bifurcate", "MT Bifurcate"),
+    ("Motion to Sever", "MT Sever"),
+    ("Motion to Transfer", "MT Transfer"),
+    ("Motion in Limine", "MIL"),
+    ("Motion to Continue Trial", "MT Continue"),
+    ("Motion to Withdraw", "MT Withdraw"),
+    ("Motion to Amend", "MT Amend"),
+    ("Motion for Leave to Amend", "MLA"),
+    ("Motion for Protective Order", "MPO"),
+    ("Motion for Reconsideration", "MFR"),
+    ("Motion for New Trial", "MNT"),
+    ("Motion for Default Judgment", "MDJ"),
+    ("Motion for Preliminary Injunction", "MPI"),
+    ("Motion for Sanctions", "MFS"),
+    ("Motion for Attorney Fees", "MAF"),
+    ("Demurrer", "Demurrer"),
+    ("Ex Parte Application", "Ex Parte"),
+]
+
+# Prefix abbreviations
+_PREFIX_ABBREVIATIONS = [
+    ("Opposition to", "Opp"),
+    ("Reply in Support of", "Reply ISO"),
+    ("Reply to Opposition to", "Reply ISO"),
+    ("Reply to", "Reply"),
+    ("Answer to", "Answer"),
+    ("Response to", "Resp"),
+    ("Memorandum in Support of", "Memo ISO"),
+    ("Memorandum in Opposition to", "Memo Opp"),
+    ("Declaration in Support of", "Decl ISO"),
+    ("Declaration of", "Decl"),
+    ("Joint Stipulation to", "Jt Stip"),
+    ("Joint Stipulation", "Jt Stip"),
+    ("Stipulation to", "Stip"),
+    ("Notice of", "Notice"),
+]
+
+
+def _abbreviate_filename(document_name: str) -> str:
+    """
+    Generate a short filename from a document name using abbreviation rules.
+
+    Examples:
+        "Opposition to Motion for Summary Judgment" → "2026.02.05 Opp MSJ.docx"
+        "Reply in Support of Motion to Compel" → "2026.02.05 Reply ISO MTC.docx"
+        "Declaration of John Doe" → "2026.02.05 Decl.docx"
+    """
+    from datetime import datetime
+    today = datetime.now().strftime("%Y.%m.%d")
+
+    name = document_name.strip()
+    if not name:
+        return f"{today} document.docx"
+
+    parts = []
+
+    # Match prefix (e.g., "Opposition to", "Reply in Support of")
+    name_lower = name.lower()
+    for phrase, abbrev in _PREFIX_ABBREVIATIONS:
+        if name_lower.startswith(phrase.lower()):
+            parts.append(abbrev)
+            name = name[len(phrase):].strip()
+            name_lower = name.lower()
+            break
+
+    # Match motion type
+    for phrase, abbrev in _MOTION_ABBREVIATIONS:
+        if name_lower.startswith(phrase.lower()):
+            parts.append(abbrev)
+            name = name[len(phrase):].strip()
+            break
+    else:
+        # No motion match — use first few words, title-cased
+        words = name.split()[:4]
+        remaining = " ".join(words)
+        if remaining:
+            parts.append(remaining)
+
+    abbreviated = " ".join(parts) if parts else "document"
+    return f"{today} {abbreviated}.docx"
 
 
 SYSTEM_PROMPT = """You are a legal document analyzer. Your task is to extract case information from legal documents.
@@ -270,59 +349,15 @@ Use the submit_document_name tool with your improved title and recommended secti
         """
         Generate a filesystem-friendly filename from a document name.
 
+        Uses simple abbreviation rules — no AI call needed.
+
         Args:
             document_name: The formal document title
 
         Returns:
-            A short filename with date and abbreviations
+            A short filename like "2026.02.05 Opp MSJ.docx"
         """
-        from datetime import datetime
-        today_date = datetime.now().strftime('%Y.%m.%d')
-
-        prompt = f"""Generate a short, filesystem-friendly filename for this legal document:
-
-Document name: "{document_name}"
-Today's date: {today_date}
-
-## RULES:
-Format: {today_date} [abbreviation].docx
-
-Use these abbreviations:
-- Opposition → Opp
-- Motion to Dismiss → MTD
-- Motion for Summary Judgment → MSJ
-- Motion to Compel → MTC
-- Motion to Compel Discovery → MTC Disc
-- Reply in Support of → Reply ISO
-- Motion for Judgment on the Pleadings → MJOP
-- Motion in Limine → MIL
-
-## EXAMPLES:
-- "Opposition to Motion to Compel" → "{today_date} Opp MTC.docx"
-- "Reply in Support of Motion to Compel" → "{today_date} Reply ISO MTC.docx"
-- "Opposition to Motion for Summary Judgment" → "{today_date} Opp MSJ.docx"
-- "Opposition to Motion for Judgment as a Matter of Law" → "{today_date} Opp JMOL.docx"
-
-Use the submit_filename tool with your generated filename."""
-
-        message = self.client.messages.create(
-            model=self.model,
-            max_tokens=64,
-            tools=[GENERATE_FILENAME_TOOL],
-            tool_choice={"type": "tool", "name": "submit_filename"},
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-
-        for block in message.content:
-            if block.type == "tool_use" and block.name == "submit_filename":
-                return block.input.get("filename", "document.docx")
-
-        raise ValueError("Failed to generate filename")
+        return _abbreviate_filename(document_name)
 
 
 # Module-level convenience function
