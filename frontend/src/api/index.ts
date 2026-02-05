@@ -118,3 +118,6 @@ export {
   getStaff,
 } from './users';
 export type { AttorneyRef, StaffRef } from './users';
+
+// Templates
+export { extractCaseInfo } from './templates';
