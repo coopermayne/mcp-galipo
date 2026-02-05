@@ -153,6 +153,40 @@ If you create a new top-level Python package (e.g., `utils/`, `lib/`, `workers/`
 
 Also ensure any new package has an `__init__.py` file.
 
+## New Developer Setup
+
+1. **Clone the repo** and copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env`** with your values:
+   - Set `DATABASE_URL` with your postgres username (run `whoami` to check)
+   - Set `DEV_AUTH_USER` to your email in the users table
+
+3. **Create the database:**
+   ```bash
+   createdb galipo  # or use Postgres.app UI
+   ```
+
+4. **Restore a production snapshot** (recommended for realistic test data):
+   ```bash
+   # Get a recent backup from the team, then:
+   ./scripts/restore.sh path/to/backup.sql
+   ```
+   We typically test against production snapshots to ensure realistic data. Ask the team for a recent backup file.
+
+5. **Install dependencies:**
+   ```bash
+   python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+   cd frontend && npm install && cd ..
+   ```
+
+6. **Start the dev servers:**
+   ```bash
+   /dev
+   ```
+
 ## Local Development
 
 **IMPORTANT:** When working locally, always use `/dev` to start or restart all development servers. This skill:
@@ -275,6 +309,8 @@ This is critical because the **live production database** receives schema change
 
 ## Environment Variables
 
+Copy `.env.example` to `.env` and fill in your values. See "New Developer Setup" above.
+
 **IMPORTANT - Loading env vars correctly:**
 ```bash
 # ALWAYS use this pattern to load .env:
@@ -303,25 +339,7 @@ set -a && source .env && set +a
 | `VITE_DEV_SKIP_AUTH` | No | false | Set to `true` to auto-login frontend (dev only) |
 | `DEV_AUTH_USER` | No | (none) | Email of user to auto-login as (requires DEV_SKIP_AUTH) |
 
-Example `.env`:
-```bash
-DATABASE_URL=postgresql://myuser@localhost:5432/galipo
-AUTH_USERNAME=admin
-AUTH_PASSWORD=yourpassword
-PORT=8000
-BACKEND_PORT=8000
-VITE_PORT=5173
-WEBHOOK_SECRET_COURTLISTENER=your-long-random-secret-token
-
-# For remote MCP access via Claude.ai (optional)
-MCP_AUTH_PASSWORD=your-secure-password
-MCP_BASE_URL=https://your-public-url.example.com
-
-# Skip auth in dev (auto-login as real user)
-DEV_SKIP_AUTH=true
-VITE_DEV_SKIP_AUTH=true
-DEV_AUTH_USER=yourname@example.com
-```
+See `.env.example` for a complete template.
 
 ## Endpoints
 
