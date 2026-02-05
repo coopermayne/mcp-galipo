@@ -169,5 +169,4 @@ export type {
   CaseInfo,
   SigningAttorney,
   ExtractCaseInfoResponse,
-  SuggestDocumentNamesResponse,
 } from './template';
