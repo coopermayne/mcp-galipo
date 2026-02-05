@@ -116,9 +116,18 @@ export const LAYOUT_PANEL_COUNTS: Record<LayoutPreset, number> = {
 export const LAYOUT_CONTAINER_CLASSES: Record<LayoutPreset, string> = {
   '1': 'grid-cols-1',
   '1:1': 'grid-cols-1 lg:grid-cols-2',
-  '1:2': 'grid-cols-1 lg:grid-cols-3 lg:grid-rows-2',
-  '2:1': 'grid-cols-1 lg:grid-cols-3 lg:grid-rows-2',
+  '1:2': 'grid-cols-1 lg:grid-cols-2 lg:grid-rows-2',
+  '2:1': 'grid-cols-1 lg:grid-cols-2 lg:grid-rows-2',
   '2:2': 'grid-cols-1 md:grid-cols-2 lg:grid-rows-2',
+};
+
+/** Max-width classes for each layout preset - constrains single panels, allows multi-panel to expand */
+export const LAYOUT_MAX_WIDTH_CLASSES: Record<LayoutPreset, string> = {
+  '1': 'max-w-4xl mx-auto',
+  '1:1': '',
+  '1:2': '',
+  '2:1': '',
+  '2:2': '',
 };
 
 /** Default config for tasks widget */
@@ -216,12 +225,12 @@ export function getPanelClasses(layout: LayoutPreset, index: number): string {
     case '1:2':
       // Left panel spans full height, right panels stack
       if (index === 0) return 'lg:row-span-2';
-      return 'lg:col-span-2';
+      return '';
 
     case '2:1':
       // Left panels stack, right panel spans full height
-      if (index === 2) return 'lg:row-span-2 lg:col-start-3 lg:row-start-1';
-      return 'lg:col-span-2';
+      if (index === 2) return 'lg:row-span-2 lg:col-start-2 lg:row-start-1';
+      return '';
 
     default:
       return '';

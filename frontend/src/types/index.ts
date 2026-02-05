@@ -154,6 +154,7 @@ export type {
 
 export {
   LAYOUT_CONTAINER_CLASSES,
+  LAYOUT_MAX_WIDTH_CLASSES,
   WIDGET_INFO,
   createDefaultTasksWidget,
   createDefaultEventsWidget,
