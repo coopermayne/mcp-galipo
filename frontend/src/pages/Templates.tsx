@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2 } from 'lucide-react';
+import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X } from 'lucide-react';
 import { Header, PageContent } from '../components/layout';
-import { extractCaseInfo } from '../api/templates';
+import { extractCaseInfo, suggestDocumentNames } from '../api/templates';
 import type { CaseInfo, SigningAttorney } from '../types/template';
 
 // Field configuration for validation and display
 const CASE_INFO_FIELDS = [
-  { key: 'court', label: 'Court', required: true, multiline: true, rows: 3 },
+  { key: 'court', label: 'Court', required: true, multiline: true, rows: 2 },
   { key: 'case_number', label: 'Case Number', required: true },
   { key: 'plaintiffs', label: 'Plaintiff(s)', required: true },
   { key: 'defendants', label: 'Defendant(s)', required: true },
@@ -30,6 +30,7 @@ interface FormFieldProps {
   rows?: number;
   placeholder?: string;
   showValidation?: boolean;
+  rightElement?: React.ReactNode;
 }
 
 function FormField({
@@ -41,13 +42,14 @@ function FormField({
   rows = 1,
   placeholder,
   showValidation = false,
+  rightElement,
 }: FormFieldProps) {
   const isEmpty = !value?.trim();
   const hasError = showValidation && required && isEmpty;
   const isValid = showValidation && required && !isEmpty;
 
   const inputClasses = `
-    w-full px-3 py-2 bg-bg border rounded-lg text-text placeholder-text-muted
+    w-full px-2.5 py-1.5 bg-bg border rounded text-sm text-text placeholder-text-muted
     transition-all duration-200
     focus:outline-none focus:ring-2 focus:border-transparent
     ${hasError
@@ -57,38 +59,46 @@ function FormField({
         : 'border-border focus:ring-primary-500/30 focus:border-primary-500'
     }
     ${multiline ? 'resize-none' : ''}
+    ${rightElement ? 'pr-10' : ''}
   `;
 
   return (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-sm font-medium text-text">
+    <div className="space-y-1">
+      <label className="flex items-center gap-1 text-xs font-medium text-text-secondary">
         {label}
         {required && (
-          <span className={`text-xs ${hasError ? 'text-red-600 dark:text-red-400' : 'text-text-muted'}`}>*</span>
+          <span className={`${hasError ? 'text-red-600 dark:text-red-400' : 'text-text-muted'}`}>*</span>
         )}
-        {isValid && <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />}
+        {isValid && <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400" />}
       </label>
-      {multiline ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={rows}
-          className={inputClasses}
-          placeholder={placeholder}
-        />
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputClasses}
-          placeholder={placeholder}
-        />
-      )}
+      <div className="relative">
+        {multiline ? (
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={rows}
+            className={inputClasses}
+            placeholder={placeholder}
+          />
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={inputClasses}
+            placeholder={placeholder}
+          />
+        )}
+        {rightElement && (
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+            {rightElement}
+          </div>
+        )}
+      </div>
       {hasError && (
         <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
           <AlertCircle className="w-3 h-3" />
-          This field is required
+          Required
         </p>
       )}
     </div>
@@ -99,10 +109,13 @@ export function Templates() {
   const [isDragging, setIsDragging] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [caseInfo, setCaseInfo] = useState<CaseInfo | null>(null);
   const [signingAttorney, setSigningAttorney] = useState<SigningAttorney | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [documentName, setDocumentName] = useState('');
+  const [filename, setFilename] = useState('');
+  const [isSuggestingNames, setIsSuggestingNames] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate validation state
@@ -125,10 +138,12 @@ export function Templates() {
       return;
     }
 
-    setFileName(file.name);
+    setUploadedFile(file);
     setError(null);
     setIsExtracting(true);
     setHasAttemptedSubmit(false);
+    setDocumentName('');
+    setFilename('');
 
     try {
       const response = await extractCaseInfo(file);
@@ -174,9 +189,53 @@ export function Templates() {
     fileInputRef.current?.click();
   }, []);
 
+  const handleClearFile = useCallback(() => {
+    setUploadedFile(null);
+    setCaseInfo(null);
+    setSigningAttorney(null);
+    setDocumentName('');
+    setFilename('');
+    setHasAttemptedSubmit(false);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
   const updateCaseInfo = useCallback((field: keyof CaseInfo, value: string) => {
     setCaseInfo(prev => prev ? { ...prev, [field]: value || null } : null);
   }, []);
+
+  const handleSuggestNames = useCallback(async () => {
+    if (!caseInfo) return;
+
+    setIsSuggestingNames(true);
+    try {
+      const suggestions = await suggestDocumentNames(caseInfo);
+      setDocumentName(suggestions.document_name);
+      setFilename(suggestions.filename);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate suggestions');
+    } finally {
+      setIsSuggestingNames(false);
+    }
+  }, [caseInfo]);
+
+  const SuggestButton = ({ onClick, loading }: { onClick: () => void; loading: boolean }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading || !caseInfo}
+      className="p-1 rounded hover:bg-primary-100 dark:hover:bg-primary-900/50 text-primary-600 dark:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      title="AI Suggest"
+    >
+      {loading ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <Sparkles className="w-4 h-4" />
+      )}
+    </button>
+  );
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
@@ -185,16 +244,16 @@ export function Templates() {
         subtitle="Extract case information from legal documents"
       />
 
-      <PageContent className="space-y-6">
-        {/* Upload Zone */}
-        <section>
-          <div
+      <PageContent className="space-y-4">
+        {/* Upload Zone - Full size when no file, compact when file uploaded */}
+        {!uploadedFile || isExtracting ? (
+          <section
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onClick={handleClick}
             className={`
-              relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
+              relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
               transition-all duration-200
               ${isDragging
                 ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 scale-[1.01]'
@@ -212,85 +271,137 @@ export function Templates() {
             />
 
             {isExtracting ? (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-primary-500/20 rounded-full animate-ping" />
-                  <Loader2 className="w-12 h-12 text-primary-500 animate-spin relative" />
-                </div>
-                <div>
-                  <p className="text-lg font-medium text-text">Analyzing document...</p>
-                  <p className="text-sm text-text-muted mt-1">Extracting case information from {fileName}</p>
+              <div className="flex items-center justify-center gap-3 py-2">
+                <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-text">Analyzing document...</p>
+                  <p className="text-xs text-text-muted">Extracting case information from {uploadedFile?.name}</p>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-3 py-4">
+              <div className="flex items-center justify-center gap-3 py-2">
                 <div className={`
-                  p-4 rounded-full transition-colors duration-200
+                  p-2.5 rounded-full transition-colors duration-200
                   ${isDragging ? 'bg-primary-100 dark:bg-primary-800' : 'bg-bg-hover'}
                 `}>
-                  {fileName ? (
-                    <FileText className="w-8 h-8 text-primary-500" />
-                  ) : (
-                    <Upload className="w-8 h-8 text-text-muted" />
-                  )}
+                  <Upload className="w-6 h-6 text-text-muted" />
                 </div>
-                <div>
-                  <p className="text-lg font-medium text-text">
-                    {fileName || 'Drag and drop a PDF here, or click to browse'}
+                <div className="text-left">
+                  <p className="text-sm font-medium text-text">
+                    Drag and drop a PDF here, or click to browse
                   </p>
-                  <p className="text-sm text-text-muted mt-1">
-                    {fileName
-                      ? 'Drop another PDF to replace'
-                      : 'We\'ll analyze the first 2 pages for case information'
-                    }
+                  <p className="text-xs text-text-muted">
+                    We'll analyze the first 2 pages for case information
                   </p>
                 </div>
               </div>
             )}
-          </div>
-        </section>
+          </section>
+        ) : (
+          /* Compact file display after upload */
+          <section className="flex items-center gap-3 p-3 bg-bg-surface border border-border rounded-lg">
+            <FileText className="w-5 h-5 text-primary-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <button
+                onClick={handleClick}
+                className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
+              >
+                {uploadedFile.name}
+              </button>
+              <p className="text-xs text-text-muted">
+                {(uploadedFile.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
+            <button
+              onClick={handleClearFile}
+              className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text transition-colors"
+              title="Clear file"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+          </section>
+        )}
 
         {/* Error Display */}
         {error && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg animate-fadeSlideIn">
-            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg animate-fadeSlideIn">
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
             <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
         {/* Form Sections */}
         {caseInfo && (
-          <div className="space-y-6 animate-fadeSlideIn">
+          <div className="space-y-4 animate-fadeSlideIn">
             {/* Validation Summary */}
             {hasAttemptedSubmit && !validationState.isValid && (
-              <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    Please fill in all required fields
-                  </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                    Missing: {validationState.missingFields.join(', ')}
-                  </p>
-                </div>
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Missing: {validationState.missingFields.join(', ')}
+                </p>
               </div>
             )}
 
+            {/* Document Output Section */}
+            <section className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden">
+              <div className="px-4 py-3 border-b border-emerald-200/50 dark:border-emerald-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <h2 className="text-sm font-semibold text-text">Output Document</h2>
+                  </div>
+                  <button
+                    onClick={handleSuggestNames}
+                    disabled={isSuggestingNames || !caseInfo}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSuggestingNames ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3" />
+                    )}
+                    AI Suggest
+                  </button>
+                </div>
+              </div>
+              <div className="p-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    label="Document Name"
+                    value={documentName}
+                    onChange={setDocumentName}
+                    placeholder="Opposition to Motion to Compel"
+                    rightElement={<SuggestButton onClick={handleSuggestNames} loading={isSuggestingNames} />}
+                  />
+                  <FormField
+                    label="Filename"
+                    value={filename}
+                    onChange={setFilename}
+                    placeholder="Doe_v_Acme_Opp_MTC.docx"
+                    rightElement={<SuggestButton onClick={handleSuggestNames} loading={isSuggestingNames} />}
+                  />
+                </div>
+              </div>
+            </section>
+
             {/* Case Information Section */}
-            <section className="bg-bg-surface rounded-xl border border-border overflow-hidden shadow-sm">
-              <div className="px-5 py-4 border-b border-border bg-bg-hover/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary-100 dark:bg-primary-900/50 rounded-lg">
-                    <FileText className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-text">Case Information</h2>
-                    <p className="text-sm text-text-muted">Review and edit the extracted details</p>
-                  </div>
+            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border bg-bg-hover/50">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                  <h2 className="text-sm font-semibold text-text">Case Information</h2>
                 </div>
               </div>
 
-              <div className="p-5 space-y-5">
+              <div className="p-4 space-y-3">
                 {/* Court - Full Width */}
                 <FormField
                   label="Court"
@@ -298,13 +409,13 @@ export function Templates() {
                   onChange={(v) => updateCaseInfo('court', v)}
                   required
                   multiline
-                  rows={3}
+                  rows={2}
                   placeholder="UNITED STATES DISTRICT COURT&#10;CENTRAL DISTRICT OF CALIFORNIA"
                   showValidation={hasAttemptedSubmit}
                 />
 
                 {/* Two Column Grid */}
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <FormField
                     label="Case Number"
                     value={caseInfo.case_number || ''}
@@ -322,7 +433,7 @@ export function Templates() {
                   />
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <FormField
                     label="Plaintiff(s)"
                     value={caseInfo.plaintiffs || ''}
@@ -341,7 +452,7 @@ export function Templates() {
                   />
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <FormField
                     label="Judge"
                     value={caseInfo.judge || ''}
@@ -362,23 +473,19 @@ export function Templates() {
             </section>
 
             {/* Hearing Information Section */}
-            <section className="bg-bg-surface rounded-xl border border-border overflow-hidden shadow-sm">
-              <div className="px-5 py-4 border-b border-border bg-bg-hover/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
-                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-text">Hearing Information</h2>
-                    <p className="text-sm text-text-muted">Optional scheduling details</p>
-                  </div>
+            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border bg-bg-hover/50">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <h2 className="text-sm font-semibold text-text">Hearing Information</h2>
+                  <span className="text-xs text-text-muted">(Optional)</span>
                 </div>
               </div>
 
-              <div className="p-5">
-                <div className="grid gap-5 md:grid-cols-3">
+              <div className="p-4">
+                <div className="grid gap-3 md:grid-cols-3">
                   {HEARING_INFO_FIELDS.map((field) => (
                     <FormField
                       key={field.key}
@@ -395,32 +502,27 @@ export function Templates() {
 
             {/* Signing Attorney Section */}
             {signingAttorney && (
-              <section className="bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-primary-900/30 dark:to-primary-800/20 rounded-xl border border-primary-200 dark:border-primary-800 overflow-hidden shadow-sm">
-                <div className="px-5 py-4 border-b border-primary-200/50 dark:border-primary-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white dark:bg-primary-900/50 rounded-lg shadow-sm">
-                      <User className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-semibold text-text">Signing Attorney</h2>
-                      <p className="text-sm text-text-muted">Auto-populated from your profile</p>
-                    </div>
+              <section className="bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-primary-900/30 dark:to-primary-800/20 rounded-lg border border-primary-200 dark:border-primary-800 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-primary-200/50 dark:border-primary-700/50">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                    <h2 className="text-sm font-semibold text-text">Signing Attorney</h2>
                   </div>
                 </div>
 
-                <div className="p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-lg shadow-md">
+                <div className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
                       {signingAttorney.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </div>
                     <div className="space-y-0.5">
-                      <p className="font-semibold text-text">{signingAttorney.name}</p>
-                      {signingAttorney.bar_number && (
-                        <p className="text-sm text-text-secondary">
-                          State Bar No. <span className="font-mono">{signingAttorney.bar_number}</span>
-                        </p>
-                      )}
-                      <p className="text-sm text-text-muted">{signingAttorney.email}</p>
+                      <p className="text-sm font-semibold text-text">{signingAttorney.name}</p>
+                      <div className="flex items-center gap-3 text-xs text-text-muted">
+                        {signingAttorney.bar_number && (
+                          <span>Bar No. <span className="font-mono">{signingAttorney.bar_number}</span></span>
+                        )}
+                        <span>{signingAttorney.email}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
