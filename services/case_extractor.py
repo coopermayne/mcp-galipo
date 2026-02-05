@@ -282,46 +282,63 @@ class CaseExtractor:
         Returns:
             Dict with 'document_name' and 'sections' (list of section keys to include)
         """
-        prompt = f"""You are helping a lawyer create a RESPONSE document.
-
-The uploaded document (what they're responding to) is titled:
-"{motion_title}"
-
-The user has started typing a document name:
+        if user_input.strip():
+            prompt = f"""You are helping a lawyer finalize a document title. The user typed:
 "{user_input}"
 
+Context (the document they uploaded, if any): "{motion_title}"
+
 ## YOUR TASK:
-1. Improve or complete the document name
-2. Recommend which sections to include based on document type
-
-## LITIGATION SEQUENCE:
-Motion → Opposition → Reply
-
-## DOCUMENT NAME RULES:
-1. If responding to an "Opposition" → suggest "Reply in Support of [underlying motion]"
-2. If responding to a Motion → suggest "Opposition to [that motion]"
-3. If responding to a "Complaint" → suggest "Answer to Complaint"
-4. If responding to a "Demurrer" → suggest "Opposition to Demurrer"
-5. If the user has typed something specific, clean it up and format it properly
+1. Clean up and formalize the user's input into a proper legal document title.
+   - RESPECT the user's intent. If they typed "opp msj", they mean "Opposition to Motion for Summary Judgment".
+   - If they typed "reply to mtc", they mean "Reply in Support of Motion to Compel".
+   - Fix abbreviations, capitalization, and phrasing but keep the same document type they intended.
+   - Use the uploaded document title as context only — do NOT override what the user typed.
+2. Recommend which sections to include based on the document type.
 
 ## SECTION RULES:
 Available sections: notice, meet_confer, toc, toa, memo, declaration, joint_stip, generic, cert_compliance
 
-- **Motions** (we're filing a motion): include notice, meet_confer, memo, toc, toa
-- **Oppositions** (responding to a motion): include memo, toc, toa, cert_compliance
-- **Replies** (responding to an opposition): include memo, cert_compliance (short doc)
+- **Motions** (filing a motion): notice, meet_confer, memo, toc, toa
+- **Oppositions** (opposing a motion): memo, toc, toa, cert_compliance
+- **Replies** (replying to opposition): memo, cert_compliance
 - **Answers** (to complaints): generic
-- **Declarations**: declaration (no memo, no toc/toa)
-- **Joint Notices/Stipulations**: joint_stip (no memo, no toc/toa)
+- **Declarations**: declaration
+- **Joint Stipulations**: joint_stip
+- **Notices**: generic
 
-## EXAMPLES:
-- "Opposition to Motion for Summary Judgment" → sections: ["memo", "toc", "toa", "cert_compliance"]
-- "Motion to Compel Discovery" → sections: ["notice", "meet_confer", "memo", "toc", "toa"]
-- "Reply in Support of Motion to Compel" → sections: ["memo", "cert_compliance"]
-- "Declaration of John Doe" → sections: ["declaration"]
-- "Joint Stipulation to Continue Trial" → sections: ["joint_stip"]
+Use the submit_document_name tool."""
+        else:
+            prompt = f"""You are helping a lawyer decide what document to create.
 
-Use the submit_document_name tool with your improved title and recommended sections."""
+The uploaded document (what they may be responding to) is titled:
+"{motion_title}"
+
+## YOUR TASK:
+1. Suggest the most likely response document title.
+2. Recommend which sections to include.
+
+## LITIGATION SEQUENCE:
+Motion → Opposition → Reply
+
+## RESPONSE RULES:
+- Responding to a Motion → "Opposition to [that motion]"
+- Responding to an Opposition → "Reply in Support of [underlying motion]"
+- Responding to a Complaint → "Answer to Complaint"
+- Responding to a Demurrer → "Opposition to Demurrer"
+- If no uploaded document, suggest a generic "Motion to [...]"
+
+## SECTION RULES:
+Available sections: notice, meet_confer, toc, toa, memo, declaration, joint_stip, generic, cert_compliance
+
+- **Motions**: notice, meet_confer, memo, toc, toa
+- **Oppositions**: memo, toc, toa, cert_compliance
+- **Replies**: memo, cert_compliance
+- **Answers**: generic
+- **Declarations**: declaration
+- **Joint Stipulations**: joint_stip
+
+Use the submit_document_name tool."""
 
         message = self.client.messages.create(
             model=self.model,
