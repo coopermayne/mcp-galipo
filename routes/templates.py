@@ -218,6 +218,10 @@ def register_template_routes(mcp):
             ctx.include_meet_confer = "meet_confer" in sections
             ctx.include_toc = "toc" in sections
             ctx.include_toa = "toa" in sections
+            ctx.include_memo = "memo" in sections
+            ctx.include_declaration = "declaration" in sections
+            ctx.include_joint_stip = "joint_stip" in sections
+            ctx.include_generic = "generic" in sections
             ctx.include_cert_compliance = "cert_compliance" in sections
 
             # Generate the document

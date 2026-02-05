@@ -23,6 +23,10 @@ FRAGMENT_FILES = {
     "meet_confer": "meet_confer.docx",
     "toc": "toc.docx",
     "toa": "toa.docx",
+    "memo": "memo.docx",
+    "declaration": "declaration.docx",
+    "joint_stip": "joint_stip.docx",
+    "generic": "generic.docx",
     "cert_compliance": "cert_compliance.docx",
 }
 
@@ -67,6 +71,10 @@ class PleadingContext:
     include_meet_confer: bool = False
     include_toc: bool = True
     include_toa: bool = True
+    include_memo: bool = True
+    include_declaration: bool = False
+    include_joint_stip: bool = False
+    include_generic: bool = False
     include_cert_compliance: bool = False
     include_proof_of_service: bool = False
 
@@ -116,6 +124,10 @@ class PleadingContext:
             "include_meet_confer": self.include_meet_confer,
             "include_toc": self.include_toc,
             "include_toa": self.include_toa,
+            "include_memo": self.include_memo,
+            "include_declaration": self.include_declaration,
+            "include_joint_stip": self.include_joint_stip,
+            "include_generic": self.include_generic,
             "include_cert_compliance": self.include_cert_compliance,
             "include_proof_of_service": self.include_proof_of_service,
 
@@ -166,6 +178,10 @@ def generate_pleading(
         "meet_confer": ("subdoc_meet_confer", context.include_meet_confer),
         "toc": ("subdoc_toc", context.include_toc),
         "toa": ("subdoc_toa", context.include_toa),
+        "memo": ("subdoc_memo", context.include_memo),
+        "declaration": ("subdoc_declaration", context.include_declaration),
+        "joint_stip": ("subdoc_joint_stip", context.include_joint_stip),
+        "generic": ("subdoc_generic", context.include_generic),
         "cert_compliance": ("subdoc_cert_compliance", context.include_cert_compliance),
     }
 
@@ -247,6 +263,7 @@ def context_from_case_info(
         # Auto-configure based on document type
         include_notice=is_motion,
         include_meet_confer=is_motion,
-        include_toc=not is_reply,  # Replies typically don't have TOC
+        include_toc=not is_reply,
         include_toa=not is_reply,
+        include_memo=True,
     )
