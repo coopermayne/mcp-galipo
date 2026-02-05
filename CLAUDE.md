@@ -299,6 +299,9 @@ set -a && source .env && set +a
 | `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP OAuth authentication (requires MCP_BASE_URL) |
 | `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
+| `DEV_SKIP_AUTH` | No | false | Set to `true` to skip backend auth (dev only) |
+| `VITE_DEV_SKIP_AUTH` | No | false | Set to `true` to auto-login frontend (dev only) |
+| `DEV_AUTH_USER` | No | (none) | Email of user to auto-login as (requires DEV_SKIP_AUTH) |
 
 Example `.env`:
 ```bash
@@ -313,6 +316,11 @@ WEBHOOK_SECRET_COURTLISTENER=your-long-random-secret-token
 # For remote MCP access via Claude.ai (optional)
 MCP_AUTH_PASSWORD=your-secure-password
 MCP_BASE_URL=https://your-public-url.example.com
+
+# Skip auth in dev (auto-login as real user)
+DEV_SKIP_AUTH=true
+VITE_DEV_SKIP_AUTH=true
+DEV_AUTH_USER=yourname@example.com
 ```
 
 ## Endpoints
