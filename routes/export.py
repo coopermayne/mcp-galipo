@@ -36,6 +36,16 @@ def json_serializer(obj):
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
+def strip_empty(obj):
+    """Recursively remove keys whose values are None, empty list, empty dict, or empty string."""
+    if isinstance(obj, dict):
+        return {k: strip_empty(v) for k, v in obj.items()
+                if v is not None and v != [] and v != {} and v != ""}
+    if isinstance(obj, list):
+        return [strip_empty(item) for item in obj]
+    return obj
+
+
 def serialize_value(val):
     """Convert datetime/date/time objects to ISO format strings."""
     if isinstance(val, datetime):
@@ -398,6 +408,7 @@ def register_export_routes(mcp):
             )
 
         filename = f"galipo_export_{timestamp}.json"
+        data = strip_empty(data)
         content = json.dumps(data, indent=2, default=json_serializer)
         return Response(
             content=content,
