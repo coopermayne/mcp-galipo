@@ -980,6 +980,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS jurisdictions (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL UNIQUE,
+                long_name VARCHAR(255),
                 local_rules_link TEXT,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1129,7 +1130,7 @@ def init_db():
                 completion_date DATE,
                 description TEXT NOT NULL,
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                urgency INTEGER NOT NULL CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
+                urgency VARCHAR(20) NOT NULL CHECK (urgency IN ('Low', 'Medium', 'High', 'Urgent')) DEFAULT 'Medium',
                 sort_order INTEGER DEFAULT 0,
                 assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
