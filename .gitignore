@@ -20,4 +20,4 @@ tests/browser/node_modules/
 data.csv
 courtlistener_samples.json
 .playwright-mcp/
-schema_diagram.png
+*.png

@@ -5,7 +5,6 @@
  * instead of raw JSON. Falls back to formatted JSON for other tools.
  */
 import { ChatEventItem } from './ChatEventItem';
-import type { Event } from '../../types';
 
 interface ToolResultRendererProps {
   toolName: string;
@@ -16,41 +15,19 @@ interface ToolResultRendererProps {
 }
 
 /**
- * Mutation tools that create/update entities and return them
- */
-const ENTITY_MUTATION_TOOLS = {
-  // Event tools
-  add_event: 'event',
-  update_event: 'event',
-  // Task tools (future)
-  add_task: 'task',
-  update_task: 'task',
-  // Note tools (future)
-  add_note: 'note',
-  // Activity tools (future)
-  log_activity: 'activity',
-} as const;
-
-type MutationToolName = keyof typeof ENTITY_MUTATION_TOOLS;
-
-/**
  * Check if a tool result has an interactive component available
  */
 export function hasInteractiveResult(toolName: string, result: string, isError?: boolean): boolean {
   if (isError) return false;
-  if (!isMutationTool(toolName)) return false;
 
   const parsed = parseResult(result);
   if (!parsed) return false;
 
-  const entityKey = ENTITY_MUTATION_TOOLS[toolName];
-  const entity = extractEntity(parsed, entityKey);
-
-  if ((toolName === 'add_event' || toolName === 'update_event') && isEvent(entity)) {
-    return true;
+  if (toolName === 'manage_event') {
+    const eventId = extractEntityId(parsed, 'event_id');
+    return eventId !== null;
   }
 
-  // Add more checks for tasks, notes, etc. as we implement them
   return false;
 }
 
@@ -66,39 +43,17 @@ function parseResult(result: string): unknown {
 }
 
 /**
- * Check if a tool is a mutation tool that returns an entity
+ * Extract an entity ID from a mutation result
  */
-function isMutationTool(toolName: string): toolName is MutationToolName {
-  return toolName in ENTITY_MUTATION_TOOLS;
-}
-
-/**
- * Extract the entity from a mutation result
- */
-function extractEntity(parsed: unknown, entityKey: string): unknown | null {
+function extractEntityId(parsed: unknown, idKey: string): number | null {
   if (typeof parsed !== 'object' || parsed === null) return null;
   const obj = parsed as Record<string, unknown>;
 
-  // Check for success: true and the entity key
-  if (obj.success === true && entityKey in obj) {
-    return obj[entityKey];
+  if (obj.success === true && typeof obj[idKey] === 'number') {
+    return obj[idKey] as number;
   }
 
   return null;
-}
-
-/**
- * Type guard for Event objects
- */
-function isEvent(entity: unknown): entity is Event {
-  if (typeof entity !== 'object' || entity === null) return false;
-  const obj = entity as Record<string, unknown>;
-  return (
-    typeof obj.id === 'number' &&
-    typeof obj.case_id === 'number' &&
-    typeof obj.date === 'string' &&
-    typeof obj.description === 'string'
-  );
 }
 
 export function ToolResultRenderer({ toolName, result, isError, mode = 'full' }: ToolResultRendererProps) {
@@ -114,25 +69,12 @@ export function ToolResultRenderer({ toolName, result, isError, mode = 'full' }:
 
   const parsed = parseResult(result);
 
-  // Check if this is a mutation tool with entity data
-  if (parsed && isMutationTool(toolName)) {
-    const entityKey = ENTITY_MUTATION_TOOLS[toolName];
-    const entity = extractEntity(parsed, entityKey);
-
-    // Render event items
-    if ((toolName === 'add_event' || toolName === 'update_event') && isEvent(entity)) {
-      return (
-        <ChatEventItem
-          event={entity}
-          isNew={toolName === 'add_event'}
-        />
-      );
+  // Render interactive event card from manage_event
+  if (parsed && toolName === 'manage_event') {
+    const eventId = extractEntityId(parsed, 'event_id');
+    if (eventId !== null) {
+      return <ChatEventItem eventId={eventId} isNew={true} />;
     }
-
-    // TODO: Add task rendering
-    // if ((toolName === 'add_task' || toolName === 'update_task') && isTask(entity)) {
-    //   return <ChatTaskItem task={entity} isNew={toolName === 'add_task'} />;
-    // }
   }
 
   // Fallback to JSON display

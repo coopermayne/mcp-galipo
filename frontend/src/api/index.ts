@@ -39,6 +39,7 @@ export {
 
 // Events
 export {
+  getEvent,
   getEvents,
   createEvent,
   updateEvent,
