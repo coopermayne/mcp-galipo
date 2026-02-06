@@ -263,7 +263,7 @@ Use `/dev` liberally:
 - When services seem unresponsive
 - After changing environment variables or dependencies
 
-Logs are written to `/tmp/backend_$BACKEND_PORT.log` and `/tmp/frontend_$VITE_PORT.log` for debugging.
+Logs are written to `/tmp/backend_$PORT.log` and `/tmp/frontend_$VITE_PORT.log` for debugging.
 
 ## Multi-Repo Development Setup
 
@@ -305,7 +305,6 @@ For mcp-galipo_2:
 ```bash
 DATABASE_URL=postgresql://YOUR_USER@localhost:5432/galipo_2
 PORT=8001
-BACKEND_PORT=8001
 VITE_PORT=5174
 ```
 
@@ -313,7 +312,6 @@ For mcp-galipo_3:
 ```bash
 DATABASE_URL=postgresql://YOUR_USER@localhost:5432/galipo_3
 PORT=8002
-BACKEND_PORT=8002
 VITE_PORT=5175
 ```
 
@@ -351,9 +349,7 @@ Repeat for mcp-galipo_3.
 The `/dev` skill sources the `.env` file and uses the configured ports:
 - Backend reads `PORT` for uvicorn
 - Frontend reads `VITE_PORT` for the dev server port
-- Frontend reads `BACKEND_PORT` to configure the API proxy (so `/api/*` requests go to the right backend)
-
-All three variables should match: if backend runs on 8001, set both `PORT=8001` and `BACKEND_PORT=8001`.
+- Frontend reads `PORT` to configure the API proxy (so `/api/*` requests go to the right backend)
 
 ## Pre-Commit Verification
 
@@ -387,8 +383,7 @@ set -a && source .env && set +a
 | `DATABASE_URL` | Yes | (none) | PostgreSQL connection string |
 | `AUTH_USERNAME` | Yes | (none) | Web dashboard login username |
 | `AUTH_PASSWORD` | Yes | (none) | Web dashboard login password |
-| `PORT` | No | 8000 | Backend server port (used by uvicorn) |
-| `BACKEND_PORT` | No | 8000 | Backend port (used by Vite proxy config) |
+| `PORT` | No | 8000 | Backend server port (used by uvicorn and Vite proxy) |
 | `VITE_PORT` | No | 5173 | Frontend dev server port |
 | `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
 | `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
