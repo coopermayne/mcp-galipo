@@ -4,6 +4,7 @@
 import { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { PersonItem } from './PersonItem';
+import { formatCategoryName } from '../../utils';
 import type { Person, RoleCategory } from '../../types';
 
 type GroupMode = 'category' | 'alpha' | 'recent';
@@ -22,19 +23,11 @@ interface PersonsFeedProps {
   onClick?: (person: Person) => void;
 }
 
-// Category display names
-const CATEGORY_LABELS: Record<RoleCategory, string> = {
-  client: 'Clients',
-  internal_team: 'Internal Team',
-  opposing_team: 'Opposing Team',
-  third_party: 'Third Party',
-};
-
-// Category sort order
-const CATEGORY_ORDER: RoleCategory[] = ['client', 'internal_team', 'opposing_team', 'third_party'];
+// Category sort order (new unified roles categories)
+const CATEGORY_ORDER: RoleCategory[] = ['client', 'defendant', 'counsel', 'expert', 'mediator', 'other'];
 
 /**
- * Group persons by role category (client, internal_team, etc.)
+ * Group persons by role category (client, defendant, counsel, expert, mediator, other)
  * Uses the first role's category for grouping
  */
 function groupPersonsByCategory(persons: Person[]): PersonGroup[] {
@@ -47,7 +40,7 @@ function groupPersonsByCategory(persons: Person[]): PersonGroup[] {
 
   for (const person of sorted) {
     const category = person.roles?.[0]?.role?.category || 'other';
-    const label = CATEGORY_LABELS[category as RoleCategory] || 'Other';
+    const label = formatCategoryName(category);
 
     if (!groups.has(category)) {
       groups.set(category, { key: category, label, persons: [] });

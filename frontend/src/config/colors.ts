@@ -231,21 +231,29 @@ export const CASE_STATUS_HEX_COLORS: Record<string, string> = {
 // =============================================================================
 
 export const ROLE_CATEGORY_COLORS = {
+  expert: {
+    bg: 'bg-purple-100 dark:bg-purple-900/30',
+    text: 'text-purple-700 dark:text-purple-300',
+  },
+  counsel: {
+    bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+    text: 'text-emerald-700 dark:text-emerald-300',
+  },
+  mediator: {
+    bg: 'bg-amber-100 dark:bg-amber-900/30',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
   client: {
     bg: 'bg-blue-100 dark:bg-blue-900/30',
     text: 'text-blue-700 dark:text-blue-300',
   },
-  internal_team: {
-    bg: 'bg-emerald-100 dark:bg-emerald-900/30',
-    text: 'text-emerald-700 dark:text-emerald-300',
-  },
-  opposing_team: {
+  defendant: {
     bg: 'bg-red-100 dark:bg-red-900/30',
     text: 'text-red-700 dark:text-red-300',
   },
-  third_party: {
-    bg: 'bg-amber-100 dark:bg-amber-900/30',
-    text: 'text-amber-700 dark:text-amber-300',
+  other: {
+    bg: 'bg-slate-100 dark:bg-slate-900/30',
+    text: 'text-slate-700 dark:text-slate-300',
   },
 } as const;
 

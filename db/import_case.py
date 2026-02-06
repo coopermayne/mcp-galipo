@@ -241,25 +241,35 @@ def _create_person_and_assign(cur, case_id: int, person_data: dict) -> dict:
 
     # Assign to case if role is provided
     if role_id:
+        attrs_json = json.dumps(person_data.get("attributes", {}))
+        role_notes = person_data.get("role_notes")
+        is_primary = person_data.get("is_primary", False)
+        assigned_date = person_data.get("assigned_date")
+
+        # Check if assignment already exists (partial unique index prevents ON CONFLICT)
         cur.execute("""
-            INSERT INTO person_roles (person_id, role_id, case_id, attributes, notes,
-                                      is_primary, assigned_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT uq_person_roles_case DO UPDATE SET
-                attributes = EXCLUDED.attributes,
-                notes = EXCLUDED.notes,
-                is_primary = EXCLUDED.is_primary
-            RETURNING id
-        """, (
-            person_id,
-            role_id,
-            case_id,
-            json.dumps(person_data.get("attributes", {})),
-            person_data.get("role_notes"),
-            person_data.get("is_primary", False),
-            person_data.get("assigned_date")
-        ))
-        result["person_role_id"] = cur.fetchone()["id"]
+            SELECT id FROM person_roles
+            WHERE person_id = %s AND role_id = %s AND case_id = %s
+        """, (person_id, role_id, case_id))
+        existing = cur.fetchone()
+
+        if existing:
+            cur.execute("""
+                UPDATE person_roles SET
+                    attributes = %s, notes = %s, is_primary = %s
+                WHERE id = %s
+                RETURNING id
+            """, (attrs_json, role_notes, is_primary, existing["id"]))
+            result["person_role_id"] = cur.fetchone()["id"]
+        else:
+            cur.execute("""
+                INSERT INTO person_roles (person_id, role_id, case_id, attributes, notes,
+                                          is_primary, assigned_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (person_id, role_id, case_id, attrs_json, role_notes,
+                  is_primary, assigned_date))
+            result["person_role_id"] = cur.fetchone()["id"]
 
     return result
 
