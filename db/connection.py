@@ -993,7 +993,7 @@ def init_db():
                 case_name VARCHAR(255) NOT NULL,
                 short_name VARCHAR(100),
                 status VARCHAR(50) NOT NULL DEFAULT 'Signing Up',
-                print_code VARCHAR(50),
+                print_code INTEGER,
                 case_summary TEXT,
                 result TEXT,
                 date_of_injury DATE,
@@ -1131,6 +1131,7 @@ def init_db():
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
                 urgency INTEGER NOT NULL CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
                 sort_order INTEGER DEFAULT 0,
+                assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
