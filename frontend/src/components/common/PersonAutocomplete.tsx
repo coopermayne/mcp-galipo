@@ -16,7 +16,7 @@ interface PersonAutocompleteProps {
 }
 
 export function PersonAutocomplete({
-  roleCategory: _roleCategory,  // Currently unused after removing category filtering
+  roleCategory,
   excludePersonIds = [],
   onSelectPerson,
   onCreateNew,
@@ -40,26 +40,33 @@ export function PersonAutocomplete({
   }, [search]);
 
   // Query persons when we have a search term
-  // Note: We search ALL persons, not filtered by category, because when assigning
-  // a person to a case, you should be able to pick any person regardless of their
-  // existing roles. The roleCategory is only used for styling/display, not filtering.
+  // Fetch more results since we'll filter by category client-side
   const { data, isLoading } = useQuery({
     queryKey: ['persons-autocomplete', debouncedSearch],
     queryFn: () => getPersons({
       name: debouncedSearch || undefined,
       include_roles: true,
-      limit: 10,
+      limit: roleCategory ? 50 : 10,  // Fetch more if filtering by category
     }),
     enabled: debouncedSearch.length >= 1,
     staleTime: 30000,
   });
 
-  // Filter results to exclude already assigned persons
+  // Filter results:
+  // 1. Exclude already assigned persons
+  // 2. If roleCategory provided, only show persons with a role in that category
   const results = (data?.persons || []).filter(person => {
     // Exclude already assigned persons
     if (excludePersonIds.includes(person.id)) return false;
+
+    // If filtering by category, only show persons who have a role in that category
+    if (roleCategory) {
+      const hasMatchingRole = person.roles?.some(r => r.role.category === roleCategory);
+      if (!hasMatchingRole) return false;
+    }
+
     return true;
-  });
+  }).slice(0, 10);  // Limit to 10 results for display
 
   // Total items includes results + "create new" option
   const showCreateOption = search.trim().length > 0;
