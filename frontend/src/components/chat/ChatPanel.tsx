@@ -368,9 +368,15 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   };
 
   const handleSendActionStarter = (starter: ActionStarter) => {
-    // Set the mode for tool filtering and send the initial message
+    // Set the mode and show a static greeting — no API call needed
     setActiveMode(starter.mode);
-    handleSend(starter.initialMessage, false, undefined, starter.mode);
+    const greetingMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: starter.greeting,
+      timestamp: new Date(),
+    };
+    setMessages([greetingMessage]);
   };
 
   return (
