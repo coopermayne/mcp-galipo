@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     port: parseInt(process.env.VITE_PORT || '5173'),
     proxy: {
-      '/api': `http://localhost:${process.env.BACKEND_PORT || '8000'}`,
+      '/api': `http://localhost:${process.env.PORT || '8000'}`,
     },
   },
 })

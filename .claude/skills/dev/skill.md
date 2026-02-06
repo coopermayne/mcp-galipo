@@ -12,7 +12,7 @@ Start or restart all development services with parallel startup and fast polling
 | Service | Port | Health Check |
 |---------|------|--------------|
 | PostgreSQL | 5432 | Port connectivity |
-| Backend (FastAPI) | $BACKEND_PORT (default 8000) | `GET /api/v1/chat/debug` |
+| Backend (FastAPI) | $PORT (default 8000) | `GET /api/v1/chat/debug` |
 | Frontend (Vite) | $VITE_PORT (default 5173) | HTTP 200 response |
 
 **Note:** Ports are configured in `.env`. For multi-repo setups, each copy should have unique ports.
@@ -24,7 +24,6 @@ Start or restart all development services with parallel startup and fast polling
 ```bash
 # Load environment
 set -a && source .env && set +a
-BACKEND_PORT=${BACKEND_PORT:-8000}
 VITE_PORT=${VITE_PORT:-5173}
 
 # Fast postgres check using nc (much faster than lsof)
@@ -60,12 +59,12 @@ nc -z localhost 5432 2>/dev/null && echo "PostgreSQL: OK" || echo "PostgreSQL: F
 
 ```bash
 # Kill existing processes (fast, no sleep needed after)
-kill -9 $(lsof -ti:$BACKEND_PORT) 2>/dev/null || true
+kill -9 $(lsof -ti:$PORT) 2>/dev/null || true
 kill -9 $(lsof -ti:$VITE_PORT) 2>/dev/null || true
 
 # Start backend
 source .venv/bin/activate
-uvicorn main:app --reload --port $BACKEND_PORT > /tmp/backend_$BACKEND_PORT.log 2>&1 &
+uvicorn main:app --reload --port $PORT > /tmp/backend_$PORT.log 2>&1 &
 
 # Start frontend (check node version first, only load nvm if needed)
 cd frontend
@@ -73,7 +72,7 @@ NODE_MAJOR=$(node -v 2>/dev/null | cut -d'.' -f1 | tr -d 'v')
 if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 20 ]; then
     source ~/.nvm/nvm.sh 2>/dev/null && nvm use 20 2>/dev/null || true
 fi
-VITE_PORT=$VITE_PORT BACKEND_PORT=$BACKEND_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
+VITE_PORT=$VITE_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
 cd ..
 
 echo "Started backend and frontend in parallel..."
@@ -89,7 +88,7 @@ FRONTEND_OK=false
 for i in {1..30}; do
     # Check backend if not yet OK
     if [ "$BACKEND_OK" = false ]; then
-        if curl -s --max-time 1 http://localhost:$BACKEND_PORT/api/v1/chat/debug 2>/dev/null | grep -q "ok"; then
+        if curl -s --max-time 1 http://localhost:$PORT/api/v1/chat/debug 2>/dev/null | grep -q "ok"; then
             BACKEND_OK=true
             echo "Backend: ready (${i}x0.5s)"
         fi
@@ -126,10 +125,10 @@ else
 fi
 
 # Backend
-if curl -s --max-time 2 http://localhost:$BACKEND_PORT/api/v1/chat/debug 2>/dev/null | grep -q "ok"; then
-    echo "Backend:    OK (port $BACKEND_PORT)"
+if curl -s --max-time 2 http://localhost:$PORT/api/v1/chat/debug 2>/dev/null | grep -q "ok"; then
+    echo "Backend:    OK (port $PORT)"
 else
-    echo "Backend:    FAILED - check /tmp/backend_$BACKEND_PORT.log"
+    echo "Backend:    FAILED - check /tmp/backend_$PORT.log"
 fi
 
 # Frontend
@@ -148,23 +147,23 @@ echo "Frontend URL: http://localhost:$VITE_PORT"
 ### View Logs
 ```bash
 set -a && source .env && set +a
-tail -f /tmp/backend_$BACKEND_PORT.log   # Backend logs
+tail -f /tmp/backend_$PORT.log   # Backend logs
 tail -f /tmp/frontend_$VITE_PORT.log     # Frontend logs
 ```
 
 ### Stop All Services
 ```bash
 set -a && source .env && set +a
-kill -9 $(lsof -ti:${BACKEND_PORT:-8000}) 2>/dev/null
+kill -9 $(lsof -ti:${PORT:-8000}) 2>/dev/null
 kill -9 $(lsof -ti:${VITE_PORT:-5173}) 2>/dev/null
 ```
 
 ### Restart Just Backend
 ```bash
 set -a && source .env && set +a
-kill -9 $(lsof -ti:$BACKEND_PORT) 2>/dev/null
+kill -9 $(lsof -ti:$PORT) 2>/dev/null
 source .venv/bin/activate
-uvicorn main:app --reload --port $BACKEND_PORT > /tmp/backend_$BACKEND_PORT.log 2>&1 &
+uvicorn main:app --reload --port $PORT > /tmp/backend_$PORT.log 2>&1 &
 ```
 
 ### Restart Just Frontend
@@ -172,17 +171,17 @@ uvicorn main:app --reload --port $BACKEND_PORT > /tmp/backend_$BACKEND_PORT.log 
 set -a && source .env && set +a
 kill -9 $(lsof -ti:$VITE_PORT) 2>/dev/null
 cd frontend
-VITE_PORT=$VITE_PORT BACKEND_PORT=$BACKEND_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
+VITE_PORT=$VITE_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
 cd ..
 ```
 
 ## Troubleshooting
 
 ### Backend won't start
-1. Check if port is in use: `nc -z localhost $BACKEND_PORT && echo "in use"`
+1. Check if port is in use: `nc -z localhost $PORT && echo "in use"`
 2. Check database: `nc -z localhost 5432 && echo "postgres OK"`
 3. Verify .env exists: `cat .env`
-4. Check logs: `tail -50 /tmp/backend_$BACKEND_PORT.log`
+4. Check logs: `tail -50 /tmp/backend_$PORT.log`
 
 ### Frontend won't start
 1. Check if port is in use: `nc -z localhost $VITE_PORT && echo "in use"`
