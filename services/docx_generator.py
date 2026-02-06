@@ -118,7 +118,12 @@ def _build_context(cases: list, attorney_name: str) -> dict:
                 "header_rt": header_rt,
             })
 
+    # Title: "LASTNAME - Case List"
+    last_name = attorney_name.split()[-1].upper() if attorney_name else "ATTORNEY"
+    title = f"{last_name} \u2013 Case List"
+
     return {
+        "title": title,
         "attorney_name": attorney_name,
         "creation_date": now.strftime("%B %d, %Y"),
         "case_count": len(cases),
@@ -148,8 +153,22 @@ def _transform_case(case_data: dict, today: str) -> dict:
     clients = ", ".join(_get_persons_by_role(persons, "Client"))
     other_proceedings = _get_other_proceedings(proceedings)
     summary = case_data.get("case_summary") or ""
+    trial_date = _get_trial_date(events)
 
     colors = STATUS_COLORS.get(status, {"text": CLR_NAVY, "bg": "F1F5F9"})
+
+    # Summary line for cover page: "→  Case Name (case_number, jurisdiction)" or "→  Case Name (N/A)"
+    display_name = case_name if len(case_name) <= 60 else case_name[:57] + "..."
+    summary_line_rt = RichText()
+    summary_line_rt.add("\u2192  ", color=CLR_GREY, size=24)
+    summary_line_rt.add(display_name, bold=True, color=CLR_NAVY, size=24)
+    if case_number:
+        detail = case_number
+        if jurisdiction:
+            detail += f", {jurisdiction}"
+        summary_line_rt.add(f" ({detail})", color=CLR_GREY, size=24)
+    else:
+        summary_line_rt.add(" (N/A)", color=CLR_GREY, size=24)
 
     # Title RichText: just the case name (status shown in banner)
     title_rt = RichText()
@@ -214,8 +233,10 @@ def _transform_case(case_data: dict, today: str) -> dict:
         "doi": doi or "\u2014",
         "jurisdiction": jurisdiction or "\u2014",
         "clients": clients or "\u2014",
+        "trial_date": trial_date,
         "other_proceedings": other_proceedings,
         "summary": summary,
+        "summary_line_rt": summary_line_rt,
         "title_rt": title_rt,
         "status_rt": status_rt,
         "status_bg": colors["bg"],
@@ -240,28 +261,24 @@ def _build_events(events: list, doi_raw, today: str) -> list:
     items = []
     idx = 0  # for alternating bg
 
-    # DOI row first
+    # DOI row first — styled as a past event with star
     if doi_raw:
         doi_str = _format_date(doi_raw)
         date_rt = RichText()
-        date_rt.add("DOI ", bold=True, color=CLR_RED, size=24)
-        date_rt.add(doi_str, bold=True, color=CLR_NAVY, size=28)
+        date_rt.add("\u2605 ", color=CLR_GREY, size=24)
+        date_rt.add(doi_str, color=CLR_GREY, italic=True, size=24)
 
         desc_rt = RichText()
-        desc_rt.add("Date of Injury", bold=True, color=CLR_NAVY, size=28)
-
-        loc_rt = RichText()
-        loc_rt.add("\u2014", color=CLR_GREY, size=24)
+        desc_rt.add("Date of Injury", color=CLR_GREY, italic=True, size=24)
 
         items.append({
             "date_rt": date_rt,
             "desc_rt": desc_rt,
-            "loc_rt": loc_rt,
             "bg": BG_DOI,
         })
         idx += 1
 
-    # Sort by date (starred events keep visual styling but stay in order)
+    # Sort by date
     all_events = sorted(events, key=lambda e: e.get("date", ""))
 
     for event in all_events:
@@ -271,23 +288,25 @@ def _build_events(events: list, doi_raw, today: str) -> list:
         date_str = _format_date(event_date)
         time_str = event.get("time") or ""
         desc = event.get("description") or ""
-        location = event.get("location") or ""
 
         # Alternating background
         bg = BG_ALT if idx % 2 == 0 else BG_NONE
 
-        # Date RichText
+        # Date RichText — star before starred events, time on its own line
         date_rt = RichText()
         if is_starred:
-            date_rt.add("\u2605 ", color="D97706" if not is_past else CLR_GREY, size=24)
+            star_color = CLR_GREY if is_past else "D97706"
+            date_rt.add("\u2605 ", color=star_color, size=24)
         if is_past:
             date_rt.add(date_str, color=CLR_GREY, italic=True, bold=is_starred, size=24)
             if time_str:
-                date_rt.add(f" at {time_str}", color=CLR_GREY, italic=True, size=24)
+                date_rt.add("\n", size=24)
+                date_rt.add(time_str, color=CLR_GREY, italic=True, size=24)
         else:
             date_rt.add(date_str, color=CLR_NAVY, bold=is_starred, size=24)
             if time_str:
-                date_rt.add(f" at {time_str}", color=CLR_DARK_GREY, size=24)
+                date_rt.add("\n", size=24)
+                date_rt.add(time_str, color=CLR_DARK_GREY, italic=True, size=24)
 
         # Description RichText
         desc_rt = RichText()
@@ -296,17 +315,9 @@ def _build_events(events: list, doi_raw, today: str) -> list:
         else:
             desc_rt.add(desc, color=CLR_NAVY, bold=is_starred, size=24)
 
-        # Location RichText
-        loc_rt = RichText()
-        if location:
-            loc_rt.add(location, color=CLR_GREY if is_past else CLR_DARK_GREY, italic=is_past, size=24)
-        else:
-            loc_rt.add("\u2014", color=CLR_GREY, size=24)
-
         items.append({
             "date_rt": date_rt,
             "desc_rt": desc_rt,
-            "loc_rt": loc_rt,
             "bg": bg,
         })
         idx += 1
@@ -325,42 +336,31 @@ def _build_tasks(tasks: list, today: str) -> list:
 
     items = []
     for idx, task in enumerate(incomplete):
-        due_date = task.get("due_date") or ""
         desc = task.get("description") or ""
         urgency = task.get("urgency", 2)
         if urgency is None:
             urgency = 2
-
+        due_date = task.get("due_date") or ""
         is_overdue = bool(due_date and due_date < today)
-        date_str = _format_date(due_date)
 
         # Alternating background
         bg = BG_ALT if idx % 2 == 0 else BG_NONE
 
-        date_rt = RichText()
         desc_rt = RichText()
-
         if is_overdue:
-            # Overdue: grey italic
-            date_rt.add(date_str or "\u2014", color=CLR_GREY, italic=True, size=24)
+            desc_rt.add("\u2610 ", color=CLR_GREY, size=24)
             desc_rt.add(desc, color=CLR_GREY, italic=True, size=24)
         elif urgency == 4:
-            # Urgent: red marker + bold
-            date_rt.add(date_str or "\u2014", bold=True, color=CLR_RED, size=28)
-            desc_rt.add("\u25CF ", color=CLR_RED, size=24)
-            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=28)
+            desc_rt.add("\u2610 ", color=CLR_RED, size=24)
+            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=24)
         elif urgency == 3:
-            # High: bold navy
-            date_rt.add(date_str or "\u2014", bold=True, color=CLR_NAVY, size=28)
-            desc_rt.add("\u25CF ", color=CLR_NAVY, size=24)
-            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=28)
+            desc_rt.add("\u2610 ", color=CLR_NAVY, size=24)
+            desc_rt.add(desc, bold=True, color=CLR_NAVY, size=24)
         else:
-            # Normal: regular navy
-            date_rt.add(date_str or "\u2014", color=CLR_NAVY, size=24)
+            desc_rt.add("\u2610 ", color=CLR_GREY, size=24)
             desc_rt.add(desc, color=CLR_NAVY, size=24)
 
         items.append({
-            "date_rt": date_rt,
             "desc_rt": desc_rt,
             "bg": bg,
         })
@@ -405,6 +405,17 @@ def _get_judge_name(proceedings, persons):
             return judges[0].get("name", "")
     names = _get_persons_by_role(persons, "Judge")
     return names[0] if names else ""
+
+
+def _get_trial_date(events):
+    """Find the trial date from events (e.g. 'Trial', 'Jury Trial', 'JURY TRIAL')."""
+    import re
+    trial_pattern = re.compile(r'^(jury\s+)?trial\b', re.IGNORECASE)
+    for event in sorted(events, key=lambda e: e.get("date", ""), reverse=True):
+        desc = (event.get("description") or "").strip()
+        if trial_pattern.match(desc):
+            return _format_date(event.get("date"))
+    return ""
 
 
 def _get_jurisdiction(proceedings):
