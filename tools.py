@@ -14,63 +14,6 @@ from database import ValidationError
 
 
 # =============================================================================
-# Type Definitions
-# =============================================================================
-
-CaseStatus = Literal[
-    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
-    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
-    "Settl. Pend.", "Stayed", "Closed"
-]
-
-TaskStatus = Literal[
-    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-]
-
-ActivityType = Literal[
-    "Meeting", "Filing", "Research", "Drafting", "Document Review",
-    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
-]
-
-PersonSide = Literal["plaintiff", "defendant", "neutral"]
-Urgency = Literal[1, 2, 3, 4]
-SearchEntity = Literal["cases", "tasks", "events", "persons"]
-
-
-# =============================================================================
-# Reference Data
-# =============================================================================
-
-CASE_STATUS_LIST = [
-    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
-    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
-    "Settl. Pend.", "Stayed", "Closed"
-]
-
-TASK_STATUS_LIST = [
-    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-]
-
-ACTIVITY_TYPE_LIST = [
-    "Meeting", "Filing", "Research", "Drafting", "Document Review",
-    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
-]
-
-PERSON_SIDE_LIST = ["plaintiff", "defendant", "neutral"]
-
-COMMON_PERSON_TYPES = [
-    "client", "attorney", "judge", "expert", "mediator", "defendant",
-    "witness", "lien_holder", "interpreter"
-]
-
-COMMON_ROLES = [
-    "Client", "Defendant", "Opposing Counsel", "Co-Counsel", "Judge",
-    "Magistrate Judge", "Plaintiff Expert", "Defendant Expert", "Mediator",
-    "Witness", "Lien Holder"
-]
-
-
-# =============================================================================
 # Error Helpers
 # =============================================================================
 
