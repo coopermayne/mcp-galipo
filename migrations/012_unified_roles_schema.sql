@@ -60,7 +60,80 @@ ON CONFLICT (name) DO UPDATE SET
     description = EXCLUDED.description;
 
 -- ==============================================================================
--- STEP 2: Create standalone judges table
+-- STEP 2a: Rename old tables BEFORE creating new ones (order matters!)
+-- ==============================================================================
+
+-- Rename old judges junction table if it has person_id (old schema)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'judges' AND column_name = 'person_id') THEN
+        ALTER TABLE judges RENAME TO judges_old_junction;
+        RAISE NOTICE 'Renamed old judges junction table to judges_old_junction';
+    END IF;
+END $$;
+
+-- Rename case_persons if it exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'case_persons') THEN
+        ALTER TABLE case_persons RENAME TO case_persons_backup;
+        RAISE NOTICE 'Renamed case_persons to case_persons_backup';
+    END IF;
+END $$;
+
+-- Rename person_types if it exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'person_types') THEN
+        ALTER TABLE person_types RENAME TO person_types_backup;
+        RAISE NOTICE 'Renamed person_types to person_types_backup';
+    END IF;
+END $$;
+
+-- Rename old persons table if it has person_type column (pre-migration schema)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'persons' AND column_name = 'person_type') THEN
+        ALTER TABLE persons RENAME TO persons_backup;
+        RAISE NOTICE 'Renamed persons to persons_backup';
+
+        -- Create new simplified persons table
+        CREATE TABLE persons (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            phones JSONB DEFAULT '[]',
+            emails JSONB DEFAULT '[]',
+            address TEXT,
+            organization VARCHAR(255),
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            archived BOOLEAN DEFAULT FALSE
+        );
+
+        -- Drop old indexes that were on the renamed table (they keep old names)
+        DROP INDEX IF EXISTS idx_persons_name;
+        DROP INDEX IF EXISTS idx_persons_archived;
+        CREATE INDEX idx_persons_name ON persons(name);
+        CREATE INDEX idx_persons_archived ON persons(archived);
+
+        -- Migrate person data (excluding judges)
+        INSERT INTO persons (id, name, phones, emails, address, organization, notes, created_at, updated_at, archived)
+        SELECT id, name, phones, emails, address, organization, notes, created_at, updated_at, archived
+        FROM persons_backup
+        WHERE LOWER(person_type) NOT IN ('judge', 'magistrate judge', 'magistrate');
+
+        -- Update sequence
+        PERFORM setval('persons_id_seq', COALESCE((SELECT MAX(id) FROM persons), 1));
+
+        RAISE NOTICE 'Created new persons table and migrated data';
+    END IF;
+END $$;
+
+-- ==============================================================================
+-- STEP 2b: Create standalone judges table
 -- ==============================================================================
 
 CREATE TABLE IF NOT EXISTS judges (
@@ -102,120 +175,45 @@ CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_jud
 CREATE INDEX IF NOT EXISTS idx_proceeding_judges_judge_id ON proceeding_judges(judge_id);
 
 -- ==============================================================================
--- STEP 4: Migrate judges from old persons table to new judges table
+-- STEP 4: Migrate judges from old persons_backup to new judges table
 -- ==============================================================================
 
 DO $$
 BEGIN
-    -- Only migrate if old persons table has person_type column (production scenario)
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'persons' AND column_name = 'person_type') THEN
+    -- Only migrate if persons_backup exists (means we had old schema)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'persons_backup') THEN
 
         INSERT INTO judges (name, phones, emails, notes, created_at, updated_at)
         SELECT p.name, p.phones, p.emails, p.notes, p.created_at, p.updated_at
-        FROM persons p
+        FROM persons_backup p
         WHERE LOWER(p.person_type) IN ('judge', 'magistrate judge', 'magistrate')
         ON CONFLICT DO NOTHING;
 
-        RAISE NOTICE 'Migrated judges from persons table';
+        RAISE NOTICE 'Migrated judges from persons_backup table';
     END IF;
 END $$;
 
 -- Migrate proceeding judge assignments from old judges junction table
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'judges') THEN
-        IF EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_name = 'judges' AND column_name = 'person_id') THEN
-            -- Old judges table linked persons to proceedings via person_id
-            INSERT INTO proceeding_judges (proceeding_id, judge_id, role, sort_order, created_at)
-            SELECT
-                old_j.proceeding_id,
-                new_j.id,
-                old_j.role,
-                old_j.sort_order,
-                old_j.created_at
-            FROM judges old_j
-            JOIN persons p ON old_j.person_id = p.id
-            JOIN (SELECT id, name FROM judges WHERE TRUE) new_j ON new_j.name = p.name
-            ON CONFLICT (proceeding_id, judge_id) DO NOTHING;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'judges_old_junction') THEN
+        INSERT INTO proceeding_judges (proceeding_id, judge_id, role, sort_order, created_at)
+        SELECT
+            old_j.proceeding_id,
+            new_j.id,
+            old_j.role,
+            old_j.sort_order,
+            old_j.created_at
+        FROM judges_old_junction old_j
+        JOIN persons_backup p ON old_j.person_id = p.id
+        JOIN judges new_j ON new_j.name = p.name
+        ON CONFLICT (proceeding_id, judge_id) DO NOTHING;
 
-            RAISE NOTICE 'Migrated proceeding_judges from old judges table';
-        END IF;
-    END IF;
-END $$;
+        RAISE NOTICE 'Migrated proceeding_judges from old judges junction table';
 
--- ==============================================================================
--- STEP 5: Rename old tables to _backup (preserve data for verification)
--- ==============================================================================
-
-DO $$
-BEGIN
-    -- Rename old judges junction table if it has person_id (old schema)
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'judges' AND column_name = 'person_id') THEN
-        ALTER TABLE judges RENAME TO judges_backup;
-        RAISE NOTICE 'Renamed judges to judges_backup';
-    END IF;
-END $$;
-
--- Rename case_persons if it exists
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'case_persons') THEN
-        ALTER TABLE case_persons RENAME TO case_persons_backup;
-        RAISE NOTICE 'Renamed case_persons to case_persons_backup';
-    END IF;
-END $$;
-
--- Rename person_types if it exists
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'person_types') THEN
-        ALTER TABLE person_types RENAME TO person_types_backup;
-        RAISE NOTICE 'Renamed person_types to person_types_backup';
-    END IF;
-END $$;
-
--- ==============================================================================
--- STEP 6: Create new persons table (if person_type column exists, need migration)
--- ==============================================================================
-
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'persons' AND column_name = 'person_type') THEN
-        -- Rename old persons to backup
-        ALTER TABLE persons RENAME TO persons_backup;
-        RAISE NOTICE 'Renamed persons to persons_backup';
-
-        -- Create new simplified persons table
-        CREATE TABLE persons (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            phones JSONB DEFAULT '[]',
-            emails JSONB DEFAULT '[]',
-            address TEXT,
-            organization VARCHAR(255),
-            notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            archived BOOLEAN DEFAULT FALSE
-        );
-
-        CREATE INDEX idx_persons_name ON persons(name);
-        CREATE INDEX idx_persons_archived ON persons(archived);
-
-        -- Migrate person data (excluding judges)
-        INSERT INTO persons (id, name, phones, emails, address, organization, notes, created_at, updated_at, archived)
-        SELECT id, name, phones, emails, address, organization, notes, created_at, updated_at, archived
-        FROM persons_backup
-        WHERE LOWER(person_type) NOT IN ('judge', 'magistrate judge', 'magistrate');
-
-        -- Update sequence
-        PERFORM setval('persons_id_seq', COALESCE((SELECT MAX(id) FROM persons), 1));
-
-        RAISE NOTICE 'Created new persons table and migrated data';
+        -- Rename to backup for preservation
+        ALTER TABLE judges_old_junction RENAME TO judges_backup;
+        RAISE NOTICE 'Renamed judges_old_junction to judges_backup';
     END IF;
 END $$;
 
