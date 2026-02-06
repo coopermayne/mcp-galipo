@@ -150,6 +150,15 @@ def migrate_db():
 
         print("Running database migrations...")
 
+        # Check if persons table still has old schema (pre-unified-roles)
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'persons' AND column_name = 'person_type'
+            )
+        """)
+        has_old_person_schema = cur.fetchone()[0]
+
         # 1. Create jurisdictions table if it doesn't exist
         cur.execute("""
             CREATE TABLE IF NOT EXISTS jurisdictions (
@@ -221,51 +230,48 @@ def migrate_db():
             cur.execute("ALTER TABLE cases ADD COLUMN short_name VARCHAR(100)")
             print("  - Added short_name column to cases")
 
-        # 6. Create persons table if it doesn't exist
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS persons (
-                id SERIAL PRIMARY KEY,
-                person_type VARCHAR(50) NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                phones JSONB DEFAULT '[]',
-                emails JSONB DEFAULT '[]',
-                address TEXT,
-                organization VARCHAR(255),
-                attributes JSONB DEFAULT '{}',
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                archived BOOLEAN DEFAULT FALSE
-            )
-        """)
-
-        # 7. Create case_persons junction table if it doesn't exist
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_persons (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
-                role VARCHAR(100) NOT NULL,
-                side VARCHAR(20) DEFAULT 'neutral',
-                case_attributes JSONB DEFAULT '{}',
-                case_notes TEXT,
-                is_primary BOOLEAN DEFAULT FALSE,
-                contact_via_person_id INTEGER REFERENCES persons(id),
-                assigned_date DATE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(case_id, person_id, role)
-            )
-        """)
-
-        # 8. Create person_types table if it doesn't exist
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS person_types (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL UNIQUE,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        # 6-8. Create old-schema tables only if we haven't migrated to unified roles yet
+        if has_old_person_schema:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS persons (
+                    id SERIAL PRIMARY KEY,
+                    person_type VARCHAR(50) NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    phones JSONB DEFAULT '[]',
+                    emails JSONB DEFAULT '[]',
+                    address TEXT,
+                    organization VARCHAR(255),
+                    attributes JSONB DEFAULT '{}',
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    archived BOOLEAN DEFAULT FALSE
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS case_persons (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                    person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
+                    role VARCHAR(100) NOT NULL,
+                    side VARCHAR(20) DEFAULT 'neutral',
+                    case_attributes JSONB DEFAULT '{}',
+                    case_notes TEXT,
+                    is_primary BOOLEAN DEFAULT FALSE,
+                    contact_via_person_id INTEGER REFERENCES persons(id),
+                    assigned_date DATE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(case_id, person_id, role)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS person_types (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL UNIQUE,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
         # 9. Create expertise_types table if it doesn't exist
         cur.execute("""
@@ -326,7 +332,7 @@ def migrate_db():
                 WHERE table_name = 'clients' AND column_name = 'case_id'
             )
         """)
-        clients_has_case_id = cur.fetchone()[0]
+        clients_has_case_id = cur.fetchone()[0] if has_old_person_schema else False
 
         cur.execute("""
             SELECT EXISTS (
@@ -334,7 +340,7 @@ def migrate_db():
                 WHERE table_name = 'clients'
             )
         """)
-        if cur.fetchone()[0]:
+        if cur.fetchone()[0] and has_old_person_schema:
             # Check what columns exist in clients table
             cur.execute("""
                 SELECT column_name FROM information_schema.columns
@@ -390,7 +396,7 @@ def migrate_db():
                 WHERE table_name = 'defendants' AND column_name = 'case_id'
             )
         """)
-        defendants_has_case_id = cur.fetchone()[0]
+        defendants_has_case_id = cur.fetchone()[0] if has_old_person_schema else False
 
         cur.execute("""
             SELECT EXISTS (
@@ -398,7 +404,7 @@ def migrate_db():
                 WHERE table_name = 'defendants'
             )
         """)
-        if cur.fetchone()[0]:
+        if cur.fetchone()[0] and has_old_person_schema:
             cur.execute("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_name = 'defendants'
@@ -443,7 +449,7 @@ def migrate_db():
                 WHERE table_name = 'contacts' AND column_name = 'case_id'
             )
         """)
-        contacts_has_case_id = cur.fetchone()[0]
+        contacts_has_case_id = cur.fetchone()[0] if has_old_person_schema else False
 
         cur.execute("""
             SELECT EXISTS (
@@ -451,7 +457,7 @@ def migrate_db():
                 WHERE table_name = 'contacts'
             )
         """)
-        if cur.fetchone()[0]:
+        if cur.fetchone()[0] and has_old_person_schema:
             cur.execute("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_name = 'contacts'
@@ -652,85 +658,86 @@ def migrate_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id)")
         print("  - Created proceedings table (if not exists)")
 
-        # 22. Rename proceeding_judges to judges if it exists (migration from old name)
-        #     Only rename if proceeding_judges exists AND judges does NOT exist
-        cur.execute("""
-            SELECT
-                EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'proceeding_judges') as has_old,
-                EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'judges') as has_new
-        """)
-        row = cur.fetchone()
-        if row[0] and not row[1]:  # has old table, no new table
-            cur.execute("ALTER TABLE proceeding_judges RENAME TO judges")
-            cur.execute("ALTER INDEX IF EXISTS idx_proceeding_judges_proceeding_id RENAME TO idx_judges_proceeding_id")
-            cur.execute("ALTER INDEX IF EXISTS idx_proceeding_judges_person_id RENAME TO idx_judges_person_id")
-            print("  - Renamed proceeding_judges table to judges")
-        elif row[0] and row[1]:  # both exist - migrate data and drop old
+        # 22-23. Old judges junction table migrations (only needed before unified roles)
+        if has_old_person_schema:
+            # 22. Rename proceeding_judges to judges if it exists (migration from old name)
             cur.execute("""
-                INSERT INTO judges (proceeding_id, person_id, role, sort_order, created_at)
-                SELECT proceeding_id, person_id, role, sort_order, created_at
-                FROM proceeding_judges
-                ON CONFLICT (proceeding_id, person_id) DO NOTHING
+                SELECT
+                    EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'proceeding_judges') as has_old,
+                    EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'judges') as has_new
             """)
-            cur.execute("DROP TABLE proceeding_judges")
-            print("  - Migrated data from proceeding_judges to judges and dropped old table")
+            row = cur.fetchone()
+            if row[0] and not row[1]:
+                cur.execute("ALTER TABLE proceeding_judges RENAME TO judges")
+                cur.execute("ALTER INDEX IF EXISTS idx_proceeding_judges_proceeding_id RENAME TO idx_judges_proceeding_id")
+                cur.execute("ALTER INDEX IF EXISTS idx_proceeding_judges_person_id RENAME TO idx_judges_person_id")
+                print("  - Renamed proceeding_judges table to judges")
+            elif row[0] and row[1]:
+                cur.execute("""
+                    INSERT INTO judges (proceeding_id, person_id, role, sort_order, created_at)
+                    SELECT proceeding_id, person_id, role, sort_order, created_at
+                    FROM proceeding_judges
+                    ON CONFLICT (proceeding_id, person_id) DO NOTHING
+                """)
+                cur.execute("DROP TABLE proceeding_judges")
+                print("  - Migrated data from proceeding_judges to judges and dropped old table")
 
-        # 23. Create judges junction table for multi-judge support (if not exists)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS judges (
-                id SERIAL PRIMARY KEY,
-                proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
-                person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-                role VARCHAR(50) DEFAULT 'Judge',
-                sort_order INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(proceeding_id, person_id)
-            )
-        """)
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id)")
-        print("  - Created judges table (if not exists)")
-
-        # Migrate existing judge_id data from proceedings to judges
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'proceedings' AND column_name = 'judge_id'
-            ) as has_judge_id
-        """)
-        if cur.fetchone()[0]:
-            # Migrate existing judge_id data to judges
+            # 23. Create judges junction table for multi-judge support (if not exists)
             cur.execute("""
-                INSERT INTO judges (proceeding_id, person_id, role, sort_order)
-                SELECT id, judge_id, 'Judge', 0
-                FROM proceedings
-                WHERE judge_id IS NOT NULL
-                  AND NOT EXISTS (
-                    SELECT 1 FROM judges pj
-                    WHERE pj.proceeding_id = proceedings.id
-                      AND pj.person_id = proceedings.judge_id
-                  )
+                CREATE TABLE IF NOT EXISTS judges (
+                    id SERIAL PRIMARY KEY,
+                    proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
+                    person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    role VARCHAR(50) DEFAULT 'Judge',
+                    sort_order INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(proceeding_id, person_id)
+                )
             """)
-            # Drop the old judge_id column
-            cur.execute("ALTER TABLE proceedings DROP COLUMN IF EXISTS judge_id")
-            print("  - Migrated judge_id to judges and dropped column")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id)")
+            print("  - Created judges table (if not exists)")
 
-        # 24. Standardize "Magistrate" role to "Magistrate Judge" in judges table
-        cur.execute("UPDATE judges SET role = 'Magistrate Judge' WHERE role = 'Magistrate'")
+            # Migrate existing judge_id data from proceedings to judges
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'proceedings' AND column_name = 'judge_id'
+                ) as has_judge_id
+            """)
+            if cur.fetchone()[0]:
+                cur.execute("""
+                    INSERT INTO judges (proceeding_id, person_id, role, sort_order)
+                    SELECT id, judge_id, 'Judge', 0
+                    FROM proceedings
+                    WHERE judge_id IS NOT NULL
+                      AND NOT EXISTS (
+                        SELECT 1 FROM judges pj
+                        WHERE pj.proceeding_id = proceedings.id
+                          AND pj.person_id = proceedings.judge_id
+                      )
+                """)
+                cur.execute("ALTER TABLE proceedings DROP COLUMN IF EXISTS judge_id")
+                print("  - Migrated judge_id to judges and dropped column")
 
-        # 25. Remove any judge roles from case_persons (judges belong on proceedings only)
-        cur.execute("DELETE FROM case_persons WHERE role IN ('Judge', 'Magistrate Judge')")
+        # 24-26. Only run if old schema still exists (pre-unified-roles)
+        if has_old_person_schema:
+            # 24. Standardize "Magistrate" role to "Magistrate Judge" in judges table
+            cur.execute("UPDATE judges SET role = 'Magistrate Judge' WHERE role = 'Magistrate'")
 
-        # 26. Rename contact_via_person_id to grouped_under_id (idempotent)
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'case_persons' AND column_name = 'contact_via_person_id'
-            )
-        """)
-        if cur.fetchone()[0]:
-            cur.execute("ALTER TABLE case_persons RENAME COLUMN contact_via_person_id TO grouped_under_id")
-            print("  - Renamed contact_via_person_id to grouped_under_id")
+            # 25. Remove any judge roles from case_persons (judges belong on proceedings only)
+            cur.execute("DELETE FROM case_persons WHERE role IN ('Judge', 'Magistrate Judge')")
+
+            # 26. Rename contact_via_person_id to grouped_under_id (idempotent)
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'case_persons' AND column_name = 'contact_via_person_id'
+                )
+            """)
+            if cur.fetchone()[0]:
+                cur.execute("ALTER TABLE case_persons RENAME COLUMN contact_via_person_id TO grouped_under_id")
+                print("  - Renamed contact_via_person_id to grouped_under_id")
 
         # 28-29. (Removed - Daily Docket feature no longer used)
 
@@ -996,17 +1003,15 @@ def init_db():
             )
         """)
 
-        # 3. Persons table (unified person entity)
+        # 3. Persons table (simplified - no person_type after unified roles migration)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS persons (
                 id SERIAL PRIMARY KEY,
-                person_type VARCHAR(50) NOT NULL,
                 name VARCHAR(255) NOT NULL,
                 phones JSONB DEFAULT '[]',
                 emails JSONB DEFAULT '[]',
                 address TEXT,
                 organization VARCHAR(255),
-                attributes JSONB DEFAULT '{}',
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1014,41 +1019,74 @@ def init_db():
             )
         """)
 
-        # 4. Person types table (extendable enum)
+        # 4. Roles lookup table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS person_types (
+            CREATE TABLE IF NOT EXISTS roles (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL UNIQUE,
+                category VARCHAR(50) NOT NULL,
+                sort_order INTEGER DEFAULT 0,
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
-        # 5. Expertise types table (extendable enum for experts)
+        # 5. Person roles junction table (replaces case_persons)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS person_roles (
+                id SERIAL PRIMARY KEY,
+                person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                attributes JSONB DEFAULT '{}',
+                notes TEXT,
+                is_primary BOOLEAN DEFAULT FALSE,
+                grouped_under_id INTEGER REFERENCES persons(id) ON DELETE SET NULL,
+                assigned_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 6. Judges table (standalone, not linked to persons)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS judges (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                phones JSONB DEFAULT '[]',
+                emails JSONB DEFAULT '[]',
+                jurisdiction_id INTEGER REFERENCES jurisdictions(id) ON DELETE SET NULL,
+                chambers TEXT,
+                courtroom_number VARCHAR(50),
+                appointed_by VARCHAR(255),
+                appointed_date DATE,
+                initials VARCHAR(10),
+                status VARCHAR(50) DEFAULT 'Active',
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # 7. Proceeding judges junction table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS proceeding_judges (
+                id SERIAL PRIMARY KEY,
+                proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
+                judge_id INTEGER NOT NULL REFERENCES judges(id) ON DELETE CASCADE,
+                role VARCHAR(50) DEFAULT 'Judge',
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(proceeding_id, judge_id)
+            )
+        """)
+
+        # 8. Expertise types table (extendable enum for experts)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS expertise_types (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL UNIQUE,
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # 6. Case persons junction table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS case_persons (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
-                person_id INTEGER REFERENCES persons(id) ON DELETE CASCADE,
-                role VARCHAR(100) NOT NULL,
-                side VARCHAR(20),
-                case_attributes JSONB DEFAULT '{}',
-                case_notes TEXT,
-                is_primary BOOLEAN DEFAULT FALSE,
-                grouped_under_id INTEGER REFERENCES persons(id),
-                assigned_date DATE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(case_id, person_id, role)
             )
         """)
 
@@ -1123,18 +1161,7 @@ def init_db():
             )
         """)
 
-        # 12. Proceeding judges junction table (multi-judge support)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS judges (
-                id SERIAL PRIMARY KEY,
-                proceeding_id INTEGER NOT NULL REFERENCES proceedings(id) ON DELETE CASCADE,
-                person_id INTEGER NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-                role VARCHAR(50) DEFAULT 'Judge',
-                sort_order INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(proceeding_id, person_id)
-            )
-        """)
+        # 12. (Removed - old judges junction table; new judges and proceeding_judges created above)
 
         # 13. Webhook logs table (for storing incoming webhooks from external services)
         cur.execute("""
@@ -1159,12 +1186,17 @@ def init_db():
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status);
             CREATE INDEX IF NOT EXISTS idx_persons_name ON persons(name);
-            CREATE INDEX IF NOT EXISTS idx_persons_type ON persons(person_type);
             CREATE INDEX IF NOT EXISTS idx_persons_archived ON persons(archived);
-            CREATE INDEX IF NOT EXISTS idx_persons_attributes ON persons USING GIN (attributes);
-            CREATE INDEX IF NOT EXISTS idx_case_persons_case_id ON case_persons(case_id);
-            CREATE INDEX IF NOT EXISTS idx_case_persons_person_id ON case_persons(person_id);
-            CREATE INDEX IF NOT EXISTS idx_case_persons_role ON case_persons(role);
+            CREATE INDEX IF NOT EXISTS idx_roles_category ON roles(category);
+            CREATE INDEX IF NOT EXISTS idx_roles_sort_order ON roles(sort_order);
+            CREATE INDEX IF NOT EXISTS idx_person_roles_person_id ON person_roles(person_id);
+            CREATE INDEX IF NOT EXISTS idx_person_roles_role_id ON person_roles(role_id);
+            CREATE INDEX IF NOT EXISTS idx_person_roles_case_id ON person_roles(case_id);
+            CREATE INDEX IF NOT EXISTS idx_judges_name ON judges(name);
+            CREATE INDEX IF NOT EXISTS idx_judges_jurisdiction_id ON judges(jurisdiction_id);
+            CREATE INDEX IF NOT EXISTS idx_judges_status ON judges(status);
+            CREATE INDEX IF NOT EXISTS idx_proceeding_judges_proceeding_id ON proceeding_judges(proceeding_id);
+            CREATE INDEX IF NOT EXISTS idx_proceeding_judges_judge_id ON proceeding_judges(judge_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_case_id ON tasks(case_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
             CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order);
@@ -1173,8 +1205,6 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_activities_case_id ON activities(case_id);
             CREATE INDEX IF NOT EXISTS idx_notes_case_id ON notes(case_id);
             CREATE INDEX IF NOT EXISTS idx_proceedings_case_id ON proceedings(case_id);
-            CREATE INDEX IF NOT EXISTS idx_judges_proceeding_id ON judges(proceeding_id);
-            CREATE INDEX IF NOT EXISTS idx_judges_person_id ON judges(person_id);
             CREATE INDEX IF NOT EXISTS idx_webhook_logs_source ON webhook_logs(source);
             CREATE INDEX IF NOT EXISTS idx_webhook_logs_status ON webhook_logs(processing_status);
             CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at);
