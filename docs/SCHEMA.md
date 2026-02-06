@@ -2,7 +2,7 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-02-02 15:41:13 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-02-06 12:54:21 by `scripts/generate_schema_diagram.py`
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
 
@@ -20,18 +20,29 @@ erDiagram
         timestamp created_at
     }
 
-    case_persons {
+    case_clients {
         int id PK
-        int case_id UK,FK
-        int person_id UK,FK
-        varchar role UK
-        varchar side
-        jsonb case_attributes
-        text case_notes
+        int case_id UK
+        int client_id UK,FK
+        boolean contact_directly
+        int contact_via_id FK
+        varchar contact_via_relationship
         boolean is_primary
-        int grouped_under_id FK
-        date assigned_date
-        timestamp created_at
+        text notes
+    }
+
+    case_contacts {
+        int id PK
+        int case_id UK
+        int contact_id UK,FK
+        varchar role UK
+        text notes
+    }
+
+    case_defendants {
+        int id PK
+        int case_id UK
+        int defendant_id UK,FK
     }
 
     cases {
@@ -43,10 +54,37 @@ erDiagram
         text case_summary
         text result
         date date_of_injury
-        jsonb case_numbers
         timestamp created_at
         timestamp updated_at
         varchar color
+        _int4 attorney_ids
+        _int4 paralegal_ids
+    }
+
+    clients {
+        int id PK
+        varchar name
+        varchar phone
+        varchar email
+        text address
+        text notes
+        timestamp created_at
+    }
+
+    contacts {
+        int id PK
+        varchar name
+        varchar firm
+        varchar phone
+        varchar email
+        text address
+        text notes
+        timestamp created_at
+    }
+
+    defendants {
+        int id PK
+        varchar name UK
     }
 
     events {
@@ -58,8 +96,9 @@ erDiagram
         text description
         text document_link
         text calculation_note
-        boolean starred
         timestamp created_at
+        boolean starred
+        _int4 attendee_ids
     }
 
     expertise_types {
@@ -71,11 +110,19 @@ erDiagram
 
     judges {
         int id PK
-        int proceeding_id UK,FK
-        int person_id UK,FK
-        varchar role
-        int sort_order
+        varchar name
+        jsonb phones
+        jsonb emails
+        int jurisdiction_id FK
+        text chambers
+        varchar courtroom_number
+        varchar appointed_by
+        date appointed_date
+        varchar initials
+        varchar status
+        text notes
         timestamp created_at
+        timestamp updated_at
     }
 
     jurisdictions {
@@ -94,26 +141,39 @@ erDiagram
         timestamp updated_at
     }
 
-    person_types {
+    person_roles {
         int id PK
-        varchar name UK
-        text description
+        int person_id UK,FK
+        int role_id UK,FK
+        int case_id UK,FK
+        jsonb attributes
+        text notes
+        boolean is_primary
+        int grouped_under_id FK
+        date assigned_date
         timestamp created_at
     }
 
     persons {
         int id PK
-        varchar person_type
         varchar name
         jsonb phones
         jsonb emails
         text address
         varchar organization
-        jsonb attributes
         text notes
         timestamp created_at
         timestamp updated_at
         boolean archived
+    }
+
+    proceeding_judges {
+        int id PK
+        int proceeding_id UK,FK
+        int judge_id UK,FK
+        varchar role
+        int sort_order
+        timestamp created_at
     }
 
     proceedings {
@@ -130,6 +190,21 @@ erDiagram
         varchar pacer_case_id
     }
 
+    roles {
+        int id PK
+        varchar name UK
+        varchar category
+        int sort_order
+        text description
+        timestamp created_at
+    }
+
+    schema_migrations {
+        int id PK
+        varchar filename UK
+        timestamp applied_at
+    }
+
     tasks {
         int id PK
         int case_id FK
@@ -139,10 +214,11 @@ erDiagram
         text description
         varchar status
         int urgency
+        timestamp created_at
         int sort_order
         varchar docket_category
         int docket_order
-        timestamp created_at
+        int assignee_id FK
     }
 
     users {
@@ -159,20 +235,29 @@ erDiagram
         boolean is_active
         timestamp created_at
         timestamp updated_at
+        int paralegal_id FK
     }
 
     %% Relationships
     cases ||--o{ activities : "has"
-    cases ||--o{ case_persons : "has"
-    persons ||--o{ case_persons : "grouped_under"
+    clients ||--o{ case_clients : "assigned"
+    contacts ||--o{ case_clients : "contact_via"
+    contacts ||--o{ case_contacts : "contact"
+    defendants ||--o{ case_defendants : "assigned"
     cases ||--o{ events : "has"
-    persons ||--o{ judges : "person"
-    proceedings ||--o{ judges : "proceeding"
+    jurisdictions ||--o{ judges : "jurisdiction"
     cases ||--o{ notes : "has"
+    cases ||--o{ person_roles : "case"
+    persons ||--o{ person_roles : "grouped_under"
+    roles ||--o{ person_roles : "role"
+    judges ||--o{ proceeding_judges : "judge"
+    proceedings ||--o{ proceeding_judges : "has"
     cases ||--o{ proceedings : "has"
     jurisdictions ||--o{ proceedings : "filed in"
+    users ||--o{ tasks : "assignee"
     cases ||--o{ tasks : "has"
     events ||--o{ tasks : "linked to"
+    users ||--o{ users : "paralegal"
 ```
 
 ## Table Relationships
@@ -180,17 +265,25 @@ erDiagram
 | Parent | Child | FK Column | On Delete |
 |--------|-------|-----------|-----------|
 | cases | activities | case_id | CASCADE |
-| cases | case_persons | case_id | CASCADE |
-| persons | case_persons | grouped_under_id | NO ACTION |
-| persons | case_persons | person_id | CASCADE |
+| clients | case_clients | client_id | CASCADE |
+| contacts | case_clients | contact_via_id | NO ACTION |
+| contacts | case_contacts | contact_id | CASCADE |
+| defendants | case_defendants | defendant_id | CASCADE |
 | cases | events | case_id | CASCADE |
-| persons | judges | person_id | CASCADE |
-| proceedings | judges | proceeding_id | CASCADE |
+| jurisdictions | judges | jurisdiction_id | SET NULL |
 | cases | notes | case_id | CASCADE |
+| cases | person_roles | case_id | CASCADE |
+| persons | person_roles | grouped_under_id | SET NULL |
+| persons | person_roles | person_id | CASCADE |
+| roles | person_roles | role_id | RESTRICT |
+| judges | proceeding_judges | judge_id | CASCADE |
+| proceedings | proceeding_judges | proceeding_id | CASCADE |
 | cases | proceedings | case_id | CASCADE |
 | jurisdictions | proceedings | jurisdiction_id | NO ACTION |
+| users | tasks | assignee_id | SET NULL |
 | cases | tasks | case_id | CASCADE |
 | events | tasks | event_id | SET NULL |
+| users | users | paralegal_id | SET NULL |
 
 ## JSONB Column Details
 

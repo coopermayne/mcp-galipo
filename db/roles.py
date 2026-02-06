@@ -8,12 +8,13 @@ that can be assigned to persons via the person_roles junction table.
 from typing import Optional, List
 
 from .connection import get_cursor, serialize_rows
+from .validation import ROLE_CATEGORIES, ValidationError
 
 
 def get_roles(category: str = None) -> List[dict]:
     """Get all roles, optionally filtered by category.
 
-    Categories: 'client', 'internal_team', 'opposing_team', 'third_party'
+    Categories: 'client', 'counsel', 'defendant', 'expert', 'mediator', 'other'
     """
     with get_cursor() as cur:
         if category:
@@ -54,13 +55,11 @@ def get_role_by_name(name: str) -> Optional[dict]:
         return dict(row) if row else None
 
 
-def create_role(name: str, category: str, sort_order: int = 0,
+def create_role(name: str, category: str = "other", sort_order: int = 0,
                 description: str = None) -> dict:
-    """Create a new role."""
-    valid_categories = ['client', 'internal_team', 'opposing_team', 'third_party']
-    if category not in valid_categories:
-        from .validation import ValidationError
-        raise ValidationError(f"Invalid category '{category}'. Must be one of: {valid_categories}")
+    """Create a new role. Category defaults to 'other' for ad-hoc roles."""
+    if category not in ROLE_CATEGORIES:
+        raise ValidationError(f"Invalid category '{category}'. Must be one of: {ROLE_CATEGORIES}")
 
     with get_cursor() as cur:
         cur.execute("""
@@ -82,10 +81,8 @@ def update_role(role_id: int, name: str = None, category: str = None,
         params.append(name)
 
     if category is not None:
-        valid_categories = ['client', 'internal_team', 'opposing_team', 'third_party']
-        if category not in valid_categories:
-            from .validation import ValidationError
-            raise ValidationError(f"Invalid category '{category}'. Must be one of: {valid_categories}")
+        if category not in ROLE_CATEGORIES:
+            raise ValidationError(f"Invalid category '{category}'. Must be one of: {ROLE_CATEGORIES}")
         updates.append("category = %s")
         params.append(category)
 

@@ -58,20 +58,19 @@ ACTIVITY_TYPE_LIST = [
 
 PERSON_SIDE_LIST = ["plaintiff", "defendant", "neutral"]
 
-# Role categories for the unified roles system
-ROLE_CATEGORIES = ["client", "internal_team", "opposing_team", "third_party"]
 
-# Common roles (use list_roles() for the full list from the database)
-COMMON_ROLES = [
-    # client category
-    "Client",
-    # internal_team category
-    "Lead Attorney", "Co-Counsel", "Paralegal", "Case Manager",
-    # opposing_team category
-    "Defendant", "Defense Counsel", "Defense Paralegal", "Defense Expert",
-    # third_party category
-    "Plaintiff Expert", "Mediator", "Witness", "Lien Holder", "Court Reporter", "Interpreter"
-]
+def _get_roles_summary() -> str:
+    """Get current roles grouped by category from the database."""
+    roles = db.get_roles()
+    by_cat = {}
+    for r in roles:
+        by_cat.setdefault(r["category"], []).append(r["name"])
+    return "; ".join(f"{cat}: {', '.join(names)}" for cat, names in sorted(by_cat.items()))
+
+
+def _get_expertise_types_list() -> list[str]:
+    """Get current expertise type names from the database."""
+    return [t["name"] for t in db.get_expertise_types()]
 
 
 # =============================================================================
