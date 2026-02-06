@@ -16,19 +16,18 @@ interface ToolResultRendererProps {
 }
 
 /**
- * Mutation tools that create/update entities and return them
+ * Mutation tools that create/update entities and return them.
+ * Each consolidated manage_X tool returns its entity under this key.
  */
 const ENTITY_MUTATION_TOOLS = {
-  // Event tools
-  add_event: 'event',
-  update_event: 'event',
-  // Task tools (future)
-  add_task: 'task',
-  update_task: 'task',
-  // Note tools (future)
-  add_note: 'note',
-  // Activity tools (future)
-  log_activity: 'activity',
+  manage_event: 'event',
+  manage_task: 'task',
+  manage_note: 'note',
+  manage_activity: 'activity',
+  manage_person: 'person',
+  manage_case: 'case',
+  manage_proceeding: 'proceeding',
+  manage_case_role: 'assignment',
 } as const;
 
 type MutationToolName = keyof typeof ENTITY_MUTATION_TOOLS;
@@ -46,11 +45,10 @@ export function hasInteractiveResult(toolName: string, result: string, isError?:
   const entityKey = ENTITY_MUTATION_TOOLS[toolName];
   const entity = extractEntity(parsed, entityKey);
 
-  if ((toolName === 'add_event' || toolName === 'update_event') && isEvent(entity)) {
+  if (toolName === 'manage_event' && isEvent(entity)) {
     return true;
   }
 
-  // Add more checks for tasks, notes, etc. as we implement them
   return false;
 }
 
@@ -119,20 +117,15 @@ export function ToolResultRenderer({ toolName, result, isError, mode = 'full' }:
     const entityKey = ENTITY_MUTATION_TOOLS[toolName];
     const entity = extractEntity(parsed, entityKey);
 
-    // Render event items
-    if ((toolName === 'add_event' || toolName === 'update_event') && isEvent(entity)) {
+    // Render event items from manage_event
+    if (toolName === 'manage_event' && isEvent(entity)) {
       return (
         <ChatEventItem
           event={entity}
-          isNew={toolName === 'add_event'}
+          isNew={true}
         />
       );
     }
-
-    // TODO: Add task rendering
-    // if ((toolName === 'add_task' || toolName === 'update_task') && isTask(entity)) {
-    //   return <ChatTaskItem task={entity} isNew={toolName === 'add_task'} />;
-    // }
   }
 
   // Fallback to JSON display
