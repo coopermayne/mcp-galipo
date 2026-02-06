@@ -1024,7 +1024,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS roles (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL UNIQUE,
-                category VARCHAR(50) NOT NULL,
+                category VARCHAR(50) NOT NULL CHECK (category IN ('client', 'counsel', 'defendant', 'expert', 'mediator', 'other')),
                 sort_order INTEGER DEFAULT 0,
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1040,7 +1040,7 @@ def init_db():
                 case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
                 attributes JSONB DEFAULT '{}',
                 notes TEXT,
-                is_primary BOOLEAN DEFAULT FALSE,
+                is_primary BOOLEAN NOT NULL DEFAULT FALSE,
                 grouped_under_id INTEGER REFERENCES persons(id) ON DELETE SET NULL,
                 assigned_date DATE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1129,7 +1129,7 @@ def init_db():
                 completion_date DATE,
                 description TEXT NOT NULL,
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-                urgency INTEGER CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
+                urgency INTEGER NOT NULL CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
                 sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
