@@ -2,7 +2,7 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-02-06 12:54:21 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-02-06 13:50:07 by `scripts/generate_schema_diagram.py`
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
 
@@ -20,31 +20,6 @@ erDiagram
         timestamp created_at
     }
 
-    case_clients {
-        int id PK
-        int case_id UK
-        int client_id UK,FK
-        boolean contact_directly
-        int contact_via_id FK
-        varchar contact_via_relationship
-        boolean is_primary
-        text notes
-    }
-
-    case_contacts {
-        int id PK
-        int case_id UK
-        int contact_id UK,FK
-        varchar role UK
-        text notes
-    }
-
-    case_defendants {
-        int id PK
-        int case_id UK
-        int defendant_id UK,FK
-    }
-
     cases {
         int id PK
         varchar case_name
@@ -59,32 +34,6 @@ erDiagram
         varchar color
         _int4 attorney_ids
         _int4 paralegal_ids
-    }
-
-    clients {
-        int id PK
-        varchar name
-        varchar phone
-        varchar email
-        text address
-        text notes
-        timestamp created_at
-    }
-
-    contacts {
-        int id PK
-        varchar name
-        varchar firm
-        varchar phone
-        varchar email
-        text address
-        text notes
-        timestamp created_at
-    }
-
-    defendants {
-        int id PK
-        varchar name UK
     }
 
     events {
@@ -184,10 +133,10 @@ erDiagram
         int sort_order
         boolean is_primary
         text notes
-        timestamp created_at
-        timestamp updated_at
         bigint courtlistener_docket_id
         varchar pacer_case_id
+        timestamp created_at
+        timestamp updated_at
     }
 
     roles {
@@ -240,10 +189,6 @@ erDiagram
 
     %% Relationships
     cases ||--o{ activities : "has"
-    clients ||--o{ case_clients : "assigned"
-    contacts ||--o{ case_clients : "contact_via"
-    contacts ||--o{ case_contacts : "contact"
-    defendants ||--o{ case_defendants : "assigned"
     cases ||--o{ events : "has"
     jurisdictions ||--o{ judges : "jurisdiction"
     cases ||--o{ notes : "has"
@@ -265,10 +210,6 @@ erDiagram
 | Parent | Child | FK Column | On Delete |
 |--------|-------|-----------|-----------|
 | cases | activities | case_id | CASCADE |
-| clients | case_clients | client_id | CASCADE |
-| contacts | case_clients | contact_via_id | NO ACTION |
-| contacts | case_contacts | contact_id | CASCADE |
-| defendants | case_defendants | defendant_id | CASCADE |
 | cases | events | case_id | CASCADE |
 | jurisdictions | judges | jurisdiction_id | SET NULL |
 | cases | notes | case_id | CASCADE |
