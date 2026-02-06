@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { FileText, Upload, Loader2, AlertCircle, User, CheckCircle2, Sparkles, X, Download, Check, Calendar, ChevronDown } from 'lucide-react';
+import { FileText, Upload, Loader2, AlertCircle, CheckCircle2, Sparkles, X, Download, Check, ChevronDown } from 'lucide-react';
 import { Header, PageContent } from '../components/layout';
 import { extractCaseInfo, improveDocumentName, generateFilename, generateDocument } from '../api/templates';
 import { request } from '../api/common';
@@ -242,8 +242,6 @@ export function Templates() {
     setError(null);
     setIsExtracting(true);
     setHasAttemptedSubmit(false);
-    setDocumentName('');
-    setFilename('');
 
     try {
       const response = await extractCaseInfo(file);
@@ -394,7 +392,7 @@ export function Templates() {
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header title="Templates" subtitle="Generate pleading documents" />
 
-      <PageContent className="space-y-3 scrollbar-hide">
+      <PageContent variant="full" className="space-y-3 scrollbar-hide">
         {/* Upload Zone */}
         <section
           onDrop={handleDrop}
@@ -462,9 +460,9 @@ export function Templates() {
           </div>
         )}
 
-        {/* Two-column grid: Case Info (left) | Hearing + Attorney (right) */}
+        {/* Two-column grid: Case Info (left) | Output Document (right) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-          {/* Case Information */}
+          {/* Case Information + Hearing */}
           <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
             <SectionHeader
               icon={<FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
@@ -481,23 +479,14 @@ export function Templates() {
                 placeholder="UNITED STATES DISTRICT COURT&#10;CENTRAL DISTRICT OF CALIFORNIA"
                 showValidation={hasAttemptedSubmit}
               />
-              <div className="grid gap-3 grid-cols-2">
-                <FormField
-                  label="Case Number"
-                  value={caseInfo.case_number || ''}
-                  onChange={(v) => updateCaseInfo('case_number', v)}
-                  required
-                  placeholder="2:24-cv-01234-ABC-XYZ"
-                  showValidation={hasAttemptedSubmit}
-                />
-                <FormField
-                  label="Motion Title"
-                  value={caseInfo.motion_title || ''}
-                  onChange={(v) => updateCaseInfo('motion_title', v)}
-                  placeholder="Motion to Compel Discovery"
-                  autoExpand
-                />
-              </div>
+              <FormField
+                label="Case Number"
+                value={caseInfo.case_number || ''}
+                onChange={(v) => updateCaseInfo('case_number', v)}
+                required
+                placeholder="2:24-cv-01234-ABC-XYZ"
+                showValidation={hasAttemptedSubmit}
+              />
               <div className="grid gap-3 grid-cols-2">
                 <FormField
                   label="Plaintiff(s)"
@@ -534,28 +523,19 @@ export function Templates() {
                   placeholder="Magistrate Judge Jane Doe"
                 />
               </div>
-            </div>
-          </section>
 
-          {/* Right column: Hearing + Attorney stacked */}
-          <div className="space-y-3">
-            {/* Hearing Information */}
-            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-              <SectionHeader
-                icon={<Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
-                title="Hearing Information"
-                subtitle="(Optional)"
-              />
-              <div className="p-4">
+              {/* Hearing (subsection) */}
+              <div className="pt-2 border-t border-border space-y-3">
+                <span className="text-xs font-medium text-text-muted">Hearing (optional)</span>
                 <div className="grid gap-3 grid-cols-3">
                   <FormField
-                    label="Hearing Date"
+                    label="Date"
                     value={caseInfo.hearing_date || ''}
                     onChange={(v) => updateCaseInfo('hearing_date', v)}
                     placeholder="January 15, 2025"
                   />
                   <FormField
-                    label="Hearing Time"
+                    label="Time"
                     value={caseInfo.hearing_time || ''}
                     onChange={(v) => updateCaseInfo('hearing_time', v)}
                     placeholder="10:00 a.m."
@@ -568,61 +548,11 @@ export function Templates() {
                   />
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
-            {/* Signing Attorney */}
-            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-              <SectionHeader
-                icon={<User className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
-                title="Signing Attorney"
-              />
-              <div className="p-4">
-                {attorneys.length > 0 ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-text-secondary mb-1">Attorney</label>
-                      <div className="relative">
-                        <select
-                          value={selectedAttorneyId ?? ''}
-                          onChange={(e) => setSelectedAttorneyId(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full appearance-none px-2.5 py-1.5 pr-8 bg-bg border border-border rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-200"
-                        >
-                          <option value="">Select attorney...</option>
-                          {attorneys.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.firstName} {a.lastName}
-                              {a.barNumber ? ` (SBN ${a.barNumber})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-                      </div>
-                    </div>
-                    {selectedAttorney && (
-                      <div className="flex items-center gap-3 px-3 py-2 bg-bg-hover/50 rounded-md">
-                        <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-xs">
-                          {selectedAttorney.initials}
-                        </div>
-                        <div className="space-y-0.5 text-xs text-text-muted">
-                          {selectedAttorney.barNumber && (
-                            <span>Bar No. <span className="font-mono">{selectedAttorney.barNumber}</span></span>
-                          )}
-                          {selectedAttorney.barNumber && selectedAttorney.email && <span className="mx-1.5">&middot;</span>}
-                          {selectedAttorney.email && <span>{selectedAttorney.email}</span>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-text-muted">No attorneys found. Add attorneys in the admin panel.</p>
-                )}
-              </div>
-            </section>
-          </div>
-        </div>
-
-        {/* Output Document — full width below */}
-        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+          {/* Output Document */}
+          <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
           <SectionHeader
             icon={<Download className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
             title="Output Document"
@@ -637,6 +567,7 @@ export function Templates() {
                 placeholder="Opposition to Motion for Summary Judgment"
                 showValidation={hasAttemptedSubmit}
                 rightElement={sparkleButton(handleImproveDocumentName, isImprovingName)}
+                autoExpand
               />
               <FormField
                 label="Filename"
@@ -646,6 +577,7 @@ export function Templates() {
                 placeholder="2026.02.05 Opp MSJ.docx"
                 showValidation={hasAttemptedSubmit}
                 rightElement={sparkleButton(handleGenerateFilename, isGeneratingFilename, !documentName.trim())}
+                autoExpand
               />
             </div>
 
@@ -729,21 +661,69 @@ export function Templates() {
               </div>
             )}
 
-            {/* Generate Button */}
-            <button
-              onClick={handleGenerateDocument}
-              disabled={isGeneratingDocument}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isGeneratingDocument ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              Generate Document
-            </button>
+            {/* Attorney + Generate */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Attorney picker as clickable badge */}
+              {selectedAttorney ? (
+                <label className="relative flex items-center gap-2.5 cursor-pointer group">
+                  <select
+                    value={selectedAttorneyId ?? ''}
+                    onChange={(e) => setSelectedAttorneyId(e.target.value ? Number(e.target.value) : null)}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  >
+                    {attorneys.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.firstName} {a.lastName}
+                        {a.barNumber ? ` (SBN ${a.barNumber})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 group-hover:bg-primary-600 transition-colors">
+                    {selectedAttorney.initials}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                    {selectedAttorney.barNumber && (
+                      <span>Bar No. <span className="font-mono">{selectedAttorney.barNumber}</span></span>
+                    )}
+                    {selectedAttorney.barNumber && selectedAttorney.email && <span>&middot;</span>}
+                    {selectedAttorney.email && <span>{selectedAttorney.email}</span>}
+                  </div>
+                </label>
+              ) : attorneys.length > 0 ? (
+                <div className="relative">
+                  <select
+                    value=""
+                    onChange={(e) => setSelectedAttorneyId(e.target.value ? Number(e.target.value) : null)}
+                    className="appearance-none px-2.5 py-1.5 pr-8 bg-bg border border-border rounded text-sm text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-200"
+                  >
+                    <option value="">Select attorney...</option>
+                    {attorneys.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.firstName} {a.lastName}
+                        {a.barNumber ? ` (SBN ${a.barNumber})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                </div>
+              ) : null}
+
+              <button
+                onClick={handleGenerateDocument}
+                disabled={isGeneratingDocument}
+                className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors max-w-xs"
+              >
+                {isGeneratingDocument ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Generate Document
+              </button>
+            </div>
           </div>
         </section>
+        </div>
       </PageContent>
     </div>
   );
