@@ -578,34 +578,29 @@ def migrate_db():
             cur.execute("UPDATE tasks SET sort_order = id * 1000 WHERE sort_order = 0 OR sort_order IS NULL")
             print("  - Added sort_order column to tasks")
 
-        # 17. Migrate urgency from 1-5 scale to 1-4 scale (Low, Medium, High, Urgent)
-        # First check if any tasks have urgency=5 (indicating we haven't migrated yet)
-        cur.execute("SELECT COUNT(*) FROM tasks WHERE urgency = 5")
-        if cur.fetchone()[0] > 0:
-            # Convert urgency=5 to urgency=4
-            cur.execute("UPDATE tasks SET urgency = 4 WHERE urgency = 5")
-            print("  - Migrated urgency=5 tasks to urgency=4")
-
-        # Check and update the CHECK constraint on urgency column
+        # 17. Legacy urgency migration (int 1-5 → 1-4) — skipped if urgency is already VARCHAR
         cur.execute("""
-            SELECT constraint_name
-            FROM information_schema.check_constraints
-            WHERE constraint_name LIKE 'tasks_urgency_check%'
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = 'tasks' AND column_name = 'urgency'
         """)
-        old_constraint = cur.fetchone()
-        if old_constraint:
-            # Check if the current constraint allows 5 (needs migration)
+        urgency_type = cur.fetchone()
+        if urgency_type and urgency_type[0] == 'integer':
+            cur.execute("UPDATE tasks SET urgency = 4 WHERE urgency = 5")
             cur.execute("""
-                SELECT check_clause
-                FROM information_schema.check_constraints
-                WHERE constraint_name = %s
-            """, (old_constraint[0],))
-            check_clause = cur.fetchone()
-            if check_clause and '5' in check_clause[0]:
-                # Drop old constraint and add new one
-                cur.execute(f"ALTER TABLE tasks DROP CONSTRAINT {old_constraint[0]}")
-                cur.execute("ALTER TABLE tasks ADD CONSTRAINT tasks_urgency_check CHECK (urgency >= 1 AND urgency <= 4)")
-                print("  - Updated urgency constraint from 1-5 to 1-4")
+                SELECT constraint_name FROM information_schema.check_constraints
+                WHERE constraint_name LIKE 'tasks_urgency_check%'
+            """)
+            old_constraint = cur.fetchone()
+            if old_constraint:
+                cur.execute(f"""
+                    SELECT check_clause FROM information_schema.check_constraints
+                    WHERE constraint_name = %s
+                """, (old_constraint[0],))
+                check_clause = cur.fetchone()
+                if check_clause and '5' in check_clause[0]:
+                    cur.execute(f"ALTER TABLE tasks DROP CONSTRAINT {old_constraint[0]}")
+                    cur.execute("ALTER TABLE tasks ADD CONSTRAINT tasks_urgency_check CHECK (urgency >= 1 AND urgency <= 4)")
+                    print("  - Updated urgency constraint from 1-5 to 1-4")
 
         # 20. Rename deadlines table to events
         cur.execute("""
@@ -1143,6 +1138,7 @@ def init_db():
                 id SERIAL PRIMARY KEY,
                 case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
                 content TEXT NOT NULL,
+                starred BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
