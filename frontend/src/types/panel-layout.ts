@@ -9,7 +9,7 @@
 export type LayoutPreset = '1' | '1:1' | '1:2' | '2:1' | '2:2';
 
 /** Widget types - extend as needed */
-export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'clients' | 'chart';
+export type WidgetType = 'tasks' | 'events' | 'cases' | 'persons' | 'clients' | 'judges' | 'chart';
 
 /** Group modes for tasks widget */
 export type TasksGroupMode = 'date' | 'case' | 'urgency';
@@ -88,6 +88,12 @@ export interface ClientsWidgetConfig extends BaseWidgetConfig {
   caseOwnerFilter: CaseOwnerFilter;
 }
 
+/** Judges widget configuration */
+export interface JudgesWidgetConfig extends BaseWidgetConfig {
+  type: 'judges';
+  searchQuery: string;
+}
+
 /** Chart widget configuration */
 export interface ChartWidgetConfig extends BaseWidgetConfig {
   type: 'chart';
@@ -95,7 +101,7 @@ export interface ChartWidgetConfig extends BaseWidgetConfig {
 }
 
 /** Discriminated union of all widget configs */
-export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | ClientsWidgetConfig | ChartWidgetConfig;
+export type WidgetConfig = TasksWidgetConfig | EventsWidgetConfig | CasesWidgetConfig | PersonsWidgetConfig | ClientsWidgetConfig | JudgesWidgetConfig | ChartWidgetConfig;
 
 /** Full layout configuration (stored in localStorage) */
 export interface PanelLayoutConfig {
@@ -192,6 +198,15 @@ export function createDefaultClientsWidget(id: string): ClientsWidgetConfig {
   };
 }
 
+/** Default config for judges widget */
+export function createDefaultJudgesWidget(id: string): JudgesWidgetConfig {
+  return {
+    id,
+    type: 'judges',
+    searchQuery: '',
+  };
+}
+
 /** Default config for chart widget */
 export function createDefaultChartWidget(id: string): ChartWidgetConfig {
   return {
@@ -214,6 +229,8 @@ export function createDefaultWidget(id: string, type: WidgetType): WidgetConfig 
       return createDefaultPersonsWidget(id);
     case 'clients':
       return createDefaultClientsWidget(id);
+    case 'judges':
+      return createDefaultJudgesWidget(id);
     case 'chart':
       return createDefaultChartWidget(id);
   }
@@ -266,5 +283,6 @@ export const WIDGET_INFO: Record<WidgetType, { label: string; description: strin
   cases: { label: 'Cases', description: 'Case files and matters' },
   persons: { label: 'Persons', description: 'Contacts and people' },
   clients: { label: 'Clients', description: 'Client contacts with case info' },
+  judges: { label: 'Judges', description: 'Judges and judicial officers' },
   chart: { label: 'Chart', description: 'Case pipeline by status' },
 };
