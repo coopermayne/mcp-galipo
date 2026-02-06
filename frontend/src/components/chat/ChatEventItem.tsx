@@ -1,12 +1,12 @@
 /**
  * ChatEventItem - Interactive event display for chat context
  *
- * Simplified version of EventItem optimized for display in chat messages.
+ * Fetches event data from the API by ID, confirming it was saved to the database.
  * Shows event details with interactive star, date, and time controls.
  * Mutations are handled via API calls with React Query invalidation.
  */
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parse, isValid } from 'date-fns';
 import DatePicker from 'react-datepicker';
 import {
@@ -15,14 +15,17 @@ import {
   MapPin,
   ExternalLink,
   CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { TimePicker, CaseChip } from '../common';
-import { updateEvent } from '../../api/events';
+import { getEvent, updateEvent } from '../../api/events';
 import type { Event } from '../../types';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export interface ChatEventItemProps {
-  event: Event;
+  /** Event ID to fetch from the database */
+  eventId: number;
   /** Whether this was just created (shows success indicator) */
   isNew?: boolean;
 }
@@ -53,23 +56,53 @@ function formatRelativeDate(dateStr: string): { text: string; isOverdue: boolean
   }
 }
 
-export function ChatEventItem({ event: initialEvent, isNew = true }: ChatEventItemProps) {
+export function ChatEventItem({ eventId, isNew = true }: ChatEventItemProps) {
   const queryClient = useQueryClient();
-  const [event, setEvent] = useState(initialEvent);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  // Fetch event from database by ID
+  const { data: eventData, isLoading, isError } = useQuery({
+    queryKey: ['event', eventId],
+    queryFn: async () => {
+      const res = await getEvent(eventId);
+      return res.event;
+    },
+    staleTime: 30_000,
+  });
+
+  // Local state for optimistic updates
+  const [localEvent, setLocalEvent] = useState<Event | null>(null);
+  const event = localEvent ?? eventData;
 
   // Mutation for updating the event
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Event>) => updateEvent(event.id, data),
+    mutationFn: (data: Partial<Event>) => updateEvent(eventId, data),
     onSuccess: (response) => {
-      // Update local state with server response
-      setEvent(response.event);
-      // Invalidate queries to sync with rest of UI
+      setLocalEvent(response.event);
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       queryClient.invalidateQueries({ queryKey: ['case'] });
       queryClient.invalidateQueries({ queryKey: ['calendar'] });
     },
   });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border bg-bg-surface p-3 flex items-center gap-2 text-text-muted">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span className="text-xs">Loading event...</span>
+      </div>
+    );
+  }
+
+  if (isError || !event) {
+    return (
+      <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 flex items-center gap-2">
+        <AlertCircle className="w-4 h-4 text-red-500" />
+        <span className="text-xs text-red-600 dark:text-red-400">Failed to load event #{eventId}</span>
+      </div>
+    );
+  }
 
   const dateInfo = formatRelativeDate(event.date);
 

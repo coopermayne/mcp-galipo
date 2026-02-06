@@ -85,6 +85,17 @@ def register_event_routes(mcp):
         )
         return JSONResponse({"events": events})
 
+    @mcp.custom_route("/api/v1/events/{event_id}", methods=["GET"])
+    async def api_get_event(request):
+        """Get a single event by ID."""
+        if err := auth.require_auth(request):
+            return err
+        event_id = int(request.path_params["event_id"])
+        result = await asyncio.to_thread(db.get_event_by_id, event_id)
+        if not result:
+            return api_error("Event not found", "NOT_FOUND", 404)
+        return JSONResponse({"event": result})
+
     @mcp.custom_route("/api/v1/events/{event_id}", methods=["PUT"])
     async def api_update_event(request):
         """Update an event."""

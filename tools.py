@@ -699,7 +699,7 @@ def register_tools(mcp):
                     date_of_injury=data.date_of_injury,
                     short_name=data.short_name,
                 )
-                return {"success": True, "message": f"Case '{data.case_name}' created", "case": result}
+                return {"success": True, "message": f"Case '{data.case_name}' created", "case_id": result["id"]}
 
             elif data.action == "update":
                 if not data.case_id:
@@ -712,7 +712,7 @@ def register_tools(mcp):
                 result = db.update_case(data.case_id, **kwargs)
                 if not result:
                     return not_found_error("Case")
-                return {"success": True, "message": f"Case #{data.case_id} updated", "case": result}
+                return {"success": True, "message": f"Case #{data.case_id} updated", "case_id": data.case_id}
 
             elif data.action == "delete":
                 if not data.case_id:
@@ -766,8 +766,8 @@ def register_tools(mcp):
                         # Person created but role assignment failed
                         return {
                             "success": True,
-                            "message": f"Person '{data.name}' created but role '{data.role}' not found — assign manually with manage_case_role",
-                            "person": result,
+                            "message": f"Person '{data.name}' created (id={result['id']}) but role '{data.role}' not found — assign manually with manage_case_role",
+                            "person_id": result["id"],
                         }
                     assignment = db.assign_person_to_case(
                         case_id=data.case_id,
@@ -778,10 +778,7 @@ def register_tools(mcp):
                 msg = f"Person '{data.name}' created"
                 if assignment:
                     msg += f" and assigned as {data.role} on case #{data.case_id}"
-                resp = {"success": True, "message": msg, "person": result}
-                if assignment:
-                    resp["assignment"] = assignment
-                return resp
+                return {"success": True, "message": msg, "person_id": result["id"]}
 
             elif data.action == "update":
                 if not data.person_id:
@@ -800,7 +797,7 @@ def register_tools(mcp):
                 result = db.update_person(data.person_id, **kwargs)
                 if not result:
                     return not_found_error("Person")
-                return {"success": True, "message": f"Person #{data.person_id} updated", "person": result}
+                return {"success": True, "message": f"Person #{data.person_id} updated", "person_id": data.person_id}
 
             elif data.action == "delete":
                 if not data.person_id:
@@ -860,7 +857,7 @@ def register_tools(mcp):
                     grouped_under_id=data.grouped_under_id,
                     assigned_date=data.assigned_date,
                 )
-                return {"success": True, "message": f"Person #{data.person_id} assigned as {data.role} on case #{data.case_id}", "assignment": result}
+                return {"success": True, "message": f"Person #{data.person_id} assigned as {data.role} on case #{data.case_id}"}
 
             elif data.action == "update":
                 # Find the assignment first
@@ -887,7 +884,7 @@ def register_tools(mcp):
                 result = db.update_case_assignment(assignment_id, **kwargs)
                 if not result:
                     return not_found_error("Assignment")
-                return {"success": True, "message": f"Assignment updated", "assignment": result}
+                return {"success": True, "message": f"Assignment updated for person #{data.person_id} on case #{data.case_id}"}
 
             elif data.action == "change_role":
                 if not data.new_role:
@@ -903,7 +900,7 @@ def register_tools(mcp):
                 )
                 if not result:
                     return not_found_error("Assignment")
-                return {"success": True, "message": f"Role changed from {data.role} to {data.new_role}", "assignment": result}
+                return {"success": True, "message": f"Role changed from {data.role} to {data.new_role} for person #{data.person_id} on case #{data.case_id}"}
 
             elif data.action == "remove":
                 removed = db.remove_person_from_case(
@@ -952,7 +949,7 @@ def register_tools(mcp):
                     location=data.location,
                     starred=data.starred or False,
                 )
-                return {"success": True, "message": f"Event created: {data.description}", "event": result}
+                return {"success": True, "message": f"Event created: {data.description}", "event_id": result["id"]}
 
             elif data.action == "update":
                 if not data.event_id:
@@ -965,7 +962,7 @@ def register_tools(mcp):
                 result = db.update_event_full(data.event_id, **kwargs)
                 if not result:
                     return not_found_error("Event")
-                return {"success": True, "message": f"Event #{data.event_id} updated", "event": result}
+                return {"success": True, "message": f"Event #{data.event_id} updated", "event_id": data.event_id}
 
             elif data.action == "delete":
                 if not data.event_id:
@@ -1011,7 +1008,7 @@ def register_tools(mcp):
                     event_id=data.event_id,
                     assignee_id=data.assignee_id,
                 )
-                return {"success": True, "message": f"Task created: {data.description}", "task": result}
+                return {"success": True, "message": f"Task created: {data.description}", "task_id": result["id"]}
 
             elif data.action == "update":
                 if not data.task_id:
@@ -1024,7 +1021,7 @@ def register_tools(mcp):
                 result = db.update_task_full(data.task_id, **kwargs)
                 if not result:
                     return not_found_error("Task")
-                return {"success": True, "message": f"Task #{data.task_id} updated", "task": result}
+                return {"success": True, "message": f"Task #{data.task_id} updated", "task_id": data.task_id}
 
             elif data.action == "delete":
                 if not data.task_id:
@@ -1071,7 +1068,7 @@ def register_tools(mcp):
                 if not data.content:
                     return validation_error("content is required for create")
                 result = db.add_note(case_id=data.case_id, content=data.content)
-                return {"success": True, "message": "Note created", "note": result}
+                return {"success": True, "message": "Note created", "note_id": result["id"]}
 
             elif data.action == "update":
                 if not data.note_id:
@@ -1081,7 +1078,7 @@ def register_tools(mcp):
                 result = db.update_note(data.note_id, content=data.content)
                 if not result:
                     return not_found_error("Note")
-                return {"success": True, "message": f"Note #{data.note_id} updated", "note": result}
+                return {"success": True, "message": f"Note #{data.note_id} updated", "note_id": data.note_id}
 
             elif data.action == "delete":
                 if not data.note_id:
@@ -1128,7 +1125,7 @@ def register_tools(mcp):
                     is_primary=data.is_primary or False,
                     notes=data.notes,
                 )
-                return {"success": True, "message": f"Proceeding created: {data.case_number}", "proceeding": result}
+                return {"success": True, "message": f"Proceeding created: {data.case_number}", "proceeding_id": result["id"]}
 
             elif data.action == "update":
                 if not data.proceeding_id:
@@ -1141,7 +1138,7 @@ def register_tools(mcp):
                 result = db.update_proceeding(data.proceeding_id, **kwargs)
                 if not result:
                     return not_found_error("Proceeding")
-                return {"success": True, "message": f"Proceeding #{data.proceeding_id} updated", "proceeding": result}
+                return {"success": True, "message": f"Proceeding #{data.proceeding_id} updated", "proceeding_id": data.proceeding_id}
 
             elif data.action == "delete":
                 if not data.proceeding_id:
@@ -1212,7 +1209,7 @@ def register_tools(mcp):
                     date=data.date,
                     minutes=data.minutes,
                 )
-                return {"success": True, "message": f"Activity logged: {data.description}", "activity": result}
+                return {"success": True, "message": f"Activity logged: {data.description}", "activity_id": result["id"]}
 
             elif data.action == "update":
                 if not data.activity_id:
@@ -1226,7 +1223,7 @@ def register_tools(mcp):
                 )
                 if not result:
                     return not_found_error("Activity")
-                return {"success": True, "message": f"Activity #{data.activity_id} updated", "activity": result}
+                return {"success": True, "message": f"Activity #{data.activity_id} updated", "activity_id": data.activity_id}
 
             elif data.action == "delete":
                 if not data.activity_id:
