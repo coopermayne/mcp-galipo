@@ -1,6 +1,7 @@
 // Role types for the unified roles system
-
-export type RoleCategory = 'client' | 'internal_team' | 'opposing_team' | 'third_party';
+// Re-export RoleCategory from common.ts to ensure consistency
+import type { RoleCategory } from './common';
+export type { RoleCategory };
 
 export interface Role {
   id: number;

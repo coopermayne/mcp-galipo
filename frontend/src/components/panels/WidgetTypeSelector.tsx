@@ -4,7 +4,7 @@
  * Only shown when there are multiple widget types allowed.
  */
 import { useState } from 'react';
-import { Check, ChevronDown, CheckSquare, Clock, Briefcase, Users, User, BarChart3 } from 'lucide-react';
+import { Check, ChevronDown, CheckSquare, Clock, Briefcase, Users, User, Gavel, BarChart3 } from 'lucide-react';
 import type { WidgetType } from '../../types/panel-layout';
 import { WIDGET_INFO } from '../../types/panel-layout';
 
@@ -14,6 +14,7 @@ const WIDGET_ICONS: Record<WidgetType, React.ReactNode> = {
   cases: <Briefcase className="w-4 h-4" />,
   persons: <Users className="w-4 h-4" />,
   clients: <User className="w-4 h-4" />,
+  judges: <Gavel className="w-4 h-4" />,
   chart: <BarChart3 className="w-4 h-4" />,
 };
 

@@ -47,7 +47,7 @@ import {
 import type { Case, Constants, CasePerson, Person, Role, RoleCategory } from '../../../types';
 import { ProceedingsSection } from '../components';
 import { getPrimaryPhone, getPrimaryEmail } from '../utils';
-import { getUserColorClass } from '../../../utils';
+import { getUserColorClass, formatRoleName } from '../../../utils';
 
 interface OverviewTabProps {
   caseData: Case;
@@ -121,8 +121,8 @@ function PersonChip({
         <span className="font-medium">
           {person.name}
         </span>
-        {roleName && !['Client', 'Defendant'].includes(roleName) && (
-          <span className="text-xs opacity-70">({roleName})</span>
+        {roleName && !['plaintiff', 'individual_defendant', 'municipality_defendant'].includes(roleName) && (
+          <span className="text-xs opacity-70">({formatRoleName(roleName)})</span>
         )}
         {/* Contact icons - copy to clipboard on click */}
         {(phone || email || hasAddress) && (
@@ -346,11 +346,11 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
     })
   );
 
-  // Filter persons by role name
+  // Filter persons by role name (using new snake_case role names)
   const clients = useMemo(() =>
     (caseData.persons || []).filter(p => {
       const roleName = p.role?.name;
-      return roleName === 'Client' || roleName === 'Guardian Ad Litem' || roleName === 'Plaintiff Contact' || roleName === 'Decedent';
+      return roleName === 'plaintiff' || roleName === 'guardian_ad_litem' || roleName === 'contact';
     }), [caseData.persons]);
 
   // Group clients by parent (for GAL -> Kids nesting)
@@ -368,7 +368,10 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
   }, [clients]);
 
   const defendants = useMemo(() =>
-    (caseData.persons || []).filter(p => p.role?.name === 'Defendant'),
+    (caseData.persons || []).filter(p => {
+      const roleName = p.role?.name;
+      return roleName === 'individual_defendant' || roleName === 'municipality_defendant';
+    }),
     [caseData.persons]);
 
   // Group defendants by parent (for Org -> Employee nesting)
@@ -386,7 +389,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
   }, [defendants]);
 
   const counsel = useMemo(() => {
-    const counselOrder = ['Opposing Counsel', 'Co-Counsel', 'Referring Attorney'];
+    const counselOrder = ['opposing_counsel', 'co_counsel', 'referring_attorney'];
     return (caseData.persons || [])
       .filter(p => counselOrder.includes(p.role?.name || ''))
       .sort((a, b) => counselOrder.indexOf(a.role?.name || '') - counselOrder.indexOf(b.role?.name || ''));
@@ -409,26 +412,27 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
   const experts = useMemo(() => {
     const all = (caseData.persons || []).filter(p => {
       const roleName = p.role?.name || '';
-      return roleName.includes('Expert') || roleName.includes('expert');
+      return roleName === 'plaintiff_expert' || roleName === 'defense_expert';
     });
+    // Sort plaintiff experts first
     return all.sort((a, b) => {
-      const aIsPlaintiff = a.role?.name?.includes('Plaintiff') ? 0 : 1;
-      const bIsPlaintiff = b.role?.name?.includes('Plaintiff') ? 0 : 1;
+      const aIsPlaintiff = a.role?.name === 'plaintiff_expert' ? 0 : 1;
+      const bIsPlaintiff = b.role?.name === 'plaintiff_expert' ? 0 : 1;
       return aIsPlaintiff - bIsPlaintiff;
     });
   }, [caseData.persons]);
 
   const mediators = useMemo(() =>
-    (caseData.persons || []).filter(p => p.role?.name === 'Mediator'),
+    (caseData.persons || []).filter(p => p.role?.name === 'mediator'),
     [caseData.persons]);
 
   // "Other" roles not covered by specific sections
   const coveredRoles = [
-    'Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent',
-    'Defendant',
-    'Judge', 'Magistrate Judge',
-    'Opposing Counsel', 'Co-Counsel', 'Referring Attorney',
-    'Mediator'
+    'plaintiff', 'guardian_ad_litem', 'contact',
+    'individual_defendant', 'municipality_defendant',
+    'opposing_counsel', 'co_counsel', 'referring_attorney',
+    'mediator',
+    'plaintiff_expert', 'defense_expert'
   ];
   const others = useMemo(() =>
     (caseData.persons || []).filter(p => {
@@ -436,8 +440,6 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
       if (!roleName) return false;
       // Exclude roles already shown in other sections
       if (coveredRoles.includes(roleName)) return false;
-      // Exclude experts (shown in Experts section)
-      if (roleName.toLowerCase().includes('expert')) return false;
       return true;
     }),
     [caseData.persons]);
@@ -461,29 +463,27 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
     );
   }, [unstarredEvents, keyDateSearch]);
 
-  // Role options
-  const clientRoleOptions = ['Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent'];
-  const counselRoleOptions = ['Opposing Counsel', 'Co-Counsel', 'Referring Attorney'];
-  const expertRoleOptions = ['Plaintiff Expert', 'Defense Expert'];
-  const otherRoleOptions = ['Witness', 'Interpreter', 'Insurance Adjuster', 'Lien Holder'];
+  // Role options (use snake_case database names - formatRoleName will display them nicely)
+  const clientRoleOptions = ['plaintiff', 'guardian_ad_litem', 'contact'];
+  const counselRoleOptions = ['opposing_counsel', 'co_counsel', 'referring_attorney'];
+  const expertRoleOptions = ['plaintiff_expert', 'defense_expert'];
+  const otherRoleOptions = ['witness', 'lien_holder'];
 
   // Color variants for counsel and experts
   const getCounselVariant = (roleName: string): 'danger' | 'success' | 'warning' => {
-    if (roleName === 'Opposing Counsel') return 'danger';
-    if (roleName === 'Co-Counsel') return 'success';
-    return 'warning'; // Referring Attorney
+    if (roleName === 'opposing_counsel') return 'danger';
+    if (roleName === 'co_counsel') return 'success';
+    return 'warning'; // referring_attorney
   };
 
   const getExpertVariant = (roleName: string): 'primary' | 'danger' => {
-    return roleName?.includes('Plaintiff') ? 'primary' : 'danger';
+    return roleName === 'plaintiff_expert' ? 'primary' : 'danger';
   };
 
   const getOtherVariant = (roleName: string): 'muted' | 'warning' | 'success' | 'primary' | 'danger' => {
     switch (roleName) {
-      case 'Insurance Adjuster': return 'warning';
-      case 'Lien Holder': return 'danger';
-      case 'Interpreter': return 'success';
-      case 'Witness': return 'primary';
+      case 'lien_holder': return 'danger';
+      case 'witness': return 'primary';
       default: return 'muted';
     }
   };
@@ -519,11 +519,11 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
     },
   });
 
-  // Mutations for Defendants section
+  // Mutations for Defendants section (default to individual_defendant)
   const assignDefendantMutation = useMutation({
     mutationFn: async (person: Person) => {
-      const role = getRoleByName('Defendant');
-      if (!role) throw new Error('Role "Defendant" not found');
+      const role = getRoleByName('individual_defendant');
+      if (!role) throw new Error('Role "individual_defendant" not found');
       return assignPersonToCase(caseId, { person_id: person.id, role_id: role.id });
     },
     onSuccess: () => {
@@ -534,8 +534,8 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
 
   const createDefendantMutation = useMutation({
     mutationFn: async (name: string) => {
-      const role = getRoleByName('Defendant');
-      if (!role) throw new Error('Role "Defendant" not found');
+      const role = getRoleByName('individual_defendant');
+      if (!role) throw new Error('Role "individual_defendant" not found');
       const personResult = await createPerson({ name });
       await assignPersonToCase(caseId, { person_id: personResult.person.id, role_id: role.id });
       return personResult.person.id;
@@ -602,8 +602,8 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
   // Mutations for Mediator (in Case Info section)
   const assignMediatorMutation = useMutation({
     mutationFn: async (person: Person) => {
-      const role = getRoleByName('Mediator');
-      if (!role) throw new Error('Role "Mediator" not found');
+      const role = getRoleByName('mediator');
+      if (!role) throw new Error('Role "mediator" not found');
       return assignPersonToCase(caseId, { person_id: person.id, role_id: role.id });
     },
     onSuccess: () => {
@@ -614,8 +614,8 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
 
   const createMediatorMutation = useMutation({
     mutationFn: async (name: string) => {
-      const role = getRoleByName('Mediator');
-      if (!role) throw new Error('Role "Mediator" not found');
+      const role = getRoleByName('mediator');
+      if (!role) throw new Error('Role "mediator" not found');
       const personResult = await createPerson({ name });
       await assignPersonToCase(caseId, { person_id: personResult.person.id, role_id: role.id });
       return personResult.person.id;
@@ -966,7 +966,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
             {showAddMediator && (
               <div className="mb-1">
                 <PersonAutocomplete
-                  roleCategory="third_party"
+                  roleCategory="mediator"
                   excludePersonIds={assignedPersonIds}
                   onSelectPerson={(person) => assignMediatorMutation.mutate(person)}
                   onCreateNew={(name) => createMediatorMutation.mutate(name)}
@@ -1186,7 +1186,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
           {showAddDefendant && (
             <div className="mb-2">
               <PersonAutocomplete
-                roleCategory="opposing_team"
+                roleCategory="defendant"
                 excludePersonIds={assignedPersonIds}
                 onSelectPerson={(person) => assignDefendantMutation.mutate(person)}
                 onCreateNew={(name) => createDefendantMutation.mutate(name)}
@@ -1240,7 +1240,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
                 onAssign={(person, role) => assignExpertMutation.mutate({ person, roleName: role })}
                 onCreate={(name, role) => createExpertMutation.mutate({ name, roleName: role })}
                 excludePersonIds={assignedPersonIds}
-                getRoleCategory={() => 'third_party'}
+                getRoleCategory={() => 'expert'}
                 getPlaceholder={() => 'Search experts or create new...'}
               />
             }
@@ -1265,7 +1265,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
                 onAssign={(person, role) => assignOtherMutation.mutate({ person, roleName: role })}
                 onCreate={(name, role) => createOtherMutation.mutate({ name, roleName: role })}
                 excludePersonIds={assignedPersonIds}
-                getRoleCategory={() => 'third_party'}
+                getRoleCategory={() => 'other'}
                 getPlaceholder={() => 'Search or create new...'}
               />
             }

@@ -14,6 +14,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Settings, X, Trash2, Loader2, Merge } from 'lucide-react';
+import { formatRoleName } from '../utils';
 import { Header } from '../components/layout';
 import { LayoutSelector, PanelContainer } from '../components/panels';
 import { MergeDuplicatesModal, CleanupPersonsModal } from '../components/persons';
@@ -34,7 +35,7 @@ import {
 import type { Role, RoleCategory } from '../types';
 
 const STORAGE_KEY = 'persons-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['persons', 'clients'];
+const ALLOWED_WIDGETS: WidgetType[] = ['persons', 'clients', 'judges'];
 
 const DEFAULT_CONFIG: PanelLayoutConfig = {
   layout: '1:1',
@@ -45,10 +46,12 @@ const DEFAULT_CONFIG: PanelLayoutConfig = {
 };
 
 const CATEGORY_LABELS: Record<RoleCategory, string> = {
-  client: 'Client',
-  internal_team: 'Internal Team',
-  opposing_team: 'Opposing Team',
-  third_party: 'Third Party',
+  expert: 'Experts',
+  counsel: 'Counsel',
+  mediator: 'Mediator',
+  client: 'Clients',
+  defendant: 'Defendants',
+  other: 'Other',
 };
 
 // Manage Roles Modal
@@ -63,7 +66,7 @@ function ManageRolesModal({
 }) {
   const queryClient = useQueryClient();
   const [newRoleName, setNewRoleName] = useState('');
-  const [newRoleCategory, setNewRoleCategory] = useState<RoleCategory>('third_party');
+  const [newRoleCategory, setNewRoleCategory] = useState<RoleCategory>('other');
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
@@ -200,7 +203,7 @@ function ManageRolesModal({
                         className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-bg-hover group"
                       >
                         <span className="flex-1 text-sm text-text">
-                          {role.name}
+                          {formatRoleName(role.name)}
                         </span>
                         <span className="text-xs text-text-muted tabular-nums">
                           {count} {count === 1 ? 'assignment' : 'assignments'}

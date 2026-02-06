@@ -16,7 +16,7 @@ interface PersonAutocompleteProps {
 }
 
 export function PersonAutocomplete({
-  roleCategory,
+  roleCategory: _roleCategory,  // Currently unused after removing category filtering
   excludePersonIds = [],
   onSelectPerson,
   onCreateNew,
@@ -40,11 +40,13 @@ export function PersonAutocomplete({
   }, [search]);
 
   // Query persons when we have a search term
+  // Note: We search ALL persons, not filtered by category, because when assigning
+  // a person to a case, you should be able to pick any person regardless of their
+  // existing roles. The roleCategory is only used for styling/display, not filtering.
   const { data, isLoading } = useQuery({
-    queryKey: ['persons-autocomplete', debouncedSearch, roleCategory],
+    queryKey: ['persons-autocomplete', debouncedSearch],
     queryFn: () => getPersons({
       name: debouncedSearch || undefined,
-      category: roleCategory,
       include_roles: true,
       limit: 10,
     }),
@@ -52,14 +54,10 @@ export function PersonAutocomplete({
     staleTime: 30000,
   });
 
-  // Filter results by category (if specified) and exclude already assigned
+  // Filter results to exclude already assigned persons
   const results = (data?.persons || []).filter(person => {
     // Exclude already assigned persons
     if (excludePersonIds.includes(person.id)) return false;
-    // Filter by category if specified
-    if (roleCategory) {
-      return person.roles?.some(r => r.role.category === roleCategory);
-    }
     return true;
   });
 
