@@ -37,8 +37,8 @@ const SUB_OPTIONS_FOR_TYPE: Record<DocumentType, SubOptionKey[]> = {
 
 // Default sub-options when selecting a type
 const DEFAULT_SUB_OPTIONS: Record<DocumentType, SubOptionKey[]> = {
-  memo: ['toc', 'toa'],
-  generic: [],
+  memo: ['toc', 'toa', 'cert_compliance'],
+  generic: ['cert_compliance'],
   declaration: [],
   joint_stip: [],
 };
@@ -182,7 +182,7 @@ export function Templates() {
   const [isGeneratingFilename, setIsGeneratingFilename] = useState(false);
   const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
   const [documentType, setDocumentType] = useState<DocumentType>('memo');
-  const [selectedSubOptions, setSelectedSubOptions] = useState<Set<SubOptionKey>>(new Set(DEFAULT_SUB_OPTIONS.memo));
+  const [selectedSubOptions, setSelectedSubOptions] = useState<Set<SubOptionKey>>(() => new Set(DEFAULT_SUB_OPTIONS.memo));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Attorney selection
@@ -462,161 +462,166 @@ export function Templates() {
           </div>
         )}
 
-
-{/* Case Information */}
-        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-          <SectionHeader
-            icon={<FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
-            title="Case Information"
-          />
-          <div className="p-4 space-y-3">
-            <FormField
-              label="Court"
-              value={caseInfo.court || ''}
-              onChange={(v) => updateCaseInfo('court', v)}
-              required
-              multiline
-              rows={2}
-              placeholder="UNITED STATES DISTRICT COURT&#10;CENTRAL DISTRICT OF CALIFORNIA"
-              showValidation={hasAttemptedSubmit}
+        {/* Two-column grid: Case Info (left) | Hearing + Attorney (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+          {/* Case Information */}
+          <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+            <SectionHeader
+              icon={<FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
+              title="Case Information"
             />
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="p-4 space-y-3">
               <FormField
-                label="Case Number"
-                value={caseInfo.case_number || ''}
-                onChange={(v) => updateCaseInfo('case_number', v)}
+                label="Court"
+                value={caseInfo.court || ''}
+                onChange={(v) => updateCaseInfo('court', v)}
                 required
-                placeholder="2:24-cv-01234-ABC-XYZ"
+                multiline
+                rows={2}
+                placeholder="UNITED STATES DISTRICT COURT&#10;CENTRAL DISTRICT OF CALIFORNIA"
                 showValidation={hasAttemptedSubmit}
               />
-              <FormField
-                label="Motion Title"
-                value={caseInfo.motion_title || ''}
-                onChange={(v) => updateCaseInfo('motion_title', v)}
-                placeholder="Motion to Compel Discovery"
-                autoExpand
-              />
+              <div className="grid gap-3 grid-cols-2">
+                <FormField
+                  label="Case Number"
+                  value={caseInfo.case_number || ''}
+                  onChange={(v) => updateCaseInfo('case_number', v)}
+                  required
+                  placeholder="2:24-cv-01234-ABC-XYZ"
+                  showValidation={hasAttemptedSubmit}
+                />
+                <FormField
+                  label="Motion Title"
+                  value={caseInfo.motion_title || ''}
+                  onChange={(v) => updateCaseInfo('motion_title', v)}
+                  placeholder="Motion to Compel Discovery"
+                  autoExpand
+                />
+              </div>
+              <div className="grid gap-3 grid-cols-2">
+                <FormField
+                  label="Plaintiff(s)"
+                  value={caseInfo.plaintiffs || ''}
+                  onChange={(v) => updateCaseInfo('plaintiffs', v)}
+                  required
+                  placeholder="JOHN DOE"
+                  showValidation={hasAttemptedSubmit}
+                  autoExpand
+                />
+                <FormField
+                  label="Defendant(s)"
+                  value={caseInfo.defendants || ''}
+                  onChange={(v) => updateCaseInfo('defendants', v)}
+                  required
+                  placeholder="ACME CORPORATION"
+                  showValidation={hasAttemptedSubmit}
+                  autoExpand
+                />
+              </div>
+              <div className="grid gap-3 grid-cols-2">
+                <FormField
+                  label="Judge"
+                  value={caseInfo.judge || ''}
+                  onChange={(v) => updateCaseInfo('judge', v)}
+                  required
+                  placeholder="Hon. John Smith"
+                  showValidation={hasAttemptedSubmit}
+                />
+                <FormField
+                  label="Magistrate Judge"
+                  value={caseInfo.magistrate_judge || ''}
+                  onChange={(v) => updateCaseInfo('magistrate_judge', v)}
+                  placeholder="Magistrate Judge Jane Doe"
+                />
+              </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <FormField
-                label="Plaintiff(s)"
-                value={caseInfo.plaintiffs || ''}
-                onChange={(v) => updateCaseInfo('plaintiffs', v)}
-                required
-                placeholder="JOHN DOE"
-                showValidation={hasAttemptedSubmit}
-                autoExpand
-              />
-              <FormField
-                label="Defendant(s)"
-                value={caseInfo.defendants || ''}
-                onChange={(v) => updateCaseInfo('defendants', v)}
-                required
-                placeholder="ACME CORPORATION"
-                showValidation={hasAttemptedSubmit}
-                autoExpand
-              />
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <FormField
-                label="Judge"
-                value={caseInfo.judge || ''}
-                onChange={(v) => updateCaseInfo('judge', v)}
-                required
-                placeholder="Hon. John Smith"
-                showValidation={hasAttemptedSubmit}
-              />
-              <FormField
-                label="Magistrate Judge"
-                value={caseInfo.magistrate_judge || ''}
-                onChange={(v) => updateCaseInfo('magistrate_judge', v)}
-                placeholder="Magistrate Judge Jane Doe"
-              />
-            </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Hearing Information */}
-        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-          <SectionHeader
-            icon={<Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
-            title="Hearing Information"
-            subtitle="(Optional)"
-          />
-          <div className="p-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <FormField
-                label="Hearing Date"
-                value={caseInfo.hearing_date || ''}
-                onChange={(v) => updateCaseInfo('hearing_date', v)}
-                placeholder="January 15, 2025"
+          {/* Right column: Hearing + Attorney stacked */}
+          <div className="space-y-3">
+            {/* Hearing Information */}
+            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+              <SectionHeader
+                icon={<Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
+                title="Hearing Information"
+                subtitle="(Optional)"
               />
-              <FormField
-                label="Hearing Time"
-                value={caseInfo.hearing_time || ''}
-                onChange={(v) => updateCaseInfo('hearing_time', v)}
-                placeholder="10:00 a.m."
-              />
-              <FormField
-                label="Courtroom"
-                value={caseInfo.courtroom || ''}
-                onChange={(v) => updateCaseInfo('courtroom', v)}
-                placeholder="Courtroom 10A"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Signing Attorney */}
-        <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
-          <SectionHeader
-            icon={<User className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
-            title="Signing Attorney"
-          />
-          <div className="p-4">
-            {attorneys.length > 0 ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1">Attorney</label>
-                  <div className="relative">
-                    <select
-                      value={selectedAttorneyId ?? ''}
-                      onChange={(e) => setSelectedAttorneyId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full appearance-none px-2.5 py-1.5 pr-8 bg-bg border border-border rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-200"
-                    >
-                      <option value="">Select attorney...</option>
-                      {attorneys.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.firstName} {a.lastName}
-                          {a.barNumber ? ` (SBN ${a.barNumber})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-                  </div>
+              <div className="p-4">
+                <div className="grid gap-3 grid-cols-3">
+                  <FormField
+                    label="Hearing Date"
+                    value={caseInfo.hearing_date || ''}
+                    onChange={(v) => updateCaseInfo('hearing_date', v)}
+                    placeholder="January 15, 2025"
+                  />
+                  <FormField
+                    label="Hearing Time"
+                    value={caseInfo.hearing_time || ''}
+                    onChange={(v) => updateCaseInfo('hearing_time', v)}
+                    placeholder="10:00 a.m."
+                  />
+                  <FormField
+                    label="Courtroom"
+                    value={caseInfo.courtroom || ''}
+                    onChange={(v) => updateCaseInfo('courtroom', v)}
+                    placeholder="Courtroom 10A"
+                  />
                 </div>
-                {selectedAttorney && (
-                  <div className="flex items-center gap-3 px-3 py-2 bg-bg-hover/50 rounded-md">
-                    <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-xs">
-                      {selectedAttorney.initials}
+              </div>
+            </section>
+
+            {/* Signing Attorney */}
+            <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
+              <SectionHeader
+                icon={<User className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
+                title="Signing Attorney"
+              />
+              <div className="p-4">
+                {attorneys.length > 0 ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Attorney</label>
+                      <div className="relative">
+                        <select
+                          value={selectedAttorneyId ?? ''}
+                          onChange={(e) => setSelectedAttorneyId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full appearance-none px-2.5 py-1.5 pr-8 bg-bg border border-border rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all duration-200"
+                        >
+                          <option value="">Select attorney...</option>
+                          {attorneys.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.firstName} {a.lastName}
+                              {a.barNumber ? ` (SBN ${a.barNumber})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                      </div>
                     </div>
-                    <div className="space-y-0.5 text-xs text-text-muted">
-                      {selectedAttorney.barNumber && (
-                        <span>Bar No. <span className="font-mono">{selectedAttorney.barNumber}</span></span>
-                      )}
-                      {selectedAttorney.barNumber && selectedAttorney.email && <span className="mx-1.5">&middot;</span>}
-                      {selectedAttorney.email && <span>{selectedAttorney.email}</span>}
-                    </div>
+                    {selectedAttorney && (
+                      <div className="flex items-center gap-3 px-3 py-2 bg-bg-hover/50 rounded-md">
+                        <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-xs">
+                          {selectedAttorney.initials}
+                        </div>
+                        <div className="space-y-0.5 text-xs text-text-muted">
+                          {selectedAttorney.barNumber && (
+                            <span>Bar No. <span className="font-mono">{selectedAttorney.barNumber}</span></span>
+                          )}
+                          {selectedAttorney.barNumber && selectedAttorney.email && <span className="mx-1.5">&middot;</span>}
+                          {selectedAttorney.email && <span>{selectedAttorney.email}</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <p className="text-xs text-text-muted">No attorneys found. Add attorneys in the admin panel.</p>
                 )}
               </div>
-            ) : (
-              <p className="text-xs text-text-muted">No attorneys found. Add attorneys in the admin panel.</p>
-            )}
+            </section>
           </div>
-        </section>
+        </div>
 
-        {/* Output Document */}
+        {/* Output Document — full width below */}
         <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
           <SectionHeader
             icon={<Download className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
@@ -649,38 +654,38 @@ export function Templates() {
               <label className="block text-xs font-medium text-text-secondary mb-2">
                 Document Type
               </label>
-              <div className="flex flex-wrap gap-1.5">
-                {DOCUMENT_TYPES.map((type) => {
-                  const isSelected = documentType === type.key;
-                  return (
-                    <button
-                      key={type.key}
-                      type="button"
-                      onClick={() => handleDocumentTypeChange(type.key)}
-                      className={`
-                        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
-                        transition-all duration-150 border
-                        ${isSelected
-                          ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700'
-                          : 'bg-bg text-text-secondary border-border hover:border-primary-300 dark:hover:border-primary-700'
-                        }
-                      `}
-                      title={type.description}
-                    >
-                      <span className={`
-                        w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0
-                        ${isSelected
-                          ? 'border-primary-500'
-                          : 'border-current'
-                        }
-                      `}>
-                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />}
-                      </span>
-                      {type.label}
-                    </button>
-                  );
-                })}
-              </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {DOCUMENT_TYPES.map((type) => {
+                    const isSelected = documentType === type.key;
+                    return (
+                      <button
+                        key={type.key}
+                        type="button"
+                        onClick={() => handleDocumentTypeChange(type.key)}
+                        className={`
+                          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
+                          transition-all duration-150 border
+                          ${isSelected
+                            ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700'
+                            : 'bg-bg text-text-secondary border-border hover:border-primary-300 dark:hover:border-primary-700'
+                          }
+                        `}
+                        title={type.description}
+                      >
+                        <span className={`
+                          w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0
+                          ${isSelected
+                            ? 'border-primary-500'
+                            : 'border-current'
+                          }
+                        `}>
+                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />}
+                        </span>
+                        {type.label}
+                      </button>
+                    );
+                  })}
+                </div>
             </div>
 
             {/* Sub-options (only when relevant) */}
