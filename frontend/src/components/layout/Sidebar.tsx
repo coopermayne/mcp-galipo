@@ -73,7 +73,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         },
       });
       if (!response.ok) {
-        throw new Error('Export failed');
+        let msg = 'Export failed';
+        try {
+          const body = await response.json();
+          if (body?.error?.message) msg = body.error.message;
+        } catch { /* ignore parse errors */ }
+        throw new Error(msg);
       }
       // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
@@ -96,7 +101,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export data. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to export data. Please try again.');
     } finally {
       setIsExporting(false);
     }
