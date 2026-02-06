@@ -19,6 +19,7 @@ register_tools(_mcp)
 # Tools to EXCLUDE from chat (blacklist approach - everything else is available)
 BLACKLIST: set[str] = {
     "get_current_time",  # Date/time already in system prompt
+    "import_case",       # Too complex for chat — use MCP client directly
 }
 
 

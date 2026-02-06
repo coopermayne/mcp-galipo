@@ -38,7 +38,7 @@ export interface ActionStarter {
   icon: LucideIcon;
   color: string;
   mode: ChatMode;  // The mode to activate (filters tools)
-  initialMessage: string;  // What to send to start the conversation
+  greeting: string;  // Static greeting shown immediately (no API call)
 }
 
 /**
@@ -53,7 +53,7 @@ export const ACTION_STARTERS: ActionStarter[] = [
     icon: Calendar,
     color: 'green',
     mode: 'events',
-    initialMessage: 'I want to add an event.',
+    greeting: 'What events would you like to add? You can list multiple at once — e.g. "Deposition March 20 at 10am, Mediation April 5 at 9am"',
   },
   {
     id: 'add_people',
@@ -62,7 +62,7 @@ export const ACTION_STARTERS: ActionStarter[] = [
     icon: Users,
     color: 'purple',
     mode: 'people',
-    initialMessage: 'I want to add a person to this case.',
+    greeting: 'Who would you like to add to this case? Include their name and role — e.g. "Dr. Smith as plaintiff expert" or "Jane Doe as opposing counsel"',
   },
   {
     id: 'add_tasks',
@@ -71,7 +71,7 @@ export const ACTION_STARTERS: ActionStarter[] = [
     icon: CheckSquare,
     color: 'blue',
     mode: 'tasks',
-    initialMessage: 'I want to add a task.',
+    greeting: 'What tasks would you like to add? You can list multiple — e.g. "Draft interrogatories by Friday, Review medical records high priority"',
   },
 ];
 

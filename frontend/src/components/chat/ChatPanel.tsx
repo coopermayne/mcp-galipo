@@ -10,38 +10,14 @@ import { type DashboardPreset, type PresetId, type CasePreset, type CasePresetId
 
 // Map mutation tools to the query keys they affect
 const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
-  // Task mutations
-  add_task: [['tasks'], ['case']],
-  update_task: [['tasks'], ['case']],
-  delete_task: [['tasks'], ['case']],
-  reorder_task: [['tasks'], ['case']],
-  bulk_update_tasks: [['tasks'], ['case']],
-  bulk_update_case_tasks: [['tasks'], ['case']],
-  // Event mutations
-  add_event: [['events'], ['case'], ['calendar']],
-  update_event: [['events'], ['case'], ['calendar']],
-  delete_event: [['events'], ['case'], ['calendar']],
-  // Case mutations
-  create_case: [['cases'], ['stats']],
-  update_case: [['cases'], ['case'], ['stats']],
-  delete_case: [['cases'], ['stats']],
-  // Person mutations
+  manage_task: [['tasks'], ['case']],
+  manage_event: [['events'], ['case'], ['calendar']],
+  manage_case: [['cases'], ['case'], ['stats']],
   manage_person: [['persons'], ['case']],
-  assign_person_to_case: [['persons'], ['case']],
-  update_case_assignment: [['persons'], ['case']],
-  remove_person_from_case: [['persons'], ['case']],
-  // Note mutations
-  add_note: [['notes'], ['case']],
-  update_note: [['notes'], ['case']],
-  delete_note: [['notes'], ['case']],
-  // Proceeding mutations
-  add_proceeding: [['proceedings'], ['case']],
-  update_proceeding: [['proceedings'], ['case']],
-  delete_proceeding: [['proceedings'], ['case']],
-  // Activity mutations
-  log_activity: [['activities'], ['case']],
-  update_activity: [['activities'], ['case']],
-  delete_activity: [['activities'], ['case']],
+  manage_case_role: [['persons'], ['case']],
+  manage_note: [['notes'], ['case']],
+  manage_proceeding: [['proceedings'], ['case']],
+  manage_activity: [['activities'], ['case']],
 };
 
 interface ChatPanelProps {
@@ -392,9 +368,15 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   };
 
   const handleSendActionStarter = (starter: ActionStarter) => {
-    // Set the mode for tool filtering and send the initial message
+    // Set the mode and show a static greeting — no API call needed
     setActiveMode(starter.mode);
-    handleSend(starter.initialMessage, false, undefined, starter.mode);
+    const greetingMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: starter.greeting,
+      timestamp: new Date(),
+    };
+    setMessages([greetingMessage]);
   };
 
   return (

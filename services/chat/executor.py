@@ -5,10 +5,14 @@ This module executes tools by calling the MCP tool functions directly,
 ensuring consistent behavior between the MCP server and chat feature.
 """
 
+import asyncio
+import inspect
 import json
 import logging
 import time
 from typing import Any
+
+from pydantic import BaseModel
 
 from services.chat.types import ToolCall, ToolResult
 from services.chat.tools import get_mcp_instance, BLACKLIST
@@ -199,7 +203,29 @@ def execute_tool(tool_call: ToolCall) -> ToolResult:
     try:
         # Call the MCP tool function with our chat context
         # MCP tools expect (context, **kwargs) signature
-        result = tool.fn(_context, **tool_call.arguments)
+        # For Pydantic-model params, convert raw dicts to model instances
+        args = dict(tool_call.arguments)
+        sig = inspect.signature(tool.fn)
+        for param_name, param in sig.parameters.items():
+            if param_name in args and isinstance(args[param_name], dict):
+                annotation = param.annotation
+                if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                    args[param_name] = annotation(**args[param_name])
+
+        # Some tools (list_attorneys, import_case) are async
+        result = tool.fn(_context, **args)
+        if asyncio.iscoroutine(result):
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                # Already in an async context — create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    result = pool.submit(asyncio.run, result).result()
+            else:
+                result = asyncio.run(result)
 
         duration_ms = int((time.time() - start_time) * 1000)
 

@@ -20,12 +20,24 @@ from mcp_auth import get_mcp_auth_provider
 
 MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
 
-IMPORTANT: Call the get_current_time tool at the start of any session to know the current date and time in Pacific Time (Los Angeles). This is essential for creating events, tasks, or deadlines with correct dates.
+IMPORTANT: Call get_current_time at the start of any session to know the current date/time in Pacific Time.
 
-This server provides tools to manage cases, tasks, events, contacts, and notes.
+TOOLS OVERVIEW (10 consolidated tools):
+- search(entity, ...) — universal search across cases, persons, events, tasks
+- get_details(entity, id) — full details for any entity by ID
+- manage_case(action, ...) — create/update/delete cases
+- manage_person(action, ...) — create/update/delete persons (contacts)
+- manage_case_role(action, ...) — assign/update/change/remove person roles on cases
+- manage_event(action, ...) — create/update/delete calendar events
+- manage_task(action, ...) — create/update/delete/bulk_update tasks
+- manage_note(action, ...) — create/update/delete case notes
+- manage_proceeding(action, ...) — create/update/delete proceedings + add/remove judges
+- manage_activity(action, ...) — create/update/delete activity log entries
+- list_attorneys() — list active attorneys (for case assignment)
+- import_case(data) — bulk import a complete case with all related data
 
 ROLES SYSTEM (unified person-role management):
-Persons are assigned to cases with roles from these categories:
+Persons are assigned to cases via manage_case_role with role names (accepts both snake_case and space-separated):
 - client: plaintiff, contact, guardian_ad_litem, decedent
 - counsel: co_counsel, referring_attorney, opposing_counsel, criminal_defense_attorney, prosecutor, public_defender
 - defendant: municipality_defendant, individual_defendant
@@ -34,21 +46,17 @@ Persons are assigned to cases with roles from these categories:
 - other: lien_holder, witness, claims_adjuster, special_needs_consultant
 
 JUDGES (standalone entities):
-Judges are NOT persons - they are standalone entities assigned to proceedings.
-- Create judges with create_judge(name, jurisdiction_id, ...)
-- Assign to proceedings with add_judge_to_proceeding(proceeding_id, judge_id, role)
+Judges are NOT persons — they are assigned to proceedings, not cases.
+- Use manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
 - Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
 
-JURISDICTIONS & PROCEEDINGS WORKFLOW:
-1. Call list_jurisdictions() to see existing courts
-2. If the court exists, note its jurisdiction_id
-3. If not, call manage_jurisdiction(name="USDC - Central District") to create it
-4. Call add_proceeding(case_id, case_number, jurisdiction_id) to link the case to the court
-5. Call add_judge_to_proceeding() to assign judges to the proceeding
+PROCEEDINGS WORKFLOW:
+1. Create proceeding: manage_proceeding(action="create", case_id=N, case_number="24STCV12345", jurisdiction_id=M)
+2. Add judges: manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
 
 DATA ENTRY GUIDELINES:
-- Skip vacated, canceled, or stricken events/deadlines - do not add these to the system
-- When entering deadlines from docket sheets, use the calculation_note field to store the source (e.g., "Dkt. 47, LR 7-3")
+- Skip vacated, canceled, or stricken events/deadlines — do not add these
+- Use the calculation_note field for deadline sources (e.g., "Dkt. 47, LR 7-3")
 - For depositions, include the deponent name in the event description"""
 
 
