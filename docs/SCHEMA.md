@@ -2,239 +2,234 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-02-06 13:58:20 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-02-06 14:53:36 by `scripts/generate_schema_diagram.py`
+> (via [SchemaCrawler](https://www.schemacrawler.com/) Docker image)
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
+>
+> Requires Docker.
 
 ## ER Diagram
 
 ```mermaid
 erDiagram
-    activities {
-        int id PK
-        int case_id FK
-        date date
-        text description
-        varchar type
-        int minutes
-        timestamp created_at
-    }
 
-    cases {
-        int id PK
-        varchar case_name
-        varchar short_name
-        varchar status
-        int print_code
-        text case_summary
-        text result
-        date date_of_injury
-        timestamp created_at
-        timestamp updated_at
-        varchar color
-        _int4 attorney_ids
-        _int4 paralegal_ids
-    }
+  cases {
+    serial id PK
+    varchar case_name
+    varchar short_name
+    varchar status
+    varchar print_code
+    text case_summary
+    text result
+    date date_of_injury
+    varchar color
+    _int4 attorney_ids
+    _int4 paralegal_ids
+    timestamptz created_at
+    timestamptz updated_at
+  }
 
-    events {
-        int id PK
-        int case_id FK
-        date date
-        time time
-        varchar location
-        text description
-        text document_link
-        text calculation_note
-        timestamp created_at
-        boolean starred
-        _int4 attendee_ids
-    }
+  expertise_types {
+    serial id PK
+    varchar name UK
+    text description
+    timestamptz created_at
+  }
 
-    expertise_types {
-        int id PK
-        varchar name UK
-        text description
-        timestamp created_at
-    }
+  jurisdictions {
+    serial id PK
+    varchar name UK
+    varchar long_name
+    text local_rules_link
+    text notes
+    timestamptz created_at
+  }
 
-    judges {
-        int id PK
-        varchar name
-        jsonb phones
-        jsonb emails
-        int jurisdiction_id FK
-        text chambers
-        varchar courtroom_number
-        varchar appointed_by
-        date appointed_date
-        varchar initials
-        varchar status
-        text notes
-        timestamp created_at
-        timestamp updated_at
-    }
+  persons {
+    serial id PK
+    varchar name
+    jsonb phones
+    jsonb emails
+    text address
+    varchar organization
+    text notes
+    timestamptz created_at
+    timestamptz updated_at
+    bool archived
+  }
 
-    jurisdictions {
-        int id PK
-        varchar name UK
-        text local_rules_link
-        text notes
-        timestamp created_at
-        varchar long_name
-    }
+  roles {
+    serial id PK
+    varchar name UK
+    varchar category
+    int4 sort_order
+    text description
+    timestamptz created_at
+  }
 
-    notes {
-        int id PK
-        int case_id FK
-        text content
-        timestamp created_at
-        timestamp updated_at
-        boolean starred
-    }
+  schema_migrations {
+    serial id PK
+    varchar filename UK
+    timestamptz applied_at
+  }
 
-    person_roles {
-        int id PK
-        int person_id UK,FK
-        int role_id UK,FK
-        int case_id UK,FK
-        jsonb attributes
-        text notes
-        boolean is_primary
-        int grouped_under_id FK
-        date assigned_date
-        timestamp created_at
-    }
+  users {
+    serial id PK
+    varchar email UK
+    varchar password_hash
+    varchar first_name
+    varchar last_name
+    varchar initials
+    varchar bar_number
+    varchar position
+    bool is_admin
+    bool must_change_password
+    bool is_active
+    int4 paralegal_id FK
+    timestamptz created_at
+    timestamptz updated_at
+  }
 
-    persons {
-        int id PK
-        varchar name
-        jsonb phones
-        jsonb emails
-        text address
-        varchar organization
-        text notes
-        timestamp created_at
-        timestamp updated_at
-        boolean archived
-    }
+  activities {
+    serial id PK
+    int4 case_id FK
+    date date
+    text description
+    varchar type
+    int4 minutes
+    timestamptz created_at
+  }
 
-    proceeding_judges {
-        int id PK
-        int proceeding_id UK,FK
-        int judge_id UK,FK
-        varchar role
-        int sort_order
-        timestamp created_at
-    }
+  events {
+    serial id PK
+    int4 case_id FK
+    date date
+    time time
+    varchar location
+    text description
+    text document_link
+    text calculation_note
+    bool starred
+    _int4 attendee_ids
+    timestamptz created_at
+  }
 
-    proceedings {
-        int id PK
-        int case_id UK,FK
-        varchar case_number
-        int jurisdiction_id FK
-        int sort_order
-        boolean is_primary
-        text notes
-        bigint courtlistener_docket_id
-        varchar pacer_case_id
-        timestamp created_at
-        timestamp updated_at
-    }
+  judges {
+    serial id PK
+    varchar name
+    jsonb phones
+    jsonb emails
+    int4 jurisdiction_id FK
+    text chambers
+    varchar courtroom_number
+    varchar appointed_by
+    date appointed_date
+    varchar initials
+    varchar status
+    text notes
+    timestamptz created_at
+    timestamptz updated_at
+  }
 
-    roles {
-        int id PK
-        varchar name UK
-        varchar category
-        int sort_order
-        text description
-        timestamp created_at
-    }
+  notes {
+    serial id PK
+    int4 case_id FK
+    text content
+    bool starred
+    timestamptz created_at
+    timestamptz updated_at
+  }
 
-    schema_migrations {
-        int id PK
-        varchar filename UK
-        timestamp applied_at
-    }
+  person_roles {
+    serial id PK
+    int4 person_id FK
+    int4 role_id FK
+    int4 case_id FK
+    jsonb attributes
+    text notes
+    bool is_primary
+    int4 grouped_under_id FK
+    date assigned_date
+    timestamptz created_at
+  }
 
-    tasks {
-        int id PK
-        int case_id FK
-        int event_id FK
-        date due_date
-        date completion_date
-        text description
-        varchar status
-        varchar urgency
-        timestamp created_at
-        int sort_order
-        int assignee_id FK
-    }
+  proceedings {
+    serial id PK
+    int4 case_id FK
+    varchar case_number
+    int4 jurisdiction_id FK
+    int4 sort_order
+    bool is_primary
+    text notes
+    int8 courtlistener_docket_id
+    varchar pacer_case_id
+    timestamptz created_at
+    timestamptz updated_at
+  }
 
-    users {
-        int id PK
-        varchar email UK
-        varchar password_hash
-        varchar first_name
-        varchar last_name
-        varchar initials
-        varchar bar_number
-        varchar position
-        boolean is_admin
-        boolean must_change_password
-        boolean is_active
-        timestamp created_at
-        timestamp updated_at
-        int paralegal_id FK
-    }
+  proceeding_judges {
+    serial id PK
+    int4 proceeding_id FK
+    int4 judge_id FK
+    varchar role
+    int4 sort_order
+    timestamptz created_at
+  }
 
-    %% Relationships
-    cases ||--o{ activities : "has"
-    cases ||--o{ events : "has"
-    jurisdictions ||--o{ judges : "jurisdiction"
-    cases ||--o{ notes : "has"
-    cases ||--o{ person_roles : "case"
-    persons ||--o{ person_roles : "grouped_under"
-    roles ||--o{ person_roles : "role"
-    judges ||--o{ proceeding_judges : "judge"
-    proceedings ||--o{ proceeding_judges : "has"
-    cases ||--o{ proceedings : "has"
-    jurisdictions ||--o{ proceedings : "filed in"
-    users ||--o{ tasks : "assignee"
-    cases ||--o{ tasks : "has"
-    events ||--o{ tasks : "linked to"
-    users ||--o{ users : "paralegal"
+  tasks {
+    serial id PK
+    int4 case_id FK
+    int4 event_id FK
+    date due_date
+    date completion_date
+    text description
+    varchar status
+    varchar urgency
+    int4 sort_order
+    int4 assignee_id FK
+    timestamptz created_at
+  }
+
+  webhook_logs {
+    serial id PK
+    varchar source
+    varchar event_type
+    uuid idempotency_key UK
+    jsonb payload
+    jsonb headers
+    int4 proceeding_id FK
+    int4 task_id FK
+    int4 event_id FK
+    varchar processing_status
+    text processing_error
+    timestamptz created_at
+    timestamptz processed_at
+  }
+
+  cases ||--o{ activities : ""
+  cases ||--o{ events : ""
+  cases ||--o{ notes : ""
+  cases ||--o{ person_roles : ""
+  cases ||--o{ proceedings : ""
+  cases ||--o{ tasks : ""
+  jurisdictions ||--o{ judges : ""
+  jurisdictions ||--o{ proceedings : ""
+  persons ||--o{ person_roles : ""
+  roles ||--o{ person_roles : ""
+  users ||--o{ tasks : ""
+  users ||--o{ users : ""
+  events ||--o{ tasks : ""
+  events ||--o{ webhook_logs : ""
+  judges ||--o{ proceeding_judges : ""
+  proceedings ||--o{ proceeding_judges : ""
+  proceedings ||--o{ webhook_logs : ""
+  tasks ||--o{ webhook_logs : ""
 ```
-
-## Table Relationships
-
-| Parent | Child | FK Column | On Delete |
-|--------|-------|-----------|-----------|
-| cases | activities | case_id | CASCADE |
-| cases | events | case_id | CASCADE |
-| jurisdictions | judges | jurisdiction_id | SET NULL |
-| cases | notes | case_id | CASCADE |
-| cases | person_roles | case_id | CASCADE |
-| persons | person_roles | grouped_under_id | SET NULL |
-| persons | person_roles | person_id | CASCADE |
-| roles | person_roles | role_id | RESTRICT |
-| judges | proceeding_judges | judge_id | CASCADE |
-| proceedings | proceeding_judges | proceeding_id | CASCADE |
-| cases | proceedings | case_id | CASCADE |
-| jurisdictions | proceedings | jurisdiction_id | NO ACTION |
-| users | tasks | assignee_id | SET NULL |
-| cases | tasks | case_id | CASCADE |
-| events | tasks | event_id | SET NULL |
-| users | users | paralegal_id | SET NULL |
 
 ## JSONB Column Details
 
-### cases.case_numbers
-```json
-["2023-CV-12345", "2025-APP-00001"]
-```
-Tracks case across multiple courts/proceedings.
-
-### contacts.phones / contacts.emails
+### persons.phones / persons.emails / judges.phones / judges.emails
 ```json
 [
   {"value": "+1-555-1234", "primary": true, "label": "Cell"},
@@ -242,10 +237,10 @@ Tracks case across multiple courts/proceedings.
 ]
 ```
 
-### case_other_contacts.case_attributes
-Flexible JSON for role-specific case data:
+### person_roles.attributes
+Flexible JSON for role-specific case data. For experts:
 ```json
-{"specialty_for_case": "Accident Reconstruction", "testimony_topic": "Speed analysis"}
+{"expertises": ["Accident Reconstruction", "Biomechanics"], "hourly_rate": 450}
 ```
 
 ## Enum Values
@@ -259,39 +254,31 @@ Flexible JSON for role-specific case data:
 - Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review
 
 ### Task Urgency
-- 1 = Low
-- 2 = Medium (default)
-- 3 = High
-- 4 = Urgent
+- Low, Medium (default), High, Urgent
 
 ### Activity Types
 - Meeting, Filing, Research, Drafting, Document Review
 - Phone Call, Email, Court Appearance, Deposition, Other
 
-### Contact Types (Discriminator)
-- client, attorney, expert, judge, mediator, defendant
-- lien_holder, witness, client_contact, other
-
-### Case Assignment Sides
-- plaintiff, defendant, neutral
+### Role Categories (CHECK constraint)
+- client, counsel, defendant, expert, mediator, other
 
 ## Schema Design Notes
 
-### Class Table Inheritance Pattern
-The `contacts` table serves as a base table with a `contact_type` discriminator column.
-Type-specific tables (clients, attorneys, experts, etc.) extend contacts via foreign key
-to `contacts.id` with `ON DELETE CASCADE`.
+### Unified Roles System
+The `roles` table defines role types with a `category` CHECK constraint. The `person_roles`
+junction table links persons to roles, optionally scoped to a case via `case_id`. Role-specific
+data is stored in the JSONB `attributes` column (e.g., expertises for expert roles).
 
-### Case Assignments
-Each contact type has its own junction table (`case_clients`, `case_attorneys`, etc.)
-rather than a single unified `case_persons` table. This allows type-specific fields
-on the assignment (e.g., `case_experts` has `hourly_rate_override`, `case_lien_holders`
-has `lien_amount` and `lien_status`).
+### Standalone Judges
+Judges are separate from persons — they have their own table with jurisdiction-specific
+fields (chambers, courtroom_number, appointed_by). They are linked to proceedings
+via the `proceeding_judges` junction table.
 
 ### Multi-Jurisdiction Support
 Cases can have multiple proceedings in different jurisdictions. The `proceedings` table
-links cases to jurisdictions with case numbers. Judges are assigned to proceedings
-(not cases) to support multi-judge panels.
+links cases to jurisdictions with case numbers. A partial unique index enforces that
+only one proceeding per case can be marked as primary.
 
 ### Soft Deletes
-The `contacts.archived` boolean flag is used for soft deletes rather than removing rows.
+The `persons.archived` boolean flag is used for soft deletes rather than removing rows.
