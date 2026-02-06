@@ -125,8 +125,8 @@ BEGIN
         FROM persons_backup
         WHERE LOWER(person_type) NOT IN ('judge', 'magistrate judge', 'magistrate');
 
-        -- Update sequence
-        PERFORM setval('persons_id_seq', COALESCE((SELECT MAX(id) FROM persons), 1));
+        -- Update sequence (use pg_get_serial_sequence since new table may get persons_id_seq1)
+        PERFORM setval(pg_get_serial_sequence('persons', 'id'), COALESCE((SELECT MAX(id) FROM persons), 1));
 
         RAISE NOTICE 'Created new persons table and migrated data';
     END IF;
