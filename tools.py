@@ -234,6 +234,9 @@ class ManagePersonInput(BaseModel):
     address: Optional[str] = Field(None, description="Mailing address")
     organization: Optional[str] = Field(None, description="Company, law firm, or organization")
     notes: Optional[str] = Field(None, description="Free-text notes")
+    # Optional: auto-assign to a case on create (saves a separate manage_case_role call)
+    case_id: Optional[int] = Field(None, description="If provided on create, auto-assign this person to the case")
+    role: Optional[str] = Field(None, description="Role name for auto-assign (e.g. 'plaintiff_expert', 'opposing_counsel'). Requires case_id.")
 
 
 class ManageCaseRoleInput(BaseModel):
@@ -732,10 +735,12 @@ def register_tools(mcp):
     def manage_person(context: Context, data: ManagePersonInput) -> dict:
         """Create, update, or delete a person (contact).
 
-        After creating a person, use manage_case_role to assign them to a case.
+        On create, optionally pass case_id + role to auto-assign them to a case
+        in one call (instead of a separate manage_case_role call).
 
         Examples:
-        - manage_person(action="create", name="John Smith")
+        - manage_person(action="create", name="John Smith", case_id=1, role="plaintiff")
+        - manage_person(action="create", name="Dr. Chen", case_id=1, role="plaintiff_expert")
         - manage_person(action="update", person_id=1, organization="New Firm LLP")
         - manage_person(action="delete", person_id=1)
         """
@@ -752,7 +757,31 @@ def register_tools(mcp):
                     organization=data.organization,
                     notes=data.notes,
                 )
-                return {"success": True, "message": f"Person '{data.name}' created", "person": result}
+
+                # Auto-assign to case if case_id and role provided
+                assignment = None
+                if data.case_id and data.role:
+                    role_obj = resolve_role(data.role)
+                    if not role_obj:
+                        # Person created but role assignment failed
+                        return {
+                            "success": True,
+                            "message": f"Person '{data.name}' created but role '{data.role}' not found — assign manually with manage_case_role",
+                            "person": result,
+                        }
+                    assignment = db.assign_person_to_case(
+                        case_id=data.case_id,
+                        person_id=result["id"],
+                        role_id=role_obj["id"],
+                    )
+
+                msg = f"Person '{data.name}' created"
+                if assignment:
+                    msg += f" and assigned as {data.role} on case #{data.case_id}"
+                resp = {"success": True, "message": msg, "person": result}
+                if assignment:
+                    resp["assignment"] = assignment
+                return resp
 
             elif data.action == "update":
                 if not data.person_id:
