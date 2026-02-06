@@ -55,23 +55,31 @@ fi
 nc -z localhost 5432 2>/dev/null && echo "PostgreSQL: OK" || echo "PostgreSQL: FAILED"
 ```
 
-### Step 2: Kill Existing & Start Both Servers in Parallel
+### Step 2: Install Dependencies & Start Servers
 
 ```bash
 # Kill existing processes (fast, no sleep needed after)
 kill -9 $(lsof -ti:$PORT) 2>/dev/null || true
 kill -9 $(lsof -ti:$VITE_PORT) 2>/dev/null || true
 
-# Start backend
+# Install backend dependencies
 source .venv/bin/activate
-uvicorn main:app --reload --port $PORT > /tmp/backend_$PORT.log 2>&1 &
+pip install -q -r requirements.txt
 
-# Start frontend (check node version first, only load nvm if needed)
+# Install frontend dependencies & start
 cd frontend
 NODE_MAJOR=$(node -v 2>/dev/null | cut -d'.' -f1 | tr -d 'v')
 if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 20 ]; then
     source ~/.nvm/nvm.sh 2>/dev/null && nvm use 20 2>/dev/null || true
 fi
+npm install --silent
+cd ..
+
+# Start backend
+uvicorn main:app --reload --port $PORT > /tmp/backend_$PORT.log 2>&1 &
+
+# Start frontend
+cd frontend
 VITE_PORT=$VITE_PORT npm run dev > /tmp/frontend_$VITE_PORT.log 2>&1 &
 cd ..
 
