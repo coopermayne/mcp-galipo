@@ -1156,6 +1156,8 @@ def init_db():
                 sort_order INTEGER DEFAULT 0,
                 is_primary BOOLEAN DEFAULT FALSE,
                 notes TEXT,
+                courtlistener_docket_id BIGINT,
+                pacer_case_id VARCHAR(100),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
