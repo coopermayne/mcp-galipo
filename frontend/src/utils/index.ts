@@ -6,3 +6,4 @@ export {
   type ParsedDate,
 } from './dateParser';
 export { USER_AVATAR_COLORS, getUserColorClass } from './userColors';
+export { formatRoleName, formatCategoryName } from './roleFormat';

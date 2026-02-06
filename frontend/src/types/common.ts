@@ -25,7 +25,7 @@ export type TaskStatus =
   | 'Awaiting Atty Review';
 
 // Role categories for the unified roles system
-export type RoleCategory = 'client' | 'internal_team' | 'opposing_team' | 'third_party';
+export type RoleCategory = 'expert' | 'counsel' | 'mediator' | 'client' | 'defendant' | 'other';
 
 // Role interface for constants response
 export interface RoleRef {

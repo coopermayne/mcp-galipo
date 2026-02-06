@@ -144,7 +144,18 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             WHERE pr.case_id = %s
             ORDER BY r.category, r.sort_order, p.name
         """, (case_id,))
-        result["persons"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        persons = []
+        for row in cur.fetchall():
+            person = serialize_row(dict(row))
+            # Nest the role object for frontend compatibility
+            person["role"] = {
+                "id": person["role_id"],
+                "name": person.pop("role_name"),
+                "category": person.pop("role_category"),
+            }
+            person.pop("role_sort_order", None)
+            persons.append(person)
+        result["persons"] = persons
 
         # Get activities
         cur.execute("""

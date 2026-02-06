@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { PersonAutocomplete } from './PersonAutocomplete';
+import { formatRoleName } from '../../utils';
 import type { Person, RoleCategory } from '../../types';
 
 interface AddPersonDropdownProps {
@@ -120,7 +121,7 @@ export function AddPersonDropdown({
                 onClick={() => handleRoleSelect(opt)}
                 className="w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-bg-hover"
               >
-                {opt}
+                {formatRoleName(opt)}
               </button>
             ))}
           </div>
@@ -145,7 +146,7 @@ export function AddPersonDropdown({
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <h3 className="text-lg font-semibold text-text">
-                  Add {selectedRole}
+                  Add {selectedRole ? formatRoleName(selectedRole) : ''}
                 </h3>
                 <button
                   onClick={handleClose}

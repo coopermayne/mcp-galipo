@@ -212,9 +212,12 @@ def require_admin(request) -> Optional[JSONResponse]:
     if auth_error:
         return auth_error
 
-    # Then check admin status
-    token = get_token_from_request(request)
-    user = get_session_user(token)
+    # In dev mode, get user via get_current_user (handles DEV_AUTH_USER)
+    if DEV_SKIP_AUTH:
+        user = get_current_user(request)
+    else:
+        token = get_token_from_request(request)
+        user = get_session_user(token)
 
     if not user or not user.get("isAdmin"):
         return JSONResponse(

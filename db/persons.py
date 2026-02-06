@@ -60,7 +60,18 @@ def get_person_by_id(person_id: int) -> Optional[dict]:
             WHERE pr.person_id = %s
             ORDER BY c.case_name NULLS FIRST, r.category, r.sort_order
         """, (person_id,))
-        result["roles"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        roles = []
+        for row in cur.fetchall():
+            role_data = serialize_row(dict(row))
+            # Nest the role object for frontend compatibility
+            role_data["role"] = {
+                "id": role_data["role_id"],
+                "name": role_data.pop("role_name"),
+                "category": role_data.pop("role_category"),
+            }
+            role_data["color"] = role_data.pop("case_color", None)
+            roles.append(role_data)
+        result["roles"] = roles
 
         return result
 
@@ -195,12 +206,15 @@ def search_persons(name: str = None, role_id: int = None, category: str = None,
                 roles_map[pid].append({
                     "assignment_id": row["assignment_id"],
                     "role_id": row["role_id"],
-                    "role_name": row["role_name"],
-                    "category": row["category"],
+                    "role": {
+                        "id": row["role_id"],
+                        "name": row["role_name"],
+                        "category": row["category"],
+                    },
                     "case_id": row["case_id"],
                     "case_name": row["case_name"],
                     "short_name": row["short_name"],
-                    "case_color": row["case_color"],
+                    "color": row["case_color"],
                 })
             for p in persons:
                 p["roles"] = roles_map.get(p["id"], [])
@@ -240,20 +254,36 @@ def assign_person_to_case(case_id: int, person_id: int, role_id: int,
     attrs_json = json.dumps(attributes) if attributes else '{}'
 
     with get_cursor() as cur:
+        # Check if assignment already exists (partial unique index prevents ON CONFLICT)
         cur.execute("""
-            INSERT INTO person_roles (person_id, role_id, case_id, attributes,
-                                      notes, is_primary, grouped_under_id, assigned_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT ON CONSTRAINT uq_person_roles_case DO UPDATE SET
-                attributes = EXCLUDED.attributes,
-                notes = EXCLUDED.notes,
-                is_primary = EXCLUDED.is_primary,
-                grouped_under_id = EXCLUDED.grouped_under_id,
-                assigned_date = EXCLUDED.assigned_date
-            RETURNING id
-        """, (person_id, role_id, case_id, attrs_json, notes,
-              is_primary, grouped_under_id, assigned_date))
-        assignment_id = cur.fetchone()["id"]
+            SELECT id FROM person_roles
+            WHERE person_id = %s AND role_id = %s AND case_id = %s
+        """, (person_id, role_id, case_id))
+        existing = cur.fetchone()
+
+        if existing:
+            # Update existing assignment
+            cur.execute("""
+                UPDATE person_roles SET
+                    attributes = %s,
+                    notes = %s,
+                    is_primary = %s,
+                    grouped_under_id = %s,
+                    assigned_date = %s
+                WHERE id = %s
+                RETURNING id
+            """, (attrs_json, notes, is_primary, grouped_under_id, assigned_date, existing["id"]))
+            assignment_id = cur.fetchone()["id"]
+        else:
+            # Insert new assignment
+            cur.execute("""
+                INSERT INTO person_roles (person_id, role_id, case_id, attributes,
+                                          notes, is_primary, grouped_under_id, assigned_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (person_id, role_id, case_id, attrs_json, notes,
+                  is_primary, grouped_under_id, assigned_date))
+            assignment_id = cur.fetchone()["id"]
 
         # Return full assignment details
         cur.execute("""
@@ -434,7 +464,18 @@ def get_case_persons(case_id: int, role_id: int = None, category: str = None) ->
             ORDER BY r.category, r.sort_order, p.name
         """, params)
 
-        return serialize_rows([dict(row) for row in cur.fetchall()])
+        results = []
+        for row in cur.fetchall():
+            person = serialize_row(dict(row))
+            # Nest the role object for frontend compatibility
+            person["role"] = {
+                "id": person["role_id"],
+                "name": person.pop("role_name"),
+                "category": person.pop("role_category"),
+            }
+            person.pop("role_sort_order", None)
+            results.append(person)
+        return results
 
 
 # ===== DUPLICATE DETECTION & MERGE =====

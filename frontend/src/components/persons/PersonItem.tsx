@@ -4,6 +4,7 @@
 import { User, Phone, Mail, Building2 } from 'lucide-react';
 import { useEntityModalContext } from '../../context/EntityModalContext';
 import { getRoleCategoryColorClasses } from '../../config/colors';
+import { formatRoleName } from '../../utils';
 import type { Person, RoleCategory } from '../../types';
 
 function RoleBadge({ role, category }: { role: string; category: RoleCategory }) {
@@ -12,7 +13,7 @@ function RoleBadge({ role, category }: { role: string; category: RoleCategory })
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClasses}`}
     >
-      {role}
+      {formatRoleName(role)}
     </span>
   );
 }

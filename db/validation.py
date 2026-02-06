@@ -21,7 +21,7 @@ ACTIVITY_TYPES = [
 ]
 
 # Role categories for the unified roles system
-ROLE_CATEGORIES = ["client", "internal_team", "opposing_team", "third_party"]
+ROLE_CATEGORIES = ["expert", "counsel", "mediator", "client", "defendant", "other"]
 
 # Valid user positions
 USER_POSITIONS = ["attorney", "paralegal", "manager", "admin"]
