@@ -48,11 +48,11 @@ psql $DATABASE_URL
 # Reset database (development only)
 RESET_DB=true python main.py
 
-# Generate schema diagram (auto-runs on commit if migrations changed)
+# Generate schema diagram (requires Docker — dev-only)
 python scripts/generate_schema_diagram.py
 ```
 
-**Schema Diagram**: The `docs/SCHEMA.md` file contains an auto-generated Mermaid ER diagram of the database schema. It updates automatically via a pre-commit hook when you commit changes to `migrations/` or `db/connection.py`. You can also regenerate it manually with the command above.
+**Schema Diagram**: The `docs/SCHEMA.md` file contains an auto-generated Mermaid ER diagram of the database schema. It updates automatically via a pre-commit hook when you commit changes to `migrations/` or `db/connection.py`. You can also regenerate it manually with the command above. Generation uses [SchemaCrawler](https://www.schemacrawler.com/) via Docker (`schemacrawler/schemacrawler` image) — Docker must be running. This is a **dev-only** dependency; production does not require Docker.
 
 ### Database Migrations
 

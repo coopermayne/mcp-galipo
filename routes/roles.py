@@ -38,7 +38,7 @@ def register_role_routes(mcp):
             result = await asyncio.to_thread(
                 db.create_role,
                 name=data["name"],
-                category=data["category"],
+                category=data.get("category", "other"),
                 sort_order=data.get("sort_order", 99),
                 description=data.get("description")
             )

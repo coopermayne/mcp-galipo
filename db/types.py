@@ -63,8 +63,29 @@ def update_expertise_type(expertise_type_id: int, name: str = None, description:
         return dict(row) if row else None
 
 
-def delete_expertise_type(expertise_type_id: int) -> bool:
-    """Delete an expertise type."""
+def delete_expertise_type(expertise_type_id: int) -> dict:
+    """Delete an expertise type if it's not referenced by any experts.
+
+    Returns dict with 'success' and optional 'error' keys.
+    """
     with get_cursor() as cur:
+        cur.execute("SELECT name FROM expertise_types WHERE id = %s", (expertise_type_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"success": False, "error": "Expertise type not found"}
+        name = row["name"]
+
+        # Check if any person_roles reference this expertise in their attributes
+        cur.execute("""
+            SELECT COUNT(*) as count FROM person_roles
+            WHERE attributes->'expertises' ? %s
+        """, (name,))
+        count = cur.fetchone()["count"]
+        if count > 0:
+            return {
+                "success": False,
+                "error": f"Cannot delete '{name}': it is assigned to {count} expert(s)"
+            }
+
         cur.execute("DELETE FROM expertise_types WHERE id = %s", (expertise_type_id,))
-        return cur.rowcount > 0
+        return {"success": True}

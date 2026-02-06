@@ -26,10 +26,12 @@ This server provides tools to manage cases, tasks, events, contacts, and notes.
 
 ROLES SYSTEM (unified person-role management):
 Persons are assigned to cases with roles from these categories:
-- client: "Client"
-- internal_team: "Lead Attorney", "Co-Counsel", "Paralegal", "Case Manager"
-- opposing_team: "Defendant", "Defense Counsel", "Defense Paralegal", "Defense Expert"
-- third_party: "Plaintiff Expert", "Mediator", "Witness", "Lien Holder", "Court Reporter", "Interpreter", "Process Server"
+- client: plaintiff, contact, guardian_ad_litem, decedent
+- counsel: co_counsel, referring_attorney, opposing_counsel, criminal_defense_attorney, prosecutor, public_defender
+- defendant: municipality_defendant, individual_defendant
+- expert: plaintiff_expert, defense_expert
+- mediator: mediator
+- other: lien_holder, witness, claims_adjuster, special_needs_consultant
 
 JUDGES (standalone entities):
 Judges are NOT persons - they are standalone entities assigned to proceedings.
