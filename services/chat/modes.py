@@ -13,15 +13,9 @@ from typing import Any
 CHAT_MODES: dict[str, dict[str, Any]] = {
     "tasks": {
         "tools": [
-            "get_tasks",
-            "add_task",
-            "update_task",
-            "delete_task",
-            "bulk_update_tasks",
-            "bulk_update_case_tasks",
-            "reorder_task",
-            "get_case_summary",
             "search",
+            "get_details",
+            "manage_task",
         ],
         "system_prompt_addition": """You are in TASKS mode - help the user add and manage tasks.
 
@@ -41,12 +35,9 @@ Keep responses brief and action-oriented.""",
     },
     "events": {
         "tools": [
-            "get_events",
-            "add_event",
-            "update_event",
-            "delete_event",
-            "get_calendar",
-            "get_case_summary",
+            "search",
+            "get_details",
+            "manage_event",
         ],
         "system_prompt_addition": """You are in EVENTS mode - help the user add and manage calendar events.
 
@@ -66,13 +57,10 @@ Keep responses brief and action-oriented.""",
     },
     "people": {
         "tools": [
-            "manage_person",
-            "get_person",
-            "assign_person_to_case",
-            "update_case_assignment",
-            "remove_person_from_case",
             "search",
-            "get_case_summary",
+            "get_details",
+            "manage_person",
+            "manage_case_role",
         ],
         "system_prompt_addition": """You are in PEOPLE mode - help the user add and manage case participants.
 
@@ -90,13 +78,8 @@ Keep responses brief and action-oriented.""",
     },
     "overview": {
         "tools": [
-            "list_cases",
-            "get_case_summary",
-            "get_tasks",
-            "get_events",
-            "get_activities",
-            "get_calendar",
             "search",
+            "get_details",
         ],
         "system_prompt_addition": """You are in OVERVIEW mode. Provide high-level insights and summaries:
 - Case status and progress
