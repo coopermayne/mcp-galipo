@@ -1,7 +1,7 @@
 /**
  * ClientsComponent - Self-contained clients list component
  *
- * Fetches clients (person_type='client') with case assignments.
+ * Fetches clients (role category='client') with case assignments.
  * Renders alphabetically with client-side search filtering.
  */
 import { useMemo } from 'react';
@@ -23,11 +23,11 @@ export function ClientsComponent({
   onClientClick,
 }: ClientsComponentProps) {
   const { data: clientsData, isLoading } = useQuery({
-    queryKey: ['persons', { type: 'client', include_cases: true, user_id: userId }],
+    queryKey: ['persons', { category: 'client', include_roles: true, user_id: userId }],
     queryFn: () =>
       getPersons({
-        type: 'client',
-        include_cases: true,
+        category: 'client',
+        include_roles: true,
         user_id: userId,
         limit: 10000,
       }),

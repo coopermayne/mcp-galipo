@@ -19,9 +19,9 @@ import {
   addProceedingJudge,
   removeProceedingJudge,
   getConstants,
+  getJudges,
 } from '../../api';
-import { getPersons } from '../../api/persons';
-import type { Proceeding, ProceedingJudge, Jurisdiction, Person } from '../../types';
+import type { Proceeding, ProceedingJudge, Jurisdiction, Judge } from '../../types';
 
 interface ProceedingDetailContentProps {
   entityId: number;
@@ -36,7 +36,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const queryClient = useQueryClient();
   const readOnly = context?.readOnly ?? false;
   const [showAddJudge, setShowAddJudge] = useState(false);
-  const [newJudge, setNewJudge] = useState({ person_id: '', role: 'Judge' });
+  const [newJudge, setNewJudge] = useState({ judge_id: '', role: 'Judge' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: proceedingData, isLoading, error } = useQuery({
@@ -51,8 +51,8 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
 
   // Fetch judges for adding
   const { data: judgesData } = useQuery({
-    queryKey: ['persons', 'judges'],
-    queryFn: () => getPersons({ type: 'judge', limit: 100 }),
+    queryKey: ['judges'],
+    queryFn: () => getJudges(),
     enabled: showAddJudge,
   });
 
@@ -67,22 +67,24 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   });
 
   const addJudgeMutation = useMutation({
-    mutationFn: (data: { person_id: number; role: string }) =>
+    mutationFn: (data: { judge_id: number; role: string }) =>
       addProceedingJudge(entityId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
+      queryClient.invalidateQueries({ queryKey: ['judges'] });
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
       setShowAddJudge(false);
-      setNewJudge({ person_id: '', role: 'Judge' });
+      setNewJudge({ judge_id: '', role: 'Judge' });
     },
   });
 
   const removeJudgeMutation = useMutation({
-    mutationFn: (personId: number) => removeProceedingJudge(entityId, personId),
+    mutationFn: (judgeId: number) => removeProceedingJudge(entityId, judgeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
+      queryClient.invalidateQueries({ queryKey: ['judges'] });
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
@@ -105,9 +107,9 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   };
 
   const handleAddJudge = () => {
-    if (newJudge.person_id) {
+    if (newJudge.judge_id) {
       addJudgeMutation.mutate({
-        person_id: parseInt(newJudge.person_id, 10),
+        judge_id: parseInt(newJudge.judge_id, 10),
         role: newJudge.role,
       });
     }
@@ -138,9 +140,9 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   ];
 
   // Get available judges (not already assigned)
-  const assignedJudgeIds = new Set(proceeding.judges?.map(j => j.person_id) || []);
-  const availableJudges = (judgesData?.persons || []).filter(
-    (p: Person) => !assignedJudgeIds.has(p.id)
+  const assignedJudgeIds = new Set(proceeding.judges?.map(j => j.judge_id) || []);
+  const availableJudges = (judgesData?.judges || []).filter(
+    (j: Judge) => !assignedJudgeIds.has(j.id)
   );
 
   const formatJudgeRole = (role: string) => {
@@ -250,12 +252,12 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
           <div className="mb-3 p-3 bg-bg-hover rounded-lg">
             <div className="flex items-center gap-2">
               <select
-                value={newJudge.person_id}
-                onChange={(e) => setNewJudge({ ...newJudge, person_id: e.target.value })}
+                value={newJudge.judge_id}
+                onChange={(e) => setNewJudge({ ...newJudge, judge_id: e.target.value })}
                 className="flex-1 px-2 py-1.5 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
               >
                 <option value="">Select judge...</option>
-                {availableJudges.map((j: Person) => (
+                {availableJudges.map((j: Judge) => (
                   <option key={j.id} value={j.id}>
                     {j.name}
                   </option>
@@ -273,7 +275,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               </select>
               <button
                 onClick={handleAddJudge}
-                disabled={!newJudge.person_id || addJudgeMutation.isPending}
+                disabled={!newJudge.judge_id || addJudgeMutation.isPending}
                 className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
               >
                 Add
@@ -281,7 +283,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               <button
                 onClick={() => {
                   setShowAddJudge(false);
-                  setNewJudge({ person_id: '', role: 'Judge' });
+                  setNewJudge({ judge_id: '', role: 'Judge' });
                 }}
                 className="p-1.5 text-text-muted hover:text-text-secondary"
               >
@@ -296,7 +298,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
           <div className="space-y-2">
             {proceeding.judges.map((judge: ProceedingJudge) => (
               <div
-                key={`${judge.person_id}-${judge.role}`}
+                key={`${judge.judge_id}-${judge.role}`}
                 className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm group"
               >
                 <span className="text-text-secondary">
@@ -305,7 +307,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                 </span>
                 {!readOnly && (
                   <button
-                    onClick={() => removeJudgeMutation.mutate(judge.person_id)}
+                    onClick={() => removeJudgeMutation.mutate(judge.judge_id)}
                     className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-red-400 transition-opacity"
                     title="Remove judge"
                   >

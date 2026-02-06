@@ -4,9 +4,10 @@
 import { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { PersonItem } from './PersonItem';
-import type { Person } from '../../types';
+import { formatCategoryName } from '../../utils';
+import type { Person, RoleCategory } from '../../types';
 
-type GroupMode = 'type' | 'alpha' | 'recent';
+type GroupMode = 'category' | 'alpha' | 'recent';
 
 interface PersonGroup {
   key: string;
@@ -22,10 +23,14 @@ interface PersonsFeedProps {
   onClick?: (person: Person) => void;
 }
 
+// Category sort order (new unified roles categories)
+const CATEGORY_ORDER: RoleCategory[] = ['client', 'defendant', 'counsel', 'expert', 'mediator', 'other'];
+
 /**
- * Group persons by type (client, attorney, judge, etc.)
+ * Group persons by role category (client, defendant, counsel, expert, mediator, other)
+ * Uses the first role's category for grouping
  */
-function groupPersonsByType(persons: Person[]): PersonGroup[] {
+function groupPersonsByCategory(persons: Person[]): PersonGroup[] {
   const groups: Map<string, PersonGroup> = new Map();
 
   // Sort persons alphabetically within groups
@@ -34,19 +39,24 @@ function groupPersonsByType(persons: Person[]): PersonGroup[] {
   );
 
   for (const person of sorted) {
-    const key = person.person_type || 'other';
-    const label = key.charAt(0).toUpperCase() + key.slice(1);
+    const category = person.roles?.[0]?.role?.category || 'other';
+    const label = formatCategoryName(category);
 
-    if (!groups.has(key)) {
-      groups.set(key, { key, label, persons: [] });
+    if (!groups.has(category)) {
+      groups.set(category, { key: category, label, persons: [] });
     }
-    groups.get(key)!.persons.push(person);
+    groups.get(category)!.persons.push(person);
   }
 
-  // Sort groups by label
-  return Array.from(groups.values()).sort((a, b) =>
-    a.label.localeCompare(b.label)
-  );
+  // Sort groups by defined order
+  return CATEGORY_ORDER
+    .filter((cat) => groups.has(cat))
+    .map((cat) => groups.get(cat)!)
+    .concat(
+      Array.from(groups.values()).filter(
+        (g) => !CATEGORY_ORDER.includes(g.key as RoleCategory)
+      )
+    );
 }
 
 /**
@@ -110,7 +120,7 @@ function groupPersonsRecent(persons: Person[]): PersonGroup[] {
 export function PersonsFeed({
   persons,
   isLoading = false,
-  groupBy = 'type',
+  groupBy = 'category',
   emptyMessage = 'No persons',
   onClick,
 }: PersonsFeedProps) {
@@ -120,9 +130,9 @@ export function PersonsFeed({
         return groupPersonsAlpha(persons);
       case 'recent':
         return groupPersonsRecent(persons);
-      case 'type':
+      case 'category':
       default:
-        return groupPersonsByType(persons);
+        return groupPersonsByCategory(persons);
     }
   }, [persons, groupBy]);
 

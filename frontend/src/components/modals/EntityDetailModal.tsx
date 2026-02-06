@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useEntityModalContext } from '../../context/EntityModalContext';
 import { PersonDetailContent } from './PersonDetailContent';
 import { ProceedingDetailContent } from './ProceedingDetailContent';
+import { JudgeDetailContent } from './JudgeDetailContent';
 import type { EntityType } from '../../types/modal';
 
 // Registry of entity type to content component
@@ -15,6 +16,7 @@ const CONTENT_REGISTRY: Record<
 > = {
   person: PersonDetailContent,
   proceeding: ProceedingDetailContent,
+  judge: JudgeDetailContent,
 };
 
 export function EntityDetailModal() {

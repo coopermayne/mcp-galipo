@@ -1,6 +1,6 @@
 // Entity modal types
 
-export type EntityType = 'person' | 'proceeding';
+export type EntityType = 'person' | 'proceeding' | 'judge';
 
 export interface EntityModalState {
   type: EntityType;

@@ -42,18 +42,18 @@ export async function deleteProceeding(proceedingId: number): Promise<{ success:
   });
 }
 
-// Proceeding Judges API
+// Proceeding Judges API (now uses standalone judges table)
 
 export async function getProceedingJudges(
   proceedingId: number
-): Promise<{ judges: ProceedingJudge[]; total: number }> {
+): Promise<{ success: boolean; judges: ProceedingJudge[] }> {
   return request(`/proceedings/${proceedingId}/judges`);
 }
 
 export async function addProceedingJudge(
   proceedingId: number,
   data: AddProceedingJudgeInput
-): Promise<{ success: boolean; judge: ProceedingJudge }> {
+): Promise<{ success: boolean; proceeding_judge: ProceedingJudge }> {
   return request(`/proceedings/${proceedingId}/judges`, {
     method: 'POST',
     body: JSON.stringify(data),
@@ -62,10 +62,10 @@ export async function addProceedingJudge(
 
 export async function updateProceedingJudge(
   proceedingId: number,
-  personId: number,
+  judgeId: number,
   data: UpdateProceedingJudgeInput
-): Promise<{ success: boolean; judge: ProceedingJudge }> {
-  return request(`/proceedings/${proceedingId}/judges/${personId}`, {
+): Promise<{ success: boolean; proceeding_judge: ProceedingJudge }> {
+  return request(`/proceedings/${proceedingId}/judges/${judgeId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -73,9 +73,9 @@ export async function updateProceedingJudge(
 
 export async function removeProceedingJudge(
   proceedingId: number,
-  personId: number
+  judgeId: number
 ): Promise<{ success: boolean }> {
-  return request(`/proceedings/${proceedingId}/judges/${personId}`, {
+  return request(`/proceedings/${proceedingId}/judges/${judgeId}`, {
     method: 'DELETE',
   });
 }

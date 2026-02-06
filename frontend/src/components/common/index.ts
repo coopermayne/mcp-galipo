@@ -11,6 +11,7 @@ export { ListPanel } from './ListPanel';
 export { ConfirmModal } from './ConfirmModal';
 export { QuickCaseSearch } from './QuickCaseSearch';
 export { PersonAutocomplete } from './PersonAutocomplete';
+export { JudgeAutocomplete } from './JudgeAutocomplete';
 export { JurisdictionAutocomplete } from './JurisdictionAutocomplete';
 export { AddPersonDropdown } from './AddPersonDropdown';
 export { MentionDropdown } from './MentionDropdown';

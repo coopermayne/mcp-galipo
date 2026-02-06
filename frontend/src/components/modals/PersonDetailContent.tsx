@@ -17,8 +17,17 @@ import {
   Check,
 } from 'lucide-react';
 import { EditableText, EditableContactList, ConfirmModal } from '../common';
-import { getPerson, updatePerson, removePersonFromCase, changePersonRole } from '../../api';
-import type { Person, UpdatePersonInput } from '../../types';
+import { getPerson, updatePerson, removePersonFromCase, changePersonRole, getRoles } from '../../api';
+import { ROLE_CATEGORY_COLORS } from '../../config/colors';
+import type {
+  PersonRole,
+  UpdatePersonInput,
+  ExpertAttributes,
+  AttorneyAttributes,
+  MediatorAttributes,
+  ClientAttributes,
+  Role,
+} from '../../types';
 
 interface PersonDetailContentProps {
   entityId: number;
@@ -134,18 +143,19 @@ function EditableExpertises({
   );
 }
 
-// Type-specific attribute display
-function AttributesSection({
-  person,
+// Role-specific attribute display based on role name
+function RoleAttributesSection({
+  role,
+  attributes,
   readOnly,
   onUpdateAttribute,
 }: {
-  person: Person;
+  role: PersonRole;
+  attributes: Record<string, unknown>;
   readOnly: boolean;
   onUpdateAttribute: (key: string, value: unknown) => Promise<unknown>;
 }) {
-  const type = person.person_type;
-  const attrs = person.attributes || {};
+  const roleName = role.role.name.toLowerCase();
 
   const handleStringAttr = (key: string) => async (value: string) => {
     await onUpdateAttribute(key, value || undefined);
@@ -156,44 +166,9 @@ function AttributesSection({
     await onUpdateAttribute(key, num);
   };
 
-  if (type === 'judge') {
-    const judgeAttrs = attrs as { courtroom_number?: string; chambers?: string; initials?: string; jurisdiction?: string };
-    return (
-      <div className="space-y-2">
-        <AttributeRow
-          label="Courtroom"
-          value={judgeAttrs.courtroom_number || ''}
-          onSave={handleStringAttr('courtroom_number')}
-          readOnly={readOnly}
-          placeholder="e.g., 302"
-        />
-        <AttributeRow
-          label="Chambers"
-          value={judgeAttrs.chambers || ''}
-          onSave={handleStringAttr('chambers')}
-          readOnly={readOnly}
-          placeholder="e.g., 3rd Floor, Room 310"
-        />
-        <AttributeRow
-          label="Initials"
-          value={judgeAttrs.initials || ''}
-          onSave={handleStringAttr('initials')}
-          readOnly={readOnly}
-          placeholder="e.g., JRS"
-        />
-        <AttributeRow
-          label="Jurisdiction"
-          value={judgeAttrs.jurisdiction || ''}
-          onSave={handleStringAttr('jurisdiction')}
-          readOnly={readOnly}
-          placeholder="e.g., Los Angeles Superior Court"
-        />
-      </div>
-    );
-  }
-
-  if (type === 'expert') {
-    const expertAttrs = attrs as { hourly_rate?: number; deposition_rate?: number; trial_rate?: number; expertises?: string[] };
+  // Expert roles (Plaintiff Expert, Defense Expert, etc.)
+  if (roleName.includes('expert')) {
+    const expertAttrs = attributes as ExpertAttributes;
     return (
       <div className="space-y-2">
         <EditableExpertises
@@ -232,8 +207,9 @@ function AttributesSection({
     );
   }
 
-  if (type === 'attorney') {
-    const attorneyAttrs = attrs as { bar_number?: string };
+  // Attorney roles (Lead Attorney, Co-Counsel, Defense Counsel, etc.)
+  if (roleName.includes('attorney') || roleName.includes('counsel')) {
+    const attorneyAttrs = attributes as AttorneyAttributes;
     return (
       <div className="space-y-2">
         <AttributeRow
@@ -247,8 +223,9 @@ function AttributesSection({
     );
   }
 
-  if (type === 'mediator') {
-    const mediatorAttrs = attrs as { half_day_rate?: number; full_day_rate?: number; style?: string };
+  // Mediator
+  if (roleName.includes('mediator')) {
+    const mediatorAttrs = attributes as MediatorAttributes;
     return (
       <div className="space-y-2">
         <AttributeRow
@@ -278,8 +255,9 @@ function AttributesSection({
     );
   }
 
-  if (type === 'client') {
-    const clientAttrs = attrs as { date_of_birth?: string; preferred_language?: string; emergency_contact?: string };
+  // Client
+  if (roleName === 'client') {
+    const clientAttrs = attributes as ClientAttributes;
     return (
       <div className="space-y-2">
         <AttributeRow
@@ -310,25 +288,22 @@ function AttributesSection({
   return null;
 }
 
-const ALL_ROLE_OPTIONS = [
-  'Client', 'Guardian Ad Litem', 'Plaintiff Contact', 'Decedent',
-  'Defendant',
-  'Opposing Counsel', 'Co-Counsel', 'Referring Attorney',
-  'Expert - Plaintiff', 'Expert - Defendant',
-  'Witness', 'Interpreter', 'Insurance Adjuster', 'Lien Holder',
-];
-
 export function PersonDetailContent({ entityId, context, onClose }: PersonDetailContentProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const readOnly = context?.readOnly ?? false;
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [editingRole, setEditingRole] = useState(false);
-  const [selectedNewRole, setSelectedNewRole] = useState('');
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
+  const [selectedNewRoleId, setSelectedNewRoleId] = useState<number | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['person', entityId],
     queryFn: () => getPerson(entityId),
+  });
+
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => getRoles(),
   });
 
   const updateMutation = useMutation({
@@ -343,7 +318,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   });
 
   const removeMutation = useMutation({
-    mutationFn: (role?: string) => removePersonFromCase(context!.caseId!, entityId, role),
+    mutationFn: (roleId?: number) => removePersonFromCase(context!.caseId!, entityId, roleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', context?.caseId] });
       setShowRemoveConfirm(false);
@@ -352,13 +327,13 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: ({ oldRole, newRole }: { oldRole: string; newRole: string }) =>
-      changePersonRole(context!.caseId!, entityId, oldRole, newRole),
+    mutationFn: ({ oldRoleId, newRoleId }: { oldRoleId: number; newRoleId: number }) =>
+      changePersonRole(context!.caseId!, entityId, { old_role_id: oldRoleId, new_role_id: newRoleId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['person', entityId] });
       queryClient.invalidateQueries({ queryKey: ['case', context?.caseId] });
-      setEditingRole(false);
-      setSelectedNewRole('');
+      setEditingRoleId(null);
+      setSelectedNewRoleId(null);
     },
   });
 
@@ -374,19 +349,11 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
     await updateMutation.mutateAsync({ emails });
   };
 
-  const handleUpdateAttribute = async (key: string, value: unknown) => {
-    const newAttributes: Record<string, unknown> = { ...data?.person?.attributes, [key]: value };
-    // Remove undefined values
-    Object.keys(newAttributes).forEach((k) => {
-      if (newAttributes[k] === undefined) delete newAttributes[k];
-    });
-    await updateMutation.mutateAsync({ attributes: newAttributes });
-  };
+  // Find the assignment for the current case
+  const caseRole = data?.person?.roles?.find(r => r.case_id === context?.caseId);
 
   const handleRemoveFromCase = () => {
-    // Find the assignment for the current case to get the role
-    const assignment = data?.person?.case_assignments?.find(a => a.case_id === context?.caseId);
-    removeMutation.mutate(assignment?.role);
+    removeMutation.mutate(caseRole?.role_id);
   };
 
   if (isLoading) {
@@ -407,6 +374,10 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   }
 
   const person = data.person;
+  const allRoles = rolesData?.roles || [];
+
+  // Get roles that have case assignments
+  const caseRoles = person.roles?.filter(r => r.case_id) || [];
 
   return (
     <div className="p-6">
@@ -428,9 +399,23 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
               inputClassName="text-xl font-semibold"
             />
           )}
-          <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-bg-hover text-text-secondary capitalize">
-            {person.person_type}
-          </span>
+          {/* Show role badges */}
+          {person.roles && person.roles.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {Array.from(new Set(person.roles.map(r => r.role.name))).map(roleName => {
+                const role = person.roles!.find(r => r.role.name === roleName)!;
+                const colors = ROLE_CATEGORY_COLORS[role.role.category];
+                return (
+                  <span
+                    key={roleName}
+                    className={`inline-block px-2 py-0.5 text-xs rounded-full ${colors.bg} ${colors.text}`}
+                  >
+                    {roleName}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -511,23 +496,6 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
         </div>
       </div>
 
-      {/* Type-Specific Attributes */}
-      {person.person_type && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-3">
-            <Briefcase className="w-4 h-4 text-text-muted" />
-            {person.person_type.charAt(0).toUpperCase() + person.person_type.slice(1)} Details
-          </h3>
-          <div className="pl-6">
-            <AttributesSection
-              person={person}
-              readOnly={readOnly}
-              onUpdateAttribute={handleUpdateAttribute}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Notes */}
       <div className="mt-6">
         <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-2">
@@ -553,31 +521,31 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
       </div>
 
       {/* Case Assignments */}
-      {person.case_assignments && person.case_assignments.length > 0 && (
+      {caseRoles.length > 0 && (
         <div className="mt-6 pt-6 border-t border-border">
           <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2 mb-3">
             <Briefcase className="w-4 h-4 text-text-muted" />
-            Case Assignments ({person.case_assignments.length})
+            Case Assignments ({caseRoles.length})
           </h3>
           <div className="space-y-2 pl-6">
-            {person.case_assignments.map((assignment) => (
+            {caseRoles.map((role) => (
               <div
-                key={assignment.assignment_id}
+                key={role.id}
                 className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm"
               >
                 <div className="min-w-0">
                   <button
                     onClick={() => {
                       onClose();
-                      navigate(`/cases/${assignment.case_id}`);
+                      navigate(`/cases/${role.case_id}`);
                     }}
                     className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:underline truncate block text-left"
                   >
-                    {assignment.short_name || assignment.case_name || `Case #${assignment.case_id}`}
+                    {role.short_name || role.case_name || `Case #${role.case_id}`}
                   </button>
-                  <span className="text-xs text-text-secondary">{assignment.role}</span>
+                  <span className="text-xs text-text-secondary">{role.role.name}</span>
                 </div>
-                {assignment.is_primary && (
+                {role.is_primary && (
                   <span className="text-xs px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
                     Primary
                   </span>
@@ -589,37 +557,36 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
       )}
 
       {/* Role on this case + Remove - only show when viewing from a case context */}
-      {context?.caseId && !readOnly && (() => {
-        const caseAssignment = person.case_assignments?.find(a => a.case_id === context.caseId);
-        if (!caseAssignment) return null;
-        const currentRole = caseAssignment.role;
-        const availableRoles = ALL_ROLE_OPTIONS.filter(r => r !== currentRole);
+      {context?.caseId && !readOnly && caseRole && (() => {
+        const currentRoleId = caseRole.role_id;
+        const currentRoleName = caseRole.role.name;
+        const availableRoles = allRoles.filter((r: Role) => r.id !== currentRoleId);
 
         return (
           <div className="mt-6 pt-6 border-t border-border space-y-3">
             {/* Role display / edit */}
             <div className="flex items-center gap-2 px-3 py-2">
               <span className="text-sm text-text-muted">Role:</span>
-              {editingRole ? (
+              {editingRoleId === currentRoleId ? (
                 <div className="flex items-center gap-2 flex-1">
                   <select
-                    value={selectedNewRole}
-                    onChange={(e) => setSelectedNewRole(e.target.value)}
+                    value={selectedNewRoleId || ''}
+                    onChange={(e) => setSelectedNewRoleId(e.target.value ? Number(e.target.value) : null)}
                     className="text-sm bg-bg border border-border rounded px-2 py-1 text-text flex-1"
                     autoFocus
                   >
                     <option value="">Select new role...</option>
-                    {availableRoles.map(role => (
-                      <option key={role} value={role}>{role}</option>
+                    {availableRoles.map((role: Role) => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
                     ))}
                   </select>
                   <button
                     onClick={() => {
-                      if (selectedNewRole) {
-                        changeRoleMutation.mutate({ oldRole: currentRole, newRole: selectedNewRole });
+                      if (selectedNewRoleId) {
+                        changeRoleMutation.mutate({ oldRoleId: currentRoleId, newRoleId: selectedNewRoleId });
                       }
                     }}
-                    disabled={!selectedNewRole || changeRoleMutation.isPending}
+                    disabled={!selectedNewRoleId || changeRoleMutation.isPending}
                     className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded disabled:opacity-40"
                   >
                     {changeRoleMutation.isPending ? (
@@ -629,7 +596,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
                     )}
                   </button>
                   <button
-                    onClick={() => { setEditingRole(false); setSelectedNewRole(''); }}
+                    onClick={() => { setEditingRoleId(null); setSelectedNewRoleId(null); }}
                     className="p-1 text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded"
                   >
                     <X className="w-4 h-4" />
@@ -637,9 +604,9 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
                 </div>
               ) : (
                 <>
-                  <span className="text-sm font-medium text-text">{currentRole}</span>
+                  <span className="text-sm font-medium text-text">{currentRoleName}</span>
                   <button
-                    onClick={() => setEditingRole(true)}
+                    onClick={() => setEditingRoleId(currentRoleId)}
                     className="p-1 text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded transition-colors"
                     title="Change role"
                   >
@@ -648,6 +615,22 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
                 </>
               )}
             </div>
+
+            {/* Role-specific attributes */}
+            {caseRole && (
+              <div className="px-3">
+                <RoleAttributesSection
+                  role={caseRole}
+                  attributes={(caseRole.attributes || {}) as Record<string, unknown>}
+                  readOnly={readOnly}
+                  onUpdateAttribute={async () => {
+                    // TODO: Implement attribute updates via updateCaseAssignment
+                    // For now, attributes are read-only
+                  }}
+                />
+              </div>
+            )}
+
             {changeRoleMutation.isError && (
               <p className="text-xs text-red-500 px-3">
                 {(changeRoleMutation.error as Error)?.message || 'Failed to change role'}
