@@ -11,9 +11,7 @@ from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 from datetime import datetime, date, time
 
-from .validation import (
-    DEFAULT_JURISDICTIONS, DEFAULT_EXPERTISE_TYPES, DEFAULT_PERSON_TYPES
-)
+from .validation import DEFAULT_JURISDICTIONS, DEFAULT_EXPERTISE_TYPES
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -1219,27 +1217,32 @@ def seed_expertise_types():
     print(f"Seeded {len(DEFAULT_EXPERTISE_TYPES)} expertise types.")
 
 
-def seed_person_types():
-    """Seed initial person types if the table is empty."""
+def seed_roles():
+    """Seed initial roles if the table is empty.
+
+    Roles are seeded in the migration file, but this ensures they exist
+    for fresh databases initialized via init_db().
+    """
+    from .validation import DEFAULT_ROLES
     with get_cursor() as cur:
-        cur.execute("SELECT COUNT(*) as count FROM person_types")
+        cur.execute("SELECT COUNT(*) as count FROM roles")
         if cur.fetchone()["count"] > 0:
             return  # Already seeded
 
-        for name in DEFAULT_PERSON_TYPES:
+        for role in DEFAULT_ROLES:
             cur.execute("""
-                INSERT INTO person_types (name)
-                VALUES (%s)
+                INSERT INTO roles (name, category, sort_order)
+                VALUES (%s, %s, %s)
                 ON CONFLICT (name) DO NOTHING
-            """, (name,))
-    print(f"Seeded {len(DEFAULT_PERSON_TYPES)} person types.")
+            """, (role["name"], role["category"], role["sort_order"]))
+    print(f"Seeded {len(DEFAULT_ROLES)} roles.")
 
 
 def seed_db():
     """Seed all lookup tables and dev users (if in dev environment)."""
     seed_jurisdictions()
     seed_expertise_types()
-    seed_person_types()
+    seed_roles()
     print("Database seeded with lookup data.")
 
     # Seed dev users if in a verified dev environment

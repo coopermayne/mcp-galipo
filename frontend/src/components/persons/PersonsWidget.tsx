@@ -4,19 +4,18 @@
  * Renders PersonsComponent with config from the panel.
  */
 import { PersonsComponent } from './PersonsComponent';
-import type { PersonsWidgetConfig, WidgetConfig } from '../../types/panel-layout';
+import type { PersonsWidgetConfig, PersonsGroupMode } from '../../types/panel-layout';
 
 interface PersonsWidgetProps {
   config: PersonsWidgetConfig;
-  onConfigChange: (updates: Partial<WidgetConfig>) => void;
+  onConfigChange: (updates: Partial<PersonsWidgetConfig>) => void;
 }
 
 export function PersonsWidget({ config, onConfigChange }: PersonsWidgetProps) {
   return (
     <PersonsComponent
       groupBy={config.groupBy}
-      onGroupByChange={(groupBy) => onConfigChange({ groupBy })}
-      typeFilter={config.typeFilter}
+      onGroupByChange={(groupBy) => onConfigChange({ groupBy: groupBy as PersonsGroupMode })}
       searchQuery={config.searchQuery}
       showUnassigned={config.showUnassigned}
     />

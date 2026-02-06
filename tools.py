@@ -14,6 +14,67 @@ from database import ValidationError
 
 
 # =============================================================================
+# Type Definitions
+# =============================================================================
+
+CaseStatus = Literal[
+    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
+    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
+    "Settl. Pend.", "Stayed", "Closed"
+]
+
+TaskStatus = Literal[
+    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+]
+
+ActivityType = Literal[
+    "Meeting", "Filing", "Research", "Drafting", "Document Review",
+    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+]
+
+PersonSide = Literal["plaintiff", "defendant", "neutral"]
+Urgency = Literal[1, 2, 3, 4]
+SearchEntity = Literal["cases", "tasks", "events", "persons"]
+
+
+# =============================================================================
+# Reference Data
+# =============================================================================
+
+CASE_STATUS_LIST = [
+    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
+    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
+    "Settl. Pend.", "Stayed", "Closed"
+]
+
+TASK_STATUS_LIST = [
+    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+]
+
+ACTIVITY_TYPE_LIST = [
+    "Meeting", "Filing", "Research", "Drafting", "Document Review",
+    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+]
+
+PERSON_SIDE_LIST = ["plaintiff", "defendant", "neutral"]
+
+# Role categories for the unified roles system
+ROLE_CATEGORIES = ["client", "internal_team", "opposing_team", "third_party"]
+
+# Common roles (use list_roles() for the full list from the database)
+COMMON_ROLES = [
+    # client category
+    "Client",
+    # internal_team category
+    "Lead Attorney", "Co-Counsel", "Paralegal", "Case Manager",
+    # opposing_team category
+    "Defendant", "Defense Counsel", "Defense Paralegal", "Defense Expert",
+    # third_party category
+    "Plaintiff Expert", "Mediator", "Witness", "Lien Holder", "Court Reporter", "Interpreter"
+]
+
+
+# =============================================================================
 # Error Helpers
 # =============================================================================
 
@@ -82,11 +143,11 @@ def check_empty_required_field(value, field_name: str):
     return None
 
 
-def judge_role_on_case_error(role: str) -> dict:
+def judge_role_error() -> dict:
     return validation_error(
-        f"Cannot assign '{role}' directly to a case",
-        hint="Judges are assigned to proceedings, not cases.",
-        suggestion="Use add_proceeding() then add_proceeding_judge()"
+        "Judges cannot be assigned via person_roles",
+        hint="Judges are standalone entities assigned to proceedings.",
+        suggestion="Use create_judge() then add_judge_to_proceeding()"
     )
 
 
@@ -160,19 +221,16 @@ def register_tools(mcp):
             "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
             "Settl. Pend.", "Stayed", "Closed"
 
-        persons[].role (common values - determines case assignment):
-            "Client", "Defendant", "Opposing Counsel", "Defense Counsel", "Co-Counsel",
-            "Judge", "Magistrate Judge", "Plaintiff Expert", "Defense Expert",
-            "Mediator", "Witness", "Lien Holder", "Interpreter", "Court Reporter"
-            Note: Judges are linked to proceedings, not cases directly.
+        persons[].role (determines case assignment - looked up from roles table):
+            Client category: "Client"
+            Internal team: "Lead Attorney", "Co-Counsel", "Paralegal", "Case Manager"
+            Opposing team: "Defendant", "Defense Counsel", "Defense Paralegal", "Defense Expert"
+            Third party: "Plaintiff Expert", "Mediator", "Witness", "Lien Holder",
+                         "Court Reporter", "Interpreter", "Process Server"
+            Note: Judges are standalone entities - NOT assigned via persons[].role.
+                  Pass judges in proceedings[].judges instead.
 
-        persons[].side (auto-inferred from role if omitted):
-            "plaintiff", "defendant", "neutral"
-
-        persons[].person_type (auto-inferred from role if omitted):
-            "client", "attorney", "judge", "expert", "mediator", "defendant",
-            "witness", "lien_holder", "interpreter", "court_reporter",
-            "process_server", "investigator", "insurance_adjuster", "guardian"
+        persons[].attributes (JSONB - varies by role):
 
         persons[].phones (array of contact objects):
             [{"value": "555-123-4567", "label": "Mobile", "primary": true}]
@@ -182,9 +240,8 @@ def register_tools(mcp):
             [{"value": "jane@firm.com", "label": "Work", "primary": true}]
             Shortcut: Use "email": "jane@firm.com" for a single primary email.
 
-        persons[].attributes (JSONB - varies by person type):
+        persons[].attributes (JSONB - stored on person_roles, varies by role):
             Attorneys: {"bar_number": "123456"}
-            Judges: {"department": "5", "courtroom": "302", "initials": "JW"}
             Experts: {"specialties": ["Biomechanics"], "hourly_rate": 500}
             Mediators: {"style": "evaluative", "half_day_rate": 2500}
             Clients: {"date_of_birth": "1980-01-01", "preferred_language": "Spanish"}
@@ -240,7 +297,6 @@ def register_tools(mcp):
                 {
                     "name": "John Smith" (REQUIRED),
                     "role": "Client",
-                    "side": "plaintiff",
                     "is_primary": true,
                     "phones": [{"value": "555-123-4567", "label": "Cell", "primary": true}],
                     "emails": [{"value": "john@example.com", "label": "Personal", "primary": true}],
@@ -249,17 +305,8 @@ def register_tools(mcp):
                     "case_notes": "Prefers email contact"
                 },
                 {
-                    "name": "Hon. Jane Wilson",
-                    "role": "Judge",
-                    "attributes": {"department": "5", "courtroom": "302"}
-                },
-                {
-                    "name": "Mag. Robert Chen",
-                    "role": "Magistrate Judge"
-                },
-                {
                     "name": "Bob Attorney",
-                    "role": "Opposing Counsel",
+                    "role": "Defense Counsel",
                     "organization": "Smith & Associates LLP",
                     "phones": [{"value": "555-987-6543", "label": "Office", "primary": true}],
                     "emails": [{"value": "battorney@smithlaw.com", "label": "Work", "primary": true}],

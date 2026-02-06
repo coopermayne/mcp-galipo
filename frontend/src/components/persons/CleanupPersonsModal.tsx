@@ -204,9 +204,11 @@ function PersonCleanupRow({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text truncate">{person.name}</span>
           <span className="text-xs text-text-muted">#{person.id}</span>
-          <span className="px-1.5 py-0.5 text-[10px] rounded bg-bg-hover text-text-secondary capitalize">
-            {person.person_type}
-          </span>
+          {person.roles?.[0] && (
+            <span className="px-1.5 py-0.5 text-[10px] rounded bg-bg-hover text-text-secondary">
+              {person.roles[0].role.name}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3 text-xs text-text-muted">
           {person.organization && <span>{person.organization}</span>}

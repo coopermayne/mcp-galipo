@@ -1,7 +1,8 @@
 """
 Person/contact API routes.
 
-Handles person CRUD and case-person assignment operations.
+Handles person CRUD and person_roles assignment operations.
+Uses the unified roles schema: persons + person_roles + roles.
 """
 
 import asyncio
@@ -20,13 +21,14 @@ def register_person_routes(mcp):
         if err := auth.require_auth(request):
             return err
         name = request.query_params.get("name")
-        person_type = request.query_params.get("type")
+        role_id = request.query_params.get("role_id")
+        category = request.query_params.get("category")
         organization = request.query_params.get("organization")
         email = request.query_params.get("email")
         phone = request.query_params.get("phone")
         case_id = request.query_params.get("case_id")
         unassigned = request.query_params.get("unassigned", "false").lower() == "true"
-        include_cases = request.query_params.get("include_cases", "false").lower() == "true"
+        include_roles = request.query_params.get("include_roles", "false").lower() == "true"
         user_id = request.query_params.get("user_id")
         limit = int(request.query_params.get("limit", 50))
         offset = int(request.query_params.get("offset", 0))
@@ -34,13 +36,14 @@ def register_person_routes(mcp):
         result = await asyncio.to_thread(
             db.search_persons,
             name=name,
-            person_type=person_type,
+            role_id=int(role_id) if role_id else None,
+            category=category,
             organization=organization,
             email=email,
             phone=phone,
             case_id=int(case_id) if case_id else None,
             unassigned=unassigned,
-            include_cases=include_cases,
+            include_roles=include_roles,
             user_id=int(user_id) if user_id else None,
             limit=limit,
             offset=offset
@@ -56,13 +59,11 @@ def register_person_routes(mcp):
         try:
             result = await asyncio.to_thread(
                 db.create_person,
-                person_type=data["person_type"],
                 name=data["name"],
                 phones=data.get("phones"),
                 emails=data.get("emails"),
                 address=data.get("address"),
                 organization=data.get("organization"),
-                attributes=data.get("attributes"),
                 notes=data.get("notes")
             )
             return JSONResponse({"success": True, "person": result})
@@ -142,12 +143,10 @@ def register_person_routes(mcp):
                 db.update_person,
                 person_id,
                 name=data.get("name"),
-                person_type=data.get("person_type"),
                 phones=data.get("phones"),
                 emails=data.get("emails"),
                 address=data.get("address"),
                 organization=data.get("organization"),
-                attributes=data.get("attributes"),
                 notes=data.get("notes")
             )
             if not result:
@@ -172,23 +171,38 @@ def register_person_routes(mcp):
             return JSONResponse({"success": True, "action": "deleted"})
         return api_error("Person not found", "NOT_FOUND", 404)
 
-    # Case-Person assignment routes
+    @mcp.custom_route("/api/v1/persons/{person_id}/archive", methods=["POST"])
+    async def api_archive_person(request):
+        """Archive (soft delete) a person."""
+        if err := auth.require_auth(request):
+            return err
+        person_id = int(request.path_params["person_id"])
+        result = await asyncio.to_thread(db.archive_person, person_id)
+        if not result:
+            return api_error("Person not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "person": result})
+
+    # Case-Person role assignment routes
     @mcp.custom_route("/api/v1/cases/{case_id}/persons", methods=["GET"])
     async def api_list_case_persons(request):
         """List persons assigned to a case."""
         if err := auth.require_auth(request):
             return err
         case_id = int(request.path_params["case_id"])
-        person_type = request.query_params.get("type")
-        role = request.query_params.get("role")
-        side = request.query_params.get("side")
+        role_id = request.query_params.get("role_id")
+        category = request.query_params.get("category")
 
-        persons = await asyncio.to_thread(db.get_case_persons, case_id, person_type, role, side)
+        persons = await asyncio.to_thread(
+            db.get_case_persons,
+            case_id,
+            role_id=int(role_id) if role_id else None,
+            category=category
+        )
         return JSONResponse({"success": True, "persons": persons, "total": len(persons)})
 
     @mcp.custom_route("/api/v1/cases/{case_id}/persons", methods=["POST"])
     async def api_assign_person_to_case(request):
-        """Assign a person to a case."""
+        """Assign a person to a case with a role."""
         if err := auth.require_auth(request):
             return err
         case_id = int(request.path_params["case_id"])
@@ -199,10 +213,9 @@ def register_person_routes(mcp):
                 db.assign_person_to_case,
                 case_id=case_id,
                 person_id=data["person_id"],
-                role=data["role"],
-                side=data.get("side"),
-                case_attributes=data.get("case_attributes"),
-                case_notes=data.get("case_notes"),
+                role_id=data["role_id"],
+                attributes=data.get("attributes"),
+                notes=data.get("notes"),
                 is_primary=data.get("is_primary", False),
                 grouped_under_id=data.get("grouped_under_id"),
                 assigned_date=data.get("assigned_date")
@@ -211,24 +224,20 @@ def register_person_routes(mcp):
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
-    @mcp.custom_route("/api/v1/cases/{case_id}/persons/{person_id}", methods=["PUT"])
+    @mcp.custom_route("/api/v1/cases/{case_id}/person-roles/{assignment_id}", methods=["PUT"])
     async def api_update_case_assignment(request):
-        """Update a case-person assignment."""
+        """Update a case-person role assignment."""
         if err := auth.require_auth(request):
             return err
-        case_id = int(request.path_params["case_id"])
-        person_id = int(request.path_params["person_id"])
+        assignment_id = int(request.path_params["assignment_id"])
         data = await request.json()
 
         try:
             result = await asyncio.to_thread(
                 db.update_case_assignment,
-                case_id=case_id,
-                person_id=person_id,
-                role=data["role"],
-                side=data.get("side"),
-                case_attributes=data.get("case_attributes"),
-                case_notes=data.get("case_notes"),
+                assignment_id=assignment_id,
+                attributes=data.get("attributes"),
+                notes=data.get("notes"),
                 is_primary=data.get("is_primary"),
                 grouped_under_id=data.get("grouped_under_id"),
                 assigned_date=data.get("assigned_date")
@@ -248,18 +257,18 @@ def register_person_routes(mcp):
         person_id = int(request.path_params["person_id"])
         data = await request.json()
 
-        old_role = data.get("old_role")
-        new_role = data.get("new_role")
-        if not old_role or not new_role:
-            return api_error("old_role and new_role are required", "VALIDATION_ERROR", 400)
+        old_role_id = data.get("old_role_id")
+        new_role_id = data.get("new_role_id")
+        if not old_role_id or not new_role_id:
+            return api_error("old_role_id and new_role_id are required", "VALIDATION_ERROR", 400)
 
         try:
             result = await asyncio.to_thread(
-                db.change_person_role,
+                db.change_person_role_on_case,
                 case_id=case_id,
                 person_id=person_id,
-                old_role=old_role,
-                new_role=new_role,
+                old_role_id=int(old_role_id),
+                new_role_id=int(new_role_id),
             )
             if not result:
                 return api_error("Assignment not found", "NOT_FOUND", 404)
@@ -274,9 +283,14 @@ def register_person_routes(mcp):
             return err
         case_id = int(request.path_params["case_id"])
         person_id = int(request.path_params["person_id"])
-        role = request.query_params.get("role")
+        role_id = request.query_params.get("role_id")
 
-        removed = await asyncio.to_thread(db.remove_person_from_case, case_id, person_id, role)
+        removed = await asyncio.to_thread(
+            db.remove_person_from_case,
+            case_id,
+            person_id,
+            role_id=int(role_id) if role_id else None
+        )
         if removed:
             return JSONResponse({"success": True})
         return api_error("Assignment not found", "NOT_FOUND", 404)

@@ -1,5 +1,8 @@
 """
-Expertise types and person types functions.
+Expertise types functions.
+
+Note: Person types have been replaced by the unified roles system.
+Use db/roles.py for role management.
 """
 
 from typing import Optional, List
@@ -65,80 +68,3 @@ def delete_expertise_type(expertise_type_id: int) -> bool:
     with get_cursor() as cur:
         cur.execute("DELETE FROM expertise_types WHERE id = %s", (expertise_type_id,))
         return cur.rowcount > 0
-
-
-# ===== PERSON TYPE OPERATIONS =====
-
-def get_person_types() -> List[dict]:
-    """Get all person types."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, description FROM person_types ORDER BY name")
-        return [dict(row) for row in cur.fetchall()]
-
-
-def create_person_type(name: str, description: str = None) -> dict:
-    """Create a new person type."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO person_types (name, description)
-            VALUES (%s, %s)
-            RETURNING id, name, description
-        """, (name, description))
-        return dict(cur.fetchone())
-
-
-def get_person_type_by_id(person_type_id: int) -> Optional[dict]:
-    """Get a person type by ID."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, description FROM person_types WHERE id = %s", (person_type_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def update_person_type(person_type_id: int, name: str = None, description: str = None) -> Optional[dict]:
-    """Update a person type."""
-    updates = []
-    params = []
-    if name is not None:
-        updates.append("name = %s")
-        params.append(name)
-    if description is not None:
-        updates.append("description = %s")
-        params.append(description)
-
-    if not updates:
-        return get_person_type_by_id(person_type_id)
-
-    params.append(person_type_id)
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE person_types SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, name, description
-        """, params)
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def delete_person_type(person_type_id: int) -> bool:
-    """Delete a person type."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM person_types WHERE id = %s", (person_type_id,))
-        return cur.rowcount > 0
-
-
-def count_persons_by_type(person_type: str) -> int:
-    """Count how many persons have a given type."""
-    with get_cursor() as cur:
-        cur.execute("SELECT COUNT(*) as count FROM persons WHERE person_type = %s", (person_type,))
-        return cur.fetchone()["count"]
-
-
-def update_persons_type_name(old_name: str, new_name: str) -> int:
-    """Update all persons with old_name to new_name. Returns count updated."""
-    with get_cursor() as cur:
-        cur.execute(
-            "UPDATE persons SET person_type = %s WHERE person_type = %s",
-            (new_name, old_name)
-        )
-        return cur.rowcount

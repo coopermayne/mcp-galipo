@@ -1,29 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, Building2, Phone, X } from 'lucide-react';
-import { getPersons } from '../../api';
-import { getRoleCategoryColorClasses } from '../../config/colors';
-import type { Person, RoleCategory } from '../../types';
+import { Search, Plus, Building2, X } from 'lucide-react';
+import { searchJudges } from '../../api';
+import type { Judge } from '../../types';
 
-interface PersonAutocompleteProps {
-  roleCategory?: RoleCategory;           // Filter by role category
-  excludePersonIds?: number[];           // Already assigned to case
-  onSelectPerson: (person: Person) => void;
+interface JudgeAutocompleteProps {
+  excludeJudgeIds?: number[];            // Already assigned to proceeding
+  onSelectJudge: (judge: Judge) => void;
   onCreateNew: (name: string) => void;
   onCancel?: () => void;                 // Called when user cancels (Escape or X button)
   placeholder?: string;
   autoFocus?: boolean;
 }
 
-export function PersonAutocomplete({
-  roleCategory,
-  excludePersonIds = [],
-  onSelectPerson,
+export function JudgeAutocomplete({
+  excludeJudgeIds = [],
+  onSelectJudge,
   onCreateNew,
   onCancel,
-  placeholder = 'Search...',
+  placeholder = 'Search judges...',
   autoFocus = false,
-}: PersonAutocompleteProps) {
+}: JudgeAutocompleteProps) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -39,34 +36,18 @@ export function PersonAutocomplete({
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Query persons when we have a search term
-  // Fetch more results since we'll filter by category client-side
+  // Query judges when we have a search term
   const { data, isLoading } = useQuery({
-    queryKey: ['persons-autocomplete', debouncedSearch],
-    queryFn: () => getPersons({
-      name: debouncedSearch || undefined,
-      include_roles: true,
-      limit: roleCategory ? 50 : 10,  // Fetch more if filtering by category
-    }),
+    queryKey: ['judges-autocomplete', debouncedSearch],
+    queryFn: () => searchJudges({ name: debouncedSearch || undefined }),
     enabled: debouncedSearch.length >= 1,
     staleTime: 30000,
   });
 
-  // Filter results:
-  // 1. Exclude already assigned persons
-  // 2. If roleCategory provided, only show persons with a role in that category
-  const results = (data?.persons || []).filter(person => {
-    // Exclude already assigned persons
-    if (excludePersonIds.includes(person.id)) return false;
-
-    // If filtering by category, only show persons who have a role in that category
-    if (roleCategory) {
-      const hasMatchingRole = person.roles?.some(r => r.role.category === roleCategory);
-      if (!hasMatchingRole) return false;
-    }
-
-    return true;
-  }).slice(0, 10);  // Limit to 10 results for display
+  // Filter results to exclude already assigned judges
+  const results = (data?.judges || []).filter(judge => {
+    return !excludeJudgeIds.includes(judge.id);
+  });
 
   // Total items includes results + "create new" option
   const showCreateOption = search.trim().length > 0;
@@ -98,7 +79,7 @@ export function PersonAutocomplete({
       case 'Enter':
         e.preventDefault();
         if (highlightedIndex < results.length) {
-          onSelectPerson(results[highlightedIndex]);
+          onSelectJudge(results[highlightedIndex]);
           setSearch('');
           setIsOpen(false);
         } else if (showCreateOption) {
@@ -116,7 +97,7 @@ export function PersonAutocomplete({
         }
         break;
     }
-  }, [isOpen, highlightedIndex, results, totalItems, showCreateOption, search, onSelectPerson, onCreateNew, onCancel]);
+  }, [isOpen, highlightedIndex, results, totalItems, showCreateOption, search, onSelectJudge, onCreateNew, onCancel]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -140,17 +121,6 @@ export function PersonAutocomplete({
       inputRef.current.focus();
     }
   }, [autoFocus]);
-
-  // Get primary phone for display
-  const getPrimaryPhone = (person: Person) => {
-    const primary = person.phones?.find(p => p.primary);
-    return primary?.value || person.phones?.[0]?.value;
-  };
-
-  // Get primary role for display
-  const getPrimaryRole = (person: Person) => {
-    return person.roles?.[0]?.role;
-  };
 
   return (
     <div className="relative">
@@ -201,51 +171,45 @@ export function PersonAutocomplete({
           )}
 
           {/* Results */}
-          {results.map((person, index) => {
-            const primaryRole = getPrimaryRole(person);
-            return (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => {
-                  onSelectPerson(person);
-                  setSearch('');
-                  setIsOpen(false);
-                }}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                className={`w-full px-3 py-2 text-left text-xs flex items-start gap-2 ${
-                  highlightedIndex === index
-                    ? 'bg-primary-50 dark:bg-primary-900/30'
-                    : 'hover:bg-bg-hover'
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-text truncate">
-                    {person.name}
-                  </div>
-                  <div className="flex items-center gap-2 text-text-secondary">
-                    {person.organization && (
-                      <span className="flex items-center gap-1 truncate">
-                        <Building2 className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{person.organization}</span>
-                      </span>
-                    )}
-                    {getPrimaryPhone(person) && (
-                      <span className="flex items-center gap-1 shrink-0">
-                        <Phone className="w-3 h-3" />
-                        {getPrimaryPhone(person)}
-                      </span>
-                    )}
-                  </div>
+          {results.map((judge, index) => (
+            <button
+              key={judge.id}
+              type="button"
+              onClick={() => {
+                onSelectJudge(judge);
+                setSearch('');
+                setIsOpen(false);
+              }}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              className={`w-full px-3 py-2 text-left text-xs flex items-start gap-2 ${
+                highlightedIndex === index
+                  ? 'bg-primary-50 dark:bg-primary-900/30'
+                  : 'hover:bg-bg-hover'
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-text truncate">
+                  {judge.name}
                 </div>
-                {primaryRole && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${getRoleCategoryColorClasses(primaryRole.category)}`}>
-                    {primaryRole.name}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                <div className="flex items-center gap-2 text-text-secondary">
+                  {judge.jurisdiction_name && (
+                    <span className="flex items-center gap-1 truncate">
+                      <Building2 className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{judge.jurisdiction_name}</span>
+                    </span>
+                  )}
+                  {judge.chambers && (
+                    <span className="truncate">{judge.chambers}</span>
+                  )}
+                </div>
+              </div>
+              {judge.status && (
+                <span className="text-[10px] text-text-muted bg-bg-hover px-1.5 py-0.5 rounded shrink-0">
+                  {judge.status}
+                </span>
+              )}
+            </button>
+          ))}
 
           {/* Create new option */}
           {showCreateOption && (

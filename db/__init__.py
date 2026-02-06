@@ -14,19 +14,16 @@ from .validation import (
     CASE_STATUSES,
     TASK_STATUSES,
     ACTIVITY_TYPES,
-    DEFAULT_PERSON_TYPES,
-    PERSON_SIDES,
+    ROLE_CATEGORIES,
     DEFAULT_EXPERTISE_TYPES,
     DEFAULT_JURISDICTIONS,
-    JUDGE_ROLES,
+    DEFAULT_ROLES,
     validate_case_status,
     validate_task_status,
     validate_urgency,
     validate_date_format,
     validate_time_format,
-    validate_person_type,
-    validate_person_side,
-    validate_case_person_role,
+    validate_role_category,
 )
 
 # Connection and database management
@@ -43,7 +40,7 @@ from .connection import (
     init_db,
     seed_jurisdictions,
     seed_expertise_types,
-    seed_person_types,
+    seed_roles,
     seed_db,
 )
 
@@ -78,6 +75,18 @@ from .cases import (
     get_cases_for_user,
 )
 
+# Role operations (replaces person_types)
+from .roles import (
+    get_roles,
+    get_role_by_id,
+    get_role_by_name,
+    create_role,
+    update_role,
+    delete_role,
+    count_persons_by_role,
+    get_roles_with_counts,
+)
+
 # Person operations
 from .persons import (
     create_person,
@@ -85,14 +94,29 @@ from .persons import (
     update_person,
     search_persons,
     delete_person,
+    archive_person,
     assign_person_to_case,
     update_case_assignment,
-    change_person_role,
+    change_person_role_on_case,
     remove_person_from_case,
     get_case_persons,
     find_duplicate_persons,
     preview_merge,
     merge_persons,
+)
+
+# Judge operations (standalone judge entity)
+from .judges import (
+    get_judges,
+    get_judge_by_id,
+    search_judges,
+    create_judge,
+    update_judge,
+    delete_judge,
+    add_judge_to_proceeding,
+    remove_judge_from_proceeding,
+    get_proceeding_judges,
+    update_proceeding_judge,
 )
 
 # Task operations
@@ -144,20 +168,13 @@ from .notes import (
     get_notes,
 )
 
-# Type operations (expertise types and person types)
+# Type operations (expertise types only - person types replaced by roles)
 from .types import (
     get_expertise_types,
     create_expertise_type,
     get_expertise_type_by_id,
     update_expertise_type,
     delete_expertise_type,
-    get_person_types,
-    create_person_type,
-    get_person_type_by_id,
-    update_person_type,
-    delete_person_type,
-    count_persons_by_type,
-    update_persons_type_name,
 )
 
 # Proceeding operations
@@ -171,11 +188,6 @@ from .proceedings import (
     get_proceeding_by_courtlistener_docket_id,
     get_proceeding_by_pacer_case_id,
     find_proceeding_for_webhook,
-    # Proceeding judges
-    add_judge_to_proceeding,
-    remove_judge_from_proceeding,
-    get_judges,
-    update_proceeding_judge,
 )
 
 # Webhook operations
@@ -229,19 +241,16 @@ __all__ = [
     "CASE_STATUSES",
     "TASK_STATUSES",
     "ACTIVITY_TYPES",
-    "DEFAULT_PERSON_TYPES",
-    "PERSON_SIDES",
+    "ROLE_CATEGORIES",
     "DEFAULT_EXPERTISE_TYPES",
     "DEFAULT_JURISDICTIONS",
-    "JUDGE_ROLES",
+    "DEFAULT_ROLES",
     "validate_case_status",
     "validate_task_status",
     "validate_urgency",
     "validate_date_format",
     "validate_time_format",
-    "validate_person_type",
-    "validate_person_side",
-    "validate_case_person_role",
+    "validate_role_category",
     # Connection
     "DATABASE_URL",
     "_NOT_PROVIDED",
@@ -255,7 +264,7 @@ __all__ = [
     "init_db",
     "seed_jurisdictions",
     "seed_expertise_types",
-    "seed_person_types",
+    "seed_roles",
     "seed_db",
     # Jurisdictions
     "get_jurisdictions",
@@ -282,20 +291,41 @@ __all__ = [
     "assign_paralegal_to_case",
     "remove_paralegal_from_case",
     "get_cases_for_user",
+    # Roles
+    "get_roles",
+    "get_role_by_id",
+    "get_role_by_name",
+    "create_role",
+    "update_role",
+    "delete_role",
+    "count_persons_by_role",
+    "get_roles_with_counts",
     # Persons
     "create_person",
     "get_person_by_id",
     "update_person",
     "search_persons",
     "delete_person",
+    "archive_person",
     "assign_person_to_case",
     "update_case_assignment",
-    "change_person_role",
+    "change_person_role_on_case",
     "remove_person_from_case",
     "get_case_persons",
     "find_duplicate_persons",
     "preview_merge",
     "merge_persons",
+    # Judges
+    "get_judges",
+    "get_judge_by_id",
+    "search_judges",
+    "create_judge",
+    "update_judge",
+    "delete_judge",
+    "add_judge_to_proceeding",
+    "remove_judge_from_proceeding",
+    "get_proceeding_judges",
+    "update_proceeding_judge",
     # Tasks
     "add_task",
     "get_tasks",
@@ -333,19 +363,12 @@ __all__ = [
     "update_note",
     "delete_note",
     "get_notes",
-    # Types
+    # Types (expertise types only)
     "get_expertise_types",
     "create_expertise_type",
     "get_expertise_type_by_id",
     "update_expertise_type",
     "delete_expertise_type",
-    "get_person_types",
-    "create_person_type",
-    "get_person_type_by_id",
-    "update_person_type",
-    "delete_person_type",
-    "count_persons_by_type",
-    "update_persons_type_name",
     # Proceedings
     "add_proceeding",
     "get_proceedings",
@@ -356,11 +379,6 @@ __all__ = [
     "get_proceeding_by_courtlistener_docket_id",
     "get_proceeding_by_pacer_case_id",
     "find_proceeding_for_webhook",
-    # Proceeding judges
-    "add_judge_to_proceeding",
-    "remove_judge_from_proceeding",
-    "get_judges",
-    "update_proceeding_judge",
     # Webhooks
     "create_webhook_log",
     "get_webhook_log_by_id",

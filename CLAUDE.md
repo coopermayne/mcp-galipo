@@ -190,8 +190,9 @@ const colorClasses = getBadgeColorClassesById(userId);
 - Prevents color drift between similar components
 
 ### Database
-- **JSONB columns** for flexible data (e.g., `persons.attributes` stores type-specific fields like hourly_rate, bar_number)
-- **case_persons** junction table links persons to cases with role (Client, Defendant, Judge, etc.) and side (Plaintiff, Defendant, Neutral)
+- **JSONB columns** for flexible data (e.g., `person_roles.attributes` stores role-specific fields like hourly_rate, bar_number)
+- **Unified roles system**: `roles` table defines role types (Client, Defense Counsel, Expert Witness, etc.) with categories (client, internal_team, opposing_team, third_party). `person_roles` junction table links persons to roles, optionally scoped to a case
+- **Standalone judges**: `judges` table is separate from persons, linked to proceedings via `proceeding_judges`
 - **tasks.order_index** for drag-and-drop ordering; `db/tasks.py` has `reorder_task()` logic
 
 ## Dockerfile - IMPORTANT
@@ -421,12 +422,3 @@ Project MCP servers are configured in `.mcp.json`:
 
 **Note:** Only use the `sequential-thinking` MCP when explicitly requested by the user (e.g., "use sequential thinking to work through this"). Do not use it automatically.
 
----
-
-## Future Plans
-
-### Person Schema Simplification
-
-> **TODO**: Implement unified roles schema — see `docs/UNIFIED_ROLES_SCHEMA_PLAN.md` for full plan.
-
-**Summary:** Replace `person_type` + `case_persons` with a single `person_roles` table backed by a managed `roles` lookup table. Role drives the UI, not a separate type field.

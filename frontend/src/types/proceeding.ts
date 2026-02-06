@@ -1,10 +1,12 @@
 // Proceeding types - court filings within a case
 
 export interface ProceedingJudge {
-  person_id: number;
+  judge_id: number;
   name: string;
   role: string;  // 'Judge', 'Presiding', 'Panel', 'Magistrate Judge'
   sort_order: number;
+  initials?: string;
+  chambers?: string;
 }
 
 export interface Proceeding {
@@ -17,11 +19,8 @@ export interface Proceeding {
   // CourtListener integration
   courtlistener_docket_id?: number;
   pacer_case_id?: string;
-  // Multi-judge support
+  // Multi-judge support (from judges table)
   judges: ProceedingJudge[];
-  // Backwards compatibility - first judge
-  judge_id?: number;
-  judge_name?: string;
   sort_order: number;
   is_primary: boolean;
   notes?: string;
@@ -48,7 +47,7 @@ export interface UpdateProceedingInput {
 }
 
 export interface AddProceedingJudgeInput {
-  person_id: number;
+  judge_id: number;
   role?: string;
   sort_order?: number;
 }

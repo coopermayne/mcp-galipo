@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { PersonAutocomplete } from './PersonAutocomplete';
-import type { Person, PersonType } from '../../types';
+import { formatRoleName } from '../../utils';
+import type { Person, RoleCategory } from '../../types';
 
 interface AddPersonDropdownProps {
   roleOptions: string[];
   onAssign: (person: Person, role: string) => void;
   onCreate: (name: string, role: string) => void;
   excludePersonIds?: number[];
-  getPersonTypes?: (role: string) => PersonType[] | undefined;
+  getRoleCategory?: (role: string) => RoleCategory | undefined;
   getPlaceholder?: (role: string) => string;
   /** Compact mode shows smaller button inline */
   compact?: boolean;
@@ -21,7 +22,7 @@ export function AddPersonDropdown({
   onAssign,
   onCreate,
   excludePersonIds = [],
-  getPersonTypes,
+  getRoleCategory,
   getPlaceholder,
   compact = false,
   label,
@@ -83,7 +84,7 @@ export function AddPersonDropdown({
     }
   };
 
-  const personTypes = selectedRole && getPersonTypes ? getPersonTypes(selectedRole) : undefined;
+  const roleCategory = selectedRole && getRoleCategory ? getRoleCategory(selectedRole) : undefined;
   const placeholder = selectedRole && getPlaceholder ? getPlaceholder(selectedRole) : 'Search or create new...';
 
   return (
@@ -120,7 +121,7 @@ export function AddPersonDropdown({
                 onClick={() => handleRoleSelect(opt)}
                 className="w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-bg-hover"
               >
-                {opt}
+                {formatRoleName(opt)}
               </button>
             ))}
           </div>
@@ -145,7 +146,7 @@ export function AddPersonDropdown({
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <h3 className="text-lg font-semibold text-text">
-                  Add {selectedRole}
+                  Add {selectedRole ? formatRoleName(selectedRole) : ''}
                 </h3>
                 <button
                   onClick={handleClose}
@@ -161,7 +162,7 @@ export function AddPersonDropdown({
                   Search for an existing person or create a new one.
                 </p>
                 <PersonAutocomplete
-                  personTypes={personTypes}
+                  roleCategory={roleCategory}
                   excludePersonIds={excludePersonIds}
                   onSelectPerson={handleAssign}
                   onCreateNew={handleCreate}

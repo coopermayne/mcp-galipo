@@ -33,6 +33,7 @@ import { ChartWidget } from '../widgets/ChartWidget';
 import { CasesWidget } from '../cases/CasesWidget';
 import { PersonsWidget } from '../persons/PersonsWidget';
 import { ClientsWidget } from '../persons/ClientsWidget';
+import { JudgesWidget } from '../judges/JudgesWidget';
 import type {
   WidgetType,
   WidgetConfig,
@@ -41,6 +42,7 @@ import type {
   CasesWidgetConfig,
   PersonsWidgetConfig,
   ClientsWidgetConfig,
+  JudgesWidgetConfig,
   ChartWidgetConfig,
   TasksGroupMode,
   EventsGroupMode,
@@ -78,7 +80,7 @@ const CASES_GROUP_OPTIONS: { value: CasesGroupMode; label: string; icon: React.R
 ];
 
 const PERSONS_GROUP_OPTIONS: { value: PersonsGroupMode; label: string; icon: React.ReactNode }[] = [
-  { value: 'type', label: 'Type', icon: <Users className="w-3.5 h-3.5" /> },
+  { value: 'category', label: 'Category', icon: <Users className="w-3.5 h-3.5" /> },
   { value: 'alpha', label: 'A-Z', icon: <SortAsc className="w-3.5 h-3.5" /> },
   { value: 'recent', label: 'Recent', icon: <Clock className="w-3.5 h-3.5" /> },
 ];
@@ -176,6 +178,8 @@ export function PanelContainer({
       if (clientsConfig.caseOwnerFilter === 'mine') parts.push('My Cases');
       else parts.push('All Cases');
       return parts.join(' · ');
+    } else if (config.type === 'judges') {
+      return 'All Judges';
     } else if (config.type === 'chart') {
       const chartConfig = config as ChartWidgetConfig;
       return chartConfig.caseOwnerFilter === 'mine' ? 'My Cases' : 'All Cases';
@@ -731,6 +735,16 @@ export function PanelContainer({
       );
     }
 
+    if (config.type === 'judges') {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-bg-hover/30 text-text-muted">
+            <span className="text-xs">Showing all judges alphabetically</span>
+          </div>
+        </div>
+      );
+    }
+
     if (config.type === 'chart') {
       const chartConfig = config as ChartWidgetConfig;
       return (
@@ -788,6 +802,8 @@ export function PanelContainer({
         return <PersonsWidget config={config as PersonsWidgetConfig} onConfigChange={onConfigChange} />;
       case 'clients':
         return <ClientsWidget config={config as ClientsWidgetConfig} onConfigChange={onConfigChange} />;
+      case 'judges':
+        return <JudgesWidget config={config as JudgesWidgetConfig} onConfigChange={onConfigChange} />;
       case 'chart':
         return <ChartWidget config={config as ChartWidgetConfig} />;
       default:
