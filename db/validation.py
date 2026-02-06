@@ -48,29 +48,33 @@ DEFAULT_JURISDICTIONS = [
     {"name": "San Bernardino Superior", "local_rules_link": None},
 ]
 
-# Default roles for the unified roles system (seeded in migration)
+# Default roles for the unified roles system (must match migration 013)
 DEFAULT_ROLES = [
-    # Client category
-    {"name": "Client", "category": "client", "sort_order": 1},
-    # Internal Team
-    {"name": "Lead Attorney", "category": "internal_team", "sort_order": 1},
-    {"name": "Associate Attorney", "category": "internal_team", "sort_order": 2},
-    {"name": "Paralegal", "category": "internal_team", "sort_order": 3},
-    {"name": "Case Manager", "category": "internal_team", "sort_order": 4},
-    {"name": "Legal Assistant", "category": "internal_team", "sort_order": 5},
-    # Opposing Team
-    {"name": "Defense Counsel", "category": "opposing_team", "sort_order": 1},
-    {"name": "Defendant", "category": "opposing_team", "sort_order": 2},
-    {"name": "Defense Expert", "category": "opposing_team", "sort_order": 3},
-    # Third Party
-    {"name": "Plaintiff Expert", "category": "third_party", "sort_order": 1},
-    {"name": "Medical Provider", "category": "third_party", "sort_order": 2},
-    {"name": "Witness", "category": "third_party", "sort_order": 3},
-    {"name": "Insurance Adjuster", "category": "third_party", "sort_order": 4},
-    {"name": "Court Reporter", "category": "third_party", "sort_order": 5},
-    {"name": "Process Server", "category": "third_party", "sort_order": 6},
-    {"name": "Mediator", "category": "third_party", "sort_order": 7},
-    {"name": "Arbitrator", "category": "third_party", "sort_order": 8},
+    # Category: client
+    {"name": "plaintiff", "category": "client", "sort_order": 1},
+    {"name": "contact", "category": "client", "sort_order": 2},
+    {"name": "guardian_ad_litem", "category": "client", "sort_order": 3},
+    {"name": "decedent", "category": "client", "sort_order": 4},
+    # Category: counsel
+    {"name": "co_counsel", "category": "counsel", "sort_order": 1},
+    {"name": "referring_attorney", "category": "counsel", "sort_order": 2},
+    {"name": "opposing_counsel", "category": "counsel", "sort_order": 3},
+    {"name": "criminal_defense_attorney", "category": "counsel", "sort_order": 4},
+    {"name": "prosecutor", "category": "counsel", "sort_order": 5},
+    {"name": "public_defender", "category": "counsel", "sort_order": 6},
+    # Category: defendant
+    {"name": "municipality_defendant", "category": "defendant", "sort_order": 1},
+    {"name": "individual_defendant", "category": "defendant", "sort_order": 2},
+    # Category: expert
+    {"name": "plaintiff_expert", "category": "expert", "sort_order": 1},
+    {"name": "defense_expert", "category": "expert", "sort_order": 2},
+    # Category: mediator
+    {"name": "mediator", "category": "mediator", "sort_order": 1},
+    # Category: other
+    {"name": "lien_holder", "category": "other", "sort_order": 1},
+    {"name": "witness", "category": "other", "sort_order": 2},
+    {"name": "claims_adjuster", "category": "other", "sort_order": 3},
+    {"name": "special_needs_consultant", "category": "other", "sort_order": 4},
 ]
 
 

@@ -11,7 +11,44 @@ import json
 from typing import Optional, List
 
 from .connection import get_cursor, serialize_row, serialize_rows
-from .validation import validate_date_format
+from .validation import validate_date_format, ValidationError
+
+
+def _validate_and_ensure_expertises(cur, role_id: int, attributes: dict) -> dict:
+    """Validate expertise list for expert roles and auto-create missing types.
+
+    For roles with category='expert', ensures attributes.expertises is a list
+    of strings that all exist in the expertise_types table. Missing types are
+    created on the fly.
+    """
+    if not attributes:
+        return attributes
+
+    expertises = attributes.get("expertises")
+    if expertises is None:
+        return attributes
+
+    # Only validate expertises for expert roles
+    cur.execute("SELECT category FROM roles WHERE id = %s", (role_id,))
+    role_row = cur.fetchone()
+    if not role_row or role_row["category"] != "expert":
+        return attributes
+
+    if not isinstance(expertises, list):
+        raise ValidationError("expertises must be a list")
+    if not all(isinstance(e, str) and e.strip() for e in expertises):
+        raise ValidationError("each expertise must be a non-empty string")
+
+    # Auto-create missing expertise types
+    for name in expertises:
+        cur.execute("SELECT id FROM expertise_types WHERE name = %s", (name,))
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO expertise_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
+                (name,)
+            )
+
+    return attributes
 
 
 def create_person(name: str, phones: List[dict] = None, emails: List[dict] = None,
@@ -251,9 +288,12 @@ def assign_person_to_case(case_id: int, person_id: int, role_id: int,
     """Assign a person to a case with a specific role."""
     validate_date_format(assigned_date, "assigned_date")
 
-    attrs_json = json.dumps(attributes) if attributes else '{}'
-
     with get_cursor() as cur:
+        # Validate expertises for expert roles (auto-creates missing types)
+        if attributes:
+            _validate_and_ensure_expertises(cur, role_id, attributes)
+
+        attrs_json = json.dumps(attributes) if attributes else '{}'
         # Check if assignment already exists (partial unique index prevents ON CONFLICT)
         cur.execute("""
             SELECT id FROM person_roles
@@ -307,24 +347,30 @@ def update_case_assignment(assignment_id: int, **kwargs) -> Optional[dict]:
     updates = []
     params = []
 
-    for field, value in kwargs.items():
-        if field not in allowed_fields:
-            continue
-
-        if field == "assigned_date" and value:
-            validate_date_format(value, "assigned_date")
-        elif field == "attributes":
-            value = json.dumps(value) if isinstance(value, dict) else value
-
-        updates.append(f"{field} = %s")
-        params.append(value)
-
-    if not updates:
-        return None
-
-    params.append(assignment_id)
-
     with get_cursor() as cur:
+        # If attributes are being updated, validate expertises for expert roles
+        if "attributes" in kwargs and isinstance(kwargs["attributes"], dict):
+            cur.execute("SELECT role_id FROM person_roles WHERE id = %s", (assignment_id,))
+            pr_row = cur.fetchone()
+            if pr_row:
+                _validate_and_ensure_expertises(cur, pr_row["role_id"], kwargs["attributes"])
+
+        for field, value in kwargs.items():
+            if field not in allowed_fields:
+                continue
+
+            if field == "assigned_date" and value:
+                validate_date_format(value, "assigned_date")
+            elif field == "attributes":
+                value = json.dumps(value) if isinstance(value, dict) else value
+
+            updates.append(f"{field} = %s")
+            params.append(value)
+
+        if not updates:
+            return None
+
+        params.append(assignment_id)
         cur.execute(f"""
             UPDATE person_roles SET {', '.join(updates)}
             WHERE id = %s
