@@ -1,6 +1,10 @@
 import type { Event, CreateEventInput, UpdateEventInput, CaseStaffUser } from '../types';
 import { request } from './common';
 
+export async function getEvent(eventId: number): Promise<{ event: Event }> {
+  return request(`/events/${eventId}`);
+}
+
 export async function getEvents(params?: {
   limit?: number;
   offset?: number;
