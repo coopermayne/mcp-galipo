@@ -116,12 +116,15 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         for row in cur.fetchall():
             row_dict = dict(row)
             case_id = row_dict.pop("case_id")
-            # Nest role as an object (matching db/persons.py pattern)
-            row_dict["role"] = {
-                "id": row_dict.pop("role_id"),
-                "name": row_dict.pop("role_name"),
-                "category": row_dict.pop("role_category"),
-            }
+            # Flatten role info, drop all FK IDs
+            row_dict["role"] = row_dict.pop("role_name")
+            row_dict["role_category"] = row_dict.pop("role_category")
+            row_dict.pop("role_id")
+            row_dict.pop("grouped_under_id")
+            row_dict.pop("assignment_id")
+            # Rename person_id to just name context (keep for identification)
+            row_dict["name"] = row_dict.pop("name")
+            row_dict.pop("person_id")
             persons_by_case[case_id].append(serialize_row(row_dict))
 
         # 3. Batch fetch all tasks for all cases (with linked event details + assignee)
@@ -145,10 +148,9 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         for row in cur.fetchall():
             row_dict = dict(row)
             case_id = row_dict.pop("case_id")
-            # Nest linked event details if present
+            # Nest linked event details if present, drop raw event_id
             if row_dict.get("event_id"):
                 row_dict["linked_event"] = {
-                    "id": row_dict["event_id"],
                     "date": serialize_value(row_dict.pop("linked_event_date")),
                     "time": serialize_value(row_dict.pop("linked_event_time")),
                     "description": row_dict.pop("linked_event_description"),
@@ -159,10 +161,10 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 row_dict.pop("linked_event_time", None)
                 row_dict.pop("linked_event_description", None)
                 row_dict.pop("linked_event_location", None)
-            # Nest assignee details if present
+            row_dict.pop("event_id")
+            # Nest assignee details if present, drop raw assignee_id
             if row_dict.get("assignee_id"):
                 row_dict["assignee"] = {
-                    "id": row_dict["assignee_id"],
                     "first_name": row_dict.pop("assignee_first_name"),
                     "last_name": row_dict.pop("assignee_last_name"),
                     "initials": row_dict.pop("assignee_initials"),
@@ -171,6 +173,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 row_dict.pop("assignee_first_name", None)
                 row_dict.pop("assignee_last_name", None)
                 row_dict.pop("assignee_initials", None)
+            row_dict.pop("assignee_id")
             tasks_by_case[case_id].append(serialize_row(row_dict))
 
         # 4. Batch fetch all events for all cases
@@ -185,9 +188,9 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         for row in cur.fetchall():
             row_dict = dict(row)
             case_id = row_dict.pop("case_id")
-            # Collect user IDs from attendees
+            # Collect user IDs from attendees (resolved to objects later)
             all_user_ids.update(row_dict.get("attendee_ids") or [])
-            events_by_case[case_id].append(serialize_row(row_dict))
+            events_by_case[case_id].append(row_dict)
 
         # 5. Batch fetch all notes for all cases
         cur.execute("""
@@ -233,6 +236,13 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             row_dict = dict(row)
             case_id = row_dict.pop("case_id")
             all_proceeding_ids.append(row_dict["id"])
+            # Nest jurisdiction as object, drop raw jurisdiction_id
+            row_dict["jurisdiction"] = {
+                "name": row_dict.pop("jurisdiction_name"),
+                "local_rules_link": row_dict.pop("local_rules_link"),
+                "notes": row_dict.pop("jurisdiction_notes"),
+            }
+            row_dict.pop("jurisdiction_id")
             proceedings_by_case[case_id].append(row_dict)
 
         # 8. Batch fetch all judges for all proceedings (new proceeding_judges schema)
@@ -250,15 +260,12 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             for row in cur.fetchall():
                 pid = row["proceeding_id"]
                 judges_by_proceeding[pid].append(serialize_row({
-                    "judge_id": row["judge_id"],
                     "name": row["judge_name"],
                     "initials": row["judge_initials"],
                     "role": row["role"],
-                    "sort_order": row["sort_order"],
-                    "created_at": row["created_at"]
                 }))
 
-        # 9. Batch fetch users referenced by attorney_ids/paralegal_ids/assignee_ids
+        # 9. Batch fetch users referenced by attorney_ids/paralegal_ids/attendee_ids
         users_by_id = {}
         if all_user_ids:
             cur.execute("""
@@ -267,7 +274,9 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 WHERE id = ANY(%s)
             """, (list(all_user_ids),))
             for row in cur.fetchall():
-                users_by_id[row["id"]] = serialize_row(dict(row))
+                user = dict(row)
+                uid = user.pop("id")
+                users_by_id[uid] = serialize_row(user)
 
         # Assemble the results
         result = []
@@ -275,7 +284,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             case_id = case_row["id"]
             case_data = serialize_row(case_row)
 
-            # Resolve attorney_ids and paralegal_ids to user objects
+            # Resolve attorney_ids/paralegal_ids to full user objects, drop raw ID arrays
             case_data["attorneys"] = [
                 users_by_id[uid] for uid in (case_data.get("attorney_ids") or [])
                 if uid in users_by_id
@@ -284,10 +293,22 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 users_by_id[uid] for uid in (case_data.get("paralegal_ids") or [])
                 if uid in users_by_id
             ]
+            case_data.pop("attorney_ids", None)
+            case_data.pop("paralegal_ids", None)
 
             case_data["persons"] = persons_by_case.get(case_id, [])
             case_data["tasks"] = tasks_by_case.get(case_id, [])
-            case_data["events"] = events_by_case.get(case_id, [])
+
+            # Resolve attendee_ids on events to full user objects
+            raw_events = events_by_case.get(case_id, [])
+            for evt in raw_events:
+                evt["attendees"] = [
+                    users_by_id[uid] for uid in (evt.get("attendee_ids") or [])
+                    if uid in users_by_id
+                ]
+                evt.pop("attendee_ids", None)
+            case_data["events"] = [serialize_row(e) for e in raw_events]
+
             case_data["notes"] = notes_by_case.get(case_id, [])
             case_data["activities"] = activities_by_case.get(case_id, [])
 
@@ -303,57 +324,13 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
 
 
 def get_complete_export_data() -> dict:
-    """Get full export data including cases and reference data."""
+    """Get fully denormalized export — all IDs resolved to inline data."""
     cases = get_all_cases_with_data()
-
-    with get_cursor() as cur:
-        # Reference data: users (excluding password_hash)
-        cur.execute("""
-            SELECT id, email, first_name, last_name, initials, bar_number,
-                   position, is_admin, is_active, paralegal_id, created_at, updated_at
-            FROM users
-            ORDER BY last_name, first_name
-        """)
-        users = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-        # Reference data: roles
-        cur.execute("""
-            SELECT id, name, category, sort_order, description
-            FROM roles
-            ORDER BY category, sort_order
-        """)
-        roles = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-        # Reference data: jurisdictions
-        cur.execute("""
-            SELECT id, name, local_rules_link, notes, created_at
-            FROM jurisdictions
-            ORDER BY name
-        """)
-        jurisdictions = [serialize_row(dict(row)) for row in cur.fetchall()]
-
-        # Reference data: judges
-        cur.execute("""
-            SELECT j.id, j.name, j.phones, j.emails, j.jurisdiction_id,
-                   j.chambers, j.courtroom_number, j.appointed_by, j.appointed_date,
-                   j.initials, j.status, j.notes, j.created_at, j.updated_at,
-                   jur.name as jurisdiction_name
-            FROM judges j
-            LEFT JOIN jurisdictions jur ON j.jurisdiction_id = jur.id
-            ORDER BY j.name
-        """)
-        judges = [serialize_row(dict(row)) for row in cur.fetchall()]
-
     return {
         "exported_at": datetime.now().isoformat(),
-        "version": "2.0",
+        "version": "2.1",
+        "total_cases": len(cases),
         "cases": cases,
-        "reference_data": {
-            "users": users,
-            "roles": roles,
-            "jurisdictions": jurisdictions,
-            "judges": judges,
-        },
     }
 
 
