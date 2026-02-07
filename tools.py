@@ -548,34 +548,7 @@ def register_tools(mcp):
             elif entity == "event":
                 result = db.get_event_by_id(id)
             elif entity == "task":
-                from db.session import SessionLocal
-                from sqlalchemy import select
-                from models import Task, Case, User
-                with SessionLocal() as session:
-                    stmt = (
-                        select(Task, Case, User)
-                        .join(Case, Task.case_id == Case.id)
-                        .outerjoin(User, Task.assignee_id == User.id)
-                        .where(Task.id == id)
-                    )
-                    row = session.execute(stmt).first()
-                    if row:
-                        task, case, user = row
-                        result = {
-                            "id": task.id, "case_id": task.case_id,
-                            "case_name": case.case_name, "short_name": case.short_name,
-                            "description": task.description,
-                            "due_date": task.due_date.isoformat() if task.due_date else None,
-                            "completion_date": task.completion_date.isoformat() if task.completion_date else None,
-                            "status": task.status, "urgency": task.urgency,
-                            "event_id": task.event_id, "sort_order": task.sort_order,
-                            "assignee_id": task.assignee_id,
-                            "assignee_first_name": user.first_name if user else None,
-                            "assignee_last_name": user.last_name if user else None,
-                            "assignee_initials": user.initials if user else None,
-                        }
-                    else:
-                        result = None
+                result = db.get_task_detail(id)
             elif entity == "proceeding":
                 result = db.get_proceeding_by_id(id)
             else:

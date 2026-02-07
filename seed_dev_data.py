@@ -18,7 +18,6 @@ This will add:
 """
 
 import os
-import json
 from datetime import datetime, timedelta
 import random
 

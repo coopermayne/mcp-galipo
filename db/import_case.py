@@ -8,7 +8,6 @@ Uses the unified roles schema: persons + person_roles + roles.
 Judges are standalone entities linked to proceedings via proceeding_judges.
 """
 
-import json
 import datetime
 from typing import Optional
 

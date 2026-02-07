@@ -7,6 +7,7 @@ Uses the unified roles schema: persons + person_roles + roles.
 
 import asyncio
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 import db
 import auth
 from .common import api_error
@@ -163,8 +164,8 @@ def register_person_routes(mcp):
         person_id = int(request.path_params["person_id"])
         try:
             deleted = await asyncio.to_thread(db.delete_person, person_id)
-        except Exception as e:
-            if "ForeignKeyViolation" in type(e).__name__ or "foreign key" in str(e).lower():
+        except IntegrityError as e:
+            if e.orig is not None and "foreign key" in str(e.orig).lower():
                 return api_error("Person is still referenced by other records", "FK_VIOLATION", 409)
             raise
         if deleted:

@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-const USERNAME = process.env.APP_EMAIL || 'cmayne@galipolaw.com';
-const PASSWORD = process.env.APP_PASSWORD || 'galipo2026';
+const DEV_SKIP_AUTH = process.env.VITE_DEV_SKIP_AUTH === 'true';
 
 test.describe('Authentication', () => {
   test('shows login page when not authenticated', async ({ page }) => {
+    test.skip(DEV_SKIP_AUTH, 'Skipped: DEV_SKIP_AUTH is enabled, no login page shown');
     await page.goto('/');
 
     // Should redirect to login and show the login form
@@ -15,6 +15,7 @@ test.describe('Authentication', () => {
   });
 
   test('shows error with invalid credentials', async ({ page }) => {
+    test.skip(DEV_SKIP_AUTH, 'Skipped: DEV_SKIP_AUTH is enabled, no login page shown');
     await page.goto('/');
 
     await page.locator('#username').fill('wronguser');
@@ -26,6 +27,10 @@ test.describe('Authentication', () => {
   });
 
   test('logs in successfully with valid credentials', async ({ page }) => {
+    test.skip(DEV_SKIP_AUTH, 'Skipped: DEV_SKIP_AUTH is enabled, no login page shown');
+    const USERNAME = process.env.APP_EMAIL || 'cmayne@galipolaw.com';
+    const PASSWORD = process.env.APP_PASSWORD || 'galipo2026';
+
     await page.goto('/');
 
     await page.locator('#username').fill(USERNAME);
@@ -37,5 +42,14 @@ test.describe('Authentication', () => {
 
     // Should show logout button in header (indicates successful auth)
     await expect(page.getByTitle('Sign out')).toBeVisible();
+  });
+
+  test('auto-authenticates in dev skip-auth mode', async ({ page }) => {
+    test.skip(!DEV_SKIP_AUTH, 'Skipped: DEV_SKIP_AUTH is not enabled');
+    await page.goto('/');
+
+    // Should go straight to dashboard without login
+    await expect(page).not.toHaveURL(/login/, { timeout: 10000 });
+    await expect(page.getByRole('link', { name: /^cases$/i })).toBeVisible({ timeout: 5000 });
   });
 });

@@ -405,6 +405,34 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         ]
 
 
+def get_task_detail(task_id: int) -> Optional[dict]:
+    """Get a single task with case and assignee info for the detail view."""
+    with SessionLocal() as session:
+        stmt = (
+            select(Task, Case, User)
+            .join(Case, Task.case_id == Case.id)
+            .outerjoin(User, Task.assignee_id == User.id)
+            .where(Task.id == task_id)
+        )
+        row = session.execute(stmt).first()
+        if not row:
+            return None
+        task, case, user = row
+        return {
+            "id": task.id, "case_id": task.case_id,
+            "case_name": case.case_name, "short_name": case.short_name,
+            "description": task.description,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "completion_date": task.completion_date.isoformat() if task.completion_date else None,
+            "status": task.status, "urgency": task.urgency,
+            "event_id": task.event_id, "sort_order": task.sort_order,
+            "assignee_id": task.assignee_id,
+            "assignee_first_name": user.first_name if user else None,
+            "assignee_last_name": user.last_name if user else None,
+            "assignee_initials": user.initials if user else None,
+        }
+
+
 def reorder_task(task_id: int, new_sort_order: int, new_urgency: str = None) -> Optional[dict]:
     """Reorder a task and optionally change its urgency."""
     if new_urgency is not None:
