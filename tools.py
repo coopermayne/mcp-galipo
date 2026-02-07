@@ -13,24 +13,10 @@ from fastmcp import Context
 import database as db
 from database import ValidationError
 from schemas import (
-    CaseStatus, TaskStatus, ActivityType, PersonSide, Urgency,
+    CaseStatus, TaskStatus, ActivityType, Urgency,
     SearchEntity, JudgeRole, ContactInfo,
-    CASE_STATUS_LIST, TASK_STATUS_LIST, ACTIVITY_TYPE_LIST, PERSON_SIDE_LIST,
+    ACTIVITY_TYPE_LIST,
 )
-
-
-def _get_roles_summary() -> str:
-    """Get current roles grouped by category from the database."""
-    roles = db.get_roles()
-    by_cat = {}
-    for r in roles:
-        by_cat.setdefault(r["category"], []).append(r["name"])
-    return "; ".join(f"{cat}: {', '.join(names)}" for cat, names in sorted(by_cat.items()))
-
-
-def _get_expertise_types_list() -> list[str]:
-    """Get current expertise type names from the database."""
-    return [t["name"] for t in db.get_expertise_types()]
 
 
 # =============================================================================
@@ -71,37 +57,6 @@ def not_found_error(resource: str, hint=None, suggestion=None) -> dict:
         f"{resource} not found", "NOT_FOUND",
         hint=hint, suggestion=suggestion or default_suggestions.get(resource)
     )
-
-
-def invalid_status_error(status: str, status_type: str) -> dict:
-    valid = CASE_STATUS_LIST if status_type == "case" else TASK_STATUS_LIST
-    return validation_error(f"Invalid {status_type} status: '{status}'", valid_values=valid)
-
-
-def invalid_urgency_error(urgency) -> dict:
-    return validation_error(
-        f"Invalid urgency: '{urgency}'",
-        valid_values=["Low", "Medium", "High", "Urgent"],
-        hint="Urgency must be one of: Low, Medium, High, Urgent"
-    )
-
-
-def invalid_date_format_error(value: str, field_name: str) -> dict:
-    return validation_error(f"Invalid {field_name} format: '{value}'", hint="Use YYYY-MM-DD format")
-
-
-def invalid_time_format_error(value: str, field_name: str) -> dict:
-    return validation_error(f"Invalid {field_name} format: '{value}'", hint="Use HH:MM format (24-hour)")
-
-
-def invalid_side_error(side: str) -> dict:
-    return validation_error(f"Invalid side: '{side}'", valid_values=PERSON_SIDE_LIST)
-
-
-def check_empty_required_field(value, field_name: str):
-    if value == "":
-        return validation_error(f"{field_name} cannot be empty")
-    return None
 
 
 def judge_role_error() -> dict:
