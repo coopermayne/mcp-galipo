@@ -4,59 +4,90 @@ Note management functions.
 
 from typing import Optional
 
-from .connection import get_cursor, serialize_row, serialize_rows
+from sqlalchemy import select, func
+
+from .session import SessionLocal
+from models import Note, Case
+
+
+def _note_to_dict(note: Note) -> dict:
+    """Convert a Note ORM instance to a serializable dict."""
+    return {
+        "id": note.id,
+        "case_id": note.case_id,
+        "content": note.content,
+        "created_at": note.created_at.isoformat() if note.created_at else None,
+        "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+    }
+
+
+def _note_with_case_to_dict(note: Note, case: Case) -> dict:
+    """Convert a Note + Case pair to a serializable dict (for get_notes join)."""
+    d = _note_to_dict(note)
+    d["case_name"] = case.case_name if case else None
+    d["short_name"] = case.short_name if case else None
+    return d
 
 
 def add_note(case_id: int, content: str) -> dict:
     """Add a note to a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO notes (case_id, content)
-            VALUES (%s, %s)
-            RETURNING id, case_id, content, created_at, updated_at
-        """, (case_id, content))
-        return serialize_row(dict(cur.fetchone()))
+    with SessionLocal() as session:
+        note = Note(case_id=case_id, content=content)
+        session.add(note)
+        session.flush()
+        session.refresh(note)
+        result = _note_to_dict(note)
+        session.commit()
+        return result
 
 
 def update_note(note_id: int, content: str) -> Optional[dict]:
     """Update a note's content."""
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE notes SET content = %s, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-            RETURNING id, case_id, content, created_at, updated_at
-        """, (content, note_id))
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+    with SessionLocal() as session:
+        note = session.get(Note, note_id)
+        if not note:
+            return None
+
+        note.content = content
+        note.updated_at = func.now()
+        session.flush()
+        session.refresh(note)
+        result = _note_to_dict(note)
+        session.commit()
+        return result
 
 
 def delete_note(note_id: int) -> bool:
     """Delete a note."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM notes WHERE id = %s", (note_id,))
-        return cur.rowcount > 0
+    with SessionLocal() as session:
+        note = session.get(Note, note_id)
+        if not note:
+            return False
+        session.delete(note)
+        session.commit()
+        return True
 
 
 def get_notes(case_id: int = None) -> dict:
     """Get notes, optionally filtered by case."""
-    conditions = []
-    params = []
+    with SessionLocal() as session:
+        # Count
+        count_stmt = select(func.count(Note.id))
+        if case_id:
+            count_stmt = count_stmt.where(Note.case_id == case_id)
+        total = session.scalar(count_stmt)
 
-    if case_id:
-        conditions.append("n.case_id = %s")
-        params.append(case_id)
+        # Notes with case info
+        stmt = (
+            select(Note, Case)
+            .join(Case, Note.case_id == Case.id)
+            .order_by(Note.created_at.desc())
+        )
+        if case_id:
+            stmt = stmt.where(Note.case_id == case_id)
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-    with get_cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) as total FROM notes n {where_clause}", params)
-        total = cur.fetchone()["total"]
-
-        cur.execute(f"""
-            SELECT n.id, n.case_id, c.case_name, c.short_name, n.content, n.created_at, n.updated_at
-            FROM notes n
-            JOIN cases c ON n.case_id = c.id
-            {where_clause}
-            ORDER BY n.created_at DESC
-        """, params)
-        return {"notes": serialize_rows([dict(row) for row in cur.fetchall()]), "total": total}
+        rows = session.execute(stmt).all()
+        return {
+            "notes": [_note_with_case_to_dict(note, case) for note, case in rows],
+            "total": total,
+        }

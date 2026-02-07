@@ -4,73 +4,84 @@ Jurisdiction CRUD operations.
 
 from typing import Optional, List
 
-from .connection import get_cursor
+from sqlalchemy import select
+
+from .session import SessionLocal
+from models import Jurisdiction
+
+
+def _jurisdiction_to_dict(j: Jurisdiction) -> dict:
+    """Convert a Jurisdiction ORM instance to a serializable dict."""
+    return {
+        "id": j.id,
+        "name": j.name,
+        "local_rules_link": j.local_rules_link,
+        "notes": j.notes,
+    }
 
 
 def get_jurisdictions() -> List[dict]:
     """Get all jurisdictions."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, local_rules_link, notes FROM jurisdictions ORDER BY name")
-        return [dict(row) for row in cur.fetchall()]
+    with SessionLocal() as session:
+        stmt = select(Jurisdiction).order_by(Jurisdiction.name)
+        return [_jurisdiction_to_dict(j) for j in session.scalars(stmt).all()]
 
 
 def get_jurisdiction_by_id(jurisdiction_id: int) -> Optional[dict]:
     """Get a jurisdiction by ID."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, local_rules_link, notes FROM jurisdictions WHERE id = %s", (jurisdiction_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
+    with SessionLocal() as session:
+        j = session.get(Jurisdiction, jurisdiction_id)
+        return _jurisdiction_to_dict(j) if j else None
 
 
 def get_jurisdiction_by_name(name: str) -> Optional[dict]:
     """Get a jurisdiction by name."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, local_rules_link, notes FROM jurisdictions WHERE name = %s", (name,))
-        row = cur.fetchone()
-        return dict(row) if row else None
+    with SessionLocal() as session:
+        stmt = select(Jurisdiction).where(Jurisdiction.name == name)
+        j = session.scalars(stmt).first()
+        return _jurisdiction_to_dict(j) if j else None
 
 
 def create_jurisdiction(name: str, local_rules_link: str = None, notes: str = None) -> dict:
     """Create a new jurisdiction."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO jurisdictions (name, local_rules_link, notes)
-            VALUES (%s, %s, %s)
-            RETURNING id, name, local_rules_link, notes
-        """, (name, local_rules_link, notes))
-        return dict(cur.fetchone())
+    with SessionLocal() as session:
+        j = Jurisdiction(name=name, local_rules_link=local_rules_link, notes=notes)
+        session.add(j)
+        session.flush()
+        session.refresh(j)
+        result = _jurisdiction_to_dict(j)
+        session.commit()
+        return result
 
 
-def update_jurisdiction(jurisdiction_id: int, name: str = None, local_rules_link: str = None, notes: str = None) -> Optional[dict]:
+def update_jurisdiction(jurisdiction_id: int, name: str = None,
+                        local_rules_link: str = None, notes: str = None) -> Optional[dict]:
     """Update a jurisdiction."""
-    updates = []
-    params = []
-    if name is not None:
-        updates.append("name = %s")
-        params.append(name)
-    if local_rules_link is not None:
-        updates.append("local_rules_link = %s")
-        params.append(local_rules_link)
-    if notes is not None:
-        updates.append("notes = %s")
-        params.append(notes)
+    with SessionLocal() as session:
+        j = session.get(Jurisdiction, jurisdiction_id)
+        if not j:
+            return None
 
-    if not updates:
-        return get_jurisdiction_by_id(jurisdiction_id)
+        if name is not None:
+            j.name = name
+        if local_rules_link is not None:
+            j.local_rules_link = local_rules_link
+        if notes is not None:
+            j.notes = notes
 
-    params.append(jurisdiction_id)
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE jurisdictions SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, name, local_rules_link, notes
-        """, params)
-        row = cur.fetchone()
-        return dict(row) if row else None
+        session.flush()
+        session.refresh(j)
+        result = _jurisdiction_to_dict(j)
+        session.commit()
+        return result
 
 
 def delete_jurisdiction(jurisdiction_id: int) -> bool:
-    """Delete a jurisdiction. Will fail if cases are still referencing it."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM jurisdictions WHERE id = %s", (jurisdiction_id,))
-        return cur.rowcount > 0
+    """Delete a jurisdiction. Will fail if proceedings are still referencing it."""
+    with SessionLocal() as session:
+        j = session.get(Jurisdiction, jurisdiction_id)
+        if not j:
+            return False
+        session.delete(j)
+        session.commit()
+        return True
