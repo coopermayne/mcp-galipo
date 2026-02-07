@@ -24,6 +24,26 @@ URGENCY_REVERSE = {v: k for k, v in URGENCY_MAP.items()}
 
 def upgrade() -> None:
     """Convert urgency from integer (1-4) to varchar (Low/Medium/High/Urgent)."""
+    conn = op.get_bind()
+
+    # Check if column is already varchar (production may have been migrated
+    # by the old SQL migration before Alembic was introduced)
+    result = conn.execute(sa.text(
+        "SELECT data_type FROM information_schema.columns "
+        "WHERE table_name = 'tasks' AND column_name = 'urgency'"
+    ))
+    row = result.fetchone()
+    if row and row[0] == 'character varying':
+        # Already converted — just ensure the CHECK constraint exists
+        conn.execute(sa.text(
+            "ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_urgency_check"
+        ))
+        op.create_check_constraint(
+            'tasks_urgency_check', 'tasks',
+            "urgency IN ('Low', 'Medium', 'High', 'Urgent')"
+        )
+        return
+
     # 0. Drop existing integer CHECK constraint if present
     op.execute("ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_urgency_check")
 
@@ -31,7 +51,6 @@ def upgrade() -> None:
     op.add_column('tasks', sa.Column('urgency_new', sa.String(20)))
 
     # 2. Map integer values to string labels
-    conn = op.get_bind()
     for int_val, str_val in URGENCY_MAP.items():
         conn.execute(
             sa.text("UPDATE tasks SET urgency_new = :str_val WHERE urgency = :int_val"),
