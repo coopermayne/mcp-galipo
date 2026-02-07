@@ -1,9 +1,14 @@
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { useEntityModalContext } from '../../context/EntityModalContext';
 
 interface NoteContentProps {
   content: string;
   caseId: number;
+}
+
+function urlTransform(url: string): string {
+  if (url.startsWith('person:')) return url;
+  return defaultUrlTransform(url);
 }
 
 export function NoteContent({ content, caseId }: NoteContentProps) {
@@ -12,6 +17,7 @@ export function NoteContent({ content, caseId }: NoteContentProps) {
   return (
     <>
       <ReactMarkdown
+        urlTransform={urlTransform}
         components={{
           a: ({ href, children }) => {
             // Check if this is a person mention link
