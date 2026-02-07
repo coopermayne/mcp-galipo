@@ -118,6 +118,7 @@ from .judges import (
 from .tasks import (
     add_task,
     get_tasks,
+    get_task_detail,
     update_task,
     update_task_full,
     delete_task,
@@ -319,6 +320,7 @@ __all__ = [
     # Tasks
     "add_task",
     "get_tasks",
+    "get_task_detail",
     "update_task",
     "update_task_full",
     "delete_task",

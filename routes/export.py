@@ -18,6 +18,7 @@ import auth
 from db.session import SessionLocal
 from services.pdf_generator import generate_case_list_pdf
 from services.docx_generator import generate_case_list_docx
+from routes.common import api_error
 
 logger = logging.getLogger(__name__)
 
@@ -362,11 +363,7 @@ def register_export_routes(mcp):
             try:
                 pdf_buf = await asyncio.to_thread(generate_case_list_pdf, cases)
             except Exception as e:
-                return Response(
-                    content=json.dumps({"error": {"message": f"PDF generation failed: {e}", "code": "EXPORT_ERROR"}}),
-                    status_code=500,
-                    media_type="application/json",
-                )
+                return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
             filename = f"galipo_cases_{timestamp}.pdf"
             return Response(
                 content=pdf_buf.getvalue(),
@@ -385,11 +382,7 @@ def register_export_routes(mcp):
             try:
                 docx_buf = await asyncio.to_thread(generate_case_list_docx, cases, attorney_name=attorney_name)
             except Exception as e:
-                return Response(
-                    content=json.dumps({"error": {"message": f"DOCX generation failed: {e}", "code": "EXPORT_ERROR"}}),
-                    status_code=500,
-                    media_type="application/json",
-                )
+                return api_error(f"DOCX generation failed: {e}", "EXPORT_ERROR", 500)
             filename = f"galipo_cases_{timestamp}.docx"
             return Response(
                 content=docx_buf.getvalue(),
@@ -402,11 +395,7 @@ def register_export_routes(mcp):
             data = await asyncio.to_thread(get_complete_export_data)
         except Exception as e:
             logger.error("JSON export failed:\n%s", traceback.format_exc())
-            return Response(
-                content=json.dumps({"error": {"message": f"Export failed: {e}", "code": "EXPORT_ERROR"}}),
-                status_code=500,
-                media_type="application/json",
-            )
+            return api_error(f"Export failed: {e}", "EXPORT_ERROR", 500)
 
         filename = f"galipo_export_{timestamp}.json"
         data = strip_empty(data)
