@@ -1,35 +1,52 @@
 """
-Case CRUD operations.
+Case CRUD operations — SQLAlchemy ORM implementation.
 """
 
-import json
+import datetime
+from decimal import Decimal
 from typing import Optional, List
+from uuid import UUID
 
-from .connection import get_cursor, serialize_row, serialize_rows
+from sqlalchemy import select, func, literal_column, or_, cast, Integer, ARRAY as SA_ARRAY
+from sqlalchemy.orm import aliased
+
+from .session import SessionLocal
 from .validation import validate_case_status, validate_date_format
+from models import (
+    Case, User, PersonRole, Role, Person, Activity, Event, Task, Note,
+    Proceeding, ProceedingJudge, Judge, Jurisdiction,
+)
 
 
 # Color palette for case chips (10 visually distinct colors)
-# These are color keys that map to Tailwind classes in the frontend
 CASE_COLORS = [
-    "blue",
-    "emerald",
-    "amber",
-    "red",
-    "violet",
-    "pink",
-    "cyan",
-    "orange",
-    "indigo",
-    "teal",
+    "blue", "emerald", "amber", "red", "violet",
+    "pink", "cyan", "orange", "indigo", "teal",
 ]
+
+
+def _sv(val):
+    """Serialize a single value to JSON-safe format."""
+    if val is None:
+        return None
+    if isinstance(val, (datetime.datetime, datetime.date, datetime.time)):
+        return val.isoformat()
+    if isinstance(val, UUID):
+        return str(val)
+    if isinstance(val, Decimal):
+        return float(val)
+    return val
+
+
+def _row_to_dict(row) -> dict:
+    """Convert a SQLAlchemy Row to a JSON-safe dict."""
+    return {k: _sv(v) for k, v in row._mapping.items()}
 
 
 def get_next_case_color() -> str:
     """Get the next color in the rotation based on existing case count."""
-    with get_cursor() as cur:
-        cur.execute("SELECT COUNT(*) as count FROM cases")
-        count = cur.fetchone()["count"]
+    with SessionLocal() as session:
+        count = session.scalar(select(func.count()).select_from(Case))
         return CASE_COLORS[count % len(CASE_COLORS)]
 
 
@@ -37,117 +54,151 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                   offset: int = None, attorney_ids: List[int] = None,
                   unassigned: bool = False) -> dict:
     """Get all cases with optional status filter and attorney filter."""
-    conditions = []
-    params = []
+    with SessionLocal() as session:
+        filters = []
+        if status_filter:
+            validate_case_status(status_filter)
+            filters.append(Case.status == status_filter)
+        if attorney_ids:
+            filters.append(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
+        elif unassigned:
+            filters.append(or_(
+                Case.attorney_ids == None,
+                func.coalesce(func.array_length(Case.attorney_ids, 1), 0) == 0,
+            ))
 
-    if status_filter:
-        validate_case_status(status_filter)
-        conditions.append("c.status = %s")
-        params.append(status_filter)
+        # Count
+        count_stmt = select(func.count()).select_from(Case)
+        if filters:
+            count_stmt = count_stmt.where(*filters)
+        total = session.scalar(count_stmt)
 
-    if attorney_ids:
-        conditions.append("c.attorney_ids && %s::integer[]")
-        params.append(attorney_ids)
-    elif unassigned:
-        conditions.append("(c.attorney_ids IS NULL OR c.attorney_ids = '{}')")
+        # Correlated subqueries via literal_column
+        judge_sq = literal_column("""(
+            SELECT j.name FROM proceedings p
+            JOIN proceeding_judges pj ON p.id = pj.proceeding_id
+            JOIN judges j ON pj.judge_id = j.id
+            WHERE p.case_id = cases.id AND p.is_primary = true
+            ORDER BY pj.sort_order LIMIT 1
+        )""").label("judge")
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        client_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM person_roles pr
+            JOIN roles r ON pr.role_id = r.id
+            WHERE pr.case_id = cases.id AND r.name = 'Client'
+        )""").label("client_count")
 
-    with get_cursor() as cur:
-        # Get total count
-        cur.execute(f"SELECT COUNT(*) as total FROM cases c {where_clause}", params)
-        total = cur.fetchone()["total"]
+        defendant_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM person_roles pr
+            JOIN roles r ON pr.role_id = r.id
+            WHERE pr.case_id = cases.id AND r.name = 'Defendant'
+        )""").label("defendant_count")
 
-        # Build query with joins for counts and assigned judge
-        # Note: Judges are now in the standalone judges table, linked via proceeding_judges
-        query = f"""
-            SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
-                   c.attorney_ids, c.paralegal_ids,
-                   (SELECT j.name FROM proceedings p
-                    JOIN proceeding_judges pj ON p.id = pj.proceeding_id
-                    JOIN judges j ON pj.judge_id = j.id
-                    WHERE p.case_id = c.id AND p.is_primary = true
-                    ORDER BY pj.sort_order LIMIT 1) as judge,
-                   (SELECT COUNT(*) FROM person_roles pr
-                    JOIN roles r ON pr.role_id = r.id
-                    WHERE pr.case_id = c.id AND r.name = 'Client') as client_count,
-                   (SELECT COUNT(*) FROM person_roles pr
-                    JOIN roles r ON pr.role_id = r.id
-                    WHERE pr.case_id = c.id AND r.name = 'Defendant') as defendant_count,
-                   (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
-                   (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id AND e.date >= CURRENT_DATE) as upcoming_event_count
-            FROM cases c
-            {where_clause}
-            ORDER BY c.case_name
-        """
+        pending_task_sq = literal_column("""(
+            SELECT COUNT(*) FROM tasks t
+            WHERE t.case_id = cases.id AND t.status = 'Pending'
+        )""").label("pending_task_count")
 
+        upcoming_event_sq = literal_column("""(
+            SELECT COUNT(*) FROM events e
+            WHERE e.case_id = cases.id AND e.date >= CURRENT_DATE
+        )""").label("upcoming_event_count")
+
+        stmt = (
+            select(
+                Case.id, Case.case_name, Case.short_name, Case.status,
+                Case.print_code, Case.attorney_ids, Case.paralegal_ids,
+                judge_sq, client_count_sq, defendant_count_sq,
+                pending_task_sq, upcoming_event_sq,
+            )
+            .order_by(Case.case_name)
+        )
+        if filters:
+            stmt = stmt.where(*filters)
         if limit:
-            query += f" LIMIT {limit}"
+            stmt = stmt.limit(limit)
         if offset:
-            query += f" OFFSET {offset}"
+            stmt = stmt.offset(offset)
 
-        cur.execute(query, params)
-        cases = [dict(row) for row in cur.fetchall()]
+        rows = session.execute(stmt).fetchall()
+        cases = [_row_to_dict(r) for r in rows]
 
-    return {"cases": cases, "total": total}
+        return {"cases": cases, "total": total}
 
 
 def get_case_by_id(case_id: int) -> Optional[dict]:
     """Get full case details by ID with all related data."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT c.*
-            FROM cases c
-            WHERE c.id = %s
-        """, (case_id,))
-        case = cur.fetchone()
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
         if not case:
             return None
 
-        result = serialize_row(dict(case))
+        result = {
+            "id": case.id,
+            "case_name": case.case_name,
+            "short_name": case.short_name,
+            "status": case.status,
+            "print_code": case.print_code,
+            "case_summary": case.case_summary,
+            "result": case.result,
+            "date_of_injury": _sv(case.date_of_injury),
+            "color": case.color,
+            "attorney_ids": case.attorney_ids,
+            "paralegal_ids": case.paralegal_ids,
+            "created_at": _sv(case.created_at),
+            "updated_at": _sv(case.updated_at),
+        }
 
-        # Expand attorney_ids and paralegal_ids to full user objects
-        attorney_ids = result.get("attorney_ids") or []
-        paralegal_ids = result.get("paralegal_ids") or []
-
+        # Expand attorney_ids to user objects
+        attorney_ids = case.attorney_ids or []
         if attorney_ids:
-            cur.execute("""
-                SELECT id, email, first_name, last_name, initials, position
-                FROM users WHERE id = ANY(%s)
-                ORDER BY last_name, first_name
-            """, (attorney_ids,))
-            result["attorneys"] = serialize_rows(cur.fetchall())
+            att_stmt = (
+                select(User.id, User.email, User.first_name, User.last_name,
+                       User.initials, User.position)
+                .where(User.id.in_(attorney_ids))
+                .order_by(User.last_name, User.first_name)
+            )
+            result["attorneys"] = [_row_to_dict(r) for r in session.execute(att_stmt)]
         else:
             result["attorneys"] = []
 
+        # Expand paralegal_ids to user objects
+        paralegal_ids = case.paralegal_ids or []
         if paralegal_ids:
-            cur.execute("""
-                SELECT id, email, first_name, last_name, initials, position
-                FROM users WHERE id = ANY(%s)
-                ORDER BY last_name, first_name
-            """, (paralegal_ids,))
-            result["paralegals"] = serialize_rows(cur.fetchall())
+            par_stmt = (
+                select(User.id, User.email, User.first_name, User.last_name,
+                       User.initials, User.position)
+                .where(User.id.in_(paralegal_ids))
+                .order_by(User.last_name, User.first_name)
+            )
+            result["paralegals"] = [_row_to_dict(r) for r in session.execute(par_stmt)]
         else:
             result["paralegals"] = []
 
-        # Get persons assigned to this case via person_roles
-        cur.execute("""
-            SELECT p.id, p.name, p.phones, p.emails, p.organization, p.notes as person_notes,
-                   pr.id as assignment_id, pr.role_id, pr.attributes, pr.notes as role_notes,
-                   pr.is_primary, pr.grouped_under_id, pr.assigned_date, pr.created_at as assigned_at,
-                   r.name as role_name, r.category as role_category, r.sort_order as role_sort_order,
-                   via.name as grouped_under_name
-            FROM persons p
-            JOIN person_roles pr ON p.id = pr.person_id
-            JOIN roles r ON pr.role_id = r.id
-            LEFT JOIN persons via ON pr.grouped_under_id = via.id
-            WHERE pr.case_id = %s
-            ORDER BY r.category, r.sort_order, p.name
-        """, (case_id,))
+        # Persons with roles (aliased Person for grouped_under self-join)
+        GroupedUnder = aliased(Person)
+        persons_stmt = (
+            select(
+                Person.id, Person.name, Person.phones, Person.emails,
+                Person.organization, Person.notes.label("person_notes"),
+                PersonRole.id.label("assignment_id"), PersonRole.role_id,
+                PersonRole.attributes, PersonRole.notes.label("role_notes"),
+                PersonRole.is_primary, PersonRole.grouped_under_id,
+                PersonRole.assigned_date, PersonRole.created_at.label("assigned_at"),
+                Role.name.label("role_name"), Role.category.label("role_category"),
+                Role.sort_order.label("role_sort_order"),
+                GroupedUnder.name.label("grouped_under_name"),
+            )
+            .select_from(Person)
+            .join(PersonRole, PersonRole.person_id == Person.id)
+            .join(Role, Role.id == PersonRole.role_id)
+            .outerjoin(GroupedUnder, GroupedUnder.id == PersonRole.grouped_under_id)
+            .where(PersonRole.case_id == case_id)
+            .order_by(Role.category, Role.sort_order, Person.name)
+        )
         persons = []
-        for row in cur.fetchall():
-            person = serialize_row(dict(row))
-            # Nest the role object for frontend compatibility
+        for row in session.execute(persons_stmt):
+            person = _row_to_dict(row)
             person["role"] = {
                 "id": person["role_id"],
                 "name": person.pop("role_name"),
@@ -157,78 +208,89 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             persons.append(person)
         result["persons"] = persons
 
-        # Get activities
-        cur.execute("""
-            SELECT id, date, description, type, minutes
-            FROM activities WHERE case_id = %s ORDER BY date DESC
-        """, (case_id,))
-        result["activities"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        # Activities
+        act_stmt = (
+            select(Activity.id, Activity.date, Activity.description,
+                   Activity.type, Activity.minutes)
+            .where(Activity.case_id == case_id)
+            .order_by(Activity.date.desc())
+        )
+        result["activities"] = [_row_to_dict(r) for r in session.execute(act_stmt)]
 
-        # Get events (calendar events: hearings, depositions, filing deadlines, etc.)
-        cur.execute("""
-            SELECT id, date, time, location, description, document_link, calculation_note, starred
-            FROM events WHERE case_id = %s ORDER BY date
-        """, (case_id,))
-        result["events"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        # Events
+        evt_stmt = (
+            select(Event.id, Event.date, Event.time, Event.location,
+                   Event.description, Event.document_link,
+                   Event.calculation_note, Event.starred)
+            .where(Event.case_id == case_id)
+            .order_by(Event.date)
+        )
+        result["events"] = [_row_to_dict(r) for r in session.execute(evt_stmt)]
 
-        # Get tasks
-        cur.execute("""
-            SELECT t.id, t.due_date, t.completion_date, t.description, t.status, t.urgency, t.event_id, t.sort_order,
-                   e.description as event_description
-            FROM tasks t
-            LEFT JOIN events e ON t.event_id = e.id
-            WHERE t.case_id = %s ORDER BY t.sort_order ASC
-        """, (case_id,))
-        result["tasks"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        # Tasks with event description
+        task_stmt = (
+            select(Task.id, Task.due_date, Task.completion_date, Task.description,
+                   Task.status, Task.urgency, Task.event_id, Task.sort_order,
+                   Event.description.label("event_description"))
+            .outerjoin(Event, Event.id == Task.event_id)
+            .where(Task.case_id == case_id)
+            .order_by(Task.sort_order.asc())
+        )
+        result["tasks"] = [_row_to_dict(r) for r in session.execute(task_stmt)]
 
-        # Get notes
-        cur.execute("""
-            SELECT id, content, created_at, updated_at
-            FROM notes WHERE case_id = %s ORDER BY created_at DESC
-        """, (case_id,))
-        result["notes"] = serialize_rows([dict(row) for row in cur.fetchall()])
+        # Notes
+        note_stmt = (
+            select(Note.id, Note.content, Note.created_at, Note.updated_at)
+            .where(Note.case_id == case_id)
+            .order_by(Note.created_at.desc())
+        )
+        result["notes"] = [_row_to_dict(r) for r in session.execute(note_stmt)]
 
-        # Get proceedings
-        cur.execute("""
-            SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id,
-                   p.sort_order, p.is_primary, p.notes, p.created_at, p.updated_at,
-                   j.name as jurisdiction_name, j.local_rules_link
-            FROM proceedings p
-            LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
-            WHERE p.case_id = %s
-            ORDER BY p.sort_order, p.id
-        """, (case_id,))
-        proceedings = [dict(row) for row in cur.fetchall()]
+        # Proceedings with jurisdiction
+        proc_stmt = (
+            select(
+                Proceeding.id, Proceeding.case_id, Proceeding.case_number,
+                Proceeding.jurisdiction_id, Proceeding.sort_order,
+                Proceeding.is_primary, Proceeding.notes,
+                Proceeding.created_at, Proceeding.updated_at,
+                Jurisdiction.name.label("jurisdiction_name"),
+                Jurisdiction.local_rules_link,
+            )
+            .outerjoin(Jurisdiction, Jurisdiction.id == Proceeding.jurisdiction_id)
+            .where(Proceeding.case_id == case_id)
+            .order_by(Proceeding.sort_order, Proceeding.id)
+        )
+        proceedings = [_row_to_dict(r) for r in session.execute(proc_stmt)]
 
-        # Fetch judges for all proceedings in one query (judges are now standalone)
+        # Judges for all proceedings in one query
         if proceedings:
             proceeding_ids = [p["id"] for p in proceedings]
-            cur.execute("""
-                SELECT pj.proceeding_id, pj.judge_id, pj.role, pj.sort_order,
-                       j.name as judge_name
-                FROM proceeding_judges pj
-                JOIN judges j ON pj.judge_id = j.id
-                WHERE pj.proceeding_id = ANY(%s)
-                ORDER BY pj.sort_order, pj.id
-            """, (proceeding_ids,))
+            judge_stmt = (
+                select(
+                    ProceedingJudge.proceeding_id, ProceedingJudge.judge_id,
+                    ProceedingJudge.role, ProceedingJudge.sort_order,
+                    Judge.name.label("judge_name"),
+                )
+                .join(Judge, Judge.id == ProceedingJudge.judge_id)
+                .where(ProceedingJudge.proceeding_id.in_(proceeding_ids))
+                .order_by(ProceedingJudge.sort_order, ProceedingJudge.id)
+            )
 
-            # Group judges by proceeding_id
             judges_by_proceeding = {}
-            for row in cur.fetchall():
-                pid = row["proceeding_id"]
+            for row in session.execute(judge_stmt):
+                d = dict(row._mapping)
+                pid = d["proceeding_id"]
                 if pid not in judges_by_proceeding:
                     judges_by_proceeding[pid] = []
                 judges_by_proceeding[pid].append({
-                    "judge_id": row["judge_id"],
-                    "name": row["judge_name"],
-                    "role": row["role"],
-                    "sort_order": row["sort_order"]
+                    "judge_id": d["judge_id"],
+                    "name": d["judge_name"],
+                    "role": d["role"],
+                    "sort_order": d["sort_order"],
                 })
 
-            # Attach judges to proceedings
             for p in proceedings:
                 p["judges"] = judges_by_proceeding.get(p["id"], [])
-                # For backwards compatibility, set judge_name from first judge
                 if p["judges"]:
                     p["judge_name"] = p["judges"][0]["name"]
                     p["judge_id"] = p["judges"][0]["judge_id"]
@@ -236,26 +298,28 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
                     p["judge_name"] = None
                     p["judge_id"] = None
 
-        result["proceedings"] = serialize_rows(proceedings)
+        result["proceedings"] = proceedings
 
         return result
 
 
 def get_case_by_name(case_name: str) -> Optional[dict]:
     """Get case by name."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id FROM cases WHERE case_name = %s", (case_name,))
-        case = cur.fetchone()
-        if not case:
+    with SessionLocal() as session:
+        case_id = session.scalar(
+            select(Case.id).where(Case.case_name == case_name)
+        )
+        if not case_id:
             return None
-        return get_case_by_id(case["id"])
+    return get_case_by_id(case_id)
 
 
 def get_all_case_names() -> List[str]:
     """Get list of all case names."""
-    with get_cursor() as cur:
-        cur.execute("SELECT case_name FROM cases ORDER BY case_name")
-        return [row["case_name"] for row in cur.fetchall()]
+    with SessionLocal() as session:
+        return list(session.scalars(
+            select(Case.case_name).order_by(Case.case_name)
+        ).all())
 
 
 def create_case(case_name: str, status: str = "Signing Up",
@@ -265,20 +329,26 @@ def create_case(case_name: str, status: str = "Signing Up",
     validate_case_status(status)
     validate_date_format(date_of_injury, "date_of_injury")
 
-    # Default short_name to first word of case_name
     if short_name is None:
         short_name = case_name.split()[0] if case_name else None
 
-    # Auto-assign color from rotation
     color = get_next_case_color()
 
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO cases (case_name, short_name, status, print_code, case_summary, result, date_of_injury, color)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (case_name, short_name, status, print_code, case_summary, result, date_of_injury, color))
-        case_id = cur.fetchone()["id"]
+    with SessionLocal() as session:
+        case = Case(
+            case_name=case_name,
+            short_name=short_name,
+            status=status,
+            print_code=print_code,
+            case_summary=case_summary,
+            result=result,
+            date_of_injury=date_of_injury,
+            color=color,
+        )
+        session.add(case)
+        session.flush()
+        case_id = case.id
+        session.commit()
 
     return get_case_by_id(case_id)
 
@@ -290,171 +360,191 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         "case_summary", "result", "date_of_injury"
     ]
 
-    updates = []
-    params = []
-
-    for field, value in kwargs.items():
-        if field not in allowed_fields:
-            continue
-        if value is None:
-            continue
-
-        if field == "status":
-            validate_case_status(value)
-        elif field == "date_of_injury":
-            validate_date_format(value, field)
-
-        updates.append(f"{field} = %s")
-        params.append(value)
-
-    if not updates:
-        return get_case_by_id(case_id)
-
-    updates.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(case_id)
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE cases SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id
-        """, params)
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
             return None
+
+        changed = False
+        for field, value in kwargs.items():
+            if field not in allowed_fields:
+                continue
+            if value is None:
+                continue
+
+            if field == "status":
+                validate_case_status(value)
+            elif field == "date_of_injury":
+                validate_date_format(value, field)
+
+            setattr(case, field, value)
+            changed = True
+
+        if changed:
+            case.updated_at = func.now()
+        session.commit()
 
     return get_case_by_id(case_id)
 
 
 def delete_case(case_id: int) -> bool:
     """Delete a case and all related data."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
-        return cur.rowcount > 0
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
+            return False
+        session.delete(case)
+        session.commit()
+        return True
 
 
 def search_cases(query: str = None, case_number: str = None, person_name: str = None,
                  status: str = None, limit: int = 50) -> List[dict]:
     """Search cases by various criteria."""
-    conditions = []
-    params = []
+    with SessionLocal() as session:
+        stmt = select(Case.id, Case.case_name, Case.short_name,
+                      Case.status, Case.case_summary)
 
-    if query:
-        conditions.append("(c.case_name ILIKE %s OR c.case_summary ILIKE %s)")
-        params.extend([f"%{query}%", f"%{query}%"])
+        if query:
+            stmt = stmt.where(or_(
+                Case.case_name.ilike(f"%{query}%"),
+                Case.case_summary.ilike(f"%{query}%"),
+            ))
 
-    if case_number:
-        # Search in proceedings table
-        conditions.append("""
-            EXISTS (
-                SELECT 1 FROM proceedings p
-                WHERE p.case_id = c.id AND p.case_number ILIKE %s
+        if case_number:
+            subq = (
+                select(literal_column("1"))
+                .select_from(Proceeding)
+                .where(
+                    Proceeding.case_id == Case.id,
+                    Proceeding.case_number.ilike(f"%{case_number}%"),
+                )
+                .correlate(Case)
+                .exists()
             )
-        """)
-        params.append(f"%{case_number}%")
+            stmt = stmt.where(subq)
 
-    if person_name:
-        conditions.append("""
-            EXISTS (
-                SELECT 1 FROM person_roles pr
-                JOIN persons p ON pr.person_id = p.id
-                WHERE pr.case_id = c.id AND p.name ILIKE %s
+        if person_name:
+            subq = (
+                select(literal_column("1"))
+                .select_from(PersonRole)
+                .join(Person, Person.id == PersonRole.person_id)
+                .where(
+                    PersonRole.case_id == Case.id,
+                    Person.name.ilike(f"%{person_name}%"),
+                )
+                .correlate(Case)
+                .exists()
             )
-        """)
-        params.append(f"%{person_name}%")
+            stmt = stmt.where(subq)
 
-    if status:
-        validate_case_status(status)
-        conditions.append("c.status = %s")
-        params.append(status)
+        if status:
+            validate_case_status(status)
+            stmt = stmt.where(Case.status == status)
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            SELECT c.id, c.case_name, c.short_name, c.status, c.case_summary
-            FROM cases c
-            {where_clause}
-            ORDER BY c.case_name
-            LIMIT %s
-        """, params + [limit])
-
-        return [dict(row) for row in cur.fetchall()]
+        stmt = stmt.order_by(Case.case_name).limit(limit)
+        return [dict(r._mapping) for r in session.execute(stmt)]
 
 
 def get_case_summary(case_id: int) -> Optional[dict]:
     """Get lightweight case summary with counts instead of full related data."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT c.id, c.case_name, c.short_name, c.status, c.print_code,
-                   c.case_summary, c.date_of_injury, c.result,
-                   c.created_at, c.updated_at,
-                   (SELECT COUNT(*) FROM person_roles pr WHERE pr.case_id = c.id) as person_count,
-                   (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id) as task_count,
-                   (SELECT COUNT(*) FROM tasks t WHERE t.case_id = c.id AND t.status = 'Pending') as pending_task_count,
-                   (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id) as event_count,
-                   (SELECT COUNT(*) FROM events e WHERE e.case_id = c.id AND e.date >= CURRENT_DATE) as upcoming_event_count,
-                   (SELECT COUNT(*) FROM notes n WHERE n.case_id = c.id) as note_count,
-                   (SELECT COUNT(*) FROM proceedings p WHERE p.case_id = c.id) as proceeding_count
-            FROM cases c
-            WHERE c.id = %s
-        """, (case_id,))
-        row = cur.fetchone()
+    with SessionLocal() as session:
+        person_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM person_roles pr WHERE pr.case_id = cases.id
+        )""").label("person_count")
+        task_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM tasks t WHERE t.case_id = cases.id
+        )""").label("task_count")
+        pending_task_sq = literal_column("""(
+            SELECT COUNT(*) FROM tasks t WHERE t.case_id = cases.id AND t.status = 'Pending'
+        )""").label("pending_task_count")
+        event_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM events e WHERE e.case_id = cases.id
+        )""").label("event_count")
+        upcoming_event_sq = literal_column("""(
+            SELECT COUNT(*) FROM events e WHERE e.case_id = cases.id AND e.date >= CURRENT_DATE
+        )""").label("upcoming_event_count")
+        note_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM notes n WHERE n.case_id = cases.id
+        )""").label("note_count")
+        proceeding_count_sq = literal_column("""(
+            SELECT COUNT(*) FROM proceedings p WHERE p.case_id = cases.id
+        )""").label("proceeding_count")
+
+        stmt = (
+            select(
+                Case.id, Case.case_name, Case.short_name, Case.status,
+                Case.print_code, Case.case_summary, Case.date_of_injury,
+                Case.result, Case.created_at, Case.updated_at,
+                person_count_sq, task_count_sq, pending_task_sq,
+                event_count_sq, upcoming_event_sq, note_count_sq,
+                proceeding_count_sq,
+            )
+            .where(Case.id == case_id)
+        )
+
+        row = session.execute(stmt).first()
         if not row:
             return None
-        return serialize_row(dict(row))
+        return _row_to_dict(row)
 
 
 def get_dashboard_stats(attorney_ids: list[int] | None = None) -> dict:
     """Get dashboard statistics, optionally filtered to cases assigned to given attorneys."""
-    with get_cursor() as cur:
-        attorney_filter = ""
-        params: tuple = ()
+    with SessionLocal() as session:
+        case_filters = []
         if attorney_ids:
-            attorney_filter = " WHERE attorney_ids && %s::integer[]"
-            params = (attorney_ids,)
+            case_filters.append(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
 
         # Total cases
-        cur.execute(f"SELECT COUNT(*) as total FROM cases{attorney_filter}", params)
-        total_cases = cur.fetchone()["total"]
+        total_stmt = select(func.count()).select_from(Case)
+        if case_filters:
+            total_stmt = total_stmt.where(*case_filters)
+        total_cases = session.scalar(total_stmt)
 
         # Active cases (not Closed or Settl. Pend.)
-        if attorney_ids:
-            cur.execute("""
-                SELECT COUNT(*) as active FROM cases
-                WHERE status NOT IN ('Closed', 'Settl. Pend.') AND attorney_ids && %s::integer[]
-            """, (attorney_ids,))
-        else:
-            cur.execute("""
-                SELECT COUNT(*) as active FROM cases
-                WHERE status NOT IN ('Closed', 'Settl. Pend.')
-            """)
-        active_cases = cur.fetchone()["active"]
+        active_stmt = (
+            select(func.count()).select_from(Case)
+            .where(Case.status.notin_(["Closed", "Settl. Pend."]))
+        )
+        if case_filters:
+            active_stmt = active_stmt.where(*case_filters)
+        active_cases = session.scalar(active_stmt)
 
         # Pending tasks
-        cur.execute("SELECT COUNT(*) as pending FROM tasks WHERE status = 'Pending'")
-        pending_tasks = cur.fetchone()["pending"]
+        pending_tasks = session.scalar(
+            select(func.count()).select_from(Task)
+            .where(Task.status == "Pending")
+        )
 
         # Upcoming events (next 30 days)
-        cur.execute("""
-            SELECT COUNT(*) as upcoming FROM events
-            WHERE date >= CURRENT_DATE AND date <= CURRENT_DATE + 30
-        """)
-        upcoming_events = cur.fetchone()["upcoming"]
+        upcoming_events = session.scalar(
+            select(func.count()).select_from(Event)
+            .where(
+                Event.date >= func.current_date(),
+                Event.date <= func.current_date() + 30,
+            )
+        )
 
         # Cases by status
-        cur.execute(f"""
-            SELECT status, COUNT(*) as count FROM cases{attorney_filter}
-            GROUP BY status ORDER BY count DESC
-        """, params)
-        cases_by_status = {row["status"]: row["count"] for row in cur.fetchall()}
+        status_stmt = (
+            select(Case.status, func.count().label("count"))
+            .group_by(Case.status)
+            .order_by(func.count().desc())
+        )
+        if case_filters:
+            status_stmt = status_stmt.where(*case_filters)
+        cases_by_status = {
+            row.status: row.count
+            for row in session.execute(status_stmt)
+        }
 
         return {
             "total_cases": total_cases,
             "active_cases": active_cases,
             "pending_tasks": pending_tasks,
             "upcoming_events": upcoming_events,
-            "cases_by_status": cases_by_status
+            "cases_by_status": cases_by_status,
         }
 
 
@@ -464,36 +554,33 @@ def get_dashboard_stats(attorney_ids: list[int] | None = None) -> dict:
 
 def get_case_users(case_id: int) -> dict:
     """Get all staff users (attorneys and paralegals) assigned to a case."""
-    with get_cursor() as cur:
-        # Get case attorney_ids and paralegal_ids
-        cur.execute("""
-            SELECT attorney_ids, paralegal_ids FROM cases WHERE id = %s
-        """, (case_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
             return {"attorneys": [], "paralegals": []}
 
-        attorney_ids = row["attorney_ids"] or []
-        paralegal_ids = row["paralegal_ids"] or []
+        attorney_ids = case.attorney_ids or []
+        paralegal_ids = case.paralegal_ids or []
 
         attorneys = []
-        paralegals = []
-
         if attorney_ids:
-            cur.execute("""
-                SELECT id, email, first_name, last_name, initials, position, paralegal_id
-                FROM users WHERE id = ANY(%s)
-                ORDER BY last_name, first_name
-            """, (attorney_ids,))
-            attorneys = serialize_rows(cur.fetchall())
+            att_stmt = (
+                select(User.id, User.email, User.first_name, User.last_name,
+                       User.initials, User.position, User.paralegal_id)
+                .where(User.id.in_(attorney_ids))
+                .order_by(User.last_name, User.first_name)
+            )
+            attorneys = [_row_to_dict(r) for r in session.execute(att_stmt)]
 
+        paralegals = []
         if paralegal_ids:
-            cur.execute("""
-                SELECT id, email, first_name, last_name, initials, position
-                FROM users WHERE id = ANY(%s)
-                ORDER BY last_name, first_name
-            """, (paralegal_ids,))
-            paralegals = serialize_rows(cur.fetchall())
+            par_stmt = (
+                select(User.id, User.email, User.first_name, User.last_name,
+                       User.initials, User.position)
+                .where(User.id.in_(paralegal_ids))
+                .order_by(User.last_name, User.first_name)
+            )
+            paralegals = [_row_to_dict(r) for r in session.execute(par_stmt)]
 
         return {"attorneys": attorneys, "paralegals": paralegals}
 
@@ -503,128 +590,104 @@ def assign_attorney_to_case(case_id: int, user_id: int) -> dict:
     Assign an attorney to a case. Auto-assigns their default paralegal if set.
     Returns updated case staff and list of auto-assigned paralegal IDs.
     """
-    with get_cursor() as cur:
-        # Get current arrays and attorney's paralegal
-        cur.execute("""
-            SELECT c.attorney_ids, c.paralegal_ids, u.paralegal_id
-            FROM cases c, users u
-            WHERE c.id = %s AND u.id = %s
-        """, (case_id, user_id))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        user = session.get(User, user_id)
+        if not case or not user:
             return {"success": False, "error": "Case or user not found"}
 
-        attorney_ids = list(row["attorney_ids"] or [])
-        paralegal_ids = list(row["paralegal_ids"] or [])
-        attorney_paralegal_id = row["paralegal_id"]
+        attorney_ids = list(case.attorney_ids or [])
+        paralegal_ids = list(case.paralegal_ids or [])
         auto_assigned = []
 
-        # Add attorney if not already assigned
         if user_id not in attorney_ids:
             attorney_ids.append(user_id)
-            cur.execute("""
-                UPDATE cases SET attorney_ids = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (attorney_ids, case_id))
+            case.attorney_ids = attorney_ids
+            case.updated_at = func.now()
 
-        # Auto-assign attorney's paralegal if set and not already on case
-        if attorney_paralegal_id and attorney_paralegal_id not in paralegal_ids:
-            paralegal_ids.append(attorney_paralegal_id)
-            cur.execute("""
-                UPDATE cases SET paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (paralegal_ids, case_id))
-            auto_assigned.append(attorney_paralegal_id)
+        if user.paralegal_id and user.paralegal_id not in paralegal_ids:
+            paralegal_ids.append(user.paralegal_id)
+            case.paralegal_ids = paralegal_ids
+            case.updated_at = func.now()
+            auto_assigned.append(user.paralegal_id)
+
+        session.commit()
 
     return {
         "success": True,
         "case_users": get_case_users(case_id),
-        "auto_assigned_paralegal_ids": auto_assigned
+        "auto_assigned_paralegal_ids": auto_assigned,
     }
 
 
 def remove_attorney_from_case(case_id: int, user_id: int) -> dict:
     """Remove an attorney from a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT attorney_ids FROM cases WHERE id = %s
-        """, (case_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
             return {"success": False, "error": "Case not found"}
 
-        attorney_ids = list(row["attorney_ids"] or [])
+        attorney_ids = list(case.attorney_ids or [])
         if user_id in attorney_ids:
             attorney_ids.remove(user_id)
-            cur.execute("""
-                UPDATE cases SET attorney_ids = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (attorney_ids, case_id))
+            case.attorney_ids = attorney_ids
+            case.updated_at = func.now()
+
+        session.commit()
 
     return {"success": True, "case_users": get_case_users(case_id)}
 
 
 def assign_paralegal_to_case(case_id: int, user_id: int) -> dict:
     """Manually assign a paralegal to a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT paralegal_ids FROM cases WHERE id = %s
-        """, (case_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
             return {"success": False, "error": "Case not found"}
 
-        paralegal_ids = list(row["paralegal_ids"] or [])
+        paralegal_ids = list(case.paralegal_ids or [])
         if user_id not in paralegal_ids:
             paralegal_ids.append(user_id)
-            cur.execute("""
-                UPDATE cases SET paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (paralegal_ids, case_id))
+            case.paralegal_ids = paralegal_ids
+            case.updated_at = func.now()
+
+        session.commit()
 
     return {"success": True, "case_users": get_case_users(case_id)}
 
 
 def remove_paralegal_from_case(case_id: int, user_id: int) -> dict:
     """Remove a paralegal from a case."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT paralegal_ids FROM cases WHERE id = %s
-        """, (case_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
             return {"success": False, "error": "Case not found"}
 
-        paralegal_ids = list(row["paralegal_ids"] or [])
+        paralegal_ids = list(case.paralegal_ids or [])
         if user_id in paralegal_ids:
             paralegal_ids.remove(user_id)
-            cur.execute("""
-                UPDATE cases SET paralegal_ids = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (paralegal_ids, case_id))
+            case.paralegal_ids = paralegal_ids
+            case.updated_at = func.now()
+
+        session.commit()
 
     return {"success": True, "case_users": get_case_users(case_id)}
 
 
 def get_cases_for_user(user_id: int, role: str = None) -> List[dict]:
     """Get all cases where this user is assigned (as attorney or paralegal)."""
-    with get_cursor() as cur:
+    with SessionLocal() as session:
+        stmt = select(Case.id, Case.case_name, Case.short_name, Case.status)
+
         if role == "attorney":
-            cur.execute("""
-                SELECT id, case_name, short_name, status
-                FROM cases WHERE %s = ANY(attorney_ids)
-                ORDER BY case_name
-            """, (user_id,))
+            stmt = stmt.where(Case.attorney_ids.op('@>')(cast([user_id], SA_ARRAY(Integer()))))
         elif role == "paralegal":
-            cur.execute("""
-                SELECT id, case_name, short_name, status
-                FROM cases WHERE %s = ANY(paralegal_ids)
-                ORDER BY case_name
-            """, (user_id,))
+            stmt = stmt.where(Case.paralegal_ids.op('@>')(cast([user_id], SA_ARRAY(Integer()))))
         else:
-            cur.execute("""
-                SELECT id, case_name, short_name, status
-                FROM cases WHERE %s = ANY(attorney_ids) OR %s = ANY(paralegal_ids)
-                ORDER BY case_name
-            """, (user_id, user_id))
-        return serialize_rows(cur.fetchall())
+            stmt = stmt.where(or_(
+                Case.attorney_ids.op('@>')(cast([user_id], SA_ARRAY(Integer()))),
+                Case.paralegal_ids.op('@>')(cast([user_id], SA_ARRAY(Integer()))),
+            ))
+
+        stmt = stmt.order_by(Case.case_name)
+        return [_row_to_dict(r) for r in session.execute(stmt)]
