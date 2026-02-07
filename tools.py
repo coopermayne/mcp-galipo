@@ -36,6 +36,7 @@ ActivityType = Literal[
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
 Urgency = Literal["Low", "Medium", "High", "Urgent"]
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
+JudgeRole = Literal["Judge", "Magistrate Judge", "Presiding", "Panel"]
 
 
 # =============================================================================
@@ -195,13 +196,12 @@ class SearchInput(BaseModel):
     entity: Literal["cases", "persons", "events", "tasks"] = Field(..., description="What to search: cases, persons, events, or tasks")
     query: Optional[str] = Field(None, description="Text search (name, description, case number)")
     case_id: Optional[int] = Field(None, description="Filter to a specific case")
-    status: Optional[str] = Field(None, description="Filter by status")
+    status: Optional[str] = Field(None, description="Filter by status (valid values depend on entity)")
     # Person-specific filters
     role: Optional[str] = Field(None, description="(persons) Filter by role name (requires case_id)")
-    category: Optional[str] = Field(None, description="(persons) Filter by role category: client, counsel, defendant, expert, mediator, other")
     organization: Optional[str] = Field(None, description="(persons) Filter by org/firm")
     # Task-specific filters
-    urgency: Optional[str] = Field(None, description="(tasks) Filter by urgency: Low, Medium, High, Urgent")
+    urgency: Optional[Urgency] = Field(None, description="(tasks) Filter by urgency")
     assignee_id: Optional[int] = Field(None, description="(tasks) Filter by assigned user")
     # Event-specific filters
     include_past: Optional[bool] = Field(False, description="(events) Include past events")
@@ -216,7 +216,7 @@ class ManageCaseInput(BaseModel):
     case_id: Optional[int] = Field(None, description="Required for update/delete")
     case_name: Optional[str] = Field(None, description="Case name (required for create)")
     short_name: Optional[str] = Field(None, description="Short display name")
-    status: Optional[str] = Field(None, description="Case status: Signing Up, Pre-Filing, Discovery, Trial, Closed, etc.")
+    status: Optional[CaseStatus] = Field(None, description="Case status")
     print_code: Optional[str] = Field(None, description="Short code for printing/filing")
     case_summary: Optional[str] = Field(None, description="Case summary text")
     result: Optional[str] = Field(None, description="Case result/outcome")
@@ -276,13 +276,13 @@ class ManageTaskInput(BaseModel):
     description: Optional[str] = Field(None, description="Task description (required for create)")
     due_date: Optional[str] = Field(None, description="Due date YYYY-MM-DD")
     completion_date: Optional[str] = Field(None, description="Completion date YYYY-MM-DD")
-    status: Optional[str] = Field(None, description="Status: Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review")
-    urgency: Optional[str] = Field(None, description="Urgency: Low, Medium, High, Urgent")
+    status: Optional[TaskStatus] = Field(None, description="Task status")
+    urgency: Optional[Urgency] = Field(None, description="Task urgency")
     event_id: Optional[int] = Field(None, description="Link task to an event")
     assignee_id: Optional[int] = Field(None, description="Assign to a user (staff member ID)")
     # For bulk_update
     task_ids: Optional[list[int]] = Field(None, description="(bulk_update) List of task IDs to update")
-    current_status: Optional[str] = Field(None, description="(bulk_update) Only update tasks with this current status")
+    current_status: Optional[TaskStatus] = Field(None, description="(bulk_update) Only update tasks with this current status")
 
 
 class ManageNoteInput(BaseModel):
@@ -304,7 +304,7 @@ class ManageProceedingInput(BaseModel):
     notes: Optional[str] = Field(None, description="Proceeding notes")
     # For add_judge/remove_judge
     judge_id: Optional[int] = Field(None, description="(judge actions) Judge ID")
-    judge_role: Optional[str] = Field(None, description="(add_judge) Role: Judge, Magistrate Judge, Presiding, Panel")
+    judge_role: Optional[JudgeRole] = Field(None, description="(add_judge) Judge's role on this proceeding")
 
 
 class ManageActivityInput(BaseModel):
@@ -313,7 +313,7 @@ class ManageActivityInput(BaseModel):
     activity_id: Optional[int] = Field(None, description="Required for update/delete")
     case_id: Optional[int] = Field(None, description="Required for create")
     description: Optional[str] = Field(None, description="Activity description (required for create)")
-    activity_type: Optional[str] = Field(None, description="Type: Meeting, Filing, Research, Drafting, Document Review, Phone Call, Email, Court Appearance, Deposition, Other")
+    activity_type: Optional[ActivityType] = Field(None, description="Activity type")
     date: Optional[str] = Field(None, description="Activity date YYYY-MM-DD (required for create)")
     minutes: Optional[int] = Field(None, description="Duration in minutes")
 
@@ -568,7 +568,6 @@ def register_tools(mcp):
                     results = db.get_case_persons(
                         case_id=data.case_id,
                         role_id=role_id,
-                        category=data.category,
                     )
                     return {"success": True, "persons": results}
                 # Otherwise, general person search
@@ -580,7 +579,6 @@ def register_tools(mcp):
                 results = db.search_persons(
                     name=data.query,
                     role_id=role_id,
-                    category=data.category,
                     organization=data.organization,
                     case_id=data.case_id,
                     limit=data.limit,
