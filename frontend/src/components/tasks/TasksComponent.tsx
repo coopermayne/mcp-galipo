@@ -12,7 +12,7 @@
  *   <TasksComponent showAllTasks showControls showDetailSheet />
  *   <TasksComponent caseId={123} showControls showDetailSheet />
  */
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, CheckSquare } from 'lucide-react';
@@ -228,6 +228,16 @@ export function TasksComponent({
   });
 
   const allTasks = fetchedData?.tasks || [];
+
+  // Sync selectedTask with latest data after query refetch
+  useEffect(() => {
+    if (selectedTask) {
+      const updated = allTasks.find((t) => t.id === selectedTask.id);
+      if (updated) {
+        setSelectedTask(updated);
+      }
+    }
+  }, [allTasks]);
 
   // Filter tasks by status, search query, and assignee
   const tasks = useMemo(() => {
