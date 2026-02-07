@@ -1,13 +1,21 @@
 """
-User management database operations.
+User management database operations — SQLAlchemy ORM implementation.
 
 Provides CRUD functions for users with bcrypt password hashing.
 """
 
 import bcrypt
 from typing import Optional
-from .connection import get_cursor, serialize_row, serialize_rows, _NOT_PROVIDED
 
+from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
+
+from .session import SessionLocal
+from models import User
+
+
+# Sentinel value to distinguish "not provided" from None
+_NOT_PROVIDED = object()
 
 # Bcrypt cost factor (12 is a good balance of security and performance)
 BCRYPT_COST = 12
@@ -23,97 +31,78 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
+def _build_paralegal_dict(user: User) -> Optional[dict]:
+    """Build the nested paralegal dict from the ORM relationship."""
+    if user.paralegal_id and user.paralegal:
+        return {
+            'id': user.paralegal.id,
+            'first_name': user.paralegal.first_name,
+            'last_name': user.paralegal.last_name,
+            'initials': user.paralegal.initials,
+        }
+    return None
+
+
+def _user_to_dict(user: User, include_password_hash: bool = False) -> dict:
+    """Convert a User ORM object to a plain dict."""
+    result = {
+        'id': user.id,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'initials': user.initials,
+        'bar_number': user.bar_number,
+        'position': user.position,
+        'is_admin': user.is_admin,
+        'must_change_password': user.must_change_password,
+        'is_active': user.is_active,
+        'paralegal_id': user.paralegal_id,
+        'created_at': user.created_at.isoformat() if user.created_at else None,
+        'updated_at': user.updated_at.isoformat() if user.updated_at else None,
+        'paralegal': _build_paralegal_dict(user),
+    }
+    if include_password_hash:
+        result['password_hash'] = user.password_hash
+    return result
+
+
 def get_user_by_id(user_id: int) -> Optional[dict]:
     """Get a user by their ID, including paralegal info if set."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT u.id, u.email, u.first_name, u.last_name, u.initials, u.bar_number,
-                   u.position, u.is_admin, u.must_change_password, u.is_active,
-                   u.paralegal_id, u.created_at, u.updated_at,
-                   p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
-                   p.initials as paralegal_initials
-            FROM users u
-            LEFT JOIN users p ON u.paralegal_id = p.id
-            WHERE u.id = %s
-        """, (user_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        user = session.scalars(
+            select(User)
+            .options(joinedload(User.paralegal))
+            .where(User.id == user_id)
+        ).unique().first()
+        if not user:
             return None
-        result = serialize_row(row)
-        # Build nested paralegal object if exists
-        if result.get('paralegal_id'):
-            result['paralegal'] = {
-                'id': result['paralegal_id'],
-                'first_name': result.pop('paralegal_first_name'),
-                'last_name': result.pop('paralegal_last_name'),
-                'initials': result.pop('paralegal_initials'),
-            }
-        else:
-            result.pop('paralegal_first_name', None)
-            result.pop('paralegal_last_name', None)
-            result.pop('paralegal_initials', None)
-            result['paralegal'] = None
-        return result
+        return _user_to_dict(user)
 
 
 def get_user_by_email(email: str) -> Optional[dict]:
     """Get a user by their email address (includes password_hash for auth)."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, email, password_hash, first_name, last_name, initials,
-                   bar_number, position, is_admin, must_change_password, is_active,
-                   paralegal_id, created_at, updated_at
-            FROM users
-            WHERE email = %s
-        """, (email.lower(),))
-        row = cur.fetchone()
-        return serialize_row(row) if row else None
+    with SessionLocal() as session:
+        user = session.scalars(
+            select(User).where(User.email == email.lower())
+        ).first()
+        if not user:
+            return None
+        return _user_to_dict(user, include_password_hash=True)
 
 
 def get_all_users(include_inactive: bool = False) -> list[dict]:
     """Get all users, optionally including inactive ones."""
-    with get_cursor() as cur:
-        if include_inactive:
-            cur.execute("""
-                SELECT u.id, u.email, u.first_name, u.last_name, u.initials, u.bar_number,
-                       u.position, u.is_admin, u.must_change_password, u.is_active,
-                       u.paralegal_id, u.created_at, u.updated_at,
-                       p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
-                       p.initials as paralegal_initials
-                FROM users u
-                LEFT JOIN users p ON u.paralegal_id = p.id
-                ORDER BY u.last_name, u.first_name
-            """)
-        else:
-            cur.execute("""
-                SELECT u.id, u.email, u.first_name, u.last_name, u.initials, u.bar_number,
-                       u.position, u.is_admin, u.must_change_password, u.is_active,
-                       u.paralegal_id, u.created_at, u.updated_at,
-                       p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
-                       p.initials as paralegal_initials
-                FROM users u
-                LEFT JOIN users p ON u.paralegal_id = p.id
-                WHERE u.is_active = TRUE
-                ORDER BY u.last_name, u.first_name
-            """)
-        rows = cur.fetchall()
-        result = []
-        for row in rows:
-            user = serialize_row(row)
-            if user.get('paralegal_id'):
-                user['paralegal'] = {
-                    'id': user['paralegal_id'],
-                    'first_name': user.pop('paralegal_first_name'),
-                    'last_name': user.pop('paralegal_last_name'),
-                    'initials': user.pop('paralegal_initials'),
-                }
-            else:
-                user.pop('paralegal_first_name', None)
-                user.pop('paralegal_last_name', None)
-                user.pop('paralegal_initials', None)
-                user['paralegal'] = None
-            result.append(user)
-        return result
+    with SessionLocal() as session:
+        stmt = (
+            select(User)
+            .options(joinedload(User.paralegal))
+            .order_by(User.last_name, User.first_name)
+        )
+        if not include_inactive:
+            stmt = stmt.where(User.is_active == True)
+
+        users = session.scalars(stmt).unique().all()
+        return [_user_to_dict(u) for u in users]
 
 
 def create_user(
@@ -128,19 +117,26 @@ def create_user(
     must_change_password: bool = True
 ) -> dict:
     """Create a new user with hashed password."""
-    password_hash = hash_password(password)
+    password_hash_val = hash_password(password)
 
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO users (email, password_hash, first_name, last_name, initials,
-                              bar_number, position, is_admin, must_change_password)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, email, first_name, last_name, initials, bar_number,
-                      position, is_admin, must_change_password, is_active,
-                      created_at, updated_at
-        """, (email.lower(), password_hash, first_name, last_name, initials,
-              bar_number, position, is_admin, must_change_password))
-        return serialize_row(cur.fetchone())
+    with SessionLocal() as session:
+        user = User(
+            email=email.lower(),
+            password_hash=password_hash_val,
+            first_name=first_name,
+            last_name=last_name,
+            initials=initials,
+            position=position,
+            bar_number=bar_number,
+            is_admin=is_admin,
+            must_change_password=must_change_password,
+        )
+        session.add(user)
+        session.flush()
+        session.refresh(user)
+        result = _user_to_dict(user)
+        session.commit()
+        return result
 
 
 def update_user(
@@ -157,78 +153,72 @@ def update_user(
     paralegal_id=_NOT_PROVIDED
 ) -> Optional[dict]:
     """Update a user's profile fields (not password)."""
-    updates = []
-    params = []
-
-    if email is not _NOT_PROVIDED:
-        updates.append("email = %s")
-        params.append(email.lower() if email else email)
-    if first_name is not _NOT_PROVIDED:
-        updates.append("first_name = %s")
-        params.append(first_name)
-    if last_name is not _NOT_PROVIDED:
-        updates.append("last_name = %s")
-        params.append(last_name)
-    if initials is not _NOT_PROVIDED:
-        updates.append("initials = %s")
-        params.append(initials)
-    if position is not _NOT_PROVIDED:
-        updates.append("position = %s")
-        params.append(position)
-    if bar_number is not _NOT_PROVIDED:
-        updates.append("bar_number = %s")
-        params.append(bar_number)
-    if is_admin is not _NOT_PROVIDED:
-        updates.append("is_admin = %s")
-        params.append(is_admin)
-    if must_change_password is not _NOT_PROVIDED:
-        updates.append("must_change_password = %s")
-        params.append(must_change_password)
-    if is_active is not _NOT_PROVIDED:
-        updates.append("is_active = %s")
-        params.append(is_active)
-    if paralegal_id is not _NOT_PROVIDED:
-        updates.append("paralegal_id = %s")
-        params.append(paralegal_id)
-
-    if not updates:
-        return get_user_by_id(user_id)
-
-    updates.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(user_id)
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE users
-            SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id
-        """, params)
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        user = session.scalars(
+            select(User)
+            .options(joinedload(User.paralegal))
+            .where(User.id == user_id)
+        ).unique().first()
+        if not user:
             return None
-    # Re-fetch to include paralegal join
-    return get_user_by_id(user_id)
+
+        changed = False
+        if email is not _NOT_PROVIDED:
+            user.email = email.lower() if email else email
+            changed = True
+        if first_name is not _NOT_PROVIDED:
+            user.first_name = first_name
+            changed = True
+        if last_name is not _NOT_PROVIDED:
+            user.last_name = last_name
+            changed = True
+        if initials is not _NOT_PROVIDED:
+            user.initials = initials
+            changed = True
+        if position is not _NOT_PROVIDED:
+            user.position = position
+            changed = True
+        if bar_number is not _NOT_PROVIDED:
+            user.bar_number = bar_number
+            changed = True
+        if is_admin is not _NOT_PROVIDED:
+            user.is_admin = is_admin
+            changed = True
+        if must_change_password is not _NOT_PROVIDED:
+            user.must_change_password = must_change_password
+            changed = True
+        if is_active is not _NOT_PROVIDED:
+            user.is_active = is_active
+            changed = True
+        if paralegal_id is not _NOT_PROVIDED:
+            user.paralegal_id = paralegal_id
+            changed = True
+
+        if changed:
+            user.updated_at = func.now()
+            session.flush()
+            session.refresh(user)
+
+        result = _user_to_dict(user)
+        session.commit()
+        return result
 
 
 def update_password(user_id: int, new_password: str, clear_must_change: bool = True) -> bool:
     """Update a user's password."""
-    password_hash = hash_password(new_password)
+    password_hash_val = hash_password(new_password)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
+        user = session.get(User, user_id)
+        if not user:
+            return False
+
+        user.password_hash = password_hash_val
         if clear_must_change:
-            cur.execute("""
-                UPDATE users
-                SET password_hash = %s, must_change_password = FALSE, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (password_hash, user_id))
-        else:
-            cur.execute("""
-                UPDATE users
-                SET password_hash = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (password_hash, user_id))
-        return cur.rowcount > 0
+            user.must_change_password = False
+        user.updated_at = func.now()
+        session.commit()
+        return True
 
 
 def delete_user(user_id: int, hard_delete: bool = False) -> bool:
@@ -236,16 +226,18 @@ def delete_user(user_id: int, hard_delete: bool = False) -> bool:
     Delete a user. By default, performs a soft delete (is_active=False).
     Set hard_delete=True to permanently remove the user.
     """
-    with get_cursor() as cur:
+    with SessionLocal() as session:
+        user = session.get(User, user_id)
+        if not user:
+            return False
+
         if hard_delete:
-            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            session.delete(user)
         else:
-            cur.execute("""
-                UPDATE users
-                SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (user_id,))
-        return cur.rowcount > 0
+            user.is_active = False
+            user.updated_at = func.now()
+        session.commit()
+        return True
 
 
 def authenticate_user(email: str, password: str) -> Optional[dict]:
@@ -263,53 +255,56 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
     if not verify_password(password, user['password_hash']):
         return None
 
-    # Remove password_hash before returning
     del user['password_hash']
     return user
 
 
 def get_attorneys() -> list[dict]:
-    """Get all active attorneys with their default paralegal info.
-    Used by MCP to show available attorneys for case assignment."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT u.id, u.first_name, u.last_name, u.initials, u.bar_number,
-                   u.paralegal_id,
-                   p.first_name as paralegal_first_name, p.last_name as paralegal_last_name,
-                   p.initials as paralegal_initials
-            FROM users u
-            LEFT JOIN users p ON u.paralegal_id = p.id
-            WHERE u.position = 'attorney' AND u.is_active = TRUE
-            ORDER BY u.last_name, u.first_name
-        """)
-        rows = cur.fetchall()
-        result = []
-        for row in rows:
-            attorney = serialize_row(row)
-            if attorney.get('paralegal_id'):
-                attorney['paralegal'] = {
-                    'id': attorney['paralegal_id'],
-                    'first_name': attorney.pop('paralegal_first_name'),
-                    'last_name': attorney.pop('paralegal_last_name'),
-                    'initials': attorney.pop('paralegal_initials'),
-                }
-            else:
-                attorney.pop('paralegal_first_name', None)
-                attorney.pop('paralegal_last_name', None)
-                attorney.pop('paralegal_initials', None)
-                attorney['paralegal'] = None
-            result.append(attorney)
-        return result
+    """Get all active attorneys with their default paralegal info."""
+    with SessionLocal() as session:
+        stmt = (
+            select(User)
+            .options(joinedload(User.paralegal))
+            .where(User.position == 'attorney', User.is_active == True)
+            .order_by(User.last_name, User.first_name)
+        )
+        users = session.scalars(stmt).unique().all()
+        return [
+            {
+                'id': u.id,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
+                'initials': u.initials,
+                'bar_number': u.bar_number,
+                'paralegal_id': u.paralegal_id,
+                'paralegal': _build_paralegal_dict(u),
+            }
+            for u in users
+        ]
 
 
 def get_attorneys_for_paralegal(paralegal_id: int) -> list[dict]:
     """Get all attorneys who have this paralegal assigned as their default."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, email, first_name, last_name, initials, bar_number,
-                   position, is_admin, is_active, created_at, updated_at
-            FROM users
-            WHERE paralegal_id = %s AND is_active = TRUE
-            ORDER BY last_name, first_name
-        """, (paralegal_id,))
-        return serialize_rows(cur.fetchall())
+    with SessionLocal() as session:
+        stmt = (
+            select(User)
+            .where(User.paralegal_id == paralegal_id, User.is_active == True)
+            .order_by(User.last_name, User.first_name)
+        )
+        users = session.scalars(stmt).all()
+        return [
+            {
+                'id': u.id,
+                'email': u.email,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
+                'initials': u.initials,
+                'bar_number': u.bar_number,
+                'position': u.position,
+                'is_admin': u.is_admin,
+                'is_active': u.is_active,
+                'created_at': u.created_at.isoformat() if u.created_at else None,
+                'updated_at': u.updated_at.isoformat() if u.updated_at else None,
+            }
+            for u in users
+        ]
