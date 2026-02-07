@@ -78,7 +78,7 @@ def register_task_routes(mcp):
             data = UpdateTaskInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
-        updates = data.model_dump(exclude_none=True)
+        updates = data.model_dump(exclude_unset=True)
         result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
