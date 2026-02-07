@@ -7,33 +7,17 @@ Enable with CHAT_DEBUG=true environment variable (dev only).
 Automatically disabled in production (Railway, cloud DBs, etc).
 """
 
-import os
 import json
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-
-def _is_production() -> bool:
-    """Detect if running in production environment."""
-    # Railway sets this
-    if os.environ.get("RAILWAY_ENVIRONMENT"):
-        return True
-    # Explicit production flag
-    if os.environ.get("ENV", "").lower() == "production":
-        return True
-    # Cloud database URLs (Railway, Supabase, Neon, etc.)
-    db_url = os.environ.get("DATABASE_URL", "")
-    cloud_hosts = ["railway.app", "supabase.co", "neon.tech", "aws.com", "azure.com"]
-    if any(host in db_url for host in cloud_hosts):
-        return True
-    return False
+from config import settings
 
 
 # Configuration - disabled by default, never enabled in production
-_explicit_enable = os.environ.get("CHAT_DEBUG", "").lower() in ("true", "1", "yes")
-DEBUG_ENABLED = _explicit_enable and not _is_production()
+DEBUG_ENABLED = settings.chat_debug and not settings.is_production
 
 LOG_DIR = Path(__file__).parent.parent.parent / "logs" / "chat"
 LOG_FILE = LOG_DIR / "debug.jsonl"

@@ -5,10 +5,7 @@ Uses SQLAlchemy engine (from db/session.py) for all operations.
 The psycopg2 connection pool has been removed — SQLAlchemy is the sole DB layer.
 """
 
-import os
 from .validation import DEFAULT_JURISDICTIONS, DEFAULT_EXPERTISE_TYPES
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # Sentinel value to distinguish "not provided" from "explicitly set to None/null"
 _NOT_PROVIDED = object()

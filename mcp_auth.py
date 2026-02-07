@@ -6,7 +6,6 @@ Uses Dynamic Client Registration (RFC 7591) as required by Claude.
 """
 
 import logging
-import os
 import secrets
 import time
 
@@ -470,13 +469,12 @@ def get_mcp_auth_provider():
 
     Returns None if not configured (server will be authless).
     """
-    password = os.getenv("MCP_AUTH_PASSWORD")
-    base_url = os.getenv("MCP_BASE_URL")
+    from config import settings
 
-    if not password or not base_url:
+    if not settings.mcp_auth_password or not settings.mcp_base_url:
         return None
 
     return PasswordOAuthProvider(
-        base_url=base_url,
-        password=password,
+        base_url=settings.mcp_base_url,
+        password=settings.mcp_auth_password,
     )

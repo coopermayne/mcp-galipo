@@ -190,9 +190,8 @@ def register_chat_routes(mcp):
     @mcp.custom_route("/api/v1/chat/info", methods=["GET"])
     async def api_chat_info(request):
         """Return chat configuration info (model name, etc.)."""
-        import os
-        model = os.environ.get("CHAT_MODEL", "claude-haiku-4-5")
-        return JSONResponse({"model": model})
+        from config import settings as _settings
+        return JSONResponse({"model": _settings.chat_model})
 
     @mcp.custom_route("/api/v1/chat/stream", methods=["POST"])
     async def api_chat_stream(request):

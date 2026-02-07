@@ -13,6 +13,7 @@ import filelock
 from fastmcp import FastMCP
 
 import db
+from config import settings
 from tools import register_tools
 from routes import register_routes
 from mcp_auth import get_mcp_auth_provider
@@ -84,7 +85,7 @@ def initialize_database():
 
         # Initialize database on startup
         # Only drop/recreate tables if RESET_DB=true (for development/testing)
-        if os.environ.get("RESET_DB", "").lower() == "true":
+        if settings.reset_db:
             print("RESET_DB=true: Dropping and recreating all tables...")
             db.drop_all_tables()
             db.init_db()
@@ -144,5 +145,4 @@ register_routes(mcp)
 app = mcp.http_app(transport="streamable-http")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=settings.port)
