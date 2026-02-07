@@ -2,35 +2,17 @@
 
 Tracked issues from the unified roles migration (012/013) that still need fixing.
 
-## seed_dev_data.py
+> **Status**: Partially fixed. `tools.py` docstring updated. `seed_dev_data.py` rewritten to use new roles API.
+> `db/import_case.py` `_infer_role_category()` still returns invalid categories — open issue.
 
-**Will crash on run.** Three categories of problems:
+## seed_dev_data.py — FIXED
 
-1. **`create_person()` calls pass `person_type=`** (lines ~79-217) — this parameter was removed in the unified roles migration. The function signature is now `create_person(name, phones, emails, address, organization, notes)`.
-
-2. **`assign_person_to_case()` calls pass role name strings instead of `role_id` ints** (lines ~356-376):
-   ```python
-   # Current (broken):
-   db.assign_person_to_case(case_id, client_id, "Client", side="plaintiff")
-
-   # Should be:
-   role = db.get_role_by_name("plaintiff")
-   db.assign_person_to_case(case_id, client_id, role["id"], is_primary=True)
-   ```
-   Also passes `side=` which no longer exists in the function signature.
-
-3. **Calls `db.get_person_types()`** (line ~846) — function no longer exists.
-
-**Role name mapping** (old name -> new name in roles table):
-| Old | New |
-|-----|-----|
-| "Client" | `plaintiff` |
-| "Defendant" | `individual_defendant` or `municipality_defendant` |
-| "Opposing Counsel" / "Defense Counsel" | `opposing_counsel` |
-| "Plaintiff Expert" | `plaintiff_expert` |
-| "Defense Expert" | `defense_expert` |
-| "Mediator" | `mediator` |
-| "Witness" | `witness` |
+Rewritten to use the new roles API:
+- `create_person()` no longer passes `person_type=` or `attributes=`
+- `assign_person_to_case()` uses `role_id` (int) from `role_map` built via `db.get_roles()`
+- Judges created via `db.create_judge()` (standalone table) instead of `db.create_person()`
+- Role-specific attributes (bar_number, hourly_rate, expertises) passed on assignments, not persons
+- Summary line uses `db.get_roles()` instead of deleted `db.get_person_types()`
 
 ## db/import_case.py
 

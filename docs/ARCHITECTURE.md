@@ -23,7 +23,7 @@ flowchart TB
     Claude -->|Streamable HTTP| Tools
     Routes --> DB_Layer
     Tools --> DB_Layer
-    DB_Layer -->|SQLAlchemy + psycopg2| Postgres
+    DB_Layer -->|SQLAlchemy ORM| Postgres
 ```
 
 ## Detailed Component Architecture
@@ -51,11 +51,7 @@ flowchart TB
         end
 
         subgraph Tools_Layer["MCP Tools Layer"]
-            T_Cases[tools/cases.py]
-            T_Tasks[tools/tasks.py]
-            T_Events[tools/events.py]
-            T_Persons[tools/persons.py]
-            T_Other[tools/...]
+            T_All[tools.py<br/>13 consolidated tools]
         end
 
         subgraph DB_Layer["Database Layer"]
@@ -189,10 +185,11 @@ sequenceDiagram
 flowchart TB
     subgraph Root["/"]
         main[main.py]
+        config[config.py]
         models[models.py]
-        schemas[schemas.py]
+        schemas_pkg[schemas/]
+        tools_file[tools.py]
         auth[auth.py]
-        database[database.py]
     end
 
     subgraph alembic_pkg["alembic/"]
@@ -202,18 +199,12 @@ flowchart TB
 
     subgraph db_pkg["db/"]
         connection[connection.py]
+        session[session.py]
         validation[validation.py]
         cases_db[cases.py]
         tasks_db[tasks.py]
         events_db[events.py]
         persons_db[persons.py]
-    end
-
-    subgraph tools_pkg["tools/"]
-        cases_tools[cases.py]
-        tasks_tools[tasks.py]
-        events_tools[events.py]
-        persons_tools[persons.py]
     end
 
     subgraph routes_pkg["routes/"]
@@ -232,11 +223,11 @@ flowchart TB
     end
 
     main --> db_pkg
-    main --> tools_pkg
+    main --> tools_file
     main --> routes_pkg
     routes_pkg --> auth
     models --> alembic_pkg
-    database --> connection
+    config --> session
 ```
 
 ## Deployment Architecture
@@ -280,8 +271,7 @@ flowchart TB
 | Backend | FastMCP | MCP server |
 | Backend | SQLAlchemy 2.0 | ORM & schema models |
 | Backend | Alembic | Database migrations |
-| Backend | Pydantic v2 | Input/output validation |
-| Backend | psycopg2 | PostgreSQL driver |
+| Backend | Pydantic v2 | Input/output validation + env config |
 | Database | PostgreSQL | Primary database |
 | Database | JSONB | Flexible data storage |
 

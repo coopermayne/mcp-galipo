@@ -142,14 +142,14 @@ flowchart TD
     Found -->|No| CreateNew
 
     Check -->|Create new| CreateNew[Create person form]
-    CreateNew --> BasicInfo[Enter: name, type]
+    CreateNew --> BasicInfo[Enter: name, contact info]
     BasicInfo --> ContactInfo[Add phones, emails]
-    ContactInfo --> TypeSpecific{Person type?}
+    ContactInfo --> RoleSpecific{Assign role?}
 
-    TypeSpecific -->|Attorney| AttorneyAttrs[Bar number, firm]
-    TypeSpecific -->|Expert| ExpertAttrs[Hourly rate, expertises]
-    TypeSpecific -->|Judge| JudgeAttrs[Courtroom, chambers]
-    TypeSpecific -->|Other| GenericAttrs[Organization, notes]
+    RoleSpecific -->|Counsel| CounselAttrs[Bar number, firm]
+    RoleSpecific -->|Expert| ExpertAttrs[Hourly rate, expertises]
+    RoleSpecific -->|Client| ClientAttrs[Basic info]
+    RoleSpecific -->|Other| GenericAttrs[Organization, notes]
 
     AttorneyAttrs --> SavePerson
     ExpertAttrs --> SavePerson
@@ -271,21 +271,21 @@ sequenceDiagram
     participant DB as Database
 
     User->>Claude: "Show me active cases"
-    Claude->>MCP: list_cases(status_filter="Active")
-    MCP->>DB: get_all_cases("Active")
+    Claude->>MCP: search(entity="cases", status="Active")
+    MCP->>DB: search_cases(status="Active")
     DB-->>MCP: Cases list
     MCP-->>Claude: {cases: [...], total: N}
     Claude-->>User: "Here are your active cases..."
 
     User->>Claude: "Add a task to case 5"
-    Claude->>MCP: add_task(case_id=5, description="...")
+    Claude->>MCP: manage_task(action="create", case_id=5, description="...")
     MCP->>DB: add_task(5, "...")
     DB-->>MCP: New task
     MCP-->>Claude: {task: {...}}
     Claude-->>User: "Task created"
 
     User->>Claude: "What deadlines are coming up?"
-    Claude->>MCP: get_events()
+    Claude->>MCP: search(entity="events")
     MCP->>DB: get_all_events()
     DB-->>MCP: Events (date >= TODAY)
     MCP-->>Claude: {events: [...]}

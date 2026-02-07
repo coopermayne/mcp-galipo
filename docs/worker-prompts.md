@@ -1,5 +1,7 @@
 # Worker Prompts for SQLAlchemy Migration Phase 6-7
 
+> **Status: COMPLETE** — All branches merged into main. This is a historical reference document.
+
 Three parallel workers. Each checks out its branch, does the migration, commits, and pushes.
 
 ---

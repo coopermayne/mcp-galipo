@@ -1,6 +1,6 @@
 # Unified Roles Schema Plan
 
-> **Status**: Draft — not yet implemented
+> **Status**: COMPLETE — implemented and deployed.
 > **Date**: 2025-02-04
 > **Goal**: Replace `person_type` + `case_persons` with a single `person_roles` table where `case_id` is nullable, backed by a managed `roles` lookup table.
 

@@ -77,7 +77,7 @@ Migrations are managed by **Alembic** and generated from the SQLAlchemy models i
 - `alembic revision --autogenerate` diffs models against the live DB and generates migration code
 - `alembic upgrade head` applies all pending migrations
 - `alembic_version` table tracks the current revision
-- `alembic/env.py` reads `DATABASE_URL` from env and excludes legacy backup tables
+- `alembic/env.py` reads `DATABASE_URL` via `config.py` Settings and excludes legacy backup tables
 
 **Common commands:**
 ```bash
@@ -98,27 +98,31 @@ alembic revision --autogenerate -m "description"  # Generate migration
 
 ```
 main.py                    # FastAPI + MCP server entry point
+├── config.py             # Pydantic BaseSettings (centralized env config)
 ├── models.py             # SQLAlchemy ORM models (schema source of truth)
-├── schemas.py            # Pydantic input/output schemas
+├── schemas/              # Pydantic input/output schemas (package)
+│   ├── common.py         # Literals, constants, ContactInfo
+│   ├── inputs.py         # Create/Update input models
+│   └── outputs.py        # Output models (~30 models)
+├── tools.py              # MCP tools (all 13 tools in one file)
+├── mcp_stdio.py          # MCP stdio transport for Claude Desktop
 ├── alembic/              # Alembic migration framework
 │   ├── env.py            # Migration environment config
 │   └── versions/         # Auto-generated migration files
 ├── db/                   # Database layer (SQLAlchemy ORM)
-│   ├── connection.py     # DB init, seed functions, _NOT_PROVIDED sentinel
+│   ├── connection.py     # DB init, seed functions
 │   ├── session.py        # SQLAlchemy engine & SessionLocal factory
 │   ├── cases.py          # Case queries
 │   ├── persons.py        # Person management
 │   ├── tasks.py          # Task operations
 │   ├── events.py         # Calendar/deadlines
-│   └── ...               # Other domain modules
-├── tools/                # MCP tools (AI interface)
-│   ├── cases.py          # Case MCP tools
-│   ├── tasks.py          # Task MCP tools
-│   └── ...               # Other tool modules
+│   └── ...               # Other domain modules (19 files total)
 ├── routes/               # REST API endpoints (web UI interface)
 │   ├── cases.py          # Case endpoints
 │   ├── tasks.py          # Task endpoints
-│   └── ...               # Other route modules
+│   └── ...               # Other route modules (19 files total)
+├── services/             # Domain services
+│   └── chat/             # In-app chat (presets, modes, executor)
 └── frontend/src/
     ├── pages/            # Route pages (Dashboard, Cases, CaseDetail/, etc.)
     ├── components/       # UI components by domain (cases/, tasks/, calendar/)
@@ -131,10 +135,11 @@ main.py                    # FastAPI + MCP server entry point
 ## Key Patterns
 
 ### Backend
-- **SQLAlchemy ORM**: `models.py` defines all 15 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
-- **Modular structure**: Each domain (cases, tasks, events, persons) has separate files in `db/`, `tools/`, and `routes/`
+- **SQLAlchemy ORM**: `models.py` defines all 16 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
+- **Centralized config**: `config.py` uses Pydantic `BaseSettings` to validate all env vars at startup (replaces scattered `os.environ` calls)
+- **Modular structure**: Each domain (cases, tasks, events, persons) has separate files in `db/` and `routes/`. MCP tools are consolidated in a single `tools.py`
 - **SQLAlchemy sessions**: All `db/` modules use `SessionLocal()` context manager. Two raw-SQL holdouts (`services/chat/presets.py`, `routes/export.py`) use `session.execute(text(...))` — same SQL, SQLAlchemy transport
-- **Pydantic schemas**: `schemas.py` has shared input models and Literal types for enums (CaseStatus, TaskStatus, Urgency, etc.)
+- **Pydantic schemas**: `schemas/` package has input models (`inputs.py`), output models (`outputs.py`), and shared Literal types (`common.py`). Re-exports everything so `from schemas import X` works
 - **MCP tools** return dicts/lists that FastMCP serializes; **routes** return FastAPI responses
 
 ### Frontend
@@ -205,7 +210,7 @@ const colorClasses = getBadgeColorClassesById(userId);
 - Prevents color drift between similar components
 
 ### Database
-- **Schema source of truth**: `models.py` (SQLAlchemy declarative models). 15 model classes mapping to 15 tables
+- **Schema source of truth**: `models.py` (SQLAlchemy declarative models). 16 model classes mapping to 16 tables
 - **Migrations**: Alembic (`alembic/versions/`). Generate with `alembic revision --autogenerate`, apply with `alembic upgrade head`
 - **JSONB columns** for flexible data (e.g., `person_roles.attributes` stores role-specific fields like hourly_rate, bar_number)
 - **Unified roles system**: `roles` table defines role types (Client, Defense Counsel, Expert Witness, etc.) with categories (client, internal_team, opposing_team, third_party). `person_roles` junction table links persons to roles, optionally scoped to a case
@@ -218,7 +223,8 @@ const colorClasses = getBadgeColorClassesById(userId);
 
 The Dockerfile does NOT use a wildcard — it explicitly lists every file and directory to copy:
 ```dockerfile
-COPY main.py models.py schemas.py tools.py routes.py auth.py mcp_auth.py alembic.ini ./
+COPY main.py models.py tools.py routes.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
+COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
 COPY routes/ ./routes/

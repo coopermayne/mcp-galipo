@@ -1,5 +1,7 @@
 # Plan: Pydantic-Powered MCP Tools (Full Schema Coverage)
 
+> **Status: COMPLETE** — All 10 tools implemented in `tools.py` plus 3 preserved tools (13 total).
+
 ## Summary
 
 Replace the current 3-tool MCP interface with 10 well-structured tools covering all database entities. Each domain gets a `manage_X` tool with a Pydantic input model, plus 2 universal tools for search and lookup. The db layer already has all CRUD operations built — we're just wiring up the MCP tool interface with structured schemas.
