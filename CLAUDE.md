@@ -195,15 +195,14 @@ const colorClasses = getBadgeColorClassesById(userId);
 - **Standalone judges**: `judges` table is separate from persons, linked to proceedings via `proceeding_judges`
 - **tasks.order_index** for drag-and-drop ordering; `db/tasks.py` has `reorder_task()` logic
 
-## Dockerfile - IMPORTANT
+## Dockerfile - CRITICAL (has caused multiple production outages)
 
-**When adding new Python directories/modules**, you MUST update the `Dockerfile` to include them.
+**Every time you create or rename a Python file or directory at the project root, you MUST update the `Dockerfile` COPY lines.** This applies to individual `.py` files AND directories/packages. Forgetting this is the #1 cause of deploy failures in this project.
 
-The Dockerfile explicitly lists which directories to copy:
+The Dockerfile does NOT use a wildcard — it explicitly lists every file and directory to copy:
 ```dockerfile
-COPY main.py database.py tools.py routes.py auth.py ./
+COPY main.py database.py tools.py routes.py auth.py mcp_auth.py schemas.py ./
 COPY db/ ./db/
-COPY tools/ ./tools/
 COPY routes/ ./routes/
 COPY services/ ./services/
 COPY static/ ./static/
@@ -211,9 +210,12 @@ COPY templates/ ./templates/
 COPY migrations/ ./migrations/
 ```
 
-If you create a new top-level Python package (e.g., `utils/`, `lib/`, `workers/`), **add a COPY line** for it or production will fail with `ModuleNotFoundError`.
+**Checklist — do this EVERY TIME you create a new `.py` file or directory at the root:**
+1. Open `Dockerfile`
+2. Add the new file/directory to the appropriate `COPY` line
+3. If it's a package (directory), ensure it has an `__init__.py`
 
-Also ensure any new package has an `__init__.py` file.
+If you forget, production will crash with `ModuleNotFoundError` and the app will be down until fixed.
 
 ## New Developer Setup
 
