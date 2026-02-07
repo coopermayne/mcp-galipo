@@ -665,6 +665,8 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
     mutationFn: (eventId: number) => updateEvent(eventId, { starred: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setShowAddKeyDate(false);
       setKeyDateSearch('');
       setKeyDateSelectedIndex(0);
@@ -676,6 +678,8 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
     mutationFn: (eventId: number) => updateEvent(eventId, { starred: false }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setEventToUnstar(null);
     },
   });

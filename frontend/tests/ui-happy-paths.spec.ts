@@ -417,7 +417,84 @@ test.describe('UI Happy Paths', () => {
     await apiDeleteCase(page.request, caseId);
   });
 
-  // ── 5. Cycle task through all statuses in detail sheet ────────────────
+  // ── 5. Event changes propagate to both Key Dates and Tasks ───────────
+  test('event changes reflect in both Key Dates and linked Tasks', async ({ page }) => {
+    const ts = Date.now();
+    const caseName = String(ts);
+    const eventName = `UI-E2E Sync Event ${ts}`;
+    const updatedEventName = `UI-E2E Updated Event ${ts}`;
+    const taskName = `UI-E2E Sync Task ${ts}`;
+
+    // Setup: case + starred event + task linked to that event
+    const caseId = await apiCreateCase(page.request, caseName);
+    const eventId = await apiCreateEvent(page.request, caseId, eventName); // starred by default
+    const taskId = await apiCreateTask(page.request, caseId, taskName);
+    // Link task to event via API
+    await page.request.put(`/api/v1/tasks/${taskId}`, {
+      data: { event_id: eventId },
+    });
+
+    await page.goto(`/cases/${caseId}`);
+
+    await test.step('verify event in Key Dates and task shows linked event', async () => {
+      // Key Dates should show the starred event
+      await expect(page.getByText(eventName).first()).toBeVisible({ timeout: 5000 });
+
+      // Switch to Tasks tab and open the linked task's detail sheet
+      await page.getByRole('button', { name: /^Tasks/i }).click();
+      await expect(page.getByText(taskName).first()).toBeVisible({ timeout: 5000 });
+      await page.getByText(taskName).first().click();
+      const sheet = page.locator('.fixed.inset-0.z-50');
+      await expect(sheet.getByText(eventName)).toBeVisible({ timeout: 3000 });
+      await page.keyboard.press('Escape');
+    });
+
+    await test.step('update event description via Events tab', async () => {
+      // Switch to Events tab
+      await page.getByRole('button', { name: /^Events/i }).click();
+      await expect(page.getByText(eventName).first()).toBeVisible({ timeout: 5000 });
+
+      // Click the event row to open the detail sheet
+      await page.getByText(eventName).first().click();
+      const descInput = page.getByPlaceholder('Event description');
+      await expect(descInput).toBeVisible({ timeout: 3000 });
+
+      // Edit description and submit via Enter (triggers blur → save)
+      await descInput.fill(updatedEventName);
+      await descInput.press('Enter');
+      await page.waitForTimeout(500);
+
+      // Close the event detail sheet
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+
+      // Verify API has the update
+      const res = await page.request.get(`/api/v1/events/${eventId}`);
+      const data = await res.json();
+      expect(data.event.description).toBe(updatedEventName);
+    });
+
+    await test.step('Key Dates shows updated event description', async () => {
+      // Switch to Overview tab
+      await page.getByRole('button', { name: 'Overview', exact: true }).click();
+      await expect(page.getByText(updatedEventName).first()).toBeVisible({ timeout: 5000 });
+    });
+
+    await test.step('Tasks section shows updated event description', async () => {
+      // Open the linked task's detail sheet
+      await page.getByRole('button', { name: /^Tasks/i }).click();
+      await expect(page.getByText(taskName).first()).toBeVisible({ timeout: 5000 });
+      await page.getByText(taskName).first().click();
+      const sheet = page.locator('.fixed.inset-0.z-50');
+      await expect(sheet.getByText(updatedEventName)).toBeVisible({ timeout: 5000 });
+      await page.keyboard.press('Escape');
+    });
+
+    // Cleanup
+    await apiDeleteCase(page.request, caseId);
+  });
+
+  // ── 6. Cycle task through all statuses in detail sheet ────────────────
   test('cycle task through all statuses in detail sheet', async ({ page }) => {
     const ts = Date.now();
     const taskName = `UI-E2E Status Cycle ${ts}`;

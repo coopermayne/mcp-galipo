@@ -9,7 +9,7 @@ import type { Event, CreateEventInput } from '../../types';
 
 interface UseEventActionsOptions {
   /** Additional query keys to invalidate on success */
-  invalidateKeys?: string[][];
+  invalidateKeys?: unknown[][];
 }
 
 export function useEventActions({ invalidateKeys = [] }: UseEventActionsOptions = {}) {
@@ -18,6 +18,7 @@ export function useEventActions({ invalidateKeys = [] }: UseEventActionsOptions 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['events'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
     queryClient.invalidateQueries({ queryKey: ['stats'] });
     invalidateKeys.forEach((key) => {
       queryClient.invalidateQueries({ queryKey: key });
