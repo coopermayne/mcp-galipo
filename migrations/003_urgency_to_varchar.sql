@@ -8,6 +8,8 @@ BEGIN
         SELECT 1 FROM information_schema.columns
         WHERE table_name = 'tasks' AND column_name = 'urgency' AND data_type = 'integer'
     ) THEN
+        -- Drop existing integer CHECK constraint first
+        ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_urgency_check;
         -- Map existing integer values to string labels
         ALTER TABLE tasks ALTER COLUMN urgency TYPE VARCHAR(20)
             USING CASE urgency
@@ -18,7 +20,7 @@ BEGIN
             END;
         -- Set new default
         ALTER TABLE tasks ALTER COLUMN urgency SET DEFAULT 'Medium';
-        -- Add CHECK constraint
+        -- Add new string CHECK constraint
         ALTER TABLE tasks ADD CONSTRAINT tasks_urgency_check
             CHECK (urgency IN ('Low', 'Medium', 'High', 'Urgent'));
     END IF;

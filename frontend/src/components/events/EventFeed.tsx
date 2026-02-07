@@ -492,7 +492,7 @@ export function EventFeed({
                   ) : (onAddEvent || enableInlineCreate) && (
                     <AddEventButton onClick={() => handleAddEventClick(
                       group.key,
-                      group.date?.toISOString().split('T')[0],
+                      group.date ? `${group.date.getFullYear()}-${String(group.date.getMonth() + 1).padStart(2, '0')}-${String(group.date.getDate()).padStart(2, '0')}` : undefined,
                       group.caseId || caseId
                     )} />
                   )}

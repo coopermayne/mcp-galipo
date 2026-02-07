@@ -53,8 +53,12 @@ def _validate_and_ensure_expertises(cur, role_id: int, attributes: dict) -> dict
 
 def create_person(name: str, phones: List[dict] = None, emails: List[dict] = None,
                   address: str = None, organization: str = None,
-                  notes: str = None) -> dict:
-    """Create a new person (without any role assignment)."""
+                  notes: str = None, **kwargs) -> dict:
+    """Create a new person (without any role assignment).
+
+    Extra kwargs (person_type, attributes) are accepted for compatibility
+    but ignored since those columns don't exist in the current DB schema.
+    """
     phones_json = json.dumps(phones) if phones else '[]'
     emails_json = json.dumps(emails) if emails else '[]'
 

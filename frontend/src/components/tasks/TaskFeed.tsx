@@ -657,7 +657,7 @@ export function TaskFeed({
                     onCancel={handleInlineCreateCancel}
                   />
                 ) : (onAddTask || enableInlineCreate) && (
-                  <AddTaskButton onClick={() => handleAddTaskClick(group.key, group.date?.toISOString().split('T')[0], group.caseId || caseId)} />
+                  <AddTaskButton onClick={() => handleAddTaskClick(group.key, group.date ? `${group.date.getFullYear()}-${String(group.date.getMonth() + 1).padStart(2, '0')}-${String(group.date.getDate()).padStart(2, '0')}` : undefined, group.caseId || caseId)} />
                 )}
               </>
             )}
