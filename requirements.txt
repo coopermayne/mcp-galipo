@@ -5,6 +5,8 @@ bcrypt
 gunicorn
 python-dotenv
 psycopg2-binary
+sqlalchemy
+alembic
 anthropic
 filelock
 PyJWT

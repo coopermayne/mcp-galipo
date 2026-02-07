@@ -23,7 +23,7 @@ flowchart TB
     Claude -->|Streamable HTTP| Tools
     Routes --> DB_Layer
     Tools --> DB_Layer
-    DB_Layer -->|psycopg2| Postgres
+    DB_Layer -->|SQLAlchemy + psycopg2| Postgres
 ```
 
 ## Detailed Component Architecture
@@ -59,12 +59,17 @@ flowchart TB
         end
 
         subgraph DB_Layer["Database Layer"]
+            D_Models[models.py<br/>SQLAlchemy ORM]
             D_Cases[db/cases.py]
             D_Tasks[db/tasks.py]
             D_Events[db/events.py]
             D_Persons[db/persons.py]
             D_Connection[db/connection.py]
             D_Validation[db/validation.py]
+        end
+
+        subgraph Migrations["Migrations"]
+            Alembic[alembic/versions/]
         end
 
         Auth[auth.py<br/>Authentication]
@@ -92,7 +97,9 @@ flowchart TB
     D_Tasks --> D_Connection
     D_Events --> D_Connection
     D_Persons --> D_Connection
+    D_Models --> D_Connection
     D_Connection --> Tables
+    Alembic -.->|migrations| Tables
     D_Validation -.->|validates| DB_Layer
 ```
 
@@ -182,8 +189,15 @@ sequenceDiagram
 flowchart TB
     subgraph Root["/"]
         main[main.py]
+        models[models.py]
+        schemas[schemas.py]
         auth[auth.py]
         database[database.py]
+    end
+
+    subgraph alembic_pkg["alembic/"]
+        alembic_env[env.py]
+        versions[versions/]
     end
 
     subgraph db_pkg["db/"]
@@ -221,6 +235,7 @@ flowchart TB
     main --> tools_pkg
     main --> routes_pkg
     routes_pkg --> auth
+    models --> alembic_pkg
     database --> connection
 ```
 
@@ -263,6 +278,9 @@ flowchart TB
 | Frontend | Vite | Build tool |
 | Backend | FastAPI | Web framework |
 | Backend | FastMCP | MCP server |
+| Backend | SQLAlchemy 2.0 | ORM & schema models |
+| Backend | Alembic | Database migrations |
+| Backend | Pydantic v2 | Input/output validation |
 | Backend | psycopg2 | PostgreSQL driver |
 | Database | PostgreSQL | Primary database |
 | Database | JSONB | Flexible data storage |

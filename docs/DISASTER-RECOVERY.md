@@ -65,13 +65,17 @@ This will:
 If you need to rebuild the database from scratch:
 
 ```bash
-# 1. Create fresh schema
-psql $DATABASE_URL -f schema.sql
+# 1. Create empty database
+createdb galipo
 
-# 2. Start the application (it will seed lookup tables)
+# 2. Apply all Alembic migrations (creates schema from models.py)
+set -a && source .env && set +a
+alembic upgrade head
+
+# 3. Start the application (it will seed lookup tables)
 python main.py
 
-# 3. (Optional) Restore data from data-only backup
+# 4. (Optional) Restore data from data-only backup
 gunzip -c backups/galipo_data_20260122.sql.gz | psql $DATABASE_URL
 ```
 
@@ -83,9 +87,9 @@ If everything is lost and you need to rebuild from scratch:
 
 2. **Get the DATABASE_URL** from your provider
 
-3. **Create schema:**
+3. **Apply schema via Alembic:**
    ```bash
-   psql $DATABASE_URL -f schema.sql
+   DATABASE_URL="postgresql://..." alembic upgrade head
    ```
 
 4. **Deploy the application** (it will seed lookup tables on startup)
@@ -104,7 +108,8 @@ If everything is lost and you need to rebuild from scratch:
 | `scripts/backup-data-only.sh` | Create data-only backup |
 | `scripts/restore.sh` | Restore from backup |
 | `backups/` | Backup storage directory |
-| `db/connection.py` | Contains `migrate_db()` for incremental migrations |
+| `models.py` | SQLAlchemy ORM models (schema source of truth) |
+| `alembic/` | Alembic migration framework and version files |
 
 ## Automated Backups
 
@@ -184,15 +189,15 @@ SELECT 'cases' as table_name, COUNT(*) as count FROM cases
 UNION ALL SELECT 'tasks', COUNT(*) FROM tasks
 UNION ALL SELECT 'events', COUNT(*) FROM events
 UNION ALL SELECT 'persons', COUNT(*) FROM persons
-UNION ALL SELECT 'case_persons', COUNT(*) FROM case_persons
+UNION ALL SELECT 'person_roles', COUNT(*) FROM person_roles
 UNION ALL SELECT 'notes', COUNT(*) FROM notes
 UNION ALL SELECT 'activities', COUNT(*) FROM activities;
 
 -- Check for orphaned records
 SELECT * FROM tasks WHERE case_id NOT IN (SELECT id FROM cases);
 SELECT * FROM events WHERE case_id NOT IN (SELECT id FROM cases);
-SELECT * FROM case_persons WHERE case_id NOT IN (SELECT id FROM cases);
-SELECT * FROM case_persons WHERE person_id NOT IN (SELECT id FROM persons);
+SELECT * FROM person_roles WHERE case_id NOT IN (SELECT id FROM cases) AND case_id IS NOT NULL;
+SELECT * FROM person_roles WHERE person_id NOT IN (SELECT id FROM persons);
 ```
 
 ## Emergency Contacts

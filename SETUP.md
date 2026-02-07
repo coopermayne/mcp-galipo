@@ -116,17 +116,19 @@ unset RESET_DB
 
 ### Run database migrations
 
-After pulling new code, check if there are pending migrations:
+After pulling new code, apply any pending Alembic migrations:
 
 ```bash
 source .venv/bin/activate
-python migrations/run_migration.py
+set -a && source .env && set +a
+alembic upgrade head
 ```
 
-Or run a specific migration:
+To check current migration status:
 
 ```bash
-python migrations/run_migration.py 001_remove_court_id_from_cases.sql
+alembic current   # Show current revision
+alembic history   # Show all migrations
 ```
 
 ## 5. Set Up Frontend
@@ -179,7 +181,9 @@ The backend uses `--reload` flag, so changes to Python files will automatically 
 
 Key files:
 - `main.py` - FastAPI app and MCP server setup
-- `database.py` - Database connection and table creation
+- `models.py` - SQLAlchemy ORM models (schema source of truth)
+- `schemas.py` - Pydantic input/output schemas
+- `database.py` - Database connection (re-exports from `db/`)
 - `tools.py` - MCP tool definitions
 - `routes.py` - REST API endpoints
 - `auth.py` - Authentication logic
@@ -262,12 +266,12 @@ For production deployment, you must configure these environment variables in you
 
 ### Production Migrations
 
-**Important:** Before deploying new code to production, run any pending migrations:
+**Important:** Before deploying new code to production, run any pending Alembic migrations:
 
 ```bash
 # Run migrations against production database
 DATABASE_URL="postgresql://prod_user:prod_pass@prod_host:5432/galipo" \
-  python migrations/run_migration.py
+  alembic upgrade head
 ```
 
 For Docker deployments, run migrations before starting the app:
@@ -276,7 +280,7 @@ For Docker deployments, run migrations before starting the app:
 # Run migrations first
 docker run --rm \
   -e DATABASE_URL="postgresql://..." \
-  galipo python migrations/run_migration.py
+  galipo alembic upgrade head
 
 # Then start the app
 docker run -d -p 8000:8000 \
@@ -350,8 +354,9 @@ cd frontend && npm run type-check
 # Lint frontend code
 cd frontend && npm run lint
 
-# Run database migrations
-python migrations/run_migration.py
+# Run database migrations (Alembic)
+set -a && source .env && set +a
+alembic upgrade head
 
 # Connect to database
 psql $DATABASE_URL
