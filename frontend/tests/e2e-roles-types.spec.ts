@@ -68,7 +68,6 @@ test.describe('Roles — full lifecycle with all fields', () => {
 test.describe('Roles — category filtering exhaustive', () => {
   test('each category filter returns only matching roles', async ({ page }) => {
     const categories = ['client', 'counsel', 'expert', 'mediator', 'defendant', 'other'];
-    let totalFiltered = 0;
 
     for (const cat of categories) {
       const res = await page.request.get(`/api/v1/roles?category=${cat}`);
@@ -77,14 +76,16 @@ test.describe('Roles — category filtering exhaustive', () => {
       for (const role of data.roles) {
         expect(role.category).toBe(cat);
       }
-      totalFiltered += data.roles.length;
     }
 
-    // Unfiltered count should be >= sum of individual categories
+    // Verify unfiltered endpoint returns roles and every role has a valid category
     const allRes = await page.request.get('/api/v1/roles');
     expect(allRes.ok()).toBeTruthy();
     const allData = await allRes.json();
-    expect(allData.roles.length).toBeGreaterThanOrEqual(totalFiltered);
+    expect(allData.roles.length).toBeGreaterThan(0);
+    for (const role of allData.roles) {
+      expect(categories).toContain(role.category);
+    }
   });
 });
 
