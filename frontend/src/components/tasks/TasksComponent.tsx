@@ -287,7 +287,7 @@ export function TasksComponent({
         await updateTask(taskId, { status: newStatus });
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         if (caseId) {
-          queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+          queryClient.invalidateQueries({ queryKey: ['case', caseId] });
         }
       }
 
@@ -304,7 +304,7 @@ export function TasksComponent({
               await updateTask(taskId, { status: prevStatus });
               queryClient.invalidateQueries({ queryKey: ['tasks'] });
               if (caseId) {
-                queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+                queryClient.invalidateQueries({ queryKey: ['case', caseId] });
               }
               previousStates.current.delete(taskId);
             }
@@ -337,7 +337,7 @@ export function TasksComponent({
       const result = await updateTask(taskId, updates);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (caseId) {
-        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+        queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       }
       onTaskUpdated?.(result.task);
     },
@@ -349,7 +349,7 @@ export function TasksComponent({
       const result = await updateTask(taskId, { due_date: date });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (caseId) {
-        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+        queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       }
       onTaskUpdated?.(result.task);
     },
@@ -361,7 +361,7 @@ export function TasksComponent({
       const result = await updateTask(taskId, { urgency: priority });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (caseId) {
-        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+        queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       }
       onTaskUpdated?.(result.task);
     },
@@ -387,7 +387,7 @@ export function TasksComponent({
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-events'] });
       if (caseId) {
-        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+        queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       }
       onTaskUpdated?.(result.task);
     },
@@ -409,7 +409,7 @@ export function TasksComponent({
       const result = await updateTask(taskId, updates);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (caseId) {
-        queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+        queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       }
       onTaskUpdated?.(result.task);
     },
@@ -438,7 +438,7 @@ export function TasksComponent({
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (createData.case_id) {
         queryClient.invalidateQueries({
-          queryKey: ['case', String(createData.case_id)],
+          queryKey: ['case', createData.case_id],
         });
       }
       onTaskCreated?.(result.task);
@@ -463,7 +463,7 @@ export function TasksComponent({
     const result = await rescheduleOverdueTasks(today);
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
     if (caseId) {
-      queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     }
     if (result.updated > 0) {
       showToast({
@@ -475,7 +475,7 @@ export function TasksComponent({
           }
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
           if (caseId) {
-            queryClient.invalidateQueries({ queryKey: ['case', String(caseId)] });
+            queryClient.invalidateQueries({ queryKey: ['case', caseId] });
           }
         },
       });

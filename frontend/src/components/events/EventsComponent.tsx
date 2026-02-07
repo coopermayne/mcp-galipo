@@ -136,9 +136,9 @@ export function EventsComponent({
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Build invalidation keys based on context
-  const invalidateKeys: string[][] = [];
+  const invalidateKeys: unknown[][] = [];
   if (caseId) {
-    invalidateKeys.push(['case', String(caseId)]);
+    invalidateKeys.push(['case', caseId]);
   }
 
   // Event actions hook
