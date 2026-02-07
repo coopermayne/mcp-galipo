@@ -442,3 +442,7 @@ Project MCP servers are configured in `.mcp.json`:
 
 **Note:** Only use the `sequential-thinking` MCP when explicitly requested by the user (e.g., "use sequential thinking to work through this"). Do not use it automatically.
 
+## Playwright Testing
+
+**Always close the browser** with `browser_close` when you are done with Playwright testing. Do not leave browser windows open.
+
