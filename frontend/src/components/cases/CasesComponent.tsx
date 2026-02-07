@@ -7,7 +7,8 @@
  * - Grouping by alpha or status
  * - Attorney filtering
  */
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CasesFeed } from './CasesFeed';
 import { getCases } from '../../api';
@@ -43,6 +44,7 @@ export function CasesComponent({
   attorneyFilter = 'all',
   onCaseClick,
 }: CasesComponentProps) {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
   // Fetch staff for displaying initials on case items
@@ -106,13 +108,22 @@ export function CasesComponent({
     return filtered;
   }, [allCases, showClosed, searchQuery]);
 
+  // Navigate with filter context so CaseHeader cycles through the same list
+  const handleCaseClick = useCallback((caseData: CaseSummary) => {
+    if (onCaseClick) {
+      onCaseClick(caseData);
+    } else {
+      navigate(`/cases/${caseData.id}`, { state: { navFilter: attorneyFilter, navSort: groupBy } });
+    }
+  }, [onCaseClick, navigate, attorneyFilter, groupBy]);
+
   return (
     <CasesFeed
       cases={cases}
       isLoading={isLoading}
       groupBy={groupBy}
       emptyMessage={searchQuery ? 'No cases match your search' : 'No cases'}
-      onClick={onCaseClick}
+      onClick={handleCaseClick}
       staffMap={staffMap}
     />
   );
