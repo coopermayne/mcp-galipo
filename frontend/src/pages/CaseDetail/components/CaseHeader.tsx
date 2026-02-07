@@ -1,11 +1,14 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { Header } from '../../../components/layout';
 import { EditableText } from '../../../components/common';
 import { getCases } from '../../../api';
+import { useAuth } from '../../../context/AuthContext';
 import type { Case } from '../../../types';
+import type { CaseStatus } from '../../../types/common';
+import type { CaseAttorneyFilter, CasesGroupMode } from '../../../types/panel-layout';
 
 interface CaseHeaderProps {
   caseData: Case;
@@ -14,19 +17,59 @@ interface CaseHeaderProps {
 
 export function CaseHeader({ caseData, onUpdateField }: CaseHeaderProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user: currentUser } = useAuth();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch all cases for navigation
+  // Read nav context from router state
+  const navFilter: CaseAttorneyFilter = location.state?.navFilter ?? 'mine';
+  const navSort: CasesGroupMode = location.state?.navSort ?? 'none';
+
+  // Build query params based on nav filter
+  const navParams = useMemo(() => {
+    const params: { limit: number; attorney_ids?: number[]; unassigned?: boolean } = { limit: 500 };
+    if (navFilter === 'mine' && currentUser) {
+      params.attorney_ids = [currentUser.id];
+    } else if (navFilter === 'unassigned') {
+      params.unassigned = true;
+    }
+    // 'all' or number[] = no filter (fetch all)
+    if (Array.isArray(navFilter) && navFilter.length > 0) {
+      params.attorney_ids = navFilter;
+    }
+    return params;
+  }, [navFilter, currentUser]);
+
+  // Fetch filtered cases for navigation
   const { data: casesData } = useQuery({
-    queryKey: ['cases-nav'],
-    queryFn: () => getCases({ limit: 500 }),
+    queryKey: ['cases-nav', navFilter],
+    queryFn: () => getCases(navParams),
     staleTime: 30000, // Cache for 30 seconds
   });
 
-  const cases = casesData?.cases || [];
+  // Sort cases to match the order shown on the Cases page
+  const cases = useMemo(() => {
+    const raw = casesData?.cases || [];
+    if (navSort !== 'status') return raw; // API returns alphabetical, matches 'none' and 'alpha'
+    // Status sort: group by workflow order, alphabetical within each group
+    const STATUS_ORDER: CaseStatus[] = [
+      'Signing Up', 'Prospective', 'Pre-Filing', 'Pleadings', 'Discovery',
+      'Expert Discovery', 'Pre-trial', 'Trial', 'Post-Trial', 'Appeal',
+      'Settl. Pend.', 'Stayed', 'Closed',
+    ];
+    return [...raw].sort((a, b) => {
+      const idxA = STATUS_ORDER.indexOf(a.status as CaseStatus);
+      const idxB = STATUS_ORDER.indexOf(b.status as CaseStatus);
+      const statusCmp = (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+      if (statusCmp !== 0) return statusCmp;
+      const nameA = (a.short_name || a.case_name).toLowerCase();
+      const nameB = (b.short_name || b.case_name).toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [casesData?.cases, navSort]);
 
   // Find current case index and determine prev/next
   const currentIndex = useMemo(() => {
@@ -90,17 +133,17 @@ export function CaseHeader({ caseData, onUpdateField }: CaseHeaderProps) {
 
       // J = next case, K = previous case
       if (event.key === 'j' && nextCase) {
-        navigate(`/cases/${nextCase.id}`);
+        navigate(`/cases/${nextCase.id}`, { state: { navFilter, navSort } });
       } else if (event.key === 'k' && prevCase) {
-        navigate(`/cases/${prevCase.id}`);
+        navigate(`/cases/${prevCase.id}`, { state: { navFilter, navSort } });
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showSearch, nextCase, prevCase, navigate]);
+  }, [showSearch, nextCase, prevCase, navigate, navFilter, navSort]);
 
   const handleNavigate = (caseId: number) => {
-    navigate(`/cases/${caseId}`);
+    navigate(`/cases/${caseId}`, { state: { navFilter, navSort } });
     setShowSearch(false);
     setSearchQuery('');
   };
