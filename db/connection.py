@@ -9,8 +9,6 @@ from pathlib import Path
 from psycopg2.pool import ThreadedConnectionPool
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
-from datetime import datetime, date, time
-
 from .validation import DEFAULT_JURISDICTIONS, DEFAULT_EXPERTISE_TYPES
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -53,29 +51,6 @@ def close_pool():
 
 # Register cleanup on process exit
 atexit.register(close_pool)
-
-
-def serialize_value(val):
-    """Convert datetime/date/time objects to ISO format strings for JSON serialization."""
-    if isinstance(val, datetime):
-        return val.isoformat()
-    elif isinstance(val, date):
-        return val.isoformat()
-    elif isinstance(val, time):
-        return val.strftime("%H:%M")
-    return val
-
-
-def serialize_row(row: dict) -> dict:
-    """Serialize a database row, converting datetime objects to strings."""
-    if row is None:
-        return None
-    return {k: serialize_value(v) for k, v in row.items()}
-
-
-def serialize_rows(rows: list) -> list:
-    """Serialize a list of database rows."""
-    return [serialize_row(row) for row in rows]
 
 
 @contextmanager

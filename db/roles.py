@@ -10,7 +10,6 @@ from typing import Optional, List
 from sqlalchemy import select, func
 
 from .session import SessionLocal
-from .connection import serialize_rows
 from .validation import ROLE_CATEGORIES, ValidationError
 from models import Role, PersonRole
 
