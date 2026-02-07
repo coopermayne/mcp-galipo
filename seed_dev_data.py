@@ -388,6 +388,43 @@ def seed_dev_data():
                 return c["id"]
         return None
 
+    # ========== ATTORNEY ASSIGNMENTS ==========
+    print("  Assigning attorneys to cases...")
+
+    # Look up user IDs by email
+    from db.session import SessionLocal
+    from sqlalchemy import select
+    from models import User
+
+    user_email_to_id = {}
+    with SessionLocal() as session:
+        users = session.execute(select(User.id, User.email)).all()
+        user_email_to_id = {u.email: u.id for u in users}
+
+    # Case assignments: (case_short_name, attorney_email)
+    # - Cooper Mayne gets 3 active cases (Martinez, Wilson, Nguyen)
+    # - Hang Lee co-counsels Nguyen and has Thompson solo
+    # - Eric Valenzuela co-counsels Wilson
+    # - Renee Valentine has Chen (settlement pending)
+    # - Ben Levine has O'Brien (closed)
+    # - Davis and Kim are left unassigned (new intake / pre-filing)
+    case_attorney_assignments = [
+        ("Martinez", "cmayne@galipolaw.com"),
+        ("Wilson", "cmayne@galipolaw.com"),
+        ("Wilson", "evalenzuela@galipolaw.com"),
+        ("Nguyen", "cmayne@galipolaw.com"),
+        ("Nguyen", "hlee@galipolaw.com"),
+        ("Thompson", "hlee@galipolaw.com"),
+        ("Chen", "rvalentine@galipolaw.com"),
+        ("O'Brien", "blevine@galipolaw.com"),
+    ]
+
+    for case_name, email in case_attorney_assignments:
+        case_id = find_case(case_name)
+        user_id = user_email_to_id.get(email)
+        if case_id and user_id:
+            db.assign_attorney_to_case(case_id, user_id)
+
     # ========== PROCEEDINGS ==========
     print("  Creating proceedings...")
 
