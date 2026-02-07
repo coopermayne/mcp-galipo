@@ -22,7 +22,7 @@ MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms
 
 IMPORTANT: Call get_current_time at the start of any session to know the current date/time in Pacific Time.
 
-TOOLS OVERVIEW (10 consolidated tools):
+TOOLS OVERVIEW:
 - search(entity, ...) — universal search across cases, persons, events, tasks
 - get_details(entity, id) — full details for any entity by ID
 - manage_case(action, ...) — create/update/delete cases
@@ -36,6 +36,13 @@ TOOLS OVERVIEW (10 consolidated tools):
 - list_attorneys() — list active attorneys (for case assignment)
 - import_case(data) — bulk import a complete case with all related data
 
+VALID VALUES (these are enforced — invalid values return an error with the valid options):
+- Case status: "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal", "Settl. Pend.", "Stayed", "Closed"
+- Task status: "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+- Urgency: "Low", "Medium", "High", "Urgent"
+- Activity type: "Meeting", "Filing", "Research", "Drafting", "Document Review", "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+- Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
+
 ROLES SYSTEM (unified person-role management):
 Persons are assigned to cases via manage_case_role with role names (accepts both snake_case and space-separated):
 - client: plaintiff, contact, guardian_ad_litem, decedent
@@ -48,7 +55,6 @@ Persons are assigned to cases via manage_case_role with role names (accepts both
 JUDGES (standalone entities):
 Judges are NOT persons — they are assigned to proceedings, not cases.
 - Use manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
-- Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
 
 PROCEEDINGS WORKFLOW:
 1. Create proceeding: manage_proceeding(action="create", case_id=N, case_number="24STCV12345", jurisdiction_id=M)

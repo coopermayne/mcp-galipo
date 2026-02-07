@@ -22,41 +22,49 @@ from tools import register_tools
 
 MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
 
-IMPORTANT: Call the get_current_time tool at the start of any session to know the current date and time in Pacific Time (Los Angeles). This is essential for creating events, tasks, or deadlines with correct dates.
+IMPORTANT: Call get_current_time at the start of any session to know the current date/time in Pacific Time.
 
-This server provides tools to manage cases, tasks, events, contacts, and notes.
+TOOLS OVERVIEW:
+- search(entity, ...) — universal search across cases, persons, events, tasks
+- get_details(entity, id) — full details for any entity by ID
+- manage_case(action, ...) — create/update/delete cases
+- manage_person(action, ...) — create/update/delete persons (contacts)
+- manage_case_role(action, ...) — assign/update/change/remove person roles on cases
+- manage_event(action, ...) — create/update/delete calendar events
+- manage_task(action, ...) — create/update/delete/bulk_update tasks
+- manage_note(action, ...) — create/update/delete case notes
+- manage_proceeding(action, ...) — create/update/delete proceedings + add/remove judges
+- manage_activity(action, ...) — create/update/delete activity log entries
+- list_attorneys() — list active attorneys (for case assignment)
+- import_case(data) — bulk import a complete case with all related data
 
-PERSON TYPES (for manage_person):
-- client: The injured party/plaintiff
-- attorney: Lawyers (opposing counsel, co-counsel, etc.)
-- judge: Judges and magistrates (assigned to proceedings, not cases directly)
-- expert: Expert witnesses (medical, accident reconstruction, economics, etc.)
-- mediator: Mediators and arbitrators
-- defendant: Named defendants (individuals or entity representatives)
-- witness: Fact witnesses
-- lien_holder: Medical providers, insurance companies with liens
-- interpreter: Court interpreters
+VALID VALUES (these are enforced — invalid values return an error with the valid options):
+- Case status: "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal", "Settl. Pend.", "Stayed", "Closed"
+- Task status: "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+- Urgency: "Low", "Medium", "High", "Urgent"
+- Activity type: "Meeting", "Filing", "Research", "Drafting", "Document Review", "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+- Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
 
-CASE ROLES (for assign_person_to_case):
-Common roles: Client, Defendant, Opposing Counsel, Co-Counsel, Plaintiff Expert, Defense Expert, Mediator, Witness, Lien Holder
-- Use side="plaintiff", "defendant", or "neutral" to indicate which side they're on
+ROLES SYSTEM (unified person-role management):
+Persons are assigned to cases via manage_case_role with role names (accepts both snake_case and space-separated):
+- client: plaintiff, contact, guardian_ad_litem, decedent
+- counsel: co_counsel, referring_attorney, opposing_counsel, criminal_defense_attorney, prosecutor, public_defender
+- defendant: municipality_defendant, individual_defendant
+- expert: plaintiff_expert, defense_expert
+- mediator: mediator
+- other: lien_holder, witness, claims_adjuster, special_needs_consultant
 
-JUDGE ROLES (for add_proceeding_judge):
-- "Judge" - District/Superior Court Judge
-- "Magistrate Judge" - Federal Magistrate Judge
-- "Presiding" - Presiding judge on a panel
-- "Panel" - Panel member (appellate courts)
+JUDGES (standalone entities):
+Judges are NOT persons — they are assigned to proceedings, not cases.
+- Use manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
 
-JURISDICTIONS & PROCEEDINGS WORKFLOW:
-1. Call list_jurisdictions() to see existing courts
-2. If the court exists, note its jurisdiction_id
-3. If not, call manage_jurisdiction(name="USDC - Central District") to create it
-4. Call add_proceeding(case_id, case_number, jurisdiction_id) to link the case to the court
-5. Call add_proceeding_judge() to assign judges to the proceeding (not the case)
+PROCEEDINGS WORKFLOW:
+1. Create proceeding: manage_proceeding(action="create", case_id=N, case_number="24STCV12345", jurisdiction_id=M)
+2. Add judges: manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
 
 DATA ENTRY GUIDELINES:
-- Skip vacated, canceled, or stricken events/deadlines - do not add these to the system
-- When entering deadlines from docket sheets, use the calculation_note field to store the source (e.g., "Dkt. 47, LR 7-3")
+- Skip vacated, canceled, or stricken events/deadlines — do not add these
+- Use the calculation_note field for deadline sources (e.g., "Dkt. 47, LR 7-3")
 - For depositions, include the deponent name in the event description"""
 
 
