@@ -7,60 +7,66 @@ Use db/roles.py for role management.
 
 from typing import Optional, List
 
-from .connection import get_cursor
+from sqlalchemy import select, text
+
+from .session import SessionLocal
+from models import ExpertiseType
+
+
+def _etype_to_dict(et: ExpertiseType) -> dict:
+    """Convert an ExpertiseType ORM instance to a serializable dict."""
+    return {
+        "id": et.id,
+        "name": et.name,
+        "description": et.description,
+    }
 
 
 # ===== EXPERTISE TYPE OPERATIONS =====
 
 def get_expertise_types() -> List[dict]:
     """Get all expertise types."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, description FROM expertise_types ORDER BY name")
-        return [dict(row) for row in cur.fetchall()]
+    with SessionLocal() as session:
+        stmt = select(ExpertiseType).order_by(ExpertiseType.name)
+        return [_etype_to_dict(et) for et in session.scalars(stmt).all()]
 
 
 def create_expertise_type(name: str, description: str = None) -> dict:
     """Create a new expertise type."""
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO expertise_types (name, description)
-            VALUES (%s, %s)
-            RETURNING id, name, description
-        """, (name, description))
-        return dict(cur.fetchone())
+    with SessionLocal() as session:
+        et = ExpertiseType(name=name, description=description)
+        session.add(et)
+        session.flush()
+        session.refresh(et)
+        result = _etype_to_dict(et)
+        session.commit()
+        return result
 
 
 def get_expertise_type_by_id(expertise_type_id: int) -> Optional[dict]:
     """Get an expertise type by ID."""
-    with get_cursor() as cur:
-        cur.execute("SELECT id, name, description FROM expertise_types WHERE id = %s", (expertise_type_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
+    with SessionLocal() as session:
+        et = session.get(ExpertiseType, expertise_type_id)
+        return _etype_to_dict(et) if et else None
 
 
 def update_expertise_type(expertise_type_id: int, name: str = None, description: str = None) -> Optional[dict]:
     """Update an expertise type."""
-    updates = []
-    params = []
-    if name is not None:
-        updates.append("name = %s")
-        params.append(name)
-    if description is not None:
-        updates.append("description = %s")
-        params.append(description)
+    with SessionLocal() as session:
+        et = session.get(ExpertiseType, expertise_type_id)
+        if not et:
+            return None
 
-    if not updates:
-        return get_expertise_type_by_id(expertise_type_id)
+        if name is not None:
+            et.name = name
+        if description is not None:
+            et.description = description
 
-    params.append(expertise_type_id)
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE expertise_types SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, name, description
-        """, params)
-        row = cur.fetchone()
-        return dict(row) if row else None
+        session.flush()
+        session.refresh(et)
+        result = _etype_to_dict(et)
+        session.commit()
+        return result
 
 
 def delete_expertise_type(expertise_type_id: int) -> dict:
@@ -68,24 +74,24 @@ def delete_expertise_type(expertise_type_id: int) -> dict:
 
     Returns dict with 'success' and optional 'error' keys.
     """
-    with get_cursor() as cur:
-        cur.execute("SELECT name FROM expertise_types WHERE id = %s", (expertise_type_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        et = session.get(ExpertiseType, expertise_type_id)
+        if not et:
             return {"success": False, "error": "Expertise type not found"}
-        name = row["name"]
+
+        name = et.name
 
         # Check if any person_roles reference this expertise in their attributes
-        cur.execute("""
-            SELECT COUNT(*) as count FROM person_roles
-            WHERE attributes->'expertises' ? %s
-        """, (name,))
-        count = cur.fetchone()["count"]
+        count = session.scalar(
+            text("SELECT COUNT(*) FROM person_roles WHERE attributes->'expertises' ? :name"),
+            {"name": name}
+        )
         if count > 0:
             return {
                 "success": False,
                 "error": f"Cannot delete '{name}': it is assigned to {count} expert(s)"
             }
 
-        cur.execute("DELETE FROM expertise_types WHERE id = %s", (expertise_type_id,))
+        session.delete(et)
+        session.commit()
         return {"success": True}

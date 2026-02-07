@@ -6,7 +6,8 @@ and Pydantic input models used by both MCP tools and REST routes.
 """
 
 from typing import Optional, Literal, get_args
-from pydantic import BaseModel, Field
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # =============================================================================
@@ -160,3 +161,30 @@ class CreateNoteInput(BaseModel):
 
 class UpdateNoteInput(BaseModel):
     content: str
+
+
+# =============================================================================
+# Output Models (for SQLAlchemy → API serialization)
+# =============================================================================
+
+class RoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    category: str
+    sort_order: Optional[int] = None
+    description: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class RoleWithCountOut(RoleOut):
+    usage_count: int = 0
+
+
+class ExpertiseTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str] = None
