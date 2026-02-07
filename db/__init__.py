@@ -28,7 +28,6 @@ from .validation import (
 
 # Connection and database management
 from .connection import (
-    DATABASE_URL,
     _NOT_PROVIDED,
     drop_all_tables,
     init_db,
@@ -248,7 +247,6 @@ __all__ = [
     "validate_time_format",
     "validate_role_category",
     # Connection
-    "DATABASE_URL",
     "_NOT_PROVIDED",
     "drop_all_tables",
     "init_db",

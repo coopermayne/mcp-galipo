@@ -15,29 +15,17 @@ Usage as a FastAPI dependency:
         ...
 """
 
-import os
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+from config import settings
 
 # Re-export the sentinel from connection.py so all modules share the same object.
 # Routes use `db._NOT_PROVIDED` (from db/__init__ → connection.py), and migrated
 # modules use `from .session import _NOT_PROVIDED` — these must be identical.
 from .connection import _NOT_PROVIDED  # noqa: F401
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL environment variable is not set. "
-        "Make sure to export it: set -a && source .env && set +a"
-    )
-
-# Normalize postgres:// to postgresql:// (Heroku/Coolify use the former,
-# but SQLAlchemy only accepts the latter)
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine)
 
 
