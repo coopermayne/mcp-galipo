@@ -260,7 +260,7 @@ Flexible JSON for role-specific case data. For experts:
 - Meeting, Filing, Research, Drafting, Document Review
 - Phone Call, Email, Court Appearance, Deposition, Other
 
-### Role Categories (CHECK constraint)
+### Role Categories (app-level validation via `db/validation.py`)
 - client, counsel, defendant, expert, mediator, other
 
 ## Schema Design Notes

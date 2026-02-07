@@ -5,16 +5,20 @@ Development Seed Data for Galipo
 Run this script to populate the database with realistic mock data for development.
 
 Usage:
+    set -a && source .env && set +a
     python seed_dev_data.py
 
 This will add:
 - 8 cases at various litigation stages
-- 25+ persons (clients, attorneys, judges, experts, defendants)
-- Case-person relationships
+- 25+ persons (clients, attorneys, experts, defendants, mediators)
+- 4 judges (standalone judge table)
+- Case-person role assignments
+- Proceedings with judge assignments
 - Events/deadlines
 - Tasks
 - Activities
 - Notes
+- Webhook logs
 """
 
 import os
@@ -28,12 +32,13 @@ load_dotenv()
 # Ensure we can import from the project
 import db
 
+
 def seed_dev_data():
     """Seed the database with development mock data."""
 
     print("Seeding development data...")
 
-    # First seed the lookup tables (jurisdictions, person_types, expertise_types)
+    # First seed the lookup tables (jurisdictions, roles, expertise_types)
     print("  Seeding lookup tables...")
     db.seed_db()
 
@@ -41,48 +46,42 @@ def seed_dev_data():
     jurisdictions = db.get_jurisdictions()
     jurisdiction_map = {j["name"]: j["id"] for j in jurisdictions}
 
+    # Build role name -> id map for assigning persons to cases
+    all_roles = db.get_roles()
+    role_map = {r["name"]: r["id"] for r in all_roles}
+
     # ========== PERSONS ==========
     print("  Creating persons...")
 
     persons = []
 
-    # Clients
+    # Clients (persons are now pure identity+contact; role-specific attributes go on assignments)
     clients_data = [
         {"name": "Maria Elena Martinez", "phones": [{"value": "310-555-1234", "label": "Cell", "primary": True}],
-         "emails": [{"value": "maria.martinez@email.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1985-03-15", "preferred_language": "Spanish"}},
+         "emails": [{"value": "maria.martinez@email.com", "label": "Personal", "primary": True}]},
         {"name": "James Robert Wilson", "phones": [{"value": "213-555-5678", "label": "Cell", "primary": True}],
-         "emails": [{"value": "jwilson@gmail.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1972-08-22"}},
+         "emails": [{"value": "jwilson@gmail.com", "label": "Personal", "primary": True}]},
         {"name": "Nguyen Thi Phuong", "phones": [{"value": "626-555-9012", "label": "Cell", "primary": True}],
-         "emails": [{"value": "phuong.nguyen@yahoo.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1990-11-08", "preferred_language": "Vietnamese"}},
+         "emails": [{"value": "phuong.nguyen@yahoo.com", "label": "Personal", "primary": True}]},
         {"name": "Robert Charles Thompson", "phones": [{"value": "818-555-3456", "label": "Cell", "primary": True}, {"value": "818-555-3457", "label": "Work", "primary": False}],
-         "emails": [{"value": "rthompson@outlook.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1968-05-30"}},
+         "emails": [{"value": "rthompson@outlook.com", "label": "Personal", "primary": True}]},
         {"name": "Samantha Lynn Chen", "phones": [{"value": "949-555-7890", "label": "Cell", "primary": True}],
-         "emails": [{"value": "samantha.chen@icloud.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1995-01-12"}},
+         "emails": [{"value": "samantha.chen@icloud.com", "label": "Personal", "primary": True}]},
         {"name": "Marcus Anthony Davis", "phones": [{"value": "562-555-2345", "label": "Cell", "primary": True}],
-         "emails": [{"value": "mdavis_law@gmail.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1980-07-04"}},
+         "emails": [{"value": "mdavis_law@gmail.com", "label": "Personal", "primary": True}]},
         {"name": "Patricia Ann O'Brien", "phones": [{"value": "714-555-6789", "label": "Cell", "primary": True}],
-         "emails": [{"value": "pobrien55@hotmail.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1955-12-20"}},
+         "emails": [{"value": "pobrien55@hotmail.com", "label": "Personal", "primary": True}]},
         {"name": "David Kim", "phones": [{"value": "323-555-0123", "label": "Cell", "primary": True}],
-         "emails": [{"value": "david.kim.la@gmail.com", "label": "Personal", "primary": True}],
-         "attributes": {"date_of_birth": "1988-09-17"}},
+         "emails": [{"value": "david.kim.la@gmail.com", "label": "Personal", "primary": True}]},
     ]
 
     for c in clients_data:
         person = db.create_person(
             name=c["name"],
-            person_type="client",
             phones=c.get("phones"),
             emails=c.get("emails"),
-            attributes=c.get("attributes")
         )
-        persons.append({"id": person["id"], "name": c["name"], "type": "client"})
+        persons.append({"id": person["id"], "name": c["name"], "role": "plaintiff"})
 
     # Defendants (entities)
     defendants_data = [
@@ -103,12 +102,11 @@ def seed_dev_data():
     for d in defendants_data:
         person = db.create_person(
             name=d["name"],
-            person_type="defendant",
             organization=d.get("organization"),
             phones=d.get("phones"),
-            address=d.get("address")
+            address=d.get("address"),
         )
-        persons.append({"id": person["id"], "name": d["name"], "type": "defendant"})
+        persons.append({"id": person["id"], "name": d["name"], "role": "municipality_defendant"})
 
     # Opposing Counsel
     opp_counsel_data = [
@@ -129,34 +127,12 @@ def seed_dev_data():
     for a in opp_counsel_data:
         person = db.create_person(
             name=a["name"],
-            person_type="attorney",
             organization=a.get("organization"),
             phones=a.get("phones"),
             emails=a.get("emails"),
-            attributes=a.get("attributes")
         )
-        persons.append({"id": person["id"], "name": a["name"], "type": "attorney"})
-
-    # Judges
-    judges_data = [
-        {"name": "Hon. Patricia Collins", "organization": "C.D. Cal.",
-         "attributes": {"courtroom_number": "8A", "initials": "PAC", "status": "Active"}},
-        {"name": "Hon. Robert Takahashi", "organization": "Los Angeles Superior",
-         "attributes": {"courtroom_number": "312", "initials": "RT", "status": "Active"}},
-        {"name": "Hon. Maria Santos", "organization": "C.D. Cal.",
-         "attributes": {"courtroom_number": "6B", "initials": "MLS", "status": "Active"}},
-        {"name": "Hon. William Foster", "organization": "Los Angeles Superior",
-         "attributes": {"courtroom_number": "504", "initials": "WF", "status": "Active"}},
-    ]
-
-    for j in judges_data:
-        person = db.create_person(
-            name=j["name"],
-            person_type="judge",
-            organization=j.get("organization"),
-            attributes=j.get("attributes")
-        )
-        persons.append({"id": person["id"], "name": j["name"], "type": "judge"})
+        persons.append({"id": person["id"], "name": a["name"], "role": "opposing_counsel",
+                         "attributes": a.get("attributes")})
 
     # Experts
     experts_data = [
@@ -164,34 +140,33 @@ def seed_dev_data():
          "phones": [{"value": "858-555-1111", "label": "Office", "primary": True}],
          "emails": [{"value": "dr.mitchell@mitchellbiomech.com", "label": "Work", "primary": True}],
          "attributes": {"hourly_rate": 650, "deposition_rate": 750, "trial_rate": 850,
-                       "expertises": ["Biomechanics", "Accident Reconstruction"]}},
+                        "expertises": ["Biomechanics", "Accident Reconstruction"]}},
         {"name": "Dr. Michael Wong", "organization": "UCLA Medical Center",
          "phones": [{"value": "310-555-2222", "label": "Office", "primary": True}],
          "emails": [{"value": "mwong@mednet.ucla.edu", "label": "Work", "primary": True}],
          "attributes": {"hourly_rate": 800, "deposition_rate": 900, "trial_rate": 1000,
-                       "expertises": ["Medical - Orthopedic"]}},
+                        "expertises": ["Medical - Orthopedic"]}},
         {"name": "Dr. Linda Park", "organization": "Southern California Neurology",
          "phones": [{"value": "626-555-3333", "label": "Office", "primary": True}],
          "emails": [{"value": "lpark@socalneurology.com", "label": "Work", "primary": True}],
          "attributes": {"hourly_rate": 750, "deposition_rate": 850, "trial_rate": 950,
-                       "expertises": ["Medical - Neurology"]}},
+                        "expertises": ["Medical - Neurology"]}},
         {"name": "Dr. James Harrison", "organization": "Harrison Economics",
          "phones": [{"value": "213-555-4444", "label": "Office", "primary": True}],
          "emails": [{"value": "jharrison@harrisonecon.com", "label": "Work", "primary": True}],
          "attributes": {"hourly_rate": 500, "deposition_rate": 600, "trial_rate": 700,
-                       "expertises": ["Economics/Damages", "Life Care Planning"]}},
+                        "expertises": ["Economics/Damages", "Life Care Planning"]}},
     ]
 
     for e in experts_data:
         person = db.create_person(
             name=e["name"],
-            person_type="expert",
             organization=e.get("organization"),
             phones=e.get("phones"),
             emails=e.get("emails"),
-            attributes=e.get("attributes")
         )
-        persons.append({"id": person["id"], "name": e["name"], "type": "expert"})
+        persons.append({"id": person["id"], "name": e["name"], "role": "plaintiff_expert",
+                         "attributes": e.get("attributes")})
 
     # Mediators
     mediators_data = [
@@ -208,19 +183,49 @@ def seed_dev_data():
     for m in mediators_data:
         person = db.create_person(
             name=m["name"],
-            person_type="mediator",
             organization=m.get("organization"),
             phones=m.get("phones"),
             emails=m.get("emails"),
-            attributes=m.get("attributes")
         )
-        persons.append({"id": person["id"], "name": m["name"], "type": "mediator"})
+        persons.append({"id": person["id"], "name": m["name"], "role": "mediator",
+                         "attributes": m.get("attributes")})
+
+    # ========== JUDGES (standalone table, not persons) ==========
+    print("  Creating judges...")
+
+    judges_data = [
+        {"name": "Hon. Patricia Collins", "jurisdiction": "C.D. Cal.",
+         "courtroom_number": "8A", "initials": "PAC"},
+        {"name": "Hon. Robert Takahashi", "jurisdiction": "Los Angeles Superior",
+         "courtroom_number": "312", "initials": "RT"},
+        {"name": "Hon. Maria Santos", "jurisdiction": "C.D. Cal.",
+         "courtroom_number": "6B", "initials": "MLS"},
+        {"name": "Hon. William Foster", "jurisdiction": "Los Angeles Superior",
+         "courtroom_number": "504", "initials": "WF"},
+    ]
+
+    judges = []
+    for j in judges_data:
+        judge = db.create_judge(
+            name=j["name"],
+            jurisdiction_id=jurisdiction_map.get(j["jurisdiction"]),
+            courtroom_number=j.get("courtroom_number"),
+            initials=j.get("initials"),
+        )
+        judges.append({"id": judge["id"], "name": j["name"]})
 
     # Helper to find person by name
     def find_person(name):
         for p in persons:
             if p["name"] == name:
-                return p["id"]
+                return p
+        return None
+
+    # Helper to find judge by name
+    def find_judge(name):
+        for j in judges:
+            if j["name"] == name:
+                return j["id"]
         return None
 
     # ========== CASES ==========
@@ -350,29 +355,31 @@ def seed_dev_data():
         created_cases.append({"id": case_id, "name": c["case_name"], "data": c})
 
         # Assign client
-        client_id = find_person(c["client"])
-        if client_id:
-            db.assign_person_to_case(case_id, client_id, "Client", side="plaintiff", is_primary=True)
+        client = find_person(c["client"])
+        if client:
+            db.assign_person_to_case(case_id, client["id"], role_map["plaintiff"], is_primary=True)
 
         # Assign defendants
-        for d in c.get("defendants", []):
-            defendant_id = find_person(d)
-            if defendant_id:
-                db.assign_person_to_case(case_id, defendant_id, "Defendant", side="defendant")
+        for d_name in c.get("defendants", []):
+            defendant = find_person(d_name)
+            if defendant:
+                # Use municipality_defendant for orgs, individual_defendant for officers
+                role_name = "individual_defendant" if "Officer" in d_name or "Badge" in d_name else "municipality_defendant"
+                db.assign_person_to_case(case_id, defendant["id"], role_map[role_name])
 
-        # Assign opposing counsel
+        # Assign opposing counsel (with bar_number in attributes)
         if c.get("opp_counsel"):
-            opp_id = find_person(c["opp_counsel"])
-            if opp_id:
-                db.assign_person_to_case(case_id, opp_id, "Opposing Counsel", side="defendant")
+            opp = find_person(c["opp_counsel"])
+            if opp:
+                db.assign_person_to_case(case_id, opp["id"], role_map["opposing_counsel"],
+                                         attributes=opp.get("attributes"))
 
-        # Note: Judges are assigned via proceedings, not directly to cases
-
-        # Assign experts
-        for e in c.get("experts", []):
-            expert_id = find_person(e)
-            if expert_id:
-                db.assign_person_to_case(case_id, expert_id, "Plaintiff Expert", side="plaintiff")
+        # Assign experts (with rates/expertises in attributes)
+        for e_name in c.get("experts", []):
+            expert = find_person(e_name)
+            if expert:
+                db.assign_person_to_case(case_id, expert["id"], role_map["plaintiff_expert"],
+                                         attributes=expert.get("attributes"))
 
     # Helper to find case by name
     def find_case(name):
@@ -384,24 +391,17 @@ def seed_dev_data():
     # ========== PROCEEDINGS ==========
     print("  Creating proceedings...")
 
-    # Map case numbers to their jurisdictions and judges
     proceedings_data = [
-        # Martinez - Federal C.D. Cal.
         {"case": "Martinez", "case_number": "2:24-cv-01234-PAC", "jurisdiction": "C.D. Cal.",
          "judge": "Hon. Patricia Collins", "is_primary": True},
-        # Wilson - LA Superior
         {"case": "Wilson", "case_number": "23STCV45678", "jurisdiction": "Los Angeles Superior",
          "judge": "Hon. Robert Takahashi", "is_primary": True},
-        # Nguyen - LA Superior
         {"case": "Nguyen", "case_number": "22STCV34567", "jurisdiction": "Los Angeles Superior",
          "judge": "Hon. William Foster", "is_primary": True},
-        # Thompson - Federal C.D. Cal.
         {"case": "Thompson", "case_number": "2:24-cv-05678-MLS", "jurisdiction": "C.D. Cal.",
          "judge": "Hon. Maria Santos", "is_primary": True},
-        # Chen - LA Superior
         {"case": "Chen", "case_number": "23STCV12345", "jurisdiction": "Los Angeles Superior",
          "judge": "Hon. Robert Takahashi", "is_primary": True},
-        # O'Brien - LA Superior (closed case)
         {"case": "O'Brien", "case_number": "21STCV09876", "jurisdiction": "Los Angeles Superior",
          "judge": "Hon. William Foster", "is_primary": True},
     ]
@@ -410,7 +410,7 @@ def seed_dev_data():
     for p in proceedings_data:
         case_id = find_case(p["case"])
         jurisdiction_id = jurisdiction_map.get(p["jurisdiction"])
-        judge_id = find_person(p["judge"]) if p.get("judge") else None
+        judge_id = find_judge(p["judge"]) if p.get("judge") else None
 
         if case_id and jurisdiction_id:
             proceeding = db.add_proceeding(
@@ -421,11 +421,11 @@ def seed_dev_data():
             )
             created_proceedings.append(proceeding)
 
-            # Add judge to proceeding if specified
+            # Add judge to proceeding
             if judge_id and proceeding:
                 db.add_judge_to_proceeding(
                     proceeding_id=proceeding["id"],
-                    person_id=judge_id,
+                    judge_id=judge_id,
                     role="Judge"
                 )
 
@@ -546,7 +546,6 @@ def seed_dev_data():
             )
             # If there's a completion date, update the task
             if t.get("completion_date"):
-                # Get the task we just created
                 tasks_result = db.get_tasks(case_id=case_id)
                 for task in tasks_result.get("tasks", []):
                     if task["description"] == t["description"]:
@@ -625,212 +624,46 @@ def seed_dev_data():
     import uuid
 
     webhooks_data = [
-        # Docket Alert webhook (event_type 1)
         {
-            "source": "courtlistener",
-            "event_type": "1",
+            "source": "courtlistener", "event_type": "1",
             "idempotency_key": str(uuid.uuid4()),
-            "payload": {
-                "webhook": {
-                    "event_type": 1,
-                    "version": 2,
-                    "date_created": "2024-12-15T14:30:00-08:00"
-                },
-                "payload": {
-                    "results": [
-                        {
-                            "docket": "https://www.courtlistener.com/api/rest/v4/dockets/68547231/",
-                            "docket_id": 68547231,
-                            "case_name": "Martinez v. City of Los Angeles",
-                            "court": "cacd",
-                            "docket_number": "2:24-cv-01234-PAC",
-                            "date_filed": "2024-06-15",
-                            "description": "ORDER granting Motion for Extension of Time"
-                        }
-                    ]
-                }
-            },
-            "headers": {
-                "content-type": "application/json",
-                "user-agent": "CourtListener/2.0"
-            },
-            "processing_status": "completed"
+            "payload": {"webhook": {"event_type": 1, "version": 2}, "payload": {"results": [{"docket_id": 68547231, "case_name": "Martinez v. City of Los Angeles", "court": "cacd", "docket_number": "2:24-cv-01234-PAC", "description": "ORDER granting Motion for Extension of Time"}]}},
+            "headers": {"content-type": "application/json", "user-agent": "CourtListener/2.0"},
+            "processing_status": "completed",
         },
-        # Search Alert webhook (event_type 2)
         {
-            "source": "courtlistener",
-            "event_type": "2",
+            "source": "courtlistener", "event_type": "2",
             "idempotency_key": str(uuid.uuid4()),
-            "payload": {
-                "webhook": {
-                    "event_type": 2,
-                    "version": 2,
-                    "date_created": "2024-12-16T09:15:00-08:00"
-                },
-                "payload": {
-                    "alert": {
-                        "name": "Police Misconduct - Los Angeles",
-                        "query": "police AND misconduct AND \"los angeles\"",
-                        "rate": "rt"
-                    },
-                    "results": [
-                        {
-                            "caseName": "Davis v. City of Los Angeles",
-                            "court": "C.D. Cal.",
-                            "dateFiled": "2024-12-01",
-                            "snippet": "...alleged excessive force by LAPD officers..."
-                        }
-                    ]
-                }
-            },
-            "headers": {
-                "content-type": "application/json",
-                "user-agent": "CourtListener/2.0"
-            },
-            "processing_status": "pending"
+            "payload": {"webhook": {"event_type": 2, "version": 2}, "payload": {"alert": {"name": "Police Misconduct - Los Angeles", "query": "police AND misconduct", "rate": "rt"}, "results": [{"caseName": "Davis v. City of Los Angeles", "court": "C.D. Cal.", "snippet": "...alleged excessive force by LAPD officers..."}]}},
+            "headers": {"content-type": "application/json", "user-agent": "CourtListener/2.0"},
+            "processing_status": "pending",
         },
-        # RECAP Fetch webhook (event_type 3)
         {
-            "source": "courtlistener",
-            "event_type": "3",
+            "source": "courtlistener", "event_type": "1",
             "idempotency_key": str(uuid.uuid4()),
-            "payload": {
-                "webhook": {
-                    "event_type": 3,
-                    "version": 2,
-                    "date_created": "2024-12-14T16:45:00-08:00"
-                },
-                "payload": {
-                    "status": "successful",
-                    "docket": {
-                        "absolute_url": "/docket/68123456/wilson-v-abc-trucking/",
-                        "case_name": "Wilson v. ABC Trucking Inc.",
-                        "docket_number": "23STCV45678",
-                        "court": "lasc"
-                    },
-                    "recap_documents": [
-                        {
-                            "description": "Complaint",
-                            "document_number": 1,
-                            "filepath_local": "/storage/recap/lasc/23STCV45678/001.pdf"
-                        },
-                        {
-                            "description": "Summons Issued",
-                            "document_number": 2,
-                            "filepath_local": "/storage/recap/lasc/23STCV45678/002.pdf"
-                        }
-                    ]
-                }
-            },
-            "headers": {
-                "content-type": "application/json",
-                "user-agent": "CourtListener/2.0"
-            },
-            "processing_status": "completed"
+            "payload": {"webhook": {"event_type": 1, "version": 2}, "payload": {"results": [{"docket_id": 68234567, "case_name": "Nguyen v. Metro Transit Authority", "court": "lasc", "docket_number": "22STCV34567", "description": "MOTION for Summary Judgment filed by Defendant"}]}},
+            "headers": {"content-type": "application/json", "user-agent": "CourtListener/2.0"},
+            "processing_status": "processing",
         },
-        # Old Docket Alert webhook (event_type 4)
         {
-            "source": "courtlistener",
-            "event_type": "4",
+            "source": "courtlistener", "event_type": "1",
             "idempotency_key": str(uuid.uuid4()),
-            "payload": {
-                "webhook": {
-                    "event_type": 4,
-                    "version": 2,
-                    "date_created": "2024-12-10T11:00:00-08:00"
-                },
-                "payload": {
-                    "message": "Your docket alert for O'Brien v. ABC Trucking Inc. (21STCV09876) has not had any new entries in over 180 days.",
-                    "docket": {
-                        "case_name": "O'Brien v. ABC Trucking Inc.",
-                        "docket_number": "21STCV09876",
-                        "court": "lasc",
-                        "date_last_filing": "2023-06-15"
-                    },
-                    "recommendation": "Consider disabling this alert if the case has concluded."
-                }
-            },
-            "headers": {
-                "content-type": "application/json",
-                "user-agent": "CourtListener/2.0"
-            },
-            "processing_status": "completed"
-        },
-        # Another Docket Alert with new filing
-        {
-            "source": "courtlistener",
-            "event_type": "1",
-            "idempotency_key": str(uuid.uuid4()),
-            "payload": {
-                "webhook": {
-                    "event_type": 1,
-                    "version": 2,
-                    "date_created": "2024-12-17T08:30:00-08:00"
-                },
-                "payload": {
-                    "results": [
-                        {
-                            "docket": "https://www.courtlistener.com/api/rest/v4/dockets/68234567/",
-                            "docket_id": 68234567,
-                            "case_name": "Nguyen v. Metro Transit Authority",
-                            "court": "lasc",
-                            "docket_number": "22STCV34567",
-                            "date_filed": "2024-12-16",
-                            "description": "MOTION for Summary Judgment filed by Defendant Metro Transit Authority"
-                        }
-                    ]
-                }
-            },
-            "headers": {
-                "content-type": "application/json",
-                "user-agent": "CourtListener/2.0"
-            },
-            "processing_status": "processing"
-        },
-        # Failed webhook (for testing error display)
-        {
-            "source": "courtlistener",
-            "event_type": "1",
-            "idempotency_key": str(uuid.uuid4()),
-            "payload": {
-                "webhook": {
-                    "event_type": 1,
-                    "version": 2,
-                    "date_created": "2024-12-13T10:00:00-08:00"
-                },
-                "payload": {
-                    "results": [
-                        {
-                            "docket_id": 99999999,
-                            "case_name": "Unknown Case",
-                            "court": "unknown",
-                            "docket_number": "INVALID-123"
-                        }
-                    ]
-                }
-            },
-            "headers": {
-                "content-type": "application/json",
-                "user-agent": "CourtListener/2.0"
-            },
+            "payload": {"webhook": {"event_type": 1, "version": 2}, "payload": {"results": [{"docket_id": 99999999, "case_name": "Unknown Case", "court": "unknown", "docket_number": "INVALID-123"}]}},
+            "headers": {"content-type": "application/json", "user-agent": "CourtListener/2.0"},
             "processing_status": "failed",
-            "processing_error": "Could not match docket to any known case in the system"
+            "processing_error": "Could not match docket to any known case in the system",
         },
     ]
 
     for w in webhooks_data:
-        # Store the idempotency_key before creation
-        idem_key = w.get("idempotency_key")
-
         result = db.create_webhook_log(
             source=w["source"],
             payload=w["payload"],
             event_type=w.get("event_type"),
-            idempotency_key=idem_key,
+            idempotency_key=w.get("idempotency_key"),
             headers=w.get("headers"),
         )
 
-        # Update status if not pending
         if result and w.get("processing_status") != "pending":
             webhook_id = result["id"]
             if w["processing_status"] == "failed":
@@ -841,10 +674,11 @@ def seed_dev_data():
                 db.mark_webhook_processing(webhook_id)
 
     print("Development data seeded successfully!")
-    print(f"  - {len(jurisdictions)} jurisdictions seeded")
-    print(f"  - {len(db.get_person_types())} person types seeded")
-    print(f"  - {len(db.get_expertise_types())} expertise types seeded")
+    print(f"  - {len(jurisdictions)} jurisdictions")
+    print(f"  - {len(all_roles)} roles")
+    print(f"  - {len(db.get_expertise_types())} expertise types")
     print(f"  - {len(persons)} persons created")
+    print(f"  - {len(judges)} judges created")
     print(f"  - {len(created_cases)} cases created")
     print(f"  - {len(created_proceedings)} proceedings created")
     print(f"  - {len(events_data)} events created")
@@ -855,13 +689,12 @@ def seed_dev_data():
 
 
 if __name__ == "__main__":
-    # Load environment variables
     from dotenv import load_dotenv
     load_dotenv()
 
     if not os.environ.get("DATABASE_URL"):
         print("ERROR: DATABASE_URL environment variable not set")
-        print("Usage: DATABASE_URL='postgresql://...' python seed_dev_data.py")
+        print("Usage: set -a && source .env && set +a && python seed_dev_data.py")
         exit(1)
 
     seed_dev_data()
