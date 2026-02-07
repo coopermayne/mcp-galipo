@@ -75,7 +75,6 @@ const EVENTS_GROUP_OPTIONS: { value: EventsGroupMode; label: string; icon: React
 
 const CASES_GROUP_OPTIONS: { value: CasesGroupMode; label: string; icon: React.ReactNode }[] = [
   { value: 'none', label: 'A-Z', icon: <SortAsc className="w-3.5 h-3.5" /> },
-  { value: 'alpha', label: 'Letter', icon: <SortAsc className="w-3.5 h-3.5" /> },
   { value: 'status', label: 'Status', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
 ];
 
