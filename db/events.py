@@ -5,7 +5,8 @@ Event/calendar management functions — SQLAlchemy ORM implementation.
 import datetime
 from typing import Optional, List
 
-from sqlalchemy import select, func, literal_column, text
+from sqlalchemy import select, func, literal_column, text, Integer, cast
+from sqlalchemy.dialects.postgresql import ARRAY as SA_ARRAY
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
@@ -106,14 +107,16 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         stmt = stmt.where(Event.case_id == case_id)
 
     if user_id:
+        uid_arr = cast([user_id], SA_ARRAY(Integer()))
         stmt = stmt.where(
-            literal_column(str(user_id)).op("= ANY")(Case.attorney_ids)
-            | literal_column(str(user_id)).op("= ANY")(Case.paralegal_ids)
+            Case.attorney_ids.op('@>')(uid_arr)
+            | Case.paralegal_ids.op('@>')(uid_arr)
         )
 
     if attendee_id:
+        aid_arr = cast([attendee_id], SA_ARRAY(Integer()))
         stmt = stmt.where(
-            literal_column(str(attendee_id)).op("= ANY")(Event.attendee_ids)
+            Event.attendee_ids.op('@>')(aid_arr)
         )
 
     with SessionLocal() as session:
@@ -130,13 +133,15 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         if case_id:
             count_base = count_base.where(Event.case_id == case_id)
         if user_id:
+            uid_arr = cast([user_id], SA_ARRAY(Integer()))
             count_base = count_base.where(
-                literal_column(str(user_id)).op("= ANY")(Case.attorney_ids)
-                | literal_column(str(user_id)).op("= ANY")(Case.paralegal_ids)
+                Case.attorney_ids.op('@>')(uid_arr)
+                | Case.paralegal_ids.op('@>')(uid_arr)
             )
         if attendee_id:
+            aid_arr = cast([attendee_id], SA_ARRAY(Integer()))
             count_base = count_base.where(
-                literal_column(str(attendee_id)).op("= ANY")(Event.attendee_ids)
+                Event.attendee_ids.op('@>')(aid_arr)
             )
         total = session.scalar(select(func.count()).select_from(count_base.subquery()))
 

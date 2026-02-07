@@ -5,7 +5,8 @@ Task management functions — SQLAlchemy ORM implementation.
 import datetime
 from typing import Optional, List
 
-from sqlalchemy import select, func, update, literal_column, exists
+from sqlalchemy import select, func, update, literal_column, exists, Integer, cast
+from sqlalchemy.dialects.postgresql import ARRAY as SA_ARRAY
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
@@ -157,9 +158,10 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
     if assignee_id:
         stmt = stmt.where(Task.assignee_id == assignee_id)
     if user_id:
+        uid_arr = cast([user_id], SA_ARRAY(Integer()))
         stmt = stmt.where(
-            literal_column(str(user_id)).op("= ANY")(Case.attorney_ids)
-            | literal_column(str(user_id)).op("= ANY")(Case.paralegal_ids)
+            Case.attorney_ids.op('@>')(uid_arr)
+            | Case.paralegal_ids.op('@>')(uid_arr)
         )
 
     with SessionLocal() as session:
@@ -180,9 +182,10 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         if assignee_id:
             count_base = count_base.where(Task.assignee_id == assignee_id)
         if user_id:
+            uid_arr = cast([user_id], SA_ARRAY(Integer()))
             count_base = count_base.where(
-                literal_column(str(user_id)).op("= ANY")(Case.attorney_ids)
-                | literal_column(str(user_id)).op("= ANY")(Case.paralegal_ids)
+                Case.attorney_ids.op('@>')(uid_arr)
+                | Case.paralegal_ids.op('@>')(uid_arr)
             )
         total = session.scalar(select(func.count()).select_from(count_base.subquery()))
 
