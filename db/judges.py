@@ -13,27 +13,16 @@ from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal, _NOT_PROVIDED
 from models import Judge, Jurisdiction, ProceedingJudge, Proceeding, Case
+from schemas import JudgeOut, ProceedingJudgeOut
 
 
 def _judge_to_dict(j: Judge) -> dict:
     """Convert a Judge ORM instance to a serializable dict."""
-    return {
-        "id": j.id,
-        "name": j.name,
-        "phones": j.phones or [],
-        "emails": j.emails or [],
-        "jurisdiction_id": j.jurisdiction_id,
-        "chambers": j.chambers,
-        "courtroom_number": j.courtroom_number,
-        "appointed_by": j.appointed_by,
-        "appointed_date": j.appointed_date.isoformat() if j.appointed_date else None,
-        "initials": j.initials,
-        "status": j.status,
-        "notes": j.notes,
-        "created_at": j.created_at.isoformat() if j.created_at else None,
-        "updated_at": j.updated_at.isoformat() if j.updated_at else None,
-        "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
-    }
+    d = JudgeOut.model_validate(j).model_dump(mode="json")
+    d["phones"] = j.phones or []
+    d["emails"] = j.emails or []
+    d["jurisdiction_name"] = j.jurisdiction.name if j.jurisdiction else None
+    return d
 
 
 def _judge_with_rules_to_dict(j: Judge) -> dict:
@@ -45,21 +34,21 @@ def _judge_with_rules_to_dict(j: Judge) -> dict:
 
 def _proceeding_judge_to_dict(pj: ProceedingJudge) -> dict:
     """Convert a ProceedingJudge ORM instance to a serializable dict."""
-    return {
-        "id": pj.id,
-        "proceeding_id": pj.proceeding_id,
-        "judge_id": pj.judge_id,
-        "role": pj.role,
-        "sort_order": pj.sort_order,
-        "created_at": pj.created_at.isoformat() if pj.created_at else None,
-        "name": pj.judge.name if pj.judge else None,
-        "judge_name": pj.judge.name if pj.judge else None,
-        "jurisdiction_id": pj.judge.jurisdiction_id if pj.judge else None,
-        "jurisdiction_name": (
+    return ProceedingJudgeOut(
+        id=pj.id,
+        proceeding_id=pj.proceeding_id,
+        judge_id=pj.judge_id,
+        role=pj.role,
+        sort_order=pj.sort_order,
+        created_at=pj.created_at,
+        name=pj.judge.name if pj.judge else None,
+        judge_name=pj.judge.name if pj.judge else None,
+        jurisdiction_id=pj.judge.jurisdiction_id if pj.judge else None,
+        jurisdiction_name=(
             pj.judge.jurisdiction.name
             if pj.judge and pj.judge.jurisdiction else None
         ),
-    }
+    ).model_dump(mode="json")
 
 
 def get_judges(search: str = None, jurisdiction_id: int = None,

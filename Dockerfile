@@ -18,7 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py models.py schemas.py tools.py routes.py auth.py mcp_auth.py config.py alembic.ini ./
+COPY main.py models.py tools.py routes.py auth.py mcp_auth.py config.py alembic.ini ./
+COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
 COPY routes/ ./routes/

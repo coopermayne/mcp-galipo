@@ -15,44 +15,17 @@ from .validation import (
     validate_task_status, validate_urgency, validate_date_format
 )
 from models import Task, Case, Event, User
-
-
-def _serialize_value(val):
-    """Convert datetime/date/time objects to JSON-safe strings."""
-    if isinstance(val, datetime.datetime):
-        return val.isoformat()
-    elif isinstance(val, datetime.date):
-        return val.isoformat()
-    elif isinstance(val, datetime.time):
-        return val.strftime("%H:%M")
-    return val
+from schemas import TaskOut, UserBriefOut, TaskDetailOut
 
 
 def _task_to_dict(task: Task) -> dict:
     """Convert a Task ORM instance to a serializable dict."""
-    return {
-        "id": task.id,
-        "case_id": task.case_id,
-        "description": task.description,
-        "due_date": _serialize_value(task.due_date),
-        "completion_date": _serialize_value(task.completion_date),
-        "status": task.status,
-        "urgency": task.urgency,
-        "event_id": task.event_id,
-        "sort_order": task.sort_order,
-        "assignee_id": task.assignee_id,
-        "created_at": _serialize_value(task.created_at),
-    }
+    return TaskOut.model_validate(task).model_dump(mode="json")
 
 
 def _assignee_dict(user: User) -> dict:
     """Build a nested assignee dict from a User."""
-    return {
-        "id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "initials": user.initials,
-    }
+    return UserBriefOut.model_validate(user).model_dump(mode="json")
 
 
 def _task_with_relations(task: Task, case: Case, event: Event = None,
@@ -63,12 +36,9 @@ def _task_with_relations(task: Task, case: Case, event: Event = None,
     d["short_name"] = case.short_name if case else None
     d["case_color"] = case.color if case else None
     d["event_description"] = event.description if event else None
-    d["event_date"] = _serialize_value(event.date) if event else None
+    d["event_date"] = event.date.isoformat() if event and event.date else None
     d["has_events"] = has_events
-    if assignee:
-        d["assignee"] = _assignee_dict(assignee)
-    else:
-        d["assignee"] = None
+    d["assignee"] = _assignee_dict(assignee) if assignee else None
     return d
 
 
@@ -418,19 +388,18 @@ def get_task_detail(task_id: int) -> Optional[dict]:
         if not row:
             return None
         task, case, user = row
-        return {
-            "id": task.id, "case_id": task.case_id,
-            "case_name": case.case_name, "short_name": case.short_name,
-            "description": task.description,
-            "due_date": task.due_date.isoformat() if task.due_date else None,
-            "completion_date": task.completion_date.isoformat() if task.completion_date else None,
-            "status": task.status, "urgency": task.urgency,
-            "event_id": task.event_id, "sort_order": task.sort_order,
-            "assignee_id": task.assignee_id,
-            "assignee_first_name": user.first_name if user else None,
-            "assignee_last_name": user.last_name if user else None,
-            "assignee_initials": user.initials if user else None,
-        }
+        return TaskDetailOut(
+            id=task.id, case_id=task.case_id,
+            case_name=case.case_name, short_name=case.short_name,
+            description=task.description,
+            due_date=task.due_date, completion_date=task.completion_date,
+            status=task.status, urgency=task.urgency,
+            event_id=task.event_id, sort_order=task.sort_order,
+            assignee_id=task.assignee_id,
+            assignee_first_name=user.first_name if user else None,
+            assignee_last_name=user.last_name if user else None,
+            assignee_initials=user.initials if user else None,
+        ).model_dump(mode="json")
 
 
 def reorder_task(task_id: int, new_sort_order: int, new_urgency: str = None) -> Optional[dict]:

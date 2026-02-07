@@ -8,17 +8,12 @@ from sqlalchemy import select, func
 
 from .session import SessionLocal
 from models import Note, Case
+from schemas import NoteOut
 
 
 def _note_to_dict(note: Note) -> dict:
     """Convert a Note ORM instance to a serializable dict."""
-    return {
-        "id": note.id,
-        "case_id": note.case_id,
-        "content": note.content,
-        "created_at": note.created_at.isoformat() if note.created_at else None,
-        "updated_at": note.updated_at.isoformat() if note.updated_at else None,
-    }
+    return NoteOut.model_validate(note).model_dump(mode="json")
 
 
 def _note_with_case_to_dict(note: Note, case: Case) -> dict:

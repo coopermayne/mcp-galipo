@@ -11,6 +11,7 @@ from sqlalchemy import select, func
 
 from .session import SessionLocal
 from models import WebhookLog
+from schemas import WebhookOut
 
 
 # Sentinel value to distinguish "not provided" from None
@@ -19,21 +20,7 @@ _NOT_PROVIDED = object()
 
 def _webhook_to_dict(wh: WebhookLog) -> dict:
     """Convert a WebhookLog ORM object to a JSON-safe dict."""
-    return {
-        'id': wh.id,
-        'source': wh.source,
-        'event_type': wh.event_type,
-        'idempotency_key': str(wh.idempotency_key) if wh.idempotency_key else None,
-        'payload': wh.payload,
-        'headers': wh.headers,
-        'proceeding_id': wh.proceeding_id,
-        'task_id': wh.task_id,
-        'event_id': wh.event_id,
-        'processing_status': wh.processing_status,
-        'processing_error': wh.processing_error,
-        'created_at': wh.created_at.isoformat() if wh.created_at else None,
-        'processed_at': wh.processed_at.isoformat() if wh.processed_at else None,
-    }
+    return WebhookOut.model_validate(wh).model_dump(mode="json")
 
 
 def create_webhook_log(
