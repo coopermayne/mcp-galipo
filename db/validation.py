@@ -97,10 +97,13 @@ def validate_task_status(status: str) -> str:
     return status
 
 
-def validate_urgency(urgency: int) -> int:
-    """Validate urgency is between 1 and 4 (Low, Medium, High, Urgent)."""
-    if not isinstance(urgency, int) or urgency < 1 or urgency > 4:
-        raise ValidationError(f"Invalid urgency '{urgency}'. Must be an integer between 1 and 4.")
+URGENCY_VALUES = ["Low", "Medium", "High", "Urgent"]
+
+
+def validate_urgency(urgency: str) -> str:
+    """Validate urgency is one of: Low, Medium, High, Urgent."""
+    if urgency not in URGENCY_VALUES:
+        raise ValidationError(f"Invalid urgency '{urgency}'. Must be one of: {', '.join(URGENCY_VALUES)}")
     return urgency
 
 

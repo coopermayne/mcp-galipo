@@ -89,7 +89,7 @@ export interface CalendarItem {
   location?: string;
   description: string;
   status?: string;  // Only present for tasks
-  urgency?: number;  // Only present for tasks
+  urgency?: string;  // Only present for tasks
   case_id: number;
   case_name: string;
   short_name?: string;

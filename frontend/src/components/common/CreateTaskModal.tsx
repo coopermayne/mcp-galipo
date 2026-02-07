@@ -22,13 +22,13 @@ import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority config matching TaskDetailSheet
 const PRIORITY_OPTIONS = [
-  { value: 4, label: 'Priority 1', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
-  { value: 3, label: 'Priority 2', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  { value: 2, label: 'Priority 3', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  { value: 1, label: 'Priority 4', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
+  { value: 'Urgent', label: 'Priority 1', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
+  { value: 'High', label: 'Priority 2', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+  { value: 'Medium', label: 'Priority 3', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  { value: 'Low', label: 'Priority 4', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
 ] as const;
 
-const getPriorityConfig = (urgency: number) =>
+const getPriorityConfig = (urgency: string) =>
   PRIORITY_OPTIONS.find(p => p.value === urgency) || PRIORITY_OPTIONS[2];
 
 interface CreateTaskModalProps {
@@ -90,7 +90,7 @@ export function CreateTaskModal({
     const parsed = new Date(prefilledDueDate + 'T00:00:00');
     return isNaN(parsed.getTime()) ? null : parsed;
   });
-  const [urgency, setUrgency] = useState(2);
+  const [urgency, setUrgency] = useState('Medium');
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [showCasePicker, setShowCasePicker] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
@@ -130,7 +130,7 @@ export function CreateTaskModal({
         const parsed = new Date(prefilledDueDate + 'T00:00:00');
         return isNaN(parsed.getTime()) ? null : parsed;
       });
-      setUrgency(2);
+      setUrgency('Medium');
       setSelectedCaseId(preselectedCaseId || null);
       setShowPriorityPicker(false);
       setShowCasePicker(false);

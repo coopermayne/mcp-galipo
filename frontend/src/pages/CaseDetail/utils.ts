@@ -33,11 +33,11 @@ export function getPrimaryEmail(
 }
 
 // Re-export color configs with the expected shape for backwards compatibility
-export const urgencyConfig: Record<number, { label: string; color: string; bgColor: string }> = {
-  4: { label: URGENCY_COLORS[4].label, color: URGENCY_COLORS[4].text, bgColor: URGENCY_COLORS[4].bg },
-  3: { label: URGENCY_COLORS[3].label, color: URGENCY_COLORS[3].text, bgColor: URGENCY_COLORS[3].bg },
-  2: { label: URGENCY_COLORS[2].label, color: URGENCY_COLORS[2].text, bgColor: URGENCY_COLORS[2].bg },
-  1: { label: URGENCY_COLORS[1].label, color: URGENCY_COLORS[1].text, bgColor: URGENCY_COLORS[1].bg },
+export const urgencyConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+  Urgent: { label: URGENCY_COLORS.Urgent.label, color: URGENCY_COLORS.Urgent.text, bgColor: URGENCY_COLORS.Urgent.bg },
+  High: { label: URGENCY_COLORS.High.label, color: URGENCY_COLORS.High.text, bgColor: URGENCY_COLORS.High.bg },
+  Medium: { label: URGENCY_COLORS.Medium.label, color: URGENCY_COLORS.Medium.text, bgColor: URGENCY_COLORS.Medium.bg },
+  Low: { label: URGENCY_COLORS.Low.label, color: URGENCY_COLORS.Low.text, bgColor: URGENCY_COLORS.Low.bg },
 };
 
 export const statusConfig: Record<string, { color: string; bgColor: string }> = {

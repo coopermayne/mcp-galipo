@@ -121,7 +121,7 @@ CREATE TABLE tasks (
     completion_date TIMESTAMP WITH TIME ZONE,
     description TEXT NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-    urgency INTEGER CHECK (urgency >= 1 AND urgency <= 4) DEFAULT 2,
+    urgency VARCHAR(20) CHECK (urgency IN ('Low', 'Medium', 'High', 'Urgent')) DEFAULT 'Medium',
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

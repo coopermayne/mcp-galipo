@@ -293,25 +293,25 @@ export type EventStatusKey = keyof typeof EVENT_STATUS_COLORS;
 // =============================================================================
 
 export const PRIORITY_COLORS = {
-  4: {
+  Urgent: {
     label: 'Priority 1',
     textClass: 'text-red-500',
     bgClass: 'bg-red-50 dark:bg-red-900/20',
     hex: '#ef4444', // red-500
   },
-  3: {
+  High: {
     label: 'Priority 2',
     textClass: 'text-orange-500',
     bgClass: 'bg-orange-50 dark:bg-orange-900/20',
     hex: '#f97316', // orange-500
   },
-  2: {
+  Medium: {
     label: 'Priority 3',
     textClass: 'text-blue-500',
     bgClass: 'bg-blue-50 dark:bg-blue-900/20',
     hex: '#3b82f6', // blue-500
   },
-  1: {
+  Low: {
     label: 'Priority 4',
     textClass: 'text-text-muted',
     bgClass: 'bg-bg-hover',
@@ -321,9 +321,9 @@ export const PRIORITY_COLORS = {
 
 export type PriorityLevel = keyof typeof PRIORITY_COLORS;
 
-/** Get priority config by urgency level (1-4) */
-export function getPriorityColor(level: number): (typeof PRIORITY_COLORS)[PriorityLevel] {
-  return PRIORITY_COLORS[level as PriorityLevel] || PRIORITY_COLORS[1];
+/** Get priority config by urgency level */
+export function getPriorityColor(level: string): (typeof PRIORITY_COLORS)[PriorityLevel] {
+  return PRIORITY_COLORS[level as PriorityLevel] || PRIORITY_COLORS.Low;
 }
 
 // =============================================================================
@@ -331,22 +331,22 @@ export function getPriorityColor(level: number): (typeof PRIORITY_COLORS)[Priori
 // =============================================================================
 
 export const URGENCY_COLORS = {
-  1: {
+  Low: {
     label: 'Low',
     bg: 'bg-green-100 dark:bg-green-900/30',
     text: 'text-green-600 dark:text-green-400',
   },
-  2: {
+  Medium: {
     label: 'Medium',
     bg: 'bg-amber-100 dark:bg-amber-900/30',
     text: 'text-amber-600 dark:text-amber-400',
   },
-  3: {
+  High: {
     label: 'High',
     bg: 'bg-orange-100 dark:bg-orange-900/30',
     text: 'text-orange-600 dark:text-orange-400',
   },
-  4: {
+  Urgent: {
     label: 'Urgent',
     bg: 'bg-red-100 dark:bg-red-900/30',
     text: 'text-red-600 dark:text-red-400',
@@ -354,6 +354,9 @@ export const URGENCY_COLORS = {
 } as const;
 
 export type UrgencyLevel = keyof typeof URGENCY_COLORS;
+
+/** Ordering map for sorting urgency strings (higher = more urgent) */
+export const URGENCY_ORDER: Record<string, number> = { Low: 1, Medium: 2, High: 3, Urgent: 4 };
 
 // =============================================================================
 // DATE GROUP COLORS (for task/event grouping)
@@ -418,14 +421,14 @@ export function getStatusColorClasses(status: string): string {
   return colorToClasses(getStatusColor(status));
 }
 
-/** Get urgency color by level (1-4) */
-export function getUrgencyColor(level: number): ColorClasses {
+/** Get urgency color by level */
+export function getUrgencyColor(level: string): ColorClasses {
   const color = URGENCY_COLORS[level as UrgencyLevel];
-  return color || URGENCY_COLORS[1];
+  return color || URGENCY_COLORS.Low;
 }
 
 /** Get urgency color classes as single string */
-export function getUrgencyColorClasses(level: number): string {
+export function getUrgencyColorClasses(level: string): string {
   return colorToClasses(getUrgencyColor(level));
 }
 

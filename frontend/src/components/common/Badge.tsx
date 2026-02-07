@@ -5,7 +5,7 @@ interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'status' | 'urgency';
   status?: CaseStatus | TaskStatus | string;
-  urgency?: number;
+  urgency?: string;
   size?: 'sm' | 'md';
   className?: string;
 }
@@ -52,7 +52,7 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function UrgencyBadge({ urgency }: { urgency: number }) {
+export function UrgencyBadge({ urgency }: { urgency: string }) {
   return (
     <Badge variant="urgency" urgency={urgency}>
       {urgency}

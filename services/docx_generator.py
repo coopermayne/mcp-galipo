@@ -13,8 +13,6 @@ from pathlib import Path
 
 TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "exports" / "case_report_template.docx"
 
-# Urgency labels
-URGENCY_LABELS = {1: "Low", 2: "Medium", 3: "High", 4: "Urgent"}
 
 # Colors (hex without #, for RichText)
 CLR_NAVY = "0F172A"
@@ -337,9 +335,9 @@ def _build_tasks(tasks: list, today: str) -> list:
     items = []
     for idx, task in enumerate(incomplete):
         desc = task.get("description") or ""
-        urgency = task.get("urgency", 2)
+        urgency = task.get("urgency", "Medium")
         if urgency is None:
-            urgency = 2
+            urgency = "Medium"
         due_date = task.get("due_date") or ""
         is_overdue = bool(due_date and due_date < today)
 
@@ -350,10 +348,10 @@ def _build_tasks(tasks: list, today: str) -> list:
         if is_overdue:
             desc_rt.add("\u2610 ", color=CLR_GREY, size=24)
             desc_rt.add(desc, color=CLR_GREY, italic=True, size=24)
-        elif urgency == 4:
+        elif urgency == "Urgent":
             desc_rt.add("\u2610 ", color=CLR_RED, size=24)
             desc_rt.add(desc, bold=True, color=CLR_NAVY, size=24)
-        elif urgency == 3:
+        elif urgency == "High":
             desc_rt.add("\u2610 ", color=CLR_NAVY, size=24)
             desc_rt.add(desc, bold=True, color=CLR_NAVY, size=24)
         else:

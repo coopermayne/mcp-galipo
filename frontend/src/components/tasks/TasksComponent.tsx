@@ -322,7 +322,7 @@ export function TasksComponent({
   const handleInlineEditSave = useCallback(
     async (
       taskId: number,
-      updates: { description?: string; due_date?: string; urgency?: number }
+      updates: { description?: string; due_date?: string; urgency?: string }
     ) => {
       const result = await updateTask(taskId, updates);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -347,7 +347,7 @@ export function TasksComponent({
   );
 
   const handlePriorityChange = useCallback(
-    async (taskId: number, priority: number) => {
+    async (taskId: number, priority: string) => {
       const result = await updateTask(taskId, { urgency: priority });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       if (caseId) {
@@ -419,7 +419,7 @@ export function TasksComponent({
       case_id: number;
       description: string;
       due_date?: string;
-      urgency?: number;
+      urgency?: string;
       status?: TaskStatus;
     }) => {
       // If we have a caseId prop and the data doesn't specify one, use the prop

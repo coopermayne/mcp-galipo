@@ -27,17 +27,17 @@ export interface TaskInlineCreateProps {
   /** Default status for new task (e.g., 'Done' when creating in done view) */
   defaultStatus?: string;
   /** Called when user saves the new task */
-  onSave: (data: { case_id: number; description: string; due_date?: string; urgency?: number; status?: string }) => Promise<void>;
+  onSave: (data: { case_id: number; description: string; due_date?: string; urgency?: string; status?: string }) => Promise<void>;
   /** Called when user cancels creation */
   onCancel: () => void;
 }
 
 // Priority colors matching TaskItem
 const PRIORITY_OPTIONS = [
-  { value: 4, label: 'Urgent', color: 'text-red-500' },
-  { value: 3, label: 'High', color: 'text-orange-500' },
-  { value: 2, label: 'Medium', color: 'text-blue-500' },
-  { value: 1, label: 'Low', color: 'text-text-muted' },
+  { value: 'Urgent', label: 'Urgent', color: 'text-red-500' },
+  { value: 'High', label: 'High', color: 'text-orange-500' },
+  { value: 'Medium', label: 'Medium', color: 'text-blue-500' },
+  { value: 'Low', label: 'Low', color: 'text-text-muted' },
 ] as const;
 
 /**
@@ -75,7 +75,7 @@ export function TaskInlineCreate({
     const parsed = new Date(prefilledDueDate + 'T00:00:00');
     return isNaN(parsed.getTime()) ? null : parsed;
   });
-  const [urgency, setUrgency] = useState(2); // Default to Medium
+  const [urgency, setUrgency] = useState('Medium'); // Default to Medium
   const [isSaving, setIsSaving] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);

@@ -490,49 +490,49 @@ def seed_dev_data():
 
     tasks_data = [
         # Martinez case tasks
-        {"case": "Martinez", "description": "Draft discovery responses", "urgency": 4, "due_date": (today + timedelta(days=7)).isoformat()},
-        {"case": "Martinez", "description": "Prepare Officer Smith depo outline", "urgency": 3, "due_date": (today + timedelta(days=35)).isoformat()},
-        {"case": "Martinez", "description": "Request body cam footage", "urgency": 3, "due_date": (today + timedelta(days=3)).isoformat()},
-        {"case": "Martinez", "description": "Review medical records from UCLA", "urgency": 2, "status": "Active"},
-        {"case": "Martinez", "description": "Draft MSJ opposition brief", "urgency": 4, "due_date": (today + timedelta(days=60)).isoformat()},
+        {"case": "Martinez", "description": "Draft discovery responses", "urgency": "Urgent", "due_date": (today + timedelta(days=7)).isoformat()},
+        {"case": "Martinez", "description": "Prepare Officer Smith depo outline", "urgency": "High", "due_date": (today + timedelta(days=35)).isoformat()},
+        {"case": "Martinez", "description": "Request body cam footage", "urgency": "High", "due_date": (today + timedelta(days=3)).isoformat()},
+        {"case": "Martinez", "description": "Review medical records from UCLA", "urgency": "Medium", "status": "Active"},
+        {"case": "Martinez", "description": "Draft MSJ opposition brief", "urgency": "Urgent", "due_date": (today + timedelta(days=60)).isoformat()},
 
         # Wilson case tasks
-        {"case": "Wilson", "description": "Finalize Dr. Mitchell expert report", "urgency": 4, "due_date": (today + timedelta(days=3)).isoformat()},
-        {"case": "Wilson", "description": "Prepare mediation brief", "urgency": 3, "due_date": (today + timedelta(days=20)).isoformat()},
-        {"case": "Wilson", "description": "Review defendant's expert reports", "urgency": 3, "due_date": (today + timedelta(days=5)).isoformat()},
-        {"case": "Wilson", "description": "Prepare trial exhibits", "urgency": 2, "due_date": (today + timedelta(days=45)).isoformat()},
+        {"case": "Wilson", "description": "Finalize Dr. Mitchell expert report", "urgency": "Urgent", "due_date": (today + timedelta(days=3)).isoformat()},
+        {"case": "Wilson", "description": "Prepare mediation brief", "urgency": "High", "due_date": (today + timedelta(days=20)).isoformat()},
+        {"case": "Wilson", "description": "Review defendant's expert reports", "urgency": "High", "due_date": (today + timedelta(days=5)).isoformat()},
+        {"case": "Wilson", "description": "Prepare trial exhibits", "urgency": "Medium", "due_date": (today + timedelta(days=45)).isoformat()},
 
         # Nguyen case tasks
-        {"case": "Nguyen", "description": "Draft MSJ opposition", "urgency": 4, "due_date": (today + timedelta(days=3)).isoformat()},
-        {"case": "Nguyen", "description": "Compile evidence for opposition", "urgency": 4, "due_date": (today + timedelta(days=2)).isoformat()},
-        {"case": "Nguyen", "description": "Prepare trial witness list", "urgency": 2, "due_date": (today + timedelta(days=60)).isoformat()},
-        {"case": "Nguyen", "description": "Request interpreter for trial", "urgency": 2, "due_date": (today + timedelta(days=45)).isoformat()},
+        {"case": "Nguyen", "description": "Draft MSJ opposition", "urgency": "Urgent", "due_date": (today + timedelta(days=3)).isoformat()},
+        {"case": "Nguyen", "description": "Compile evidence for opposition", "urgency": "Urgent", "due_date": (today + timedelta(days=2)).isoformat()},
+        {"case": "Nguyen", "description": "Prepare trial witness list", "urgency": "Medium", "due_date": (today + timedelta(days=60)).isoformat()},
+        {"case": "Nguyen", "description": "Request interpreter for trial", "urgency": "Medium", "due_date": (today + timedelta(days=45)).isoformat()},
 
         # Thompson case tasks
-        {"case": "Thompson", "description": "Review defendant's answer when filed", "urgency": 2, "due_date": (today + timedelta(days=15)).isoformat()},
-        {"case": "Thompson", "description": "Draft initial discovery requests", "urgency": 2, "due_date": (today + timedelta(days=30)).isoformat()},
-        {"case": "Thompson", "description": "Request jail records", "urgency": 3, "due_date": (today + timedelta(days=5)).isoformat()},
+        {"case": "Thompson", "description": "Review defendant's answer when filed", "urgency": "Medium", "due_date": (today + timedelta(days=15)).isoformat()},
+        {"case": "Thompson", "description": "Draft initial discovery requests", "urgency": "Medium", "due_date": (today + timedelta(days=30)).isoformat()},
+        {"case": "Thompson", "description": "Request jail records", "urgency": "High", "due_date": (today + timedelta(days=5)).isoformat()},
 
         # Chen case tasks
-        {"case": "Chen", "description": "Review settlement agreement", "urgency": 4, "due_date": (today + timedelta(days=1)).isoformat()},
-        {"case": "Chen", "description": "Calculate lien reductions", "urgency": 3, "due_date": (today + timedelta(days=7)).isoformat()},
-        {"case": "Chen", "description": "Prepare disbursement sheet", "urgency": 3, "due_date": (today + timedelta(days=14)).isoformat()},
+        {"case": "Chen", "description": "Review settlement agreement", "urgency": "Urgent", "due_date": (today + timedelta(days=1)).isoformat()},
+        {"case": "Chen", "description": "Calculate lien reductions", "urgency": "High", "due_date": (today + timedelta(days=7)).isoformat()},
+        {"case": "Chen", "description": "Prepare disbursement sheet", "urgency": "High", "due_date": (today + timedelta(days=14)).isoformat()},
 
         # Davis case tasks (new intake)
-        {"case": "Davis", "description": "Schedule client intake meeting", "urgency": 3, "due_date": (today + timedelta(days=2)).isoformat()},
-        {"case": "Davis", "description": "Request police report", "urgency": 3, "due_date": (today + timedelta(days=3)).isoformat()},
-        {"case": "Davis", "description": "Send records authorization to client", "urgency": 2, "due_date": (today + timedelta(days=1)).isoformat()},
-        {"case": "Davis", "description": "Research statute of limitations", "urgency": 4, "due_date": (today + timedelta(days=1)).isoformat()},
+        {"case": "Davis", "description": "Schedule client intake meeting", "urgency": "High", "due_date": (today + timedelta(days=2)).isoformat()},
+        {"case": "Davis", "description": "Request police report", "urgency": "High", "due_date": (today + timedelta(days=3)).isoformat()},
+        {"case": "Davis", "description": "Send records authorization to client", "urgency": "Medium", "due_date": (today + timedelta(days=1)).isoformat()},
+        {"case": "Davis", "description": "Research statute of limitations", "urgency": "Urgent", "due_date": (today + timedelta(days=1)).isoformat()},
 
         # Kim case tasks (pre-filing)
-        {"case": "Kim", "description": "Order traffic camera footage", "urgency": 3, "due_date": (today + timedelta(days=5)).isoformat()},
-        {"case": "Kim", "description": "Interview witnesses", "urgency": 3, "due_date": (today + timedelta(days=10)).isoformat()},
-        {"case": "Kim", "description": "File police report request", "urgency": 2, "status": "Done", "completion_date": (today - timedelta(days=2)).isoformat()},
+        {"case": "Kim", "description": "Order traffic camera footage", "urgency": "High", "due_date": (today + timedelta(days=5)).isoformat()},
+        {"case": "Kim", "description": "Interview witnesses", "urgency": "High", "due_date": (today + timedelta(days=10)).isoformat()},
+        {"case": "Kim", "description": "File police report request", "urgency": "Medium", "status": "Done", "completion_date": (today - timedelta(days=2)).isoformat()},
 
         # Completed tasks for variety
-        {"case": "Martinez", "description": "File complaint", "urgency": 2, "status": "Done", "completion_date": (today - timedelta(days=60)).isoformat()},
-        {"case": "Wilson", "description": "Complete written discovery", "urgency": 3, "status": "Done", "completion_date": (today - timedelta(days=30)).isoformat()},
-        {"case": "Nguyen", "description": "Complete all depositions", "urgency": 3, "status": "Done", "completion_date": (today - timedelta(days=45)).isoformat()},
+        {"case": "Martinez", "description": "File complaint", "urgency": "Medium", "status": "Done", "completion_date": (today - timedelta(days=60)).isoformat()},
+        {"case": "Wilson", "description": "Complete written discovery", "urgency": "High", "status": "Done", "completion_date": (today - timedelta(days=30)).isoformat()},
+        {"case": "Nguyen", "description": "Complete all depositions", "urgency": "High", "status": "Done", "completion_date": (today - timedelta(days=45)).isoformat()},
     ]
 
     for t in tasks_data:
@@ -541,7 +541,7 @@ def seed_dev_data():
             db.add_task(
                 case_id=case_id,
                 description=t["description"],
-                urgency=t.get("urgency", 2),
+                urgency=t.get("urgency", "Medium"),
                 due_date=t.get("due_date"),
                 status=t.get("status", "Pending")
             )

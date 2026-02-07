@@ -21,14 +21,14 @@ export function CreateTaskFromEventModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [urgency, setUrgency] = useState(2);
+  const [urgency, setUrgency] = useState('Medium');
 
   // Pre-fill form when event changes
   useEffect(() => {
     if (event) {
       setDescription(event.description);
       setDueDate(event.date);
-      setUrgency(2);
+      setUrgency('Medium');
     }
   }, [event]);
 
@@ -151,13 +151,13 @@ export function CreateTaskFromEventModal({
                 </label>
                 <select
                   value={urgency}
-                  onChange={(e) => setUrgency(Number(e.target.value))}
+                  onChange={(e) => setUrgency(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-border bg-bg-surface text-text text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
                 >
-                  <option value={1}>1 - Low</option>
-                  <option value={2}>2 - Normal</option>
-                  <option value={3}>3 - High</option>
-                  <option value={4}>4 - Urgent</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
                 </select>
               </div>
             </div>

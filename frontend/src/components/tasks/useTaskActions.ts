@@ -43,13 +43,13 @@ export function useTaskActions(options: UseTaskActionsOptions = {}) {
   });
 
   const create = useMutation({
-    mutationFn: (data: { case_id: number; description: string; urgency?: number; due_date?: string }) =>
+    mutationFn: (data: { case_id: number; description: string; urgency?: string; due_date?: string }) =>
       createTask(data),
     onSuccess: invalidateAll,
   });
 
   const reorder = useMutation({
-    mutationFn: ({ taskId, sortOrder, urgency }: { taskId: number; sortOrder: number; urgency?: number }) =>
+    mutationFn: ({ taskId, sortOrder, urgency }: { taskId: number; sortOrder: number; urgency?: string }) =>
       reorderTask(taskId, sortOrder, urgency),
     onSuccess: invalidateAll,
   });

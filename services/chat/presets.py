@@ -9,8 +9,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from db import get_cursor
 
-# Map urgency numbers to names
-URGENCY_NAMES = {1: "low", 2: "med", 3: "high", 4: "urgent"}
+URGENCY_SQL_ORDER = """CASE t.urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END"""
 
 
 def get_priorities_context() -> dict:
@@ -39,7 +38,7 @@ def get_priorities_context() -> dict:
               AND c.status != 'Closed'
               AND (t.due_date IS NULL OR t.due_date <= %s)
             ORDER BY
-                t.urgency DESC,
+                CASE t.urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC,
                 t.due_date ASC NULLS LAST
         """, (four_weeks.date(),))
 
@@ -49,7 +48,7 @@ def get_priorities_context() -> dict:
                 "id": row["id"],
                 "description": row["description"],
                 "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "urgency": row["urgency"].lower() if row["urgency"] else "low",
                 "status": row["status"],
                 "case": row["case_name"],
             })
@@ -164,7 +163,7 @@ def get_deadlines_context() -> dict:
                 "id": row["id"],
                 "description": row["description"],
                 "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "urgency": row["urgency"].lower() if row["urgency"] else "low",
                 "status": row["status"],
                 "case": row["case_name"],
             })
@@ -207,7 +206,7 @@ def get_overdue_context() -> dict:
                 "id": row["id"],
                 "description": row["description"],
                 "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "urgency": row["urgency"].lower() if row["urgency"] else "low",
                 "status": row["status"],
                 "case": row["case_name"],
             })
@@ -369,7 +368,7 @@ def get_case_next_steps_context(case_id: int) -> dict:
             SELECT id, description, due_date, urgency, status
             FROM tasks
             WHERE case_id = %s AND status != 'Done'
-            ORDER BY urgency DESC, due_date ASC NULLS LAST
+            ORDER BY CASE urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC, due_date ASC NULLS LAST
             LIMIT 10
         """, (case_id,))
         priority_tasks = []
@@ -378,7 +377,7 @@ def get_case_next_steps_context(case_id: int) -> dict:
                 "id": row["id"],
                 "description": row["description"],
                 "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "urgency": row["urgency"].lower() if row["urgency"] else "low",
             })
 
         # Get upcoming events
@@ -411,7 +410,7 @@ def get_case_next_steps_context(case_id: int) -> dict:
                 "id": row["id"],
                 "description": row["description"],
                 "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "urgency": row["urgency"].lower() if row["urgency"] else "low",
             })
 
     return {
@@ -440,7 +439,7 @@ def get_case_tasks_context(case_id: int) -> dict:
             SELECT id, description, due_date, urgency, status
             FROM tasks
             WHERE case_id = %s AND status != 'Done'
-            ORDER BY urgency DESC, due_date ASC NULLS LAST
+            ORDER BY CASE urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC, due_date ASC NULLS LAST
         """, (case_id,))
 
         incomplete = []
@@ -449,7 +448,7 @@ def get_case_tasks_context(case_id: int) -> dict:
                 "id": row["id"],
                 "description": row["description"],
                 "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": URGENCY_NAMES.get(row["urgency"], "low"),
+                "urgency": row["urgency"].lower() if row["urgency"] else "low",
                 "status": row["status"],
             })
 

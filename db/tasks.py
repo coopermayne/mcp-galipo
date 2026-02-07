@@ -11,7 +11,7 @@ from .validation import (
 
 
 def add_task(case_id: int, description: str, due_date: str = None,
-             status: str = "Pending", urgency: int = 2, event_id: int = None,
+             status: str = "Pending", urgency: str = "Medium", event_id: int = None,
              assignee_id: int = None) -> dict:
     """Add a task to a case."""
     validate_task_status(status)
@@ -40,7 +40,7 @@ def add_task(case_id: int, description: str, due_date: str = None,
 
 
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
-              urgency_filter: int = None, due_date_from: str = None, due_date_to: str = None,
+              urgency_filter: str = None, due_date_from: str = None, due_date_to: str = None,
               limit: int = None, offset: int = None, assignee_id: int = None,
               user_id: int = None) -> dict:
     """Get tasks with optional filters.
@@ -140,7 +140,7 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         return {"tasks": tasks, "total": total}
 
 
-def update_task(task_id: int, status: str = None, urgency: int = None) -> Optional[dict]:
+def update_task(task_id: int, status: str = None, urgency: str = None) -> Optional[dict]:
     """Update task status and/or urgency."""
     updates = []
     params = []
@@ -175,7 +175,7 @@ def update_task(task_id: int, status: str = None, urgency: int = None) -> Option
 
 def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: str = _NOT_PROVIDED,
                      completion_date: str = _NOT_PROVIDED, status: str = _NOT_PROVIDED,
-                     urgency: int = _NOT_PROVIDED, event_id: int = _NOT_PROVIDED,
+                     urgency: str = _NOT_PROVIDED, event_id: int = _NOT_PROVIDED,
                      assignee_id: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update all task fields."""
     updates = []
@@ -324,7 +324,7 @@ def reschedule_overdue_tasks(new_date: str) -> dict:
 
 
 def search_tasks(query: str = None, case_id: int = None, status: str = None,
-                 urgency: int = None, assignee_id: int = None, limit: int = 50) -> List[dict]:
+                 urgency: str = None, assignee_id: int = None, limit: int = 50) -> List[dict]:
     """Search tasks by various criteria."""
     conditions = []
     params = []
@@ -390,13 +390,13 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         return tasks
 
 
-def reorder_task(task_id: int, new_sort_order: int, new_urgency: int = None) -> Optional[dict]:
+def reorder_task(task_id: int, new_sort_order: int, new_urgency: str = None) -> Optional[dict]:
     """Reorder a task and optionally change its urgency.
 
     Args:
         task_id: The ID of the task to reorder
         new_sort_order: The new sort_order value
-        new_urgency: Optional new urgency level (1-4)
+        new_urgency: Optional new urgency level (Low, Medium, High, Urgent)
 
     Returns:
         The updated task with new sort_order (and urgency if changed)

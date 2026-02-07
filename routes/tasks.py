@@ -36,7 +36,7 @@ def register_task_routes(mcp):
             case_id=int(case_id) if case_id else None,
             status_filter=status,
             exclude_status=exclude_status,
-            urgency_filter=int(urgency) if urgency else None,
+            urgency_filter=urgency,
             due_date_from=due_date_from,
             due_date_to=due_date_to,
             limit=limit,
@@ -57,7 +57,7 @@ def register_task_routes(mcp):
             data["description"],
             data.get("due_date"),
             data.get("status", "Pending"),
-            data.get("urgency", 2),
+            data.get("urgency", "Medium"),
             data.get("event_id"),
             data.get("assignee_id")
         )
@@ -104,7 +104,7 @@ def register_task_routes(mcp):
                 db.reorder_task,
                 task_id=int(task_id),
                 new_sort_order=int(sort_order),
-                new_urgency=int(urgency) if urgency is not None else None
+                new_urgency=urgency
             )
             if not result:
                 return api_error("Task not found", "NOT_FOUND", 404)

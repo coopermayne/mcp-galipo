@@ -34,7 +34,7 @@ ActivityType = Literal[
 ]
 
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
-Urgency = Literal[1, 2, 3, 4]
+Urgency = Literal["Low", "Medium", "High", "Urgent"]
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
 
 
@@ -122,8 +122,8 @@ def invalid_status_error(status: str, status_type: str) -> dict:
 def invalid_urgency_error(urgency) -> dict:
     return validation_error(
         f"Invalid urgency: '{urgency}'",
-        valid_values=["1 (Low)", "2 (Medium)", "3 (High)", "4 (Urgent)"],
-        hint="Urgency must be an integer 1-4"
+        valid_values=["Low", "Medium", "High", "Urgent"],
+        hint="Urgency must be one of: Low, Medium, High, Urgent"
     )
 
 
@@ -201,7 +201,7 @@ class SearchInput(BaseModel):
     category: Optional[str] = Field(None, description="(persons) Filter by role category: client, counsel, defendant, expert, mediator, other")
     organization: Optional[str] = Field(None, description="(persons) Filter by org/firm")
     # Task-specific filters
-    urgency: Optional[int] = Field(None, description="(tasks) Filter by urgency 1-4")
+    urgency: Optional[str] = Field(None, description="(tasks) Filter by urgency: Low, Medium, High, Urgent")
     assignee_id: Optional[int] = Field(None, description="(tasks) Filter by assigned user")
     # Event-specific filters
     include_past: Optional[bool] = Field(False, description="(events) Include past events")
@@ -277,7 +277,7 @@ class ManageTaskInput(BaseModel):
     due_date: Optional[str] = Field(None, description="Due date YYYY-MM-DD")
     completion_date: Optional[str] = Field(None, description="Completion date YYYY-MM-DD")
     status: Optional[str] = Field(None, description="Status: Pending, Active, Done, Partially Done, Blocked, Awaiting Atty Review")
-    urgency: Optional[int] = Field(None, description="Urgency 1-4 (1=Low, 2=Medium, 3=High, 4=Urgent)")
+    urgency: Optional[str] = Field(None, description="Urgency: Low, Medium, High, Urgent")
     event_id: Optional[int] = Field(None, description="Link task to an event")
     assignee_id: Optional[int] = Field(None, description="Assign to a user (staff member ID)")
     # For bulk_update
@@ -986,7 +986,7 @@ def register_tools(mcp):
         """Create, update, delete, or bulk-update tasks.
 
         Examples:
-        - manage_task(action="create", case_id=1, description="File MSJ", due_date="2026-03-01", urgency=3)
+        - manage_task(action="create", case_id=1, description="File MSJ", due_date="2026-03-01", urgency="High")
         - manage_task(action="update", task_id=5, status="Done", completion_date="2026-02-06")
         - manage_task(action="delete", task_id=5)
         - manage_task(action="bulk_update", task_ids=[1,2,3], status="Done")
@@ -1004,7 +1004,7 @@ def register_tools(mcp):
                     description=data.description,
                     due_date=data.due_date,
                     status=data.status or "Pending",
-                    urgency=data.urgency or 2,
+                    urgency=data.urgency or "Medium",
                     event_id=data.event_id,
                     assignee_id=data.assignee_id,
                 )
