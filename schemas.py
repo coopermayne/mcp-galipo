@@ -266,3 +266,33 @@ class ProceedingJudgeOut(BaseModel):
     role: Optional[str] = None
     sort_order: Optional[int] = None
     created_at: Optional[datetime] = None
+
+
+class PersonOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    phones: Optional[list] = None
+    emails: Optional[list] = None
+    address: Optional[str] = None
+    organization: Optional[str] = None
+    notes: Optional[str] = None
+    archived: Optional[bool] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class PersonRoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    person_id: int
+    role_id: int
+    case_id: Optional[int] = None
+    attributes: Optional[dict] = None
+    notes: Optional[str] = None
+    is_primary: Optional[bool] = None
+    grouped_under_id: Optional[int] = None
+    assigned_date: Optional[date_type] = None
+    created_at: Optional[datetime] = None
