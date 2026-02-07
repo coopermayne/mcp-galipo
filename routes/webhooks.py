@@ -5,18 +5,18 @@ Handles incoming webhooks from external services like CourtListener.
 No session authentication required - uses token-based validation.
 """
 
-import os
 import asyncio
 import logging
 from fastapi.responses import JSONResponse
 
 import auth
 import db
+from config import settings
 from .common import api_error
 
 
-# Webhook secrets from environment variables
-WEBHOOK_SECRET_COURTLISTENER = os.environ.get("WEBHOOK_SECRET_COURTLISTENER", "")
+# Webhook secrets from settings
+WEBHOOK_SECRET_COURTLISTENER = settings.webhook_secret_courtlistener
 
 
 def register_webhook_routes(mcp):

@@ -5,11 +5,11 @@ Handles communication with the Anthropic Claude API, including
 message sending, tool call extraction, and streaming responses.
 """
 
-import os
 import json
 from anthropic import AsyncAnthropic
 from typing import Any, AsyncGenerator
 
+from config import settings
 from .types import ToolCall, StreamEventType
 
 
@@ -50,16 +50,15 @@ class ChatClient:
 
     def __init__(self):
         """Initialize the Claude client."""
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
+        if not settings.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
         self.client = AsyncAnthropic(
-            api_key=api_key,
+            api_key=settings.anthropic_api_key,
             default_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"}
         )
-        self.model = os.environ.get("CHAT_MODEL", "claude-haiku-4-5")
-        self.max_tokens = int(os.environ.get("CHAT_MAX_TOKENS", "4096"))
+        self.model = settings.chat_model
+        self.max_tokens = settings.chat_max_tokens
 
     async def send_message(
         self,

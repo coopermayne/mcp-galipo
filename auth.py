@@ -5,13 +5,13 @@ Uses database-backed users with bcrypt password hashing.
 Falls back to env vars during transition period.
 """
 
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi.responses import JSONResponse
 import jwt
 
+from config import settings
 from db.users import authenticate_user, get_user_by_id
 
 
@@ -19,15 +19,15 @@ from db.users import authenticate_user, get_user_by_id
 SESSION_EXPIRY_HOURS = 24
 
 # Legacy environment variables (fallback during transition)
-AUTH_USERNAME = os.getenv("AUTH_USERNAME")
-AUTH_PASSWORD = os.getenv("AUTH_PASSWORD")
+AUTH_USERNAME = settings.auth_username
+AUTH_PASSWORD = settings.auth_password
 
 # Dev mode: skip auth entirely (set DEV_SKIP_AUTH=true in .env)
-DEV_SKIP_AUTH = os.getenv("DEV_SKIP_AUTH", "").lower() in ("true", "1", "yes")
-DEV_AUTH_USER = os.getenv("DEV_AUTH_USER", "")  # Email of user to auto-login as
+DEV_SKIP_AUTH = settings.dev_skip_auth
+DEV_AUTH_USER = settings.dev_auth_user
 
-# JWT secret - uses env var or generates one
-JWT_SECRET = os.getenv("JWT_SECRET", os.getenv("AUTH_PASSWORD", secrets.token_hex(32)))
+# JWT secret
+JWT_SECRET = settings.jwt_secret
 JWT_ALGORITHM = "HS256"
 
 
