@@ -188,3 +188,22 @@ class ExpertiseTypeOut(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
+
+
+class JurisdictionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    local_rules_link: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    case_id: Optional[int] = None
+    content: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
