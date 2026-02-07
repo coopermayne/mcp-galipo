@@ -6,7 +6,7 @@ Handles role CRUD operations for the unified roles system.
 
 import asyncio
 from fastapi.responses import JSONResponse
-import database as db
+import db
 import auth
 from .common import api_error
 

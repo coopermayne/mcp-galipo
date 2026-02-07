@@ -1,13 +1,75 @@
 """
-Task management functions.
+Task management functions — SQLAlchemy ORM implementation.
 """
 
+import datetime
 from typing import Optional, List
 
-from .connection import get_cursor, serialize_row, serialize_rows, _NOT_PROVIDED
+from sqlalchemy import select, func, update, literal_column, exists, Integer, cast
+from sqlalchemy.dialects.postgresql import ARRAY as SA_ARRAY
+from sqlalchemy.orm import joinedload
+
+from .session import SessionLocal
+from .connection import _NOT_PROVIDED
 from .validation import (
     validate_task_status, validate_urgency, validate_date_format
 )
+from models import Task, Case, Event, User
+
+
+def _serialize_value(val):
+    """Convert datetime/date/time objects to JSON-safe strings."""
+    if isinstance(val, datetime.datetime):
+        return val.isoformat()
+    elif isinstance(val, datetime.date):
+        return val.isoformat()
+    elif isinstance(val, datetime.time):
+        return val.strftime("%H:%M")
+    return val
+
+
+def _task_to_dict(task: Task) -> dict:
+    """Convert a Task ORM instance to a serializable dict."""
+    return {
+        "id": task.id,
+        "case_id": task.case_id,
+        "description": task.description,
+        "due_date": _serialize_value(task.due_date),
+        "completion_date": _serialize_value(task.completion_date),
+        "status": task.status,
+        "urgency": task.urgency,
+        "event_id": task.event_id,
+        "sort_order": task.sort_order,
+        "assignee_id": task.assignee_id,
+        "created_at": _serialize_value(task.created_at),
+    }
+
+
+def _assignee_dict(user: User) -> dict:
+    """Build a nested assignee dict from a User."""
+    return {
+        "id": user.id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "initials": user.initials,
+    }
+
+
+def _task_with_relations(task: Task, case: Case, event: Event = None,
+                         assignee: User = None, has_events: bool = False) -> dict:
+    """Build a full task dict with joined relations."""
+    d = _task_to_dict(task)
+    d["case_name"] = case.case_name if case else None
+    d["short_name"] = case.short_name if case else None
+    d["case_color"] = case.color if case else None
+    d["event_description"] = event.description if event else None
+    d["event_date"] = _serialize_value(event.date) if event else None
+    d["has_events"] = has_events
+    if assignee:
+        d["assignee"] = _assignee_dict(assignee)
+    else:
+        d["assignee"] = None
+    return d
 
 
 def add_task(case_id: int, description: str, due_date: str = None,
@@ -18,159 +80,156 @@ def add_task(case_id: int, description: str, due_date: str = None,
     validate_urgency(urgency)
     validate_date_format(due_date, "due_date")
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get max sort_order and add 1000 for new task
-        cur.execute("SELECT COALESCE(MAX(sort_order), 0) + 1000 AS next_sort_order FROM tasks")
-        new_sort_order = cur.fetchone()["next_sort_order"]
+        max_order = session.scalar(
+            select(func.coalesce(func.max(Task.sort_order), 0))
+        )
+        new_sort_order = max_order + 1000
+
+        task = Task(
+            case_id=case_id,
+            description=description,
+            due_date=due_date,
+            status=status,
+            urgency=urgency,
+            event_id=event_id,
+            sort_order=new_sort_order,
+            assignee_id=assignee_id,
+        )
 
         # Set completion_date to today if creating as Done
         if status == "Done":
-            cur.execute("""
-                INSERT INTO tasks (case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id)
-                VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s)
-                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id, created_at
-            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order, assignee_id))
-        else:
-            cur.execute("""
-                INSERT INTO tasks (case_id, description, due_date, status, urgency, event_id, sort_order, assignee_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id, created_at
-            """, (case_id, description, due_date, status, urgency, event_id, new_sort_order, assignee_id))
-        return serialize_row(dict(cur.fetchone()))
+            task.completion_date = datetime.date.today()
+
+        session.add(task)
+        session.flush()
+        session.refresh(task)
+        result = _task_to_dict(task)
+        session.commit()
+        return result
 
 
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: str = None, due_date_from: str = None, due_date_to: str = None,
               limit: int = None, offset: int = None, assignee_id: int = None,
               user_id: int = None) -> dict:
-    """Get tasks with optional filters.
-
-    Args:
-        user_id: Filter to tasks in cases where this user is assigned (attorney or paralegal)
-    """
-    conditions = []
-    params = []
-
-    if case_id:
-        conditions.append("t.case_id = %s")
-        params.append(case_id)
-
+    """Get tasks with optional filters."""
+    # Validate filters
     if status_filter:
         validate_task_status(status_filter)
-        conditions.append("t.status = %s")
-        params.append(status_filter)
-
     if exclude_status:
         validate_task_status(exclude_status)
-        conditions.append("t.status != %s")
-        params.append(exclude_status)
-
     if urgency_filter:
         validate_urgency(urgency_filter)
-        conditions.append("t.urgency = %s")
-        params.append(urgency_filter)
-
     if due_date_from:
         validate_date_format(due_date_from, "due_date_from")
-        conditions.append("t.due_date >= %s")
-        params.append(due_date_from)
-
     if due_date_to:
         validate_date_format(due_date_to, "due_date_to")
-        conditions.append("t.due_date <= %s")
-        params.append(due_date_to)
 
+    # has_events subquery
+    has_events_sq = (
+        exists(select(Event.id).where(Event.case_id == Task.case_id))
+        .correlate(Task)
+    )
+
+    # Build main query with all joins
+    stmt = (
+        select(Task, Case, Event, User, has_events_sq.label("has_events"))
+        .join(Case, Task.case_id == Case.id)
+        .outerjoin(Event, Task.event_id == Event.id)
+        .outerjoin(User, Task.assignee_id == User.id)
+        .order_by(Task.sort_order.asc())
+    )
+
+    # Apply filters
+    if case_id:
+        stmt = stmt.where(Task.case_id == case_id)
+    if status_filter:
+        stmt = stmt.where(Task.status == status_filter)
+    if exclude_status:
+        stmt = stmt.where(Task.status != exclude_status)
+    if urgency_filter:
+        stmt = stmt.where(Task.urgency == urgency_filter)
+    if due_date_from:
+        stmt = stmt.where(Task.due_date >= due_date_from)
+    if due_date_to:
+        stmt = stmt.where(Task.due_date <= due_date_to)
     if assignee_id:
-        conditions.append("t.assignee_id = %s")
-        params.append(assignee_id)
-
+        stmt = stmt.where(Task.assignee_id == assignee_id)
     if user_id:
-        conditions.append("(%s = ANY(c.attorney_ids) OR %s = ANY(c.paralegal_ids))")
-        params.append(user_id)
-        params.append(user_id)
+        uid_arr = cast([user_id], SA_ARRAY(Integer()))
+        stmt = stmt.where(
+            Case.attorney_ids.op('@>')(uid_arr)
+            | Case.paralegal_ids.op('@>')(uid_arr)
+        )
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    with SessionLocal() as session:
+        # Count query with same filters
+        count_base = select(Task.id).join(Case, Task.case_id == Case.id)
+        if case_id:
+            count_base = count_base.where(Task.case_id == case_id)
+        if status_filter:
+            count_base = count_base.where(Task.status == status_filter)
+        if exclude_status:
+            count_base = count_base.where(Task.status != exclude_status)
+        if urgency_filter:
+            count_base = count_base.where(Task.urgency == urgency_filter)
+        if due_date_from:
+            count_base = count_base.where(Task.due_date >= due_date_from)
+        if due_date_to:
+            count_base = count_base.where(Task.due_date <= due_date_to)
+        if assignee_id:
+            count_base = count_base.where(Task.assignee_id == assignee_id)
+        if user_id:
+            uid_arr = cast([user_id], SA_ARRAY(Integer()))
+            count_base = count_base.where(
+                Case.attorney_ids.op('@>')(uid_arr)
+                | Case.paralegal_ids.op('@>')(uid_arr)
+            )
+        total = session.scalar(select(func.count()).select_from(count_base.subquery()))
 
-    # Need cases join for count when filtering by user_id
-    count_from = "FROM tasks t JOIN cases c ON t.case_id = c.id" if user_id else "FROM tasks t"
-
-    with get_cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) as total {count_from} {where_clause}", params)
-        total = cur.fetchone()["total"]
-
-        query = f"""
-            SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
-                   e.description as event_description, e.date as event_date,
-                   t.sort_order, t.assignee_id, t.created_at,
-                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events,
-                   u.first_name as assignee_first_name, u.last_name as assignee_last_name,
-                   u.initials as assignee_initials
-            FROM tasks t
-            JOIN cases c ON t.case_id = c.id
-            LEFT JOIN events e ON t.event_id = e.id
-            LEFT JOIN users u ON t.assignee_id = u.id
-            {where_clause}
-            ORDER BY t.sort_order ASC
-        """
         if limit:
-            query += f" LIMIT {limit}"
+            stmt = stmt.limit(limit)
         if offset:
-            query += f" OFFSET {offset}"
+            stmt = stmt.offset(offset)
 
-        cur.execute(query, params)
-        rows = cur.fetchall()
-        tasks = []
-        for row in rows:
-            task = serialize_row(dict(row))
-            # Build nested assignee object if exists
-            if task.get('assignee_id'):
-                task['assignee'] = {
-                    'id': task['assignee_id'],
-                    'first_name': task.pop('assignee_first_name'),
-                    'last_name': task.pop('assignee_last_name'),
-                    'initials': task.pop('assignee_initials'),
-                }
-            else:
-                task.pop('assignee_first_name', None)
-                task.pop('assignee_last_name', None)
-                task.pop('assignee_initials', None)
-                task['assignee'] = None
-            tasks.append(task)
+        rows = session.execute(stmt).all()
+        tasks = [
+            _task_with_relations(task, case, event, assignee, has_ev)
+            for task, case, event, assignee, has_ev in rows
+        ]
         return {"tasks": tasks, "total": total}
 
 
 def update_task(task_id: int, status: str = None, urgency: str = None) -> Optional[dict]:
     """Update task status and/or urgency."""
-    updates = []
-    params = []
+    if not status and not urgency:
+        return None
 
     if status:
         validate_task_status(status)
-        updates.append("status = %s")
-        params.append(status)
-        # Auto-set completion_date when marking as Done
-        if status == "Done":
-            updates.append("completion_date = CURRENT_TIMESTAMP")
-
     if urgency:
         validate_urgency(urgency)
-        updates.append("urgency = %s")
-        params.append(urgency)
 
-    if not updates:
-        return None
+    with SessionLocal() as session:
+        task = session.get(Task, task_id)
+        if not task:
+            return None
 
-    params.append(task_id)
+        if status:
+            task.status = status
+            if status == "Done":
+                task.completion_date = datetime.date.today()
 
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE tasks SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
-        """, params)
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+        if urgency:
+            task.urgency = urgency
+
+        session.flush()
+        session.refresh(task)
+        result = _task_to_dict(task)
+        session.commit()
+        return result
 
 
 def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: str = _NOT_PROVIDED,
@@ -178,244 +237,190 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
                      urgency: str = _NOT_PROVIDED, event_id: int = _NOT_PROVIDED,
                      assignee_id: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update all task fields."""
-    updates = []
-    params = []
-
-    if description is not _NOT_PROVIDED:
-        updates.append("description = %s")
-        params.append(description)
-
-    if due_date is not _NOT_PROVIDED:
-        if due_date is not None and due_date != "":
-            validate_date_format(due_date, "due_date")
-        updates.append("due_date = %s")
-        params.append(due_date if due_date else None)
-
-    if completion_date is not _NOT_PROVIDED:
-        if completion_date is not None and completion_date != "":
-            validate_date_format(completion_date, "completion_date")
-        updates.append("completion_date = %s")
-        params.append(completion_date if completion_date else None)
-
-    if status is not _NOT_PROVIDED:
-        if status is not None:
-            validate_task_status(status)
-        updates.append("status = %s")
-        params.append(status)
-        # Auto-set completion_date when marking as Done (if not explicitly provided)
-        if status == "Done" and completion_date is _NOT_PROVIDED:
-            updates.append("completion_date = CURRENT_TIMESTAMP")
-        # Clear completion_date when unmarking from Done (if not explicitly provided)
-        elif status is not None and status != "Done" and completion_date is _NOT_PROVIDED:
-            updates.append("completion_date = NULL")
-
-    if urgency is not _NOT_PROVIDED:
-        if urgency is not None:
-            validate_urgency(urgency)
-        updates.append("urgency = %s")
-        params.append(urgency)
-
-    if event_id is not _NOT_PROVIDED:
-        updates.append("event_id = %s")
-        params.append(event_id)
-
-    if assignee_id is not _NOT_PROVIDED:
-        updates.append("assignee_id = %s")
-        params.append(assignee_id)
-
-    if not updates:
+    fields = [description, due_date, completion_date, status, urgency, event_id, assignee_id]
+    if all(f is _NOT_PROVIDED for f in fields):
         return None
 
-    params.append(task_id)
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE tasks SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, assignee_id, created_at
-        """, params)
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        task = session.get(Task, task_id)
+        if not task:
             return None
-        task = serialize_row(dict(row))
+
+        if description is not _NOT_PROVIDED:
+            task.description = description
+
+        if due_date is not _NOT_PROVIDED:
+            if due_date is not None and due_date != "":
+                validate_date_format(due_date, "due_date")
+            task.due_date = due_date if due_date else None
+
+        if completion_date is not _NOT_PROVIDED:
+            if completion_date is not None and completion_date != "":
+                validate_date_format(completion_date, "completion_date")
+            task.completion_date = completion_date if completion_date else None
+
+        if status is not _NOT_PROVIDED:
+            if status is not None:
+                validate_task_status(status)
+            task.status = status
+            # Auto-set completion_date when marking as Done (if not explicitly provided)
+            if status == "Done" and completion_date is _NOT_PROVIDED:
+                task.completion_date = datetime.date.today()
+            # Clear completion_date when unmarking from Done (if not explicitly provided)
+            elif status is not None and status != "Done" and completion_date is _NOT_PROVIDED:
+                task.completion_date = None
+
+        if urgency is not _NOT_PROVIDED:
+            if urgency is not None:
+                validate_urgency(urgency)
+            task.urgency = urgency
+
+        if event_id is not _NOT_PROVIDED:
+            task.event_id = event_id
+
+        if assignee_id is not _NOT_PROVIDED:
+            task.assignee_id = assignee_id
+
+        session.flush()
+        session.refresh(task)
+        result = _task_to_dict(task)
 
         # Fetch assignee info if set
-        if task.get('assignee_id'):
-            cur.execute("""
-                SELECT first_name, last_name, initials FROM users WHERE id = %s
-            """, (task['assignee_id'],))
-            assignee_row = cur.fetchone()
-            if assignee_row:
-                task['assignee'] = {
-                    'id': task['assignee_id'],
-                    'first_name': assignee_row['first_name'],
-                    'last_name': assignee_row['last_name'],
-                    'initials': assignee_row['initials'],
-                }
+        if task.assignee_id:
+            assignee = session.get(User, task.assignee_id)
+            if assignee:
+                result["assignee"] = _assignee_dict(assignee)
             else:
-                task['assignee'] = None
+                result["assignee"] = None
         else:
-            task['assignee'] = None
+            result["assignee"] = None
 
-        return task
+        session.commit()
+        return result
 
 
 def delete_task(task_id: int) -> bool:
     """Delete a task."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
-        return cur.rowcount > 0
+    with SessionLocal() as session:
+        task = session.get(Task, task_id)
+        if not task:
+            return False
+        session.delete(task)
+        session.commit()
+        return True
 
 
 def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
     """Update status for multiple tasks."""
     validate_task_status(status)
-    with get_cursor() as cur:
+    with SessionLocal() as session:
+        values = {"status": status}
         if status == "Done":
-            cur.execute("""
-                UPDATE tasks SET status = %s, completion_date = CURRENT_TIMESTAMP
-                WHERE id = ANY(%s)
-            """, (status, task_ids))
+            values["completion_date"] = datetime.date.today()
         else:
-            cur.execute("""
-                UPDATE tasks SET status = %s, completion_date = NULL
-                WHERE id = ANY(%s)
-            """, (status, task_ids))
-        return {"updated": cur.rowcount}
+            values["completion_date"] = None
+
+        stmt = update(Task).where(Task.id.in_(task_ids)).values(**values)
+        result = session.execute(stmt)
+        session.commit()
+        return {"updated": result.rowcount}
 
 
 def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = None) -> dict:
     """Update all tasks for a case, optionally filtering by current status."""
     validate_task_status(status)
-    completion_clause = ", completion_date = CURRENT_TIMESTAMP" if status == "Done" else ", completion_date = NULL"
-    with get_cursor() as cur:
-        if current_status:
-            validate_task_status(current_status)
-            cur.execute(f"""
-                UPDATE tasks SET status = %s{completion_clause}
-                WHERE case_id = %s AND status = %s
-            """, (status, case_id, current_status))
+    if current_status:
+        validate_task_status(current_status)
+
+    with SessionLocal() as session:
+        values = {"status": status}
+        if status == "Done":
+            values["completion_date"] = datetime.date.today()
         else:
-            cur.execute(f"""
-                UPDATE tasks SET status = %s{completion_clause}
-                WHERE case_id = %s
-            """, (status, case_id))
-        return {"updated": cur.rowcount}
+            values["completion_date"] = None
+
+        stmt = update(Task).where(Task.case_id == case_id)
+        if current_status:
+            stmt = stmt.where(Task.status == current_status)
+        stmt = stmt.values(**values)
+
+        result = session.execute(stmt)
+        session.commit()
+        return {"updated": result.rowcount}
 
 
 def reschedule_overdue_tasks(new_date: str) -> dict:
-    """Reschedule all overdue incomplete tasks to a new date.
-
-    Args:
-        new_date: The new due date (YYYY-MM-DD format)
-
-    Returns:
-        dict with 'updated' count
-    """
+    """Reschedule all overdue incomplete tasks to a new date."""
     validate_date_format(new_date, "new_date")
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE tasks
-            SET due_date = %s
-            WHERE due_date < CURRENT_DATE
-              AND status != 'Done'
-        """, (new_date,))
-        return {"updated": cur.rowcount}
+
+    with SessionLocal() as session:
+        stmt = (
+            update(Task)
+            .where(Task.due_date < func.current_date(), Task.status != "Done")
+            .values(due_date=new_date)
+        )
+        result = session.execute(stmt)
+        session.commit()
+        return {"updated": result.rowcount}
 
 
 def search_tasks(query: str = None, case_id: int = None, status: str = None,
                  urgency: str = None, assignee_id: int = None, limit: int = 50) -> List[dict]:
     """Search tasks by various criteria."""
-    conditions = []
-    params = []
-
-    if query:
-        conditions.append("t.description ILIKE %s")
-        params.append(f"%{query}%")
-
-    if case_id:
-        conditions.append("t.case_id = %s")
-        params.append(case_id)
-
     if status:
         validate_task_status(status)
-        conditions.append("t.status = %s")
-        params.append(status)
-
     if urgency:
         validate_urgency(urgency)
-        conditions.append("t.urgency = %s")
-        params.append(urgency)
 
+    has_events_sq = (
+        exists(select(Event.id).where(Event.case_id == Task.case_id))
+        .correlate(Task)
+    )
+
+    stmt = (
+        select(Task, Case, Event, User, has_events_sq.label("has_events"))
+        .join(Case, Task.case_id == Case.id)
+        .outerjoin(Event, Task.event_id == Event.id)
+        .outerjoin(User, Task.assignee_id == User.id)
+        .order_by(Task.sort_order.asc())
+        .limit(limit)
+    )
+
+    if query:
+        stmt = stmt.where(Task.description.ilike(f"%{query}%"))
+    if case_id:
+        stmt = stmt.where(Task.case_id == case_id)
+    if status:
+        stmt = stmt.where(Task.status == status)
+    if urgency:
+        stmt = stmt.where(Task.urgency == urgency)
     if assignee_id:
-        conditions.append("t.assignee_id = %s")
-        params.append(assignee_id)
+        stmt = stmt.where(Task.assignee_id == assignee_id)
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            SELECT t.id, t.case_id, c.case_name, c.short_name, c.color as case_color, t.description,
-                   t.due_date, t.completion_date, t.status, t.urgency, t.event_id,
-                   e.description as event_description, e.date as event_date,
-                   t.sort_order, t.assignee_id,
-                   EXISTS(SELECT 1 FROM events WHERE case_id = t.case_id) as has_events,
-                   u.first_name as assignee_first_name, u.last_name as assignee_last_name,
-                   u.initials as assignee_initials
-            FROM tasks t
-            JOIN cases c ON t.case_id = c.id
-            LEFT JOIN events e ON t.event_id = e.id
-            LEFT JOIN users u ON t.assignee_id = u.id
-            {where_clause}
-            ORDER BY t.sort_order ASC
-            LIMIT %s
-        """, params + [limit])
-        rows = cur.fetchall()
-        tasks = []
-        for row in rows:
-            task = serialize_row(dict(row))
-            if task.get('assignee_id'):
-                task['assignee'] = {
-                    'id': task['assignee_id'],
-                    'first_name': task.pop('assignee_first_name'),
-                    'last_name': task.pop('assignee_last_name'),
-                    'initials': task.pop('assignee_initials'),
-                }
-            else:
-                task.pop('assignee_first_name', None)
-                task.pop('assignee_last_name', None)
-                task.pop('assignee_initials', None)
-                task['assignee'] = None
-            tasks.append(task)
-        return tasks
+    with SessionLocal() as session:
+        rows = session.execute(stmt).all()
+        return [
+            _task_with_relations(task, case, event, assignee, has_ev)
+            for task, case, event, assignee, has_ev in rows
+        ]
 
 
 def reorder_task(task_id: int, new_sort_order: int, new_urgency: str = None) -> Optional[dict]:
-    """Reorder a task and optionally change its urgency.
-
-    Args:
-        task_id: The ID of the task to reorder
-        new_sort_order: The new sort_order value
-        new_urgency: Optional new urgency level (Low, Medium, High, Urgent)
-
-    Returns:
-        The updated task with new sort_order (and urgency if changed)
-    """
-    updates = ["sort_order = %s"]
-    params = [new_sort_order]
-
+    """Reorder a task and optionally change its urgency."""
     if new_urgency is not None:
         validate_urgency(new_urgency)
-        updates.append("urgency = %s")
-        params.append(new_urgency)
 
-    params.append(task_id)
+    with SessionLocal() as session:
+        task = session.get(Task, task_id)
+        if not task:
+            return None
 
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE tasks SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, case_id, description, due_date, completion_date, status, urgency, event_id, sort_order, created_at
-        """, params)
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+        task.sort_order = new_sort_order
+        if new_urgency is not None:
+            task.urgency = new_urgency
+
+        session.flush()
+        session.refresh(task)
+        result = _task_to_dict(task)
+        session.commit()
+        return result

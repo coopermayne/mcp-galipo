@@ -7,7 +7,7 @@ Handles case CRUD operations.
 import asyncio
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-import database as db
+import db
 import auth
 from schemas import CreateCaseInput, UpdateCaseInput
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE

@@ -13,7 +13,12 @@ This module preserves existing relationships:
 import os
 import bcrypt
 from urllib.parse import urlparse
-from .connection import get_cursor
+
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from .session import SessionLocal
+from models import User
 
 # Bcrypt cost factor (matches db/users.py)
 BCRYPT_COST = 12
@@ -116,47 +121,52 @@ def seed_dev_users() -> bool:
     password_hash = _hash_password(DEV_PASSWORD)
     user_ids = {}  # email -> id mapping for paralegal references
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # First pass: create/update all users
-        # Uses UPSERT to preserve IDs - critical for FK relationships!
+        # Uses PostgreSQL INSERT ... ON CONFLICT DO UPDATE to preserve IDs
         for user in DEV_USERS:
-            cur.execute("""
-                INSERT INTO users (email, password_hash, first_name, last_name, initials,
-                                   bar_number, position, is_admin, must_change_password)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, FALSE)
-                ON CONFLICT (email) DO UPDATE SET
-                    password_hash = EXCLUDED.password_hash,
-                    first_name = EXCLUDED.first_name,
-                    last_name = EXCLUDED.last_name,
-                    initials = EXCLUDED.initials,
-                    bar_number = EXCLUDED.bar_number,
-                    position = EXCLUDED.position,
-                    is_admin = EXCLUDED.is_admin,
-                    must_change_password = FALSE,
-                    is_active = TRUE,
-                    updated_at = CURRENT_TIMESTAMP
-                RETURNING id
-            """, (
-                user["email"].lower(),
-                password_hash,
-                user["first_name"],
-                user["last_name"],
-                user["initials"],
-                user["bar_number"],
-                user["position"],
-                user["is_admin"],
-            ))
-            result = cur.fetchone()
-            user_ids[user["email"].lower()] = result["id"] if isinstance(result, dict) else result[0]
+            stmt = pg_insert(User).values(
+                email=user["email"].lower(),
+                password_hash=password_hash,
+                first_name=user["first_name"],
+                last_name=user["last_name"],
+                initials=user["initials"],
+                bar_number=user["bar_number"],
+                position=user["position"],
+                is_admin=user["is_admin"],
+                must_change_password=False,
+            ).on_conflict_do_update(
+                index_elements=["email"],
+                set_={
+                    "password_hash": password_hash,
+                    "first_name": user["first_name"],
+                    "last_name": user["last_name"],
+                    "initials": user["initials"],
+                    "bar_number": user["bar_number"],
+                    "position": user["position"],
+                    "is_admin": user["is_admin"],
+                    "must_change_password": False,
+                    "is_active": True,
+                    "updated_at": text("CURRENT_TIMESTAMP"),
+                },
+            ).returning(User.id)
+
+            result = session.execute(stmt)
+            row = result.fetchone()
+            user_ids[user["email"].lower()] = row[0]
 
         # Second pass: set paralegal relationships
         for user in DEV_USERS:
             if user.get("paralegal_email"):
                 paralegal_id = user_ids.get(user["paralegal_email"].lower())
                 if paralegal_id:
-                    cur.execute("""
-                        UPDATE users SET paralegal_id = %s WHERE email = %s
-                    """, (paralegal_id, user["email"].lower()))
+                    db_user = session.scalar(
+                        select(User).where(User.email == user["email"].lower())
+                    )
+                    if db_user:
+                        db_user.paralegal_id = paralegal_id
+
+        session.commit()
 
     print(f"  ✓ {len(DEV_USERS)} dev users seeded (existing relationships preserved)")
     return True

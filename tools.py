@@ -10,8 +10,8 @@ from zoneinfo import ZoneInfo
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
 from fastmcp import Context
-import database as db
-from database import ValidationError
+import db
+from db import ValidationError
 from schemas import (
     CaseStatus, TaskStatus, ActivityType, Urgency,
     SearchEntity, JudgeRole, ContactInfo,
@@ -548,22 +548,34 @@ def register_tools(mcp):
             elif entity == "event":
                 result = db.get_event_by_id(id)
             elif entity == "task":
-                # No dedicated get_task_by_id — query directly
-                with db.get_cursor() as cur:
-                    cur.execute("""
-                        SELECT t.id, t.case_id, c.case_name, c.short_name, t.description,
-                               t.due_date, t.completion_date, t.status, t.urgency,
-                               t.event_id, t.sort_order, t.assignee_id,
-                               u.first_name as assignee_first_name,
-                               u.last_name as assignee_last_name,
-                               u.initials as assignee_initials
-                        FROM tasks t
-                        JOIN cases c ON t.case_id = c.id
-                        LEFT JOIN users u ON t.assignee_id = u.id
-                        WHERE t.id = %s
-                    """, (id,))
-                    row = cur.fetchone()
-                    result = db.serialize_row(row) if row else None
+                from db.session import SessionLocal
+                from sqlalchemy import select
+                from models import Task, Case, User
+                with SessionLocal() as session:
+                    stmt = (
+                        select(Task, Case, User)
+                        .join(Case, Task.case_id == Case.id)
+                        .outerjoin(User, Task.assignee_id == User.id)
+                        .where(Task.id == id)
+                    )
+                    row = session.execute(stmt).first()
+                    if row:
+                        task, case, user = row
+                        result = {
+                            "id": task.id, "case_id": task.case_id,
+                            "case_name": case.case_name, "short_name": case.short_name,
+                            "description": task.description,
+                            "due_date": task.due_date.isoformat() if task.due_date else None,
+                            "completion_date": task.completion_date.isoformat() if task.completion_date else None,
+                            "status": task.status, "urgency": task.urgency,
+                            "event_id": task.event_id, "sort_order": task.sort_order,
+                            "assignee_id": task.assignee_id,
+                            "assignee_first_name": user.first_name if user else None,
+                            "assignee_last_name": user.last_name if user else None,
+                            "assignee_initials": user.initials if user else None,
+                        }
+                    else:
+                        result = None
             elif entity == "proceeding":
                 result = db.get_proceeding_by_id(id)
             else:

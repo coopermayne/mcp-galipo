@@ -13,8 +13,9 @@ from datetime import datetime, date, time
 from decimal import Decimal
 from uuid import UUID
 from fastapi.responses import Response
+from sqlalchemy import text
 import auth
-from db.connection import get_cursor
+from db.session import SessionLocal
 from services.pdf_generator import generate_case_list_pdf
 from services.docx_generator import generate_case_list_docx
 
@@ -74,25 +75,25 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         exclude_closed: If True, excludes cases with status 'Closed'.
         user_id: If set, only returns cases where this user is assigned as attorney or paralegal.
     """
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # 1. Get all cases
         conditions = []
-        params = []
+        params = {}
         if exclude_closed:
             conditions.append("status != 'Closed'")
         if user_id:
-            conditions.append("(%s = ANY(attorney_ids) OR %s = ANY(paralegal_ids))")
-            params.extend([user_id, user_id])
+            conditions.append("(:user_id = ANY(attorney_ids) OR :user_id = ANY(paralegal_ids))")
+            params["user_id"] = user_id
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        cur.execute(f"""
+        rows = session.execute(text(f"""
             SELECT id, case_name, short_name, status, print_code, case_summary,
                    result, date_of_injury, color, attorney_ids, paralegal_ids,
                    created_at, updated_at
             FROM cases
             {where}
             ORDER BY case_name
-        """, params if params else None)
-        cases = [dict(row) for row in cur.fetchall()]
+        """), params or None).mappings().all()
+        cases = [dict(row) for row in rows]
 
         if not cases:
             return []
@@ -106,7 +107,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             all_user_ids.update(c.get("paralegal_ids") or [])
 
         # 2. Batch fetch all persons for all cases (unified roles schema)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT pr.case_id,
                    p.id as person_id, p.name, p.phones, p.emails,
                    p.address, p.organization, p.notes as person_notes, p.archived,
@@ -119,13 +120,13 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             JOIN person_roles pr ON p.id = pr.person_id
             JOIN roles r ON pr.role_id = r.id
             LEFT JOIN persons via ON pr.grouped_under_id = via.id
-            WHERE pr.case_id = ANY(%s)
+            WHERE pr.case_id = ANY(:case_ids)
             ORDER BY pr.case_id, r.category, r.sort_order, p.name
-        """, (case_ids,))
+        """), {"case_ids": case_ids}).mappings().all()
         persons_by_case = defaultdict(list)
-        for row in cur.fetchall():
+        for row in rows:
             row_dict = dict(row)
-            case_id = row_dict.pop("case_id")
+            cid = row_dict.pop("case_id")
             # Flatten role info, drop all FK IDs
             row_dict["role"] = row_dict.pop("role_name")
             row_dict["role_category"] = row_dict.pop("role_category")
@@ -135,10 +136,10 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             # Rename person_id to just name context (keep for identification)
             row_dict["name"] = row_dict.pop("name")
             row_dict.pop("person_id")
-            persons_by_case[case_id].append(serialize_row(row_dict))
+            persons_by_case[cid].append(serialize_row(row_dict))
 
         # 3. Batch fetch all tasks for all cases (with linked event details + assignee)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT t.case_id, t.id, t.due_date, t.completion_date, t.description,
                    t.status, t.urgency, t.event_id, t.sort_order, t.assignee_id,
                    t.created_at,
@@ -151,13 +152,13 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             FROM tasks t
             LEFT JOIN events e ON t.event_id = e.id
             LEFT JOIN users u ON t.assignee_id = u.id
-            WHERE t.case_id = ANY(%s)
+            WHERE t.case_id = ANY(:case_ids)
             ORDER BY t.case_id, t.sort_order ASC
-        """, (case_ids,))
+        """), {"case_ids": case_ids}).mappings().all()
         tasks_by_case = defaultdict(list)
-        for row in cur.fetchall():
+        for row in rows:
             row_dict = dict(row)
-            case_id = row_dict.pop("case_id")
+            cid = row_dict.pop("case_id")
             # Nest linked event details if present, drop raw event_id
             if row_dict.get("event_id"):
                 row_dict["linked_event"] = {
@@ -184,52 +185,52 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 row_dict.pop("assignee_last_name", None)
                 row_dict.pop("assignee_initials", None)
             row_dict.pop("assignee_id")
-            tasks_by_case[case_id].append(serialize_row(row_dict))
+            tasks_by_case[cid].append(serialize_row(row_dict))
 
         # 4. Batch fetch all events for all cases
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT case_id, id, date, time, location, description, document_link,
                    calculation_note, starred, attendee_ids, created_at
             FROM events
-            WHERE case_id = ANY(%s)
+            WHERE case_id = ANY(:case_ids)
             ORDER BY case_id, date
-        """, (case_ids,))
+        """), {"case_ids": case_ids}).mappings().all()
         events_by_case = defaultdict(list)
-        for row in cur.fetchall():
+        for row in rows:
             row_dict = dict(row)
-            case_id = row_dict.pop("case_id")
+            cid = row_dict.pop("case_id")
             # Collect user IDs from attendees (resolved to objects later)
             all_user_ids.update(row_dict.get("attendee_ids") or [])
-            events_by_case[case_id].append(row_dict)
+            events_by_case[cid].append(row_dict)
 
         # 5. Batch fetch all notes for all cases
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT case_id, id, content, created_at, updated_at
             FROM notes
-            WHERE case_id = ANY(%s)
+            WHERE case_id = ANY(:case_ids)
             ORDER BY case_id, created_at DESC
-        """, (case_ids,))
+        """), {"case_ids": case_ids}).mappings().all()
         notes_by_case = defaultdict(list)
-        for row in cur.fetchall():
+        for row in rows:
             row_dict = dict(row)
-            case_id = row_dict.pop("case_id")
-            notes_by_case[case_id].append(serialize_row(row_dict))
+            cid = row_dict.pop("case_id")
+            notes_by_case[cid].append(serialize_row(row_dict))
 
         # 6. Batch fetch all activities for all cases
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT case_id, id, date, description, type, minutes, created_at
             FROM activities
-            WHERE case_id = ANY(%s)
+            WHERE case_id = ANY(:case_ids)
             ORDER BY case_id, date DESC
-        """, (case_ids,))
+        """), {"case_ids": case_ids}).mappings().all()
         activities_by_case = defaultdict(list)
-        for row in cur.fetchall():
+        for row in rows:
             row_dict = dict(row)
-            case_id = row_dict.pop("case_id")
-            activities_by_case[case_id].append(serialize_row(row_dict))
+            cid = row_dict.pop("case_id")
+            activities_by_case[cid].append(serialize_row(row_dict))
 
         # 7. Batch fetch all proceedings for all cases (with full jurisdiction details)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT p.case_id, p.id, p.case_number, p.jurisdiction_id, p.sort_order,
                    p.is_primary, p.notes, p.courtlistener_docket_id, p.pacer_case_id,
                    p.created_at, p.updated_at,
@@ -237,14 +238,14 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                    j.notes as jurisdiction_notes
             FROM proceedings p
             LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
-            WHERE p.case_id = ANY(%s)
+            WHERE p.case_id = ANY(:case_ids)
             ORDER BY p.case_id, p.sort_order, p.id
-        """, (case_ids,))
+        """), {"case_ids": case_ids}).mappings().all()
         proceedings_by_case = defaultdict(list)
         all_proceeding_ids = []
-        for row in cur.fetchall():
+        for row in rows:
             row_dict = dict(row)
-            case_id = row_dict.pop("case_id")
+            cid = row_dict.pop("case_id")
             all_proceeding_ids.append(row_dict["id"])
             # Nest jurisdiction as object, drop raw jurisdiction_id
             row_dict["jurisdiction"] = {
@@ -253,21 +254,21 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 "notes": row_dict.pop("jurisdiction_notes"),
             }
             row_dict.pop("jurisdiction_id")
-            proceedings_by_case[case_id].append(row_dict)
+            proceedings_by_case[cid].append(row_dict)
 
         # 8. Batch fetch all judges for all proceedings (new proceeding_judges schema)
         judges_by_proceeding = defaultdict(list)
         if all_proceeding_ids:
-            cur.execute("""
+            rows = session.execute(text("""
                 SELECT pj.proceeding_id, pj.judge_id, pj.role, pj.sort_order,
                        pj.created_at,
                        j.name as judge_name, j.jurisdiction_id, j.initials as judge_initials
                 FROM proceeding_judges pj
                 JOIN judges j ON pj.judge_id = j.id
-                WHERE pj.proceeding_id = ANY(%s)
+                WHERE pj.proceeding_id = ANY(:proceeding_ids)
                 ORDER BY pj.proceeding_id, pj.sort_order, pj.id
-            """, (all_proceeding_ids,))
-            for row in cur.fetchall():
+            """), {"proceeding_ids": all_proceeding_ids}).mappings().all()
+            for row in rows:
                 pid = row["proceeding_id"]
                 judges_by_proceeding[pid].append(serialize_row({
                     "name": row["judge_name"],
@@ -278,12 +279,12 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         # 9. Batch fetch users referenced by attorney_ids/paralegal_ids/attendee_ids
         users_by_id = {}
         if all_user_ids:
-            cur.execute("""
+            rows = session.execute(text("""
                 SELECT id, email, first_name, last_name, initials, position
                 FROM users
-                WHERE id = ANY(%s)
-            """, (list(all_user_ids),))
-            for row in cur.fetchall():
+                WHERE id = ANY(:user_ids)
+            """), {"user_ids": list(all_user_ids)}).mappings().all()
+            for row in rows:
                 user = dict(row)
                 uid = user.pop("id")
                 users_by_id[uid] = serialize_row(user)
@@ -291,7 +292,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         # Assemble the results
         result = []
         for case_row in cases:
-            case_id = case_row["id"]
+            cid = case_row["id"]
             case_data = serialize_row(case_row)
 
             # Resolve attorney_ids/paralegal_ids to full user objects, drop raw ID arrays
@@ -306,11 +307,11 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             case_data.pop("attorney_ids", None)
             case_data.pop("paralegal_ids", None)
 
-            case_data["persons"] = persons_by_case.get(case_id, [])
-            case_data["tasks"] = tasks_by_case.get(case_id, [])
+            case_data["persons"] = persons_by_case.get(cid, [])
+            case_data["tasks"] = tasks_by_case.get(cid, [])
 
             # Resolve attendee_ids on events to full user objects
-            raw_events = events_by_case.get(case_id, [])
+            raw_events = events_by_case.get(cid, [])
             for evt in raw_events:
                 evt["attendees"] = [
                     users_by_id[uid] for uid in (evt.get("attendee_ids") or [])
@@ -319,11 +320,11 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 evt.pop("attendee_ids", None)
             case_data["events"] = [serialize_row(e) for e in raw_events]
 
-            case_data["notes"] = notes_by_case.get(case_id, [])
-            case_data["activities"] = activities_by_case.get(case_id, [])
+            case_data["notes"] = notes_by_case.get(cid, [])
+            case_data["activities"] = activities_by_case.get(cid, [])
 
             # Add judges to proceedings
-            proceedings = proceedings_by_case.get(case_id, [])
+            proceedings = proceedings_by_case.get(cid, [])
             for p in proceedings:
                 p["judges"] = judges_by_proceeding.get(p["id"], [])
             case_data["proceedings"] = [serialize_row(p) for p in proceedings]

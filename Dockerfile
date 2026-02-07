@@ -18,13 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py database.py tools.py routes.py auth.py mcp_auth.py schemas.py ./
+COPY main.py models.py schemas.py tools.py routes.py auth.py mcp_auth.py alembic.ini ./
+COPY alembic/ ./alembic/
 COPY db/ ./db/
 COPY routes/ ./routes/
 COPY services/ ./services/
 COPY static/ ./static/
 COPY templates/ ./templates/
-COPY migrations/ ./migrations/
 
 # Copy built React frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

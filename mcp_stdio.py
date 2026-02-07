@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
 from fastmcp import FastMCP
-import database as db
+import db
 from tools import register_tools
 
 MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
@@ -69,8 +69,7 @@ DATA ENTRY GUIDELINES:
 
 
 def main():
-    # Initialize database
-    db.migrate_db()
+    # Initialize database (Alembic handles migrations)
     db.init_db()
     db.seed_db()
 
