@@ -12,18 +12,12 @@ from sqlalchemy import select, func
 from .session import SessionLocal
 from .validation import ROLE_CATEGORIES, ValidationError
 from models import Role, PersonRole
+from schemas import RoleOut
 
 
 def _role_to_dict(role: Role) -> dict:
     """Convert a Role ORM instance to a serializable dict."""
-    return {
-        "id": role.id,
-        "name": role.name,
-        "category": role.category,
-        "sort_order": role.sort_order,
-        "description": role.description,
-        "created_at": role.created_at.isoformat() if role.created_at else None,
-    }
+    return RoleOut.model_validate(role).model_dump(mode="json")
 
 
 def get_roles(category: str = None) -> List[dict]:

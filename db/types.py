@@ -11,15 +11,12 @@ from sqlalchemy import select, text
 
 from .session import SessionLocal
 from models import ExpertiseType
+from schemas import ExpertiseTypeOut
 
 
 def _etype_to_dict(et: ExpertiseType) -> dict:
     """Convert an ExpertiseType ORM instance to a serializable dict."""
-    return {
-        "id": et.id,
-        "name": et.name,
-        "description": et.description,
-    }
+    return ExpertiseTypeOut.model_validate(et).model_dump(mode="json")
 
 
 # ===== EXPERTISE TYPE OPERATIONS =====

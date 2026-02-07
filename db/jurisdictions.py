@@ -8,16 +8,12 @@ from sqlalchemy import select
 
 from .session import SessionLocal
 from models import Jurisdiction
+from schemas import JurisdictionOut
 
 
 def _jurisdiction_to_dict(j: Jurisdiction) -> dict:
     """Convert a Jurisdiction ORM instance to a serializable dict."""
-    return {
-        "id": j.id,
-        "name": j.name,
-        "local_rules_link": j.local_rules_link,
-        "notes": j.notes,
-    }
+    return JurisdictionOut.model_validate(j).model_dump(mode="json")
 
 
 def get_jurisdictions() -> List[dict]:

@@ -13,6 +13,7 @@ from .session import SessionLocal
 from .connection import _NOT_PROVIDED
 from .validation import validate_date_format, validate_time_format
 from models import Event, Case, Task, User
+from schemas import EventOut
 
 
 def _serialize_value(val):
@@ -28,18 +29,7 @@ def _serialize_value(val):
 
 def _event_to_dict(event: Event) -> dict:
     """Convert an Event ORM instance to a serializable dict."""
-    return {
-        "id": event.id,
-        "case_id": event.case_id,
-        "date": _serialize_value(event.date),
-        "time": _serialize_value(event.time),
-        "location": event.location,
-        "description": event.description,
-        "document_link": event.document_link,
-        "calculation_note": event.calculation_note,
-        "starred": event.starred,
-        "created_at": _serialize_value(event.created_at),
-    }
+    return EventOut.model_validate(event).model_dump(mode="json")
 
 
 def _event_with_case_dict(event: Event, case: Case, task_count: int = 0) -> dict:

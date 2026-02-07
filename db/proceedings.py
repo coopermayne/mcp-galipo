@@ -15,38 +15,30 @@ from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal, _NOT_PROVIDED
 from models import Proceeding, Jurisdiction, ProceedingJudge, Judge
+from schemas import ProceedingOut
 
 
 def _proceeding_to_dict(p: Proceeding, judges_list: list = None) -> dict:
     """Convert a Proceeding ORM instance to a serializable dict."""
-    d = {
-        "id": p.id,
-        "case_id": p.case_id,
-        "case_number": p.case_number,
-        "jurisdiction_id": p.jurisdiction_id,
-        "sort_order": p.sort_order,
-        "is_primary": p.is_primary,
-        "notes": p.notes,
-        "courtlistener_docket_id": p.courtlistener_docket_id,
-        "pacer_case_id": p.pacer_case_id,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
-        "jurisdiction_name": p.jurisdiction.name if p.jurisdiction else None,
-        "local_rules_link": p.jurisdiction.local_rules_link if p.jurisdiction else None,
-    }
-
     judges = judges_list if judges_list is not None else []
-    d["judges"] = judges
-
-    # Backwards compatibility: set judge_name/judge_id from first judge
-    if judges:
-        d["judge_name"] = judges[0].get("name")
-        d["judge_id"] = judges[0].get("judge_id")
-    else:
-        d["judge_name"] = None
-        d["judge_id"] = None
-
-    return d
+    return ProceedingOut(
+        id=p.id,
+        case_id=p.case_id,
+        case_number=p.case_number,
+        jurisdiction_id=p.jurisdiction_id,
+        sort_order=p.sort_order,
+        is_primary=p.is_primary,
+        notes=p.notes,
+        courtlistener_docket_id=p.courtlistener_docket_id,
+        pacer_case_id=p.pacer_case_id,
+        created_at=p.created_at,
+        updated_at=p.updated_at,
+        jurisdiction_name=p.jurisdiction.name if p.jurisdiction else None,
+        local_rules_link=p.jurisdiction.local_rules_link if p.jurisdiction else None,
+        judges=judges,
+        judge_name=judges[0].get("name") if judges else None,
+        judge_id=judges[0].get("judge_id") if judges else None,
+    ).model_dump(mode="json")
 
 
 def _fetch_judges_for_proceedings(session, proceeding_ids: List[int]) -> dict:

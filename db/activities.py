@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload
 from .session import SessionLocal
 from .validation import validate_date_format
 from models import Activity, Case
-from schemas import ActivityOut
+from schemas import ActivityOut, ActivityWithCaseOut
 
 
 def _serialize(obj: Activity) -> dict:
@@ -53,15 +53,12 @@ def get_all_activities(case_id: int = None) -> List[dict]:
 
         activities = session.scalars(stmt).unique().all()
         return [
-            {
-                "id": a.id,
-                "case_id": a.case_id,
-                "case_name": a.case.case_name if a.case else None,
-                "description": a.description,
-                "type": a.type,
-                "date": a.date.isoformat() if a.date else None,
-                "minutes": a.minutes,
-            }
+            ActivityWithCaseOut(
+                id=a.id, case_id=a.case_id,
+                case_name=a.case.case_name if a.case else None,
+                description=a.description, type=a.type,
+                date=a.date, minutes=a.minutes,
+            ).model_dump(mode="json")
             for a in activities
         ]
 
@@ -87,17 +84,14 @@ def get_activities(case_id: int = None) -> dict:
         activities = session.scalars(stmt).unique().all()
 
         rows = [
-            {
-                "id": a.id,
-                "case_id": a.case_id,
-                "case_name": a.case.case_name if a.case else None,
-                "short_name": a.case.short_name if a.case else None,
-                "description": a.description,
-                "type": a.type,
-                "date": a.date.isoformat() if a.date else None,
-                "minutes": a.minutes,
-                "created_at": a.created_at.isoformat() if a.created_at else None,
-            }
+            ActivityWithCaseOut(
+                id=a.id, case_id=a.case_id,
+                case_name=a.case.case_name if a.case else None,
+                short_name=a.case.short_name if a.case else None,
+                description=a.description, type=a.type,
+                date=a.date, minutes=a.minutes,
+                created_at=a.created_at,
+            ).model_dump(mode="json")
             for a in activities
         ]
         return {"activities": rows, "total": total}

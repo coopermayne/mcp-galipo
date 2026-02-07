@@ -1,8 +1,13 @@
 # Pydantic Output Models Plan
 
+> **Status: COMPLETE** — Migration finished 2026-02-07.
+>
+> All output models created, `schemas/` package live, 12 of 13 db modules wired up.
+> `db/cases.py` intentionally left as-is (generic row converter, not a fixed-shape entity).
+
 ## Problem
 
-Pydantic guards the front door (inputs) but the back door (outputs) is 12 different hand-built locks.
+Pydantic guards the front door (inputs) but the back door (outputs) is 11 different hand-built locks.
 
 **Inputs (clean, centralized):** Routes parse JSON into Pydantic models from `schemas.py`. One place, one pattern, type-checked.
 
@@ -20,10 +25,9 @@ def _row_to_dict(row):          # iterates row._mapping
 # db/activities.py — the ONE file already doing it right
 def _serialize(obj):
     return ActivityOut.model_validate(obj).model_dump(mode="json")
-# ...but even this file falls back to hand-rolled dicts for joined queries
 ```
 
-84 `_to_dict` calls across 12 files. Each one is an untyped, undocumented API contract.
+~80 `_to_dict` calls across 11 files. Each one is an untyped, undocumented API contract.
 
 ```
 Current flow:
@@ -33,37 +37,25 @@ Target flow:
   Request → Pydantic input → db/ function → ORM object → Pydantic output model → JSON
 ```
 
-## Scope
+## Current State
 
-Split `schemas.py` into a `schemas/` package and add Pydantic output models for all entities. Then replace the 84 hand-rolled serializers with `model_validate()`. No file moves, no renames, no restructuring beyond this.
+**Migration complete.** Here's what was done:
 
-## File Structure
+- **`schemas/` package created** — `common.py`, `inputs.py`, `outputs.py`, `__init__.py` (re-exports everything, so `from schemas import X` still works)
+- **~30 output models in `schemas/outputs.py`** — covers all entities: Activity, Role, ExpertiseType, Jurisdiction, Note, Webhook, User, Attorney, Judge, Proceeding, ProceedingJudge, Event, Task, Person, CasePerson, RoleAssignment, CaseList, CaseDetail, CaseSearch, CaseSummary, CaseBrief, plus sub-models (UserBriefOut, CaseStaffUserOut, RoleBriefOut) and variants (*WithCaseOut, *WithRelationsOut, *DetailOut)
+- **12 of 13 db modules wired up** — all use `Model.model_validate(obj).model_dump(mode="json")` pattern
+- **`db/cases.py` left as-is** — `_sv` and `_row_to_dict` are generic row converters for arbitrary query column sets; cannot be replaced with fixed Pydantic models
+- **Dockerfile updated** — `schemas.py` → `COPY schemas/ ./schemas/`
+- **E2E tests verified** — 114/121 pass, 5 failures all pre-existing/unrelated
+
+## Final File Structure
 
 ```
-BEFORE                                 AFTER
-
-schemas.py  (one flat file)            schemas/
-  ├─ Literal types                       ├─ __init__.py       re-exports everything
-  ├─ List constants                      │                    (from schemas import X still works)
-  ├─ ContactInfo                         ├─ common.py         Literals, constants, ContactInfo
-  ├─ CreateCaseInput                     ├─ case.py           Create/UpdateCaseInput + CaseOut
-  ├─ UpdateCaseInput                     ├─ task.py           Create/UpdateTaskInput + TaskOut
-  ├─ CreateTaskInput                     ├─ event.py          Create/UpdateEventInput + EventOut
-  ├─ UpdateTaskInput                     ├─ person.py         PersonOut, PersonRoleOut
-  ├─ CreateEventInput                    ├─ judge.py          JudgeOut
-  ├─ UpdateEventInput                    ├─ proceeding.py     ProceedingOut, ProceedingJudgeOut
-  ├─ Create/UpdateActivityInput          ├─ activity.py       Create/UpdateActivityInput, ActivityOut
-  ├─ ActivityOut                         ├─ note.py           Create/UpdateNoteInput, NoteOut
-  ├─ Create/UpdateNoteInput              ├─ role.py           RoleOut, RoleWithCountOut, ExpertiseTypeOut
-  ├─ RoleOut, RoleWithCountOut           ├─ jurisdiction.py   JurisdictionOut
-  ├─ ExpertiseTypeOut                    ├─ user.py           UserOut, CaseStaffUserOut          ← NEW
-  ├─ JurisdictionOut                     └─ webhook.py        WebhookOut                         ← NEW
-  ├─ NoteOut
-  ├─ JudgeOut                          schemas.py → deleted
-  ├─ ProceedingOut
-  ├─ ProceedingJudgeOut
-  ├─ PersonOut
-  └─ PersonRoleOut
+schemas/
+  ├─ __init__.py       re-exports everything (from schemas import X still works)
+  ├─ common.py         Literals, constants, ContactInfo
+  ├─ inputs.py         All Create/Update input models
+  └─ outputs.py        All output models (~450 lines)
 ```
 
 ## Output Model Patterns
@@ -102,51 +94,41 @@ This is the tricky part — many `db/` functions return different shapes dependi
 
 **Key rule:** Output models describe what the API *actually returns today*. Don't reshape responses — just type what's already there. The frontend TypeScript types are the reference for field names/shapes.
 
-## Migration Steps
+## What Was Done
 
-### Step 1: Create the `schemas/` package scaffold
+### Step 1: Package scaffold
+- Created `schemas/` with `common.py`, `inputs.py`, `outputs.py`, `__init__.py`
+- Deleted `schemas.py`
+- Updated Dockerfile COPY line
+- All existing imports continue to work via re-exports
 
-1. Create `schemas/` directory with `__init__.py` that re-exports everything
-2. Move existing content from `schemas.py` into domain files
-3. Verify all existing imports still work (`from schemas import CreateTaskInput`)
-4. Delete `schemas.py`
+### Step 2: Output models
+- Added ~30 output models to `schemas/outputs.py`
+- Key design decisions:
+  - `EventOut` has `@field_serializer('time')` for HH:MM format (not Pydantic's default HH:MM:SS)
+  - `CaseDetailOut` types nested entities as `list[dict]` (heterogeneous shapes from separate queries)
+  - Sub-models (`UserBriefOut`, `RoleBriefOut`, `CaseStaffUserOut`) shared across multiple parent models
 
-Zero behavior change — just reorganization.
+### Step 3: Wired up db modules
+All 12 applicable modules now use Pydantic serialization:
 
-### Step 2: Add output models for entities that don't have them yet
+| Module | Output model(s) | Status |
+|--------|----------------|--------|
+| `db/types.py` | ExpertiseTypeOut | Done |
+| `db/jurisdictions.py` | JurisdictionOut | Done |
+| `db/notes.py` | NoteOut, NoteWithCaseOut | Done |
+| `db/roles.py` | RoleOut, RoleWithCountOut | Done |
+| `db/webhooks.py` | WebhookOut | Done |
+| `db/users.py` | UserOut, UserBriefOut, AttorneyOut | Done |
+| `db/activities.py` | ActivityOut, ActivityWithCaseOut | Done |
+| `db/proceedings.py` | ProceedingOut | Done |
+| `db/judges.py` | JudgeOut, JudgeDetailOut, ProceedingJudgeOut | Done |
+| `db/events.py` | EventOut, EventWithCaseOut, EventDetailOut | Done |
+| `db/tasks.py` | TaskOut, TaskWithRelationsOut, TaskDetailOut | Done |
+| `db/persons.py` | PersonOut, CasePersonOut, RoleAssignmentOut, PersonSearchOut | Done |
+| `db/cases.py` | — | Skipped (generic row converter) |
 
-5. Simple entities first (already have `*Out` classes, just need to move them): roles, jurisdictions, notes, judges, proceedings, persons
-6. New output models for: cases, tasks, events, users, webhooks
-7. For each, trace the existing `_to_dict` to see exactly what fields it returns. Use frontend TypeScript types as cross-reference
-
-### Step 3: Wire up output models in `db/` modules
-
-Do one module at a time, starting with the simplest:
-
-8. Replace `_to_dict()` / `_row_to_dict()` / `_sv()` / `_serialize_value()` with `SomeOut.model_validate(obj).model_dump(mode="json")`
-9. Delete the hand-rolled serializer functions
-10. Run E2E tests after each module to verify responses haven't changed
-
-**Module order** (simplest → most complex):
-| Module | `_to_dict` calls | Notes |
-|--------|------------------|-------|
-| `db/activities.py` | already done | Just fix the joined-query fallback |
-| `db/proceedings.py` | 4 | Simple |
-| `db/types.py` | 5 | Simple |
-| `db/events.py` | 5 | Has joined case info |
-| `db/notes.py` | 6 | Simple |
-| `db/jurisdictions.py` | 6 | Simple |
-| `db/webhooks.py` | 6 | Simple |
-| `db/users.py` | 6 | Simple |
-| `db/tasks.py` | 6 | Has joined case/event/assignee — needs `TaskWithRelationsOut` |
-| `db/roles.py` | 7 | Has count variant |
-| `db/judges.py` | 9 | Has joined jurisdiction |
-| `db/persons.py` | 10 | Has joined roles/cases — most complex |
-| `db/cases.py` | 14 | Has joined staff/events/tasks — most complex |
-
-## What We're NOT Doing
-
-- **Not reshaping API responses** — output models describe current shapes, frontend stays untouched
-- **Not moving files** into `app/` package, not renaming `db/` or `routes/`
-- **Not splitting `models.py`** — 15 models in one file is fine at this scale
-- **Not adding `config.py` or `tests/`** — separate efforts, separate plans
+### Step 4: Verification
+- E2E tests: 114/121 pass (5 pre-existing failures)
+- TypeScript compiles cleanly
+- All `from schemas import X` imports verified working

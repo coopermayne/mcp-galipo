@@ -16,76 +16,49 @@ from sqlalchemy.orm import aliased
 from .session import SessionLocal
 from .validation import validate_date_format, ValidationError
 from models import Person, PersonRole, Role, Case, ExpertiseType
+from schemas import PersonOut, CasePersonOut, RoleBriefOut, RoleAssignmentOut
 
 
 def _person_to_dict(p: Person) -> dict:
     """Convert a Person ORM instance to a serializable dict."""
-    return {
-        "id": p.id,
-        "name": p.name,
-        "phones": p.phones or [],
-        "emails": p.emails or [],
-        "address": p.address,
-        "organization": p.organization,
-        "notes": p.notes,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
-        "archived": p.archived,
-    }
+    d = PersonOut.model_validate(p).model_dump(mode="json")
+    d["phones"] = p.phones or []
+    d["emails"] = p.emails or []
+    return d
 
 
 def _assignment_to_dict(pr: PersonRole, person: Person, role: Role,
                         case: Case = None, grouped_under: Person = None) -> dict:
     """Convert a person_role assignment row to a serializable dict with nested role object."""
-    d = {
-        "id": person.id,
-        "name": person.name,
-        "phones": person.phones or [],
-        "emails": person.emails or [],
-        "organization": person.organization,
-        "person_notes": person.notes,
-        "assignment_id": pr.id,
-        "role_id": pr.role_id,
-        "attributes": pr.attributes or {},
-        "role_notes": pr.notes,
-        "is_primary": pr.is_primary,
-        "grouped_under_id": pr.grouped_under_id,
-        "assigned_date": pr.assigned_date.isoformat() if pr.assigned_date else None,
-        "assigned_at": pr.created_at.isoformat() if pr.created_at else None,
-        "role": {
-            "id": role.id,
-            "name": role.name,
-            "category": role.category,
-        },
-        "grouped_under_name": grouped_under.name if grouped_under else None,
-    }
-    return d
+    return CasePersonOut(
+        id=person.id, name=person.name,
+        phones=person.phones or [], emails=person.emails or [],
+        organization=person.organization, person_notes=person.notes,
+        assignment_id=pr.id, role_id=pr.role_id,
+        attributes=pr.attributes or {}, role_notes=pr.notes,
+        is_primary=pr.is_primary, grouped_under_id=pr.grouped_under_id,
+        assigned_date=pr.assigned_date.isoformat() if pr.assigned_date else None,
+        assigned_at=pr.created_at.isoformat() if pr.created_at else None,
+        role=RoleBriefOut(id=role.id, name=role.name, category=role.category),
+        grouped_under_name=grouped_under.name if grouped_under else None,
+    ).model_dump(mode="json")
 
 
 def _role_assignment_to_dict(pr: PersonRole, role: Role,
                              case: Case = None, grouped_under: Person = None) -> dict:
     """Convert a role assignment for get_person_by_id (includes case info)."""
-    d = {
-        "assignment_id": pr.id,
-        "role_id": pr.role_id,
-        "case_id": pr.case_id,
-        "attributes": pr.attributes or {},
-        "role_notes": pr.notes,
-        "is_primary": pr.is_primary,
-        "grouped_under_id": pr.grouped_under_id,
-        "assigned_date": pr.assigned_date.isoformat() if pr.assigned_date else None,
-        "created_at": pr.created_at.isoformat() if pr.created_at else None,
-        "role": {
-            "id": role.id,
-            "name": role.name,
-            "category": role.category,
-        },
-        "case_name": case.case_name if case else None,
-        "short_name": case.short_name if case else None,
-        "color": case.color if case else None,
-        "grouped_under_name": grouped_under.name if grouped_under else None,
-    }
-    return d
+    return RoleAssignmentOut(
+        assignment_id=pr.id, role_id=pr.role_id, case_id=pr.case_id,
+        attributes=pr.attributes or {}, role_notes=pr.notes,
+        is_primary=pr.is_primary, grouped_under_id=pr.grouped_under_id,
+        assigned_date=pr.assigned_date.isoformat() if pr.assigned_date else None,
+        created_at=pr.created_at.isoformat() if pr.created_at else None,
+        role=RoleBriefOut(id=role.id, name=role.name, category=role.category),
+        case_name=case.case_name if case else None,
+        short_name=case.short_name if case else None,
+        color=case.color if case else None,
+        grouped_under_name=grouped_under.name if grouped_under else None,
+    ).model_dump(mode="json")
 
 
 def _validate_and_ensure_expertises(session, role_id: int, attributes: dict) -> dict:

@@ -12,6 +12,7 @@ from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
 from models import User
+from schemas import UserBriefOut, UserOut, AttorneyOut
 
 
 # Sentinel value to distinguish "not provided" from None
@@ -34,33 +35,13 @@ def verify_password(password: str, password_hash: str) -> bool:
 def _build_paralegal_dict(user: User) -> Optional[dict]:
     """Build the nested paralegal dict from the ORM relationship."""
     if user.paralegal_id and user.paralegal:
-        return {
-            'id': user.paralegal.id,
-            'first_name': user.paralegal.first_name,
-            'last_name': user.paralegal.last_name,
-            'initials': user.paralegal.initials,
-        }
+        return UserBriefOut.model_validate(user.paralegal).model_dump(mode="json")
     return None
 
 
 def _user_to_dict(user: User, include_password_hash: bool = False) -> dict:
     """Convert a User ORM object to a plain dict."""
-    result = {
-        'id': user.id,
-        'email': user.email,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'initials': user.initials,
-        'bar_number': user.bar_number,
-        'position': user.position,
-        'is_admin': user.is_admin,
-        'must_change_password': user.must_change_password,
-        'is_active': user.is_active,
-        'paralegal_id': user.paralegal_id,
-        'created_at': user.created_at.isoformat() if user.created_at else None,
-        'updated_at': user.updated_at.isoformat() if user.updated_at else None,
-        'paralegal': _build_paralegal_dict(user),
-    }
+    result = UserOut.model_validate(user).model_dump(mode="json")
     if include_password_hash:
         result['password_hash'] = user.password_hash
     return result
@@ -269,18 +250,7 @@ def get_attorneys() -> list[dict]:
             .order_by(User.last_name, User.first_name)
         )
         users = session.scalars(stmt).unique().all()
-        return [
-            {
-                'id': u.id,
-                'first_name': u.first_name,
-                'last_name': u.last_name,
-                'initials': u.initials,
-                'bar_number': u.bar_number,
-                'paralegal_id': u.paralegal_id,
-                'paralegal': _build_paralegal_dict(u),
-            }
-            for u in users
-        ]
+        return [AttorneyOut.model_validate(u).model_dump(mode="json") for u in users]
 
 
 def get_attorneys_for_paralegal(paralegal_id: int) -> list[dict]:
