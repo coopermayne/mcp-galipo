@@ -299,6 +299,7 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
   const { data, isLoading, error } = useQuery({
     queryKey: ['person', entityId],
     queryFn: () => getPerson(entityId),
+    retry: false,
   });
 
   const { data: rolesData } = useQuery({
@@ -368,7 +369,13 @@ export function PersonDetailContent({ entityId, context, onClose }: PersonDetail
     return (
       <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
         <AlertCircle className="w-8 h-8 mb-2" />
-        <p>Failed to load person details</p>
+        <p>This person may have been deleted</p>
+        <button
+          onClick={onClose}
+          className="mt-3 px-4 py-1.5 text-sm text-text-muted hover:text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
+        >
+          Close
+        </button>
       </div>
     );
   }
