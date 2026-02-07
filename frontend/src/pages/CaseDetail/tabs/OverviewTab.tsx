@@ -1058,7 +1058,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
                     >
                       <span className="text-text-secondary truncate">{event.description}</span>
                       <span className="text-xs text-text-muted shrink-0 ml-2">
-                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {new Date(event.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </span>
                     </button>
                   ))}
@@ -1097,7 +1097,7 @@ export function OverviewTab({ caseData, caseId, statusOptions, onUpdateField }: 
                 </button>
                 <span className="text-text-secondary truncate">{event.description}</span>
                 <span className="text-xs text-text-muted shrink-0">
-                  {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(event.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
             ))}
