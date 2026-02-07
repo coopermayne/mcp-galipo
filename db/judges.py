@@ -5,113 +5,161 @@ Judges are separate from the persons system - they have their own standalone tab
 and are linked to proceedings (not cases) via the proceeding_judges table.
 """
 
-import json
 from typing import Optional, List
 
-from .connection import get_cursor, serialize_row, serialize_rows, _NOT_PROVIDED
+from sqlalchemy import select, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import joinedload
+
+from .session import SessionLocal, _NOT_PROVIDED
+from models import Judge, Jurisdiction, ProceedingJudge, Proceeding, Case
+
+
+def _judge_to_dict(j: Judge) -> dict:
+    """Convert a Judge ORM instance to a serializable dict."""
+    return {
+        "id": j.id,
+        "name": j.name,
+        "phones": j.phones or [],
+        "emails": j.emails or [],
+        "jurisdiction_id": j.jurisdiction_id,
+        "chambers": j.chambers,
+        "courtroom_number": j.courtroom_number,
+        "appointed_by": j.appointed_by,
+        "appointed_date": j.appointed_date.isoformat() if j.appointed_date else None,
+        "initials": j.initials,
+        "status": j.status,
+        "notes": j.notes,
+        "created_at": j.created_at.isoformat() if j.created_at else None,
+        "updated_at": j.updated_at.isoformat() if j.updated_at else None,
+        "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
+    }
+
+
+def _judge_with_rules_to_dict(j: Judge) -> dict:
+    """Like _judge_to_dict but includes local_rules_link."""
+    d = _judge_to_dict(j)
+    d["local_rules_link"] = j.jurisdiction.local_rules_link if j.jurisdiction else None
+    return d
+
+
+def _proceeding_judge_to_dict(pj: ProceedingJudge) -> dict:
+    """Convert a ProceedingJudge ORM instance to a serializable dict."""
+    return {
+        "id": pj.id,
+        "proceeding_id": pj.proceeding_id,
+        "judge_id": pj.judge_id,
+        "role": pj.role,
+        "sort_order": pj.sort_order,
+        "created_at": pj.created_at.isoformat() if pj.created_at else None,
+        "name": pj.judge.name if pj.judge else None,
+        "judge_name": pj.judge.name if pj.judge else None,
+        "jurisdiction_id": pj.judge.jurisdiction_id if pj.judge else None,
+        "jurisdiction_name": (
+            pj.judge.jurisdiction.name
+            if pj.judge and pj.judge.jurisdiction else None
+        ),
+    }
 
 
 def get_judges(search: str = None, jurisdiction_id: int = None,
                status: str = None, limit: int = 50, offset: int = 0) -> dict:
     """Get all judges with optional filtering."""
-    conditions = []
-    params = []
+    with SessionLocal() as session:
+        # Build conditions
+        conditions = []
+        if search:
+            conditions.append(Judge.name.ilike(f"%{search}%"))
+        if jurisdiction_id:
+            conditions.append(Judge.jurisdiction_id == jurisdiction_id)
+        if status:
+            conditions.append(Judge.status == status)
 
-    if search:
-        conditions.append("j.name ILIKE %s")
-        params.append(f"%{search}%")
+        # Count
+        count_stmt = select(func.count(Judge.id))
+        for cond in conditions:
+            count_stmt = count_stmt.where(cond)
+        total = session.scalar(count_stmt)
 
-    if jurisdiction_id:
-        conditions.append("j.jurisdiction_id = %s")
-        params.append(jurisdiction_id)
+        # Fetch judges
+        stmt = (
+            select(Judge)
+            .options(joinedload(Judge.jurisdiction))
+            .order_by(Judge.name)
+            .limit(limit)
+            .offset(offset)
+        )
+        for cond in conditions:
+            stmt = stmt.where(cond)
 
-    if status:
-        conditions.append("j.status = %s")
-        params.append(status)
-
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-    with get_cursor() as cur:
-        # Get total count
-        cur.execute(f"SELECT COUNT(*) as total FROM judges j {where_clause}", params)
-        total = cur.fetchone()["total"]
-
-        # Get judges with jurisdiction info
-        cur.execute(f"""
-            SELECT j.id, j.name, j.phones, j.emails, j.jurisdiction_id,
-                   j.chambers, j.courtroom_number, j.appointed_by, j.appointed_date,
-                   j.initials, j.status, j.notes, j.created_at, j.updated_at,
-                   jur.name as jurisdiction_name
-            FROM judges j
-            LEFT JOIN jurisdictions jur ON j.jurisdiction_id = jur.id
-            {where_clause}
-            ORDER BY j.name
-            LIMIT %s OFFSET %s
-        """, params + [limit, offset])
-
-        judges = serialize_rows([dict(row) for row in cur.fetchall()])
-
+        judges = [_judge_to_dict(j) for j in session.scalars(stmt).unique().all()]
         return {"judges": judges, "total": total}
 
 
 def get_judge_by_id(judge_id: int) -> Optional[dict]:
-    """Get a single judge by ID with jurisdiction info and proceeding count."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT j.id, j.name, j.phones, j.emails, j.jurisdiction_id,
-                   j.chambers, j.courtroom_number, j.appointed_by, j.appointed_date,
-                   j.initials, j.status, j.notes, j.created_at, j.updated_at,
-                   jur.name as jurisdiction_name, jur.local_rules_link
-            FROM judges j
-            LEFT JOIN jurisdictions jur ON j.jurisdiction_id = jur.id
-            WHERE j.id = %s
-        """, (judge_id,))
-        row = cur.fetchone()
-        if not row:
+    """Get a single judge by ID with jurisdiction info and proceeding assignments."""
+    with SessionLocal() as session:
+        stmt = (
+            select(Judge)
+            .options(joinedload(Judge.jurisdiction))
+            .where(Judge.id == judge_id)
+        )
+        j = session.scalars(stmt).unique().first()
+        if not j:
             return None
 
-        result = serialize_row(dict(row))
+        result = _judge_with_rules_to_dict(j)
 
         # Get proceeding assignments
-        cur.execute("""
-            SELECT pj.proceeding_id, pj.role, pj.sort_order,
-                   p.case_number, p.case_id, c.case_name, c.short_name
-            FROM proceeding_judges pj
-            JOIN proceedings p ON pj.proceeding_id = p.id
-            JOIN cases c ON p.case_id = c.id
-            WHERE pj.judge_id = %s
-            ORDER BY c.case_name, p.case_number
-        """, (judge_id,))
-        result["proceedings"] = serialize_rows([dict(r) for r in cur.fetchall()])
+        proc_stmt = (
+            select(ProceedingJudge, Proceeding, Case)
+            .join(Proceeding, ProceedingJudge.proceeding_id == Proceeding.id)
+            .join(Case, Proceeding.case_id == Case.id)
+            .where(ProceedingJudge.judge_id == judge_id)
+            .order_by(Case.case_name, Proceeding.case_number)
+        )
+        rows = session.execute(proc_stmt).all()
+        result["proceedings"] = [
+            {
+                "proceeding_id": pj.proceeding_id,
+                "role": pj.role,
+                "sort_order": pj.sort_order,
+                "case_number": p.case_number,
+                "case_id": p.case_id,
+                "case_name": c.case_name,
+                "short_name": c.short_name,
+            }
+            for pj, p, c in rows
+        ]
 
         return result
 
 
 def search_judges(name: str = None, jurisdiction_id: int = None) -> List[dict]:
     """Search judges by name and/or jurisdiction. Returns simple list for autocomplete."""
-    conditions = []
-    params = []
+    with SessionLocal() as session:
+        stmt = (
+            select(Judge)
+            .options(joinedload(Judge.jurisdiction))
+            .order_by(Judge.name)
+            .limit(20)
+        )
 
-    if name:
-        conditions.append("j.name ILIKE %s")
-        params.append(f"%{name}%")
+        if name:
+            stmt = stmt.where(Judge.name.ilike(f"%{name}%"))
+        if jurisdiction_id:
+            stmt = stmt.where(Judge.jurisdiction_id == jurisdiction_id)
 
-    if jurisdiction_id:
-        conditions.append("j.jurisdiction_id = %s")
-        params.append(jurisdiction_id)
-
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            SELECT j.id, j.name, j.jurisdiction_id, jur.name as jurisdiction_name
-            FROM judges j
-            LEFT JOIN jurisdictions jur ON j.jurisdiction_id = jur.id
-            {where_clause}
-            ORDER BY j.name
-            LIMIT 20
-        """, params)
-        return [dict(row) for row in cur.fetchall()]
+        judges = session.scalars(stmt).unique().all()
+        return [
+            {
+                "id": j.id,
+                "name": j.name,
+                "jurisdiction_id": j.jurisdiction_id,
+                "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
+            }
+            for j in judges
+        ]
 
 
 def create_judge(name: str, phones: List[dict] = None, emails: List[dict] = None,
@@ -120,20 +168,26 @@ def create_judge(name: str, phones: List[dict] = None, emails: List[dict] = None
                  appointed_date: str = None, initials: str = None,
                  status: str = "Active", notes: str = None) -> dict:
     """Create a new judge."""
-    phones_json = json.dumps(phones) if phones else '[]'
-    emails_json = json.dumps(emails) if emails else '[]'
+    with SessionLocal() as session:
+        j = Judge(
+            name=name,
+            phones=phones or [],
+            emails=emails or [],
+            jurisdiction_id=jurisdiction_id,
+            chambers=chambers,
+            courtroom_number=courtroom_number,
+            appointed_by=appointed_by,
+            appointed_date=appointed_date,
+            initials=initials,
+            status=status,
+            notes=notes,
+        )
+        session.add(j)
+        session.flush()
+        judge_id = j.id
+        session.commit()
 
-    with get_cursor() as cur:
-        cur.execute("""
-            INSERT INTO judges (name, phones, emails, jurisdiction_id, chambers,
-                               courtroom_number, appointed_by, appointed_date,
-                               initials, status, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (name, phones_json, emails_json, jurisdiction_id, chambers,
-              courtroom_number, appointed_by, appointed_date, initials, status, notes))
-        judge_id = cur.fetchone()["id"]
-
+    # Re-fetch with full data (jurisdiction join, proceedings)
     return get_judge_by_id(judge_id)
 
 
@@ -144,68 +198,36 @@ def update_judge(judge_id: int, name: str = _NOT_PROVIDED,
                  appointed_date: str = _NOT_PROVIDED, initials: str = _NOT_PROVIDED,
                  status: str = _NOT_PROVIDED, notes: str = _NOT_PROVIDED) -> Optional[dict]:
     """Update a judge."""
-    updates = []
-    params = []
-
-    if name is not _NOT_PROVIDED:
-        updates.append("name = %s")
-        params.append(name)
-
-    if phones is not _NOT_PROVIDED:
-        updates.append("phones = %s")
-        params.append(json.dumps(phones) if phones else '[]')
-
-    if emails is not _NOT_PROVIDED:
-        updates.append("emails = %s")
-        params.append(json.dumps(emails) if emails else '[]')
-
-    if jurisdiction_id is not _NOT_PROVIDED:
-        updates.append("jurisdiction_id = %s")
-        params.append(jurisdiction_id)
-
-    if chambers is not _NOT_PROVIDED:
-        updates.append("chambers = %s")
-        params.append(chambers)
-
-    if courtroom_number is not _NOT_PROVIDED:
-        updates.append("courtroom_number = %s")
-        params.append(courtroom_number)
-
-    if appointed_by is not _NOT_PROVIDED:
-        updates.append("appointed_by = %s")
-        params.append(appointed_by)
-
-    if appointed_date is not _NOT_PROVIDED:
-        updates.append("appointed_date = %s")
-        params.append(appointed_date)
-
-    if initials is not _NOT_PROVIDED:
-        updates.append("initials = %s")
-        params.append(initials)
-
-    if status is not _NOT_PROVIDED:
-        updates.append("status = %s")
-        params.append(status)
-
-    if notes is not _NOT_PROVIDED:
-        updates.append("notes = %s")
-        params.append(notes)
-
-    if not updates:
-        return get_judge_by_id(judge_id)
-
-    updates.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(judge_id)
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE judges SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id
-        """, params)
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        j = session.get(Judge, judge_id)
+        if not j:
             return None
+
+        if name is not _NOT_PROVIDED:
+            j.name = name
+        if phones is not _NOT_PROVIDED:
+            j.phones = phones or []
+        if emails is not _NOT_PROVIDED:
+            j.emails = emails or []
+        if jurisdiction_id is not _NOT_PROVIDED:
+            j.jurisdiction_id = jurisdiction_id
+        if chambers is not _NOT_PROVIDED:
+            j.chambers = chambers
+        if courtroom_number is not _NOT_PROVIDED:
+            j.courtroom_number = courtroom_number
+        if appointed_by is not _NOT_PROVIDED:
+            j.appointed_by = appointed_by
+        if appointed_date is not _NOT_PROVIDED:
+            j.appointed_date = appointed_date
+        if initials is not _NOT_PROVIDED:
+            j.initials = initials
+        if status is not _NOT_PROVIDED:
+            j.status = status
+        if notes is not _NOT_PROVIDED:
+            j.notes = notes
+
+        j.updated_at = func.now()
+        session.commit()
 
     return get_judge_by_id(judge_id)
 
@@ -215,20 +237,24 @@ def delete_judge(judge_id: int) -> dict:
 
     Returns dict with 'success' and 'error' keys.
     """
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Check if judge is assigned to any proceedings
-        cur.execute("SELECT COUNT(*) as count FROM proceeding_judges WHERE judge_id = %s", (judge_id,))
-        count = cur.fetchone()["count"]
+        count = session.scalar(
+            select(func.count(ProceedingJudge.id))
+            .where(ProceedingJudge.judge_id == judge_id)
+        )
         if count > 0:
             return {
                 "success": False,
                 "error": f"Cannot delete judge: assigned to {count} proceeding(s)"
             }
 
-        cur.execute("DELETE FROM judges WHERE id = %s", (judge_id,))
-        if cur.rowcount == 0:
+        j = session.get(Judge, judge_id)
+        if not j:
             return {"success": False, "error": "Judge not found"}
 
+        session.delete(j)
+        session.commit()
         return {"success": True}
 
 
@@ -239,96 +265,112 @@ def delete_judge(judge_id: int) -> dict:
 def add_judge_to_proceeding(proceeding_id: int, judge_id: int, role: str = "Judge",
                             sort_order: int = None) -> dict:
     """Add a judge to a proceeding."""
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Determine sort_order if not provided
         if sort_order is None:
-            cur.execute("""
-                SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order
-                FROM proceeding_judges WHERE proceeding_id = %s
-            """, (proceeding_id,))
-            sort_order = cur.fetchone()["next_order"]
+            max_order = session.scalar(
+                select(func.coalesce(func.max(ProceedingJudge.sort_order), 0))
+                .where(ProceedingJudge.proceeding_id == proceeding_id)
+            )
+            sort_order = max_order + 1
 
-        cur.execute("""
-            INSERT INTO proceeding_judges (proceeding_id, judge_id, role, sort_order)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (proceeding_id, judge_id) DO UPDATE SET
-                role = EXCLUDED.role, sort_order = EXCLUDED.sort_order
-            RETURNING id, proceeding_id, judge_id, role, sort_order, created_at
-        """, (proceeding_id, judge_id, role, sort_order))
-        row = cur.fetchone()
+        # PostgreSQL upsert
+        stmt = (
+            pg_insert(ProceedingJudge)
+            .values(
+                proceeding_id=proceeding_id,
+                judge_id=judge_id,
+                role=role,
+                sort_order=sort_order,
+            )
+            .on_conflict_do_update(
+                constraint="proceeding_judges_proceeding_id_judge_id_key",
+                set_={"role": role, "sort_order": sort_order},
+            )
+            .returning(
+                ProceedingJudge.id,
+                ProceedingJudge.proceeding_id,
+                ProceedingJudge.judge_id,
+                ProceedingJudge.role,
+                ProceedingJudge.sort_order,
+                ProceedingJudge.created_at,
+            )
+        )
+        row = session.execute(stmt).mappings().first()
 
         # Get judge name
-        cur.execute("SELECT name FROM judges WHERE id = %s", (judge_id,))
-        judge = cur.fetchone()
-
-        return serialize_row({
-            **dict(row),
-            "name": judge["name"] if judge else None
-        })
+        judge = session.get(Judge, judge_id)
+        result = {
+            "id": row["id"],
+            "proceeding_id": row["proceeding_id"],
+            "judge_id": row["judge_id"],
+            "role": row["role"],
+            "sort_order": row["sort_order"],
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            "name": judge.name if judge else None,
+        }
+        session.commit()
+        return result
 
 
 def remove_judge_from_proceeding(proceeding_id: int, judge_id: int) -> bool:
     """Remove a judge from a proceeding."""
-    with get_cursor() as cur:
-        cur.execute("""
-            DELETE FROM proceeding_judges
-            WHERE proceeding_id = %s AND judge_id = %s
-        """, (proceeding_id, judge_id))
-        return cur.rowcount > 0
+    with SessionLocal() as session:
+        stmt = (
+            select(ProceedingJudge)
+            .where(
+                ProceedingJudge.proceeding_id == proceeding_id,
+                ProceedingJudge.judge_id == judge_id,
+            )
+        )
+        pj = session.scalars(stmt).first()
+        if not pj:
+            return False
+        session.delete(pj)
+        session.commit()
+        return True
 
 
 def get_proceeding_judges(proceeding_id: int) -> List[dict]:
     """Get all judges for a proceeding."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT pj.id, pj.proceeding_id, pj.judge_id, pj.role, pj.sort_order, pj.created_at,
-                   j.name as judge_name, j.jurisdiction_id, jur.name as jurisdiction_name
-            FROM proceeding_judges pj
-            JOIN judges j ON pj.judge_id = j.id
-            LEFT JOIN jurisdictions jur ON j.jurisdiction_id = jur.id
-            WHERE pj.proceeding_id = %s
-            ORDER BY pj.sort_order, pj.id
-        """, (proceeding_id,))
-        return serialize_rows([{
-            **dict(row),
-            "name": row["judge_name"]
-        } for row in cur.fetchall()])
+    with SessionLocal() as session:
+        stmt = (
+            select(ProceedingJudge)
+            .options(
+                joinedload(ProceedingJudge.judge).joinedload(Judge.jurisdiction)
+            )
+            .where(ProceedingJudge.proceeding_id == proceeding_id)
+            .order_by(ProceedingJudge.sort_order, ProceedingJudge.id)
+        )
+        rows = session.scalars(stmt).unique().all()
+        return [_proceeding_judge_to_dict(pj) for pj in rows]
 
 
 def update_proceeding_judge(proceeding_id: int, judge_id: int, role: str = _NOT_PROVIDED,
                             sort_order: int = _NOT_PROVIDED) -> Optional[dict]:
     """Update a judge's role or sort_order on a proceeding."""
-    updates = []
-    params = []
-
-    if role is not _NOT_PROVIDED:
-        updates.append("role = %s")
-        params.append(role)
-
-    if sort_order is not _NOT_PROVIDED:
-        updates.append("sort_order = %s")
-        params.append(sort_order)
-
-    if not updates:
-        return None
-
-    params.extend([proceeding_id, judge_id])
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE proceeding_judges SET {', '.join(updates)}
-            WHERE proceeding_id = %s AND judge_id = %s
-            RETURNING id, proceeding_id, judge_id, role, sort_order, created_at
-        """, params)
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        stmt = (
+            select(ProceedingJudge)
+            .options(
+                joinedload(ProceedingJudge.judge).joinedload(Judge.jurisdiction)
+            )
+            .where(
+                ProceedingJudge.proceeding_id == proceeding_id,
+                ProceedingJudge.judge_id == judge_id,
+            )
+        )
+        pj = session.scalars(stmt).unique().first()
+        if not pj:
             return None
 
-        # Get judge name
-        cur.execute("SELECT name FROM judges WHERE id = %s", (judge_id,))
-        judge = cur.fetchone()
+        if role is not _NOT_PROVIDED:
+            pj.role = role
+        if sort_order is not _NOT_PROVIDED:
+            pj.sort_order = sort_order
 
-        return serialize_row({
-            **dict(row),
-            "name": judge["name"] if judge else None
-        })
+        session.flush()
+        session.refresh(pj)
+        result = _proceeding_judge_to_dict(pj)
+        session.commit()
+        return result

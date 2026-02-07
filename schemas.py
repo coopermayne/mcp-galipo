@@ -220,3 +220,49 @@ class NoteOut(BaseModel):
     content: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class JudgeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    phones: Optional[list] = None
+    emails: Optional[list] = None
+    jurisdiction_id: Optional[int] = None
+    chambers: Optional[str] = None
+    courtroom_number: Optional[str] = None
+    appointed_by: Optional[str] = None
+    appointed_date: Optional[date_type] = None
+    initials: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ProceedingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    case_number: str
+    case_id: Optional[int] = None
+    jurisdiction_id: Optional[int] = None
+    sort_order: Optional[int] = None
+    is_primary: Optional[bool] = None
+    notes: Optional[str] = None
+    courtlistener_docket_id: Optional[int] = None
+    pacer_case_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ProceedingJudgeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    proceeding_id: int
+    judge_id: int
+    role: Optional[str] = None
+    sort_order: Optional[int] = None
+    created_at: Optional[datetime] = None
