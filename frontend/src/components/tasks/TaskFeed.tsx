@@ -59,17 +59,17 @@ interface TaskFeedProps {
   /** Callback when event link button is clicked */
   onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
   /** Callback when priority changes */
-  onPriorityChange?: (taskId: number, priority: number) => void;
+  onPriorityChange?: (taskId: number, priority: string) => void;
   /** Callback when tasks are reordered via drag-and-drop */
   onReorder?: (taskId: number, newIndex: number, tasks: Task[]) => void;
   /** Callback when "Add task" is clicked for a section */
   onAddTask?: (dueDate?: string, caseId?: number) => void;
   /** Callback when task is updated via inline edit */
-  onInlineEditSave?: (taskId: number, updates: { description?: string; due_date?: string; urgency?: number }) => Promise<void>;
+  onInlineEditSave?: (taskId: number, updates: { description?: string; due_date?: string; urgency?: string }) => Promise<void>;
   /** Enable inline editing when edit button is clicked (instead of using onEditClick) */
   enableInlineEdit?: boolean;
   /** Callback when a new task is created via inline form */
-  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: number; status?: TaskStatus }) => Promise<void>;
+  onInlineCreateSave?: (data: { case_id: number; description: string; due_date?: string; urgency?: string; status?: TaskStatus }) => Promise<void>;
   /** Enable inline task creation (instead of calling onAddTask) */
   enableInlineCreate?: boolean;
   /** Default status for new tasks created via inline form */
@@ -220,11 +220,14 @@ function groupTasksByCase(tasks: Task[]): DateGroup[] {
     }));
 }
 
+/** Ordering map for sorting urgency strings */
+const URGENCY_ORDER: Record<string, number> = { Low: 1, Medium: 2, High: 3, Urgent: 4 };
+
 /**
  * Sort tasks by urgency only (high to low)
  */
 function sortTasksByUrgency(tasks: Task[]): Task[] {
-  return [...tasks].sort((a, b) => b.urgency - a.urgency);
+  return [...tasks].sort((a, b) => (URGENCY_ORDER[b.urgency] || 0) - (URGENCY_ORDER[a.urgency] || 0));
 }
 
 /**
@@ -234,7 +237,7 @@ function sortTasksByUrgencyAndDate(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => {
     // First sort by urgency (descending - higher urgency first)
     if (b.urgency !== a.urgency) {
-      return b.urgency - a.urgency;
+      return (URGENCY_ORDER[b.urgency] || 0) - (URGENCY_ORDER[a.urgency] || 0);
     }
     // Then by due date (ascending - earlier dates first, no date last)
     if (a.due_date && b.due_date) {
@@ -503,7 +506,7 @@ export function TaskFeed({
   // Handle inline edit save
   const handleInlineEditSave = useCallback(async (
     taskId: number,
-    updates: { description?: string; due_date?: string; urgency?: number }
+    updates: { description?: string; due_date?: string; urgency?: string }
   ) => {
     if (onInlineEditSave) {
       await onInlineEditSave(taskId, updates);
@@ -527,7 +530,7 @@ export function TaskFeed({
 
   // Handle inline create save
   const handleInlineCreateSave = useCallback(async (
-    data: { case_id: number; description: string; due_date?: string; urgency?: number }
+    data: { case_id: number; description: string; due_date?: string; urgency?: string }
   ) => {
     if (onInlineCreateSave) {
       await onInlineCreateSave(data);

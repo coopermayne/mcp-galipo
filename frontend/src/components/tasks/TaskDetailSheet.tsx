@@ -33,23 +33,26 @@ import { useAuth } from '../../context/AuthContext';
 import { PRIORITY_COLORS, getPriorityColor } from '../../config/colors';
 import 'react-datepicker/dist/react-datepicker.css';
 
+// Ordering for sorting urgency descending
+const URGENCY_SORT_ORDER: Record<string, number> = { Urgent: 4, High: 3, Medium: 2, Low: 1 };
+
 // Priority options for picker UI
 const PRIORITY_OPTIONS = Object.entries(PRIORITY_COLORS)
-  .sort(([a], [b]) => Number(b) - Number(a)) // Sort by urgency descending (4, 3, 2, 1)
+  .sort(([a], [b]) => (URGENCY_SORT_ORDER[b] || 0) - (URGENCY_SORT_ORDER[a] || 0))
   .map(([value, config]) => ({
-    value: Number(value),
+    value,
     label: config.label,
     color: config.textClass,
     bg: config.bgClass,
   }));
 
 // Priority-based colors for status icons
-const URGENCY_TEXT_COLORS = {
-  4: PRIORITY_COLORS[4].textClass,
-  3: PRIORITY_COLORS[3].textClass,
-  2: PRIORITY_COLORS[2].textClass,
-  1: PRIORITY_COLORS[1].textClass,
-} as const;
+const URGENCY_TEXT_COLORS: Record<string, string> = {
+  Urgent: PRIORITY_COLORS.Urgent.textClass,
+  High: PRIORITY_COLORS.High.textClass,
+  Medium: PRIORITY_COLORS.Medium.textClass,
+  Low: PRIORITY_COLORS.Low.textClass,
+};
 
 export type SheetFocusMode = 'title' | 'comment' | 'date' | null;
 
@@ -285,7 +288,7 @@ export function TaskDetailSheet({
     setShowPriorityPicker(!showPriorityPicker);
   };
 
-  const handlePriorityChange = async (urgency: number) => {
+  const handlePriorityChange = async (urgency: string) => {
     if (onUpdate) {
       await onUpdate(task.id, { urgency });
     }
@@ -595,7 +598,7 @@ export function TaskDetailSheet({
                 {(() => {
                   const statusConfig = getStatusConfig(task.status);
                   const StatusIcon = statusConfig.icon;
-                  const urgencyColor = URGENCY_TEXT_COLORS[task.urgency as keyof typeof URGENCY_TEXT_COLORS] || URGENCY_TEXT_COLORS[1];
+                  const urgencyColor = URGENCY_TEXT_COLORS[task.urgency] || URGENCY_TEXT_COLORS.Low;
                   return (
                     <>
                       {task.status === 'Active' ? (
@@ -623,7 +626,7 @@ export function TaskDetailSheet({
                   onClick={(e) => e.stopPropagation()}
                 >
                   {(() => {
-                    const urgencyColor = URGENCY_TEXT_COLORS[task.urgency as keyof typeof URGENCY_TEXT_COLORS] || URGENCY_TEXT_COLORS[1];
+                    const urgencyColor = URGENCY_TEXT_COLORS[task.urgency] || URGENCY_TEXT_COLORS.Low;
                     return STATUS_CONFIG.map((config) => {
                       const StatusIcon = config.icon;
                       const isSelected = task.status === config.value;

@@ -22,7 +22,7 @@ export interface TaskInlineEditProps {
   /** Show case in metadata row */
   showCase?: boolean;
   /** Called when user saves changes */
-  onSave: (taskId: number, updates: { description?: string; due_date?: string; urgency?: number }) => Promise<void>;
+  onSave: (taskId: number, updates: { description?: string; due_date?: string; urgency?: string }) => Promise<void>;
   /** Called when user cancels editing */
   onCancel: () => void;
   /** Called when event link is clicked */
@@ -31,10 +31,10 @@ export interface TaskInlineEditProps {
 
 // Priority colors matching TaskItem
 const PRIORITY_OPTIONS = [
-  { value: 4, label: 'Urgent', color: 'text-red-500' },
-  { value: 3, label: 'High', color: 'text-orange-500' },
-  { value: 2, label: 'Medium', color: 'text-blue-500' },
-  { value: 1, label: 'Low', color: 'text-text-muted' },
+  { value: 'Urgent', label: 'Urgent', color: 'text-red-500' },
+  { value: 'High', label: 'High', color: 'text-orange-500' },
+  { value: 'Medium', label: 'Medium', color: 'text-blue-500' },
+  { value: 'Low', label: 'Low', color: 'text-text-muted' },
 ] as const;
 
 /**
@@ -71,7 +71,7 @@ export function TaskInlineEdit({
     const parsed = parse(task.due_date, 'yyyy-MM-dd', new Date());
     return isValid(parsed) ? parsed : null;
   });
-  const [urgency, setUrgency] = useState(task.urgency || 1);
+  const [urgency, setUrgency] = useState(task.urgency || 'Low');
   const [isSaving, setIsSaving] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);

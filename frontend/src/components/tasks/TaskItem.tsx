@@ -26,20 +26,19 @@ import { CaseChip } from '../common';
 import 'react-datepicker/dist/react-datepicker.css';
 
 // Priority colors for checkbox border (Todoist style)
-// 4 = urgent (red), 3 = high (orange), 2 = medium (blue), 1 = low (gray)
-const PRIORITY_COLORS = {
-  4: 'border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20',
-  3: 'border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20',
-  2: 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20',
-  1: 'border-border hover:bg-bg-hover',
-} as const;
+const PRIORITY_COLORS: Record<string, string> = {
+  Urgent: 'border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20',
+  High: 'border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20',
+  Medium: 'border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20',
+  Low: 'border-border hover:bg-bg-hover',
+};
 
 // Priority options for the picker
 const PRIORITY_OPTIONS = [
-  { value: 4, label: 'Urgent', color: 'text-red-500' },
-  { value: 3, label: 'High', color: 'text-orange-500' },
-  { value: 2, label: 'Medium', color: 'text-blue-500' },
-  { value: 1, label: 'Low', color: 'text-text-muted' },
+  { value: 'Urgent', label: 'Urgent', color: 'text-red-500' },
+  { value: 'High', label: 'High', color: 'text-orange-500' },
+  { value: 'Medium', label: 'Medium', color: 'text-blue-500' },
+  { value: 'Low', label: 'Low', color: 'text-text-muted' },
 ] as const;
 
 export interface TaskItemProps {
@@ -69,7 +68,7 @@ export interface TaskItemProps {
   /** Callback when event link button is clicked */
   onEventLinkClick?: (task: Task, event: React.MouseEvent) => void;
   /** Callback when priority changes */
-  onPriorityChange?: (taskId: number, priority: number) => void;
+  onPriorityChange?: (taskId: number, priority: string) => void;
   /** Callback when delete is clicked */
   onDelete?: (taskId: number) => void;
 }
@@ -578,7 +577,7 @@ export function TaskItem({
  * TaskItemOverlay - Used inside DragOverlay for the dragged preview
  */
 export function TaskItemOverlay({ task }: { task: Task }) {
-  const priorityColor = PRIORITY_COLORS[task.urgency as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
+  const priorityColor = PRIORITY_COLORS[task.urgency] || PRIORITY_COLORS.Low;
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-bg-surface shadow-xl rounded-lg border border-primary-500">

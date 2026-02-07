@@ -20,7 +20,7 @@ export interface Task {
   due_date?: string;
   completion_date?: string;
   status: TaskStatus;
-  urgency: number;
+  urgency: string;
   sort_order: number;
   event_id?: number;
   event_description?: string;
@@ -36,7 +36,7 @@ export interface CreateTaskInput {
   description: string;
   due_date?: string;
   status?: TaskStatus;
-  urgency?: number;
+  urgency?: string;
   event_id?: number;
   assignee_id?: number;
 }
@@ -46,7 +46,7 @@ export interface UpdateTaskInput {
   due_date?: string | null;
   completion_date?: string | null;
   status?: TaskStatus;
-  urgency?: number;
+  urgency?: string;
   event_id?: number | null;
   assignee_id?: number | null;
 }

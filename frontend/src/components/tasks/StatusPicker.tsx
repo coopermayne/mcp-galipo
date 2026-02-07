@@ -12,19 +12,19 @@ import { ActiveStatusIcon } from './ActiveStatusIcon';
 import type { TaskStatus } from '../../types';
 
 // Priority-based colors (matches task urgency colors)
-const PRIORITY_COLORS = {
-  4: 'text-red-500',
-  3: 'text-orange-500',
-  2: 'text-blue-500',
-  1: 'text-text-muted',
-} as const;
+const PRIORITY_COLORS: Record<string, string> = {
+  Urgent: 'text-red-500',
+  High: 'text-orange-500',
+  Medium: 'text-blue-500',
+  Low: 'text-text-muted',
+};
 
 interface StatusPickerProps {
   isOpen: boolean;
   anchorEl: HTMLElement | null;
   currentStatus: TaskStatus;
-  /** Priority determines icon color (1-4) */
-  priority?: number;
+  /** Priority determines icon color */
+  priority?: string;
   onSelect: (status: TaskStatus) => void;
   onClose: () => void;
 }
@@ -33,11 +33,11 @@ export function StatusPicker({
   isOpen,
   anchorEl,
   currentStatus,
-  priority = 1,
+  priority = 'Low',
   onSelect,
   onClose,
 }: StatusPickerProps) {
-  const color = PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
+  const color = PRIORITY_COLORS[priority] || PRIORITY_COLORS.Low;
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const popoverRef = useRef<HTMLDivElement>(null);
 

@@ -5,7 +5,7 @@ export async function getTasks(params?: {
   case_id?: number;
   status?: string;
   exclude_status?: string;
-  urgency?: number;
+  urgency?: string;
   due_date_from?: string;
   due_date_to?: string;
   limit?: number;
@@ -52,7 +52,7 @@ export async function deleteTask(taskId: number): Promise<{ success: boolean }> 
 export async function reorderTask(
   taskId: number,
   sortOrder: number,
-  urgency?: number
+  urgency?: string
 ): Promise<{ success: boolean; task: Task }> {
   return request('/tasks/reorder', {
     method: 'POST',

@@ -13,8 +13,8 @@ import type { TaskStatus } from '../../types';
 
 interface StatusIndicatorProps {
   status: TaskStatus;
-  /** Priority determines the color (1=gray, 2=blue, 3=orange, 4=red) */
-  priority?: number;
+  /** Priority determines the color (Low, Medium, High, Urgent) */
+  priority?: string;
   /** Callback when status is changed */
   onStatusChange?: (newStatus: TaskStatus) => void;
   /** Disable interaction */
@@ -24,20 +24,20 @@ interface StatusIndicatorProps {
 }
 
 // Priority-based colors (matches Todoist urgency colors)
-const PRIORITY_COLORS = {
-  4: 'text-red-500',
-  3: 'text-orange-500',
-  2: 'text-blue-500',
-  1: 'text-text-muted',
-} as const;
+const PRIORITY_COLORS: Record<string, string> = {
+  Urgent: 'text-red-500',
+  High: 'text-orange-500',
+  Medium: 'text-blue-500',
+  Low: 'text-text-muted',
+};
 
 // Priority-based border colors for Pending (empty circle)
-const PRIORITY_BORDER_COLORS = {
-  4: 'border-red-500',
-  3: 'border-orange-500',
-  2: 'border-blue-500',
-  1: 'border-border',
-} as const;
+const PRIORITY_BORDER_COLORS: Record<string, string> = {
+  Urgent: 'border-red-500',
+  High: 'border-orange-500',
+  Medium: 'border-blue-500',
+  Low: 'border-border',
+};
 
 // Status icons (symbol indicates status, color indicates priority)
 // Note: Active uses a custom ActiveStatusIcon component, not from this map
@@ -52,7 +52,7 @@ const STATUS_ICONS = {
 
 export function StatusIndicator({
   status,
-  priority = 1,
+  priority = 'Low',
   onStatusChange,
   disabled = false,
   size = 'md',
@@ -66,9 +66,9 @@ export function StatusIndicator({
   // Color based on priority (Done always uses green for visual confirmation)
   const color = status === 'Done'
     ? 'text-green-500'
-    : PRIORITY_COLORS[priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS[1];
+    : PRIORITY_COLORS[priority] || PRIORITY_COLORS.Low;
 
-  const borderColor = PRIORITY_BORDER_COLORS[priority as keyof typeof PRIORITY_BORDER_COLORS] || PRIORITY_BORDER_COLORS[1];
+  const borderColor = PRIORITY_BORDER_COLORS[priority] || PRIORITY_BORDER_COLORS.Low;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -96,7 +96,7 @@ export function StatusIndicator({
           ${disabled ? 'cursor-default' : 'cursor-pointer hover:scale-110'}
           ${status === 'Pending' ? `border-2 ${borderColor}` : ''}
         `}
-        title={`${status}${priority > 1 ? ` (Priority ${5 - priority})` : ''}`}
+        title={`${status}${priority !== 'Low' ? ` (${priority})` : ''}`}
       >
         {status === 'Pending' ? (
           // Empty circle for Pending (like Todoist checkbox)
