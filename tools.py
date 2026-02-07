@@ -10,8 +10,8 @@ from zoneinfo import ZoneInfo
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
 from fastmcp import Context
-import database as db
-from database import ValidationError
+import db
+from db import ValidationError
 from schemas import (
     CaseStatus, TaskStatus, ActivityType, Urgency,
     SearchEntity, JudgeRole, ContactInfo,

@@ -7,7 +7,7 @@ Uses the unified roles schema: persons + person_roles + roles.
 
 import asyncio
 from fastapi.responses import JSONResponse
-import database as db
+import db
 import auth
 from .common import api_error
 

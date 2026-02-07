@@ -30,10 +30,7 @@ from .validation import (
 from .connection import (
     DATABASE_URL,
     _NOT_PROVIDED,
-    get_connection,
-    get_cursor,
     drop_all_tables,
-    migrate_db,
     init_db,
     seed_admin_user,
     seed_jurisdictions,
@@ -252,10 +249,7 @@ __all__ = [
     # Connection
     "DATABASE_URL",
     "_NOT_PROVIDED",
-    "get_connection",
-    "get_cursor",
     "drop_all_tables",
-    "migrate_db",
     "init_db",
     "seed_admin_user",
     "seed_jurisdictions",

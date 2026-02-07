@@ -11,7 +11,7 @@ import logging
 from fastapi.responses import JSONResponse
 
 import auth
-import database as db
+import db
 from .common import api_error
 
 

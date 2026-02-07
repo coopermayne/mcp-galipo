@@ -7,7 +7,7 @@ Judge management is now in routes/judges.py.
 
 import asyncio
 from fastapi.responses import JSONResponse
-import database as db
+import db
 import auth
 from .common import api_error
 

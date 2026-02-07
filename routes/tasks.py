@@ -7,7 +7,7 @@ Handles task CRUD operations and reordering.
 import asyncio
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-import database as db
+import db
 import auth
 from schemas import CreateTaskInput, UpdateTaskInput
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE

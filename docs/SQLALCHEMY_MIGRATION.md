@@ -1,56 +1,44 @@
-# SQLAlchemy Migration Tracker
+# SQLAlchemy Migration — Complete
 
-Incremental migration from raw psycopg2 SQL to SQLAlchemy ORM sessions.
+All database access now uses SQLAlchemy. The psycopg2 connection pool has been removed.
 
 Branch: `feat/sqlalchemy-session-layer`
 
-## Status Overview
+## What happened
 
-| Phase | Module | Functions | Lines | Status |
-|-------|--------|-----------|-------|--------|
-| 1 | `db/jurisdictions.py` | 6 | 88 | Done |
-| 1 | `db/roles.py` | 8 | ~120 | Done |
-| 1 | `db/types.py` (expertise) | 5 | ~80 | Done |
-| 2 | `db/notes.py` | 4 | 94 | Done |
-| 2 | `db/activities.py` | 5 | ~130 | Done |
-| 3 | `db/judges.py` | 10 | ~290 | Done |
-| 3 | `db/proceedings.py` | 8 | ~240 | Done |
-| 4 | `db/events.py` | ~12 | ~620 | Done |
-| 4 | `db/tasks.py` | ~12 | ~620 | Done |
-| 5 | `db/users.py` | ~11 | ~410 | Done |
-| 5 | `db/webhooks.py` | ~11 | ~230 | Done |
-| 6 | `db/cases.py` | 17 | 630 | Done |
-| 6 | `db/persons.py` | 16 | 827 | Done |
-| 7 | `db/import_case.py` | 10 | 570 | Done |
-| 7 | `db/dev_users.py` | 3 | 162 | Done |
-| 8 | `db/connection.py` cleanup | — | — | Done |
+1. **15/15 db modules** migrated to SQLAlchemy ORM (phases 1-7)
+2. **Phase 8**: Removed serialize helpers from db layer
+3. **Phase 9 (final)**: Killed psycopg2 infrastructure entirely
+   - Rewrote `db/connection.py`: removed `get_pool()`, `get_cursor()`, `get_connection()`, raw CREATE TABLE in `init_db()`, `migrate_db()`/`run_sql_migrations()`
+   - Replaced `init_db()` / `drop_all_tables()` with `Base.metadata.create_all/drop_all`
+   - Rewrote seed functions (`seed_admin_user`, `seed_jurisdictions`, `seed_expertise_types`, `seed_roles`) to use `SessionLocal` + `pg_insert().on_conflict_do_nothing()`
+   - Migrated `services/chat/presets.py` (9 functions, 22 queries) to `session.execute(text(...))`
+   - Migrated `routes/export.py` (1 function, 9 queries) to `session.execute(text(...))`
+   - Migrated `seed_dev_users.py` and `seed_webhook_data.py` to `SessionLocal` + `session.execute(text(...))`
+   - Deleted `database.py` (backwards-compat shim), updated all importers to `import db`
+   - Deleted `migrations/` directory (Alembic handles all migrations now)
+   - Deleted `scripts/export_data.py` (superseded by `routes/export.py`)
+   - Fixed Dockerfile: added `models.py`, `alembic.ini`, `alembic/`; removed `database.py`, `migrations/`
 
-**Progress: 15/15 db modules migrated to SQLAlchemy ORM**
+## Current state of `db/connection.py`
 
-## Phase 8: connection.py Cleanup (completed)
+| Symbol | Purpose |
+|--------|---------|
+| `DATABASE_URL` | Read from env, exported for other modules |
+| `_NOT_PROVIDED` | Sentinel shared by all db modules via `session.py` re-export |
+| `init_db()` | `Base.metadata.create_all(engine)` |
+| `drop_all_tables()` | `Base.metadata.drop_all(engine)` |
+| `seed_admin_user()` | Upsert admin user via `pg_insert` |
+| `seed_jurisdictions()` | Seed default jurisdictions if empty |
+| `seed_expertise_types()` | Seed default expertise types if empty |
+| `seed_roles()` | Seed default roles if empty |
+| `seed_db()` | Calls all seed functions + dev user seeding |
 
-Removed from `db/connection.py`:
-- `serialize_value()`, `serialize_row()`, `serialize_rows()` — no longer used by any db module
-- Dead import of `serialize_rows` in `db/roles.py`
-- Re-exports removed from `db/__init__.py` and `database.py`
+## Connection strategy
 
-Migrated in `tools.py`:
-- Converted the single remaining `get_cursor()` + `serialize_row()` usage (task detail query) to SQLAlchemy ORM
-
-### What remains in connection.py (for future work)
-
-The following are still used by non-db-module code and **cannot be removed yet**:
-
-| Function | Used by |
-|----------|---------|
-| `get_cursor()` | `services/chat/presets.py` (9 calls), `routes/export.py` (1 call), seed scripts, `init_db()`/`migrate_db()`/`seed_db()` |
-| `get_connection()` | Used internally by `get_cursor()` |
-| Connection pool (`ThreadedConnectionPool`) | Required by `get_cursor()`/`get_connection()` |
-| `_NOT_PROVIDED` | Sentinel shared by all db modules (permanent) |
-| `init_db()`, `migrate_db()`, `seed_db()`, `drop_all_tables()` | Startup/admin functions |
-| `seed_admin_user()`, `seed_jurisdictions()`, `seed_expertise_types()`, `seed_roles()` | Called by `seed_db()` |
-
-`psycopg2` stays in `requirements.txt` until these remaining usages are migrated.
+- **Single engine**: `db/session.py` creates the SQLAlchemy engine and `SessionLocal` factory
+- **No psycopg2 pool**: All connections go through SQLAlchemy's built-in connection pool
+- **Raw SQL queries**: `services/chat/presets.py` and `routes/export.py` use `session.execute(text(...))` — same SQL, SQLAlchemy transport
 
 ## E2E Test Coverage
 
@@ -64,14 +52,3 @@ The following are still used by non-db-module code and **cannot be removed yet**
 | `e2e-users-webhooks.spec.ts` | users, webhooks | ~8 |
 | `e2e-persons.spec.ts` | persons | 10 |
 | `e2e-cases.spec.ts` | cases | ~14 |
-
-## Patterns
-
-All migrated modules follow the same pattern:
-- `from .session import SessionLocal, _NOT_PROVIDED`
-- `with SessionLocal() as session:` context manager
-- `_to_dict()` helper with `.isoformat()` for datetimes
-- `joinedload()` + `.unique()` for eager-loaded relationships
-- `session.flush()` / `session.refresh()` / serialize / `session.commit()` for creates
-- `func.now()` for `updated_at` on updates
-- `pg_insert().on_conflict_do_update()` for PostgreSQL upserts

@@ -7,7 +7,8 @@ Data is injected directly into the prompt for faster, cheaper responses.
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from db import get_cursor
+from sqlalchemy import text
+from db.session import SessionLocal
 
 URGENCY_SQL_ORDER = """CASE t.urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END"""
 
@@ -21,9 +22,9 @@ def get_priorities_context() -> dict:
     now = datetime.now(pacific)
     four_weeks = now + timedelta(weeks=4)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get tasks with case names - prioritize by urgency and due date
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 t.id,
                 t.description,
@@ -36,14 +37,14 @@ def get_priorities_context() -> dict:
             JOIN cases c ON t.case_id = c.id
             WHERE t.status != 'Done'
               AND c.status != 'Closed'
-              AND (t.due_date IS NULL OR t.due_date <= %s)
+              AND (t.due_date IS NULL OR t.due_date <= :four_weeks)
             ORDER BY
                 CASE t.urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC,
                 t.due_date ASC NULLS LAST
-        """, (four_weeks.date(),))
+        """), {"four_weeks": four_weeks.date()}).mappings().all()
 
         tasks = []
-        for row in cur.fetchall():
+        for row in rows:
             tasks.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -54,7 +55,7 @@ def get_priorities_context() -> dict:
             })
 
         # Get upcoming events with case names
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 e.id,
                 e.description,
@@ -65,14 +66,14 @@ def get_priorities_context() -> dict:
                 c.case_name
             FROM events e
             JOIN cases c ON e.case_id = c.id
-            WHERE e.date >= %s
-              AND e.date <= %s
+            WHERE e.date >= :now_date
+              AND e.date <= :four_weeks
               AND c.status != 'Closed'
             ORDER BY e.date ASC
-        """, (now.date(), four_weeks.date()))
+        """), {"now_date": now.date(), "four_weeks": four_weeks.date()}).mappings().all()
 
         events = []
-        for row in cur.fetchall():
+        for row in rows:
             events.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -83,14 +84,14 @@ def get_priorities_context() -> dict:
             })
 
         # Get overdue count
-        cur.execute("""
+        result = session.execute(text("""
             SELECT COUNT(*) as count FROM tasks t
             JOIN cases c ON t.case_id = c.id
             WHERE t.status != 'Done'
-              AND t.due_date < %s
+              AND t.due_date < :now_date
               AND c.status != 'Closed'
-        """, (now.date(),))
-        overdue_count = cur.fetchone()["count"]
+        """), {"now_date": now.date()}).mappings().first()
+        overdue_count = result["count"]
 
     return {
         "tasks": tasks,
@@ -107,9 +108,9 @@ def get_deadlines_context() -> dict:
     now = datetime.now(pacific)
     two_weeks = now + timedelta(days=14)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get events in next 14 days
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 e.id,
                 e.description,
@@ -120,14 +121,14 @@ def get_deadlines_context() -> dict:
                 c.case_name
             FROM events e
             JOIN cases c ON e.case_id = c.id
-            WHERE e.date >= %s
-              AND e.date <= %s
+            WHERE e.date >= :now_date
+              AND e.date <= :two_weeks
               AND c.status != 'Closed'
             ORDER BY e.date ASC
-        """, (now.date(), two_weeks.date()))
+        """), {"now_date": now.date(), "two_weeks": two_weeks.date()}).mappings().all()
 
         events = []
-        for row in cur.fetchall():
+        for row in rows:
             events.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -138,7 +139,7 @@ def get_deadlines_context() -> dict:
             })
 
         # Get tasks due in next 14 days
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 t.id,
                 t.description,
@@ -151,14 +152,14 @@ def get_deadlines_context() -> dict:
             JOIN cases c ON t.case_id = c.id
             WHERE t.status != 'Done'
               AND t.due_date IS NOT NULL
-              AND t.due_date >= %s
-              AND t.due_date <= %s
+              AND t.due_date >= :now_date
+              AND t.due_date <= :two_weeks
               AND c.status != 'Closed'
             ORDER BY t.due_date ASC
-        """, (now.date(), two_weeks.date()))
+        """), {"now_date": now.date(), "two_weeks": two_weeks.date()}).mappings().all()
 
         tasks = []
-        for row in cur.fetchall():
+        for row in rows:
             tasks.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -181,9 +182,9 @@ def get_overdue_context() -> dict:
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get overdue tasks
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 t.id,
                 t.description,
@@ -195,13 +196,13 @@ def get_overdue_context() -> dict:
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             WHERE t.status != 'Done'
-              AND t.due_date < %s
+              AND t.due_date < :now_date
               AND c.status != 'Closed'
             ORDER BY t.due_date ASC
-        """, (now.date(),))
+        """), {"now_date": now.date()}).mappings().all()
 
         overdue_tasks = []
-        for row in cur.fetchall():
+        for row in rows:
             overdue_tasks.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -223,9 +224,9 @@ def get_activity_context() -> dict:
     now = datetime.now(pacific)
     one_week_ago = now - timedelta(days=7)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get recently completed tasks
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 t.id,
                 t.description,
@@ -235,12 +236,12 @@ def get_activity_context() -> dict:
             FROM tasks t
             JOIN cases c ON t.case_id = c.id
             WHERE t.status = 'Done'
-              AND t.completion_date >= %s
+              AND t.completion_date >= :one_week_ago
             ORDER BY t.completion_date DESC
-        """, (one_week_ago.date(),))
+        """), {"one_week_ago": one_week_ago.date()}).mappings().all()
 
         completed_tasks = []
-        for row in cur.fetchall():
+        for row in rows:
             completed_tasks.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -249,7 +250,7 @@ def get_activity_context() -> dict:
             })
 
         # Get recent activities
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 a.id,
                 a.type,
@@ -259,12 +260,12 @@ def get_activity_context() -> dict:
                 c.case_name
             FROM activities a
             JOIN cases c ON a.case_id = c.id
-            WHERE a.date >= %s
+            WHERE a.date >= :one_week_ago
             ORDER BY a.date DESC
-        """, (one_week_ago.date(),))
+        """), {"one_week_ago": one_week_ago.date()}).mappings().all()
 
         activities = []
-        for row in cur.fetchall():
+        for row in rows:
             activities.append({
                 "id": row["id"],
                 "type": row["type"],
@@ -291,13 +292,12 @@ def get_case_summary_context(case_id: int) -> dict:
     now = datetime.now(pacific)
     two_weeks = now + timedelta(days=14)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get case info
-        cur.execute("""
+        case_row = session.execute(text("""
             SELECT id, case_name, short_name, status, case_summary, date_of_injury
-            FROM cases WHERE id = %s
-        """, (case_id,))
-        case_row = cur.fetchone()
+            FROM cases WHERE id = :case_id
+        """), {"case_id": case_id}).mappings().first()
         if not case_row:
             return {"error": "Case not found"}
 
@@ -310,36 +310,36 @@ def get_case_summary_context(case_id: int) -> dict:
         }
 
         # Count tasks by status
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT status, COUNT(*) as count FROM tasks
-            WHERE case_id = %s GROUP BY status
-        """, (case_id,))
-        task_counts = {row["status"]: row["count"] for row in cur.fetchall()}
+            WHERE case_id = :case_id GROUP BY status
+        """), {"case_id": case_id}).mappings().all()
+        task_counts = {row["status"]: row["count"] for row in rows}
 
         # Get overdue count
-        cur.execute("""
+        result = session.execute(text("""
             SELECT COUNT(*) as count FROM tasks
-            WHERE case_id = %s AND status != 'Done' AND due_date < %s
-        """, (case_id, now.date()))
-        overdue_count = cur.fetchone()["count"]
+            WHERE case_id = :case_id AND status != 'Done' AND due_date < :now_date
+        """), {"case_id": case_id, "now_date": now.date()}).mappings().first()
+        overdue_count = result["count"]
 
         # Get upcoming events (next 2 weeks)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT description, date FROM events
-            WHERE case_id = %s AND date >= %s AND date <= %s
+            WHERE case_id = :case_id AND date >= :now_date AND date <= :two_weeks
             ORDER BY date ASC LIMIT 5
-        """, (case_id, now.date(), two_weeks.date()))
-        upcoming_events = [{"description": r["description"], "date": r["date"].isoformat()} for r in cur.fetchall()]
+        """), {"case_id": case_id, "now_date": now.date(), "two_weeks": two_weeks.date()}).mappings().all()
+        upcoming_events = [{"description": r["description"], "date": r["date"].isoformat()} for r in rows]
 
         # Get key people (clients and primary contacts)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT p.name, r.name as role FROM person_roles pr
             JOIN persons p ON pr.person_id = p.id
             JOIN roles r ON pr.role_id = r.id
-            WHERE pr.case_id = %s AND (r.name = 'Client' OR pr.is_primary = true)
+            WHERE pr.case_id = :case_id AND (r.name = 'Client' OR pr.is_primary = true)
             LIMIT 5
-        """, (case_id,))
-        key_people = [{"name": r["name"], "role": r["role"]} for r in cur.fetchall()]
+        """), {"case_id": case_id}).mappings().all()
+        key_people = [{"name": r["name"], "role": r["role"]} for r in rows]
 
     return {
         "case": case_info,
@@ -357,22 +357,21 @@ def get_case_next_steps_context(case_id: int) -> dict:
     now = datetime.now(pacific)
     two_weeks = now + timedelta(days=14)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get case name
-        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
-        row = cur.fetchone()
+        row = session.execute(text("SELECT case_name FROM cases WHERE id = :case_id"), {"case_id": case_id}).mappings().first()
         case_name = row["case_name"] if row else f"Case #{case_id}"
 
         # Get high priority incomplete tasks
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, due_date, urgency, status
             FROM tasks
-            WHERE case_id = %s AND status != 'Done'
+            WHERE case_id = :case_id AND status != 'Done'
             ORDER BY CASE urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC, due_date ASC NULLS LAST
             LIMIT 10
-        """, (case_id,))
+        """), {"case_id": case_id}).mappings().all()
         priority_tasks = []
-        for row in cur.fetchall():
+        for row in rows:
             priority_tasks.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -381,14 +380,14 @@ def get_case_next_steps_context(case_id: int) -> dict:
             })
 
         # Get upcoming events
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, date, time, location
             FROM events
-            WHERE case_id = %s AND date >= %s AND date <= %s
+            WHERE case_id = :case_id AND date >= :now_date AND date <= :two_weeks
             ORDER BY date ASC
-        """, (case_id, now.date(), two_weeks.date()))
+        """), {"case_id": case_id, "now_date": now.date(), "two_weeks": two_weeks.date()}).mappings().all()
         upcoming_events = []
-        for row in cur.fetchall():
+        for row in rows:
             upcoming_events.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -398,14 +397,14 @@ def get_case_next_steps_context(case_id: int) -> dict:
             })
 
         # Get overdue tasks
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, due_date, urgency
             FROM tasks
-            WHERE case_id = %s AND status != 'Done' AND due_date < %s
+            WHERE case_id = :case_id AND status != 'Done' AND due_date < :now_date
             ORDER BY due_date ASC
-        """, (case_id, now.date()))
+        """), {"case_id": case_id, "now_date": now.date()}).mappings().all()
         overdue = []
-        for row in cur.fetchall():
+        for row in rows:
             overdue.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -426,24 +425,22 @@ def get_case_tasks_context(case_id: int) -> dict:
     """Fetch all tasks for a specific case."""
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
-    four_weeks = now + timedelta(weeks=4)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get case name
-        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
-        row = cur.fetchone()
+        row = session.execute(text("SELECT case_name FROM cases WHERE id = :case_id"), {"case_id": case_id}).mappings().first()
         case_name = row["case_name"] if row else f"Case #{case_id}"
 
         # Get incomplete tasks
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, due_date, urgency, status
             FROM tasks
-            WHERE case_id = %s AND status != 'Done'
+            WHERE case_id = :case_id AND status != 'Done'
             ORDER BY CASE urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC, due_date ASC NULLS LAST
-        """, (case_id,))
+        """), {"case_id": case_id}).mappings().all()
 
         incomplete = []
-        for row in cur.fetchall():
+        for row in rows:
             incomplete.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -454,15 +451,15 @@ def get_case_tasks_context(case_id: int) -> dict:
 
         # Get recently completed tasks (last 2 weeks)
         two_weeks_ago = now - timedelta(days=14)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, completion_date
             FROM tasks
-            WHERE case_id = %s AND status = 'Done' AND completion_date >= %s
+            WHERE case_id = :case_id AND status = 'Done' AND completion_date >= :two_weeks_ago
             ORDER BY completion_date DESC
-        """, (case_id, two_weeks_ago.date()))
+        """), {"case_id": case_id, "two_weeks_ago": two_weeks_ago.date()}).mappings().all()
 
         completed = []
-        for row in cur.fetchall():
+        for row in rows:
             completed.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -470,11 +467,11 @@ def get_case_tasks_context(case_id: int) -> dict:
             })
 
         # Count overdue
-        cur.execute("""
+        result = session.execute(text("""
             SELECT COUNT(*) as count FROM tasks
-            WHERE case_id = %s AND status != 'Done' AND due_date < %s
-        """, (case_id, now.date()))
-        overdue_count = cur.fetchone()["count"]
+            WHERE case_id = :case_id AND status != 'Done' AND due_date < :now_date
+        """), {"case_id": case_id, "now_date": now.date()}).mappings().first()
+        overdue_count = result["count"]
 
     return {
         "case": case_name,
@@ -491,22 +488,21 @@ def get_case_events_context(case_id: int) -> dict:
     now = datetime.now(pacific)
     four_weeks = now + timedelta(weeks=4)
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get case name
-        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
-        row = cur.fetchone()
+        row = session.execute(text("SELECT case_name FROM cases WHERE id = :case_id"), {"case_id": case_id}).mappings().first()
         case_name = row["case_name"] if row else f"Case #{case_id}"
 
         # Get upcoming events (next 4 weeks)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, date, time, location
             FROM events
-            WHERE case_id = %s AND date >= %s AND date <= %s
+            WHERE case_id = :case_id AND date >= :now_date AND date <= :four_weeks
             ORDER BY date ASC
-        """, (case_id, now.date(), four_weeks.date()))
+        """), {"case_id": case_id, "now_date": now.date(), "four_weeks": four_weeks.date()}).mappings().all()
 
         upcoming = []
-        for row in cur.fetchall():
+        for row in rows:
             upcoming.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -517,15 +513,15 @@ def get_case_events_context(case_id: int) -> dict:
 
         # Get past events (last 2 weeks)
         two_weeks_ago = now - timedelta(days=14)
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT id, description, date, time, location
             FROM events
-            WHERE case_id = %s AND date >= %s AND date < %s
+            WHERE case_id = :case_id AND date >= :two_weeks_ago AND date < :now_date
             ORDER BY date DESC
-        """, (case_id, two_weeks_ago.date(), now.date()))
+        """), {"case_id": case_id, "two_weeks_ago": two_weeks_ago.date(), "now_date": now.date()}).mappings().all()
 
         past = []
-        for row in cur.fetchall():
+        for row in rows:
             past.append({
                 "id": row["id"],
                 "description": row["description"],
@@ -545,14 +541,13 @@ def get_case_events_context(case_id: int) -> dict:
 
 def get_case_people_context(case_id: int) -> dict:
     """Fetch all people assigned to a specific case."""
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         # Get case name
-        cur.execute("SELECT case_name FROM cases WHERE id = %s", (case_id,))
-        row = cur.fetchone()
+        row = session.execute(text("SELECT case_name FROM cases WHERE id = :case_id"), {"case_id": case_id}).mappings().first()
         case_name = row["case_name"] if row else f"Case #{case_id}"
 
         # Get all assigned people with their roles
-        cur.execute("""
+        rows = session.execute(text("""
             SELECT
                 p.id,
                 p.name,
@@ -562,12 +557,12 @@ def get_case_people_context(case_id: int) -> dict:
             FROM person_roles pr
             JOIN persons p ON pr.person_id = p.id
             JOIN roles r ON pr.role_id = r.id
-            WHERE pr.case_id = %s
+            WHERE pr.case_id = :case_id
             ORDER BY r.category, r.sort_order, p.name
-        """, (case_id,))
+        """), {"case_id": case_id}).mappings().all()
 
         people = []
-        for row in cur.fetchall():
+        for row in rows:
             people.append({
                 "id": row["id"],
                 "name": row["name"],
