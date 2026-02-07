@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Gavel,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { EditableText, EditableContactList } from '../common';
 import { getJudge, updateJudge } from '../../api';
 import type { UpdateJudgeInput } from '../../types';
@@ -256,19 +257,21 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
           </h3>
           <div className="space-y-2 pl-6">
             {judge.proceedings.map((proceeding) => (
-              <div
+              <Link
                 key={proceeding.proceeding_id}
-                className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm"
+                to={`/cases/${proceeding.case_id}`}
+                onClick={onClose}
+                className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors group"
               >
                 <div className="min-w-0">
-                  <span className="font-medium text-text truncate block">
+                  <span className="font-medium text-blue-600 dark:text-blue-400 group-hover:underline truncate block">
                     {proceeding.case_name}
                   </span>
                   <span className="text-xs text-text-secondary">
                     {proceeding.case_number} · {proceeding.role}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
