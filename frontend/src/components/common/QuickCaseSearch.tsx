@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { getCases } from '../../api/cases';
+import { useAuth } from '../../context/AuthContext';
 import type { CaseSummary } from '../../types/case';
 
 interface QuickCaseSearchProps {
@@ -12,14 +13,15 @@ interface QuickCaseSearchProps {
 
 export function QuickCaseSearch({ isOpen, onClose }: QuickCaseSearchProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: casesData } = useQuery({
-    queryKey: ['cases'],
-    queryFn: () => getCases(),
-    enabled: isOpen,
+    queryKey: ['cases', 'my', user?.id],
+    queryFn: () => getCases({ attorney_ids: user ? [user.id] : [] }),
+    enabled: isOpen && !!user,
   });
 
   const cases = casesData?.cases || [];
@@ -103,7 +105,7 @@ export function QuickCaseSearch({ isOpen, onClose }: QuickCaseSearchProps) {
               setSearchTerm(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Search cases..."
+            placeholder="Search my cases..."
             className="flex-1 px-3 py-4 bg-transparent text-text placeholder-text-muted focus:outline-none"
           />
           <button
