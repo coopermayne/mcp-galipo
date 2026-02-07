@@ -1,46 +1,74 @@
-# Pydantic Output Models & Backend Cleanup Plan
+# Pydantic Output Models Plan
 
 ## Problem
 
-We migrated to Pydantic (input validation) and SQLAlchemy (query layer) in two separate efforts, but never connected them on the output side. Every `db/` module has hand-rolled `_to_dict()` serializers that are the de facto response schemas — untyped, undocumented, and easy to break.
+Pydantic guards the front door (inputs) but the back door (outputs) is 12 different hand-built locks.
+
+**Inputs (clean, centralized):** Routes parse JSON into Pydantic models from `schemas.py`. One place, one pattern, type-checked.
+
+**Outputs (fragmented):** Every `db/` module has its own hand-rolled serializer — different names, different date handling, no shared contract:
+
+```python
+# db/tasks.py
+def _task_to_dict(task):        # builds dict field-by-field
+def _serialize_value(val):      # custom date→string
+
+# db/cases.py
+def _sv(val):                   # different date→string helper
+def _row_to_dict(row):          # iterates row._mapping
+
+# db/activities.py — the ONE file already doing it right
+def _serialize(obj):
+    return ActivityOut.model_validate(obj).model_dump(mode="json")
+# ...but even this file falls back to hand-rolled dicts for joined queries
+```
+
+84 `_to_dict` calls across 12 files. Each one is an untyped, undocumented API contract.
 
 ```
 Current flow:
-  Request → Route → Pydantic input schema → db/ function → ORM object → hand-rolled _to_dict() → raw dict → JSONResponse
+  Request → Pydantic input → db/ function → ORM object → hand-rolled _to_dict() → raw dict → JSON
 
 Target flow:
-  Request → Route → Pydantic input schema → db/ function → ORM object → Pydantic output schema → JSONResponse
+  Request → Pydantic input → db/ function → ORM object → Pydantic output model → JSON
 ```
 
 ## Scope
 
-Three targeted changes. No file moves, no renames, no restructuring.
+Split `schemas.py` into a `schemas/` package and add Pydantic output models for all entities. Then replace the 84 hand-rolled serializers with `model_validate()`. No file moves, no renames, no restructuring beyond this.
 
-### 1. Split `schemas.py` → `schemas/` package (with output models)
-
-Current `schemas.py` has input models + a few output models for simpler entities. Split into per-domain files and add output models for all entities.
+## File Structure
 
 ```
-schemas.py (delete after migration)
+BEFORE                                 AFTER
 
-schemas/
-  __init__.py          # Re-exports everything (keeps `from schemas import X` working)
-  common.py            # Literal types, constants, ContactInfo, shared base classes
-  case.py              # CreateCaseInput, UpdateCaseInput, CaseOut, CaseSummaryOut
-  task.py              # CreateTaskInput, UpdateTaskInput, TaskOut, TaskAssigneeOut
-  event.py             # CreateEventInput, UpdateEventInput, EventOut
-  person.py            # PersonOut, PersonRoleOut, CasePersonOut
-  judge.py             # JudgeOut (already exists, move here)
-  proceeding.py        # ProceedingOut, ProceedingJudgeOut (already exist, move here)
-  activity.py          # CreateActivityInput, UpdateActivityInput, ActivityOut (already exists)
-  note.py              # CreateNoteInput, UpdateNoteInput, NoteOut (already exists)
-  role.py              # RoleOut, RoleWithCountOut (already exist, move here)
-  jurisdiction.py      # JurisdictionOut (already exists, move here)
-  user.py              # UserOut, CaseStaffUserOut
-  webhook.py           # WebhookOut (if needed)
+schemas.py  (one flat file)            schemas/
+  ├─ Literal types                       ├─ __init__.py       re-exports everything
+  ├─ List constants                      │                    (from schemas import X still works)
+  ├─ ContactInfo                         ├─ common.py         Literals, constants, ContactInfo
+  ├─ CreateCaseInput                     ├─ case.py           Create/UpdateCaseInput + CaseOut
+  ├─ UpdateCaseInput                     ├─ task.py           Create/UpdateTaskInput + TaskOut
+  ├─ CreateTaskInput                     ├─ event.py          Create/UpdateEventInput + EventOut
+  ├─ UpdateTaskInput                     ├─ person.py         PersonOut, PersonRoleOut
+  ├─ CreateEventInput                    ├─ judge.py          JudgeOut
+  ├─ UpdateEventInput                    ├─ proceeding.py     ProceedingOut, ProceedingJudgeOut
+  ├─ Create/UpdateActivityInput          ├─ activity.py       Create/UpdateActivityInput, ActivityOut
+  ├─ ActivityOut                         ├─ note.py           Create/UpdateNoteInput, NoteOut
+  ├─ Create/UpdateNoteInput              ├─ role.py           RoleOut, RoleWithCountOut, ExpertiseTypeOut
+  ├─ RoleOut, RoleWithCountOut           ├─ jurisdiction.py   JurisdictionOut
+  ├─ ExpertiseTypeOut                    ├─ user.py           UserOut, CaseStaffUserOut          ← NEW
+  ├─ JurisdictionOut                     └─ webhook.py        WebhookOut                         ← NEW
+  ├─ NoteOut
+  ├─ JudgeOut                          schemas.py → deleted
+  ├─ ProceedingOut
+  ├─ ProceedingJudgeOut
+  ├─ PersonOut
+  └─ PersonRoleOut
 ```
 
-**Output model pattern:**
+## Output Model Patterns
+
+**Simple entity** — just the ORM columns:
 
 ```python
 class TaskOut(BaseModel):
@@ -50,16 +78,17 @@ class TaskOut(BaseModel):
     case_id: int
     description: str
     due_date: Optional[date] = None
-    completion_date: Optional[date] = None
     status: TaskStatus
     urgency: Urgency
     sort_order: int
-    event_id: Optional[int] = None
-    assignee_id: Optional[int] = None
-    created_at: Optional[datetime] = None
+    ...
+```
 
+**Entity with joined relations** — extends the base with fields from joined tables:
+
+```python
 class TaskWithRelationsOut(TaskOut):
-    """Task with joined case/event/assignee info — what the API actually returns."""
+    """What the API actually returns when tasks include case/event/assignee info."""
     case_name: Optional[str] = None
     short_name: Optional[str] = None
     case_color: Optional[str] = None
@@ -69,92 +98,55 @@ class TaskWithRelationsOut(TaskOut):
     assignee: Optional[TaskAssigneeOut] = None
 ```
 
-**Key rule:** Output models describe what the API *actually returns today*. Don't reshape responses — just type what's already there. The frontend TypeScript types are the reference for what each endpoint returns.
+This is the tricky part — many `db/` functions return different shapes depending on whether they join related tables. Each `_to_dict` needs to be traced to see which fields it returns, and matched to a `*Out` or `*WithRelationsOut` model.
 
-### 2. Add `config.py` (Pydantic BaseSettings)
+**Key rule:** Output models describe what the API *actually returns today*. Don't reshape responses — just type what's already there. The frontend TypeScript types are the reference for field names/shapes.
 
-Replace scattered `os.environ.get()` calls with a single typed settings object.
+## Migration Steps
 
-```python
-# config.py
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
-
-    database_url: str
-    auth_username: str
-    auth_password: str
-    port: int = 8000
-    vite_port: int = 5173
-    anthropic_api_key: str = ""
-    chat_model: str = ""
-    webhook_secret_courtlistener: str = ""
-    mcp_auth_password: str = ""
-    mcp_base_url: str = ""
-    reset_db: bool = False
-    dev_skip_auth: bool = False
-    vite_dev_skip_auth: bool = False
-    dev_auth_user: str = ""
-
-settings = Settings()
-```
-
-Then replace `os.environ.get("DATABASE_URL")` → `settings.database_url` everywhere. Catches missing/invalid env vars at startup instead of at runtime.
-
-### 3. Add `tests/` directory
-
-Backend unit/integration tests for the `db/` layer and route handlers.
-
-```
-tests/
-  __init__.py
-  conftest.py          # Test DB, session fixture, test client
-  test_cases.py
-  test_tasks.py
-  test_events.py
-  ...
-```
-
-This is the biggest gap in the project. E2E tests catch integration issues but are slow. Unit tests for `db/` functions catch regressions fast.
-
-## Migration Order
-
-Do these incrementally, one PR at a time:
-
-### Phase 1: `schemas/` package with output models
+### Step 1: Create the `schemas/` package scaffold
 
 1. Create `schemas/` directory with `__init__.py` that re-exports everything
 2. Move existing content from `schemas.py` into domain files
 3. Verify all existing imports still work (`from schemas import CreateTaskInput`)
 4. Delete `schemas.py`
-5. Add output models for the simple entities first (roles, jurisdictions, notes — these already have `*Out` classes)
-6. Add output models for complex entities (tasks, events, cases, persons) — use frontend TypeScript types as the reference for field names/shapes
 
-**Then, per db/ module:**
+Zero behavior change — just reorganization.
 
-7. Replace `_to_dict()` / `_row_to_dict()` with Pydantic `.model_validate()` or `.model_dump()`
-8. Remove the hand-rolled serializer functions
-9. Run E2E tests to verify responses haven't changed
+### Step 2: Add output models for entities that don't have them yet
 
-### Phase 2: `config.py`
+5. Simple entities first (already have `*Out` classes, just need to move them): roles, jurisdictions, notes, judges, proceedings, persons
+6. New output models for: cases, tasks, events, users, webhooks
+7. For each, trace the existing `_to_dict` to see exactly what fields it returns. Use frontend TypeScript types as cross-reference
 
-1. Add `pydantic-settings` to requirements.txt
-2. Create `config.py` with `Settings` class
-3. Replace `os.environ` calls one module at a time
-4. Update Dockerfile if needed
+### Step 3: Wire up output models in `db/` modules
 
-### Phase 3: `tests/`
+Do one module at a time, starting with the simplest:
 
-1. Create `tests/conftest.py` with test DB setup
-2. Add tests for `db/` functions starting with the most complex modules (cases, tasks, events)
-3. Add route-level tests using FastAPI test client
+8. Replace `_to_dict()` / `_row_to_dict()` / `_sv()` / `_serialize_value()` with `SomeOut.model_validate(obj).model_dump(mode="json")`
+9. Delete the hand-rolled serializer functions
+10. Run E2E tests after each module to verify responses haven't changed
+
+**Module order** (simplest → most complex):
+| Module | `_to_dict` calls | Notes |
+|--------|------------------|-------|
+| `db/activities.py` | already done | Just fix the joined-query fallback |
+| `db/proceedings.py` | 4 | Simple |
+| `db/types.py` | 5 | Simple |
+| `db/events.py` | 5 | Has joined case info |
+| `db/notes.py` | 6 | Simple |
+| `db/jurisdictions.py` | 6 | Simple |
+| `db/webhooks.py` | 6 | Simple |
+| `db/users.py` | 6 | Simple |
+| `db/tasks.py` | 6 | Has joined case/event/assignee — needs `TaskWithRelationsOut` |
+| `db/roles.py` | 7 | Has count variant |
+| `db/judges.py` | 9 | Has joined jurisdiction |
+| `db/persons.py` | 10 | Has joined roles/cases — most complex |
+| `db/cases.py` | 14 | Has joined staff/events/tasks — most complex |
 
 ## What We're NOT Doing
 
-- **Not moving files into `app/` package** — avoids rewriting every import path
-- **Not renaming `db/` → `crud/`** — `db/` is accurate, modules do more than CRUD
-- **Not renaming `routes/` → `routers/`** — cosmetic, not worth the churn
-- **Not splitting `models.py`** — 15 models in one file is fine at this scale
-- **Not adding a repository pattern** — module-level functions work for this project
 - **Not reshaping API responses** — output models describe current shapes, frontend stays untouched
+- **Not moving files** into `app/` package, not renaming `db/` or `routes/`
+- **Not splitting `models.py`** — 15 models in one file is fine at this scale
+- **Not adding `config.py` or `tests/`** — separate efforts, separate plans
