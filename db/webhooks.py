@@ -1,15 +1,39 @@
 """
-Webhook log management functions.
+Webhook log management functions — SQLAlchemy ORM implementation.
 
 Stores incoming webhook events from external services (e.g., CourtListener)
 for later processing.
 """
 
-import json
 from typing import Optional, List
-from uuid import UUID
 
-from .connection import get_cursor, serialize_row, serialize_rows, _NOT_PROVIDED
+from sqlalchemy import select, func
+
+from .session import SessionLocal
+from models import WebhookLog
+
+
+# Sentinel value to distinguish "not provided" from None
+_NOT_PROVIDED = object()
+
+
+def _webhook_to_dict(wh: WebhookLog) -> dict:
+    """Convert a WebhookLog ORM object to a JSON-safe dict."""
+    return {
+        'id': wh.id,
+        'source': wh.source,
+        'event_type': wh.event_type,
+        'idempotency_key': str(wh.idempotency_key) if wh.idempotency_key else None,
+        'payload': wh.payload,
+        'headers': wh.headers,
+        'proceeding_id': wh.proceeding_id,
+        'task_id': wh.task_id,
+        'event_id': wh.event_id,
+        'processing_status': wh.processing_status,
+        'processing_error': wh.processing_error,
+        'created_at': wh.created_at.isoformat() if wh.created_at else None,
+        'processed_at': wh.processed_at.isoformat() if wh.processed_at else None,
+    }
 
 
 def create_webhook_log(
@@ -25,60 +49,48 @@ def create_webhook_log(
 
     Returns None if idempotency_key already exists (duplicate webhook).
     """
-    with get_cursor() as cur:
-        # Check for duplicate if idempotency_key provided
+    with SessionLocal() as session:
         if idempotency_key:
-            cur.execute(
-                "SELECT id FROM webhook_logs WHERE idempotency_key = %s",
-                (idempotency_key,)
-            )
-            if cur.fetchone():
-                return None  # Duplicate webhook
+            existing = session.scalars(
+                select(WebhookLog).where(
+                    WebhookLog.idempotency_key == idempotency_key
+                )
+            ).first()
+            if existing:
+                return None
 
-        payload_json = json.dumps(payload) if payload else '{}'
-        headers_json = json.dumps(headers) if headers else '{}'
-
-        cur.execute("""
-            INSERT INTO webhook_logs (source, event_type, idempotency_key, payload, headers, proceeding_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, source, event_type, idempotency_key, payload, headers, proceeding_id,
-                      task_id, event_id, processing_status, processing_error, created_at, processed_at
-        """, (
-            source,
-            event_type,
-            idempotency_key,
-            payload_json,
-            headers_json,
-            proceeding_id
-        ))
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+        wh = WebhookLog(
+            source=source,
+            payload=payload or {},
+            event_type=event_type,
+            idempotency_key=idempotency_key,
+            headers=headers or {},
+            proceeding_id=proceeding_id,
+        )
+        session.add(wh)
+        session.flush()
+        session.refresh(wh)
+        result = _webhook_to_dict(wh)
+        session.commit()
+        return result
 
 
 def get_webhook_log_by_id(webhook_id: int) -> Optional[dict]:
     """Get a webhook log entry by ID."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, source, event_type, idempotency_key, payload, headers, proceeding_id,
-                   task_id, event_id, processing_status, processing_error, created_at, processed_at
-            FROM webhook_logs
-            WHERE id = %s
-        """, (webhook_id,))
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+    with SessionLocal() as session:
+        wh = session.get(WebhookLog, webhook_id)
+        return _webhook_to_dict(wh) if wh else None
 
 
 def get_webhook_log_by_idempotency_key(idempotency_key: str) -> Optional[dict]:
     """Get a webhook log entry by idempotency key."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id, source, event_type, idempotency_key, payload, headers, proceeding_id,
-                   task_id, event_id, processing_status, processing_error, created_at, processed_at
-            FROM webhook_logs
-            WHERE idempotency_key = %s
-        """, (idempotency_key,))
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+    with SessionLocal() as session:
+        wh = session.scalars(
+            select(WebhookLog).where(
+                WebhookLog.idempotency_key == idempotency_key
+            )
+        ).first()
+        return _webhook_to_dict(wh) if wh else None
 
 
 def get_webhook_logs(
@@ -89,34 +101,19 @@ def get_webhook_logs(
     offset: int = 0,
 ) -> List[dict]:
     """Get webhook logs with optional filtering."""
-    with get_cursor() as cur:
-        conditions = []
-        params = []
+    with SessionLocal() as session:
+        stmt = select(WebhookLog)
 
         if source:
-            conditions.append("source = %s")
-            params.append(source)
-
+            stmt = stmt.where(WebhookLog.source == source)
         if processing_status:
-            conditions.append("processing_status = %s")
-            params.append(processing_status)
-
+            stmt = stmt.where(WebhookLog.processing_status == processing_status)
         if proceeding_id:
-            conditions.append("proceeding_id = %s")
-            params.append(proceeding_id)
+            stmt = stmt.where(WebhookLog.proceeding_id == proceeding_id)
 
-        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
-
-        cur.execute(f"""
-            SELECT id, source, event_type, idempotency_key, payload, headers, proceeding_id,
-                   task_id, event_id, processing_status, processing_error, created_at, processed_at
-            FROM webhook_logs
-            {where_clause}
-            ORDER BY created_at DESC
-            LIMIT %s OFFSET %s
-        """, params + [limit, offset])
-
-        return serialize_rows([dict(row) for row in cur.fetchall()])
+        stmt = stmt.order_by(WebhookLog.created_at.desc()).limit(limit).offset(offset)
+        webhooks = session.scalars(stmt).all()
+        return [_webhook_to_dict(wh) for wh in webhooks]
 
 
 def get_pending_webhook_logs(source: str = None, limit: int = 100) -> List[dict]:
@@ -133,46 +130,30 @@ def update_webhook_log(
     proceeding_id: int = _NOT_PROVIDED,
 ) -> Optional[dict]:
     """Update a webhook log entry."""
-    updates = []
-    params = []
+    with SessionLocal() as session:
+        wh = session.get(WebhookLog, webhook_id)
+        if not wh:
+            return None
 
-    if processing_status is not _NOT_PROVIDED:
-        updates.append("processing_status = %s")
-        params.append(processing_status)
-        # Set processed_at when status changes to completed or failed
-        if processing_status in ("completed", "failed"):
-            updates.append("processed_at = CURRENT_TIMESTAMP")
+        if processing_status is not _NOT_PROVIDED:
+            wh.processing_status = processing_status
+            if processing_status in ("completed", "failed"):
+                wh.processed_at = func.now()
 
-    if processing_error is not _NOT_PROVIDED:
-        updates.append("processing_error = %s")
-        params.append(processing_error)
+        if processing_error is not _NOT_PROVIDED:
+            wh.processing_error = processing_error
+        if task_id is not _NOT_PROVIDED:
+            wh.task_id = task_id
+        if event_id is not _NOT_PROVIDED:
+            wh.event_id = event_id
+        if proceeding_id is not _NOT_PROVIDED:
+            wh.proceeding_id = proceeding_id
 
-    if task_id is not _NOT_PROVIDED:
-        updates.append("task_id = %s")
-        params.append(task_id)
-
-    if event_id is not _NOT_PROVIDED:
-        updates.append("event_id = %s")
-        params.append(event_id)
-
-    if proceeding_id is not _NOT_PROVIDED:
-        updates.append("proceeding_id = %s")
-        params.append(proceeding_id)
-
-    if not updates:
-        return get_webhook_log_by_id(webhook_id)
-
-    params.append(webhook_id)
-
-    with get_cursor() as cur:
-        cur.execute(f"""
-            UPDATE webhook_logs SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id, source, event_type, idempotency_key, payload, headers, proceeding_id,
-                      task_id, event_id, processing_status, processing_error, created_at, processed_at
-        """, params)
-        row = cur.fetchone()
-        return serialize_row(dict(row)) if row else None
+        session.flush()
+        session.refresh(wh)
+        result = _webhook_to_dict(wh)
+        session.commit()
+        return result
 
 
 def mark_webhook_processing(webhook_id: int) -> Optional[dict]:
@@ -180,7 +161,9 @@ def mark_webhook_processing(webhook_id: int) -> Optional[dict]:
     return update_webhook_log(webhook_id, processing_status="processing")
 
 
-def mark_webhook_completed(webhook_id: int, task_id: int = None, event_id: int = None) -> Optional[dict]:
+def mark_webhook_completed(
+    webhook_id: int, task_id: int = None, event_id: int = None
+) -> Optional[dict]:
     """Mark a webhook as successfully processed."""
     return update_webhook_log(
         webhook_id,
@@ -192,21 +175,28 @@ def mark_webhook_completed(webhook_id: int, task_id: int = None, event_id: int =
 
 def mark_webhook_failed(webhook_id: int, error: str) -> Optional[dict]:
     """Mark a webhook as failed with an error message."""
-    return update_webhook_log(webhook_id, processing_status="failed", processing_error=error)
+    return update_webhook_log(
+        webhook_id, processing_status="failed", processing_error=error
+    )
 
 
 def idempotency_key_exists(idempotency_key: str) -> bool:
     """Check if an idempotency key already exists."""
-    with get_cursor() as cur:
-        cur.execute(
-            "SELECT 1 FROM webhook_logs WHERE idempotency_key = %s",
-            (idempotency_key,)
+    with SessionLocal() as session:
+        count = session.scalar(
+            select(func.count())
+            .select_from(WebhookLog)
+            .where(WebhookLog.idempotency_key == idempotency_key)
         )
-        return cur.fetchone() is not None
+        return count > 0
 
 
 def delete_webhook_log(webhook_id: int) -> bool:
     """Delete a webhook log entry. Returns True if deleted, False if not found."""
-    with get_cursor() as cur:
-        cur.execute("DELETE FROM webhook_logs WHERE id = %s RETURNING id", (webhook_id,))
-        return cur.fetchone() is not None
+    with SessionLocal() as session:
+        wh = session.get(WebhookLog, webhook_id)
+        if not wh:
+            return False
+        session.delete(wh)
+        session.commit()
+        return True

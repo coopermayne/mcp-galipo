@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 import filelock
 from fastmcp import FastMCP
 
-import database as db
+import db
 from tools import register_tools
 from routes import register_routes
 from mcp_auth import get_mcp_auth_provider
@@ -90,9 +90,7 @@ def initialize_database():
             db.init_db()
             db.seed_db()
         else:
-            # Run migrations first (handles schema upgrades for existing databases)
-            db.migrate_db()
-            # Then ensure all tables exist (safe for production)
+            # Ensure all tables exist (safe for production — Alembic handles migrations)
             db.init_db()
             # Seed lookup tables (idempotent - only inserts if empty)
             db.seed_db()
@@ -113,7 +111,7 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     # Startup
     initialize_database()
     yield {}
-    # Shutdown - connection pool cleanup is handled by atexit in db/connection.py
+    # Shutdown - SQLAlchemy engine cleanup is automatic
 
 
 # Initialize the MCP server with lifespan and optional auth

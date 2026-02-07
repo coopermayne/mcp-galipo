@@ -20,7 +20,8 @@ import json
 from dotenv import load_dotenv
 load_dotenv()
 
-from db.connection import get_cursor
+from db.session import SessionLocal
+from sqlalchemy import text
 
 
 def seed_webhook_data(csv_path: str = "data.csv", clear_first: bool = True):
@@ -32,8 +33,9 @@ def seed_webhook_data(csv_path: str = "data.csv", clear_first: bool = True):
 
     if clear_first:
         print("Clearing existing webhook_logs...")
-        with get_cursor() as cur:
-            cur.execute("DELETE FROM webhook_logs")
+        with SessionLocal() as session:
+            session.execute(text("DELETE FROM webhook_logs"))
+            session.commit()
         print("  Cleared.")
 
     print(f"Importing webhook data from {csv_path}...")
@@ -47,14 +49,14 @@ def seed_webhook_data(csv_path: str = "data.csv", clear_first: bool = True):
         for row in reader:
             idempotency_key = row.get('idempotency_key') or None
 
-            with get_cursor() as cur:
+            with SessionLocal() as session:
                 # Check if already exists (by idempotency_key)
                 if idempotency_key:
-                    cur.execute(
-                        "SELECT id FROM webhook_logs WHERE idempotency_key = %s",
-                        (idempotency_key,)
-                    )
-                    if cur.fetchone():
+                    result = session.execute(
+                        text("SELECT id FROM webhook_logs WHERE idempotency_key = :key"),
+                        {"key": idempotency_key}
+                    ).mappings().first()
+                    if result:
                         skipped += 1
                         continue
 
@@ -69,25 +71,28 @@ def seed_webhook_data(csv_path: str = "data.csv", clear_first: bool = True):
                 event_type = row.get('event_type') or None
                 processing_error = row.get('processing_error') or None
 
-                cur.execute("""
+                session.execute(text("""
                     INSERT INTO webhook_logs (
                         source, event_type, idempotency_key, payload, headers,
                         proceeding_id, task_id, event_id,
                         processing_status, processing_error
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    row['source'],
-                    event_type,
-                    idempotency_key,
-                    json.dumps(payload),
-                    json.dumps(headers),
-                    proceeding_id,
-                    task_id,
-                    event_id,
-                    row.get('processing_status', 'pending'),
-                    processing_error,
-                ))
+                    VALUES (:source, :event_type, :idempotency_key, :payload, :headers,
+                            :proceeding_id, :task_id, :event_id,
+                            :processing_status, :processing_error)
+                """), {
+                    "source": row['source'],
+                    "event_type": event_type,
+                    "idempotency_key": idempotency_key,
+                    "payload": json.dumps(payload),
+                    "headers": json.dumps(headers),
+                    "proceeding_id": proceeding_id,
+                    "task_id": task_id,
+                    "event_id": event_id,
+                    "processing_status": row.get('processing_status', 'pending'),
+                    "processing_error": processing_error,
+                })
+                session.commit()
                 imported += 1
 
     print(f"Done! Imported {imported} webhooks, skipped {skipped} duplicates.")

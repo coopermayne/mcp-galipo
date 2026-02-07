@@ -6,7 +6,7 @@ Provides dashboard stats and system constants for the frontend.
 
 import asyncio
 from fastapi.responses import JSONResponse
-import database as db
+import db
 import auth
 from .common import api_error
 

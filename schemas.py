@@ -6,7 +6,8 @@ and Pydantic input models used by both MCP tools and REST routes.
 """
 
 from typing import Optional, Literal, get_args
-from pydantic import BaseModel, Field
+from datetime import date as date_type, datetime, datetime as datetime_type
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # =============================================================================
@@ -149,6 +150,19 @@ class UpdateActivityInput(BaseModel):
     minutes: Optional[int] = None
 
 
+class ActivityOut(BaseModel):
+    """Output schema for Activity ORM objects."""
+    model_config = {"from_attributes": True}
+
+    id: int
+    case_id: Optional[int] = None
+    date: date_type
+    description: str
+    type: str
+    minutes: Optional[int] = None
+    created_at: Optional[datetime_type] = None
+
+
 # =============================================================================
 # Route Input Models — Notes
 # =============================================================================
@@ -160,3 +174,125 @@ class CreateNoteInput(BaseModel):
 
 class UpdateNoteInput(BaseModel):
     content: str
+
+
+# =============================================================================
+# Output Models (for SQLAlchemy → API serialization)
+# =============================================================================
+
+class RoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    category: str
+    sort_order: Optional[int] = None
+    description: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class RoleWithCountOut(RoleOut):
+    usage_count: int = 0
+
+
+class ExpertiseTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str] = None
+
+
+class JurisdictionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    local_rules_link: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    case_id: Optional[int] = None
+    content: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class JudgeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    phones: Optional[list] = None
+    emails: Optional[list] = None
+    jurisdiction_id: Optional[int] = None
+    chambers: Optional[str] = None
+    courtroom_number: Optional[str] = None
+    appointed_by: Optional[str] = None
+    appointed_date: Optional[date_type] = None
+    initials: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ProceedingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    case_number: str
+    case_id: Optional[int] = None
+    jurisdiction_id: Optional[int] = None
+    sort_order: Optional[int] = None
+    is_primary: Optional[bool] = None
+    notes: Optional[str] = None
+    courtlistener_docket_id: Optional[int] = None
+    pacer_case_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ProceedingJudgeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    proceeding_id: int
+    judge_id: int
+    role: Optional[str] = None
+    sort_order: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+
+class PersonOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    phones: Optional[list] = None
+    emails: Optional[list] = None
+    address: Optional[str] = None
+    organization: Optional[str] = None
+    notes: Optional[str] = None
+    archived: Optional[bool] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class PersonRoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    person_id: int
+    role_id: int
+    case_id: Optional[int] = None
+    attributes: Optional[dict] = None
+    notes: Optional[str] = None
+    is_primary: Optional[bool] = None
+    grouped_under_id: Optional[int] = None
+    assigned_date: Optional[date_type] = None
+    created_at: Optional[datetime] = None

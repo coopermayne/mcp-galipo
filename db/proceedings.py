@@ -10,7 +10,71 @@ Use db/judges.py for judge management.
 
 from typing import Optional, List
 
-from .connection import get_cursor, serialize_row, serialize_rows, _NOT_PROVIDED
+from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
+
+from .session import SessionLocal, _NOT_PROVIDED
+from models import Proceeding, Jurisdiction, ProceedingJudge, Judge
+
+
+def _proceeding_to_dict(p: Proceeding, judges_list: list = None) -> dict:
+    """Convert a Proceeding ORM instance to a serializable dict."""
+    d = {
+        "id": p.id,
+        "case_id": p.case_id,
+        "case_number": p.case_number,
+        "jurisdiction_id": p.jurisdiction_id,
+        "sort_order": p.sort_order,
+        "is_primary": p.is_primary,
+        "notes": p.notes,
+        "courtlistener_docket_id": p.courtlistener_docket_id,
+        "pacer_case_id": p.pacer_case_id,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+        "jurisdiction_name": p.jurisdiction.name if p.jurisdiction else None,
+        "local_rules_link": p.jurisdiction.local_rules_link if p.jurisdiction else None,
+    }
+
+    judges = judges_list if judges_list is not None else []
+    d["judges"] = judges
+
+    # Backwards compatibility: set judge_name/judge_id from first judge
+    if judges:
+        d["judge_name"] = judges[0].get("name")
+        d["judge_id"] = judges[0].get("judge_id")
+    else:
+        d["judge_name"] = None
+        d["judge_id"] = None
+
+    return d
+
+
+def _fetch_judges_for_proceedings(session, proceeding_ids: List[int]) -> dict:
+    """Fetch all judges for a set of proceeding IDs, grouped by proceeding_id."""
+    if not proceeding_ids:
+        return {}
+
+    stmt = (
+        select(ProceedingJudge, Judge)
+        .join(Judge, ProceedingJudge.judge_id == Judge.id)
+        .where(ProceedingJudge.proceeding_id.in_(proceeding_ids))
+        .order_by(ProceedingJudge.sort_order, ProceedingJudge.id)
+    )
+    rows = session.execute(stmt).all()
+
+    judges_by_proceeding = {}
+    for pj, judge in rows:
+        pid = pj.proceeding_id
+        if pid not in judges_by_proceeding:
+            judges_by_proceeding[pid] = []
+        judges_by_proceeding[pid].append({
+            "judge_id": pj.judge_id,
+            "name": judge.name,
+            "role": pj.role,
+            "sort_order": pj.sort_order,
+        })
+
+    return judges_by_proceeding
 
 
 def add_proceeding(case_id: int, case_number: str, jurisdiction_id: int = None,
@@ -18,156 +82,88 @@ def add_proceeding(case_id: int, case_number: str, jurisdiction_id: int = None,
                    notes: str = None, courtlistener_docket_id: int = None,
                    pacer_case_id: str = None) -> dict:
     """Add a proceeding to a case."""
-    with get_cursor() as cur:
-        # Determine sort_order if not provided, and check if this is the first proceeding
-        cur.execute("""
-            SELECT COUNT(*) as count, COALESCE(MAX(sort_order), 0) + 1 as next_order
-            FROM proceedings WHERE case_id = %s
-        """, (case_id,))
-        result = cur.fetchone()
+    with SessionLocal() as session:
+        # Count existing and determine sort_order
+        row = session.execute(
+            select(
+                func.count(Proceeding.id).label("count"),
+                func.coalesce(func.max(Proceeding.sort_order), 0).label("max_order"),
+            ).where(Proceeding.case_id == case_id)
+        ).one()
+
         if sort_order is None:
-            sort_order = result["next_order"]
+            sort_order = row.max_order + 1
 
         # Auto-set as primary if this is the first proceeding for the case
-        if result["count"] == 0:
+        if row.count == 0:
             is_primary = True
 
         # If this is marked as primary, unmark others
         if is_primary:
-            cur.execute("""
-                UPDATE proceedings SET is_primary = FALSE WHERE case_id = %s
-            """, (case_id,))
+            session.execute(
+                Proceeding.__table__.update()
+                .where(Proceeding.case_id == case_id)
+                .values(is_primary=False)
+            )
 
-        cur.execute("""
-            INSERT INTO proceedings (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes,
-                                     courtlistener_docket_id, pacer_case_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, case_id, case_number, jurisdiction_id, sort_order, is_primary, notes,
-                      courtlistener_docket_id, pacer_case_id, created_at, updated_at
-        """, (case_id, case_number, jurisdiction_id, sort_order, is_primary, notes,
-              courtlistener_docket_id, pacer_case_id))
-        row = cur.fetchone()
+        p = Proceeding(
+            case_id=case_id,
+            case_number=case_number,
+            jurisdiction_id=jurisdiction_id,
+            sort_order=sort_order,
+            is_primary=is_primary,
+            notes=notes,
+            courtlistener_docket_id=courtlistener_docket_id,
+            pacer_case_id=pacer_case_id,
+        )
+        session.add(p)
+        session.flush()
+        session.refresh(p)
 
-        # Get jurisdiction name if available
-        jurisdiction_name = None
-        local_rules_link = None
+        # Eagerly load jurisdiction if present
         if jurisdiction_id:
-            cur.execute("SELECT name, local_rules_link FROM jurisdictions WHERE id = %s", (jurisdiction_id,))
-            jrow = cur.fetchone()
-            if jrow:
-                jurisdiction_name = jrow["name"]
-                local_rules_link = jrow["local_rules_link"]
+            session.refresh(p, attribute_names=["jurisdiction"])
 
-        proceeding = dict(row)
-        proceeding["jurisdiction_name"] = jurisdiction_name
-        proceeding["local_rules_link"] = local_rules_link
-        proceeding["judges"] = []
-        proceeding["judge_name"] = None
-        proceeding["judge_id"] = None
-
-        return serialize_row(proceeding)
+        result = _proceeding_to_dict(p, judges_list=[])
+        session.commit()
+        return result
 
 
 def get_proceedings(case_id: int) -> List[dict]:
     """Get all proceedings for a case with their judges."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id,
-                   p.sort_order, p.is_primary, p.notes,
-                   p.courtlistener_docket_id, p.pacer_case_id,
-                   p.created_at, p.updated_at,
-                   j.name as jurisdiction_name, j.local_rules_link
-            FROM proceedings p
-            LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
-            WHERE p.case_id = %s
-            ORDER BY p.sort_order, p.id
-        """, (case_id,))
-        proceedings = [dict(row) for row in cur.fetchall()]
+    with SessionLocal() as session:
+        stmt = (
+            select(Proceeding)
+            .options(joinedload(Proceeding.jurisdiction))
+            .where(Proceeding.case_id == case_id)
+            .order_by(Proceeding.sort_order, Proceeding.id)
+        )
+        proceedings = session.scalars(stmt).unique().all()
 
         # Fetch judges for all proceedings in one query
-        if proceedings:
-            proceeding_ids = [p["id"] for p in proceedings]
-            cur.execute("""
-                SELECT pj.proceeding_id, pj.judge_id, pj.role, pj.sort_order,
-                       jdg.name as judge_name
-                FROM proceeding_judges pj
-                JOIN judges jdg ON pj.judge_id = jdg.id
-                WHERE pj.proceeding_id = ANY(%s)
-                ORDER BY pj.sort_order, pj.id
-            """, (proceeding_ids,))
+        proceeding_ids = [p.id for p in proceedings]
+        judges_by_proceeding = _fetch_judges_for_proceedings(session, proceeding_ids)
 
-            # Group judges by proceeding_id
-            judges_by_proceeding = {}
-            for row in cur.fetchall():
-                pid = row["proceeding_id"]
-                if pid not in judges_by_proceeding:
-                    judges_by_proceeding[pid] = []
-                judges_by_proceeding[pid].append({
-                    "judge_id": row["judge_id"],
-                    "name": row["judge_name"],
-                    "role": row["role"],
-                    "sort_order": row["sort_order"]
-                })
-
-            # Attach judges to proceedings
-            for p in proceedings:
-                p["judges"] = judges_by_proceeding.get(p["id"], [])
-                # For backwards compatibility, set judge_name from first judge
-                if p["judges"]:
-                    p["judge_name"] = p["judges"][0]["name"]
-                    p["judge_id"] = p["judges"][0]["judge_id"]
-                else:
-                    p["judge_name"] = None
-                    p["judge_id"] = None
-
-        return serialize_rows(proceedings)
+        return [
+            _proceeding_to_dict(p, judges_by_proceeding.get(p.id, []))
+            for p in proceedings
+        ]
 
 
 def get_proceeding_by_id(proceeding_id: int) -> Optional[dict]:
     """Get a proceeding by ID with joined jurisdiction and judge data."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT p.id, p.case_id, p.case_number, p.jurisdiction_id,
-                   p.sort_order, p.is_primary, p.notes,
-                   p.courtlistener_docket_id, p.pacer_case_id,
-                   p.created_at, p.updated_at,
-                   j.name as jurisdiction_name, j.local_rules_link
-            FROM proceedings p
-            LEFT JOIN jurisdictions j ON p.jurisdiction_id = j.id
-            WHERE p.id = %s
-        """, (proceeding_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        stmt = (
+            select(Proceeding)
+            .options(joinedload(Proceeding.jurisdiction))
+            .where(Proceeding.id == proceeding_id)
+        )
+        p = session.scalars(stmt).unique().first()
+        if not p:
             return None
 
-        proceeding = dict(row)
-
-        # Fetch judges for this proceeding
-        cur.execute("""
-            SELECT pj.judge_id, pj.role, pj.sort_order,
-                   jdg.name as judge_name
-            FROM proceeding_judges pj
-            JOIN judges jdg ON pj.judge_id = jdg.id
-            WHERE pj.proceeding_id = %s
-            ORDER BY pj.sort_order, pj.id
-        """, (proceeding_id,))
-
-        proceeding["judges"] = [{
-            "judge_id": r["judge_id"],
-            "name": r["judge_name"],
-            "role": r["role"],
-            "sort_order": r["sort_order"]
-        } for r in cur.fetchall()]
-
-        # For backwards compatibility
-        if proceeding["judges"]:
-            proceeding["judge_name"] = proceeding["judges"][0]["name"]
-            proceeding["judge_id"] = proceeding["judges"][0]["judge_id"]
-        else:
-            proceeding["judge_name"] = None
-            proceeding["judge_id"] = None
-
-        return serialize_row(proceeding)
+        judges_by_proceeding = _fetch_judges_for_proceedings(session, [p.id])
+        return _proceeding_to_dict(p, judges_by_proceeding.get(p.id, []))
 
 
 def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
@@ -176,63 +172,36 @@ def update_proceeding(proceeding_id: int, case_number: str = _NOT_PROVIDED,
                       notes: str = _NOT_PROVIDED, courtlistener_docket_id: int = _NOT_PROVIDED,
                       pacer_case_id: str = _NOT_PROVIDED) -> Optional[dict]:
     """Update a proceeding."""
-    updates = []
-    params = []
+    with SessionLocal() as session:
+        p = session.get(Proceeding, proceeding_id)
+        if not p:
+            return None
 
-    if case_number is not _NOT_PROVIDED:
-        updates.append("case_number = %s")
-        params.append(case_number)
-
-    if jurisdiction_id is not _NOT_PROVIDED:
-        updates.append("jurisdiction_id = %s")
-        params.append(jurisdiction_id)
-
-    if sort_order is not _NOT_PROVIDED:
-        updates.append("sort_order = %s")
-        params.append(sort_order)
-
-    if is_primary is not _NOT_PROVIDED:
-        updates.append("is_primary = %s")
-        params.append(is_primary)
-
-    if notes is not _NOT_PROVIDED:
-        updates.append("notes = %s")
-        params.append(notes if notes else None)
-
-    if courtlistener_docket_id is not _NOT_PROVIDED:
-        updates.append("courtlistener_docket_id = %s")
-        params.append(courtlistener_docket_id)
-
-    if pacer_case_id is not _NOT_PROVIDED:
-        updates.append("pacer_case_id = %s")
-        params.append(pacer_case_id)
-
-    if not updates:
-        return get_proceeding_by_id(proceeding_id)
-
-    updates.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(proceeding_id)
-
-    with get_cursor() as cur:
         # If setting as primary, unmark others first
         if is_primary is not _NOT_PROVIDED and is_primary:
-            cur.execute("""
-                SELECT case_id FROM proceedings WHERE id = %s
-            """, (proceeding_id,))
-            row = cur.fetchone()
-            if row:
-                cur.execute("""
-                    UPDATE proceedings SET is_primary = FALSE WHERE case_id = %s AND id != %s
-                """, (row["case_id"], proceeding_id))
+            session.execute(
+                Proceeding.__table__.update()
+                .where(Proceeding.case_id == p.case_id, Proceeding.id != proceeding_id)
+                .values(is_primary=False)
+            )
 
-        cur.execute(f"""
-            UPDATE proceedings SET {', '.join(updates)}
-            WHERE id = %s
-            RETURNING id
-        """, params)
-        row = cur.fetchone()
-        if not row:
-            return None
+        if case_number is not _NOT_PROVIDED:
+            p.case_number = case_number
+        if jurisdiction_id is not _NOT_PROVIDED:
+            p.jurisdiction_id = jurisdiction_id
+        if sort_order is not _NOT_PROVIDED:
+            p.sort_order = sort_order
+        if is_primary is not _NOT_PROVIDED:
+            p.is_primary = is_primary
+        if notes is not _NOT_PROVIDED:
+            p.notes = notes if notes else None
+        if courtlistener_docket_id is not _NOT_PROVIDED:
+            p.courtlistener_docket_id = courtlistener_docket_id
+        if pacer_case_id is not _NOT_PROVIDED:
+            p.pacer_case_id = pacer_case_id
+
+        p.updated_at = func.now()
+        session.commit()
 
     return get_proceeding_by_id(proceeding_id)
 
@@ -242,25 +211,23 @@ def delete_proceeding(proceeding_id: int) -> bool:
 
     If only one proceeding remains after deletion, it becomes primary automatically.
     """
-    with get_cursor() as cur:
-        # Get case_id before deleting
-        cur.execute("SELECT case_id FROM proceedings WHERE id = %s", (proceeding_id,))
-        row = cur.fetchone()
-        if not row:
+    with SessionLocal() as session:
+        p = session.get(Proceeding, proceeding_id)
+        if not p:
             return False
-        case_id = row["case_id"]
 
-        cur.execute("DELETE FROM proceedings WHERE id = %s", (proceeding_id,))
-        if cur.rowcount == 0:
-            return False
+        case_id = p.case_id
+        session.delete(p)
+        session.flush()
 
         # If only one proceeding remains, make it primary
-        cur.execute("""
-            UPDATE proceedings SET is_primary = TRUE
-            WHERE case_id = %s
-            AND (SELECT COUNT(*) FROM proceedings WHERE case_id = %s) = 1
-        """, (case_id, case_id))
+        remaining = session.scalars(
+            select(Proceeding).where(Proceeding.case_id == case_id)
+        ).all()
+        if len(remaining) == 1:
+            remaining[0].is_primary = True
 
+        session.commit()
         return True
 
 
@@ -270,27 +237,21 @@ def delete_proceeding(proceeding_id: int) -> bool:
 
 def get_proceeding_by_courtlistener_docket_id(docket_id: int) -> Optional[dict]:
     """Find a proceeding by its CourtListener docket ID."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id FROM proceedings
-            WHERE courtlistener_docket_id = %s
-        """, (docket_id,))
-        row = cur.fetchone()
-        if row:
-            return get_proceeding_by_id(row["id"])
+    with SessionLocal() as session:
+        stmt = select(Proceeding.id).where(Proceeding.courtlistener_docket_id == docket_id)
+        pid = session.scalar(stmt)
+        if pid:
+            return get_proceeding_by_id(pid)
         return None
 
 
 def get_proceeding_by_pacer_case_id(pacer_case_id: str) -> Optional[dict]:
     """Find a proceeding by its PACER case ID (e.g., 'gov.uscourts.cacd.980378')."""
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT id FROM proceedings
-            WHERE pacer_case_id = %s
-        """, (pacer_case_id,))
-        row = cur.fetchone()
-        if row:
-            return get_proceeding_by_id(row["id"])
+    with SessionLocal() as session:
+        stmt = select(Proceeding.id).where(Proceeding.pacer_case_id == pacer_case_id)
+        pid = session.scalar(stmt)
+        if pid:
+            return get_proceeding_by_id(pid)
         return None
 
 
