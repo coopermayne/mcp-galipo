@@ -285,36 +285,11 @@ def _get_or_create_role_id(session, role_name: str) -> int:
     if role:
         return role.id
 
-    # Infer category from role name
-    category = _infer_role_category(role_name)
-
-    # Create the role
-    new_role = Role(name=role_name, category=category, sort_order=99)
+    new_role = Role(name=role_name, category="other", sort_order=99)
     session.add(new_role)
     session.flush()
     return new_role.id
 
-
-def _infer_role_category(role_name: str) -> str:
-    """Infer role category from role name."""
-    role_lower = role_name.lower() if role_name else ""
-
-    # Client category
-    if any(k in role_lower for k in ["client", "plaintiff"]):
-        return "client"
-
-    # Internal team
-    if any(k in role_lower for k in ["lead attorney", "associate attorney", "paralegal",
-                                      "case manager", "legal assistant"]):
-        return "internal_team"
-
-    # Opposing team
-    if any(k in role_lower for k in ["defense counsel", "opposing counsel", "defendant",
-                                      "defense expert"]):
-        return "opposing_team"
-
-    # Default to third_party
-    return "third_party"
 
 
 def _create_proceeding(session, case_id: int, proc_data: dict) -> dict:
