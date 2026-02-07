@@ -6,9 +6,11 @@ Handles event (calendar items: hearings, depositions, filing deadlines) CRUD ope
 
 import asyncio
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 import database as db
 import auth
-from .common import api_error, DEFAULT_PAGE_SIZE
+from schemas import CreateEventInput, UpdateEventInput
+from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 
 
 def register_event_routes(mcp):
@@ -51,17 +53,20 @@ def register_event_routes(mcp):
         """Create a new event (hearing, deposition, filing deadline, etc.)."""
         if err := auth.require_auth(request):
             return err
-        data = await request.json()
+        try:
+            data = CreateEventInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
         result = await asyncio.to_thread(
             db.add_event,
-            data["case_id"],
-            data["date"],
-            data["description"],
-            data.get("document_link"),
-            data.get("calculation_note"),
-            data.get("time"),
-            data.get("location"),
-            data.get("starred", False)
+            data.case_id,
+            data.date,
+            data.description,
+            data.document_link,
+            data.calculation_note,
+            data.time,
+            data.location,
+            data.starred,
         )
         return JSONResponse({"success": True, "event": result})
 
@@ -102,8 +107,12 @@ def register_event_routes(mcp):
         if err := auth.require_auth(request):
             return err
         event_id = int(request.path_params["event_id"])
-        data = await request.json()
-        result = await asyncio.to_thread(db.update_event_full, event_id, **data)
+        try:
+            data = UpdateEventInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+        updates = data.model_dump(exclude_none=True)
+        result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
         if not result:
             return api_error("Event not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "event": result})

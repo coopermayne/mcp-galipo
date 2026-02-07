@@ -6,9 +6,11 @@ Handles note CRUD operations for cases.
 
 import asyncio
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 import database as db
 import auth
-from .common import api_error
+from schemas import CreateNoteInput
+from .common import api_error, pydantic_error
 
 
 def register_note_routes(mcp):
@@ -19,8 +21,11 @@ def register_note_routes(mcp):
         """Create a new note."""
         if err := auth.require_auth(request):
             return err
-        data = await request.json()
-        result = await asyncio.to_thread(db.add_note, data["case_id"], data["content"])
+        try:
+            data = CreateNoteInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+        result = await asyncio.to_thread(db.add_note, data.case_id, data.content)
         return JSONResponse({"success": True, "note": result})
 
     @mcp.custom_route("/api/v1/notes/{note_id}", methods=["DELETE"])

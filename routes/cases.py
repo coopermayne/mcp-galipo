@@ -6,9 +6,11 @@ Handles case CRUD operations.
 
 import asyncio
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 import database as db
 import auth
-from .common import api_error, DEFAULT_PAGE_SIZE
+from schemas import CreateCaseInput, UpdateCaseInput
+from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 
 
 def register_case_routes(mcp):
@@ -55,16 +57,19 @@ def register_case_routes(mcp):
         """Create a new case."""
         if err := auth.require_auth(request):
             return err
-        data = await request.json()
+        try:
+            data = CreateCaseInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
         result = await asyncio.to_thread(
             db.create_case,
-            data["case_name"],
-            data.get("status", "Signing Up"),
-            print_code=data.get("print_code"),
-            case_summary=data.get("case_summary"),
-            result=data.get("result"),
-            date_of_injury=data.get("date_of_injury"),
-            short_name=data.get("short_name")
+            data.case_name,
+            data.status,
+            print_code=data.print_code,
+            case_summary=data.case_summary,
+            result=data.result,
+            date_of_injury=data.date_of_injury,
+            short_name=data.short_name
         )
         return JSONResponse({"success": True, "case": result})
 
@@ -74,8 +79,12 @@ def register_case_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = int(request.path_params["case_id"])
-        data = await request.json()
-        result = await asyncio.to_thread(db.update_case, case_id, **data)
+        try:
+            data = UpdateCaseInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+        updates = data.model_dump(exclude_none=True)
+        result = await asyncio.to_thread(db.update_case, case_id, **updates)
         if not result:
             return api_error("Case not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "case": result})

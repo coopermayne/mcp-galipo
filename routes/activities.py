@@ -6,9 +6,11 @@ Handles activity CRUD operations for cases.
 
 import asyncio
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 import database as db
 import auth
-from .common import api_error
+from schemas import CreateActivityInput
+from .common import api_error, pydantic_error
 
 
 def register_activity_routes(mcp):
@@ -19,32 +21,17 @@ def register_activity_routes(mcp):
         """Create a new activity."""
         if err := auth.require_auth(request):
             return err
-        data = await request.json()
-
-        # Validate required fields
-        case_id = data.get("case_id")
-        description = data.get("description")
-        activity_type = data.get("activity_type")
-        date = data.get("date")
-
-        if not case_id:
-            return api_error("case_id is required", "MISSING_FIELD", 400)
-        if not description:
-            return api_error("description is required", "MISSING_FIELD", 400)
-        if not activity_type:
-            return api_error("activity_type is required", "MISSING_FIELD", 400)
-        if not date:
-            return api_error("date is required", "MISSING_FIELD", 400)
-
-        minutes = data.get("minutes")
-
+        try:
+            data = CreateActivityInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
         result = await asyncio.to_thread(
             db.add_activity,
-            case_id,
-            description,
-            activity_type,
-            date,
-            minutes
+            data.case_id,
+            data.description,
+            data.activity_type,
+            data.date,
+            data.minutes,
         )
         return JSONResponse({"success": True, "activity": result})
 

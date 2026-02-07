@@ -12,53 +12,11 @@ from pydantic import BaseModel, Field
 from fastmcp import Context
 import database as db
 from database import ValidationError
-
-
-# =============================================================================
-# Type Definitions
-# =============================================================================
-
-CaseStatus = Literal[
-    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
-    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
-    "Settl. Pend.", "Stayed", "Closed"
-]
-
-TaskStatus = Literal[
-    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-]
-
-ActivityType = Literal[
-    "Meeting", "Filing", "Research", "Drafting", "Document Review",
-    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
-]
-
-PersonSide = Literal["plaintiff", "defendant", "neutral"]
-Urgency = Literal["Low", "Medium", "High", "Urgent"]
-SearchEntity = Literal["cases", "tasks", "events", "persons"]
-JudgeRole = Literal["Judge", "Magistrate Judge", "Presiding", "Panel"]
-
-
-# =============================================================================
-# Reference Data
-# =============================================================================
-
-CASE_STATUS_LIST = [
-    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
-    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
-    "Settl. Pend.", "Stayed", "Closed"
-]
-
-TASK_STATUS_LIST = [
-    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-]
-
-ACTIVITY_TYPE_LIST = [
-    "Meeting", "Filing", "Research", "Drafting", "Document Review",
-    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
-]
-
-PERSON_SIDE_LIST = ["plaintiff", "defendant", "neutral"]
+from schemas import (
+    CaseStatus, TaskStatus, ActivityType, PersonSide, Urgency,
+    SearchEntity, JudgeRole, ContactInfo,
+    CASE_STATUS_LIST, TASK_STATUS_LIST, ACTIVITY_TYPE_LIST, PERSON_SIDE_LIST,
+)
 
 
 def _get_roles_summary() -> str:
@@ -183,13 +141,6 @@ def resolve_role(name: str) -> dict | None:
 # =============================================================================
 # Pydantic Input Models
 # =============================================================================
-
-class ContactInfo(BaseModel):
-    """A phone number or email entry."""
-    value: str = Field(..., description="The phone number or email address")
-    label: str = Field("", description="Label: 'Mobile', 'Work', 'Home', 'Office', etc.")
-    primary: bool = Field(False, description="Whether this is the primary contact method")
-
 
 class SearchInput(BaseModel):
     """Universal search across all entities."""

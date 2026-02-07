@@ -1,0 +1,162 @@
+"""
+Shared Pydantic schemas and type definitions.
+
+Single source of truth for Literal types, derived list constants,
+and Pydantic input models used by both MCP tools and REST routes.
+"""
+
+from typing import Optional, Literal, get_args
+from pydantic import BaseModel, Field
+
+
+# =============================================================================
+# Literal Type Definitions
+# =============================================================================
+
+CaseStatus = Literal[
+    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
+    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
+    "Settl. Pend.", "Stayed", "Closed"
+]
+
+TaskStatus = Literal[
+    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
+]
+
+ActivityType = Literal[
+    "Meeting", "Filing", "Research", "Drafting", "Document Review",
+    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
+]
+
+PersonSide = Literal["plaintiff", "defendant", "neutral"]
+Urgency = Literal["Low", "Medium", "High", "Urgent"]
+SearchEntity = Literal["cases", "tasks", "events", "persons"]
+JudgeRole = Literal["Judge", "Magistrate Judge", "Presiding", "Panel"]
+
+
+# =============================================================================
+# Derived List Constants (from Literals — single source of truth)
+# =============================================================================
+
+CASE_STATUS_LIST: list[str] = list(get_args(CaseStatus))
+TASK_STATUS_LIST: list[str] = list(get_args(TaskStatus))
+ACTIVITY_TYPE_LIST: list[str] = list(get_args(ActivityType))
+PERSON_SIDE_LIST: list[str] = list(get_args(PersonSide))
+URGENCY_LIST: list[str] = list(get_args(Urgency))
+JUDGE_ROLE_LIST: list[str] = list(get_args(JudgeRole))
+
+
+# =============================================================================
+# Shared Sub-Models
+# =============================================================================
+
+class ContactInfo(BaseModel):
+    """A phone number or email entry."""
+    value: str = Field(..., description="The phone number or email address")
+    label: str = Field("", description="Label: 'Mobile', 'Work', 'Home', 'Office', etc.")
+    primary: bool = Field(False, description="Whether this is the primary contact method")
+
+
+# =============================================================================
+# Route Input Models — Cases
+# =============================================================================
+
+class CreateCaseInput(BaseModel):
+    case_name: str
+    status: Optional[CaseStatus] = "Signing Up"
+    short_name: Optional[str] = None
+    print_code: Optional[str] = None
+    case_summary: Optional[str] = None
+    result: Optional[str] = None
+    date_of_injury: Optional[str] = None
+
+
+class UpdateCaseInput(BaseModel):
+    case_name: Optional[str] = None
+    short_name: Optional[str] = None
+    status: Optional[CaseStatus] = None
+    print_code: Optional[str] = None
+    case_summary: Optional[str] = None
+    result: Optional[str] = None
+    date_of_injury: Optional[str] = None
+
+
+# =============================================================================
+# Route Input Models — Tasks
+# =============================================================================
+
+class CreateTaskInput(BaseModel):
+    case_id: int
+    description: str
+    due_date: Optional[str] = None
+    status: Optional[TaskStatus] = "Pending"
+    urgency: Optional[Urgency] = "Medium"
+    event_id: Optional[int] = None
+    assignee_id: Optional[int] = None
+
+
+class UpdateTaskInput(BaseModel):
+    description: Optional[str] = None
+    due_date: Optional[str] = None
+    completion_date: Optional[str] = None
+    status: Optional[TaskStatus] = None
+    urgency: Optional[Urgency] = None
+    event_id: Optional[int] = None
+    assignee_id: Optional[int] = None
+
+
+# =============================================================================
+# Route Input Models — Events
+# =============================================================================
+
+class CreateEventInput(BaseModel):
+    case_id: int
+    date: str
+    description: str
+    time: Optional[str] = None
+    location: Optional[str] = None
+    document_link: Optional[str] = None
+    calculation_note: Optional[str] = None
+    starred: Optional[bool] = False
+
+
+class UpdateEventInput(BaseModel):
+    date: Optional[str] = None
+    description: Optional[str] = None
+    time: Optional[str] = None
+    location: Optional[str] = None
+    document_link: Optional[str] = None
+    calculation_note: Optional[str] = None
+    starred: Optional[bool] = None
+
+
+# =============================================================================
+# Route Input Models — Activities
+# =============================================================================
+
+class CreateActivityInput(BaseModel):
+    case_id: int
+    description: str
+    activity_type: ActivityType
+    date: str
+    minutes: Optional[int] = None
+
+
+class UpdateActivityInput(BaseModel):
+    description: Optional[str] = None
+    activity_type: Optional[ActivityType] = None
+    date: Optional[str] = None
+    minutes: Optional[int] = None
+
+
+# =============================================================================
+# Route Input Models — Notes
+# =============================================================================
+
+class CreateNoteInput(BaseModel):
+    case_id: int
+    content: str
+
+
+class UpdateNoteInput(BaseModel):
+    content: str
