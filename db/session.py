@@ -1,4 +1,4 @@
-"""SQLAlchemy session factory — runs alongside the existing psycopg2 pool.
+"""SQLAlchemy session factory — the sole database connection layer.
 
 Usage in db/ modules:
     from db.session import SessionLocal

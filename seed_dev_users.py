@@ -56,19 +56,20 @@ def main():
     print(f"Seeding {len(DEV_USERS)} dev users with password: {DEV_PASSWORD}")
     print("")
 
-    # Import here to use the UPSERT-based seeding that preserves relationships
     from db.dev_users import _hash_password
-    from db.connection import get_cursor
+    from db.session import SessionLocal
+    from sqlalchemy import text
 
     password_hash = _hash_password(DEV_PASSWORD)
     user_ids = {}
 
-    with get_cursor() as cur:
+    with SessionLocal() as session:
         for user in DEV_USERS:
-            cur.execute("""
+            result = session.execute(text("""
                 INSERT INTO users (email, password_hash, first_name, last_name, initials,
                                    bar_number, position, is_admin, must_change_password)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, FALSE)
+                VALUES (:email, :password_hash, :first_name, :last_name, :initials,
+                        :bar_number, :position, :is_admin, FALSE)
                 ON CONFLICT (email) DO UPDATE SET
                     password_hash = EXCLUDED.password_hash,
                     first_name = EXCLUDED.first_name,
@@ -81,18 +82,18 @@ def main():
                     is_active = TRUE,
                     updated_at = CURRENT_TIMESTAMP
                 RETURNING id
-            """, (
-                user["email"].lower(),
-                password_hash,
-                user["first_name"],
-                user["last_name"],
-                user["initials"],
-                user["bar_number"],
-                user["position"],
-                user["is_admin"],
-            ))
-            result = cur.fetchone()
-            user_ids[user["email"].lower()] = result["id"] if isinstance(result, dict) else result[0]
+            """), {
+                "email": user["email"].lower(),
+                "password_hash": password_hash,
+                "first_name": user["first_name"],
+                "last_name": user["last_name"],
+                "initials": user["initials"],
+                "bar_number": user["bar_number"],
+                "position": user["position"],
+                "is_admin": user["is_admin"],
+            })
+            row = result.mappings().first()
+            user_ids[user["email"].lower()] = row["id"]
             print(f"  ✓ {user['first_name']} {user['last_name']} ({user['email']})")
 
         print("")
@@ -101,10 +102,12 @@ def main():
             if user.get("paralegal_email"):
                 paralegal_id = user_ids.get(user["paralegal_email"].lower())
                 if paralegal_id:
-                    cur.execute("""
-                        UPDATE users SET paralegal_id = %s WHERE email = %s
-                    """, (paralegal_id, user["email"].lower()))
+                    session.execute(text("""
+                        UPDATE users SET paralegal_id = :paralegal_id WHERE email = :email
+                    """), {"paralegal_id": paralegal_id, "email": user["email"].lower()})
                     print(f"  ✓ {user['first_name']} {user['last_name']} → {user['paralegal_email'].split('@')[0]}")
+
+        session.commit()
 
     print("")
     print(f"Done! {len(DEV_USERS)} users seeded with password: {DEV_PASSWORD}")

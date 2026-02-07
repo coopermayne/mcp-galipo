@@ -7,7 +7,7 @@ Handles activity CRUD operations for cases.
 import asyncio
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-import database as db
+import db
 import auth
 from schemas import CreateActivityInput
 from .common import api_error, pydantic_error

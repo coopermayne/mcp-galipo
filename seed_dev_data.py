@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Ensure we can import from the project
-import database as db
+import db
 
 def seed_dev_data():
     """Seed the database with development mock data."""
