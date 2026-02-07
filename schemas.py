@@ -6,6 +6,7 @@ and Pydantic input models used by both MCP tools and REST routes.
 """
 
 from typing import Optional, Literal, get_args
+from datetime import date as date_type, datetime as datetime_type
 from pydantic import BaseModel, Field
 
 
@@ -147,6 +148,19 @@ class UpdateActivityInput(BaseModel):
     activity_type: Optional[ActivityType] = None
     date: Optional[str] = None
     minutes: Optional[int] = None
+
+
+class ActivityOut(BaseModel):
+    """Output schema for Activity ORM objects."""
+    model_config = {"from_attributes": True}
+
+    id: int
+    case_id: Optional[int] = None
+    date: date_type
+    description: str
+    type: str
+    minutes: Optional[int] = None
+    created_at: Optional[datetime_type] = None
 
 
 # =============================================================================
