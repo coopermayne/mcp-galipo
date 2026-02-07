@@ -30,9 +30,6 @@ from .validation import (
 from .connection import (
     DATABASE_URL,
     _NOT_PROVIDED,
-    serialize_value,
-    serialize_row,
-    serialize_rows,
     get_connection,
     get_cursor,
     drop_all_tables,
@@ -255,9 +252,6 @@ __all__ = [
     # Connection
     "DATABASE_URL",
     "_NOT_PROVIDED",
-    "serialize_value",
-    "serialize_row",
-    "serialize_rows",
     "get_connection",
     "get_cursor",
     "drop_all_tables",
