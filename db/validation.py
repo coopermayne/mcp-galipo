@@ -3,22 +3,14 @@ Validation helper functions for database operations.
 """
 
 import re
+from schemas import (
+    CASE_STATUS_LIST, TASK_STATUS_LIST, ACTIVITY_TYPE_LIST, URGENCY_LIST,
+)
 
-# Valid statuses and roles
-CASE_STATUSES = [
-    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
-    "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
-    "Settl. Pend.", "Stayed", "Closed"
-]
-
-TASK_STATUSES = [
-    "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-]
-
-ACTIVITY_TYPES = [
-    "Meeting", "Filing", "Research", "Drafting", "Document Review",
-    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
-]
+# Backwards-compatible aliases (used throughout db/ and routes/)
+CASE_STATUSES = CASE_STATUS_LIST
+TASK_STATUSES = TASK_STATUS_LIST
+ACTIVITY_TYPES = ACTIVITY_TYPE_LIST
 
 # Role categories for the unified roles system
 ROLE_CATEGORIES = ["expert", "counsel", "mediator", "client", "defendant", "other"]
@@ -97,7 +89,7 @@ def validate_task_status(status: str) -> str:
     return status
 
 
-URGENCY_VALUES = ["Low", "Medium", "High", "Urgent"]
+URGENCY_VALUES = URGENCY_LIST
 
 
 def validate_urgency(urgency: str) -> str:

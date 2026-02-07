@@ -6,9 +6,11 @@ Handles task CRUD operations and reordering.
 
 import asyncio
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 import database as db
 import auth
-from .common import api_error, DEFAULT_PAGE_SIZE
+from schemas import CreateTaskInput, UpdateTaskInput
+from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 
 
 def register_task_routes(mcp):
@@ -50,16 +52,19 @@ def register_task_routes(mcp):
         """Create a new task."""
         if err := auth.require_auth(request):
             return err
-        data = await request.json()
+        try:
+            data = CreateTaskInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
         result = await asyncio.to_thread(
             db.add_task,
-            data["case_id"],
-            data["description"],
-            data.get("due_date"),
-            data.get("status", "Pending"),
-            data.get("urgency", "Medium"),
-            data.get("event_id"),
-            data.get("assignee_id")
+            data.case_id,
+            data.description,
+            data.due_date,
+            data.status,
+            data.urgency,
+            data.event_id,
+            data.assignee_id
         )
         return JSONResponse({"success": True, "task": result})
 
@@ -69,8 +74,12 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         task_id = int(request.path_params["task_id"])
-        data = await request.json()
-        result = await asyncio.to_thread(db.update_task_full, task_id, **data)
+        try:
+            data = UpdateTaskInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+        updates = data.model_dump(exclude_none=True)
+        result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "task": result})
