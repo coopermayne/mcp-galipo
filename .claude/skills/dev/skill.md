@@ -121,34 +121,27 @@ done
 
 ### Step 4: Final Status Summary
 
+Extract the database name from `DATABASE_URL` and report the final status as a **markdown table** with statuses, ports, and the database name. Include the frontend link.
+
 ```bash
-echo ""
-echo "=== Dev Server Status ==="
+# Extract DB name from DATABASE_URL (last path segment)
+DB_NAME=$(echo "$DATABASE_URL" | sed 's|.*/||' | sed 's|\?.*||')
 
-# PostgreSQL
-if nc -z localhost 5432 2>/dev/null; then
-    echo "PostgreSQL: OK (port 5432)"
-else
-    echo "PostgreSQL: FAILED - port 5432 not listening"
-fi
-
-# Backend
-if curl -s --max-time 2 http://localhost:$PORT/api/v1/chat/debug 2>/dev/null | grep -q "ok"; then
-    echo "Backend:    OK (port $PORT)"
-else
-    echo "Backend:    FAILED - check /tmp/backend_$PORT.log"
-fi
-
-# Frontend
-if curl -s --max-time 2 -o /dev/null -w "%{http_code}" http://localhost:$VITE_PORT 2>/dev/null | grep -q "200"; then
-    echo "Frontend:   OK (port $VITE_PORT)"
-else
-    echo "Frontend:   FAILED - check /tmp/frontend_$VITE_PORT.log"
-fi
-
-echo ""
-echo "Frontend URL: http://localhost:$VITE_PORT"
+# Determine statuses
+if nc -z localhost 5432 2>/dev/null; then PG_STATUS="OK"; else PG_STATUS="FAILED"; fi
+if curl -s --max-time 2 http://localhost:$PORT/api/v1/chat/debug 2>/dev/null | grep -q "ok"; then BE_STATUS="OK"; else BE_STATUS="FAILED"; fi
+if curl -s --max-time 2 -o /dev/null -w "%{http_code}" http://localhost:$VITE_PORT 2>/dev/null | grep -q "200"; then FE_STATUS="OK"; else FE_STATUS="FAILED"; fi
 ```
+
+Then output the result to the user as a **markdown table** (not echo — render it directly in your response) like this:
+
+| Service | Status | Port | Database |
+|---------|--------|------|----------|
+| PostgreSQL | $PG_STATUS | 5432 | $DB_NAME |
+| Backend | $BE_STATUS | $PORT | |
+| Frontend | $FE_STATUS | $VITE_PORT | |
+
+Frontend URL: http://localhost:$VITE_PORT
 
 ## Quick Reference
 
@@ -223,4 +216,4 @@ Right: `set -a && source .env && set +a && python script.py`
 
 ---
 
-Execute these steps, reporting the final status summary to the user.
+Execute these steps, reporting the final status as a markdown table (with Service, Status, Port, Database columns) and the frontend URL link to the user.
