@@ -24,6 +24,9 @@ URGENCY_REVERSE = {v: k for k, v in URGENCY_MAP.items()}
 
 def upgrade() -> None:
     """Convert urgency from integer (1-4) to varchar (Low/Medium/High/Urgent)."""
+    # 0. Drop existing integer CHECK constraint if present
+    op.execute("ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_urgency_check")
+
     # 1. Add a temporary varchar column
     op.add_column('tasks', sa.Column('urgency_new', sa.String(20)))
 
@@ -41,6 +44,12 @@ def upgrade() -> None:
     op.drop_column('tasks', 'urgency')
     op.alter_column('tasks', 'urgency_new', new_column_name='urgency',
                     server_default=sa.text("'Medium'::character varying"))
+
+    # 4. Add new string CHECK constraint
+    op.create_check_constraint(
+        'tasks_urgency_check', 'tasks',
+        "urgency IN ('Low', 'Medium', 'High', 'Urgent')"
+    )
 
 
 def downgrade() -> None:
