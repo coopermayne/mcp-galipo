@@ -115,6 +115,11 @@ class SearchInput(BaseModel):
     assignee_id: Optional[int] = Field(None, description="(tasks) Filter by assigned user")
     # Event-specific filters
     include_past: Optional[bool] = Field(False, description="(events) Include past events")
+    # Date filters (tasks use due_date, events use event date)
+    date_before: Optional[str] = Field(None, description="(tasks/events) Only results on or before this date YYYY-MM-DD")
+    date_after: Optional[str] = Field(None, description="(tasks/events) Only results on or after this date YYYY-MM-DD")
+    # Scoping
+    my_cases_only: bool = Field(True, description="Limit to cases assigned to the current user. Set false to search all cases.")
     # Pagination
     limit: int = Field(50, description="Max results (1-200)", ge=1, le=200)
     offset: int = Field(0, description="Pagination offset", ge=0)
@@ -453,16 +458,24 @@ def register_tools(mcp):
         - search(entity="events", case_id=1, include_past=true) — all events
         """
         context.info(f"Searching {data.entity}" + (f" for '{data.query}'" if data.query else ""))
+
+        # Resolve user_id for case scoping (only when my_cases_only is True)
+        # user_id is carried on the context object (set by ChatContext in chat,
+        # or None when called via MCP directly)
+        user_id = getattr(context, "user_id", None) if data.my_cases_only else None
+
         try:
             if data.entity == "cases":
                 results = db.search_cases(
                     query=data.query,
                     status=data.status,
                     limit=data.limit,
+                    user_id=user_id,
                 )
                 return {"success": True, "cases": results}
 
             elif data.entity == "persons":
+                # Persons are not case-scoped — skip user_id filtering
                 # If case_id provided with no other filters, get case roster
                 if data.case_id and not data.query and not data.organization:
                     role_id = None
@@ -499,12 +512,16 @@ def register_tools(mcp):
                         include_past=data.include_past or False,
                         limit=data.limit,
                         offset=data.offset,
+                        user_id=user_id,
                     )
                     return {"success": True, **results}
                 results = db.search_events(
                     query=data.query,
                     case_id=data.case_id,
                     limit=data.limit,
+                    user_id=user_id,
+                    date_before=data.date_before,
+                    date_after=data.date_after,
                 )
                 return {"success": True, "events": results}
 
@@ -516,10 +533,14 @@ def register_tools(mcp):
                     urgency=data.urgency,
                     assignee_id=data.assignee_id,
                     limit=data.limit,
+                    user_id=user_id,
+                    due_date_before=data.date_before,
+                    due_date_after=data.date_after,
                 )
                 return {"success": True, "tasks": results}
 
             elif data.entity == "judges":
+                # Judges are not case-scoped — skip user_id filtering
                 results = db.get_judges(
                     search=data.query,
                     limit=data.limit,

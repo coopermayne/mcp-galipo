@@ -335,12 +335,18 @@ def reschedule_overdue_tasks(new_date: str) -> dict:
 
 
 def search_tasks(query: str = None, case_id: int = None, status: str = None,
-                 urgency: str = None, assignee_id: int = None, limit: int = 50) -> List[dict]:
+                 urgency: str = None, assignee_id: int = None, limit: int = 50,
+                 user_id: int = None, due_date_before: str = None,
+                 due_date_after: str = None) -> List[dict]:
     """Search tasks by various criteria."""
     if status:
         validate_task_status(status)
     if urgency:
         validate_urgency(urgency)
+    if due_date_before:
+        validate_date_format(due_date_before, "due_date_before")
+    if due_date_after:
+        validate_date_format(due_date_after, "due_date_after")
 
     has_events_sq = (
         exists(select(Event.id).where(Event.case_id == Task.case_id))
@@ -366,6 +372,16 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         stmt = stmt.where(Task.urgency == urgency)
     if assignee_id:
         stmt = stmt.where(Task.assignee_id == assignee_id)
+    if user_id:
+        uid_arr = cast([user_id], SA_ARRAY(Integer()))
+        stmt = stmt.where(
+            Case.attorney_ids.op('@>')(uid_arr)
+            | Case.paralegal_ids.op('@>')(uid_arr)
+        )
+    if due_date_before:
+        stmt = stmt.where(Task.due_date <= due_date_before)
+    if due_date_after:
+        stmt = stmt.where(Task.due_date >= due_date_after)
 
     with SessionLocal() as session:
         rows = session.execute(stmt).all()
