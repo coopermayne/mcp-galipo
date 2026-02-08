@@ -223,7 +223,7 @@ const colorClasses = getBadgeColorClassesById(userId);
 
 The Dockerfile does NOT use a wildcard — it explicitly lists every file and directory to copy:
 ```dockerfile
-COPY main.py models.py tools.py routes.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
+COPY main.py models.py tools.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
 COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
@@ -359,7 +359,7 @@ Run `/dev` in each repo's Claude Code session. The backend will auto-run migrati
 ```bash
 cd mcp-galipo_2
 set -a && source .env && set +a
-.venv/bin/python seed_dev_data.py
+.venv/bin/python scripts/seed_dev_data.py
 ```
 
 Repeat for mcp-galipo_3.

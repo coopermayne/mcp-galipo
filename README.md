@@ -74,7 +74,7 @@ Galipo operates as both:
 
 ## Quick Start
 
-See [SETUP.md](./SETUP.md) for detailed development setup instructions.
+See [SETUP.md](./docs/SETUP.md) for detailed development setup instructions.
 
 ```bash
 # Clone and install
@@ -148,8 +148,8 @@ Galipo exposes 41 MCP tools across these categories:
 
 ## Documentation
 
-- [SETUP.md](./SETUP.md) - Development environment setup
-- [TODO.md](./TODO.md) - Planned features and known issues
+- [SETUP.md](./docs/SETUP.md) - Development environment setup
+- [TODO.md](./docs/todo.md) - Planned features and known issues
 - [docs/](./docs/) - Additional planning documents
 
 ## Development with Claude Code
