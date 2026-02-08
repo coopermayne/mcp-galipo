@@ -96,7 +96,9 @@ This is a read-only mode - do not create, update, or delete data.""",
     },
     "full": {
         "tools": [],  # Empty = all tools available
-        "system_prompt_addition": "",
+        "system_prompt_addition": """You have access to all available tools. Help the user with any request related to their cases, tasks, events, contacts, notes, and more.
+
+Call ALL needed tools in a SINGLE response using parallel tool calls. Be concise and action-oriented.""",
     },
 }
 

@@ -98,6 +98,7 @@ export interface StreamEvent {
   // For 'done' events
   conversation_id?: string;
   tool_calls?: ToolCall[];
+  model?: string;
   // For 'error' events
   error?: string;
   // Legacy nested format (kept for compatibility)

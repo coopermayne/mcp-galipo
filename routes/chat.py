@@ -191,7 +191,10 @@ def register_chat_routes(mcp):
     async def api_chat_info(request):
         """Return chat configuration info (model name, etc.)."""
         from config import settings as _settings
-        return JSONResponse({"model": _settings.chat_model})
+        return JSONResponse({
+            "model": _settings.chat_model,
+            "model_full": _settings.chat_model_full,
+        })
 
     @mcp.custom_route("/api/v1/chat/stream", methods=["POST"])
     async def api_chat_stream(request):
@@ -286,6 +289,22 @@ def register_chat_routes(mcp):
             tools = get_tool_definitions(mode)
         _logger.info(f"Tools after filtering: {len(tools)} tools")
 
+        # Model selection: Sonnet for freeform (full mode), Haiku for presets + scoped modes
+        if preset_data:
+            selected_model = None  # Default (haiku) — just summarizing pre-loaded data
+        elif mode and mode != "full":
+            selected_model = None  # Default (haiku) — scoped tools, clear intent
+        else:
+            selected_model = client.model_full  # Sonnet — freeform, all tools
+        _logger.info(f"Selected model: {selected_model or client.model}")
+
+        # Look up logged-in user and available roles for system prompt context
+        import db as _db
+        current_user = None
+        if username:
+            current_user = _db.get_user_by_email(username)
+        available_roles = _db.get_roles()
+
         # Build system prompt with current date and optional case context
         from datetime import datetime
         from zoneinfo import ZoneInfo
@@ -307,6 +326,27 @@ You can help users:
 When dates are mentioned without a year, infer the year from context.
 
 Always be helpful and concise. When you need more information to complete a task, ask clarifying questions."""
+
+        # Add logged-in user identity
+        if current_user:
+            user_name = f"{current_user['first_name']} {current_user['last_name']}"
+            user_info = f"\n\nYou are speaking with {user_name} (user ID: {current_user['id']}, position: {current_user['position']})."
+            if current_user.get('paralegal_id') and current_user.get('paralegal'):
+                p = current_user['paralegal']
+                user_info += f" Their default paralegal is {p['first_name']} {p['last_name']} (user ID: {p['id']})."
+            system_prompt += user_info
+
+        # Add available roles for person assignment
+        if available_roles:
+            roles_by_category: dict[str, list[str]] = {}
+            for r in available_roles:
+                cat = r.get("category", "other")
+                roles_by_category.setdefault(cat, []).append(r["name"])
+            roles_text = "\n\nAvailable roles for person assignment (use these exact names with manage_person or manage_case_role):"
+            for cat, names in roles_by_category.items():
+                roles_text += f"\n  {cat}: {', '.join(names)}"
+            roles_text += "\nIf you need a role not listed above, you can use any name — it will be created automatically."
+            system_prompt += roles_text
 
         if case_context:
             system_prompt += f"""
@@ -371,7 +411,8 @@ DATA:
                         async for event in client.stream_message(
                             messages=messages,
                             tools=tools if tools else None,
-                            system_prompt=system_prompt
+                            system_prompt=system_prompt,
+                            model=selected_model,
                         ):
                             event_type = event.get("type")
 
@@ -513,7 +554,7 @@ DATA:
                                         await asyncio.sleep(0)  # Flush to client
 
                                     # Send done event
-                                    yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None})}\n\n"
+                                    yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None, 'model': selected_model or client.model})}\n\n"
                                     await asyncio.sleep(0)  # Flush to client
                                     return
 
@@ -549,7 +590,7 @@ DATA:
                     yield f"data: {json.dumps(usage_data)}\n\n"
                     await asyncio.sleep(0)  # Flush to client
 
-                yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None, 'model': selected_model or client.model})}\n\n"
                 await asyncio.sleep(0)  # Flush to client
 
             except Exception as e:

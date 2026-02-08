@@ -58,13 +58,15 @@ class ChatClient:
             default_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"}
         )
         self.model = settings.chat_model
+        self.model_full = settings.chat_model_full
         self.max_tokens = settings.chat_max_tokens
 
     async def send_message(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
-        system_prompt: str | None = None
+        system_prompt: str | None = None,
+        model: str | None = None,
     ) -> dict[str, Any]:
         """
         Send a message to Claude and return the response.
@@ -73,6 +75,7 @@ class ChatClient:
             messages: List of message dicts with 'role' and 'content'
             tools: Optional list of tool definitions in Claude API format
             system_prompt: Optional system prompt (uses default if not provided)
+            model: Optional model override (defaults to self.model)
 
         Returns:
             Dict with:
@@ -81,7 +84,7 @@ class ChatClient:
                 - stop_reason: Why Claude stopped generating ('end_turn', 'tool_use', etc.)
         """
         kwargs: dict[str, Any] = {
-            "model": self.model,
+            "model": model or self.model,
             "max_tokens": self.max_tokens,
             "system": system_prompt or SYSTEM_PROMPT,
             "messages": messages,
@@ -123,7 +126,8 @@ class ChatClient:
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
-        system_prompt: str | None = None
+        system_prompt: str | None = None,
+        model: str | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Stream a response from Claude, yielding events as they arrive.
@@ -132,6 +136,7 @@ class ChatClient:
             messages: List of message dicts with 'role' and 'content'
             tools: Optional list of tool definitions in Claude API format
             system_prompt: Optional system prompt (uses default if not provided)
+            model: Optional model override (defaults to self.model)
 
         Yields:
             Dict events with 'type' and associated data:
@@ -141,7 +146,7 @@ class ChatClient:
                 - {"type": "message_stop", "stop_reason": "..."} - signals end of message
         """
         kwargs: dict[str, Any] = {
-            "model": self.model,
+            "model": model or self.model,
             "max_tokens": self.max_tokens,
             "system": system_prompt or SYSTEM_PROMPT,
             "messages": messages,
