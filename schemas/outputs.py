@@ -206,6 +206,7 @@ class JudgeOut(BaseModel):
 
     id: int
     name: str
+    title: Optional[str] = None
     phones: Optional[list] = None
     emails: Optional[list] = None
     jurisdiction_id: Optional[int] = None

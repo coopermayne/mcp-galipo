@@ -23,6 +23,7 @@ def register_judge_routes(mcp):
         search = request.query_params.get("search")
         jurisdiction_id = request.query_params.get("jurisdiction_id")
         status = request.query_params.get("status")
+        title = request.query_params.get("title")
         limit = int(request.query_params.get("limit", 50))
         offset = int(request.query_params.get("offset", 0))
 
@@ -31,6 +32,7 @@ def register_judge_routes(mcp):
             search=search,
             jurisdiction_id=int(jurisdiction_id) if jurisdiction_id else None,
             status=status,
+            title=title,
             limit=limit,
             offset=offset
         )
@@ -70,7 +72,8 @@ def register_judge_routes(mcp):
                 appointed_date=data.get("appointed_date"),
                 initials=data.get("initials"),
                 status=data.get("status", "Active"),
-                notes=data.get("notes")
+                notes=data.get("notes"),
+                title=data.get("title")
             )
             return JSONResponse({"success": True, "judge": result}, status_code=201)
         except db.ValidationError as e:
@@ -108,7 +111,8 @@ def register_judge_routes(mcp):
                 appointed_date=data.get("appointed_date", db._NOT_PROVIDED),
                 initials=data.get("initials", db._NOT_PROVIDED),
                 status=data.get("status", db._NOT_PROVIDED),
-                notes=data.get("notes", db._NOT_PROVIDED)
+                notes=data.get("notes", db._NOT_PROVIDED),
+                title=data.get("title", db._NOT_PROVIDED)
             )
             if not result:
                 return api_error("Judge not found", "NOT_FOUND", 404)

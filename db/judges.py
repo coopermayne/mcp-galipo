@@ -52,7 +52,8 @@ def _proceeding_judge_to_dict(pj: ProceedingJudge) -> dict:
 
 
 def get_judges(search: str = None, jurisdiction_id: int = None,
-               status: str = None, limit: int = 50, offset: int = 0) -> dict:
+               status: str = None, title: str = None,
+               limit: int = 50, offset: int = 0) -> dict:
     """Get all judges with optional filtering."""
     with SessionLocal() as session:
         # Build conditions
@@ -63,6 +64,8 @@ def get_judges(search: str = None, jurisdiction_id: int = None,
             conditions.append(Judge.jurisdiction_id == jurisdiction_id)
         if status:
             conditions.append(Judge.status == status)
+        if title:
+            conditions.append(Judge.title == title)
 
         # Count
         count_stmt = select(func.count(Judge.id))
@@ -155,11 +158,13 @@ def create_judge(name: str, phones: List[dict] = None, emails: List[dict] = None
                  jurisdiction_id: int = None, chambers: str = None,
                  courtroom_number: str = None, appointed_by: str = None,
                  appointed_date: str = None, initials: str = None,
-                 status: str = "Active", notes: str = None) -> dict:
+                 status: str = "Active", notes: str = None,
+                 title: str = None) -> dict:
     """Create a new judge."""
     with SessionLocal() as session:
         j = Judge(
             name=name,
+            title=title,
             phones=phones or [],
             emails=emails or [],
             jurisdiction_id=jurisdiction_id,
@@ -185,7 +190,8 @@ def update_judge(judge_id: int, name: str = _NOT_PROVIDED,
                  jurisdiction_id: int = _NOT_PROVIDED, chambers: str = _NOT_PROVIDED,
                  courtroom_number: str = _NOT_PROVIDED, appointed_by: str = _NOT_PROVIDED,
                  appointed_date: str = _NOT_PROVIDED, initials: str = _NOT_PROVIDED,
-                 status: str = _NOT_PROVIDED, notes: str = _NOT_PROVIDED) -> Optional[dict]:
+                 status: str = _NOT_PROVIDED, notes: str = _NOT_PROVIDED,
+                 title: str = _NOT_PROVIDED) -> Optional[dict]:
     """Update a judge."""
     with SessionLocal() as session:
         j = session.get(Judge, judge_id)
@@ -194,6 +200,8 @@ def update_judge(judge_id: int, name: str = _NOT_PROVIDED,
 
         if name is not _NOT_PROVIDED:
             j.name = name
+        if title is not _NOT_PROVIDED:
+            j.title = title
         if phones is not _NOT_PROVIDED:
             j.phones = phones or []
         if emails is not _NOT_PROVIDED:

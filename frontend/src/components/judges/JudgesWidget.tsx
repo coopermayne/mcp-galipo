@@ -13,6 +13,8 @@ export function JudgesWidget({ config }: JudgesWidgetProps) {
   return (
     <JudgesComponent
       searchQuery={config.searchQuery}
+      jurisdictionId={config.jurisdictionId}
+      titleFilter={config.titleFilter}
     />
   );
 }

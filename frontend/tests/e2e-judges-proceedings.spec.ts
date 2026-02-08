@@ -188,6 +188,102 @@ test.describe('Judges — deep E2E', () => {
       expect(j.status).toBe('Active');
     }
   });
+
+  test('title field: create, read, update, filter', async ({ page }) => {
+    const ts = Date.now();
+    const jurisdictionId = await getFirstJurisdictionId(page);
+
+    // Create judge with title
+    const createRes = await page.request.post('/api/v1/judges', {
+      data: {
+        name: `E2E Title Judge ${ts}`,
+        title: 'Judge',
+        jurisdiction_id: jurisdictionId,
+      }
+    });
+    expect(createRes.ok()).toBeTruthy();
+    const { judge: created } = await createRes.json();
+    expect(created.title).toBe('Judge');
+    const judgeId = created.id;
+
+    // GET by ID returns title
+    const getRes = await page.request.get(`/api/v1/judges/${judgeId}`);
+    expect(getRes.ok()).toBeTruthy();
+    const { judge: fetched } = await getRes.json();
+    expect(fetched.title).toBe('Judge');
+
+    // Update title
+    const updateRes = await page.request.put(`/api/v1/judges/${judgeId}`, {
+      data: { title: 'Magistrate' }
+    });
+    expect(updateRes.ok()).toBeTruthy();
+    const { judge: updated } = await updateRes.json();
+    expect(updated.title).toBe('Magistrate');
+    // Other fields unchanged
+    expect(updated.name).toBe(`E2E Title Judge ${ts}`);
+
+    // Filter by title — should include our judge
+    const filterRes = await page.request.get('/api/v1/judges?title=Magistrate');
+    expect(filterRes.ok()).toBeTruthy();
+    const filterData = await filterRes.json();
+    const found = filterData.judges.find((j: any) => j.id === judgeId);
+    expect(found).toBeTruthy();
+    expect(found.title).toBe('Magistrate');
+
+    // Filter by different title — should NOT include our judge
+    const filterRes2 = await page.request.get('/api/v1/judges?title=Panel');
+    expect(filterRes2.ok()).toBeTruthy();
+    const filterData2 = await filterRes2.json();
+    const notFound = filterData2.judges.find((j: any) => j.id === judgeId);
+    expect(notFound).toBeUndefined();
+
+    // Clean up
+    await page.request.delete(`/api/v1/judges/${judgeId}`);
+  });
+
+  test('GET /judges with title + jurisdiction_id combined filter', async ({ page }) => {
+    const ts = Date.now();
+    const jurisdictionId = await getFirstJurisdictionId(page);
+
+    // Create two judges: same title, different jurisdictions
+    const j1Res = await page.request.post('/api/v1/judges', {
+      data: { name: `E2E Combined A ${ts}`, title: 'Panel', jurisdiction_id: jurisdictionId }
+    });
+    const j1Id = (await j1Res.json()).judge.id;
+
+    const j2Res = await page.request.post('/api/v1/judges', {
+      data: { name: `E2E Combined B ${ts}`, title: 'Panel' } // no jurisdiction
+    });
+    const j2Id = (await j2Res.json()).judge.id;
+
+    // Filter by title only — both should appear
+    const titleOnly = await page.request.get('/api/v1/judges?title=Panel');
+    const titleData = await titleOnly.json();
+    const ids = titleData.judges.map((j: any) => j.id);
+    expect(ids).toContain(j1Id);
+    expect(ids).toContain(j2Id);
+
+    // Filter by title + jurisdiction — only j1 should appear
+    const combined = await page.request.get(`/api/v1/judges?title=Panel&jurisdiction_id=${jurisdictionId}`);
+    const combinedData = await combined.json();
+    const combinedIds = combinedData.judges.map((j: any) => j.id);
+    expect(combinedIds).toContain(j1Id);
+    expect(combinedIds).not.toContain(j2Id);
+
+    // Clean up
+    await page.request.delete(`/api/v1/judges/${j1Id}`);
+    await page.request.delete(`/api/v1/judges/${j2Id}`);
+  });
+
+  test('judge list response includes title field', async ({ page }) => {
+    const res = await page.request.get('/api/v1/judges?limit=10');
+    expect(res.ok()).toBeTruthy();
+    const data = await res.json();
+    // Every judge should have the title field (null or string)
+    for (const j of data.judges) {
+      expect(j).toHaveProperty('title');
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -378,21 +474,21 @@ test.describe('Proceedings — deep E2E', () => {
     });
     const procId = (await procRes.json()).proceeding.id;
 
-    // Assign with role "Judge"
+    // Assign with role "Presiding"
     const assign1 = await page.request.post(`/api/v1/proceedings/${procId}/judges`, {
-      data: { judge_id: judgeId, role: 'Judge' }
+      data: { judge_id: judgeId, role: 'Presiding' }
     });
     expect(assign1.ok()).toBeTruthy();
     const { proceeding_judge: pj1 } = await assign1.json();
-    expect(pj1.role).toBe('Judge');
+    expect(pj1.role).toBe('Presiding');
 
-    // Assign same judge again with role "Magistrate Judge" — should upsert
+    // Assign same judge again with role "Magistrate" — should upsert
     const assign2 = await page.request.post(`/api/v1/proceedings/${procId}/judges`, {
-      data: { judge_id: judgeId, role: 'Magistrate Judge' }
+      data: { judge_id: judgeId, role: 'Magistrate' }
     });
     expect(assign2.ok()).toBeTruthy();
     const { proceeding_judge: pj2 } = await assign2.json();
-    expect(pj2.role).toBe('Magistrate Judge');
+    expect(pj2.role).toBe('Magistrate');
 
     // Should still be only one judge on the proceeding
     const listRes = await page.request.get(`/api/v1/proceedings/${procId}/judges`);

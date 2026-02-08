@@ -13,16 +13,24 @@ import type { Judge } from '../../types';
 
 interface JudgesComponentProps {
   searchQuery?: string;
+  jurisdictionId?: number;
+  titleFilter?: string;
   onJudgeClick?: (judge: Judge) => void;
 }
 
 export function JudgesComponent({
   searchQuery = '',
+  jurisdictionId,
+  titleFilter,
   onJudgeClick,
 }: JudgesComponentProps) {
   const { data: judgesData, isLoading } = useQuery({
-    queryKey: ['judges'],
-    queryFn: () => getJudges({ limit: 10000 }),
+    queryKey: ['judges', { jurisdictionId, titleFilter }],
+    queryFn: () => getJudges({
+      limit: 10000,
+      jurisdiction_id: jurisdictionId,
+      title: titleFilter,
+    }),
   });
 
   const judges = useMemo(() => {
@@ -40,6 +48,7 @@ export function JudgesComponent({
       (j) =>
         j.name.toLowerCase().includes(query) ||
         (j.jurisdiction_name && j.jurisdiction_name.toLowerCase().includes(query)) ||
+        (j.title && j.title.toLowerCase().includes(query)) ||
         (j.chambers && j.chambers.toLowerCase().includes(query)) ||
         j.emails?.some((e) => e.value.toLowerCase().includes(query)) ||
         j.phones?.some((ph) => ph.value.includes(query))

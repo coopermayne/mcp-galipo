@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   User,
@@ -11,9 +12,9 @@ import {
   Gavel,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { EditableText, EditableContactList } from '../common';
-import { getJudge, updateJudge } from '../../api';
-import type { UpdateJudgeInput } from '../../types';
+import { EditableText, EditableContactList, JurisdictionAutocomplete } from '../common';
+import { getJudge, updateJudge, createJurisdiction } from '../../api';
+import type { UpdateJudgeInput, Jurisdiction } from '../../types';
 
 interface JudgeDetailContentProps {
   entityId: number;
@@ -23,9 +24,12 @@ interface JudgeDetailContentProps {
   onClose: () => void;
 }
 
+const JUDGE_TITLES = ['Judge', 'Magistrate', 'Panel', 'Other'] as const;
+
 export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailContentProps) {
   const queryClient = useQueryClient();
   const readOnly = context?.readOnly ?? false;
+  const [editingJurisdiction, setEditingJurisdiction] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['judge', entityId],
@@ -40,8 +44,17 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
     },
   });
 
-  const handleUpdateField = async (field: keyof UpdateJudgeInput, value: string | null) => {
-    await updateMutation.mutateAsync({ [field]: value || null });
+  const createJurisdictionMutation = useMutation({
+    mutationFn: (name: string) => createJurisdiction({ name }),
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ['jurisdictions'] });
+      await updateMutation.mutateAsync({ jurisdiction_id: data.jurisdiction.id });
+      setEditingJurisdiction(false);
+    },
+  });
+
+  const handleUpdateField = async (field: keyof UpdateJudgeInput, value: string | number | null) => {
+    await updateMutation.mutateAsync({ [field]: value ?? null } as UpdateJudgeInput);
   };
 
   const handleUpdatePhones = async (phones: Array<{ value: string; label?: string; primary?: boolean }>) => {
@@ -91,11 +104,6 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
               inputClassName="text-xl font-semibold"
             />
           )}
-          {judge.jurisdiction_name && (
-            <p className="text-sm text-text-secondary mt-1">
-              {judge.jurisdiction_name}
-            </p>
-          )}
           {judge.status && judge.status !== 'Active' && (
             <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-bg-hover text-text-secondary">
               {judge.status}
@@ -110,43 +118,6 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
         </button>
       </div>
 
-      {/* Contact Info */}
-      <div className="space-y-4 mb-6">
-        <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
-          <Phone className="w-4 h-4 text-text-muted" />
-          Contact Information
-        </h3>
-        <div className="space-y-4 pl-6">
-          {/* Phones */}
-          <div>
-            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
-              <Phone className="w-3 h-3" />
-              Phone Numbers
-            </div>
-            <EditableContactList
-              entries={judge.phones || []}
-              onSave={handleUpdatePhones}
-              type="phone"
-              disabled={readOnly}
-            />
-          </div>
-
-          {/* Emails */}
-          <div>
-            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
-              <Mail className="w-3 h-3" />
-              Email Addresses
-            </div>
-            <EditableContactList
-              entries={judge.emails || []}
-              onSave={handleUpdateEmails}
-              type="email"
-              disabled={readOnly}
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Court Details */}
       <div className="space-y-4 mb-6">
         <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
@@ -154,6 +125,68 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
           Court Details
         </h3>
         <div className="space-y-3 pl-6">
+          {/* Jurisdiction */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-text-muted w-24 shrink-0">Jurisdiction:</span>
+            {readOnly ? (
+              <span className={judge.jurisdiction_name ? 'text-text-secondary' : 'text-text-muted italic'}>
+                {judge.jurisdiction_name || 'Not specified'}
+              </span>
+            ) : editingJurisdiction ? (
+              <div className="flex-1 max-w-[280px]">
+                <JurisdictionAutocomplete
+                  onSelectJurisdiction={(j: Jurisdiction) => {
+                    handleUpdateField('jurisdiction_id', j.id);
+                    setEditingJurisdiction(false);
+                  }}
+                  onCreateNew={(name) => createJurisdictionMutation.mutate(name)}
+                  onCancel={() => setEditingJurisdiction(false)}
+                  placeholder="Search jurisdictions..."
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <span className="flex items-center gap-1">
+                <button
+                  onClick={() => setEditingJurisdiction(true)}
+                  className="text-text-secondary hover:text-text hover:underline cursor-pointer"
+                >
+                  {judge.jurisdiction_name || <span className="text-text-muted italic">Not specified</span>}
+                </button>
+                {judge.jurisdiction_id && (
+                  <button
+                    onClick={() => handleUpdateField('jurisdiction_id', null)}
+                    className="text-text-muted hover:text-red-400"
+                    title="Clear jurisdiction"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-text-muted w-24 shrink-0">Title:</span>
+            {readOnly ? (
+              <span className={judge.title ? 'text-text-secondary' : 'text-text-muted italic'}>
+                {judge.title || 'Not specified'}
+              </span>
+            ) : (
+              <select
+                value={judge.title || ''}
+                onChange={(e) => handleUpdateField('title', e.target.value || null)}
+                className="px-2 py-1 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
+              >
+                <option value="">Not specified</option>
+                {JUDGE_TITLES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {/* Chambers */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Chambers:</span>
@@ -220,6 +253,43 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
                 className="flex-1"
               />
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Info */}
+      <div className="space-y-4 mb-6">
+        <h3 className="text-sm font-medium text-text-secondary flex items-center gap-2">
+          <Phone className="w-4 h-4 text-text-muted" />
+          Contact Information
+        </h3>
+        <div className="space-y-4 pl-6">
+          {/* Phones */}
+          <div>
+            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
+              <Phone className="w-3 h-3" />
+              Phone Numbers
+            </div>
+            <EditableContactList
+              entries={judge.phones || []}
+              onSave={handleUpdatePhones}
+              type="phone"
+              disabled={readOnly}
+            />
+          </div>
+
+          {/* Emails */}
+          <div>
+            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
+              <Mail className="w-3 h-3" />
+              Email Addresses
+            </div>
+            <EditableContactList
+              entries={judge.emails || []}
+              onSave={handleUpdateEmails}
+              type="email"
+              disabled={readOnly}
+            />
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ export async function getJudges(params?: {
   search?: string;
   jurisdiction_id?: number;
   status?: string;
+  title?: string;
   limit?: number;
   offset?: number;
 }): Promise<{ judges: Judge[]; total: number }> {
@@ -14,6 +15,7 @@ export async function getJudges(params?: {
   if (params?.search) searchParams.set('search', params.search);
   if (params?.jurisdiction_id) searchParams.set('jurisdiction_id', String(params.jurisdiction_id));
   if (params?.status) searchParams.set('status', params.status);
+  if (params?.title) searchParams.set('title', params.title);
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   const query = searchParams.toString();

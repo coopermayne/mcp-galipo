@@ -5,6 +5,7 @@ import type { PhoneEntry, EmailEntry } from './common';
 export interface Judge {
   id: number;
   name: string;
+  title?: string;
   phones: PhoneEntry[];
   emails: EmailEntry[];
   jurisdiction_id?: number;
@@ -27,11 +28,12 @@ export interface JudgeProceeding {
   case_id: number;
   case_name: string;
   case_number: string;
-  role: string;  // Judge, Magistrate Judge, Presiding, Panel
+  role: string;  // Presiding, Magistrate, Panel, Other
 }
 
 export interface CreateJudgeInput {
   name: string;
+  title?: string;
   phones?: PhoneEntry[];
   emails?: EmailEntry[];
   jurisdiction_id?: number;
@@ -46,6 +48,7 @@ export interface CreateJudgeInput {
 
 export interface UpdateJudgeInput {
   name?: string;
+  title?: string | null;
   phones?: PhoneEntry[];
   emails?: EmailEntry[];
   jurisdiction_id?: number | null;
