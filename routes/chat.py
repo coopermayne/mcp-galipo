@@ -273,11 +273,22 @@ def register_chat_routes(mcp):
             messages.pop()
             return api_error(str(e), "CONFIG_ERROR", 500)
 
+        # Look up logged-in user and available roles for system prompt context
+        import db as _db
+        current_user = None
+        if not username and auth.DEV_SKIP_AUTH:
+            from config import settings as _cfg
+            username = _cfg.dev_auth_user
+        if username:
+            current_user = _db.get_user_by_email(username)
+        available_roles = _db.get_roles()
+        _current_user_id = current_user["id"] if current_user else None
+
         # Handle presets (no tools needed - data is pre-fetched)
         preset_data = None
         preset_prompt = None
         if preset:
-            result = get_preset_context(preset, case_context)
+            result = get_preset_context(preset, case_context, user_id=_current_user_id)
             if result:
                 preset_data, preset_prompt = result
                 _logger.info(f"Preset '{preset}' loaded with data")
@@ -297,16 +308,6 @@ def register_chat_routes(mcp):
         else:
             selected_model = client.model_full  # Sonnet — freeform, all tools
         _logger.info(f"Selected model: {selected_model or client.model}")
-
-        # Look up logged-in user and available roles for system prompt context
-        import db as _db
-        current_user = None
-        if not username and auth.DEV_SKIP_AUTH:
-            from config import settings as _cfg
-            username = _cfg.dev_auth_user
-        if username:
-            current_user = _db.get_user_by_email(username)
-        available_roles = _db.get_roles()
 
         # Build system prompt with current date and optional case context
         from datetime import datetime

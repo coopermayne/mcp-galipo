@@ -13,7 +13,21 @@ from db.session import SessionLocal
 URGENCY_SQL_ORDER = """CASE t.urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END"""
 
 
-def get_priorities_context() -> dict:
+def _user_filter_sql(user_id: int | None) -> str:
+    """Return SQL clause to filter by user's assigned cases."""
+    if user_id:
+        return "AND (c.attorney_ids @> ARRAY[:user_id]::integer[] OR c.paralegal_ids @> ARRAY[:user_id]::integer[])"
+    return ""
+
+
+def _user_params(user_id: int | None, base_params: dict) -> dict:
+    """Merge user_id into SQL params if present."""
+    if user_id:
+        return {**base_params, "user_id": user_id}
+    return base_params
+
+
+def get_priorities_context(user_id: int | None = None) -> dict:
     """Fetch high-priority tasks and upcoming events for the next 4 weeks.
 
     Returns a compact context with case names embedded.
@@ -21,10 +35,11 @@ def get_priorities_context() -> dict:
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
     four_weeks = now + timedelta(weeks=4)
+    uf = _user_filter_sql(user_id)
 
     with SessionLocal() as session:
         # Get tasks with case names - prioritize by urgency and due date
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 t.id,
                 t.description,
@@ -38,10 +53,11 @@ def get_priorities_context() -> dict:
             WHERE t.status != 'Done'
               AND c.status != 'Closed'
               AND (t.due_date IS NULL OR t.due_date <= :four_weeks)
+              {uf}
             ORDER BY
                 CASE t.urgency WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 ELSE 1 END DESC,
                 t.due_date ASC NULLS LAST
-        """), {"four_weeks": four_weeks.date()}).mappings().all()
+        """), _user_params(user_id, {"four_weeks": four_weeks.date()})).mappings().all()
 
         tasks = []
         for row in rows:
@@ -55,7 +71,7 @@ def get_priorities_context() -> dict:
             })
 
         # Get upcoming events with case names
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 e.id,
                 e.description,
@@ -69,8 +85,9 @@ def get_priorities_context() -> dict:
             WHERE e.date >= :now_date
               AND e.date <= :four_weeks
               AND c.status != 'Closed'
+              {uf}
             ORDER BY e.date ASC
-        """), {"now_date": now.date(), "four_weeks": four_weeks.date()}).mappings().all()
+        """), _user_params(user_id, {"now_date": now.date(), "four_weeks": four_weeks.date()})).mappings().all()
 
         events = []
         for row in rows:
@@ -84,13 +101,14 @@ def get_priorities_context() -> dict:
             })
 
         # Get overdue count
-        result = session.execute(text("""
+        result = session.execute(text(f"""
             SELECT COUNT(*) as count FROM tasks t
             JOIN cases c ON t.case_id = c.id
             WHERE t.status != 'Done'
               AND t.due_date < :now_date
               AND c.status != 'Closed'
-        """), {"now_date": now.date()}).mappings().first()
+              {uf}
+        """), _user_params(user_id, {"now_date": now.date()})).mappings().first()
         overdue_count = result["count"]
 
     return {
@@ -102,15 +120,16 @@ def get_priorities_context() -> dict:
     }
 
 
-def get_deadlines_context() -> dict:
+def get_deadlines_context(user_id: int | None = None) -> dict:
     """Fetch events and task deadlines for the next 14 days."""
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
     two_weeks = now + timedelta(days=14)
+    uf = _user_filter_sql(user_id)
 
     with SessionLocal() as session:
         # Get events in next 14 days
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 e.id,
                 e.description,
@@ -124,8 +143,9 @@ def get_deadlines_context() -> dict:
             WHERE e.date >= :now_date
               AND e.date <= :two_weeks
               AND c.status != 'Closed'
+              {uf}
             ORDER BY e.date ASC
-        """), {"now_date": now.date(), "two_weeks": two_weeks.date()}).mappings().all()
+        """), _user_params(user_id, {"now_date": now.date(), "two_weeks": two_weeks.date()})).mappings().all()
 
         events = []
         for row in rows:
@@ -139,7 +159,7 @@ def get_deadlines_context() -> dict:
             })
 
         # Get tasks due in next 14 days
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 t.id,
                 t.description,
@@ -155,8 +175,9 @@ def get_deadlines_context() -> dict:
               AND t.due_date >= :now_date
               AND t.due_date <= :two_weeks
               AND c.status != 'Closed'
+              {uf}
             ORDER BY t.due_date ASC
-        """), {"now_date": now.date(), "two_weeks": two_weeks.date()}).mappings().all()
+        """), _user_params(user_id, {"now_date": now.date(), "two_weeks": two_weeks.date()})).mappings().all()
 
         tasks = []
         for row in rows:
@@ -177,14 +198,15 @@ def get_deadlines_context() -> dict:
     }
 
 
-def get_overdue_context() -> dict:
+def get_overdue_context(user_id: int | None = None) -> dict:
     """Fetch overdue tasks and past events."""
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
+    uf = _user_filter_sql(user_id)
 
     with SessionLocal() as session:
         # Get overdue tasks
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 t.id,
                 t.description,
@@ -198,8 +220,9 @@ def get_overdue_context() -> dict:
             WHERE t.status != 'Done'
               AND t.due_date < :now_date
               AND c.status != 'Closed'
+              {uf}
             ORDER BY t.due_date ASC
-        """), {"now_date": now.date()}).mappings().all()
+        """), _user_params(user_id, {"now_date": now.date()})).mappings().all()
 
         overdue_tasks = []
         for row in rows:
@@ -218,15 +241,16 @@ def get_overdue_context() -> dict:
     }
 
 
-def get_activity_context() -> dict:
+def get_activity_context(user_id: int | None = None) -> dict:
     """Fetch recent activity from the past week."""
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
     one_week_ago = now - timedelta(days=7)
+    uf = _user_filter_sql(user_id)
 
     with SessionLocal() as session:
         # Get recently completed tasks
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 t.id,
                 t.description,
@@ -237,8 +261,9 @@ def get_activity_context() -> dict:
             JOIN cases c ON t.case_id = c.id
             WHERE t.status = 'Done'
               AND t.completion_date >= :one_week_ago
+              {uf}
             ORDER BY t.completion_date DESC
-        """), {"one_week_ago": one_week_ago.date()}).mappings().all()
+        """), _user_params(user_id, {"one_week_ago": one_week_ago.date()})).mappings().all()
 
         completed_tasks = []
         for row in rows:
@@ -250,7 +275,7 @@ def get_activity_context() -> dict:
             })
 
         # Get recent activities
-        rows = session.execute(text("""
+        rows = session.execute(text(f"""
             SELECT
                 a.id,
                 a.type,
@@ -261,8 +286,9 @@ def get_activity_context() -> dict:
             FROM activities a
             JOIN cases c ON a.case_id = c.id
             WHERE a.date >= :one_week_ago
+              {uf}
             ORDER BY a.date DESC
-        """), {"one_week_ago": one_week_ago.date()}).mappings().all()
+        """), _user_params(user_id, {"one_week_ago": one_week_ago.date()})).mappings().all()
 
         activities = []
         for row in rows:
@@ -651,7 +677,8 @@ Group by role type (attorneys, experts, parties, etc.).""",
 }
 
 
-def get_preset_context(preset_id: str, case_id: int | None = None) -> tuple[dict, str] | None:
+def get_preset_context(preset_id: str, case_id: int | None = None,
+                       user_id: int | None = None) -> tuple[dict, str] | None:
     """Get the data context and prompt for a preset.
 
     Args:
@@ -659,6 +686,7 @@ def get_preset_context(preset_id: str, case_id: int | None = None) -> tuple[dict
             Dashboard presets: priorities, deadlines, overdue, activity
             Case presets: case_tasks, case_events, case_people
         case_id: Required for case presets
+        user_id: Logged-in user ID for scoping dashboard presets to their cases
 
     Returns:
         Tuple of (data_context, prompt) or None if preset not found.
@@ -677,6 +705,6 @@ def get_preset_context(preset_id: str, case_id: int | None = None) -> tuple[dict
     if not preset:
         return None
 
-    data = preset["fetch"]()
+    data = preset["fetch"](user_id=user_id)
     prompt = preset["prompt"]
     return data, prompt
