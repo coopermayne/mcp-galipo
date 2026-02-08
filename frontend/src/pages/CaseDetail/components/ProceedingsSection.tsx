@@ -34,7 +34,7 @@ export function ProceedingsSection({
     notes: '',
   });
 
-  const judgeRoleOptions = ['Judge', 'Magistrate Judge', 'Presiding', 'Panel'];
+  const judgeRoleOptions = ['Presiding', 'Magistrate', 'Panel', 'Other'];
 
   // Create proceeding with full form (for empty state)
   const createMutation = useMutation({

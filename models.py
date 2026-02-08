@@ -324,6 +324,7 @@ class Judge(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
+    title: Mapped[Optional[str]] = mapped_column(String(100))
     phones: Mapped[Optional[list[Any]]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )

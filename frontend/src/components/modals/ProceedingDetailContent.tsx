@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { EditableText, EditableSelect, ConfirmModal } from '../common';
+import { useEntityModal } from '.';
 import {
   getProceeding,
   updateProceeding,
@@ -34,9 +35,10 @@ interface ProceedingDetailContentProps {
 
 export function ProceedingDetailContent({ entityId, context, onClose }: ProceedingDetailContentProps) {
   const queryClient = useQueryClient();
+  const { openJudgeModal } = useEntityModal();
   const readOnly = context?.readOnly ?? false;
   const [showAddJudge, setShowAddJudge] = useState(false);
-  const [newJudge, setNewJudge] = useState({ judge_id: '', role: 'Judge' });
+  const [newJudge, setNewJudge] = useState({ judge_id: '', role: 'Presiding' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: proceedingData, isLoading, error } = useQuery({
@@ -76,7 +78,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
       setShowAddJudge(false);
-      setNewJudge({ judge_id: '', role: 'Judge' });
+      setNewJudge({ judge_id: '', role: 'Presiding' });
     },
   });
 
@@ -268,10 +270,10 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                 onChange={(e) => setNewJudge({ ...newJudge, role: e.target.value })}
                 className="px-2 py-1.5 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
               >
-                <option value="Judge">Judge</option>
                 <option value="Presiding">Presiding</option>
+                <option value="Magistrate">Magistrate</option>
                 <option value="Panel">Panel</option>
-                <option value="Magistrate Judge">Magistrate Judge</option>
+                <option value="Other">Other</option>
               </select>
               <button
                 onClick={handleAddJudge}
@@ -283,7 +285,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               <button
                 onClick={() => {
                   setShowAddJudge(false);
-                  setNewJudge({ judge_id: '', role: 'Judge' });
+                  setNewJudge({ judge_id: '', role: 'Presiding' });
                 }}
                 className="p-1.5 text-text-muted hover:text-text-secondary"
               >
@@ -302,7 +304,12 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                 className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm group"
               >
                 <span className="text-text-secondary">
-                  {judge.name}
+                  <button
+                    onClick={() => openJudgeModal(judge.judge_id)}
+                    className="hover:underline hover:text-text cursor-pointer"
+                  >
+                    {judge.name}
+                  </button>
                   <span className="text-text-muted">{formatJudgeRole(judge.role)}</span>
                 </span>
                 {!readOnly && (

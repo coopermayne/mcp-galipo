@@ -51,6 +51,9 @@ export function JudgeItem({ judge, onClick }: JudgeItemProps) {
           <span className="font-medium text-text text-sm truncate">
             {judge.name}
           </span>
+          {judge.title && (
+            <span className="text-xs text-text-muted">{judge.title}</span>
+          )}
           {judge.status && judge.status !== 'Active' && (
             <span className="text-xs text-text-muted">({judge.status})</span>
           )}

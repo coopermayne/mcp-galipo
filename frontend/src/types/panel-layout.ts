@@ -92,6 +92,8 @@ export interface ClientsWidgetConfig extends BaseWidgetConfig {
 export interface JudgesWidgetConfig extends BaseWidgetConfig {
   type: 'judges';
   searchQuery: string;
+  jurisdictionId?: number;
+  titleFilter?: string;
 }
 
 /** Chart widget configuration */
@@ -204,6 +206,8 @@ export function createDefaultJudgesWidget(id: string): JudgesWidgetConfig {
     id,
     type: 'judges',
     searchQuery: '',
+    jurisdictionId: undefined,
+    titleFilter: undefined,
   };
 }
 

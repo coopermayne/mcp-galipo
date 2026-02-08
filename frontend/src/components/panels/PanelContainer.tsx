@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAttorneys } from '../../api/users';
+import { getJurisdictions } from '../../api';
 import { getUserColorClass } from '../../utils';
 import { WidgetTypeSelector } from './WidgetTypeSelector';
 import { TasksWidget } from '../widgets/TasksWidget';
@@ -103,6 +104,14 @@ export function PanelContainer({
     enabled: config.type === 'cases',
   });
 
+  // Fetch jurisdictions for judges filter
+  const { data: jurisdictionsData } = useQuery({
+    queryKey: ['jurisdictions'],
+    queryFn: getJurisdictions,
+    enabled: config.type === 'judges',
+  });
+  const jurisdictions = jurisdictionsData?.jurisdictions || [];
+
   // Sync local search with config when filter closes
   useEffect(() => {
     if (!isFilterOpen) {
@@ -178,7 +187,14 @@ export function PanelContainer({
       else parts.push('All Cases');
       return parts.join(' · ');
     } else if (config.type === 'judges') {
-      return 'All Judges';
+      const judgesConfig = config as JudgesWidgetConfig;
+      const parts: string[] = [];
+      if (judgesConfig.jurisdictionId) {
+        const j = jurisdictions.find((jur) => jur.id === judgesConfig.jurisdictionId);
+        parts.push(j?.name || 'Jurisdiction');
+      }
+      if (judgesConfig.titleFilter) parts.push(judgesConfig.titleFilter);
+      return parts.length > 0 ? parts.join(' · ') : 'All Judges';
     } else if (config.type === 'chart') {
       const chartConfig = config as ChartWidgetConfig;
       return chartConfig.caseOwnerFilter === 'mine' ? 'My Cases' : 'All Cases';
@@ -735,10 +751,72 @@ export function PanelContainer({
     }
 
     if (config.type === 'judges') {
+      const judgesConfig = config as JudgesWidgetConfig;
+      const JUDGE_TITLES = ['Judge', 'Magistrate', 'Panel', 'Other'];
       return (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-bg-hover/30 text-text-muted">
-            <span className="text-xs">Showing all judges alphabetically</span>
+          {/* Jurisdiction filter */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Jurisdiction
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ jurisdictionId: undefined })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !judgesConfig.jurisdictionId
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All
+              </button>
+              {jurisdictions.map((jur) => (
+                <button
+                  key={jur.id}
+                  onClick={() => onConfigChange({ jurisdictionId: jur.id })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    judgesConfig.jurisdictionId === jur.id
+                      ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                      : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                  }`}
+                >
+                  {jur.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Title filter */}
+          <div>
+            <label className="block text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-2">
+              Title
+            </label>
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => onConfigChange({ titleFilter: undefined })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !judgesConfig.titleFilter
+                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                }`}
+              >
+                All
+              </button>
+              {JUDGE_TITLES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => onConfigChange({ titleFilter: t })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    judgesConfig.titleFilter === t
+                      ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 shadow-sm'
+                      : 'text-text-muted hover:text-text-secondary hover:bg-bg-hover/50'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       );

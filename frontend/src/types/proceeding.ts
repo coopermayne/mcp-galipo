@@ -3,7 +3,7 @@
 export interface ProceedingJudge {
   judge_id: number;
   name: string;
-  role: string;  // 'Judge', 'Presiding', 'Panel', 'Magistrate Judge'
+  role: string;  // 'Presiding', 'Magistrate', 'Panel', 'Other'
   sort_order: number;
   initials?: string;
   chambers?: string;
