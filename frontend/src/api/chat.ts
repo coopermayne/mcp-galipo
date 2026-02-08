@@ -4,6 +4,7 @@ import type { ChatRequest, StreamEvent } from '../types';
 
 export interface ChatInfo {
   model: string;
+  model_full: string;
 }
 
 /**

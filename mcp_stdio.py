@@ -35,7 +35,7 @@ TOOLS OVERVIEW:
 - manage_note(action, ...) — create/update/delete case notes
 - manage_proceeding(action, ...) — create/update/delete proceedings + add/remove judges
 - manage_activity(action, ...) — create/update/delete activity log entries
-- list_attorneys() — list active attorneys (for case assignment)
+- list_staff() — list all active staff members (for task assignment)
 - import_case(data) — bulk import a complete case with all related data
 
 VALID VALUES (these are enforced — invalid values return an error with the valid options):

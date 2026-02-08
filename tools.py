@@ -71,10 +71,11 @@ def judge_role_error() -> dict:
 # Role Name Resolution
 # =============================================================================
 
-def resolve_role(name: str) -> dict | None:
+def resolve_role(name: str, auto_create: bool = False) -> dict | None:
     """Resolve a role name to a role dict, handling multiple formats.
 
     Accepts: 'plaintiff_expert', 'Plaintiff Expert', 'plaintiff expert', etc.
+    If auto_create=True and the role doesn't exist, creates it with category 'other'.
     """
     # Try exact match first (case-insensitive)
     role = db.get_role_by_name(name)
@@ -90,6 +91,9 @@ def resolve_role(name: str) -> dict | None:
     role = db.get_role_by_name(spaced)
     if role:
         return role
+    # Role doesn't exist
+    if auto_create:
+        return db.create_role(name=normalized, category="other")
     return None
 
 
@@ -99,7 +103,7 @@ def resolve_role(name: str) -> dict | None:
 
 class SearchInput(BaseModel):
     """Universal search across all entities."""
-    entity: Literal["cases", "persons", "events", "tasks"] = Field(..., description="What to search: cases, persons, events, or tasks")
+    entity: Literal["cases", "persons", "events", "tasks", "judges"] = Field(..., description="What to search: cases, persons, events, tasks, or judges")
     query: Optional[str] = Field(None, description="Text search (name, description, case number)")
     case_id: Optional[int] = Field(None, description="Filter to a specific case")
     status: Optional[str] = Field(None, description="Filter by status (valid values depend on entity)")
@@ -251,26 +255,22 @@ def register_tools(mcp):
         }
 
     # =========================================================================
-    # STAFF / ATTORNEYS
+    # STAFF
     # =========================================================================
 
     @mcp.tool()
-    async def list_attorneys(context: Context) -> dict:
-        """List all active attorneys and their default paralegals.
+    async def list_staff(context: Context) -> dict:
+        """List all active staff members (attorneys, paralegals, admins).
 
-        Call this BEFORE import_case to find out which attorneys are available
-        for assignment. Each attorney has an id, name, initials, bar_number,
-        and their default paralegal (if set).
-
-        When assigning attorneys to a case via import_case, pass their IDs in
-        the "attorney_ids" field. Their default paralegals will be auto-assigned.
+        Returns each user's id, name, initials, position, and paralegal info.
+        Use this to find user IDs for task assignment (assignee_id).
         """
-        context.info("Listing attorneys")
+        context.info("Listing staff")
         try:
-            attorneys = await asyncio.to_thread(db.get_attorneys)
-            return {"success": True, "attorneys": attorneys}
+            users = await asyncio.to_thread(db.get_all_users)
+            return {"success": True, "staff": users}
         except Exception as e:
-            return error_response(f"Failed to list attorneys: {str(e)}", "QUERY_ERROR")
+            return error_response(f"Failed to list staff: {str(e)}", "QUERY_ERROR")
 
     # =========================================================================
     # BULK IMPORT
@@ -351,13 +351,13 @@ def register_tools(mcp):
             "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
 
         attorney_ids (optional, top-level):
-            Array of user IDs (from list_attorneys) to assign as case attorneys.
+            Array of user IDs (from list_staff) to assign as case attorneys.
             Each attorney's default paralegal is auto-assigned to the case.
             Example: "attorney_ids": [1, 3]
 
         INPUT SCHEMA:
         {
-            "attorney_ids": [1, 3],  // optional - call list_attorneys() first
+            "attorney_ids": [1, 3],  // optional - call list_staff() first
             "case": {
                 "case_name": "Smith v. Jones" (REQUIRED),
                 "short_name": "Smith v. Jones",
@@ -519,6 +519,14 @@ def register_tools(mcp):
                 )
                 return {"success": True, "tasks": results}
 
+            elif data.entity == "judges":
+                results = db.get_judges(
+                    search=data.query,
+                    limit=data.limit,
+                    offset=data.offset,
+                )
+                return {"success": True, **results}
+
         except Exception as e:
             return error_response(f"Search failed: {str(e)}", "QUERY_ERROR")
 
@@ -529,7 +537,7 @@ def register_tools(mcp):
     @mcp.tool()
     def get_details(
         context: Context,
-        entity: Literal["case", "person", "event", "task", "proceeding"],
+        entity: Literal["case", "person", "event", "task", "proceeding", "judge"],
         id: int,
     ) -> dict:
         """Get full details for any entity by ID.
@@ -538,6 +546,7 @@ def register_tools(mcp):
         - get_details(entity="case", id=1)
         - get_details(entity="person", id=42)
         - get_details(entity="task", id=100)
+        - get_details(entity="judge", id=3)
         """
         context.info(f"Getting {entity} #{id}")
         try:
@@ -551,8 +560,10 @@ def register_tools(mcp):
                 result = db.get_task_detail(id)
             elif entity == "proceeding":
                 result = db.get_proceeding_by_id(id)
+            elif entity == "judge":
+                result = db.get_judge_by_id(id)
             else:
-                return validation_error(f"Unknown entity: '{entity}'", valid_values=["case", "person", "event", "task", "proceeding"])
+                return validation_error(f"Unknown entity: '{entity}'", valid_values=["case", "person", "event", "task", "proceeding", "judge"])
 
             if not result:
                 return not_found_error(entity.capitalize())
@@ -650,7 +661,7 @@ def register_tools(mcp):
                 # Auto-assign to case if case_id and role provided
                 assignment = None
                 if data.case_id and data.role:
-                    role_obj = resolve_role(data.role)
+                    role_obj = resolve_role(data.role, auto_create=True)
                     if not role_obj:
                         # Person created but role assignment failed
                         return {
@@ -720,8 +731,8 @@ def register_tools(mcp):
         """
         context.info(f"manage_case_role: {data.action} person #{data.person_id} on case #{data.case_id}")
         try:
-            # Resolve role name to role_id
-            role_obj = resolve_role(data.role)
+            # Resolve role name to role_id (auto-creates if new)
+            role_obj = resolve_role(data.role, auto_create=True)
             if not role_obj:
                 return validation_error(
                     f"Unknown role: '{data.role}'",
@@ -778,7 +789,7 @@ def register_tools(mcp):
             elif data.action == "change_role":
                 if not data.new_role:
                     return validation_error("new_role is required for change_role action")
-                new_role_obj = resolve_role(data.new_role)
+                new_role_obj = resolve_role(data.new_role, auto_create=True)
                 if not new_role_obj:
                     return validation_error(f"Unknown new_role: '{data.new_role}'")
                 result = db.change_person_role_on_case(
@@ -990,13 +1001,20 @@ def register_tools(mcp):
     def manage_proceeding(context: Context, data: ManageProceedingInput) -> dict:
         """Create, update, or delete a court proceeding, or add/remove judges.
 
-        Judges are standalone entities — use add_judge/remove_judge actions
-        to link them to proceedings.
+        CREATING A PROCEEDING:
+        Only case_number is required. Put court name, jurisdiction, and any other
+        details in the notes field — they'll be sorted out later.
+
+        After creating, try to assign the judge:
+        1. search(entity="judges", query="judge name") to find existing judge
+        2. If found → manage_proceeding(action="add_judge", proceeding_id=X, judge_id=Y)
+        3. If NOT found → do NOT create a new judge. Instead, add judge name to
+           the proceeding notes so it can be assigned manually later.
 
         Examples:
-        - manage_proceeding(action="create", case_id=1, case_number="24STCV12345", jurisdiction_id=1)
-        - manage_proceeding(action="update", proceeding_id=1, is_primary=true)
+        - manage_proceeding(action="create", case_id=1, case_number="24STCV12345", notes="Court: C.D. Cal.")
         - manage_proceeding(action="add_judge", proceeding_id=1, judge_id=3, judge_role="Judge")
+        - manage_proceeding(action="update", proceeding_id=1, notes="Court: C.D. Cal., Judge: Hon. Smith (not in system)")
         - manage_proceeding(action="remove_judge", proceeding_id=1, judge_id=3)
         - manage_proceeding(action="delete", proceeding_id=1)
         """

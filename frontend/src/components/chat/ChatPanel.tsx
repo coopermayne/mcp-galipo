@@ -34,6 +34,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([]);
   const [failedMessageContent, setFailedMessageContent] = useState<string | null>(null);
   const [modelName, setModelName] = useState<string | null>(null);
+  const [responseModel, setResponseModel] = useState<string | null>(null);
   const [activePreset, setActivePreset] = useState<PresetId | CasePresetId | null>(null);
   const [activeMode, setActiveMode] = useState<ChatMode | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -71,16 +72,16 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     }
   }, [isOpen]);
 
-  // Focus input after AI finishes responding in action mode
+  // Focus input after AI finishes responding
   useEffect(() => {
-    if (activeMode && !isLoading && messages.length > 0) {
+    if (!isLoading && messages.length > 0) {
       // Small delay to ensure input is rendered
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [activeMode, isLoading, messages.length]);
+  }, [isLoading, messages.length]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -210,6 +211,10 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         if (event.conversation_id) {
           setConversationId(event.conversation_id);
         }
+        // Track which model responded
+        if (event.model) {
+          setResponseModel(event.model);
+        }
         break;
 
       case 'error':
@@ -292,7 +297,11 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
 
     try {
       const presetToUse = presetOverride ?? activePreset ?? undefined;
-      const modeToUse = modeOverride ?? activeMode ?? undefined;
+      const modeToUse = modeOverride ?? activeMode ?? (presetToUse ? undefined : 'full');
+      // Auto-activate full mode for freeform messages
+      if (!activeMode && !modeOverride && !presetToUse) {
+        setActiveMode('full');
+      }
       const stream = streamChatMessage({
         message: content,
         conversationId: conversationId ?? undefined,
@@ -355,6 +364,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     setFailedMessageContent(null);
     setActivePreset(null);
     setActiveMode(null);
+    setResponseModel(null);
   };
 
   const handleSendPreset = (preset: DashboardPreset) => {
@@ -416,12 +426,17 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
               </h2>
               <p className="text-sm md:text-xs text-text-muted">
                 {caseContext ? `Case #${caseContext}` : 'General'}
-                {activeMode && (
+                {activeMode && activeMode !== 'full' && (
                   <span className="ml-1.5 text-blue-600 font-medium">
                     · {activeMode.charAt(0).toUpperCase() + activeMode.slice(1)} Mode
                   </span>
                 )}
-                {modelName && !activeMode && <span className="ml-1.5 opacity-70">· {modelName}</span>}
+                {responseModel && (
+                  <span className="ml-1.5 opacity-70">· {responseModel}</span>
+                )}
+                {!responseModel && modelName && !activeMode && (
+                  <span className="ml-1.5 opacity-70">· {modelName}</span>
+                )}
               </p>
             </div>
           </div>
@@ -480,20 +495,16 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
             onSendActionStarter={handleSendActionStarter}
           />
         ) : (
-          <>
-            {/* Messages */}
-            <MessageList
-              messages={messages}
-              isLoading={isLoading}
-              toolExecutions={toolExecutions}
-            />
-
-            {/* Input - enabled when in an action mode */}
-            {activeMode && (
-              <ChatInput ref={inputRef} onSend={handleSend} isLoading={isLoading} />
-            )}
-          </>
+          /* Messages */
+          <MessageList
+            messages={messages}
+            isLoading={isLoading}
+            toolExecutions={toolExecutions}
+          />
         )}
+
+        {/* Input - always visible (freeform defaults to full mode) */}
+        <ChatInput ref={inputRef} onSend={handleSend} isLoading={isLoading} />
       </div>
     </>
   );
