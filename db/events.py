@@ -268,8 +268,14 @@ def delete_event(event_id: int) -> bool:
 
 
 def search_events(query: str = None, case_id: int = None,
-                  limit: int = 50) -> List[dict]:
+                  limit: int = 50, user_id: int = None,
+                  date_before: str = None, date_after: str = None) -> List[dict]:
     """Search events by various criteria."""
+    if date_before:
+        validate_date_format(date_before, "date_before")
+    if date_after:
+        validate_date_format(date_after, "date_after")
+
     stmt = (
         select(Event, Case)
         .join(Case, Event.case_id == Case.id)
@@ -281,6 +287,16 @@ def search_events(query: str = None, case_id: int = None,
         stmt = stmt.where(Event.description.ilike(f"%{query}%"))
     if case_id:
         stmt = stmt.where(Event.case_id == case_id)
+    if user_id:
+        uid_arr = cast([user_id], SA_ARRAY(Integer()))
+        stmt = stmt.where(
+            Case.attorney_ids.op('@>')(uid_arr)
+            | Case.paralegal_ids.op('@>')(uid_arr)
+        )
+    if date_before:
+        stmt = stmt.where(Event.date <= date_before)
+    if date_after:
+        stmt = stmt.where(Event.date >= date_after)
 
     with SessionLocal() as session:
         rows = session.execute(stmt).all()

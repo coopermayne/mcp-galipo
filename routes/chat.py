@@ -301,6 +301,9 @@ def register_chat_routes(mcp):
         # Look up logged-in user and available roles for system prompt context
         import db as _db
         current_user = None
+        if not username and auth.DEV_SKIP_AUTH:
+            from config import settings as _cfg
+            username = _cfg.dev_auth_user
         if username:
             current_user = _db.get_user_by_email(username)
         available_roles = _db.get_roles()
@@ -335,6 +338,13 @@ Always be helpful and concise. When you need more information to complete a task
                 p = current_user['paralegal']
                 user_info += f" Their default paralegal is {p['first_name']} {p['last_name']} (user ID: {p['id']})."
             system_prompt += user_info
+            system_prompt += "\n\nSearch queries default to your cases only (my_cases_only=true). If the user asks for firm-wide data or another attorney's cases, set my_cases_only=false."
+
+        # Add staff directory so AI can resolve attorney/paralegal IDs
+        all_users = _db.get_all_users()
+        if all_users:
+            staff_lines = [f"  {u['id']}: {u['first_name']} {u['last_name']} ({u['position']})" for u in all_users]
+            system_prompt += "\n\nStaff directory (id: name, position):\n" + "\n".join(staff_lines)
 
         # Add available roles for person assignment
         if available_roles:
@@ -478,9 +488,10 @@ DATA:
 
                                     # Execute each tool and send results
                                     tool_results: list[ToolResult] = []
+                                    _current_user_id = current_user["id"] if current_user else None
                                     for tc in iteration_tool_calls:
                                         start_time = time.time()
-                                        result = execute_tool(tc)
+                                        result = execute_tool(tc, user_id=_current_user_id)
                                         duration_ms = int((time.time() - start_time) * 1000)
 
                                         tool_results.append(result)

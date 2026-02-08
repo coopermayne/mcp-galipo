@@ -399,11 +399,18 @@ def delete_case(case_id: int) -> bool:
 
 
 def search_cases(query: str = None, case_number: str = None, person_name: str = None,
-                 status: str = None, limit: int = 50) -> List[dict]:
+                 status: str = None, limit: int = 50, user_id: int = None) -> List[dict]:
     """Search cases by various criteria."""
     with SessionLocal() as session:
         stmt = select(Case.id, Case.case_name, Case.short_name,
-                      Case.status, Case.case_summary)
+                      Case.status, Case.attorney_ids, Case.paralegal_ids)
+
+        if user_id:
+            uid_arr = cast([user_id], SA_ARRAY(Integer()))
+            stmt = stmt.where(
+                Case.attorney_ids.op('@>')(uid_arr)
+                | Case.paralegal_ids.op('@>')(uid_arr)
+            )
 
         if query:
             stmt = stmt.where(or_(

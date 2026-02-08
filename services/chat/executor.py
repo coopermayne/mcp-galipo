@@ -20,7 +20,7 @@ from services.chat.tools import get_mcp_instance, BLACKLIST
 logger = logging.getLogger(__name__)
 
 # Maximum characters for result content before truncation
-MAX_RESULT_CHARS = 4000
+MAX_RESULT_CHARS = 12000
 
 # Get the MCP instance with all registered tools
 _mcp = get_mcp_instance()
@@ -31,7 +31,11 @@ class ChatContext:
 
     MCP tools expect a Context object for logging. This provides a compatible
     interface that logs to Python's standard logging instead of MCP's system.
+    Also carries request-scoped data like the logged-in user_id.
     """
+
+    def __init__(self, user_id: int | None = None):
+        self.user_id = user_id
 
     def info(self, msg: str) -> None:
         logger.info(f"[MCP Tool] {msg}")
@@ -52,10 +56,6 @@ class ChatContext:
     async def read_resource(self, uri: str) -> Any:
         """Read a resource (not supported in chat context)."""
         raise NotImplementedError("Resource reading not supported in chat context")
-
-
-# Shared context instance
-_context = ChatContext()
 
 
 def _truncate_result(result: Any, tool_name: str) -> tuple[str, bool]:
@@ -162,11 +162,12 @@ def _generate_summary(result: Any, tool_name: str, args: dict[str, Any]) -> str:
     return "Operation completed"
 
 
-def execute_tool(tool_call: ToolCall) -> ToolResult:
+def execute_tool(tool_call: ToolCall, user_id: int | None = None) -> ToolResult:
     """Execute a tool by calling the MCP tool function directly.
 
     Args:
         tool_call: The tool call to execute, containing name, id, and arguments.
+        user_id: Optional logged-in user ID for scoping queries to their cases.
 
     Returns:
         ToolResult with the execution result or error message.
@@ -212,8 +213,11 @@ def execute_tool(tool_call: ToolCall) -> ToolResult:
                 if isinstance(annotation, type) and issubclass(annotation, BaseModel):
                     args[param_name] = annotation(**args[param_name])
 
+        # Create per-call context with user_id for case-scoped queries
+        ctx = ChatContext(user_id=user_id)
+
         # Some tools (list_attorneys, import_case) are async
-        result = tool.fn(_context, **args)
+        result = tool.fn(ctx, **args)
         if asyncio.iscoroutine(result):
             try:
                 loop = asyncio.get_running_loop()
