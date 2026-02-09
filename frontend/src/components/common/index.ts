@@ -14,6 +14,7 @@ export { PersonAutocomplete } from './PersonAutocomplete';
 export { JudgeAutocomplete } from './JudgeAutocomplete';
 export { JurisdictionAutocomplete } from './JurisdictionAutocomplete';
 export { AddPersonDropdown } from './AddPersonDropdown';
+export { AddJudgeDropdown } from './AddJudgeDropdown';
 export { MentionDropdown } from './MentionDropdown';
 export { MentionTextarea } from './MentionTextarea';
 export { CreateTaskFromEventModal } from './CreateTaskFromEventModal';

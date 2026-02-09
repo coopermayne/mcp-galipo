@@ -4,14 +4,13 @@ import {
   Scale,
   FileText,
   Star,
-  UserPlus,
   X,
   Loader2,
   AlertCircle,
   ExternalLink,
   Trash2,
 } from 'lucide-react';
-import { EditableText, EditableSelect, ConfirmModal } from '../common';
+import { EditableText, EditableSelect, ConfirmModal, AddJudgeDropdown } from '../common';
 import { useEntityModal } from '.';
 import {
   getProceeding,
@@ -19,10 +18,11 @@ import {
   deleteProceeding,
   addProceedingJudge,
   removeProceedingJudge,
+  updateProceedingJudge,
+  createJudge,
   getConstants,
-  getJudges,
 } from '../../api';
-import type { Proceeding, ProceedingJudge, Jurisdiction, Judge } from '../../types';
+import type { Proceeding, ProceedingJudge, Jurisdiction } from '../../types';
 
 interface ProceedingDetailContentProps {
   entityId: number;
@@ -37,8 +37,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const queryClient = useQueryClient();
   const { openJudgeModal } = useEntityModal();
   const readOnly = context?.readOnly ?? false;
-  const [showAddJudge, setShowAddJudge] = useState(false);
-  const [newJudge, setNewJudge] = useState({ judge_id: '', role: 'Presiding' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: proceedingData, isLoading, error } = useQuery({
@@ -49,13 +47,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const { data: constantsData } = useQuery({
     queryKey: ['constants'],
     queryFn: getConstants,
-  });
-
-  // Fetch judges for adding
-  const { data: judgesData } = useQuery({
-    queryKey: ['judges'],
-    queryFn: () => getJudges(),
-    enabled: showAddJudge,
   });
 
   const updateMutation = useMutation({
@@ -77,8 +68,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
-      setShowAddJudge(false);
-      setNewJudge({ judge_id: '', role: 'Presiding' });
     },
   });
 
@@ -87,6 +76,17 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
       queryClient.invalidateQueries({ queryKey: ['judges'] });
+      if (context?.caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
+      }
+    },
+  });
+
+  const updateJudgeRoleMutation = useMutation({
+    mutationFn: ({ judgeId, role }: { judgeId: number; role: string }) =>
+      updateProceedingJudge(entityId, judgeId, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
@@ -108,14 +108,23 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
     await updateMutation.mutateAsync({ [field]: value });
   };
 
-  const handleAddJudge = () => {
-    if (newJudge.judge_id) {
-      addJudgeMutation.mutate({
-        judge_id: parseInt(newJudge.judge_id, 10),
-        role: newJudge.role,
-      });
-    }
-  };
+  // Create judge + assign mutation for AddJudgeDropdown
+  const createAndAddJudgeMutation = useMutation({
+    mutationFn: async ({ name, role }: { name: string; role: string }) => {
+      const judgeResult = await createJudge({ name });
+      const judgeId = judgeResult.judge.id;
+      await addProceedingJudge(entityId, { judge_id: judgeId, role });
+      return judgeId;
+    },
+    onSuccess: (judgeId) => {
+      queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
+      queryClient.invalidateQueries({ queryKey: ['judges'] });
+      if (context?.caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
+      }
+      openJudgeModal(judgeId);
+    },
+  });
 
   if (isLoading) {
     return (
@@ -140,12 +149,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
     { value: '', label: 'No court selected' },
     ...jurisdictions.map((j: Jurisdiction) => ({ value: String(j.id), label: j.name })),
   ];
-
-  // Get available judges (not already assigned)
-  const assignedJudgeIds = new Set(proceeding.judges?.map(j => j.judge_id) || []);
-  const availableJudges = (judgesData?.judges || []).filter(
-    (j: Judge) => !assignedJudgeIds.has(j.id)
-  );
 
   const formatJudgeRole = (role: string) => {
     return ` (${role})`;
@@ -239,61 +242,18 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
             Assigned Judges
           </h3>
           {!readOnly && (
-            <button
-              onClick={() => setShowAddJudge(!showAddJudge)}
-              className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
-            >
-              <UserPlus className="w-3 h-3" />
-              Add Judge
-            </button>
+            <AddJudgeDropdown
+              excludeJudgeIds={proceeding.judges?.map(j => j.judge_id) || []}
+              onAssign={(judge, role) =>
+                addJudgeMutation.mutate({ judge_id: judge.id, role })
+              }
+              onCreateNew={(name, role) =>
+                createAndAddJudgeMutation.mutate({ name, role })
+              }
+              label="Add Judge"
+            />
           )}
         </div>
-
-        {/* Add judge form */}
-        {showAddJudge && (
-          <div className="mb-3 p-3 bg-bg-hover rounded-lg">
-            <div className="flex items-center gap-2">
-              <select
-                value={newJudge.judge_id}
-                onChange={(e) => setNewJudge({ ...newJudge, judge_id: e.target.value })}
-                className="flex-1 px-2 py-1.5 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
-              >
-                <option value="">Select judge...</option>
-                {availableJudges.map((j: Judge) => (
-                  <option key={j.id} value={j.id}>
-                    {j.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={newJudge.role}
-                onChange={(e) => setNewJudge({ ...newJudge, role: e.target.value })}
-                className="px-2 py-1.5 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
-              >
-                <option value="Presiding">Presiding</option>
-                <option value="Magistrate">Magistrate</option>
-                <option value="Panel">Panel</option>
-                <option value="Other">Other</option>
-              </select>
-              <button
-                onClick={handleAddJudge}
-                disabled={!newJudge.judge_id || addJudgeMutation.isPending}
-                className="px-3 py-1.5 bg-primary-600 text-white rounded text-sm disabled:opacity-50"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => {
-                  setShowAddJudge(false);
-                  setNewJudge({ judge_id: '', role: 'Presiding' });
-                }}
-                className="p-1.5 text-text-muted hover:text-text-secondary"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Judges list */}
         {proceeding.judges && proceeding.judges.length > 0 ? (
@@ -303,14 +263,30 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                 key={`${judge.judge_id}-${judge.role}`}
                 className="flex items-center justify-between p-2 bg-bg-hover rounded text-sm group"
               >
-                <span className="text-text-secondary">
+                <span className="text-text-secondary flex items-center gap-1">
                   <button
                     onClick={() => openJudgeModal(judge.judge_id)}
                     className="hover:underline hover:text-text cursor-pointer"
                   >
                     {judge.name}
                   </button>
-                  <span className="text-text-muted">{formatJudgeRole(judge.role)}</span>
+                  {readOnly ? (
+                    <span className="text-text-muted">{formatJudgeRole(judge.role)}</span>
+                  ) : (
+                    <select
+                      value={judge.role}
+                      onChange={(e) => updateJudgeRoleMutation.mutate({
+                        judgeId: judge.judge_id,
+                        role: e.target.value,
+                      })}
+                      className="text-text-muted text-sm bg-transparent border-none outline-none cursor-pointer hover:text-text-secondary appearance-none pr-0"
+                      title="Change role"
+                    >
+                      {['Judge', 'Presiding', 'Magistrate', 'Panel', 'Other'].map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  )}
                 </span>
                 {!readOnly && (
                   <button
