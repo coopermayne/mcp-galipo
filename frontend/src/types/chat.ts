@@ -53,7 +53,7 @@ export interface ChatMessage {
   usage?: UsageData;
 }
 
-export type ChatMode = 'tasks' | 'events' | 'people' | 'overview' | 'full';
+export type ChatMode = 'tasks' | 'events' | 'people' | 'proceedings' | 'overview' | 'full';
 
 export type ChatPreset =
   | 'priorities' | 'deadlines' | 'overdue' | 'activity'  // Dashboard presets

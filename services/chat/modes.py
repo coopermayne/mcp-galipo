@@ -94,6 +94,33 @@ Keep responses brief and action-oriented.""",
 
 This is a read-only mode - do not create, update, or delete data.""",
     },
+    "proceedings": {
+        "tools": [
+            "search",
+            "get_details",
+            "manage_proceeding",
+            "manage_judge",
+            "list_jurisdictions",
+        ],
+        "system_prompt_addition": """You are in PROCEEDINGS mode - help the user manage court proceedings, judges, and jurisdictions.
+
+When the user wants to add a proceeding:
+1. If they provide a case number, create immediately. Use list_jurisdictions to find the right jurisdiction_id.
+2. After creating, search for the judge: search(entity="judges", query="judge name")
+3. If found → manage_proceeding(action="add_judge", proceeding_id=X, judge_id=Y)
+4. If NOT found → create with manage_judge(action="create", name="Hon. ...", jurisdiction_id=Z), then assign
+
+When the user wants to add a judge:
+1. ALWAYS search first: search(entity="judges", query="name") to avoid duplicates
+2. If found, inform the user and offer to assign to a proceeding
+3. If not found, create with manage_judge and optionally assign to a proceeding
+
+IMPORTANT: If the user provides MULTIPLE proceedings or judges, handle ALL of them with parallel tool calls in a SINGLE response.
+
+Use list_jurisdictions to find valid jurisdiction IDs before creating proceedings or judges.
+
+Keep responses brief and action-oriented.""",
+    },
     "full": {
         "tools": [],  # Empty = all tools available
         "system_prompt_addition": """You have access to all available tools. Help the user with any request related to their cases, tasks, events, contacts, notes, and more.
