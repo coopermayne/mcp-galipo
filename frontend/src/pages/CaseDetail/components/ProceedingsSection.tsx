@@ -209,7 +209,7 @@ export function ProceedingsSection({
                   {idx > 0 && <span className="text-text-muted">·</span>}
                   <span
                     className="cursor-pointer hover:underline"
-                    onClick={() => openJudgeModal(judge.judge_id)}
+                    onClick={() => openJudgeModal(judge.judge_id, { readOnly: true })}
                   >
                     {judge.name}
                   </span>
