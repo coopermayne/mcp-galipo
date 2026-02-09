@@ -138,29 +138,10 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 rounded-full bg-bg-hover flex items-center justify-center">
-          <Scale className="w-6 h-6 text-text-secondary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          {readOnly ? (
-            <h2 className="text-xl font-mono font-semibold text-text">
-              {proceeding.case_number}
-            </h2>
-          ) : (
-            <EditableText
-              value={proceeding.case_number}
-              onSave={(value) => handleUpdateField('case_number', value)}
-              className="text-xl font-mono font-semibold"
-              inputClassName="text-xl font-mono font-semibold"
-            />
-          )}
-          {proceeding.is_primary && (
-            <span className="inline-flex items-center gap-1 mt-1 text-xs text-amber-600 dark:text-amber-400">
-              <Star className="w-3 h-3 fill-amber-500" />
-              Primary Proceeding
-            </span>
-          )}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Scale className="w-5 h-5 text-text-muted" />
+          <h2 className="text-lg font-semibold text-text">Proceeding</h2>
         </div>
         <button
           onClick={onClose}
@@ -168,6 +149,43 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
         >
           <X className="w-5 h-5" />
         </button>
+      </div>
+
+      {/* Case Number */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-sm font-medium text-text-secondary">
+            Case Number
+          </h3>
+          <button
+            onClick={() => !readOnly && handleUpdateField('is_primary', !proceeding.is_primary)}
+            className={`inline-flex items-center gap-1 text-xs transition-colors ${
+              readOnly ? 'cursor-default' : 'cursor-pointer'
+            } ${
+              proceeding.is_primary
+                ? 'text-amber-500'
+                : readOnly ? 'hidden' : 'text-text-muted hover:text-amber-400'
+            }`}
+            title={proceeding.is_primary ? 'Primary proceeding' : 'Mark as primary'}
+            disabled={readOnly}
+          >
+            <Star className={`w-3.5 h-3.5 ${proceeding.is_primary ? 'fill-amber-500' : ''}`} />
+            {proceeding.is_primary && <span>Primary</span>}
+          </button>
+        </div>
+        {readOnly ? (
+          <span className="text-sm font-mono text-text">
+            {proceeding.case_number}
+          </span>
+        ) : (
+          <EditableText
+            value={proceeding.case_number}
+            onSave={(value) => handleUpdateField('case_number', value)}
+            placeholder="e.g., 25STCV35294"
+            className="text-sm font-mono"
+            inputClassName="text-sm font-mono"
+          />
+        )}
       </div>
 
       {/* Jurisdiction */}
@@ -283,21 +301,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
           <p className="text-sm text-text-muted italic">No judges assigned</p>
         )}
       </div>
-
-      {/* Primary Toggle */}
-      {!readOnly && (
-        <div className="mb-6">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={proceeding.is_primary}
-              onChange={(e) => handleUpdateField('is_primary', e.target.checked)}
-              className="rounded border-border bg-bg-surface text-primary-600 focus:ring-primary-500"
-            />
-            <span className="text-text-secondary">Primary Proceeding</span>
-          </label>
-        </div>
-      )}
 
       {/* Notes */}
       <div>
