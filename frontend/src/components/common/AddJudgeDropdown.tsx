@@ -32,6 +32,7 @@ export function AddJudgeDropdown({
 }: AddJudgeDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -86,7 +87,13 @@ export function AddJudgeDropdown({
       <div className={`relative ${compact ? 'inline-flex' : ''}`}>
         <button
           ref={buttonRef}
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            if (!isOpen && buttonRef.current) {
+              const rect = buttonRef.current.getBoundingClientRect();
+              setDropdownPos({ top: rect.top - 6, left: rect.right - 146 });
+            }
+            setIsOpen(!isOpen);
+          }}
           className={`text-xs text-primary-600 hover:text-primary-700 ${isOpen ? 'invisible' : ''} ${compact && label ? 'inline-flex items-center gap-0.5' : ''}`}
         >
           <Plus className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
@@ -97,7 +104,8 @@ export function AddJudgeDropdown({
         {isOpen && !selectedRole && (
           <div
             ref={dropdownRef}
-            className="absolute right-[-6px] top-[-6px] z-20 bg-bg-surface rounded-lg shadow-lg border border-border py-1 min-w-[140px]"
+            className="fixed z-[60] bg-bg-surface rounded-lg shadow-lg border border-border py-1 min-w-[140px]"
+            style={dropdownPos ? { top: dropdownPos.top, left: dropdownPos.left } : undefined}
           >
             <div className="flex items-center justify-between px-2 py-1 border-b border-border">
               <span className="text-xs font-medium text-text-muted">Add as...</span>
