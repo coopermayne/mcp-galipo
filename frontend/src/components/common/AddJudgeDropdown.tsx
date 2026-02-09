@@ -3,7 +3,7 @@ import { Plus, X } from 'lucide-react';
 import { JudgeAutocomplete } from './JudgeAutocomplete';
 import type { Judge } from '../../types';
 
-const JUDGE_ROLE_OPTIONS = ['Judge', 'Presiding', 'Magistrate', 'Panel', 'Other'];
+const JUDGE_ROLE_OPTIONS = ['Presiding', 'Magistrate', 'Panel', 'Other'] as const;
 
 interface AddJudgeDropdownProps {
   onAssign: (judge: Judge, role: string) => void;
