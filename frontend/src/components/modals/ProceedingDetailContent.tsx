@@ -243,7 +243,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               >
                 <span className="text-text-secondary flex items-center gap-1">
                   <button
-                    onClick={() => openJudgeModal(judge.judge_id)}
+                    onClick={() => openJudgeModal(judge.judge_id, { readOnly: true })}
                     className="hover:underline hover:text-text cursor-pointer"
                   >
                     {judge.name}
