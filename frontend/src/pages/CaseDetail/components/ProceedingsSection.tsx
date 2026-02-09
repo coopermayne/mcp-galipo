@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, ExternalLink, X, Scale } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
-import { JurisdictionAutocomplete, AddJudgeDropdown } from '../../../components/common';
+import { JurisdictionAutocomplete, AddJudgeDropdown, JUDGE_ROLES, getJudgeRoleIcon } from '../../../components/common';
 import {
   createProceeding,
   addProceedingJudge,
@@ -201,52 +201,50 @@ export function ProceedingsSection({
             )}
           </div>
 
-          {/* Judges row - indented under case number */}
-          {primaryProceeding.judges && primaryProceeding.judges.length > 0 && (
-            <div className="ml-5 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-              {primaryProceeding.judges.map((judge: ProceedingJudge, idx: number) => (
-                <span key={`${judge.judge_id}-${judge.role}`} className="text-sm text-text-secondary group/judge inline-flex items-center gap-1">
-                  {idx > 0 && <span className="text-text-muted">·</span>}
-                  <span
-                    className="cursor-pointer hover:underline"
-                    onClick={() => openJudgeModal(judge.judge_id, { readOnly: true })}
+          {/* Judges list - indented under case number */}
+          <div className="ml-5 mt-1.5 space-y-1">
+            {primaryProceeding.judges && primaryProceeding.judges.length > 0 && (
+              primaryProceeding.judges.map((judge: ProceedingJudge) => {
+                const RoleIcon = getJudgeRoleIcon(judge.role);
+                return (
+                  <div
+                    key={`${judge.judge_id}-${judge.role}`}
+                    className="group/judge flex items-center gap-1.5 text-sm"
                   >
-                    {judge.name}
-                  </span>
-                  <select
-                    value={judge.role}
-                    onChange={(e) => updateJudgeRoleMutation.mutate({
-                      proceedingId: primaryProceeding.id,
-                      judgeId: judge.judge_id,
-                      role: e.target.value,
-                    })}
-                    className="text-text-muted text-xs bg-transparent border-none outline-none cursor-pointer hover:text-text-secondary appearance-none pr-0"
-                    title="Change role"
-                  >
-                    {['Presiding', 'Magistrate', 'Panel', 'Other'].map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => handleRemoveJudge(primaryProceeding.id, judge.judge_id)}
-                    className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-text-muted hover:text-red-400 transition-opacity"
-                    title="Remove judge"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              {/* Add judge button - inline */}
-              {renderAddJudgeUI(primaryProceeding)}
-            </div>
-          )}
-
-          {/* No judges yet - show add button */}
-          {(!primaryProceeding.judges || primaryProceeding.judges.length === 0) && (
-            <div className="ml-5 mt-1">
-              {renderAddJudgeUI(primaryProceeding)}
-            </div>
-          )}
+                    <RoleIcon className="w-3 h-3 text-text-muted shrink-0" />
+                    <span
+                      className="text-text-secondary cursor-pointer hover:underline hover:text-text"
+                      onClick={() => openJudgeModal(judge.judge_id, { readOnly: true })}
+                    >
+                      {judge.name}
+                    </span>
+                    <select
+                      value={judge.role}
+                      onChange={(e) => updateJudgeRoleMutation.mutate({
+                        proceedingId: primaryProceeding.id,
+                        judgeId: judge.judge_id,
+                        role: e.target.value,
+                      })}
+                      className="text-text-muted text-xs bg-transparent border-none outline-none cursor-pointer hover:text-text-secondary"
+                      title="Change role"
+                    >
+                      {JUDGE_ROLES.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleRemoveJudge(primaryProceeding.id, judge.judge_id)}
+                      className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-text-muted hover:text-red-400 transition-opacity"
+                      title="Remove judge"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+            {renderAddJudgeUI(primaryProceeding)}
+          </div>
 
           {/* Notes if any */}
           {primaryProceeding.notes && (

@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Star, Scale, Users, MoreHorizontal } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { JudgeAutocomplete } from './JudgeAutocomplete';
 import type { Judge } from '../../types';
 
-const JUDGE_ROLE_OPTIONS = ['Presiding', 'Magistrate', 'Panel', 'Other'] as const;
+export const JUDGE_ROLES = [
+  { value: 'Presiding', label: 'Presiding', icon: Star },
+  { value: 'Magistrate', label: 'Magistrate', icon: Scale },
+  { value: 'Panel', label: 'Panel', icon: Users },
+  { value: 'Other', label: 'Other', icon: MoreHorizontal },
+] as const;
+
+export function getJudgeRoleIcon(role: string): LucideIcon {
+  return JUDGE_ROLES.find(r => r.value === role)?.icon ?? MoreHorizontal;
+}
 
 interface AddJudgeDropdownProps {
   onAssign: (judge: Judge, role: string) => void;
@@ -98,13 +108,14 @@ export function AddJudgeDropdown({
                 <X className="w-3 h-3" />
               </button>
             </div>
-            {JUDGE_ROLE_OPTIONS.map(opt => (
+            {JUDGE_ROLES.map(({ value, label, icon: Icon }) => (
               <button
-                key={opt}
-                onClick={() => handleRoleSelect(opt)}
-                className="w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-bg-hover"
+                key={value}
+                onClick={() => handleRoleSelect(value)}
+                className="w-full px-3 py-1.5 text-left text-xs text-text-secondary hover:bg-bg-hover flex items-center gap-2"
               >
-                {opt}
+                <Icon className="w-3 h-3 text-text-muted" />
+                {label}
               </button>
             ))}
           </div>
