@@ -6,9 +6,9 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { CheckSquare, Calendar, Users, BarChart3, Sparkles, Clock, AlertTriangle, Activity } from 'lucide-react';
+import { CheckSquare, Calendar, Users, BarChart3, Sparkles, Clock, AlertTriangle, Activity, Scale } from 'lucide-react';
 
-export type ChatMode = 'tasks' | 'events' | 'people' | 'overview' | 'full';
+export type ChatMode = 'tasks' | 'events' | 'people' | 'proceedings' | 'overview' | 'full';
 
 export interface ChatModeConfig {
   id: ChatMode;
@@ -21,7 +21,7 @@ export interface ChatModeConfig {
 
 export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity';
 export type CasePresetId = 'case_summary' | 'case_next' | 'case_tasks' | 'case_events';
-export type ActionStarterId = 'add_events' | 'add_people' | 'add_tasks';
+export type ActionStarterId = 'add_events' | 'add_people' | 'add_tasks' | 'manage_proceedings';
 
 export interface CasePreset {
   id: CasePresetId;
@@ -72,6 +72,15 @@ export const ACTION_STARTERS: ActionStarter[] = [
     color: 'blue',
     mode: 'tasks',
     greeting: 'What tasks would you like to add? You can list multiple — e.g. "Draft interrogatories by Friday, Review medical records high priority"',
+  },
+  {
+    id: 'manage_proceedings',
+    label: 'Proceedings',
+    description: 'Manage court proceedings, judges, jurisdictions',
+    icon: Scale,
+    color: 'slate',
+    mode: 'proceedings',
+    greeting: 'What would you like to do with proceedings? I can create proceedings, look up or add judges, and assign judges to proceedings. For example: "Add proceeding 24STCV12345 in Los Angeles Superior" or "Create judge Hon. Jane Wilson"',
   },
 ];
 
@@ -161,6 +170,20 @@ export const CHAT_MODES: Record<ChatMode, ChatModeConfig> = {
       'Show all attorneys on this case',
       'Update the client contact information',
       'Assign Dr. Smith as medical expert',
+    ],
+  },
+  proceedings: {
+    id: 'proceedings',
+    label: 'Proceedings',
+    description: 'Manage court proceedings and judges',
+    icon: Scale,
+    color: 'slate',
+    suggestedQuestions: [
+      'What proceedings are on this case?',
+      'Add a proceeding with case number 24STCV12345',
+      'List all available jurisdictions',
+      'Search for Judge Wilson',
+      'Assign a judge to the proceeding',
     ],
   },
   overview: {

@@ -22,6 +22,12 @@ BLACKLIST: set[str] = {
     "import_case",       # Too complex for chat — use MCP client directly
 }
 
+# Tools only available in "proceedings" mode (excluded from full/freeform chat)
+PROCEEDINGS_ONLY: set[str] = {
+    "manage_judge",
+    "list_jurisdictions",
+}
+
 
 def _clean_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Remove internal MCP parameters (like 'context') from a tool schema.
@@ -86,6 +92,10 @@ def get_tool_definitions(mode: str | None = None) -> list[dict[str, Any]]:
         if allowed_tools and tool.name not in allowed_tools:
             continue
 
+        # Exclude proceedings-only tools unless in proceedings mode
+        if tool.name in PROCEEDINGS_ONLY and mode != "proceedings":
+            continue
+
         # Clean the schema to remove internal MCP parameters
         cleaned_schema = _clean_schema(tool.parameters)
 
@@ -113,6 +123,7 @@ def get_tool_names(mode: str | None = None) -> list[str]:
         tool.name for tool in _mcp._tool_manager._tools.values()
         if tool.name not in BLACKLIST
         and (not allowed_tools or tool.name in allowed_tools)
+        and (tool.name not in PROCEEDINGS_ONLY or mode == "proceedings")
     ]
 
 

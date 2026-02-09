@@ -222,6 +222,20 @@ class ManageProceedingInput(BaseModel):
     judge_role: Optional[JudgeRole] = Field(None, description="(add_judge) Judge's role on this proceeding")
 
 
+class ManageJudgeInput(BaseModel):
+    """Create, update, or delete a judge."""
+    action: Literal["create", "update", "delete"] = Field(..., description="Action to perform")
+    judge_id: Optional[int] = Field(None, description="Required for update/delete")
+    name: Optional[str] = Field(None, description="Judge's full name (required for create), e.g. 'Hon. Jane Wilson'")
+    title: Optional[str] = Field(None, description="Title, e.g. 'Honorable', 'Magistrate'")
+    jurisdiction_id: Optional[int] = Field(None, description="Jurisdiction ID (use list_jurisdictions to find)")
+    phones: Optional[list[ContactInfo]] = Field(None, description="Phone numbers")
+    emails: Optional[list[ContactInfo]] = Field(None, description="Email addresses")
+    chambers: Optional[str] = Field(None, description="Chambers location")
+    courtroom_number: Optional[str] = Field(None, description="Courtroom number")
+    notes: Optional[str] = Field(None, description="Free-text notes")
+
+
 class ManageActivityInput(BaseModel):
     """Create, update, or delete an activity log entry."""
     action: Literal["create", "update", "delete"] = Field(..., description="Action to perform")
@@ -1165,3 +1179,84 @@ def register_tools(mcp):
             return validation_error(str(e))
         except Exception as e:
             return error_response(f"manage_activity failed: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
+    # MANAGE JUDGE (proceedings mode)
+    # =========================================================================
+
+    @mcp.tool()
+    def manage_judge(context: Context, data: ManageJudgeInput) -> dict:
+        """Create, update, or delete a judge.
+
+        Before creating a new judge, ALWAYS search first:
+        search(entity="judges", query="judge name") to check if they already exist.
+
+        Examples:
+        - manage_judge(action="create", name="Hon. Jane Wilson", jurisdiction_id=1)
+        - manage_judge(action="update", judge_id=3, courtroom_number="Dept 5")
+        - manage_judge(action="delete", judge_id=3)
+        """
+        context.info(f"manage_judge: {data.action}")
+        try:
+            if data.action == "create":
+                if not data.name:
+                    return validation_error("name is required for create")
+                result = db.create_judge(
+                    name=data.name,
+                    title=data.title,
+                    jurisdiction_id=data.jurisdiction_id,
+                    phones=[p.model_dump() for p in data.phones] if data.phones else None,
+                    emails=[e.model_dump() for e in data.emails] if data.emails else None,
+                    chambers=data.chambers,
+                    courtroom_number=data.courtroom_number,
+                    notes=data.notes,
+                )
+                return {"success": True, "message": f"Judge '{data.name}' created", "judge_id": result["id"]}
+
+            elif data.action == "update":
+                if not data.judge_id:
+                    return validation_error("judge_id is required for update")
+                kwargs = {}
+                for field in ["name", "title", "jurisdiction_id", "chambers", "courtroom_number", "notes"]:
+                    val = getattr(data, field)
+                    if val is not None:
+                        kwargs[field] = val
+                if data.phones is not None:
+                    kwargs["phones"] = [p.model_dump() for p in data.phones]
+                if data.emails is not None:
+                    kwargs["emails"] = [e.model_dump() for e in data.emails]
+                result = db.update_judge(data.judge_id, **kwargs)
+                if not result:
+                    return not_found_error("Judge")
+                return {"success": True, "message": f"Judge #{data.judge_id} updated", "judge_id": data.judge_id}
+
+            elif data.action == "delete":
+                if not data.judge_id:
+                    return validation_error("judge_id is required for delete")
+                result = db.delete_judge(data.judge_id)
+                if not result.get("success"):
+                    return error_response(result.get("error", "Delete failed"), "MUTATION_ERROR")
+                return {"success": True, "message": f"Judge #{data.judge_id} deleted"}
+
+        except ValidationError as e:
+            return validation_error(str(e))
+        except Exception as e:
+            return error_response(f"manage_judge failed: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
+    # LIST JURISDICTIONS (proceedings mode)
+    # =========================================================================
+
+    @mcp.tool()
+    def list_jurisdictions(context: Context) -> dict:
+        """List all available jurisdictions (courts).
+
+        Returns all jurisdictions with their IDs and names.
+        Use this to find a valid jurisdiction_id when creating proceedings or judges.
+        """
+        context.info("Listing jurisdictions")
+        try:
+            jurisdictions = db.get_jurisdictions()
+            return {"success": True, "jurisdictions": jurisdictions}
+        except Exception as e:
+            return error_response(f"Failed to list jurisdictions: {str(e)}", "QUERY_ERROR")

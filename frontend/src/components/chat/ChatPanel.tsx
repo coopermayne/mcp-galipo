@@ -18,6 +18,7 @@ const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
   manage_note: [['notes'], ['case']],
   manage_proceeding: [['proceedings'], ['case']],
   manage_activity: [['activities'], ['case']],
+  manage_judge: [['judges'], ['case'], ['proceedings']],
 };
 
 interface ChatPanelProps {
