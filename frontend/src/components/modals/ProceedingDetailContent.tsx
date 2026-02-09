@@ -10,7 +10,7 @@ import {
   ExternalLink,
   Trash2,
 } from 'lucide-react';
-import { EditableText, EditableSelect, ConfirmModal, AddJudgeDropdown } from '../common';
+import { EditableText, EditableSelect, ConfirmModal, AddJudgeDropdown, JUDGE_ROLES, getJudgeRoleIcon } from '../common';
 import { useEntityModal } from '.';
 import {
   getProceeding,
@@ -248,6 +248,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                   >
                     {judge.name}
                   </button>
+                  {(() => { const RoleIcon = getJudgeRoleIcon(judge.role); return <RoleIcon className="w-3.5 h-3.5 text-text-muted shrink-0" />; })()}
                   {readOnly ? (
                     <span className="text-text-muted">{formatJudgeRole(judge.role)}</span>
                   ) : (
@@ -260,8 +261,8 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                       className="text-text-muted text-sm bg-transparent border-none outline-none cursor-pointer hover:text-text-secondary appearance-none pr-0"
                       title="Change role"
                     >
-                      {['Presiding', 'Magistrate', 'Panel', 'Other'].map(r => (
-                        <option key={r} value={r}>{r}</option>
+                      {JUDGE_ROLES.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
                       ))}
                     </select>
                   )}
