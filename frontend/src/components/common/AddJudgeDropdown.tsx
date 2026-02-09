@@ -7,7 +7,6 @@ const JUDGE_ROLE_OPTIONS = ['Judge', 'Presiding', 'Magistrate', 'Panel', 'Other'
 
 interface AddJudgeDropdownProps {
   onAssign: (judge: Judge, role: string) => void;
-  onCreateNew: (name: string, role: string) => void;
   excludeJudgeIds?: number[];
   /** Compact mode shows smaller button inline */
   compact?: boolean;
@@ -17,7 +16,6 @@ interface AddJudgeDropdownProps {
 
 export function AddJudgeDropdown({
   onAssign,
-  onCreateNew,
   excludeJudgeIds = [],
   compact = false,
   label,
@@ -68,13 +66,6 @@ export function AddJudgeDropdown({
   const handleAssign = (judge: Judge) => {
     if (selectedRole) {
       onAssign(judge, selectedRole);
-      handleClose();
-    }
-  };
-
-  const handleCreate = (name: string) => {
-    if (selectedRole) {
-      onCreateNew(name, selectedRole);
       handleClose();
     }
   };
@@ -151,13 +142,13 @@ export function AddJudgeDropdown({
               {/* Content */}
               <div className="p-4">
                 <p className="text-sm text-text-muted mb-3">
-                  Search for an existing judge or create a new one.
+                  Search for an existing judge to assign.
                 </p>
                 <JudgeAutocomplete
                   excludeJudgeIds={excludeJudgeIds}
                   onSelectJudge={handleAssign}
-                  onCreateNew={handleCreate}
                   onCancel={handleClose}
+                  allowCreate={false}
                   placeholder="Search judges..."
                   autoFocus
                 />

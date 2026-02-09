@@ -7,10 +7,12 @@ import type { Judge } from '../../types';
 interface JudgeAutocompleteProps {
   excludeJudgeIds?: number[];            // Already assigned to proceeding
   onSelectJudge: (judge: Judge) => void;
-  onCreateNew: (name: string) => void;
+  onCreateNew?: (name: string) => void;
   onCancel?: () => void;                 // Called when user cancels (Escape or X button)
   placeholder?: string;
   autoFocus?: boolean;
+  /** Show "Create new" option when no match found. Defaults to true if onCreateNew is provided. */
+  allowCreate?: boolean;
 }
 
 export function JudgeAutocomplete({
@@ -20,7 +22,9 @@ export function JudgeAutocomplete({
   onCancel,
   placeholder = 'Search judges...',
   autoFocus = false,
+  allowCreate,
 }: JudgeAutocompleteProps) {
+  const canCreate = allowCreate ?? !!onCreateNew;
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -50,7 +54,7 @@ export function JudgeAutocomplete({
   });
 
   // Total items includes results + "create new" option
-  const showCreateOption = search.trim().length > 0;
+  const showCreateOption = canCreate && search.trim().length > 0;
   const totalItems = results.length + (showCreateOption ? 1 : 0);
 
   // Reset highlight when results change
@@ -82,7 +86,7 @@ export function JudgeAutocomplete({
           onSelectJudge(results[highlightedIndex]);
           setSearch('');
           setIsOpen(false);
-        } else if (showCreateOption) {
+        } else if (showCreateOption && onCreateNew) {
           onCreateNew(search.trim());
           setSearch('');
           setIsOpen(false);
@@ -212,7 +216,7 @@ export function JudgeAutocomplete({
           ))}
 
           {/* Create new option */}
-          {showCreateOption && (
+          {showCreateOption && onCreateNew && (
             <button
               type="button"
               onClick={() => {

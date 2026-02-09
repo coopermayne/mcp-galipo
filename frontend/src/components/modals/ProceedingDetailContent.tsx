@@ -19,7 +19,6 @@ import {
   addProceedingJudge,
   removeProceedingJudge,
   updateProceedingJudge,
-  createJudge,
   getConstants,
 } from '../../api';
 import type { Proceeding, ProceedingJudge, Jurisdiction } from '../../types';
@@ -107,24 +106,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const handleUpdateField = async (field: string, value: string | number | boolean | null) => {
     await updateMutation.mutateAsync({ [field]: value });
   };
-
-  // Create judge + assign mutation for AddJudgeDropdown
-  const createAndAddJudgeMutation = useMutation({
-    mutationFn: async ({ name, role }: { name: string; role: string }) => {
-      const judgeResult = await createJudge({ name });
-      const judgeId = judgeResult.judge.id;
-      await addProceedingJudge(entityId, { judge_id: judgeId, role });
-      return judgeId;
-    },
-    onSuccess: (judgeId) => {
-      queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
-      queryClient.invalidateQueries({ queryKey: ['judges'] });
-      if (context?.caseId) {
-        queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
-      }
-      openJudgeModal(judgeId);
-    },
-  });
 
   if (isLoading) {
     return (
@@ -246,9 +227,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               excludeJudgeIds={proceeding.judges?.map(j => j.judge_id) || []}
               onAssign={(judge, role) =>
                 addJudgeMutation.mutate({ judge_id: judge.id, role })
-              }
-              onCreateNew={(name, role) =>
-                createAndAddJudgeMutation.mutate({ name, role })
               }
               label="Add Judge"
             />
