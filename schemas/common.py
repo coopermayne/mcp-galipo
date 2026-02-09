@@ -30,7 +30,7 @@ ActivityType = Literal[
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
 Urgency = Literal["Low", "Medium", "High", "Urgent"]
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
-JudgeRole = Literal["Judge", "Magistrate Judge", "Presiding", "Panel"]
+JudgeRole = Literal["Presiding", "Magistrate", "Panel", "Other"]
 
 
 # =============================================================================

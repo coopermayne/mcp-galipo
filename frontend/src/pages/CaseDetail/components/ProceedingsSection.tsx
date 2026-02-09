@@ -223,7 +223,7 @@ export function ProceedingsSection({
                     className="text-text-muted text-xs bg-transparent border-none outline-none cursor-pointer hover:text-text-secondary appearance-none pr-0"
                     title="Change role"
                   >
-                    {['Judge', 'Presiding', 'Magistrate', 'Panel', 'Other'].map(r => (
+                    {['Presiding', 'Magistrate', 'Panel', 'Other'].map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
