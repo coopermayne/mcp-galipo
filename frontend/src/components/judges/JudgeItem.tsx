@@ -1,7 +1,7 @@
 /**
  * JudgeItem - Single judge row in the judges feed
  */
-import { Gavel, Phone, Mail, Building2 } from 'lucide-react';
+import { Gavel, Phone, Mail, Building2, BookOpen } from 'lucide-react';
 import { useEntityModalContext } from '../../context/EntityModalContext';
 import { CaseChip } from '../common/CaseChip';
 import type { Judge } from '../../types';
@@ -41,8 +41,12 @@ export function JudgeItem({ judge, onClick }: JudgeItemProps) {
       className="flex items-center gap-3 px-3 py-2.5 hover:bg-bg-hover cursor-pointer border-b border-border last:border-b-0 transition-colors"
     >
       {/* Avatar */}
-      <div className="w-8 h-8 rounded-full bg-bg-hover flex items-center justify-center flex-shrink-0">
-        <Gavel className="w-4 h-4 text-text-muted" />
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${judge.title === 'Magistrate' ? 'bg-indigo-100 dark:bg-indigo-900/30' : 'bg-bg-hover'}`}>
+        {judge.title === 'Magistrate' ? (
+          <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+        ) : (
+          <Gavel className="w-4 h-4 text-text-muted" />
+        )}
       </div>
 
       {/* Name and jurisdiction */}
