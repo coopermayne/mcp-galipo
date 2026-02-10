@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Gavel,
   Scale,
+  BookOpen,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EditableText, EditableContactList, JurisdictionAutocomplete } from '../common';
@@ -88,8 +89,12 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
     <div className="p-6">
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-          <Gavel className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${judge.title === 'Magistrate' ? 'bg-indigo-100 dark:bg-indigo-900/30' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+          {judge.title === 'Magistrate' ? (
+            <BookOpen className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+          ) : (
+            <Gavel className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           {readOnly ? (
