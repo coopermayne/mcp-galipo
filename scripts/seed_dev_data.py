@@ -195,13 +195,13 @@ def seed_dev_data():
 
     judges_data = [
         {"name": "Hon. Patricia Collins", "jurisdiction": "C.D. Cal.",
-         "courtroom_number": "8A", "initials": "PAC"},
+         "courtroom_number": "8A", "initials": "PAC", "title": "Judge"},
         {"name": "Hon. Robert Takahashi", "jurisdiction": "Los Angeles Superior",
-         "courtroom_number": "312", "initials": "RT"},
+         "courtroom_number": "312", "initials": "RT", "title": "Judge"},
         {"name": "Hon. Maria Santos", "jurisdiction": "C.D. Cal.",
-         "courtroom_number": "6B", "initials": "MLS"},
+         "courtroom_number": "6B", "initials": "MLS", "title": "Magistrate"},
         {"name": "Hon. William Foster", "jurisdiction": "Los Angeles Superior",
-         "courtroom_number": "504", "initials": "WF"},
+         "courtroom_number": "504", "initials": "WF", "title": "Judge"},
     ]
 
     judges = []
@@ -211,6 +211,7 @@ def seed_dev_data():
             jurisdiction_id=jurisdiction_map.get(j["jurisdiction"]),
             courtroom_number=j.get("courtroom_number"),
             initials=j.get("initials"),
+            title=j.get("title"),
         )
         judges.append({"id": judge["id"], "name": j["name"]})
 
