@@ -223,7 +223,6 @@ export function Templates() {
       !caseInfo.case_number?.trim() && 'Case Number',
       !caseInfo.plaintiffs?.trim() && 'Plaintiff(s)',
       !caseInfo.defendants?.trim() && 'Defendant(s)',
-      !caseInfo.judge?.trim() && 'Judge',
     ].filter(Boolean) as string[];
 
     return {
@@ -512,9 +511,7 @@ export function Templates() {
                   label="Judge"
                   value={caseInfo.judge || ''}
                   onChange={(v) => updateCaseInfo('judge', v)}
-                  required
                   placeholder="Hon. John Smith"
-                  showValidation={hasAttemptedSubmit}
                 />
                 <FormField
                   label="Magistrate Judge"
