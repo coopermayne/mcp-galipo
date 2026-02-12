@@ -224,8 +224,8 @@ test.describe('Case Detail — Judge Management', () => {
         await expect(page.getByText(`UI-JUDGE-${ts}`)).toBeVisible({ timeout: 5000 });
         // Judge name should be visible under the proceeding
         await expect(page.getByText(`UI Test Judge ${ts}`).first()).toBeVisible({ timeout: 5000 });
-        // Role should be shown in parentheses
-        await expect(page.getByText('(Presiding)').first()).toBeVisible({ timeout: 3000 });
+        // Role should be selected in the dropdown
+        await expect(page.getByRole('combobox', { name: 'Change role' }).first()).toHaveValue('Presiding', { timeout: 3000 });
       });
 
       await test.step('remove judge via API and verify UI updates', async () => {
@@ -242,12 +242,16 @@ test.describe('Case Detail — Judge Management', () => {
       });
 
       await test.step('add judge back via UI autocomplete', async () => {
-        // Click the "+ Judge" button
+        // Click the "+ Judge" button to open the role selection dropdown
         const addJudgeBtn = page.locator('button').filter({ hasText: /^\+?\s*Judge$/ }).first();
         await addJudgeBtn.click();
         await page.waitForTimeout(300);
 
-        // Type in the judge autocomplete
+        // Select the "Presiding" role button
+        await page.getByRole('button', { name: 'Presiding' }).click();
+        await page.waitForTimeout(300);
+
+        // Type in the judge autocomplete (now inside the modal)
         const judgeInput = page.getByPlaceholder('Search judges...');
         await expect(judgeInput).toBeVisible({ timeout: 3000 });
         await judgeInput.fill(`UI Test Judge ${ts}`);
@@ -296,17 +300,18 @@ test.describe('Case Detail — Judge Management', () => {
       await expect(page.getByText(`UI-ROLE-${ts}`)).toBeVisible({ timeout: 5000 });
 
       await test.step('select Magistrate role before adding', async () => {
-        // Click "+ Judge" to start adding
+        // Click "+ Judge" to open the role selection dropdown
         const addJudgeBtn = page.locator('button').filter({ hasText: /^\+?\s*Judge$/ }).first();
         await addJudgeBtn.click();
         await page.waitForTimeout(300);
 
-        // Change the role selector to "Magistrate"
-        const roleSelect = page.locator('select').first();
-        await roleSelect.selectOption('Magistrate');
+        // Select the "Magistrate" role button
+        await page.getByRole('button', { name: 'Magistrate' }).click();
+        await page.waitForTimeout(300);
 
         // Search for and select the judge
         const judgeInput = page.getByPlaceholder('Search judges...');
+        await expect(judgeInput).toBeVisible({ timeout: 3000 });
         await judgeInput.fill(`UI Role Judge ${ts}`);
         await page.waitForTimeout(500);
 
@@ -325,8 +330,8 @@ test.describe('Case Detail — Judge Management', () => {
       });
 
       await test.step('verify role label displayed in UI', async () => {
-        // The role should be shown in parentheses next to the judge name
-        await expect(page.getByText('(Magistrate)')).toBeVisible({ timeout: 5000 });
+        // The role should be selected in the dropdown next to the judge name
+        await expect(page.getByRole('combobox', { name: 'Change role' }).first()).toHaveValue('Magistrate', { timeout: 5000 });
       });
 
     } finally {
