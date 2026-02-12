@@ -393,65 +393,6 @@ export function Templates() {
       <Header title="Templates" subtitle="Generate pleading documents" />
 
       <PageContent variant="full" className="space-y-3 scrollbar-hide">
-        {/* Upload Zone */}
-        <section
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`
-            relative border border-dashed rounded-lg p-2.5 cursor-pointer
-            transition-all duration-200
-            ${isDragging
-              ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
-              : 'border-border hover:border-primary-400 hover:bg-bg-hover'
-            }
-            ${isExtracting ? 'pointer-events-none opacity-60' : ''}
-          `}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
-
-          {isExtracting ? (
-            <div className="flex items-center gap-3">
-              <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" />
-              <p className="text-xs text-text-muted">Analyzing {uploadedFile?.name}...</p>
-            </div>
-          ) : uploadedFile ? (
-            <div className="flex items-center gap-3">
-              <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
-              <a
-                href={URL.createObjectURL(uploadedFile)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline truncate flex-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {uploadedFile.name}
-              </a>
-              <span className="text-xs text-text-muted">{(uploadedFile.size / 1024).toFixed(1)} KB</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleClearFile(); }}
-                className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text transition-colors"
-                title="Clear file"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="w-4 h-4 text-text-muted flex-shrink-0" />
-              <p className="text-xs text-text-muted">
-                <span className="font-medium text-text">Drop a PDF</span> to auto-fill, or fill in manually below
-              </p>
-            </div>
-          )}
-        </section>
-
         {/* Error Display */}
         {error && (
           <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg animate-fadeSlideIn">
@@ -468,6 +409,65 @@ export function Templates() {
               icon={<FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
               title="Case Information"
             />
+
+            {/* AI Upload Zone — inside Case Info */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              className={`
+                mx-4 mt-4 border border-dashed rounded-lg p-2.5 cursor-pointer
+                transition-all duration-200
+                ${isDragging
+                  ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
+                  : 'border-primary-300 dark:border-primary-700 bg-primary-50/30 dark:bg-primary-900/10 hover:border-primary-400 hover:bg-primary-50/60 dark:hover:bg-primary-900/20'
+                }
+                ${isExtracting ? 'pointer-events-none opacity-60' : ''}
+              `}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+
+              {isExtracting ? (
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" />
+                  <p className="text-xs text-text-muted">Extracting case info from {uploadedFile?.name}...</p>
+                </div>
+              ) : uploadedFile ? (
+                <div className="flex items-center gap-3">
+                  <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                  <a
+                    href={URL.createObjectURL(uploadedFile)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline truncate flex-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {uploadedFile.name}
+                  </a>
+                  <span className="text-xs text-text-muted">{(uploadedFile.size / 1024).toFixed(1)} KB</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleClearFile(); }}
+                    className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text transition-colors"
+                    title="Clear file"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2" onClick={() => fileInputRef.current?.click()}>
+                  <Sparkles className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                  <p className="text-xs text-text-muted">
+                    <span className="font-medium text-primary-600 dark:text-primary-400">Drop a PDF</span> to auto-fill these fields with AI
+                  </p>
+                </div>
+              )}
+            </div>
             <div className="p-4 space-y-3">
               <FormField
                 label="Court"
