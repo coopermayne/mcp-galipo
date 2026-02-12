@@ -45,45 +45,45 @@ test.describe('Cases Page', () => {
     // Should show the Case Files heading
     await expect(page.getByText('Case Files')).toBeVisible({ timeout: 5000 });
 
-    // Should have at least one case listed — use API to get a name
-    const res = await page.request.get('/api/v1/cases?limit=1');
-    const data = await res.json();
-    const caseName = data.cases?.[0]?.short_name;
-    expect(caseName).toBeTruthy();
-    await expect(page.getByText(caseName).first()).toBeVisible({ timeout: 5000 });
+    // Should have at least one case card visible (page filters by "Mine" + "Unassigned")
+    // Look for a case status badge as proof cases loaded
+    await expect(page.getByText(/Discovery|Pre-trial|Filing|Signing Up|Pre-Filing|Trial|Expert Discovery|Settl\. Pend\./i).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('can search cases', async ({ page }) => {
     await page.getByRole('link', { name: 'Cases', exact: true }).click();
     await expect(page.getByText('Case Files')).toBeVisible({ timeout: 5000 });
 
+    // Wait for cases to load, then grab a visible case name to search for
+    await expect(page.getByText(/Discovery|Pre-trial|Filing|Signing Up|Pre-Filing/i).first()).toBeVisible({ timeout: 5000 });
+
     // Use first() to handle two-column layout with two search inputs
     const searchInput = page.getByPlaceholder(/search/i).first();
     if (await searchInput.isVisible()) {
-      // Get a case name from the API to search for
-      const res = await page.request.get('/api/v1/cases?limit=1');
-      const data = await res.json();
-      const caseName = data.cases?.[0]?.short_name;
-      if (caseName) {
-        await searchInput.fill(caseName);
+      // Get the short_name from the first visible case card on the page
+      // Case cards show short_name as a bold line followed by the full case_name
+      const firstCard = page.locator('[class*="cursor-pointer"]').first();
+      await expect(firstCard).toBeVisible({ timeout: 5000 });
+      // The short_name text node is the first child text in the card's info section
+      const allText = await firstCard.allInnerTexts();
+      // Extract a searchable term — use the "v." pattern from the full case name
+      const fullText = allText.join(' ');
+      const shortName = fullText.match(/(\w+)\s+v\./)?.[1];
+      if (shortName) {
+        await searchInput.fill(shortName);
         await page.waitForTimeout(500);
-        await expect(page.getByText(caseName).first()).toBeVisible();
+        await expect(page.getByText(shortName).first()).toBeVisible();
       }
     }
   });
 
   test('can open case detail', async ({ page }) => {
-    // Get a case from the API first
-    const res = await page.request.get('/api/v1/cases?limit=1');
-    const data = await res.json();
-    const caseName = data.cases?.[0]?.short_name;
-    expect(caseName).toBeTruthy();
-
     await page.getByRole('link', { name: 'Cases', exact: true }).click();
     await expect(page.getByText('Case Files')).toBeVisible({ timeout: 5000 });
 
-    // Click on the case
-    await page.getByText(caseName).first().click();
+    // Wait for cases to load then click the first case card
+    await expect(page.getByText(/Discovery|Pre-trial|Filing|Signing Up|Pre-Filing/i).first()).toBeVisible({ timeout: 5000 });
+    await page.locator('[class*="cursor-pointer"]').first().click();
     await page.waitForTimeout(500);
 
     // Should navigate to case detail page
