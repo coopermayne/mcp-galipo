@@ -276,7 +276,7 @@ class PasswordOAuthProvider(OAuthProvider):
                 filtered_routes.append(route)
 
         # Add our login page route
-        filtered_routes.append(Route("/login", endpoint=self._login_page, methods=["GET", "POST"]))
+        filtered_routes.append(Route("/mcp/login", endpoint=self._login_page, methods=["GET", "POST"]))
 
         return filtered_routes
 
@@ -286,13 +286,13 @@ class PasswordOAuthProvider(OAuthProvider):
 
         OAuth flow:
         1. Claude calls /authorize with client_id, redirect_uri, state, etc.
-        2. We redirect to /login with all params preserved
+        2. We redirect to /mcp/login with all params preserved
         3. User enters password
-        4. On success, /login calls the real authorize logic
+        4. On success, /mcp/login calls the real authorize logic
         """
         # Redirect to login with all OAuth params preserved
         params = dict(request.query_params)
-        return RedirectResponse(f"/login?{urlencode(params)}", status_code=302)
+        return RedirectResponse(f"/mcp/login?{urlencode(params)}", status_code=302)
 
     async def _login_page(self, request: Request):
         """
@@ -432,7 +432,7 @@ class PasswordOAuthProvider(OAuthProvider):
                 "scope": scope,
                 "code_challenge": code_challenge,
             }
-            return RedirectResponse(f"/login?{urlencode(params)}", status_code=303)
+            return RedirectResponse(f"/mcp/login?{urlencode(params)}", status_code=303)
 
         # Password correct - validate we have required params
         if not client_id:

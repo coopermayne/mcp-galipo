@@ -89,10 +89,10 @@ def register_static_routes(mcp):
         if path.startswith("api/"):
             return HTMLResponse("Not found", status_code=404)
         # MCP/SSE routes (handled by fastmcp)
-        if path in ("sse", "mcp", "messages") or path.startswith("messages/"):
+        if path in ("sse", "mcp", "messages") or path.startswith("messages/") or path.startswith("mcp/"):
             return HTMLResponse("Not found", status_code=404)
         # OAuth routes (handled by auth provider)
-        if path in ("authorize", "login", "token", "register", "oauth"):
+        if path in ("authorize", "token", "register", "oauth"):
             return HTMLResponse("Not found", status_code=404)
         if path.startswith(".well-known/"):
             return HTMLResponse("Not found", status_code=404)
