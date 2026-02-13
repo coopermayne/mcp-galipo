@@ -42,6 +42,30 @@ class Base(DeclarativeBase):
 # ---------------------------------------------------------------------------
 
 
+class Objection(Base):
+    __tablename__ = "objections"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="objections_pkey"),
+        UniqueConstraint("short_name", name="objections_short_name_key"),
+        Index("idx_objections_position", "position"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    short_name: Mapped[str] = mapped_column(String(50))
+    formal_language: Mapped[str] = mapped_column(Text)
+    argument_template: Mapped[Optional[str]] = mapped_column(Text)
+    position: Mapped[Optional[int]] = mapped_column(
+        Integer, server_default=text("0")
+    )
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class Case(Base):
     __tablename__ = "cases"
     __table_args__ = (

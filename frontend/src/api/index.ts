@@ -138,3 +138,9 @@ export type { AttorneyRef, StaffRef } from './users';
 
 // Templates
 export { extractCaseInfo } from './templates';
+
+// RFP
+export { extractRFP, analyzeRFPRequests, generateRFPResponse } from './rfp';
+
+// Objections
+export { getObjections, createObjection, updateObjection, deleteObjection, reorderObjections } from './objections';

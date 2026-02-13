@@ -2,7 +2,7 @@
 
 Entity-relationship diagram for the Galipo legal case management system.
 
-> **Auto-generated** on 2026-02-06 14:53:36 by `scripts/generate_schema_diagram.py`
+> **Auto-generated** on 2026-02-12 17:26:16 by `scripts/generate_schema_diagram.py`
 > (via [SchemaCrawler](https://www.schemacrawler.com/) Docker image)
 >
 > To regenerate: `python scripts/generate_schema_diagram.py`
@@ -14,6 +14,10 @@ Entity-relationship diagram for the Galipo legal case management system.
 ```mermaid
 erDiagram
 
+  alembic_version {
+    varchar version_num PK
+  }
+
   cases {
     serial id PK
     varchar case_name
@@ -23,27 +27,70 @@ erDiagram
     text case_summary
     text result
     date date_of_injury
+    timestamp created_at
+    timestamp updated_at
     varchar color
     _int4 attorney_ids
     _int4 paralegal_ids
-    timestamptz created_at
-    timestamptz updated_at
+  }
+
+  clients {
+    serial id PK
+    varchar name
+    varchar phone
+    varchar email
+    text address
+    text notes
+    timestamp created_at
+  }
+
+  contacts {
+    serial id PK
+    varchar name
+    varchar firm
+    varchar phone
+    varchar email
+    text address
+    text notes
+    timestamp created_at
+  }
+
+  defendants {
+    serial id PK
+    varchar name UK
   }
 
   expertise_types {
     serial id PK
     varchar name UK
     text description
-    timestamptz created_at
+    timestamp created_at
   }
 
   jurisdictions {
     serial id PK
     varchar name UK
-    varchar long_name
     text local_rules_link
     text notes
-    timestamptz created_at
+    timestamp created_at
+  }
+
+  objections {
+    serial id PK
+    varchar name
+    varchar short_name UK
+    text formal_language
+    text argument_template
+    int4 position
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  person_types_backup {
+    serial id PK
+    varchar name UK
+    text description
+    timestamp created_at
   }
 
   persons {
@@ -54,8 +101,23 @@ erDiagram
     text address
     varchar organization
     text notes
-    timestamptz created_at
-    timestamptz updated_at
+    timestamp created_at
+    timestamp updated_at
+    bool archived
+  }
+
+  persons_backup {
+    serial id PK
+    varchar person_type
+    varchar name
+    jsonb phones
+    jsonb emails
+    text address
+    varchar organization
+    jsonb attributes
+    text notes
+    timestamp created_at
+    timestamp updated_at
     bool archived
   }
 
@@ -65,13 +127,13 @@ erDiagram
     varchar category
     int4 sort_order
     text description
-    timestamptz created_at
+    timestamp created_at
   }
 
   schema_migrations {
     serial id PK
     varchar filename UK
-    timestamptz applied_at
+    timestamp applied_at
   }
 
   users {
@@ -86,9 +148,9 @@ erDiagram
     bool is_admin
     bool must_change_password
     bool is_active
+    timestamp created_at
+    timestamp updated_at
     int4 paralegal_id FK
-    timestamptz created_at
-    timestamptz updated_at
   }
 
   activities {
@@ -98,7 +160,46 @@ erDiagram
     text description
     varchar type
     int4 minutes
-    timestamptz created_at
+    timestamp created_at
+  }
+
+  case_clients {
+    serial id PK
+    int4 case_id UK
+    int4 client_id FK
+    bool contact_directly
+    int4 contact_via_id FK
+    varchar contact_via_relationship
+    bool is_primary
+    text notes
+  }
+
+  case_contacts {
+    serial id PK
+    int4 case_id UK
+    int4 contact_id FK
+    varchar role UK
+    text notes
+  }
+
+  case_defendants {
+    serial id PK
+    int4 case_id UK
+    int4 defendant_id FK
+  }
+
+  case_persons_backup {
+    serial id PK
+    int4 case_id FK
+    int4 person_id FK
+    varchar role UK
+    varchar side
+    jsonb case_attributes
+    text case_notes
+    bool is_primary
+    int4 grouped_under_id FK
+    date assigned_date
+    timestamp created_at
   }
 
   events {
@@ -110,9 +211,9 @@ erDiagram
     text description
     text document_link
     text calculation_note
+    timestamp created_at
     bool starred
     _int4 attendee_ids
-    timestamptz created_at
   }
 
   judges {
@@ -128,17 +229,17 @@ erDiagram
     varchar initials
     varchar status
     text notes
-    timestamptz created_at
-    timestamptz updated_at
+    timestamp created_at
+    timestamp updated_at
+    varchar title
   }
 
   notes {
     serial id PK
     int4 case_id FK
     text content
-    bool starred
-    timestamptz created_at
-    timestamptz updated_at
+    timestamp created_at
+    timestamp updated_at
   }
 
   person_roles {
@@ -151,7 +252,7 @@ erDiagram
     bool is_primary
     int4 grouped_under_id FK
     date assigned_date
-    timestamptz created_at
+    timestamp created_at
   }
 
   proceedings {
@@ -162,10 +263,19 @@ erDiagram
     int4 sort_order
     bool is_primary
     text notes
+    timestamp created_at
+    timestamp updated_at
     int8 courtlistener_docket_id
     varchar pacer_case_id
-    timestamptz created_at
-    timestamptz updated_at
+  }
+
+  judges_backup {
+    serial id PK
+    int4 proceeding_id FK
+    int4 person_id FK
+    varchar role
+    int4 sort_order
+    timestamp created_at
   }
 
   proceeding_judges {
@@ -174,7 +284,7 @@ erDiagram
     int4 judge_id FK
     varchar role
     int4 sort_order
-    timestamptz created_at
+    timestamp created_at
   }
 
   tasks {
@@ -185,10 +295,12 @@ erDiagram
     date completion_date
     text description
     varchar status
-    varchar urgency
+    timestamp created_at
     int4 sort_order
+    varchar docket_category
+    int4 docket_order
     int4 assignee_id FK
-    timestamptz created_at
+    varchar urgency
   }
 
   webhook_logs {
@@ -203,25 +315,33 @@ erDiagram
     int4 event_id FK
     varchar processing_status
     text processing_error
-    timestamptz created_at
-    timestamptz processed_at
+    timestamp created_at
+    timestamp processed_at
   }
 
   cases ||--o{ activities : ""
+  cases ||--o{ case_persons_backup : ""
   cases ||--o{ events : ""
   cases ||--o{ notes : ""
   cases ||--o{ person_roles : ""
   cases ||--o{ proceedings : ""
   cases ||--o{ tasks : ""
+  clients ||--o{ case_clients : ""
+  contacts ||--o{ case_clients : ""
+  contacts ||--o{ case_contacts : ""
+  defendants ||--o{ case_defendants : ""
   jurisdictions ||--o{ judges : ""
   jurisdictions ||--o{ proceedings : ""
   persons ||--o{ person_roles : ""
+  persons_backup ||--o{ case_persons_backup : ""
+  persons_backup ||--o{ judges_backup : ""
   roles ||--o{ person_roles : ""
   users ||--o{ tasks : ""
   users ||--o{ users : ""
   events ||--o{ tasks : ""
   events ||--o{ webhook_logs : ""
   judges ||--o{ proceeding_judges : ""
+  proceedings ||--o{ judges_backup : ""
   proceedings ||--o{ proceeding_judges : ""
   proceedings ||--o{ webhook_logs : ""
   tasks ||--o{ webhook_logs : ""
@@ -260,7 +380,7 @@ Flexible JSON for role-specific case data. For experts:
 - Meeting, Filing, Research, Drafting, Document Review
 - Phone Call, Email, Court Appearance, Deposition, Other
 
-### Role Categories (app-level validation via `db/validation.py`)
+### Role Categories (CHECK constraint)
 - client, counsel, defendant, expert, mediator, other
 
 ## Schema Design Notes

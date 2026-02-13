@@ -224,6 +224,16 @@ from .dev_users import (
     DEV_PASSWORD,
 )
 
+# Objections
+from .objections import (
+    get_objections,
+    get_objection_by_id,
+    create_objection,
+    update_objection,
+    delete_objection,
+    reorder_objections,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -399,6 +409,13 @@ __all__ = [
     "is_dev_environment",
     "DEV_USERS",
     "DEV_PASSWORD",
+    # Objections
+    "get_objections",
+    "get_objection_by_id",
+    "create_objection",
+    "update_objection",
+    "delete_objection",
+    "reorder_objections",
     # Bulk import
     "import_case",
 ]
