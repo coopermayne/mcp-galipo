@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Briefcase,
@@ -10,6 +10,11 @@ import {
   Users,
   UserCog,
   FileText,
+  FileSearch,
+  List,
+  FileSignature,
+  Receipt,
+  ChevronRight,
   X,
   Sun,
   Moon,
@@ -18,18 +23,38 @@ import { useState, useEffect, useMemo } from 'react';
 import { getAuthToken, useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ProfileDropdown } from '../auth';
+import type { LucideIcon } from 'lucide-react';
 
-const baseNavigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  adminOnly?: boolean;
+  children?: { name: string; href: string; icon: LucideIcon }[];
+}
+
+const baseNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Cases', href: '/cases', icon: Briefcase },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Calendar', href: '/calendar', icon: Clock },
-  { name: 'Templates', href: '/templates', icon: FileText },
+  {
+    name: 'Templates',
+    href: '/templates',
+    icon: FileText,
+    children: [
+      { name: 'Pleadings', href: '/templates/pleadings', icon: FileText },
+      { name: 'RFP', href: '/templates/rfp', icon: FileSearch },
+      { name: 'Case List', href: '/templates/case-list', icon: List },
+      { name: 'Retainer', href: '/templates/retainer', icon: FileSignature },
+      { name: 'Disbursement', href: '/templates/disbursement', icon: Receipt },
+    ],
+  },
   { name: 'CourtListener', href: '/courtlistener', icon: Webhook },
   { name: 'Persons', href: '/persons', icon: Users },
 ];
 
-const adminNavigation = [
+const adminNavigation: NavItem[] = [
   { name: 'Users', href: '/users', icon: UserCog, adminOnly: true },
 ];
 
@@ -42,6 +67,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+
+  const isTemplatesRoute = location.pathname.startsWith('/templates');
+  const [templatesOpen, setTemplatesOpen] = useState(isTemplatesRoute);
+
+  // Auto-expand when navigating to a templates route
+  useEffect(() => {
+    if (isTemplatesRoute) setTemplatesOpen(true);
+  }, [isTemplatesRoute]);
 
   // Build navigation based on user role
   const navigation = useMemo(() => {
@@ -107,6 +141,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     }
   };
 
+  const linkClasses = (isActive: boolean) =>
+    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-primary-600 text-white'
+        : 'text-text-secondary hover:bg-bg-hover hover:text-text'
+    }`;
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -148,20 +189,54 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           <ul className="space-y-1">
             {navigation.map((item) => (
               <li key={item.name}>
-                <NavLink
-                  to={item.href}
-                  onClick={onMobileClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary-600 text-white'
-                        : 'text-text-secondary hover:bg-bg-hover hover:text-text'
-                    }`
-                  }
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </NavLink>
+                {item.children ? (
+                  <>
+                    <button
+                      onClick={() => setTemplatesOpen(!templatesOpen)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full ${
+                        isTemplatesRoute
+                          ? 'bg-primary-600 text-white'
+                          : 'text-text-secondary hover:bg-bg-hover hover:text-text'
+                      }`}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="flex-1 text-left">{item.name}</span>
+                      <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${templatesOpen ? 'rotate-90' : ''}`} />
+                    </button>
+                    {templatesOpen && (
+                      <ul className="mt-1 ml-4 space-y-0.5 border-l border-border pl-3">
+                        {item.children.map((child) => (
+                          <li key={child.name}>
+                            <NavLink
+                              to={child.href}
+                              onClick={onMobileClose}
+                              className={({ isActive }) =>
+                                `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                  isActive
+                                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                                    : 'text-text-muted hover:bg-bg-hover hover:text-text'
+                                }`
+                              }
+                            >
+                              <child.icon className="w-3.5 h-3.5" />
+                              {child.name}
+                            </NavLink>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <NavLink
+                    to={item.href}
+                    end={item.href === '/'}
+                    onClick={onMobileClose}
+                    className={({ isActive }) => linkClasses(isActive)}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.name}
+                  </NavLink>
+                )}
               </li>
             ))}
           </ul>

@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { FileText, Upload, Loader2, AlertCircle, CheckCircle2, Sparkles, X, Download, Check, ChevronDown } from 'lucide-react';
-import { Header, PageContent } from '../components/layout';
-import { extractCaseInfo, improveDocumentName, generateFilename, generateDocument } from '../api/templates';
-import { request } from '../api/common';
-import { useAuth } from '../context/AuthContext';
-import type { CaseInfo } from '../types/template';
+import { FileText, Loader2, AlertCircle, CheckCircle2, Sparkles, X, Download, Check, ChevronDown } from 'lucide-react';
+import { Header, PageContent } from '../../components/layout';
+import { extractCaseInfo, improveDocumentName, generateFilename, generateDocument } from '../../api/templates';
+import { request } from '../../api/common';
+import { useAuth } from '../../context/AuthContext';
+import type { CaseInfo } from '../../types/template';
 
 // Primary document types — user picks one
 const DOCUMENT_TYPES = [
@@ -161,7 +161,7 @@ function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title
   );
 }
 
-export function Templates() {
+export function Pleadings() {
   const { user } = useAuth();
 
   const emptyCaseInfo: CaseInfo = {
