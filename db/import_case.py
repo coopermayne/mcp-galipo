@@ -21,6 +21,7 @@ from .validation import (
     ValidationError,
     CASE_STATUSES,
 )
+from .fuzzy_match import resolve_judge
 from models import (
     Case, Person, Role, PersonRole, Jurisdiction, Proceeding,
     ProceedingJudge, Judge, Event, Note, Activity, User,
@@ -75,6 +76,7 @@ def import_case(data: dict) -> dict:
             "activities": [],
             "jurisdictions": [],
         },
+        "unresolved_judges": [],
         "assigned_attorneys": [],
         "assigned_paralegals": [],
         "summary": {}
@@ -116,6 +118,9 @@ def import_case(data: dict) -> dict:
                 # Track judges assigned
                 for judge in proc_result.get("judges", []):
                     result["created"]["judges"].append(judge)
+                # Track unresolved judges (ambiguous fuzzy matches)
+                for unresolved in proc_result.get("unresolved_judges", []):
+                    result["unresolved_judges"].append(unresolved)
 
             # 4. Create events (hearings, deadlines, depositions, etc.)
             events_data = data.get("events", [])
@@ -297,7 +302,8 @@ def _create_proceeding(session, case_id: int, proc_data: dict) -> dict:
     result = {
         "proceeding_id": None,
         "jurisdiction_created": None,
-        "judges": []
+        "judges": [],
+        "unresolved_judges": [],
     }
 
     case_number = proc_data.get("case_number")
@@ -357,17 +363,48 @@ def _create_proceeding(session, case_id: int, proc_data: dict) -> dict:
                 judge_entries.append({"name": j["name"], "role": j.get("role")})
 
     # Link judges to proceeding - judges are standalone entities
+    # Uses fuzzy matching to find existing judges before creating new ones
     for idx, entry in enumerate(judge_entries):
         judge_name = entry["name"]
         judge_name_lower = judge_name.lower().strip()
 
-        # Check if judge already exists
-        judge = session.scalar(
-            select(Judge).where(func.lower(Judge.name) == func.lower(judge_name))
-        )
+        # Fuzzy-match against existing judges
+        match = resolve_judge(session, judge_name, jurisdiction_id=jurisdiction_id)
 
+        judge = None
+        match_info = {}
+
+        if match.match_type in ("exact", "fuzzy"):
+            # Confident match — use existing judge
+            judge = session.get(Judge, match.judge.judge_id)
+            if match.match_type == "fuzzy":
+                match_info = {
+                    "matched_name": match.judge.name,
+                    "match_score": match.judge.score,
+                    "match_type": "fuzzy",
+                }
+
+        elif match.match_type == "ambiguous":
+            # Ambiguous — skip assignment, report candidates for review
+            result["unresolved_judges"].append({
+                "input_name": judge_name,
+                "proceeding_id": proceeding_id,
+                "match_type": "ambiguous",
+                "candidates": [
+                    {
+                        "judge_id": c.judge_id,
+                        "name": c.name,
+                        "score": c.score,
+                        "jurisdiction_name": c.jurisdiction_name,
+                    }
+                    for c in match.candidates
+                ],
+                "hint": "Use manage_proceeding(action='add_judge') to assign the correct judge",
+            })
+            continue
+
+        # match_type == "none" or no judge found — create new
         if not judge:
-            # Create new judge
             judge = Judge(
                 name=judge_name,
                 phones=[],
@@ -403,12 +440,14 @@ def _create_proceeding(session, case_id: int, proc_data: dict) -> dict:
             session.add(pj)
             session.flush()
 
-            result["judges"].append({
+            judge_info = {
                 "id": pj.id,
                 "judge_id": judge.id,
                 "name": judge_name,
-                "role": judge_role
-            })
+                "role": judge_role,
+            }
+            judge_info.update(match_info)
+            result["judges"].append(judge_info)
 
     return result
 
