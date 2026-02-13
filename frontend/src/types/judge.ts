@@ -21,6 +21,9 @@ export interface Judge {
   updated_at?: string;
   // Optional: proceedings this judge is assigned to
   proceedings?: JudgeProceeding[];
+  // Fuzzy search fields (present when result came from fuzzy matching)
+  score?: number;
+  fuzzy_match?: boolean;
 }
 
 export interface JudgeProceeding {

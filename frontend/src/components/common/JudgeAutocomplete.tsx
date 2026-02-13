@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, Building2, X } from 'lucide-react';
+import { Search, Plus, Building2, X, Sparkles } from 'lucide-react';
 import { searchJudges } from '../../api';
 import type { Judge } from '../../types';
 
@@ -166,12 +166,20 @@ export function JudgeAutocomplete({
             <div className="px-3 py-2 text-xs text-text-muted">Searching...</div>
           )}
 
-          {!isLoading && results.length === 0 && !showCreateOption && (
+          {!isLoading && results.length === 0 && !showCreateOption && debouncedSearch.length === 0 && (
             <div className="px-3 py-2 text-xs text-text-muted">Type to search...</div>
           )}
 
-          {!isLoading && results.length === 0 && showCreateOption && search.length > 0 && (
-            <div className="px-3 py-2 text-xs text-text-muted">No matches found</div>
+          {!isLoading && results.length === 0 && debouncedSearch.length > 0 && (
+            <div className="px-3 py-2 text-xs text-text-muted">No matches found (including fuzzy search)</div>
+          )}
+
+          {/* Fuzzy match header */}
+          {!isLoading && results.length > 0 && results[0].fuzzy_match && (
+            <div className="px-3 py-1.5 text-[10px] text-text-muted border-b border-border flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              Fuzzy matches
+            </div>
           )}
 
           {/* Results */}
@@ -192,8 +200,13 @@ export function JudgeAutocomplete({
               }`}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-text truncate">
+                <div className="font-medium text-text truncate flex items-center gap-1.5">
                   {judge.name}
+                  {judge.fuzzy_match && judge.score != null && (
+                    <span className="text-[10px] font-normal text-primary-600 dark:text-primary-400">
+                      {Math.round(judge.score)}%
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
                   {judge.jurisdiction_name && (
@@ -207,7 +220,7 @@ export function JudgeAutocomplete({
                   )}
                 </div>
               </div>
-              {judge.status && (
+              {judge.status && !judge.fuzzy_match && (
                 <span className="text-[10px] text-text-muted bg-bg-hover px-1.5 py-0.5 rounded shrink-0">
                   {judge.status}
                 </span>

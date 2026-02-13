@@ -361,6 +361,14 @@ def register_tools(mcp):
             Valid roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
             Shortcut: "judge_name": "Hon. Smith" for a single judge.
 
+            JUDGE FUZZY MATCHING: Judge names are fuzzy-matched against existing judges.
+            - High-confidence match (e.g. "Hon. D. Gee" → "Dolly Gee"): auto-assigned.
+              The result includes matched_name and match_score on the judge entry.
+            - Ambiguous match (e.g. "Judge Smith" with multiple Smiths): NOT assigned.
+              Appears in result["unresolved_judges"] with candidates to choose from.
+              Use manage_proceeding(action="add_judge") to assign the correct one.
+            - No match: a new judge is created (same as before).
+
         events[] - encompasses ALL calendar items: hearings, deadlines,
             depositions, CMCs, mediations, trial dates, filing deadlines, etc.
             Use the description to indicate the type of event.
@@ -443,7 +451,8 @@ def register_tools(mcp):
             ]
         }
 
-        Returns all created IDs for verification.
+        Returns all created IDs for verification. Check result["unresolved_judges"]
+        for any judges that need manual assignment (ambiguous fuzzy matches).
         """
         context.info(f"Importing case: {data.get('case', {}).get('case_name', 'unknown')}")
         try:

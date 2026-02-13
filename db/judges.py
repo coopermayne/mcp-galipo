@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal, _NOT_PROVIDED
+from .fuzzy_match import fuzzy_search_judges as _fuzzy_search
 from models import Judge, Jurisdiction, ProceedingJudge, Proceeding, Case
 from schemas import JudgeOut, ProceedingJudgeOut
 
@@ -128,7 +129,10 @@ def get_judge_by_id(judge_id: int) -> Optional[dict]:
 
 
 def search_judges(name: str = None, jurisdiction_id: int = None) -> List[dict]:
-    """Search judges by name and/or jurisdiction. Returns simple list for autocomplete."""
+    """Search judges by name and/or jurisdiction. Returns simple list for autocomplete.
+
+    Falls back to fuzzy matching when ILIKE returns no results and a name was provided.
+    """
     with SessionLocal() as session:
         stmt = (
             select(Judge)
@@ -143,15 +147,23 @@ def search_judges(name: str = None, jurisdiction_id: int = None) -> List[dict]:
             stmt = stmt.where(Judge.jurisdiction_id == jurisdiction_id)
 
         judges = session.scalars(stmt).unique().all()
-        return [
-            {
-                "id": j.id,
-                "name": j.name,
-                "jurisdiction_id": j.jurisdiction_id,
-                "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
-            }
-            for j in judges
-        ]
+
+        if judges:
+            return [
+                {
+                    "id": j.id,
+                    "name": j.name,
+                    "jurisdiction_id": j.jurisdiction_id,
+                    "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
+                }
+                for j in judges
+            ]
+
+        # Fuzzy fallback when ILIKE found nothing
+        if name:
+            return _fuzzy_search(session, name, jurisdiction_id=jurisdiction_id, limit=20)
+
+        return []
 
 
 def create_judge(name: str, phones: List[dict] = None, emails: List[dict] = None,

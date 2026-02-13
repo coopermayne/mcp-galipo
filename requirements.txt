@@ -15,3 +15,4 @@ docxtpl
 pypdf
 docxcompose
 pydantic-settings
+rapidfuzz
