@@ -15,7 +15,7 @@ const TEMPLATE_TOOLS = [
     href: '/templates/rfp',
     icon: FileSearch,
     description: 'Build responses to Requests for Production. Upload the RFP, manage responsive documents, and generate formatted response sets with objections.',
-    ready: false,
+    ready: true,
   },
   {
     name: 'Case List',

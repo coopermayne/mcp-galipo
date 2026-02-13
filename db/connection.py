@@ -116,12 +116,96 @@ def seed_roles():
     print(f"Seeded {len(DEFAULT_ROLES)} roles.")
 
 
+def seed_objections():
+    """Seed default legal objections if the table is empty."""
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from models import Objection
+    from .session import SessionLocal
+
+    DEFAULT_OBJECTIONS = [
+        {
+            "name": "Vague and Ambiguous",
+            "short_name": "vague",
+            "formal_language": "Responding Party objects to this request on the grounds that it is vague and ambiguous, rendering it impossible to determine the nature and scope of the information sought.",
+            "position": 0,
+        },
+        {
+            "name": "Overbroad",
+            "short_name": "overbroad",
+            "formal_language": "Responding Party objects to this request on the grounds that it is overbroad in scope and not reasonably particularized to the subject matter of this litigation.",
+            "position": 1,
+        },
+        {
+            "name": "Attorney-Client Privilege",
+            "short_name": "attorney_client",
+            "formal_language": "Responding Party objects to this request to the extent it seeks information protected by the attorney-client privilege. Any such information will not be produced.",
+            "position": 2,
+        },
+        {
+            "name": "Work Product Doctrine",
+            "short_name": "work_product",
+            "formal_language": "Responding Party objects to this request to the extent it seeks documents or tangible things prepared in anticipation of litigation or for trial by or for the Responding Party, which are protected from disclosure under the work product doctrine.",
+            "position": 3,
+        },
+        {
+            "name": "Not Relevant",
+            "short_name": "relevance",
+            "formal_language": "Responding Party objects to this request on the grounds that it is not relevant to the subject matter of this action and is not reasonably calculated to lead to the discovery of admissible evidence.",
+            "position": 4,
+        },
+        {
+            "name": "Unduly Burdensome",
+            "short_name": "burdensome",
+            "formal_language": "Responding Party objects to this request on the grounds that it is unduly burdensome and oppressive, and that the burden and expense of the proposed discovery outweighs its likely benefit.",
+            "position": 5,
+        },
+        {
+            "name": "Compound",
+            "short_name": "compound",
+            "formal_language": "Responding Party objects to this request on the grounds that it is compound, containing multiple discrete subparts that should be propounded as separate requests.",
+            "position": 6,
+        },
+        {
+            "name": "Right to Privacy",
+            "short_name": "privacy",
+            "formal_language": "Responding Party objects to this request to the extent it seeks information protected by the right to privacy of the Responding Party and/or third parties under Article I, Section 1 of the California Constitution.",
+            "position": 7,
+        },
+        {
+            "name": "Equally Available",
+            "short_name": "equally_available",
+            "formal_language": "Responding Party objects to this request on the grounds that the information sought is equally available to the Propounding Party through its own investigation or from public sources.",
+            "position": 8,
+        },
+        {
+            "name": "Trade Secret",
+            "short_name": "trade_secret",
+            "formal_language": "Responding Party objects to this request to the extent it seeks information constituting trade secrets or other confidential proprietary business information.",
+            "position": 9,
+        },
+    ]
+
+    with SessionLocal() as session:
+        count = session.query(Objection).count()
+        if count > 0:
+            return  # Already seeded
+
+        for obj in DEFAULT_OBJECTIONS:
+            stmt = pg_insert(Objection).values(**obj).on_conflict_do_nothing(
+                index_elements=["short_name"]
+            )
+            session.execute(stmt)
+        session.commit()
+    print(f"Seeded {len(DEFAULT_OBJECTIONS)} default objections.")
+
+
 def seed_db():
     """Seed all lookup tables and users."""
     seed_admin_user()
     seed_jurisdictions()
     seed_expertise_types()
     seed_roles()
+    seed_objections()
     print("Database seeded with lookup data.")
 
     # Seed dev users if in a verified dev environment
