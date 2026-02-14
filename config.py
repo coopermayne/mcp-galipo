@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     chat_model: str = "claude-haiku-4-5"
     chat_model_full: str = "claude-sonnet-4-5-20250929"
+    extraction_model: str = "claude-haiku-4-5-20251001"
     chat_max_tokens: int = 4096
     chat_debug: bool = False
 

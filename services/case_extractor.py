@@ -125,8 +125,8 @@ class CaseExtractor:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
         self.client = Anthropic(api_key=api_key)
-        # Use a smaller, faster model for extraction tasks
-        self.model = "claude-3-5-haiku-20241022"
+        from config import settings
+        self.model = settings.extraction_model
 
     def extract_case_info(self, text: str) -> dict:
         """

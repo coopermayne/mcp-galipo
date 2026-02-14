@@ -250,9 +250,9 @@ export function RFP() {
       setRequests(prev => prev.map(req => {
         const analysis = result.analyses[String(req.number)];
         if (analysis) {
-          return { ...req, objection_short_names: analysis.objections };
+          return { ...req, objection_short_names: analysis.objections || [] };
         }
-        return req;
+        return { ...req, objection_short_names: req.objection_short_names || [] };
       }));
       setHasAnalyzed(true);
     } catch (err) {
@@ -266,7 +266,7 @@ export function RFP() {
   const toggleObjection = useCallback((reqIndex: number, shortName: string) => {
     setRequests(prev => prev.map((req, i) => {
       if (i !== reqIndex) return req;
-      const names = new Set(req.objection_short_names);
+      const names = new Set(req.objection_short_names ?? []);
       if (names.has(shortName)) names.delete(shortName);
       else names.add(shortName);
       return { ...req, objection_short_names: Array.from(names) };
@@ -515,7 +515,7 @@ export function RFP() {
                         <ObjectionChip
                           key={obj.short_name}
                           objection={obj}
-                          selected={req.objection_short_names.includes(obj.short_name)}
+                          selected={(req.objection_short_names ?? []).includes(obj.short_name)}
                           onToggle={() => toggleObjection(idx, obj.short_name)}
                         />
                       ))}

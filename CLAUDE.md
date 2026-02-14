@@ -413,6 +413,7 @@ set -a && source .env && set +a
 | `VITE_PORT` | No | 5173 | Frontend dev server port |
 | `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
 | `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
+| `EXTRACTION_MODEL` | No | claude-haiku-4-5-20251001 | Model for PDF extraction (templates, RFP) |
 | `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
 | `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP OAuth authentication (requires MCP_BASE_URL) |
 | `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |

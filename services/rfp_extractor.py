@@ -8,8 +8,28 @@ Uses Claude to:
 """
 
 import os
+import logging
 from typing import Optional
 from anthropic import Anthropic
+
+_logger = logging.getLogger("services.rfp_extractor")
+
+
+# Haiku pricing per million tokens (as of Feb 2026)
+_INPUT_COST_PER_M = 0.80   # $0.80 per 1M input tokens
+_OUTPUT_COST_PER_M = 4.00  # $4.00 per 1M output tokens
+
+
+def _log_usage(step: str, message) -> None:
+    """Log token usage and estimated cost from an API response."""
+    usage = message.usage
+    input_cost = (usage.input_tokens / 1_000_000) * _INPUT_COST_PER_M
+    output_cost = (usage.output_tokens / 1_000_000) * _OUTPUT_COST_PER_M
+    total_cost = input_cost + output_cost
+    _logger.info(
+        f"[RFP {step}] {usage.input_tokens:,} in / {usage.output_tokens:,} out "
+        f"(${total_cost:.4f})"
+    )
 
 
 # --- Tool definitions ---
@@ -94,31 +114,41 @@ EXTRACT_RFP_REQUESTS_TOOL = {
     }
 }
 
-ANALYZE_REQUESTS_TOOL = {
-    "name": "submit_analysis",
-    "description": "Submit objection analysis for each request.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "analyses": {
-                "type": "object",
-                "description": "Map of request number (as string) to analysis",
-                "additionalProperties": {
+def _build_analyze_tool(valid_short_names: list[str], request_numbers: list[int]) -> dict:
+    """Build the analyze tool with enum constraints from actual DB values."""
+    req_keys = [str(n) for n in request_numbers]
+    return {
+        "name": "submit_analysis",
+        "description": "Submit objection analysis for each request.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "analyses": {
                     "type": "object",
+                    "description": "Map of request number (as string) to analysis. Keys must be request numbers.",
                     "properties": {
-                        "objections": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of applicable objection short_names"
+                        key: {
+                            "type": "object",
+                            "properties": {
+                                "objections": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": valid_short_names,
+                                    },
+                                    "description": "List of applicable objection short_names"
+                                }
+                            },
+                            "required": ["objections"]
                         }
+                        for key in req_keys
                     },
-                    "required": ["objections"]
+                    "required": req_keys,
                 }
-            }
-        },
-        "required": ["analyses"]
+            },
+            "required": ["analyses"]
+        }
     }
-}
 
 
 class RFPExtractor:
@@ -129,7 +159,8 @@ class RFPExtractor:
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         self.client = Anthropic(api_key=api_key)
-        self.model = "claude-3-5-haiku-20241022"
+        from config import settings
+        self.model = settings.extraction_model
 
     def extract_rfp_info(self, text: str) -> dict:
         """Extract case/party info from the first ~2 pages of an RFP."""
@@ -145,6 +176,7 @@ Use \\n for line breaks in the court name. Be precise and extract exactly what a
                 {"role": "user", "content": f"Extract RFP information from this document:\n\n{text}"}
             ]
         )
+        _log_usage("extract_info", message)
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_rfp_info":
@@ -178,6 +210,7 @@ Extract ALL requests found in the document.""",
                 {"role": "user", "content": f"Extract all requests for production from this document. Copy each request's text VERBATIM:\n\n{text}"}
             ]
         )
+        _log_usage("extract_requests", message)
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_rfp_requests":
@@ -204,6 +237,10 @@ Extract ALL requests found in the document.""",
             for r in requests
         )
 
+        valid_short_names = [o['short_name'] for o in objections]
+        request_numbers = [r['number'] for r in requests]
+        analyze_tool = _build_analyze_tool(valid_short_names, request_numbers)
+
         message = self.client.messages.create(
             model=self.model,
             max_tokens=4096,
@@ -225,12 +262,13 @@ Guidelines:
 - "trade_secret" applies when proprietary business information is sought
 
 Be judicious — only suggest objections that are genuinely applicable. Most requests will have 2-4 applicable objections.""",
-            tools=[ANALYZE_REQUESTS_TOOL],
+            tools=[analyze_tool],
             tool_choice={"type": "tool", "name": "submit_analysis"},
             messages=[
                 {"role": "user", "content": f"Analyze these requests and suggest applicable objections:\n\n{requests_text}"}
             ]
         )
+        _log_usage("analyze", message)
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_analysis":
