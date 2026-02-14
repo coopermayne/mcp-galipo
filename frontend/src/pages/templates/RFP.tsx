@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { FileSearch, Loader2, AlertCircle, CheckCircle2, Sparkles, X, Download, ChevronDown, Settings, AlertTriangle } from 'lucide-react';
+import { FileSearch, Loader2, AlertCircle, CheckCircle2, Sparkles, Download, ChevronDown, Settings, AlertTriangle, Upload, RotateCcw, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header, PageContent } from '../../components/layout';
 import { extractRFP, analyzeRFPRequests, generateRFPResponse } from '../../api/rfp';
@@ -328,6 +328,13 @@ export function RFP() {
     }
   }, [caseInfo, requests, selectedAttorney, filename]);
 
+  const fileUrl = useMemo(
+    () => uploadedFile ? URL.createObjectURL(uploadedFile) : null,
+    [uploadedFile]
+  );
+
+  const hasExtracted = !isExtracting && uploadedFile && requests.length > 0;
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header title="Templates" subtitle="RFP Response Generator" />
@@ -341,7 +348,74 @@ export function RFP() {
           </div>
         )}
 
-        {/* Two-column grid: Case Info | Output */}
+        {/* Upload zone — hero when empty, slim bar after extraction */}
+        <input ref={fileInputRef} type="file" accept=".pdf" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} className="hidden" />
+
+        {isExtracting ? (
+          /* Extracting state — centered spinner */
+          <div
+            className="flex flex-col items-center justify-center gap-4 py-24 border-2 border-dashed border-primary-300 dark:border-primary-700 rounded-xl bg-primary-50/30 dark:bg-primary-900/10"
+          >
+            <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-text">Extracting RFP...</p>
+              <p className="text-xs text-text-muted mt-1">{uploadedFile?.name}</p>
+            </div>
+          </div>
+        ) : hasExtracted ? (
+          /* Collapsed bar — file uploaded and extracted */
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-bg-surface border border-border rounded-lg">
+            <FileSearch className="w-4 h-4 text-primary-500 flex-shrink-0" />
+            <span className="text-sm font-medium text-text truncate">{uploadedFile.name}</span>
+            <span className="text-xs text-text-muted flex-shrink-0">{(uploadedFile.size / 1024).toFixed(1)} KB</span>
+            {fileUrl && (
+              <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline flex-shrink-0">
+                <ExternalLink className="w-3 h-3" />
+                Open
+              </a>
+            )}
+            <div className="flex-1" />
+            <button
+              onClick={handleClearFile}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-text-muted hover:text-text hover:bg-bg-hover transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Restart
+            </button>
+          </div>
+        ) : (
+          /* Hero drop zone — no file yet */
+          <div
+            onDrop={handleDrop}
+            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={e => { e.preventDefault(); setIsDragging(false); }}
+            onClick={() => fileInputRef.current?.click()}
+            className={`
+              flex flex-col items-center justify-center gap-4 py-24 border-2 border-dashed rounded-xl cursor-pointer
+              transition-all duration-200
+              ${isDragging
+                ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 scale-[1.01]'
+                : 'border-primary-300 dark:border-primary-700 bg-primary-50/30 dark:bg-primary-900/10 hover:border-primary-400 dark:hover:border-primary-600'
+              }
+            `}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center">
+              <Upload className="w-7 h-7 text-primary-600 dark:text-primary-400" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-text">
+                Drop an RFP PDF here
+              </p>
+              <p className="text-xs text-text-muted mt-1">
+                or click to browse — AI will extract case info & requests
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Two-column grid: Case Info | Output — only shown after extraction */}
+        {hasExtracted && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
           {/* Case Info */}
           <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
@@ -349,52 +423,6 @@ export function RFP() {
               icon={<FileSearch className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
               title="Case Information"
             />
-
-            {/* Upload zone */}
-            <div
-              onDrop={handleDrop}
-              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={e => { e.preventDefault(); setIsDragging(false); }}
-              className={`
-                mx-4 mt-4 border border-dashed rounded-lg p-2.5 cursor-pointer
-                transition-all duration-200
-                ${isDragging
-                  ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
-                  : 'border-primary-300 dark:border-primary-700 bg-primary-50/30 dark:bg-primary-900/10 hover:border-primary-400'
-                }
-                ${isExtracting ? 'pointer-events-none opacity-60' : ''}
-              `}
-            >
-              <input ref={fileInputRef} type="file" accept=".pdf" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} className="hidden" />
-
-              {isExtracting ? (
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" />
-                  <p className="text-xs text-text-muted">Extracting RFP from {uploadedFile?.name}...</p>
-                </div>
-              ) : uploadedFile ? (
-                <div className="flex items-center gap-3">
-                  <FileSearch className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                  <a href={URL.createObjectURL(uploadedFile)} target="_blank" rel="noopener noreferrer"
-                    className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline truncate flex-1"
-                    onClick={e => e.stopPropagation()}>
-                    {uploadedFile.name}
-                  </a>
-                  <span className="text-xs text-text-muted">{(uploadedFile.size / 1024).toFixed(1)} KB</span>
-                  <button onClick={e => { e.stopPropagation(); handleClearFile(); }}
-                    className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text transition-colors" title="Clear">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2" onClick={() => fileInputRef.current?.click()}>
-                  <Sparkles className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                  <p className="text-xs text-text-muted">
-                    <span className="font-medium text-primary-600 dark:text-primary-400">Drop an RFP PDF</span> to extract case info & requests
-                  </p>
-                </div>
-              )}
-            </div>
 
             <div className="p-4 space-y-3">
               <FormField label="Court" value={caseInfo.court_name || ''} onChange={v => updateCaseInfo('court_name', v)} multiline rows={2} placeholder="SUPERIOR COURT OF CALIFORNIA&#10;COUNTY OF LOS ANGELES" />
@@ -460,9 +488,10 @@ export function RFP() {
             </div>
           </section>
         </div>
+        )}
 
         {/* Requests Section */}
-        {requests.length > 0 && (
+        {hasExtracted && (
           <section className="bg-bg-surface rounded-lg border border-border overflow-hidden">
             <SectionHeader
               icon={<FileSearch className="w-4 h-4 text-primary-600 dark:text-primary-400" />}
