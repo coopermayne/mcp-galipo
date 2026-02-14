@@ -337,7 +337,19 @@ export function RFP() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
-      <Header title="Templates" subtitle="RFP Response Generator" />
+      <Header
+        title="Templates"
+        subtitle="RFP Response Generator"
+        actions={
+          <Link
+            to="/templates/rfp/objections"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-bg-hover text-text-secondary hover:text-text transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            Objections
+          </Link>
+        }
+      />
 
       <PageContent variant="full" className="space-y-3 scrollbar-hide">
         {/* Error */}
@@ -499,10 +511,6 @@ export function RFP() {
               subtitle={`${requests.length} request${requests.length !== 1 ? 's' : ''}`}
               rightElement={
                 <div className="flex items-center gap-2">
-                  <Link to="/templates/rfp/objections" className="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-muted hover:text-text hover:bg-bg-hover transition-colors">
-                    <Settings className="w-3.5 h-3.5" />
-                    Manage Objections
-                  </Link>
                   <button
                     onClick={handleAnalyze}
                     disabled={isAnalyzing}

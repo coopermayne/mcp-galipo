@@ -31,6 +31,7 @@ export interface Objection {
   short_name: string;
   formal_language: string;
   argument_template: string | null;
+  ai_notes: string | null;
   position: number;
   created_at: string | null;
   updated_at: string | null;

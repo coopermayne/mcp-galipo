@@ -21,6 +21,7 @@ export async function createObjection(objection: {
   short_name: string;
   formal_language: string;
   argument_template?: string;
+  ai_notes?: string;
   position?: number;
 }): Promise<Objection> {
   const data = await request<ObjectionResponse>('/objections', {

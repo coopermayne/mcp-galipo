@@ -21,6 +21,7 @@ def _objection_to_dict(obj: Objection) -> dict:
         "short_name": obj.short_name,
         "formal_language": obj.formal_language,
         "argument_template": obj.argument_template,
+        "ai_notes": obj.ai_notes,
         "position": obj.position,
         "created_at": obj.created_at.isoformat() if obj.created_at else None,
         "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
@@ -68,7 +69,7 @@ def create_objection(
 
 def update_objection(objection_id: int, **kwargs) -> Optional[dict]:
     """Update an objection. Pass only the fields to update."""
-    allowed = {"name", "short_name", "formal_language", "argument_template", "position"}
+    allowed = {"name", "short_name", "formal_language", "argument_template", "ai_notes", "position"}
     with SessionLocal() as session:
         obj = session.get(Objection, objection_id)
         if not obj:
