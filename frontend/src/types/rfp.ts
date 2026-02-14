@@ -9,6 +9,7 @@ export interface RFPCaseInfo {
   responding_party: string | null;
   set_number: string | null;
   document_title: string | null;
+  response_document_title: string | null;
   multiple_plaintiffs: boolean;
   multiple_defendants: boolean;
 }

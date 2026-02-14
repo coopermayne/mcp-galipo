@@ -70,7 +70,11 @@ EXTRACT_RFP_INFO_TOOL = {
             },
             "document_title": {
                 "type": "string",
-                "description": "Full title of the RFP document"
+                "description": "Full title of the RFP document as written"
+            },
+            "response_document_title": {
+                "type": "string",
+                "description": "The title for the RESPONSE document (e.g., 'PLAINTIFF JOHN DOE'S RESPONSES TO DEFENDANT CITY OF FRESNO'S FIRST SET OF REQUESTS FOR PRODUCTION OF DOCUMENTS'). Must name the responding party and reference the original RFP."
             },
             "multiple_plaintiffs": {
                 "type": "boolean",
@@ -169,7 +173,9 @@ class RFPExtractor:
             max_tokens=1024,
             system="""You are a legal document analyzer. Extract case and party information from this Request for Production of Documents.
 Focus on: court name, case number, plaintiff(s), defendant(s), propounding party, responding party, set number, and document title.
-Use \\n for line breaks in the court name. Be precise and extract exactly what appears.""",
+Use \\n for line breaks in the court name. Be precise and extract exactly what appears.
+
+IMPORTANT: Also generate a response_document_title — this is the title for the RESPONSE document being drafted by the responding party. Format it as the responding party's name followed by their responses to the propounding party's requests. Example: if the RFP is "DEFENDANT CITY OF FRESNO'S FIRST SET OF REQUESTS FOR PRODUCTION TO PLAINTIFF", the response title should be "PLAINTIFF JOHN DOE'S RESPONSES TO DEFENDANT CITY OF FRESNO'S FIRST SET OF REQUESTS FOR PRODUCTION OF DOCUMENTS". Use ALL CAPS.""",
             tools=[EXTRACT_RFP_INFO_TOOL],
             tool_choice={"type": "tool", "name": "submit_rfp_info"},
             messages=[
