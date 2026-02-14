@@ -22,12 +22,18 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+function toShortName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+}
+
 interface EditingState {
   id: number | 'new';
   name: string;
-  short_name: string;
   formal_language: string;
-  argument_template: string;
 }
 
 function SortableObjectionRow({
@@ -146,9 +152,7 @@ export function ObjectionsManager() {
     setEditing({
       id: obj.id,
       name: obj.name,
-      short_name: obj.short_name,
       formal_language: obj.formal_language,
-      argument_template: obj.argument_template || '',
     });
   }, []);
 
@@ -156,16 +160,20 @@ export function ObjectionsManager() {
     setEditing({
       id: 'new',
       name: '',
-      short_name: '',
       formal_language: '',
-      argument_template: '',
     });
   }, []);
 
   const handleSave = useCallback(async () => {
     if (!editing) return;
-    if (!editing.name.trim() || !editing.short_name.trim() || !editing.formal_language.trim()) {
-      setError('Name, short name, and formal language are required');
+    if (!editing.name.trim() || !editing.formal_language.trim()) {
+      setError('Name and formal language are required');
+      return;
+    }
+
+    const short_name = toShortName(editing.name);
+    if (!short_name) {
+      setError('Name must contain at least one letter or number');
       return;
     }
 
@@ -175,17 +183,15 @@ export function ObjectionsManager() {
       if (editing.id === 'new') {
         await createObjection({
           name: editing.name,
-          short_name: editing.short_name,
+          short_name,
           formal_language: editing.formal_language,
-          argument_template: editing.argument_template || undefined,
           position: objections.length,
         });
       } else {
         await updateObjection(editing.id, {
           name: editing.name,
-          short_name: editing.short_name,
+          short_name,
           formal_language: editing.formal_language,
-          argument_template: editing.argument_template || undefined,
         });
       }
       setEditing(null);
@@ -246,27 +252,18 @@ export function ObjectionsManager() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-secondary">Name</label>
-                <input
-                  type="text"
-                  value={editing.name}
-                  onChange={e => setEditing({ ...editing, name: e.target.value })}
-                  className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-                  placeholder="Vague and Ambiguous"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-secondary">Short Name (ID)</label>
-                <input
-                  type="text"
-                  value={editing.short_name}
-                  onChange={e => setEditing({ ...editing, short_name: e.target.value })}
-                  className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-                  placeholder="vague"
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-secondary">Name</label>
+              <input
+                type="text"
+                value={editing.name}
+                onChange={e => setEditing({ ...editing, name: e.target.value })}
+                className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                placeholder="Vague and Ambiguous"
+              />
+              {editing.name.trim() && (
+                <p className="text-xs text-text-muted font-mono">ID: {toShortName(editing.name)}</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-secondary">Formal Language</label>
@@ -276,16 +273,6 @@ export function ObjectionsManager() {
                 rows={3}
                 className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm text-text resize-none focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                 placeholder="Responding Party objects to this request on the grounds that..."
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-secondary">Argument Template (optional)</label>
-              <textarea
-                value={editing.argument_template}
-                onChange={e => setEditing({ ...editing, argument_template: e.target.value })}
-                rows={2}
-                className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm text-text resize-none focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-                placeholder="Template for specific arguments..."
               />
             </div>
             <div className="flex justify-end">
