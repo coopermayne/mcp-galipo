@@ -234,7 +234,7 @@ Extract ALL requests found in the document.""",
             Dict mapping request numbers to {objections: [short_names]}
         """
         objections_desc = "\n".join(
-            f"- {o['short_name']}: {o['name']}"
+            f"- {o['short_name']}: {o['name']}" + (f"\n  Notes: {o['ai_notes']}" if o.get('ai_notes') else "")
             for o in objections
         )
 
@@ -252,22 +252,10 @@ Extract ALL requests found in the document.""",
             max_tokens=4096,
             system=f"""You are a legal analyst reviewing Requests for Production of Documents. For each request, determine which objections from the available list are reasonably applicable.
 
-Available objections (use the short_name values):
+Available objections (use the short_name values). Where "Notes" are provided, follow them carefully — they are guidance from the attorney on when to apply or not apply each objection:
 {objections_desc}
 
-Guidelines:
-- "vague" applies when terms are undefined or ambiguous
-- "overbroad" applies when the scope is unreasonably broad (e.g., "all documents", no time limit)
-- "attorney_client" applies when the request could encompass privileged communications
-- "work_product" applies when the request could reach litigation preparation materials
-- "relevance" applies when the connection to the case is tenuous
-- "burdensome" applies when compliance would be extremely costly/difficult
-- "compound" applies when one request asks for multiple unrelated categories
-- "privacy" applies when personal/medical/financial info of non-parties is sought
-- "equally_available" applies when the requesting party has equal access to the info
-- "trade_secret" applies when proprietary business information is sought
-
-Be judicious — only suggest objections that are genuinely applicable. Most requests will have 2-4 applicable objections.""",
+Be judicious — only suggest objections that are genuinely applicable. Most requests will have 2-4 applicable objections. Pay close attention to the attorney's notes for each objection when deciding whether to apply it.""",
             tools=[analyze_tool],
             tool_choice={"type": "tool", "name": "submit_analysis"},
             messages=[

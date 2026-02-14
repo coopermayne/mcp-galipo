@@ -34,6 +34,7 @@ interface EditingState {
   id: number | 'new';
   name: string;
   formal_language: string;
+  ai_notes: string;
 }
 
 function SortableObjectionRow({
@@ -153,6 +154,7 @@ export function ObjectionsManager() {
       id: obj.id,
       name: obj.name,
       formal_language: obj.formal_language,
+      ai_notes: obj.ai_notes || '',
     });
   }, []);
 
@@ -161,6 +163,7 @@ export function ObjectionsManager() {
       id: 'new',
       name: '',
       formal_language: '',
+      ai_notes: '',
     });
   }, []);
 
@@ -185,6 +188,7 @@ export function ObjectionsManager() {
           name: editing.name,
           short_name,
           formal_language: editing.formal_language,
+          ai_notes: editing.ai_notes || undefined,
           position: objections.length,
         });
       } else {
@@ -192,6 +196,7 @@ export function ObjectionsManager() {
           name: editing.name,
           short_name,
           formal_language: editing.formal_language,
+          ai_notes: editing.ai_notes || undefined,
         });
       }
       setEditing(null);
@@ -216,7 +221,7 @@ export function ObjectionsManager() {
     <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
       <Header title="Manage Objections" subtitle="Legal objections for RFP responses" />
 
-      <PageContent variant="full" className="space-y-3 scrollbar-hide">
+      <PageContent variant="full" className="space-y-3 scrollbar-hide max-w-3xl mx-auto">
         {/* Back link + Add button */}
         <div className="flex items-center justify-between">
           <Link
@@ -274,6 +279,17 @@ export function ObjectionsManager() {
                 className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm text-text resize-none focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                 placeholder="Responding Party objects to this request on the grounds that..."
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-secondary">AI Guidance Notes</label>
+              <textarea
+                value={editing.ai_notes}
+                onChange={e => setEditing({ ...editing, ai_notes: e.target.value })}
+                rows={2}
+                className="w-full px-2.5 py-1.5 bg-bg border border-border rounded text-sm text-text resize-none focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                placeholder="When to apply: broad time ranges, 'all documents' language, no date limits. When NOT to apply: narrowly scoped requests with specific date ranges."
+              />
+              <p className="text-xs text-text-muted">These notes help the AI decide when to apply this objection during analysis.</p>
             </div>
             <div className="flex justify-end">
               <button

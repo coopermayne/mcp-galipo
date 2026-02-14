@@ -55,6 +55,7 @@ class Objection(Base):
     short_name: Mapped[str] = mapped_column(String(50))
     formal_language: Mapped[str] = mapped_column(Text)
     argument_template: Mapped[Optional[str]] = mapped_column(Text)
+    ai_notes: Mapped[Optional[str]] = mapped_column(Text)
     position: Mapped[Optional[int]] = mapped_column(
         Integer, server_default=text("0")
     )
