@@ -214,7 +214,7 @@ def register_rfp_routes(mcp):
             propounding_party=case_info.get("propounding_party", ""),
             responding_party=responding_party,
             set_number=case_info.get("set_number", "One"),
-            document_title=case_info.get("document_title", ""),
+            document_title=case_info.get("response_document_title") or case_info.get("document_title", ""),
             associate_name=signing_attorney.get("name", ""),
             associate_bar=signing_attorney.get("bar_number", ""),
             associate_email=signing_attorney.get("email", ""),

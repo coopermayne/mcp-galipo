@@ -128,7 +128,7 @@ export function RFP() {
   const emptyCase: RFPCaseInfo = {
     court_name: null, case_no: null, header_plaintiffs: null, header_defendants: null,
     propounding_party: null, responding_party: null, set_number: null,
-    document_title: null, multiple_plaintiffs: false, multiple_defendants: false,
+    document_title: null, response_document_title: null, multiple_plaintiffs: false, multiple_defendants: false,
   };
 
   // State
@@ -446,7 +446,7 @@ export function RFP() {
               title="Output Document"
             />
             <div className="p-4 space-y-4">
-              <FormField label="Document Title" value={caseInfo.document_title || ''} onChange={v => updateCaseInfo('document_title', v)} placeholder="RESPONSES TO REQUEST FOR PRODUCTION OF DOCUMENTS, SET ONE" autoExpand />
+              <FormField label="Document Title" value={caseInfo.response_document_title || ''} onChange={v => updateCaseInfo('response_document_title', v)} placeholder="PLAINTIFF'S RESPONSES TO DEFENDANT'S FIRST SET OF REQUESTS FOR PRODUCTION OF DOCUMENTS" autoExpand />
               <FormField label="Filename" value={filename} onChange={setFilename} required placeholder="2026.02.12 RFP Responses Set One.docx" showValidation={hasAttemptedSubmit} />
 
               <div className="flex items-center gap-3 flex-wrap">
