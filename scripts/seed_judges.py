@@ -41,68 +41,67 @@ CA9 = "9th Cir."
 JUDGES = {
     CACD: [
         # District Judges
-        {"name": "Dolly M. Gee", "title": "Judge", "initials": "DMG", "notes": "Chief Judge"},
-        {"name": "Fernando L. Aenlle-Rocha", "title": "Judge", "initials": "FLA"},
-        {"name": "Percy Anderson", "title": "Judge", "initials": "PA"},
-        {"name": "Jesus G. Bernal", "title": "Judge", "initials": "JGB"},
-        {"name": "André Birotte Jr.", "title": "Judge", "initials": "AB"},
-        {"name": "Stanley Blumenfeld Jr.", "title": "Judge", "initials": "SB"},
-        {"name": "David O. Carter", "title": "Judge", "initials": "DOC"},
-        {"name": "Michelle Williams Court", "title": "Judge", "initials": "MWC"},
-        {"name": "Michael W. Fitzgerald", "title": "Judge", "initials": "MWF"},
-        {"name": "Maame Ewusi-Mensah Frimpong", "title": "Judge", "initials": "MEMF"},
-        {"name": "Sherilyn Peace Garnett", "title": "Judge", "initials": "SPG"},
-        {"name": "John W. Holcomb", "title": "Judge", "initials": "JWH"},
-        {"name": "Wesley L. Hsu", "title": "Judge", "initials": "WLH"},
-        {"name": "Anne Hwang", "title": "Judge", "initials": "AH"},
-        {"name": "Kenly Kiya Kato", "title": "Judge", "initials": "KK"},
-        {"name": "R. Gary Klausner", "title": "Judge", "initials": "RGK"},
-        {"name": "Serena R. Murillo", "title": "Judge", "initials": "SRM"},
-        {"name": "Fernando M. Olguin", "title": "Judge", "initials": "FMO"},
-        {"name": "Mónica Ramírez Almadani", "title": "Judge", "initials": "MRA"},
-        {"name": "Mark C. Scarsi", "title": "Judge", "initials": "MCS"},
-        {"name": "Fred W. Slaughter", "title": "Judge", "initials": "FWS"},
-        {"name": "Josephine L. Staton", "title": "Judge", "initials": "JLS"},
-        {"name": "Sunshine S. Sykes", "title": "Judge", "initials": "SSS"},
-        {"name": "Cynthia Valenzuela", "title": "Judge", "initials": "CV"},
-        {"name": "Hernán D. Vera", "title": "Judge", "initials": "HDV"},
-        {"name": "John F. Walter", "title": "Judge", "initials": "JFW"},
-        {"name": "Stephen V. Wilson", "title": "Judge", "initials": "SVW"},
-        {"name": "Otis D. Wright II", "title": "Judge", "initials": "ODW"},
-        {"name": "Valerie B. Fairbank", "title": "Judge", "initials": "VBF", "notes": "Senior status"},
-        {"name": "Dale S. Fischer", "title": "Judge", "initials": "DSF", "notes": "Senior status"},
-        {"name": "Terry J. Hatter Jr.", "title": "Judge", "initials": "TJH", "notes": "Senior status"},
-        {"name": "John A. Kronstadt", "title": "Judge", "initials": "JAK", "notes": "Senior status"},
-        {"name": "Consuelo B. Marshall", "title": "Judge", "initials": "CBM", "notes": "Senior status"},
-        {"name": "Virginia A. Phillips", "title": "Judge", "initials": "VAP", "notes": "Senior status"},
-        {"name": "James V. Selna", "title": "Judge", "initials": "JVS", "notes": "Senior status"},
-        {"name": "Christina A. Snyder", "title": "Judge", "initials": "CAS", "notes": "Senior status"},
-        {"name": "George H. Wu", "title": "Judge", "initials": "GW", "notes": "Senior status"},
+        {"name": "Dolly M. Gee", "title": "Judge", "initials": "DMG", "notes": "Chief Judge", "chambers": "First Street U.S. Courthouse, Courtroom 8C, 8th Floor", "courtroom_number": "8C", "appointed_by": "Obama"},
+        {"name": "Fernando L. Aenlle-Rocha", "title": "Judge", "initials": "FLA", "chambers": "First Street U.S. Courthouse, Courtroom 6B, 6th Floor", "courtroom_number": "6B", "appointed_by": "Trump"},
+        {"name": "Percy Anderson", "title": "Judge", "initials": "PA", "chambers": "First Street U.S. Courthouse, Courtroom 9A, 9th Floor", "courtroom_number": "9A", "appointed_by": "Bush"},
+        {"name": "Jesus G. Bernal", "title": "Judge", "initials": "JGB", "chambers": "George E. Brown Federal Courthouse, Courtroom 1, 2nd Floor", "courtroom_number": "1", "appointed_by": "Obama"},
+        {"name": "André Birotte Jr.", "title": "Judge", "initials": "AB", "chambers": "First Street U.S. Courthouse, Courtroom 7B, 7th Floor", "courtroom_number": "7B", "appointed_by": "Obama"},
+        {"name": "Stanley Blumenfeld Jr.", "title": "Judge", "initials": "SB", "chambers": "First Street U.S. Courthouse, Courtroom 6C, 6th Floor", "courtroom_number": "6C", "appointed_by": "Trump"},
+        {"name": "David O. Carter", "title": "Judge", "initials": "DOC", "chambers": "Ronald Reagan Federal Building, Courtroom 10A, 10th Floor", "courtroom_number": "10A", "appointed_by": "Clinton"},
+        {"name": "Michelle Williams Court", "title": "Judge", "initials": "MWC", "chambers": "First Street U.S. Courthouse, Courtroom 6A, 6th Floor", "courtroom_number": "6A", "appointed_by": "Biden"},
+        {"name": "Michael W. Fitzgerald", "title": "Judge", "initials": "MWF", "chambers": "First Street U.S. Courthouse, Courtroom 5A, 5th Floor", "courtroom_number": "5A", "appointed_by": "Obama"},
+        {"name": "Maame Ewusi-Mensah Frimpong", "title": "Judge", "initials": "MEMF", "chambers": "First Street U.S. Courthouse, Courtroom 8B, 8th Floor", "courtroom_number": "8B", "appointed_by": "Biden"},
+        {"name": "Sherilyn Peace Garnett", "title": "Judge", "initials": "SPG", "chambers": "First Street U.S. Courthouse, Courtroom 5C, 5th Floor", "courtroom_number": "5C", "appointed_by": "Biden"},
+        {"name": "John W. Holcomb", "title": "Judge", "initials": "JWH", "chambers": "Ronald Reagan Federal Building, Courtroom 9D, 9th Floor", "courtroom_number": "9D", "appointed_by": "Trump"},
+        {"name": "Wesley L. Hsu", "title": "Judge", "initials": "WLH", "chambers": "First Street U.S. Courthouse, Courtroom 9B, 9th Floor", "courtroom_number": "9B", "appointed_by": "Biden"},
+        {"name": "Anne Hwang", "title": "Judge", "initials": "AH", "chambers": "First Street U.S. Courthouse, Courtroom 9C, 9th Floor", "courtroom_number": "9C", "appointed_by": "Biden"},
+        {"name": "Kenly Kiya Kato", "title": "Judge", "initials": "KK", "chambers": "George E. Brown Federal Courthouse, Courtroom 3, 3rd Floor", "courtroom_number": "3", "appointed_by": "Biden"},
+        {"name": "R. Gary Klausner", "title": "Judge", "initials": "RGK", "chambers": "Spring Street U.S. Courthouse, Courtroom 850, 8th Floor", "courtroom_number": "850", "appointed_by": "Bush"},
+        {"name": "Serena R. Murillo", "title": "Judge", "initials": "SRM", "chambers": "First Street U.S. Courthouse, Courtroom 5D, 5th Floor", "courtroom_number": "5D", "appointed_by": "Biden"},
+        {"name": "Fernando M. Olguin", "title": "Judge", "initials": "FMO", "chambers": "First Street U.S. Courthouse, Courtroom 6D, 6th Floor", "courtroom_number": "6D", "appointed_by": "Obama"},
+        {"name": "Mónica Ramírez Almadani", "title": "Judge", "initials": "MRA", "chambers": "Ronald Reagan Federal Building, Courtroom 9B, 9th Floor", "courtroom_number": "9B", "appointed_by": "Biden"},
+        {"name": "Mark C. Scarsi", "title": "Judge", "initials": "MCS", "chambers": "First Street U.S. Courthouse, Courtroom 7C, 7th Floor", "courtroom_number": "7C", "appointed_by": "Trump"},
+        {"name": "Fred W. Slaughter", "title": "Judge", "initials": "FWS", "chambers": "Ronald Reagan Federal Building, Courtroom 10D, 10th Floor", "courtroom_number": "10D", "appointed_by": "Biden"},
+        {"name": "Josephine L. Staton", "title": "Judge", "initials": "JLS", "chambers": "First Street U.S. Courthouse, Courtroom 8A, 8th Floor", "courtroom_number": "8A", "appointed_by": "Obama"},
+        {"name": "Sunshine S. Sykes", "title": "Judge", "initials": "SSS", "chambers": "George E. Brown Federal Courthouse, Courtroom 2, 2nd Floor", "courtroom_number": "2", "appointed_by": "Biden"},
+        {"name": "Cynthia Valenzuela", "title": "Judge", "initials": "CV", "chambers": "First Street U.S. Courthouse, Courtroom 10B, 10th Floor", "courtroom_number": "10B", "appointed_by": "Biden"},
+        {"name": "Hernán D. Vera", "title": "Judge", "initials": "HDV", "chambers": "First Street U.S. Courthouse, Courtroom 5B, 5th Floor", "courtroom_number": "5B", "appointed_by": "Biden"},
+        {"name": "John F. Walter", "title": "Judge", "initials": "JFW", "chambers": "First Street U.S. Courthouse, Courtroom 7A, 7th Floor", "courtroom_number": "7A", "appointed_by": "Bush"},
+        {"name": "Stephen V. Wilson", "title": "Judge", "initials": "SVW", "chambers": "First Street U.S. Courthouse, Courtroom 10A, 10th Floor", "courtroom_number": "10A", "appointed_by": "Reagan"},
+        {"name": "Otis D. Wright II", "title": "Judge", "initials": "ODW", "chambers": "First Street U.S. Courthouse, Courtroom 5D, 5th Floor", "courtroom_number": "5D", "appointed_by": "Bush"},
+        {"name": "Valerie B. Fairbank", "title": "Judge", "initials": "VBF", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 8C, 8th Floor", "courtroom_number": "8C", "appointed_by": "Bush"},
+        {"name": "Dale S. Fischer", "title": "Judge", "initials": "DSF", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 7D, 7th Floor", "courtroom_number": "7D", "appointed_by": "Bush"},
+        {"name": "Terry J. Hatter Jr.", "title": "Judge", "initials": "TJH", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 9C, 9th Floor", "courtroom_number": "9C", "appointed_by": "Carter"},
+        {"name": "John A. Kronstadt", "title": "Judge", "initials": "JAK", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 10C, 10th Floor", "courtroom_number": "10C", "appointed_by": "Obama"},
+        {"name": "Consuelo B. Marshall", "title": "Judge", "initials": "CBM", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 8D, 8th Floor", "courtroom_number": "8D", "appointed_by": "Carter"},
+        {"name": "Virginia A. Phillips", "title": "Judge", "initials": "VAP", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 6A, 6th Floor", "courtroom_number": "6A", "appointed_by": "Clinton"},
+        {"name": "James V. Selna", "title": "Judge", "initials": "JVS", "notes": "Senior status", "chambers": "Ronald Reagan Federal Building, Courtroom 10C, 10th Floor", "courtroom_number": "10C", "appointed_by": "Bush"},
+        {"name": "Christina A. Snyder", "title": "Judge", "initials": "CAS", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 8D, 8th Floor", "courtroom_number": "8D", "appointed_by": "Clinton"},
+        {"name": "George H. Wu", "title": "Judge", "initials": "GW", "notes": "Senior status", "chambers": "First Street U.S. Courthouse, Courtroom 9D, 9th Floor", "courtroom_number": "9D", "appointed_by": "Bush"},
         # Magistrate Judges
-        {"name": "Karen L. Stevenson", "title": "Magistrate", "initials": "KS", "notes": "Chief Magistrate Judge"},
-        # Magistrate Judges
-        {"name": "Maria A. Audero", "title": "Magistrate", "initials": "MAA"},
-        {"name": "David T. Bristow", "title": "Magistrate", "initials": "DTB"},
-        {"name": "Pedro V. Castillo", "title": "Magistrate", "initials": "PVC"},
-        {"name": "Jacqueline Chooljian", "title": "Magistrate", "initials": "JC"},
-        {"name": "Stephanie S. Christensen", "title": "Magistrate", "initials": "SSC"},
-        {"name": "Patricia Donahue", "title": "Magistrate", "initials": "PD"},
-        {"name": "John D. Early", "title": "Magistrate", "initials": "JDE"},
-        {"name": "Charles F. Eick", "title": "Magistrate", "initials": "E"},
-        {"name": "Michael B. Kaufman", "title": "Magistrate", "initials": "MBK"},
-        {"name": "Steve Kim", "title": "Magistrate", "initials": "SK"},
-        {"name": "Douglas F. McCormick", "title": "Magistrate", "initials": "DFM"},
-        {"name": "Brianna Fuller Mircheff", "title": "Magistrate", "initials": "BFM"},
-        {"name": "Rozella A. Oliver", "title": "Magistrate", "initials": "RAO"},
-        {"name": "Sheri Pym", "title": "Magistrate", "initials": "SP"},
-        {"name": "A. Joel Richlin", "title": "Magistrate", "initials": "AJR"},
-        {"name": "Daniel S. Roberts", "title": "Magistrate", "initials": "DSR"},
-        {"name": "Margo A. Rocconi", "title": "Magistrate", "initials": "MAR"},
-        {"name": "Alicia G. Rosenberg", "title": "Magistrate", "initials": "AGR"},
-        {"name": "Alka Sagar", "title": "Magistrate", "initials": "AS"},
-        {"name": "Karen E. Scott", "title": "Magistrate", "initials": "KES"},
-        {"name": "Autumn D. Spaeth", "title": "Magistrate", "initials": "ADS"},
-        {"name": "Angela C. C. Viramontes", "title": "Magistrate", "initials": "ACCV"},
+        {"name": "Karen L. Stevenson", "title": "Magistrate", "initials": "KS", "notes": "Chief Magistrate Judge", "chambers": "Spring Street U.S. Courthouse, Courtroom 580, 5th Floor", "courtroom_number": "580"},
+        {"name": "Maria A. Audero", "title": "Magistrate", "initials": "MAA", "chambers": "Spring Street U.S. Courthouse, Courtroom 880, 8th Floor", "courtroom_number": "880"},
+        {"name": "David T. Bristow", "title": "Magistrate", "initials": "DTB", "chambers": "George E. Brown Federal Courthouse, Courtroom 4, 3rd Floor", "courtroom_number": "4"},
+        {"name": "Pedro V. Castillo", "title": "Magistrate", "initials": "PVC", "chambers": "Spring Street U.S. Courthouse, Courtroom 590, 5th Floor", "courtroom_number": "590"},
+        {"name": "Jacqueline Chooljian", "title": "Magistrate", "initials": "JC", "chambers": "Spring Street U.S. Courthouse, Courtroom 750, 7th Floor", "courtroom_number": "750"},
+        {"name": "Stephanie S. Christensen", "title": "Magistrate", "initials": "SSC", "chambers": "Spring Street U.S. Courthouse, Courtroom 790, 7th Floor", "courtroom_number": "790"},
+        {"name": "Patricia Donahue", "title": "Magistrate", "initials": "PD", "chambers": "Spring Street U.S. Courthouse, Courtroom 580, 5th Floor", "courtroom_number": "580"},
+        {"name": "John D. Early", "title": "Magistrate", "initials": "JDE", "chambers": "Ronald Reagan Federal Building, Courtroom 6A, 6th Floor", "courtroom_number": "6A"},
+        {"name": "Charles F. Eick", "title": "Magistrate", "initials": "E", "chambers": "Spring Street U.S. Courthouse, Courtroom 750, 7th Floor", "courtroom_number": "750"},
+        {"name": "Michael B. Kaufman", "title": "Magistrate", "initials": "MBK", "chambers": "Spring Street U.S. Courthouse, Courtroom 550, 5th Floor", "courtroom_number": "550"},
+        {"name": "Steve Kim", "title": "Magistrate", "initials": "SK", "chambers": "Spring Street U.S. Courthouse, Courtroom 540, 5th Floor", "courtroom_number": "540"},
+        {"name": "Douglas F. McCormick", "title": "Magistrate", "initials": "DFM", "chambers": "Ronald Reagan Federal Building, Courtroom 6B, 6th Floor", "courtroom_number": "6B"},
+        {"name": "Brianna Fuller Mircheff", "title": "Magistrate", "initials": "BFM", "chambers": "Spring Street U.S. Courthouse, Courtroom 780, 7th Floor", "courtroom_number": "780"},
+        {"name": "Rozella A. Oliver", "title": "Magistrate", "initials": "RAO", "chambers": "Spring Street U.S. Courthouse, Courtroom 590, 5th Floor", "courtroom_number": "590"},
+        {"name": "Sheri Pym", "title": "Magistrate", "initials": "SP", "chambers": "George E. Brown Federal Courthouse, Courtroom 4, 3rd Floor", "courtroom_number": "4"},
+        {"name": "A. Joel Richlin", "title": "Magistrate", "initials": "AJR", "chambers": "Spring Street U.S. Courthouse, Courtroom 780, 7th Floor", "courtroom_number": "780"},
+        {"name": "Daniel S. Roberts", "title": "Magistrate", "initials": "DSR", "chambers": "Spring Street U.S. Courthouse, Courtroom 690, 6th Floor", "courtroom_number": "690"},
+        {"name": "Margo A. Rocconi", "title": "Magistrate", "initials": "MAR", "chambers": "Spring Street U.S. Courthouse, Courtroom 790, 7th Floor", "courtroom_number": "790"},
+        {"name": "Alicia G. Rosenberg", "title": "Magistrate", "initials": "AGR", "chambers": "Spring Street U.S. Courthouse, Courtroom 550, 5th Floor", "courtroom_number": "550"},
+        {"name": "Alka Sagar", "title": "Magistrate", "initials": "AS", "chambers": "Spring Street U.S. Courthouse, Courtroom 540, 5th Floor", "courtroom_number": "540"},
+        {"name": "Karen E. Scott", "title": "Magistrate", "initials": "KES", "chambers": "Ronald Reagan Federal Building, Courtroom 6D, 6th Floor", "courtroom_number": "6D"},
+        {"name": "Autumn D. Spaeth", "title": "Magistrate", "initials": "ADS", "chambers": "Ronald Reagan Federal Building, Courtroom 6B, 6th Floor", "courtroom_number": "6B"},
+        {"name": "Angela C. C. Viramontes", "title": "Magistrate", "initials": "ACCV", "chambers": "George E. Brown Federal Courthouse, Courtroom 4, 3rd Floor", "courtroom_number": "4"},
     ],
 
     CAED: [
@@ -302,18 +301,17 @@ def seed_judges():
                 key = (jdata["name"], jid)
                 existing_judge = existing_map.get(key)
 
+                # Fields that can be updated on existing judges
+                SYNC_FIELDS = ["title", "initials", "notes", "chambers",
+                               "courtroom_number", "appointed_by"]
+
                 if existing_judge:
-                    # Update title/initials/notes if they differ
                     changed = False
-                    if jdata.get("title") and existing_judge.title != jdata["title"]:
-                        existing_judge.title = jdata["title"]
-                        changed = True
-                    if jdata.get("initials") and existing_judge.initials != jdata["initials"]:
-                        existing_judge.initials = jdata["initials"]
-                        changed = True
-                    if jdata.get("notes") and existing_judge.notes != jdata["notes"]:
-                        existing_judge.notes = jdata["notes"]
-                        changed = True
+                    for field in SYNC_FIELDS:
+                        new_val = jdata.get(field)
+                        if new_val and getattr(existing_judge, field) != new_val:
+                            setattr(existing_judge, field, new_val)
+                            changed = True
                     if changed:
                         updated += 1
                     else:
@@ -327,6 +325,9 @@ def seed_judges():
                     jurisdiction_id=jid,
                     status=jdata.get("status", "Active"),
                     notes=jdata.get("notes"),
+                    chambers=jdata.get("chambers"),
+                    courtroom_number=jdata.get("courtroom_number"),
+                    appointed_by=jdata.get("appointed_by"),
                     phones=[],
                     emails=[],
                 )
