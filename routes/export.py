@@ -359,7 +359,9 @@ def register_export_routes(mcp):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         if format_type == "pdf":
-            cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True)
+            user = auth.get_current_user(request)
+            user_id = user.get("id") if user else None
+            cases = await asyncio.to_thread(get_all_cases_with_data, exclude_closed=True, user_id=user_id)
             try:
                 pdf_buf = await asyncio.to_thread(generate_case_list_pdf, cases)
             except Exception as e:
