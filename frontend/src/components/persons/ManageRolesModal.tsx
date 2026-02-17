@@ -1,49 +1,9 @@
-/**
- * Persons - Contact management page
- *
- * Route: /persons
- *
- * Features:
- * - PersonsWidget for browsing/filtering persons
- * - Customizable layout (1, 1:1, etc.)
- * - Quick person creation
- * - Manage roles
- *
- * Uses the universal panel layout system with allowedWidgets=['persons'].
- */
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Settings, X, Trash2, Loader2, Merge } from 'lucide-react';
-import { formatRoleName } from '../utils';
-import { Header } from '../components/layout';
-import { LayoutSelector, PanelContainer } from '../components/panels';
-import { MergeDuplicatesModal, CleanupPersonsModal } from '../components/persons';
-import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
-import {
-  getRoles,
-  createRole,
-  deleteRole,
-} from '../api';
-import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
-import {
-  createDefaultPersonsWidget,
-  createDefaultClientsWidget,
-  LAYOUT_CONTAINER_CLASSES,
-  LAYOUT_MAX_WIDTH_CLASSES,
-  getPanelClasses,
-} from '../types/panel-layout';
-import type { Role, RoleCategory } from '../types';
-
-const STORAGE_KEY = 'persons-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['persons', 'clients', 'judges'];
-
-const DEFAULT_CONFIG: PanelLayoutConfig = {
-  layout: '1:1',
-  panels: [
-    createDefaultClientsWidget('panel-0'),
-    { ...createDefaultPersonsWidget('panel-1'), groupBy: 'category' },
-  ],
-};
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, X, Trash2, Loader2 } from 'lucide-react';
+import { formatRoleName } from '../../utils';
+import { createRole, deleteRole } from '../../api';
+import type { Role, RoleCategory } from '../../types';
 
 const CATEGORY_LABELS: Record<RoleCategory, string> = {
   expert: 'Experts',
@@ -54,8 +14,7 @@ const CATEGORY_LABELS: Record<RoleCategory, string> = {
   other: 'Other',
 };
 
-// Manage Roles Modal
-function ManageRolesModal({
+export function ManageRolesModal({
   isOpen,
   onClose,
   roles,
@@ -244,106 +203,5 @@ function ManageRolesModal({
         </div>
       </div>
     </div>
-  );
-}
-
-function PersonsContent() {
-  const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
-
-  const [showManageRoles, setShowManageRoles] = useState(false);
-  const [showMergeDuplicates, setShowMergeDuplicates] = useState(false);
-  const [showCleanup, setShowCleanup] = useState(false);
-
-  const { data: rolesData } = useQuery({
-    queryKey: ['roles'],
-    queryFn: () => getRoles(),
-  });
-
-  return (
-    <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
-      <Header
-        title="Persons"
-        subtitle="Clients, attorneys, experts, and other contacts"
-        actions={
-          <div className="flex items-center gap-2">
-            <LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />
-            <button
-              onClick={() => setShowMergeDuplicates(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
-              title="Find and merge duplicate persons"
-            >
-              <Merge className="w-4 h-4" />
-              <span className="hidden sm:inline">Merge Duplicates</span>
-            </button>
-            <button
-              onClick={() => setShowCleanup(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
-              title="Delete persons not assigned to any case"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Cleanup</span>
-            </button>
-            <button
-              onClick={() => setShowManageRoles(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded-lg transition-colors"
-              title="Manage roles"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Roles</span>
-            </button>
-          </div>
-        }
-      />
-
-      {/* Panels Grid */}
-      <main
-        className={`flex-1 w-full grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]} ${LAYOUT_MAX_WIDTH_CLASSES[config.layout]}`}
-      >
-        {config.panels.map((panel, index) => (
-          <div
-            key={panel.id}
-            className={`min-h-0 w-full ${getPanelClasses(config.layout, index)}`}
-          >
-            <PanelContainer
-              config={panel}
-              allowedWidgets={allowedWidgets}
-              onConfigChange={(updates) => updatePanel(panel.id, updates)}
-              onTypeChange={(type) => setPanelType(panel.id, type)}
-            />
-          </div>
-        ))}
-      </main>
-
-      {/* Manage Roles Modal */}
-      <ManageRolesModal
-        isOpen={showManageRoles}
-        onClose={() => setShowManageRoles(false)}
-        roles={rolesData?.roles || []}
-      />
-
-      {/* Merge Duplicates Modal */}
-      <MergeDuplicatesModal
-        isOpen={showMergeDuplicates}
-        onClose={() => setShowMergeDuplicates(false)}
-      />
-
-      {/* Cleanup Unassigned Modal */}
-      <CleanupPersonsModal
-        isOpen={showCleanup}
-        onClose={() => setShowCleanup(false)}
-      />
-    </div>
-  );
-}
-
-export function Persons() {
-  return (
-    <PanelLayoutProvider
-      storageKey={STORAGE_KEY}
-      allowedWidgets={ALLOWED_WIDGETS}
-      defaultConfig={DEFAULT_CONFIG}
-    >
-      <PersonsContent />
-    </PanelLayoutProvider>
   );
 }

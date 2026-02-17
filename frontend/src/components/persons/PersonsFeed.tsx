@@ -60,26 +60,14 @@ function groupPersonsByCategory(persons: Person[]): PersonGroup[] {
 }
 
 /**
- * Group persons alphabetically by first letter
+ * Sort persons alphabetically (flat list, no grouping)
  */
 function groupPersonsAlpha(persons: Person[]): PersonGroup[] {
-  const groups: Map<string, PersonGroup> = new Map();
-
   const sorted = [...persons].sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   );
 
-  for (const person of sorted) {
-    const letter = person.name.charAt(0).toUpperCase();
-    const key = /[A-Z]/.test(letter) ? letter : '#';
-
-    if (!groups.has(key)) {
-      groups.set(key, { key, label: key, persons: [] });
-    }
-    groups.get(key)!.persons.push(person);
-  }
-
-  return Array.from(groups.values());
+  return [{ key: 'all', label: '', persons: sorted }];
 }
 
 /**
