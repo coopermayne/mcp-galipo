@@ -82,14 +82,17 @@ export function JudgeAutocomplete({
         break;
       case 'Enter':
         e.preventDefault();
-        if (highlightedIndex < results.length) {
-          onSelectJudge(results[highlightedIndex]);
-          setSearch('');
-          setIsOpen(false);
-        } else if (showCreateOption && onCreateNew) {
+        if (showCreateOption && highlightedIndex === 0 && onCreateNew) {
           onCreateNew(search.trim());
           setSearch('');
           setIsOpen(false);
+        } else {
+          const resultIndex = showCreateOption ? highlightedIndex - 1 : highlightedIndex;
+          if (resultIndex >= 0 && resultIndex < results.length) {
+            onSelectJudge(results[resultIndex]);
+            setSearch('');
+            setIsOpen(false);
+          }
         }
         break;
       case 'Escape':
@@ -170,7 +173,30 @@ export function JudgeAutocomplete({
             <div className="px-3 py-2 text-xs text-text-muted">Type to search...</div>
           )}
 
-          {!isLoading && results.length === 0 && debouncedSearch.length > 0 && (
+          {/* Create new option - shown at top */}
+          {showCreateOption && onCreateNew && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreateNew(search.trim());
+                setSearch('');
+                setIsOpen(false);
+              }}
+              onMouseEnter={() => setHighlightedIndex(0)}
+              className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 border-b border-border ${
+                highlightedIndex === 0
+                  ? 'bg-primary-50 dark:bg-primary-900/30'
+                  : 'hover:bg-bg-hover'
+              }`}
+            >
+              <Plus className="w-3 h-3 text-primary-600" />
+              <span className="text-primary-600 dark:text-primary-400">
+                Create "{search.trim()}"
+              </span>
+            </button>
+          )}
+
+          {!isLoading && results.length === 0 && !showCreateOption && debouncedSearch.length > 0 && (
             <div className="px-3 py-2 text-xs text-text-muted">No matches found (including fuzzy search)</div>
           )}
 
@@ -183,73 +209,53 @@ export function JudgeAutocomplete({
           )}
 
           {/* Results */}
-          {results.map((judge, index) => (
-            <button
-              key={judge.id}
-              type="button"
-              onClick={() => {
-                onSelectJudge(judge);
-                setSearch('');
-                setIsOpen(false);
-              }}
-              onMouseEnter={() => setHighlightedIndex(index)}
-              className={`w-full px-3 py-2 text-left text-xs flex items-start gap-2 ${
-                highlightedIndex === index
-                  ? 'bg-primary-50 dark:bg-primary-900/30'
-                  : 'hover:bg-bg-hover'
-              }`}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-text truncate flex items-center gap-1.5">
-                  {judge.name}
-                  {judge.fuzzy_match && judge.score != null && (
-                    <span className="text-[10px] font-normal text-primary-600 dark:text-primary-400">
-                      {Math.round(judge.score)}%
-                    </span>
-                  )}
+          {results.map((judge, index) => {
+            const itemIndex = showCreateOption ? index + 1 : index;
+            return (
+              <button
+                key={judge.id}
+                type="button"
+                onClick={() => {
+                  onSelectJudge(judge);
+                  setSearch('');
+                  setIsOpen(false);
+                }}
+                onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                className={`w-full px-3 py-2 text-left text-xs flex items-start gap-2 ${
+                  highlightedIndex === itemIndex
+                    ? 'bg-primary-50 dark:bg-primary-900/30'
+                    : 'hover:bg-bg-hover'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-text truncate flex items-center gap-1.5">
+                    {judge.name}
+                    {judge.fuzzy_match && judge.score != null && (
+                      <span className="text-[10px] font-normal text-primary-600 dark:text-primary-400">
+                        {Math.round(judge.score)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-text-secondary">
+                    {judge.jurisdiction_name && (
+                      <span className="flex items-center gap-1 truncate">
+                        <Building2 className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{judge.jurisdiction_name}</span>
+                      </span>
+                    )}
+                    {judge.chambers && (
+                      <span className="truncate">{judge.chambers}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-text-secondary">
-                  {judge.jurisdiction_name && (
-                    <span className="flex items-center gap-1 truncate">
-                      <Building2 className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{judge.jurisdiction_name}</span>
-                    </span>
-                  )}
-                  {judge.chambers && (
-                    <span className="truncate">{judge.chambers}</span>
-                  )}
-                </div>
-              </div>
-              {judge.status && !judge.fuzzy_match && (
-                <span className="text-[10px] text-text-muted bg-bg-hover px-1.5 py-0.5 rounded shrink-0">
-                  {judge.status}
-                </span>
-              )}
-            </button>
-          ))}
-
-          {/* Create new option */}
-          {showCreateOption && onCreateNew && (
-            <button
-              type="button"
-              onClick={() => {
-                onCreateNew(search.trim());
-                setSearch('');
-                setIsOpen(false);
-              }}
-              onMouseEnter={() => setHighlightedIndex(results.length)}
-              className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 border-t border-border ${
-                highlightedIndex === results.length
-                  ? 'bg-primary-50 dark:bg-primary-900/30'
-                  : 'hover:bg-bg-hover'
-              }`}
-            >
-              <Plus className="w-3 h-3 text-primary-600" />
-              <span className="text-primary-600 dark:text-primary-400">
-                Create "{search.trim()}"
-              </span>
-            </button>
-          )}
+                {judge.status && !judge.fuzzy_match && (
+                  <span className="text-[10px] text-text-muted bg-bg-hover px-1.5 py-0.5 rounded shrink-0">
+                    {judge.status}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

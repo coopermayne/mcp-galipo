@@ -306,7 +306,7 @@ def fuzzy_search_judges(session, name: str, jurisdiction_id: int = None,
                 "score": round(score, 1),
                 "jurisdiction_id": judge.jurisdiction_id,
                 "jurisdiction_name": judge.jurisdiction.name if judge.jurisdiction else None,
-                "fuzzy_match": True,
+                "fuzzy_match": score < 90,
             })
 
     scored.sort(key=lambda c: c["score"], reverse=True)

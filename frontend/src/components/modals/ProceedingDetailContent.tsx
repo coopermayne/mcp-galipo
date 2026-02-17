@@ -20,6 +20,7 @@ import {
   removeProceedingJudge,
   updateProceedingJudge,
   getConstants,
+  createJudge,
 } from '../../api';
 import type { Proceeding, ProceedingJudge, Jurisdiction } from '../../types';
 
@@ -86,6 +87,20 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
       updateProceedingJudge(entityId, judgeId, { role }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
+      if (context?.caseId) {
+        queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
+      }
+    },
+  });
+
+  const createAndAssignJudgeMutation = useMutation({
+    mutationFn: async ({ name, role }: { name: string; role: string }) => {
+      const { judge } = await createJudge({ name });
+      return addProceedingJudge(entityId, { judge_id: judge.id, role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proceeding', entityId] });
+      queryClient.invalidateQueries({ queryKey: ['judges'] });
       if (context?.caseId) {
         queryClient.invalidateQueries({ queryKey: ['case', context.caseId] });
       }
@@ -246,6 +261,9 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               onAssign={(judge, role) =>
                 addJudgeMutation.mutate({ judge_id: judge.id, role })
               }
+              onCreateNew={(name, role) =>
+                createAndAssignJudgeMutation.mutate({ name, role })
+              }
               label="Add Judge"
             />
           )}
@@ -261,7 +279,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               >
                 <span className="text-text-secondary flex items-center gap-1">
                   <button
-                    onClick={() => openJudgeModal(judge.judge_id, { readOnly: true })}
+                    onClick={() => openJudgeModal(judge.judge_id)}
                     className="hover:underline hover:text-text cursor-pointer"
                   >
                     {judge.name}

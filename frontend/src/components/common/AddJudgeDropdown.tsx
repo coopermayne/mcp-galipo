@@ -17,6 +17,7 @@ export function getJudgeRoleIcon(role: string): LucideIcon {
 
 interface AddJudgeDropdownProps {
   onAssign: (judge: Judge, role: string) => void;
+  onCreateNew?: (name: string, role: string) => void;
   excludeJudgeIds?: number[];
   /** Compact mode shows smaller button inline */
   compact?: boolean;
@@ -26,6 +27,7 @@ interface AddJudgeDropdownProps {
 
 export function AddJudgeDropdown({
   onAssign,
+  onCreateNew,
   excludeJudgeIds = [],
   compact = false,
   label,
@@ -161,13 +163,17 @@ export function AddJudgeDropdown({
               {/* Content */}
               <div className="p-4">
                 <p className="text-sm text-text-muted mb-3">
-                  Search for an existing judge to assign.
+                  Search for a judge to assign{onCreateNew ? ', or create a new one' : ''}.
                 </p>
                 <JudgeAutocomplete
                   excludeJudgeIds={excludeJudgeIds}
                   onSelectJudge={handleAssign}
                   onCancel={handleClose}
-                  allowCreate={false}
+                  allowCreate={!!onCreateNew}
+                  onCreateNew={onCreateNew ? (name) => {
+                    onCreateNew(name, selectedRole!);
+                    handleClose();
+                  } : undefined}
                   placeholder="Search judges..."
                   autoFocus
                 />
