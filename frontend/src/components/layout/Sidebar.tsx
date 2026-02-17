@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Briefcase,
@@ -18,6 +18,11 @@ import {
   X,
   Sun,
   Moon,
+  FlaskConical,
+  Shield,
+  Handshake,
+  Gavel,
+  UserCircle,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { getAuthToken, useAuth } from '../../context/AuthContext';
@@ -51,7 +56,20 @@ const baseNavigation: NavItem[] = [
     ],
   },
   { name: 'CourtListener', href: '/courtlistener', icon: Webhook },
-  { name: 'Persons', href: '/persons', icon: Users },
+  {
+    name: 'People',
+    href: '/persons',
+    icon: Users,
+    children: [
+      { name: 'Clients', href: '/persons/clients', icon: Users },
+      { name: 'Counsel', href: '/persons/counsel', icon: Briefcase },
+      { name: 'Experts', href: '/persons/experts', icon: FlaskConical },
+      { name: 'Defendants', href: '/persons/defendants', icon: Shield },
+      { name: 'Mediators', href: '/persons/mediators', icon: Handshake },
+      { name: 'Judges', href: '/persons/judges', icon: Gavel },
+      { name: 'Other', href: '/persons/other', icon: UserCircle },
+    ],
+  },
 ];
 
 const adminNavigation: NavItem[] = [
@@ -68,14 +86,27 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const isTemplatesRoute = location.pathname.startsWith('/templates');
-  const [templatesOpen, setTemplatesOpen] = useState(isTemplatesRoute);
+  // Generic expand state for any nav item with children
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const item of baseNavigation) {
+      if (item.children && location.pathname.startsWith(item.href)) {
+        initial[item.href] = true;
+      }
+    }
+    return initial;
+  });
 
-  // Auto-expand when navigating to a templates route
+  // Auto-expand when navigating to a child route
   useEffect(() => {
-    if (isTemplatesRoute) setTemplatesOpen(true);
-  }, [isTemplatesRoute]);
+    for (const item of baseNavigation) {
+      if (item.children && location.pathname.startsWith(item.href)) {
+        setOpenSections(prev => prev[item.href] ? prev : { ...prev, [item.href]: true });
+      }
+    }
+  }, [location.pathname]);
 
   // Build navigation based on user role
   const navigation = useMemo(() => {
@@ -191,19 +222,31 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <li key={item.name}>
                 {item.children ? (
                   <>
-                    <button
-                      onClick={() => setTemplatesOpen(!templatesOpen)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full ${
-                        isTemplatesRoute
+                    <div className={`flex items-center rounded-lg text-sm font-medium transition-colors w-full ${
+                        location.pathname.startsWith(item.href)
                           ? 'bg-primary-600 text-white'
                           : 'text-text-secondary hover:bg-bg-hover hover:text-text'
                       }`}
                     >
-                      <item.icon className="w-5 h-5" />
-                      <span className="flex-1 text-left">{item.name}</span>
-                      <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${templatesOpen ? 'rotate-90' : ''}`} />
-                    </button>
-                    {templatesOpen && (
+                      <button
+                        onClick={() => {
+                          navigate(item.href);
+                          setOpenSections(prev => ({ ...prev, [item.href]: true }));
+                          onMobileClose?.();
+                        }}
+                        className="flex items-center gap-3 flex-1 px-3 py-2 min-w-0"
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span className="flex-1 text-left">{item.name}</span>
+                      </button>
+                      <button
+                        onClick={() => setOpenSections(prev => ({ ...prev, [item.href]: !prev[item.href] }))}
+                        className="px-2 py-2 hover:opacity-70"
+                      >
+                        <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${openSections[item.href] ? 'rotate-90' : ''}`} />
+                      </button>
+                    </div>
+                    {openSections[item.href] && (
                       <ul className="mt-1 ml-4 space-y-0.5 border-l border-border pl-3">
                         {item.children.map((child) => (
                           <li key={child.name}>

@@ -5,6 +5,7 @@
  */
 import { PersonsComponent } from './PersonsComponent';
 import type { PersonsWidgetConfig, PersonsGroupMode } from '../../types/panel-layout';
+import type { RoleCategory } from '../../types';
 
 interface PersonsWidgetProps {
   config: PersonsWidgetConfig;
@@ -18,6 +19,7 @@ export function PersonsWidget({ config, onConfigChange }: PersonsWidgetProps) {
       onGroupByChange={(groupBy) => onConfigChange({ groupBy: groupBy as PersonsGroupMode })}
       searchQuery={config.searchQuery}
       showUnassigned={config.showUnassigned}
+      categoryFilter={config.categoryFilter as RoleCategory | undefined}
     />
   );
 }

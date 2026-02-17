@@ -78,6 +78,7 @@ export interface PersonsWidgetConfig extends BaseWidgetConfig {
   showUnassigned: boolean;
   groupBy: PersonsGroupMode;
   typeFilter?: string;
+  categoryFilter?: string;
   searchQuery: string;
 }
 

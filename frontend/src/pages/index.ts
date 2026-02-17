@@ -6,6 +6,6 @@ export { Calendar } from './Calendar';
 export { Webhooks } from './Webhooks';
 export { WebhookDetail } from './WebhookDetail';
 export { Login } from './Login';
-export { Persons } from './Persons';
+export { PersonsIndex, ClientsPage, CounselPage, ExpertsPage, DefendantsPage, MediatorsPage, JudgesPage, OtherPage } from './persons';
 export { Users } from './Users';
 export { TemplatesIndex, Pleadings, RFP, CaseList, Retainer, Disbursement } from './templates';

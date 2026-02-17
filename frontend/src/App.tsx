@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/layout';
-import { Dashboard, Cases, CaseDetail, Tasks, Calendar, Webhooks, WebhookDetail, Login, Persons, Users, TemplatesIndex, Pleadings, RFP, CaseList, Retainer, Disbursement } from './pages';
+import { Dashboard, Cases, CaseDetail, Tasks, Calendar, Webhooks, WebhookDetail, Login, PersonsIndex, ClientsPage, CounselPage, ExpertsPage, DefendantsPage, MediatorsPage, JudgesPage, OtherPage, Users, TemplatesIndex, Pleadings, RFP, CaseList, Retainer, Disbursement } from './pages';
 import { ObjectionsManager } from './pages/templates';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -44,7 +44,14 @@ function App() {
                     <Route path="calendar" element={<Calendar />} />
                     <Route path="courtlistener" element={<Webhooks />} />
                     <Route path="courtlistener/:id" element={<WebhookDetail />} />
-                    <Route path="persons" element={<Persons />} />
+                    <Route path="persons" element={<PersonsIndex />} />
+                    <Route path="persons/clients" element={<ClientsPage />} />
+                    <Route path="persons/counsel" element={<CounselPage />} />
+                    <Route path="persons/experts" element={<ExpertsPage />} />
+                    <Route path="persons/defendants" element={<DefendantsPage />} />
+                    <Route path="persons/mediators" element={<MediatorsPage />} />
+                    <Route path="persons/judges" element={<JudgesPage />} />
+                    <Route path="persons/other" element={<OtherPage />} />
                     <Route path="users" element={<Users />} />
                     <Route path="templates" element={<TemplatesIndex />} />
                     <Route path="templates/pleadings" element={<Pleadings />} />
