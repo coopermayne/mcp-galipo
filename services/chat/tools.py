@@ -20,11 +20,11 @@ register_tools(_mcp)
 BLACKLIST: set[str] = {
     "get_current_time",  # Date/time already in system prompt
     "import_case",       # Too complex for chat — use MCP client directly
+    "manage_judge",      # Judges should be added manually, not via chat
 }
 
 # Tools only available in "proceedings" mode (excluded from full/freeform chat)
 PROCEEDINGS_ONLY: set[str] = {
-    "manage_judge",
     "list_jurisdictions",
 }
 
