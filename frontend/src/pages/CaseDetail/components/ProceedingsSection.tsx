@@ -9,6 +9,7 @@ import {
   removeProceedingJudge,
   updateProceedingJudge,
   createJurisdiction,
+  createJudge,
 } from '../../../api';
 import type { Proceeding, Jurisdiction, ProceedingJudge } from '../../../types';
 
@@ -102,6 +103,17 @@ export function ProceedingsSection({
     },
   });
 
+  const createAndAssignJudgeMutation = useMutation({
+    mutationFn: async ({ proceedingId, name, role }: { proceedingId: number; name: string; role: string }) => {
+      const { judge } = await createJudge({ name });
+      return addProceedingJudge(proceedingId, { judge_id: judge.id, role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+      queryClient.invalidateQueries({ queryKey: ['judges'] });
+    },
+  });
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (newProceeding.case_number.trim()) {
@@ -153,6 +165,9 @@ export function ProceedingsSection({
       excludeJudgeIds={proceeding.judges?.map((j) => j.judge_id) || []}
       onAssign={(judge, role) =>
         addJudgeMutation.mutate({ proceedingId: proceeding.id, judgeId: judge.id, role })
+      }
+      onCreateNew={(name, role) =>
+        createAndAssignJudgeMutation.mutate({ proceedingId: proceeding.id, name, role })
       }
     />
   );
@@ -214,7 +229,7 @@ export function ProceedingsSection({
                     <RoleIcon className="w-3 h-3 text-text-muted shrink-0" />
                     <span
                       className="text-text-secondary cursor-pointer hover:underline hover:text-text"
-                      onClick={() => openJudgeModal(judge.judge_id, { readOnly: true })}
+                      onClick={() => openJudgeModal(judge.judge_id)}
                     >
                       {judge.name}
                     </span>

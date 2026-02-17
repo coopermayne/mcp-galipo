@@ -131,39 +131,32 @@ def get_judge_by_id(judge_id: int) -> Optional[dict]:
 def search_judges(name: str = None, jurisdiction_id: int = None) -> List[dict]:
     """Search judges by name and/or jurisdiction. Returns simple list for autocomplete.
 
-    Falls back to fuzzy matching when ILIKE returns no results and a name was provided.
+    Always uses fuzzy scoring so results are consistently ranked.
+    Exact/substring matches naturally score highest.
     """
     with SessionLocal() as session:
+        if name:
+            return _fuzzy_search(session, name, jurisdiction_id=jurisdiction_id, limit=20)
+
+        # No name filter — return alphabetical list
         stmt = (
             select(Judge)
             .options(joinedload(Judge.jurisdiction))
             .order_by(Judge.name)
             .limit(20)
         )
-
-        if name:
-            stmt = stmt.where(Judge.name.ilike(f"%{name}%"))
         if jurisdiction_id:
             stmt = stmt.where(Judge.jurisdiction_id == jurisdiction_id)
 
-        judges = session.scalars(stmt).unique().all()
-
-        if judges:
-            return [
-                {
-                    "id": j.id,
-                    "name": j.name,
-                    "jurisdiction_id": j.jurisdiction_id,
-                    "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
-                }
-                for j in judges
-            ]
-
-        # Fuzzy fallback when ILIKE found nothing
-        if name:
-            return _fuzzy_search(session, name, jurisdiction_id=jurisdiction_id, limit=20)
-
-        return []
+        return [
+            {
+                "id": j.id,
+                "name": j.name,
+                "jurisdiction_id": j.jurisdiction_id,
+                "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
+            }
+            for j in session.scalars(stmt).unique().all()
+        ]
 
 
 def create_judge(name: str, phones: List[dict] = None, emails: List[dict] = None,

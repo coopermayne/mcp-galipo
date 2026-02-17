@@ -19,17 +19,14 @@ import type { UpdateJudgeInput, Jurisdiction } from '../../types';
 
 interface JudgeDetailContentProps {
   entityId: number;
-  context?: {
-    readOnly?: boolean;
-  };
+  context?: Record<string, unknown>;
   onClose: () => void;
 }
 
 const JUDGE_TITLES = ['Judge', 'Magistrate', 'Panel', 'Other'] as const;
 
-export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailContentProps) {
+export function JudgeDetailContent({ entityId, onClose }: JudgeDetailContentProps) {
   const queryClient = useQueryClient();
-  const readOnly = context?.readOnly ?? false;
   const [editingJurisdiction, setEditingJurisdiction] = useState(false);
 
   const { data, isLoading, error } = useQuery({
@@ -97,18 +94,12 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
           )}
         </div>
         <div className="flex-1 min-w-0">
-          {readOnly ? (
-            <h2 className="text-xl font-semibold text-text">
-              {judge.name}
-            </h2>
-          ) : (
-            <EditableText
-              value={judge.name}
-              onSave={(value) => handleUpdateField('name', value)}
-              className="text-xl font-semibold"
-              inputClassName="text-xl font-semibold"
-            />
-          )}
+          <EditableText
+            value={judge.name}
+            onSave={(value) => handleUpdateField('name', value)}
+            className="text-xl font-semibold"
+            inputClassName="text-xl font-semibold"
+          />
           {judge.status && judge.status !== 'Active' && (
             <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-bg-hover text-text-secondary">
               {judge.status}
@@ -133,11 +124,7 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
           {/* Jurisdiction */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Jurisdiction:</span>
-            {readOnly ? (
-              <span className={judge.jurisdiction_name ? 'text-text-secondary' : 'text-text-muted italic'}>
-                {judge.jurisdiction_name || 'Not specified'}
-              </span>
-            ) : editingJurisdiction ? (
+            {editingJurisdiction ? (
               <div className="flex-1 max-w-[280px]">
                 <JurisdictionAutocomplete
                   onSelectJurisdiction={(j: Jurisdiction) => {
@@ -174,90 +161,60 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
           {/* Title */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Title:</span>
-            {readOnly ? (
-              <span className={judge.title ? 'text-text-secondary' : 'text-text-muted italic'}>
-                {judge.title || 'Not specified'}
-              </span>
-            ) : (
-              <select
-                value={judge.title || ''}
-                onChange={(e) => handleUpdateField('title', e.target.value || null)}
-                className="px-2 py-1 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
-              >
-                <option value="">Not specified</option>
-                {JUDGE_TITLES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            )}
+            <select
+              value={judge.title || ''}
+              onChange={(e) => handleUpdateField('title', e.target.value || null)}
+              className="px-2 py-1 rounded border border-border bg-bg-surface text-text text-sm focus:border-primary-500 outline-none"
+            >
+              <option value="">Not specified</option>
+              {JUDGE_TITLES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
 
           {/* Chambers */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Chambers:</span>
-            {readOnly ? (
-              <span className={judge.chambers ? 'text-text-secondary' : 'text-text-muted italic'}>
-                {judge.chambers || 'Not specified'}
-              </span>
-            ) : (
-              <EditableText
-                value={judge.chambers || ''}
-                onSave={(value) => handleUpdateField('chambers', value)}
-                placeholder="e.g., 3rd Floor, Room 310"
-                className="flex-1"
-              />
-            )}
+            <EditableText
+              value={judge.chambers || ''}
+              onSave={(value) => handleUpdateField('chambers', value)}
+              placeholder="e.g., 3rd Floor, Room 310"
+              className="flex-1"
+            />
           </div>
 
           {/* Courtroom */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Courtroom:</span>
-            {readOnly ? (
-              <span className={judge.courtroom_number ? 'text-text-secondary' : 'text-text-muted italic'}>
-                {judge.courtroom_number || 'Not specified'}
-              </span>
-            ) : (
-              <EditableText
-                value={judge.courtroom_number || ''}
-                onSave={(value) => handleUpdateField('courtroom_number', value)}
-                placeholder="e.g., 302"
-                className="flex-1"
-              />
-            )}
+            <EditableText
+              value={judge.courtroom_number || ''}
+              onSave={(value) => handleUpdateField('courtroom_number', value)}
+              placeholder="e.g., 302"
+              className="flex-1"
+            />
           </div>
 
           {/* Initials */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Initials:</span>
-            {readOnly ? (
-              <span className={judge.initials ? 'text-text-secondary' : 'text-text-muted italic'}>
-                {judge.initials || 'Not specified'}
-              </span>
-            ) : (
-              <EditableText
-                value={judge.initials || ''}
-                onSave={(value) => handleUpdateField('initials', value)}
-                placeholder="e.g., JRS"
-                className="flex-1"
-              />
-            )}
+            <EditableText
+              value={judge.initials || ''}
+              onSave={(value) => handleUpdateField('initials', value)}
+              placeholder="e.g., JRS"
+              className="flex-1"
+            />
           </div>
 
           {/* Appointed By */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-text-muted w-24 shrink-0">Appointed By:</span>
-            {readOnly ? (
-              <span className={judge.appointed_by ? 'text-text-secondary' : 'text-text-muted italic'}>
-                {judge.appointed_by || 'Not specified'}
-              </span>
-            ) : (
-              <EditableText
-                value={judge.appointed_by || ''}
-                onSave={(value) => handleUpdateField('appointed_by', value)}
-                placeholder="e.g., President Biden"
-                className="flex-1"
-              />
-            )}
+            <EditableText
+              value={judge.appointed_by || ''}
+              onSave={(value) => handleUpdateField('appointed_by', value)}
+              placeholder="e.g., President Biden"
+              className="flex-1"
+            />
           </div>
         </div>
       </div>
@@ -279,7 +236,6 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
               entries={judge.phones || []}
               onSave={handleUpdatePhones}
               type="phone"
-              disabled={readOnly}
             />
           </div>
 
@@ -293,7 +249,6 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
               entries={judge.emails || []}
               onSave={handleUpdateEmails}
               type="email"
-              disabled={readOnly}
             />
           </div>
         </div>
@@ -305,22 +260,16 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
           <FileText className="w-4 h-4 text-text-muted" />
           Notes
         </h3>
-        {readOnly ? (
-          <p className={`text-sm pl-6 ${judge.notes ? 'text-text-secondary' : 'text-text-muted italic'}`}>
-            {judge.notes || 'No notes'}
-          </p>
-        ) : (
-          <div className="pl-6">
-            <EditableText
-              value={judge.notes || ''}
-              onSave={(value) => handleUpdateField('notes', value)}
-              placeholder="Add notes..."
-              multiline
-              className="w-full"
-              inputClassName="w-full min-h-[80px]"
-            />
-          </div>
-        )}
+        <div className="pl-6">
+          <EditableText
+            value={judge.notes || ''}
+            onSave={(value) => handleUpdateField('notes', value)}
+            placeholder="Add notes..."
+            multiline
+            className="w-full"
+            inputClassName="w-full min-h-[80px]"
+          />
+        </div>
       </div>
 
       {/* Proceeding Assignments */}
@@ -349,19 +298,6 @@ export function JudgeDetailContent({ entityId, context, onClose }: JudgeDetailCo
               </Link>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Edit link - only shown when read-only (opened from case/proceeding pages) */}
-      {readOnly && (
-        <div className="mt-6 pt-6 border-t border-border">
-          <Link
-            to="/persons"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700"
-          >
-            Edit judge details on Persons page
-          </Link>
         </div>
       )}
     </div>
