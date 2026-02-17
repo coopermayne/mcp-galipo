@@ -99,25 +99,23 @@ This is a read-only mode - do not create, update, or delete data.""",
             "search",
             "get_details",
             "manage_proceeding",
-            "manage_judge",
             "list_jurisdictions",
         ],
-        "system_prompt_addition": """You are in PROCEEDINGS mode - help the user manage court proceedings, judges, and jurisdictions.
+        "system_prompt_addition": """You are in PROCEEDINGS mode - help the user manage court proceedings and assign judges.
+
+IMPORTANT: Do NOT create new judges or jurisdictions. Only match to existing records.
 
 When the user wants to add a proceeding:
-1. If they provide a case number, create immediately. Use list_jurisdictions to find the right jurisdiction_id.
-2. After creating, search for the judge: search(entity="judges", query="judge name")
-3. If found → manage_proceeding(action="add_judge", proceeding_id=X, judge_id=Y)
-4. If NOT found → create with manage_judge(action="create", name="Hon. ...", jurisdiction_id=Z), then assign
+1. Use list_jurisdictions to find the right jurisdiction_id. If no match, tell the user the jurisdiction needs to be added manually and create the proceeding without one.
+2. Create the proceeding with manage_proceeding(action="create").
+3. Search for the judge: search(entity="judges", query="judge name")
+4. If found → manage_proceeding(action="add_judge", proceeding_id=X, judge_id=Y)
+5. If NOT found → tell the user the judge wasn't found in the system and needs to be added manually. Suggest close matches if the search returned similar names (the user may have misspelled it).
 
-When the user wants to add a judge:
-1. ALWAYS search first: search(entity="judges", query="name") to avoid duplicates
-2. If found, inform the user and offer to assign to a proceeding
-3. If not found, create with manage_judge and optionally assign to a proceeding
-
-IMPORTANT: If the user provides MULTIPLE proceedings or judges, handle ALL of them with parallel tool calls in a SINGLE response.
-
-Use list_jurisdictions to find valid jurisdiction IDs before creating proceedings or judges.
+When the user mentions a judge:
+1. Search: search(entity="judges", query="name")
+2. If found → assign to the proceeding
+3. If NOT found → inform the user. Do NOT create a new judge. Suggest they add the judge manually through the UI.
 
 Keep responses brief and action-oriented.""",
     },
