@@ -34,16 +34,24 @@ export function JurisdictionAutocomplete({
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Filter results by search term and exclude already used
+  // Filter results by search term (matches name or any alias) and exclude already used
+  const searchLower = search.trim().toLowerCase();
+  const matchesSearch = (jurisdiction: Jurisdiction) => {
+    if (!searchLower) return true;
+    if (jurisdiction.name.toLowerCase().includes(searchLower)) return true;
+    return (jurisdiction.aliases || []).some(alias =>
+      alias.toLowerCase().includes(searchLower)
+    );
+  };
   const results = (data?.jurisdictions || []).filter(jurisdiction => {
     if (excludeIds.includes(jurisdiction.id)) return false;
-    if (!search.trim()) return true;
-    return jurisdiction.name.toLowerCase().includes(search.toLowerCase());
+    return matchesSearch(jurisdiction);
   });
 
   // Total items includes results + "create new" option
-  const showCreateOption = search.trim().length > 0 && !results.some(
-    j => j.name.toLowerCase() === search.trim().toLowerCase()
+  const showCreateOption = searchLower.length > 0 && !results.some(
+    j => j.name.toLowerCase() === searchLower ||
+      (j.aliases || []).some(a => a.toLowerCase() === searchLower)
   );
   const totalItems = results.length + (showCreateOption ? 1 : 0);
 

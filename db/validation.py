@@ -27,17 +27,28 @@ DEFAULT_EXPERTISE_TYPES = [
 ]
 
 # Default jurisdictions
+# aliases: common abbreviations, codes, and full names people might search for
 DEFAULT_JURISDICTIONS = [
-    {"name": "C.D. Cal.", "local_rules_link": "https://www.cacd.uscourts.gov/court-procedures/local-rules"},
-    {"name": "E.D. Cal.", "local_rules_link": "https://www.caed.uscourts.gov/caednew/index.cfm/rules/local-rules/"},
-    {"name": "N.D. Cal.", "local_rules_link": "https://www.cand.uscourts.gov/rules/local-rules/"},
-    {"name": "S.D. Cal.", "local_rules_link": "https://www.casd.uscourts.gov/rules.aspx"},
-    {"name": "9th Cir.", "local_rules_link": "https://www.ca9.uscourts.gov/rules/"},
-    {"name": "Los Angeles Superior", "local_rules_link": "https://www.lacourt.org/courtrules/ui/"},
-    {"name": "Orange County Superior", "local_rules_link": None},
-    {"name": "San Diego Superior", "local_rules_link": None},
-    {"name": "Riverside Superior", "local_rules_link": None},
-    {"name": "San Bernardino Superior", "local_rules_link": None},
+    {"name": "C.D. Cal.", "local_rules_link": "https://www.cacd.uscourts.gov/court-procedures/local-rules",
+     "aliases": ["CACD", "CD Cal", "Central District of California", "Central District California", "Central District"]},
+    {"name": "E.D. Cal.", "local_rules_link": "https://www.caed.uscourts.gov/caednew/index.cfm/rules/local-rules/",
+     "aliases": ["CAED", "ED Cal", "Eastern District of California", "Eastern District California", "Eastern District"]},
+    {"name": "N.D. Cal.", "local_rules_link": "https://www.cand.uscourts.gov/rules/local-rules/",
+     "aliases": ["CAND", "ND Cal", "Northern District of California", "Northern District California", "Northern District"]},
+    {"name": "S.D. Cal.", "local_rules_link": "https://www.casd.uscourts.gov/rules.aspx",
+     "aliases": ["CASD", "SD Cal", "Southern District of California", "Southern District California", "Southern District"]},
+    {"name": "9th Cir.", "local_rules_link": "https://www.ca9.uscourts.gov/rules/",
+     "aliases": ["CA9", "9th Circuit", "Ninth Circuit", "Ninth Cir", "9th Cir"]},
+    {"name": "Los Angeles Superior", "local_rules_link": "https://www.lacourt.org/courtrules/ui/",
+     "aliases": ["LASC", "LA Superior", "LA Superior Court", "Los Angeles Superior Court"]},
+    {"name": "Orange County Superior", "local_rules_link": None,
+     "aliases": ["OC Superior", "OC Superior Court", "Orange County Superior Court"]},
+    {"name": "San Diego Superior", "local_rules_link": None,
+     "aliases": ["SD Superior", "San Diego Superior Court"]},
+    {"name": "Riverside Superior", "local_rules_link": None,
+     "aliases": ["Riverside Superior Court"]},
+    {"name": "San Bernardino Superior", "local_rules_link": None,
+     "aliases": ["San Bernardino Superior Court", "SB Superior"]},
 ]
 
 # Default roles for the unified roles system (must match migration 013)

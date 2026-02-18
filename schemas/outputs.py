@@ -116,6 +116,7 @@ class JurisdictionOut(BaseModel):
 
     id: int
     name: str
+    aliases: Optional[list[str]] = None
     local_rules_link: Optional[str] = None
     notes: Optional[str] = None
 
