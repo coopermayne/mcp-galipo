@@ -52,6 +52,7 @@ export interface EmailEntry {
 export interface Jurisdiction {
   id: number;
   name: string;
+  aliases?: string[];
   local_rules_link?: string;
   notes?: string;
 }

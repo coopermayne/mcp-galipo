@@ -133,6 +133,7 @@ class Jurisdiction(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
+    aliases: Mapped[Optional[list]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     local_rules_link: Mapped[Optional[str]] = mapped_column(Text)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(

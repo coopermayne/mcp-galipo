@@ -63,6 +63,7 @@ def seed_jurisdictions():
         for j in DEFAULT_JURISDICTIONS:
             stmt = pg_insert(Jurisdiction).values(
                 name=j["name"],
+                aliases=j.get("aliases", []),
                 local_rules_link=j.get("local_rules_link"),
             ).on_conflict_do_nothing(index_elements=["name"])
             session.execute(stmt)
