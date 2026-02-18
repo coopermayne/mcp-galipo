@@ -10,7 +10,7 @@ import {
   ExternalLink,
   Trash2,
 } from 'lucide-react';
-import { EditableText, EditableSelect, ConfirmModal, AddJudgeDropdown, JUDGE_ROLES, getJudgeRoleIcon } from '../common';
+import { EditableText, ConfirmModal, AddJudgeDropdown, JurisdictionAutocomplete, JUDGE_ROLES, getJudgeRoleIcon } from '../common';
 import { useEntityModal } from '.';
 import {
   getProceeding,
@@ -19,8 +19,8 @@ import {
   addProceedingJudge,
   removeProceedingJudge,
   updateProceedingJudge,
-  getConstants,
   createJudge,
+  createJurisdiction,
 } from '../../api';
 import type { Proceeding, ProceedingJudge, Jurisdiction } from '../../types';
 
@@ -38,15 +38,11 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const { openJudgeModal } = useEntityModal();
   const readOnly = context?.readOnly ?? false;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingJurisdiction, setEditingJurisdiction] = useState(false);
 
   const { data: proceedingData, isLoading, error } = useQuery({
     queryKey: ['proceeding', entityId],
     queryFn: () => getProceeding(entityId),
-  });
-
-  const { data: constantsData } = useQuery({
-    queryKey: ['constants'],
-    queryFn: getConstants,
   });
 
   const updateMutation = useMutation({
@@ -118,6 +114,16 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
     },
   });
 
+  const createJurisdictionMutation = useMutation({
+    mutationFn: (name: string) => createJurisdiction({ name }),
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ['jurisdictions'] });
+      queryClient.invalidateQueries({ queryKey: ['constants'] });
+      await updateMutation.mutateAsync({ jurisdiction_id: data.jurisdiction.id });
+      setEditingJurisdiction(false);
+    },
+  });
+
   const handleUpdateField = async (field: string, value: string | number | boolean | null) => {
     await updateMutation.mutateAsync({ [field]: value });
   };
@@ -140,11 +146,6 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   }
 
   const proceeding = proceedingData as Proceeding;
-  const jurisdictions = constantsData?.jurisdictions || [];
-  const jurisdictionOptions = [
-    { value: '', label: 'No court selected' },
-    ...jurisdictions.map((j: Jurisdiction) => ({ value: String(j.id), label: j.name })),
-  ];
 
   const formatJudgeRole = (role: string) => {
     return ` (${role})`;
@@ -225,15 +226,36 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
               </a>
             )}
           </div>
+        ) : editingJurisdiction ? (
+          <div className="max-w-[300px]">
+            <JurisdictionAutocomplete
+              onSelectJurisdiction={(j: Jurisdiction) => {
+                handleUpdateField('jurisdiction_id', j.id);
+                setEditingJurisdiction(false);
+              }}
+              onCreateNew={(name) => createJurisdictionMutation.mutate(name)}
+              onCancel={() => setEditingJurisdiction(false)}
+              placeholder="Search jurisdictions..."
+              autoFocus
+            />
+          </div>
         ) : (
           <div className="flex items-center gap-2">
-            <EditableSelect
-              value={proceeding.jurisdiction_id ? String(proceeding.jurisdiction_id) : ''}
-              options={jurisdictionOptions}
-              onSave={async (value) => {
-                await handleUpdateField('jurisdiction_id', value ? parseInt(value, 10) : null);
-              }}
-            />
+            <button
+              onClick={() => setEditingJurisdiction(true)}
+              className="text-sm text-text-secondary hover:text-text hover:underline cursor-pointer"
+            >
+              {proceeding.jurisdiction_name || <span className="text-text-muted italic">No court selected</span>}
+            </button>
+            {proceeding.jurisdiction_id && (
+              <button
+                onClick={() => handleUpdateField('jurisdiction_id', null)}
+                className="text-text-muted hover:text-red-400"
+                title="Clear jurisdiction"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
             {proceeding.local_rules_link && (
               <a
                 href={proceeding.local_rules_link}
