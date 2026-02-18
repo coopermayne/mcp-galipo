@@ -38,6 +38,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
   const { openJudgeModal } = useEntityModal();
   const readOnly = context?.readOnly ?? false;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [judgeToRemove, setJudgeToRemove] = useState<ProceedingJudge | null>(null);
   const [editingJurisdiction, setEditingJurisdiction] = useState(false);
 
   const { data: proceedingData, isLoading, error } = useQuery({
@@ -327,7 +328,7 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
                 </span>
                 {!readOnly && (
                   <button
-                    onClick={() => removeJudgeMutation.mutate(judge.judge_id)}
+                    onClick={() => setJudgeToRemove(judge)}
                     className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-red-400 transition-opacity"
                     title="Remove judge"
                   >
@@ -444,6 +445,24 @@ export function ProceedingDetailContent({ entityId, context, onClose }: Proceedi
         confirmText="Delete"
         variant="danger"
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* Remove Judge Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!judgeToRemove}
+        onClose={() => setJudgeToRemove(null)}
+        onConfirm={() => {
+          if (judgeToRemove) {
+            removeJudgeMutation.mutate(judgeToRemove.judge_id, {
+              onSuccess: () => setJudgeToRemove(null),
+            });
+          }
+        }}
+        title="Remove judge"
+        message={`Are you sure you want to remove ${judgeToRemove?.name} from this proceeding?`}
+        confirmText="Remove"
+        variant="danger"
+        isLoading={removeJudgeMutation.isPending}
       />
     </div>
   );

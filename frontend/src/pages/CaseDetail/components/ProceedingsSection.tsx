@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, ExternalLink, X, Scale } from 'lucide-react';
 import { useEntityModal } from '../../../components/modals';
-import { JurisdictionAutocomplete, AddJudgeDropdown, JUDGE_ROLES, getJudgeRoleIcon } from '../../../components/common';
+import { JurisdictionAutocomplete, AddJudgeDropdown, ConfirmModal, JUDGE_ROLES, getJudgeRoleIcon } from '../../../components/common';
 import {
   createProceeding,
   addProceedingJudge,
@@ -25,6 +25,7 @@ export function ProceedingsSection({
   const queryClient = useQueryClient();
   const { openProceedingModal, openJudgeModal } = useEntityModal();
   const [showAdd, setShowAdd] = useState(false);
+  const [judgeToRemove, setJudgeToRemove] = useState<{ proceedingId: number; judge: ProceedingJudge } | null>(null);
   const [newProceeding, setNewProceeding] = useState({
     case_number: '',
     jurisdiction_id: null as number | null,
@@ -33,15 +34,14 @@ export function ProceedingsSection({
     notes: '',
   });
 
-  // Create proceeding with full form (for empty state)
   const createMutation = useMutation({
     mutationFn: (data: {
       case_number: string;
-      jurisdiction_id?: number;
+      jurisdiction_id: number;
       is_primary?: boolean;
       notes?: string;
     }) => createProceeding(caseId, data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] });
       setNewProceeding({
         case_number: '',
@@ -51,15 +51,6 @@ export function ProceedingsSection({
         notes: '',
       });
       setShowAdd(false);
-    },
-  });
-
-  // Create blank proceeding and open modal (for adding when proceedings exist)
-  const createAndOpenMutation = useMutation({
-    mutationFn: () => createProceeding(caseId, { case_number: 'New Proceeding' }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['case', caseId] });
-      // Open the modal for the newly created proceeding
       if (data?.proceeding?.id) {
         openProceedingModal(data.proceeding.id, { caseId });
       }
@@ -116,10 +107,10 @@ export function ProceedingsSection({
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newProceeding.case_number.trim()) {
+    if (newProceeding.case_number.trim() && newProceeding.jurisdiction_id) {
       createMutation.mutate({
         case_number: newProceeding.case_number.trim(),
-        jurisdiction_id: newProceeding.jurisdiction_id ?? undefined,
+        jurisdiction_id: newProceeding.jurisdiction_id,
         is_primary: newProceeding.is_primary,
         notes: newProceeding.notes || undefined,
       });
@@ -146,8 +137,8 @@ export function ProceedingsSection({
     });
   };
 
-  const handleRemoveJudge = (proceedingId: number, judgeId: number) => {
-    removeJudgeMutation.mutate({ proceedingId, judgeId });
+  const handleRemoveJudge = (proceedingId: number, judge: ProceedingJudge) => {
+    setJudgeToRemove({ proceedingId, judge });
   };
 
   // Separate primary and other proceedings
@@ -155,7 +146,7 @@ export function ProceedingsSection({
   const otherProceedings = proceedings.filter((p) => !p.is_primary);
 
   const handleAddProceeding = () => {
-    createAndOpenMutation.mutate();
+    setShowAdd(true);
   };
 
   const renderAddJudgeUI = (proceeding: Proceeding) => (
@@ -248,7 +239,7 @@ export function ProceedingsSection({
                       ))}
                     </select>
                     <button
-                      onClick={() => handleRemoveJudge(primaryProceeding.id, judge.judge_id)}
+                      onClick={() => handleRemoveJudge(primaryProceeding.id, judge)}
                       className="opacity-0 group-hover/judge:opacity-100 p-0.5 text-text-muted hover:text-red-400 transition-opacity"
                       title="Remove judge"
                     >
@@ -285,8 +276,7 @@ export function ProceedingsSection({
           ))}
           <button
             onClick={handleAddProceeding}
-            disabled={createAndOpenMutation.isPending}
-            className="text-primary-600 hover:text-primary-700 disabled:opacity-50"
+            className="text-primary-600 hover:text-primary-700"
             title="Add proceeding"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -300,8 +290,7 @@ export function ProceedingsSection({
           <span className="text-text-muted">Other:</span>
           <button
             onClick={handleAddProceeding}
-            disabled={createAndOpenMutation.isPending}
-            className="text-primary-600 hover:text-primary-700 disabled:opacity-50 inline-flex items-center gap-1"
+            className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="text-xs">Add</span>
@@ -331,7 +320,7 @@ export function ProceedingsSection({
               type="text"
               value={newProceeding.case_number}
               onChange={(e) => setNewProceeding({ ...newProceeding, case_number: e.target.value })}
-              placeholder="Case number *"
+              placeholder="e.g., 12-cv-12345-ASD-FGH"
               className="w-full px-2 py-1.5 rounded border border-border bg-bg-surface text-text placeholder-text-muted text-sm focus:border-primary-500 outline-none"
               autoFocus
             />
@@ -353,7 +342,7 @@ export function ProceedingsSection({
                 onSelectJurisdiction={handleSelectJurisdiction}
                 onCreateNew={handleCreateJurisdiction}
                 onCancel={() => setShowAdd(false)}
-                placeholder="Search..."
+                placeholder="Search jurisdictions... *"
               />
             )}
           </div>
@@ -379,7 +368,7 @@ export function ProceedingsSection({
               </button>
               <button
                 type="submit"
-                disabled={createMutation.isPending || !newProceeding.case_number.trim()}
+                disabled={createMutation.isPending || !newProceeding.case_number.trim() || !newProceeding.jurisdiction_id}
                 className="px-3 py-1 bg-primary-600 text-white rounded text-xs disabled:opacity-50 hover:bg-primary-700"
               >
                 Add
@@ -388,6 +377,25 @@ export function ProceedingsSection({
           </div>
         </form>
       )}
+
+      {/* Remove Judge Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!judgeToRemove}
+        onClose={() => setJudgeToRemove(null)}
+        onConfirm={() => {
+          if (judgeToRemove) {
+            removeJudgeMutation.mutate(
+              { proceedingId: judgeToRemove.proceedingId, judgeId: judgeToRemove.judge.judge_id },
+              { onSuccess: () => setJudgeToRemove(null) },
+            );
+          }
+        }}
+        title="Remove judge"
+        message={`Are you sure you want to remove ${judgeToRemove?.judge.name} from this proceeding?`}
+        confirmText="Remove"
+        variant="danger"
+        isLoading={removeJudgeMutation.isPending}
+      />
     </div>
   );
 }
