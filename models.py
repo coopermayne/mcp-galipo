@@ -541,7 +541,7 @@ class Proceeding(Base):
         back_populates="proceedings"
     )
     proceeding_judges: Mapped[list[ProceedingJudge]] = relationship(
-        back_populates="proceeding"
+        back_populates="proceeding", cascade="all, delete-orphan"
     )
     webhook_logs: Mapped[list[WebhookLog]] = relationship(back_populates="proceeding")
 
