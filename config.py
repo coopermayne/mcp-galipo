@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     mcp_auth_password: str | None = None
     mcp_base_url: str | None = None
 
+    # Google Sheets (intake sync)
+    google_sheets_credentials_json: str | None = None
+    google_sheets_credentials_file: str | None = None
+    google_sheets_spreadsheet_id: str | None = None
+
     # Environment detection
     railway_environment: str | None = None
     env: str = ""

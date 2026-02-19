@@ -499,3 +499,28 @@ class CaseBriefOut(BaseModel):
     case_name: str
     short_name: Optional[str] = None
     status: str
+
+
+# --- Intakes ---
+
+class IntakeOut(BaseModel):
+    """Output schema for Intake ORM objects."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    submitted_on: Optional[datetime.datetime] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    case_type: Optional[str] = None
+    incident_date: Optional[datetime.date] = None
+    incident_time: Optional[str] = None
+    location: Optional[str] = None
+    incident_description: Optional[str] = None
+    injury_description: Optional[str] = None
+    disclaimer_accepted: Optional[bool] = None
+    status: str
+    notes: Optional[str] = None
+    google_row_number: int
+    created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None

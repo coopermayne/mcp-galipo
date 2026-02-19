@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 venv/
 .env
+google-credentials.json
 .python-version
 *.db
 frontend/dist/

@@ -24,6 +24,11 @@ TaskStatus = Literal[
 
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
 Urgency = Literal["Low", "Medium", "High", "Urgent"]
+IntakeStatus = Literal[
+    "Reviewing", "Rejected", "Needs Rejection Letter",
+    "Needs Retainer", "Waiting for Retainer", "Retained"
+]
+
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
 JudgeRole = Literal["Presiding", "Magistrate", "Panel", "Other"]
 
@@ -36,6 +41,7 @@ CASE_STATUS_LIST: list[str] = list(get_args(CaseStatus))
 TASK_STATUS_LIST: list[str] = list(get_args(TaskStatus))
 PERSON_SIDE_LIST: list[str] = list(get_args(PersonSide))
 URGENCY_LIST: list[str] = list(get_args(Urgency))
+INTAKE_STATUS_LIST: list[str] = list(get_args(IntakeStatus))
 JUDGE_ROLE_LIST: list[str] = list(get_args(JudgeRole))
 
 

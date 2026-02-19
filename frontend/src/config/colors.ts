@@ -398,6 +398,39 @@ export const DATE_GROUP_COLORS = {
 export type DateGroupKey = keyof typeof DATE_GROUP_COLORS;
 
 // =============================================================================
+// INTAKE STATUS COLORS
+// =============================================================================
+
+export const INTAKE_STATUS_COLORS = {
+  Reviewing: {
+    bg: 'bg-blue-100 dark:bg-blue-900/30',
+    text: 'text-blue-700 dark:text-blue-300',
+  },
+  Rejected: {
+    bg: 'bg-red-100 dark:bg-red-900/30',
+    text: 'text-red-700 dark:text-red-300',
+  },
+  'Needs Rejection Letter': {
+    bg: 'bg-orange-100 dark:bg-orange-900/30',
+    text: 'text-orange-700 dark:text-orange-300',
+  },
+  'Needs Retainer': {
+    bg: 'bg-amber-100 dark:bg-amber-900/30',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+  'Waiting for Retainer': {
+    bg: 'bg-purple-100 dark:bg-purple-900/30',
+    text: 'text-purple-700 dark:text-purple-300',
+  },
+  Retained: {
+    bg: 'bg-green-100 dark:bg-green-900/30',
+    text: 'text-green-700 dark:text-green-300',
+  },
+} as const;
+
+export type IntakeStatusKey = keyof typeof INTAKE_STATUS_COLORS;
+
+// =============================================================================
 // COMBINED STATUS LOOKUP (for generic Badge component)
 // =============================================================================
 
@@ -411,6 +444,9 @@ export function getStatusColor(status: string): ColorClasses {
 
   const eventColor = EVENT_STATUS_COLORS[status as EventStatusKey];
   if (eventColor) return eventColor;
+
+  const intakeColor = INTAKE_STATUS_COLORS[status as IntakeStatusKey];
+  if (intakeColor) return intakeColor;
 
   // Default fallback
   return BADGE_PALETTE.slate;
