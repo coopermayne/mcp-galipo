@@ -171,6 +171,16 @@ export {
   adjustPanelsForLayout as adjustPanelsForLayoutGeneric,
 } from './panel-layout';
 
+// Intake types
+export type {
+  IntakeStatus,
+  Intake,
+  UpdateIntakeInput,
+  SyncResult,
+} from './intake';
+
+export { INTAKE_STATUSES } from './intake';
+
 // Template types
 export type {
   CaseInfo,

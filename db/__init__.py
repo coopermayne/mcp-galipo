@@ -224,6 +224,15 @@ from .objections import (
     reorder_objections,
 )
 
+# Intakes
+from .intakes import (
+    get_intakes,
+    get_intake_by_id,
+    update_intake,
+    delete_intake,
+    sync_from_sheet,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -399,6 +408,12 @@ __all__ = [
     "update_objection",
     "delete_objection",
     "reorder_objections",
+    # Intakes
+    "get_intakes",
+    "get_intake_by_id",
+    "update_intake",
+    "delete_intake",
+    "sync_from_sheet",
     # Bulk import
     "import_case",
 ]

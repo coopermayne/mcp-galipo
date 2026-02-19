@@ -7,7 +7,7 @@ Used by both MCP tools and REST routes.
 from typing import Optional
 from pydantic import BaseModel
 
-from .common import CaseStatus, TaskStatus, Urgency
+from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus
 
 
 # =============================================================================
@@ -95,3 +95,12 @@ class CreateNoteInput(BaseModel):
 
 class UpdateNoteInput(BaseModel):
     content: str
+
+
+# =============================================================================
+# Route Input Models — Intakes
+# =============================================================================
+
+class UpdateIntakeInput(BaseModel):
+    status: Optional[IntakeStatus] = None
+    notes: Optional[str] = None

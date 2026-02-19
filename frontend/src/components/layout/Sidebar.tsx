@@ -2,6 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Briefcase,
+  Inbox,
   CheckSquare,
   Clock,
   Scale,
@@ -41,6 +42,7 @@ interface NavItem {
 const baseNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Cases', href: '/cases', icon: Briefcase },
+  { name: 'Intake', href: '/intakes', icon: Inbox },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Calendar', href: '/calendar', icon: Clock },
   {

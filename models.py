@@ -42,6 +42,45 @@ class Base(DeclarativeBase):
 # ---------------------------------------------------------------------------
 
 
+class Intake(Base):
+    __tablename__ = "intakes"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="intakes_pkey"),
+        UniqueConstraint("google_row_number", name="intakes_google_row_number_key"),
+        Index("idx_intakes_status", "status"),
+        Index("idx_intakes_submitted_on", "submitted_on"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Sheet fields
+    submitted_on: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    name: Mapped[Optional[str]] = mapped_column(String(255))
+    email: Mapped[Optional[str]] = mapped_column(String(255))
+    phone: Mapped[Optional[str]] = mapped_column(String(100))
+    case_type: Mapped[Optional[str]] = mapped_column(String(255))
+    incident_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    incident_time: Mapped[Optional[str]] = mapped_column(String(50))
+    location: Mapped[Optional[str]] = mapped_column(Text)
+    incident_description: Mapped[Optional[str]] = mapped_column(Text)
+    injury_description: Mapped[Optional[str]] = mapped_column(Text)
+    disclaimer_accepted: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
+    # Galipo fields
+    status: Mapped[str] = mapped_column(
+        String(50), server_default=text("'Reviewing'::character varying")
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    google_row_number: Mapped[int] = mapped_column(Integer, unique=True)
+    # Timestamps
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class Objection(Base):
     __tablename__ = "objections"
     __table_args__ = (

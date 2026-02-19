@@ -49,6 +49,7 @@ from .users import register_user_routes
 from .templates import register_template_routes
 from .objections import register_objection_routes
 from .rfp import register_rfp_routes
+from .intakes import register_intake_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -104,6 +105,8 @@ def register_routes(mcp):
     register_objection_routes(mcp)
     _logger.debug("Registering RFP routes...")
     register_rfp_routes(mcp)
+    _logger.debug("Registering intake routes...")
+    register_intake_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     _logger.debug("Registering static routes...")
@@ -131,5 +134,6 @@ __all__ = [
     "register_template_routes",
     "register_objection_routes",
     "register_rfp_routes",
+    "register_intake_routes",
     "register_static_routes",
 ]
