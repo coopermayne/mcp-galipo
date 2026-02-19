@@ -5,7 +5,6 @@ Reads all rows from a configured Google Sheet (service account auth)
 and returns them as dicts ready for DB upsert.
 """
 
-import json
 import logging
 
 from google.oauth2.service_account import Credentials
@@ -35,18 +34,18 @@ COLUMN_MAP = [
 
 
 def _get_credentials_data() -> dict:
-    """Load service account credentials from file or env var."""
-    # Prefer file path (avoids shell quoting issues with JSON in .env)
-    if settings.google_sheets_credentials_file:
-        with open(settings.google_sheets_credentials_file) as f:
-            return json.load(f)
-    if settings.google_sheets_credentials_json:
-        return json.loads(settings.google_sheets_credentials_json)
-    raise RuntimeError(
-        "Google Sheets credentials not configured. "
-        "Set GOOGLE_SHEETS_CREDENTIALS_FILE (path to JSON key file) "
-        "or GOOGLE_SHEETS_CREDENTIALS_JSON in .env."
-    )
+    """Build service account credentials dict from env vars."""
+    if not settings.google_sheets_client_email or not settings.google_sheets_private_key:
+        raise RuntimeError(
+            "Google Sheets credentials not configured. "
+            "Set GOOGLE_SHEETS_CLIENT_EMAIL and GOOGLE_SHEETS_PRIVATE_KEY in .env."
+        )
+    return {
+        "type": "service_account",
+        "client_email": settings.google_sheets_client_email,
+        "private_key": settings.google_sheets_private_key.replace("\\n", "\n"),
+        "token_uri": settings.google_sheets_token_uri,
+    }
 
 
 def _get_service():
