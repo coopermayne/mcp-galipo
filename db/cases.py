@@ -13,7 +13,7 @@ from sqlalchemy.orm import aliased
 from .session import SessionLocal
 from .validation import validate_case_status, validate_date_format
 from models import (
-    Case, User, PersonRole, Role, Person, Activity, Event, Task, Note,
+    Case, User, PersonRole, Role, Person, Event, Task, Note,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
 )
 
@@ -208,15 +208,6 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             persons.append(person)
         result["persons"] = persons
 
-        # Activities
-        act_stmt = (
-            select(Activity.id, Activity.date, Activity.description,
-                   Activity.type, Activity.minutes)
-            .where(Activity.case_id == case_id)
-            .order_by(Activity.date.desc())
-        )
-        result["activities"] = [_row_to_dict(r) for r in session.execute(act_stmt)]
-
         # Events
         evt_stmt = (
             select(Event.id, Event.date, Event.time, Event.location,
@@ -231,6 +222,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
         task_stmt = (
             select(Task.id, Task.due_date, Task.completion_date, Task.description,
                    Task.status, Task.urgency, Task.event_id, Task.sort_order,
+                   Task.created_at, Task.updated_at, Task.assignee_id,
                    Event.description.label("event_description"))
             .outerjoin(Event, Event.id == Task.event_id)
             .where(Task.case_id == case_id)

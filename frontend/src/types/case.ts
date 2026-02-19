@@ -4,7 +4,6 @@ import type { CaseStatus } from './common';
 import type { Task } from './task';
 import type { Event } from './event';
 import type { Note } from './note';
-import type { Activity } from './activity';
 import type { CasePerson } from './person';
 import type { Proceeding } from './proceeding';
 import type { CaseStaffUser } from './user';
@@ -24,7 +23,6 @@ export interface Case {
   tasks?: Task[];
   events?: Event[];
   notes?: Note[];
-  activities?: Activity[];
   proceedings?: Proceeding[];
   // Staff assignments
   attorney_ids: number[];

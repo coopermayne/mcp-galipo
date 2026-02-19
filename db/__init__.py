@@ -13,7 +13,6 @@ from .validation import (
     ValidationError,
     CASE_STATUSES,
     TASK_STATUSES,
-    ACTIVITY_TYPES,
     ROLE_CATEGORIES,
     DEFAULT_EXPERTISE_TYPES,
     DEFAULT_JURISDICTIONS,
@@ -146,15 +145,6 @@ from .events import (
     get_event_by_id,
 )
 
-# Activity operations
-from .activities import (
-    add_activity,
-    get_all_activities,
-    get_activities,
-    update_activity,
-    delete_activity,
-)
-
 # Note operations
 from .notes import (
     add_note,
@@ -245,7 +235,6 @@ __all__ = [
     "ValidationError",
     "CASE_STATUSES",
     "TASK_STATUSES",
-    "ACTIVITY_TYPES",
     "ROLE_CATEGORIES",
     "DEFAULT_EXPERTISE_TYPES",
     "DEFAULT_JURISDICTIONS",
@@ -352,12 +341,6 @@ __all__ = [
     "add_event_attendee",
     "remove_event_attendee",
     "get_event_by_id",
-    # Activities
-    "add_activity",
-    "get_all_activities",
-    "get_activities",
-    "update_activity",
-    "delete_activity",
     # Notes
     "add_note",
     "update_note",

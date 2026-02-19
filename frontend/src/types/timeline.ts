@@ -1,18 +1,8 @@
-// Timeline-related types for unified activity view
+// Timeline-related types for activity log view
 
-import type { Activity } from './activity';
 import type { Task } from './task';
 
-export interface ActivityTimelineItem {
-  type: 'activity';
-  data: Activity;
-  sortDate: string;
-}
-
-export interface TaskTimelineItem {
-  type: 'completed_task';
+export interface TimelineItem {
   data: Task;
   sortDate: string;
 }
-
-export type TimelineItem = ActivityTimelineItem | TaskTimelineItem;

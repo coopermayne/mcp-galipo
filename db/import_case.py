@@ -24,7 +24,7 @@ from .validation import (
 from .fuzzy_match import resolve_judge
 from models import (
     Case, Person, Role, PersonRole, Jurisdiction, Proceeding,
-    ProceedingJudge, Judge, Event, Note, Activity, User,
+    ProceedingJudge, Judge, Event, Note, Task, User,
 )
 
 
@@ -495,7 +495,7 @@ def _create_note(session, case_id: int, note_data: dict) -> int:
 
 
 def _create_activity(session, case_id: int, activity_data: dict) -> int:
-    """Create an activity."""
+    """Create an activity as a Done task."""
     description = activity_data.get("description")
     if not description:
         raise ValidationError("Activity description is required")
@@ -505,19 +505,23 @@ def _create_activity(session, case_id: int, activity_data: dict) -> int:
     if date:
         validate_date_format(date, "date")
     else:
-        # Default to today
         date = datetime.date.today().isoformat()
 
-    activity = Activity(
+    # Prepend type to description if not "Other"
+    if activity_type and activity_type != "Other":
+        description = f"[{activity_type}] {description}"
+
+    task = Task(
         case_id=case_id,
-        date=date,
         description=description,
-        type=activity_type,
-        minutes=activity_data.get("minutes"),
+        status="Done",
+        completion_date=date,
+        urgency="Medium",
+        sort_order=0,
     )
-    session.add(activity)
+    session.add(task)
     session.flush()
-    return activity.id
+    return task.id
 
 
 def _assign_attorneys(session, case_id: int, attorney_ids: list) -> dict:

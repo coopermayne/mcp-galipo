@@ -34,7 +34,6 @@ TOOLS OVERVIEW:
 - manage_task(action, ...) — create/update/delete/bulk_update tasks
 - manage_note(action, ...) — create/update/delete case notes
 - manage_proceeding(action, ...) — create/update/delete proceedings + add/remove judges
-- manage_activity(action, ...) — create/update/delete activity log entries
 - list_staff() — list all active staff members (for task assignment)
 - import_case(data) — bulk import a complete case with all related data
 
@@ -42,7 +41,6 @@ VALID VALUES (these are enforced — invalid values return an error with the val
 - Case status: "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal", "Settl. Pend.", "Stayed", "Closed"
 - Task status: "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
 - Urgency: "Low", "Medium", "High", "Urgent"
-- Activity type: "Meeting", "Filing", "Research", "Drafting", "Document Review", "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
 - Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
 
 ROLES SYSTEM (unified person-role management):

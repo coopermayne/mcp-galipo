@@ -45,13 +45,6 @@ export type {
   CreateNoteInput,
 } from './note';
 
-// Activity types
-export type {
-  Activity,
-  CreateActivityInput,
-  UpdateActivityInput,
-} from './activity';
-
 // Role types
 export type {
   Role,
@@ -125,8 +118,6 @@ export type {
 
 // Timeline types
 export type {
-  ActivityTimelineItem,
-  TaskTimelineItem,
   TimelineItem,
 } from './timeline';
 

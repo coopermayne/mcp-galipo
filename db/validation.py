@@ -4,13 +4,12 @@ Validation helper functions for database operations.
 
 import re
 from schemas import (
-    CASE_STATUS_LIST, TASK_STATUS_LIST, ACTIVITY_TYPE_LIST, URGENCY_LIST,
+    CASE_STATUS_LIST, TASK_STATUS_LIST, URGENCY_LIST,
 )
 
 # Backwards-compatible aliases (used throughout db/ and routes/)
 CASE_STATUSES = CASE_STATUS_LIST
 TASK_STATUSES = TASK_STATUS_LIST
-ACTIVITY_TYPES = ACTIVITY_TYPE_LIST
 
 # Role categories for the unified roles system
 ROLE_CATEGORIES = ["expert", "counsel", "mediator", "client", "defendant", "other"]

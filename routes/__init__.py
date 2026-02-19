@@ -13,7 +13,6 @@ Route modules:
 - events: Event/calendar CRUD operations
 - persons: Person/contact management and case assignments
 - notes: Note CRUD operations
-- activities: Activity/time tracking (placeholder)
 - chat: AI chat with Claude integration
 """
 
@@ -42,7 +41,6 @@ from .persons import register_person_routes
 from .roles import register_role_routes
 from .judges import register_judge_routes
 from .notes import register_note_routes
-from .activities import register_activity_routes
 from .proceedings import register_proceeding_routes
 from .chat import register_chat_routes
 from .export import register_export_routes
@@ -89,8 +87,6 @@ def register_routes(mcp):
     register_judge_routes(mcp)
     _logger.debug("Registering note routes...")
     register_note_routes(mcp)
-    _logger.debug("Registering activity routes...")
-    register_activity_routes(mcp)
     _logger.debug("Registering proceeding routes...")
     register_proceeding_routes(mcp)
     _logger.debug("Registering chat routes...")
@@ -127,7 +123,6 @@ __all__ = [
     "register_event_routes",
     "register_person_routes",
     "register_note_routes",
-    "register_activity_routes",
     "register_proceeding_routes",
     "register_chat_routes",
     "register_export_routes",

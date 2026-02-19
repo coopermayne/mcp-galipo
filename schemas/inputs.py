@@ -7,7 +7,7 @@ Used by both MCP tools and REST routes.
 from typing import Optional
 from pydantic import BaseModel
 
-from .common import CaseStatus, TaskStatus, ActivityType, Urgency
+from .common import CaseStatus, TaskStatus, Urgency
 
 
 # =============================================================================
@@ -42,6 +42,7 @@ class CreateTaskInput(BaseModel):
     case_id: int
     description: str
     due_date: Optional[str] = None
+    completion_date: Optional[str] = None
     status: Optional[TaskStatus] = "Pending"
     urgency: Optional[Urgency] = "Medium"
     event_id: Optional[int] = None
@@ -81,25 +82,6 @@ class UpdateEventInput(BaseModel):
     document_link: Optional[str] = None
     calculation_note: Optional[str] = None
     starred: Optional[bool] = None
-
-
-# =============================================================================
-# Route Input Models — Activities
-# =============================================================================
-
-class CreateActivityInput(BaseModel):
-    case_id: int
-    description: str
-    activity_type: ActivityType
-    date: str
-    minutes: Optional[int] = None
-
-
-class UpdateActivityInput(BaseModel):
-    description: Optional[str] = None
-    activity_type: Optional[ActivityType] = None
-    date: Optional[str] = None
-    minutes: Optional[int] = None
 
 
 # =============================================================================

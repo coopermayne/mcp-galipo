@@ -44,11 +44,12 @@ def _task_with_relations(task: Task, case: Case, event: Event = None,
 
 def add_task(case_id: int, description: str, due_date: str = None,
              status: str = "Pending", urgency: str = "Medium", event_id: int = None,
-             assignee_id: int = None) -> dict:
+             assignee_id: int = None, completion_date: str = None) -> dict:
     """Add a task to a case."""
     validate_task_status(status)
     validate_urgency(urgency)
     validate_date_format(due_date, "due_date")
+    validate_date_format(completion_date, "completion_date")
 
     with SessionLocal() as session:
         # Get max sort_order and add 1000 for new task
@@ -68,8 +69,10 @@ def add_task(case_id: int, description: str, due_date: str = None,
             assignee_id=assignee_id,
         )
 
-        # Set completion_date to today if creating as Done
-        if status == "Done":
+        # Set completion_date: use provided value, or default to today if Done
+        if completion_date:
+            task.completion_date = completion_date
+        elif status == "Done":
             task.completion_date = datetime.date.today()
 
         session.add(task)

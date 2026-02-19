@@ -29,12 +29,14 @@ export interface Task {
   assignee_id?: number | null;
   assignee?: TaskAssignee | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface CreateTaskInput {
   case_id: number;
   description: string;
   due_date?: string;
+  completion_date?: string;
   status?: TaskStatus;
   urgency?: string;
   event_id?: number;
