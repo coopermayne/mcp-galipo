@@ -20,6 +20,17 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+}
+
 function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -53,7 +64,7 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
               {intake.phone && (
                 <div className="flex items-center gap-2 text-sm text-text-secondary">
                   <Phone className="w-4 h-4 text-text-muted" />
-                  <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{intake.phone}</a>
+                  <a href={`tel:${formatPhone(intake.phone)}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
                 </div>
               )}
             </div>
@@ -168,7 +179,7 @@ export function ArchivedIntakes() {
                           </span>
                         )}
                         {intake.phone && (
-                          <span className="text-xs text-text-muted">{intake.phone}</span>
+                          <span className="text-xs text-text-muted">{formatPhone(intake.phone)}</span>
                         )}
                       </div>
                     </td>

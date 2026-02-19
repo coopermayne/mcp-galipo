@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, getIntakeCounts, updateIntake, syncIntakes } from '../api';
+import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, analyzeIntakes } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
 import type { Intake, IntakeStatus } from '../types';
@@ -19,12 +19,25 @@ import {
   Check,
   ArrowRight,
   Archive,
+  Sparkles,
+  Star,
 } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits[0] === '1') {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
 }
 
 function formatDateTime(dateStr: string | null): string {
@@ -56,7 +69,7 @@ function PipelineStep({
   return (
     <button
       onClick={onClick}
-      className={`group flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+      className={`group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
         isActive
           ? `${color.bg} ${color.text}`
           : 'text-text-muted hover:text-text hover:bg-bg-hover'
@@ -97,7 +110,7 @@ function PipelineTrack({
       {statuses.map((s, i) => (
         <div key={s} className="flex items-center">
           {i > 0 && (
-            <ChevronRight className="w-3 h-3 text-text-muted/30 flex-shrink-0 -mx-0.5" />
+            <ChevronRight className="w-4 h-4 text-text-muted/30 flex-shrink-0 -mx-0.5" />
           )}
           <PipelineStep
             status={s}
@@ -128,7 +141,7 @@ function StatusPipeline({ value, onChange, counts }: { value: string; onChange: 
           {/* Reject track */}
           <div className="flex items-center gap-0">
             <div className="w-4 h-px bg-border/60 flex-shrink-0" />
-            <span className="text-[9px] uppercase tracking-wider text-red-400/70 dark:text-red-500/50 font-semibold mr-0.5 flex-shrink-0">
+            <span className="text-[10px] uppercase tracking-wider text-red-400/70 dark:text-red-500/50 font-semibold mr-0.5 flex-shrink-0">
               reject
             </span>
             <PipelineTrack statuses={REJECT_STATUSES} value={value} counts={counts} onChange={onChange} />
@@ -137,13 +150,43 @@ function StatusPipeline({ value, onChange, counts }: { value: string; onChange: 
           {/* Retain track */}
           <div className="flex items-center gap-0">
             <div className="w-4 h-px bg-border/60 flex-shrink-0" />
-            <span className="text-[9px] uppercase tracking-wider text-green-500/70 dark:text-green-500/50 font-semibold mr-0.5 flex-shrink-0">
+            <span className="text-[10px] uppercase tracking-wider text-green-500/70 dark:text-green-500/50 font-semibold mr-0.5 flex-shrink-0">
               retain
             </span>
             <PipelineTrack statuses={RETAIN_STATUSES} value={value} counts={counts} onChange={onChange} />
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StarRating({ rating, reasoning }: { rating: number | null; reasoning: string | null }) {
+  if (rating === null) {
+    return <span className="text-xs text-text-muted/40">—</span>;
+  }
+  return (
+    <div className="relative group">
+      <div className="flex items-center gap-px cursor-default">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Star
+            key={i}
+            className={`w-3.5 h-3.5 ${
+              i <= rating
+                ? 'text-amber-400 fill-amber-400'
+                : 'text-text-muted/20'
+            }`}
+          />
+        ))}
+      </div>
+      {reasoning && (
+        <div className="absolute z-30 top-full left-0 mt-1.5 hidden group-hover:block w-72">
+          <div className="w-2 h-2 bg-gray-900 dark:bg-gray-800 rotate-45 ml-3 -mb-1 relative z-10" />
+          <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2.5 shadow-lg leading-relaxed relative z-20">
+            {reasoning}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -364,7 +407,7 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
               {intake.phone && (
                 <div className="flex items-center gap-2 text-sm text-text-secondary">
                   <Phone className="w-4 h-4 text-text-muted" />
-                  <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{intake.phone}</a>
+                  <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
                 </div>
               )}
             </div>
@@ -390,6 +433,33 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
               )}
             </div>
 
+            {/* AI Analysis */}
+            {(intake.ai_summary || intake.ai_rating) && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">AI Analysis</h4>
+                {intake.ai_rating && (
+                  <div className="flex items-center gap-2">
+                    <StarRating rating={intake.ai_rating} reasoning={intake.ai_rating_reasoning} />
+                    <span className="text-xs text-text-muted">{intake.ai_rating}/5</span>
+                  </div>
+                )}
+                {intake.ai_summary && (
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.ai_summary}</p>
+                )}
+                {intake.ai_rating_reasoning && (
+                  <p className="text-xs text-text-muted italic">{intake.ai_rating_reasoning}</p>
+                )}
+              </div>
+            )}
+
+            {/* Notes */}
+            {intake.notes && (
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Notes</h4>
+                <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.notes}</p>
+              </div>
+            )}
+
             {/* Descriptions */}
             {intake.incident_description && (
               <div className="space-y-1">
@@ -401,14 +471,6 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
               <div className="space-y-1">
                 <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Injury Description</h4>
                 <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.injury_description}</p>
-              </div>
-            )}
-
-            {/* Notes */}
-            {intake.notes && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Notes</h4>
-                <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.notes}</p>
               </div>
             )}
 
@@ -451,6 +513,13 @@ export function Intakes() {
     },
   });
 
+  const analyzeMutation = useMutation({
+    mutationFn: () => analyzeIntakes(20),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['intakes'] });
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: number; status?: IntakeStatus; notes?: string }) =>
       updateIntake(id, data),
@@ -477,6 +546,15 @@ export function Intakes() {
               <Archive className="w-4 h-4" />
               Archive
             </Link>
+            <button
+              onClick={() => analyzeMutation.mutate()}
+              disabled={analyzeMutation.isPending}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text bg-bg-hover hover:bg-bg-surface border border-border rounded-lg transition-colors disabled:opacity-50"
+              title="Run AI analysis on unanalyzed leads"
+            >
+              <Sparkles className={`w-4 h-4 ${analyzeMutation.isPending ? 'animate-pulse' : ''}`} />
+              {analyzeMutation.isPending ? 'Analyzing...' : 'AI Analyze'}
+            </button>
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
@@ -512,6 +590,27 @@ export function Intakes() {
           </div>
         )}
 
+        {analyzeMutation.isSuccess && analyzeMutation.data && (
+          <div className="mb-4 px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm text-purple-700 dark:text-purple-300 flex items-center justify-between">
+            <span>
+              Analyzed {analyzeMutation.data.analyzed} lead{analyzeMutation.data.analyzed !== 1 ? 's' : ''}.
+              {analyzeMutation.data.errors > 0 && ` ${analyzeMutation.data.errors} failed.`}
+            </span>
+            <button onClick={() => analyzeMutation.reset()} className="text-purple-500 hover:text-purple-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {analyzeMutation.isError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-center justify-between">
+            <span>Analysis failed: {(analyzeMutation.error as Error)?.message || 'Unknown error'}</span>
+            <button onClick={() => analyzeMutation.reset()} className="text-red-500 hover:text-red-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Pipeline filter */}
         <StatusPipeline value={statusFilter} onChange={setStatusFilter} counts={counts} />
 
@@ -531,13 +630,13 @@ export function Intakes() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-bg-hover/50">
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Case Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Incident Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Notes</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Submitted</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[90px]">Submitted</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[140px]">Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[120px]">Case Type</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[80px]">DOI</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">AI Summary</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[110px]">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[160px]">Notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -546,6 +645,9 @@ export function Intakes() {
                     key={intake.id}
                     className="hover:bg-bg-hover/50 transition-colors"
                   >
+                    <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
+                      {formatDate(intake.submitted_on)}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setSelectedIntake(intake)}
@@ -554,23 +656,19 @@ export function Intakes() {
                         {intake.name || '—'}
                       </button>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-0.5">
-                        {intake.email && (
-                          <span className="text-xs text-text-muted truncate max-w-[160px]" title={intake.email}>
-                            {intake.email}
-                          </span>
-                        )}
-                        {intake.phone && (
-                          <span className="text-xs text-text-muted">{intake.phone}</span>
-                        )}
-                      </div>
-                    </td>
                     <td className="px-4 py-3 text-text-secondary text-xs">
                       {intake.case_type || '—'}
                     </td>
-                    <td className="px-4 py-3 text-text-secondary text-xs">
+                    <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
                       {formatDate(intake.incident_date)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="text-xs text-text-muted line-clamp-2"
+                        title={intake.ai_summary || ''}
+                      >
+                        {intake.ai_summary || '—'}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge
@@ -583,9 +681,6 @@ export function Intakes() {
                         value={intake.notes}
                         onSave={(notes) => updateMutation.mutate({ id: intake.id, notes })}
                       />
-                    </td>
-                    <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                      {formatDate(intake.submitted_on)}
                     </td>
                   </tr>
                 ))}

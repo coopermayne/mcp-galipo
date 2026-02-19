@@ -39,6 +39,9 @@ export interface Intake {
   disclaimer_accepted: boolean | null;
   status: IntakeStatus;
   notes: string | null;
+  ai_summary: string | null;
+  ai_rating: number | null;
+  ai_rating_reasoning: string | null;
   google_row_number: number;
   created_at: string | null;
   updated_at: string | null;

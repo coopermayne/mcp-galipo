@@ -38,6 +38,18 @@ export async function deleteIntake(id: number): Promise<{ success: boolean }> {
   });
 }
 
+export async function analyzeIntakes(limit?: number): Promise<{
+  success: boolean;
+  analyzed: number;
+  errors: number;
+  remaining: number;
+}> {
+  return request('/intakes/analyze', {
+    method: 'POST',
+    body: JSON.stringify({ limit: limit ?? 20 }),
+  });
+}
+
 export async function syncIntakes(): Promise<SyncResult> {
   return request('/intakes/sync', {
     method: 'POST',

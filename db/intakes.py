@@ -72,6 +72,38 @@ def get_intake_by_id(intake_id: int) -> Optional[dict]:
         return _intake_to_dict(intake)
 
 
+def get_unanalyzed_intake_ids(limit: int = 50, include_analyzed: bool = False) -> list[int]:
+    """Get IDs of intakes to analyze (excludes Archived).
+
+    If include_analyzed is True, returns all non-archived intakes (for re-analysis).
+    """
+    with SessionLocal() as session:
+        stmt = (
+            select(Intake.id)
+            .where(Intake.status != "Archived")
+        )
+        if not include_analyzed:
+            stmt = stmt.where(Intake.ai_rating.is_(None))
+        stmt = stmt.order_by(Intake.submitted_on.desc().nullslast(), Intake.id.desc()).limit(limit)
+        return list(session.scalars(stmt).all())
+
+
+def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_reasoning: str) -> Optional[dict]:
+    """Save AI analysis results for an intake."""
+    with SessionLocal() as session:
+        intake = session.get(Intake, intake_id)
+        if not intake:
+            return None
+        intake.ai_summary = ai_summary
+        intake.ai_rating = ai_rating
+        intake.ai_rating_reasoning = ai_rating_reasoning
+        session.flush()
+        session.refresh(intake)
+        result = _intake_to_dict(intake)
+        session.commit()
+        return result
+
+
 def update_intake(intake_id: int, **kwargs) -> Optional[dict]:
     """Update an intake's status and/or notes."""
     with SessionLocal() as session:
