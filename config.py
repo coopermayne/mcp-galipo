@@ -42,9 +42,10 @@ class Settings(BaseSettings):
     mcp_base_url: str | None = None
 
     # Google Sheets (intake sync)
-    google_sheets_credentials_json: str | None = None
-    google_sheets_credentials_file: str | None = None
     google_sheets_spreadsheet_id: str | None = None
+    google_sheets_client_email: str | None = None
+    google_sheets_private_key: str | None = None
+    google_sheets_token_uri: str = "https://oauth2.googleapis.com/token"
 
     # Environment detection
     railway_environment: str | None = None
