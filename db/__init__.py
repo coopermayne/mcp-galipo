@@ -228,6 +228,7 @@ from .objections import (
 from .intakes import (
     get_intakes,
     get_intake_by_id,
+    get_intake_status_counts,
     update_intake,
     delete_intake,
     sync_from_sheet,
@@ -411,6 +412,7 @@ __all__ = [
     # Intakes
     "get_intakes",
     "get_intake_by_id",
+    "get_intake_status_counts",
     "update_intake",
     "delete_intake",
     "sync_from_sheet",

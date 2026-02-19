@@ -14,6 +14,10 @@ export async function getIntakes(params?: {
   return request(`/intakes${qs ? `?${qs}` : ''}`);
 }
 
+export async function getIntakeCounts(): Promise<Record<string, number>> {
+  return request('/intakes/counts');
+}
+
 export async function getIntake(id: number): Promise<Intake> {
   return request(`/intakes/${id}`);
 }

@@ -143,4 +143,4 @@ export { extractRFP, analyzeRFPRequests, generateRFPResponse } from './rfp';
 export { getObjections, createObjection, updateObjection, deleteObjection, reorderObjections } from './objections';
 
 // Intakes
-export { getIntakes, getIntake, updateIntake, deleteIntake, syncIntakes } from './intakes';
+export { getIntakes, getIntakeCounts, getIntake, updateIntake, deleteIntake, syncIntakes } from './intakes';

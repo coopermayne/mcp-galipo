@@ -35,6 +35,14 @@ def register_intake_routes(mcp):
         )
         return JSONResponse(result)
 
+    @mcp.custom_route("/api/v1/intakes/counts", methods=["GET"])
+    async def api_intake_counts(request):
+        """Get intake counts grouped by status."""
+        if err := auth.require_auth(request):
+            return err
+        counts = await asyncio.to_thread(db.get_intake_status_counts)
+        return JSONResponse(counts)
+
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["GET"])
     async def api_get_intake(request):
         """Get a single intake by ID."""
