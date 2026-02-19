@@ -303,6 +303,7 @@ def fuzzy_search_judges(session, name: str, jurisdiction_id: int = None,
             scored.append({
                 "id": judge.id,
                 "name": judge.name,
+                "title": judge.title,
                 "score": round(score, 1),
                 "jurisdiction_id": judge.jurisdiction_id,
                 "jurisdiction_name": judge.jurisdiction.name if judge.jurisdiction else None,

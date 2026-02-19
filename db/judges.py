@@ -152,6 +152,7 @@ def search_judges(name: str = None, jurisdiction_id: int = None) -> List[dict]:
             {
                 "id": j.id,
                 "name": j.name,
+                "title": j.title,
                 "jurisdiction_id": j.jurisdiction_id,
                 "jurisdiction_name": j.jurisdiction.name if j.jurisdiction else None,
             }
