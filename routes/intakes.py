@@ -85,6 +85,52 @@ def register_intake_routes(mcp):
             return api_error("Intake not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True})
 
+    @mcp.custom_route("/api/v1/intakes/analyze", methods=["POST"])
+    async def api_analyze_intakes(request):
+        """Run AI analysis on intakes that haven't been analyzed yet."""
+        if err := auth.require_auth(request):
+            return err
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        limit = int(body.get("limit", 20))
+        reanalyze = bool(body.get("reanalyze", False))
+
+        try:
+            from services.intake_ai import analyze_intake
+            ids = await asyncio.to_thread(db.get_unanalyzed_intake_ids, limit, reanalyze)
+            analyzed = 0
+            errors = 0
+            for intake_id in ids:
+                intake = await asyncio.to_thread(db.get_intake_by_id, intake_id)
+                if not intake:
+                    continue
+                try:
+                    result = await asyncio.to_thread(analyze_intake, intake)
+                    await asyncio.to_thread(
+                        db.save_ai_analysis,
+                        intake_id,
+                        result["ai_summary"],
+                        result["ai_rating"],
+                        result["ai_rating_reasoning"],
+                    )
+                    analyzed += 1
+                except Exception as e:
+                    logger.warning("AI analysis failed for intake %d: %s", intake_id, e)
+                    errors += 1
+            return JSONResponse({
+                "success": True,
+                "analyzed": analyzed,
+                "errors": errors,
+                "remaining": max(0, len(ids) - analyzed),
+            })
+        except RuntimeError as e:
+            return api_error(str(e), "CONFIG_ERROR", 400)
+        except Exception as e:
+            logger.exception("AI analysis batch failed")
+            return api_error(f"Analysis failed: {str(e)}", "ANALYSIS_ERROR", 500)
+
     @mcp.custom_route("/api/v1/intakes/sync", methods=["POST"])
     async def api_sync_intakes(request):
         """Trigger a sync from Google Sheets."""

@@ -71,6 +71,9 @@ class Intake(Base):
         String(50), server_default=text("'New'::character varying")
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    ai_summary: Mapped[Optional[str]] = mapped_column(Text)
+    ai_rating: Mapped[Optional[int]] = mapped_column(Integer)
+    ai_rating_reasoning: Mapped[Optional[str]] = mapped_column(Text)
     google_row_number: Mapped[int] = mapped_column(Integer, unique=True)
     # Timestamps
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
