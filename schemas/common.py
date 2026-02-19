@@ -25,8 +25,9 @@ TaskStatus = Literal[
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
 Urgency = Literal["Low", "Medium", "High", "Urgent"]
 IntakeStatus = Literal[
-    "Reviewing", "Rejected", "Needs Rejection Letter",
-    "Needs Retainer", "Waiting for Retainer", "Retained"
+    "New", "Screened", "Needs Follow-Up", "Atty Review",
+    "Rejected", "Rejection Sent",
+    "Send Retainer", "Retainer Sent", "Retained",
 ]
 
 SearchEntity = Literal["cases", "tasks", "events", "persons"]

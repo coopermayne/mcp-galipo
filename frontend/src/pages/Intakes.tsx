@@ -34,7 +34,7 @@ function formatDateTime(dateStr: string | null): string {
 
 function StatusBadge({ status, onChange }: { status: IntakeStatus; onChange: (s: IntakeStatus) => void }) {
   const [isOpen, setIsOpen] = useState(false);
-  const color = INTAKE_STATUS_COLORS[status as IntakeStatusKey] || INTAKE_STATUS_COLORS.Reviewing;
+  const color = INTAKE_STATUS_COLORS[status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
 
   return (
     <div className="relative">
@@ -216,7 +216,7 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
 
 export function Intakes() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('New');
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -284,22 +284,12 @@ export function Intakes() {
 
         {/* Status filter tabs */}
         <div className="mb-4 flex items-center gap-1 flex-wrap">
-          <button
-            onClick={() => setStatusFilter('')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              !statusFilter
-                ? 'bg-primary-600 text-white'
-                : 'bg-bg-hover text-text-secondary hover:text-text'
-            }`}
-          >
-            All
-          </button>
           {INTAKE_STATUSES.map((s) => {
             const c = INTAKE_STATUS_COLORS[s as IntakeStatusKey];
             return (
               <button
                 key={s}
-                onClick={() => setStatusFilter(s === statusFilter ? '' : s)}
+                onClick={() => setStatusFilter(s)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
                   statusFilter === s
                     ? `${c.bg} ${c.text}`
@@ -320,7 +310,7 @@ export function Intakes() {
         ) : intakes.length === 0 ? (
           <ListPanel>
             <ListPanel.Empty
-              message={statusFilter ? `No leads with status "${statusFilter}"` : 'No leads yet. Click "Sync from Google Sheets" to import.'}
+              message={`No leads with status "${statusFilter}"`}
             />
           </ListPanel>
         ) : (
