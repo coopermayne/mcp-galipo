@@ -243,8 +243,8 @@ export function JudgeAutocomplete({
                         <span className="truncate">{judge.jurisdiction_name}</span>
                       </span>
                     )}
-                    {judge.chambers && (
-                      <span className="truncate">{judge.chambers}</span>
+                    {judge.title && (
+                      <span className="truncate">{judge.title}</span>
                     )}
                   </div>
                 </div>
