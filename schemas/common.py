@@ -28,6 +28,7 @@ IntakeStatus = Literal[
     "New", "Screened", "Needs Follow-Up", "Atty Review",
     "Rejected", "Rejection Sent",
     "Send Retainer", "Retainer Sent", "Retained",
+    "Archived",
 ]
 
 SearchEntity = Literal["cases", "tasks", "events", "persons"]

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
@@ -17,6 +18,7 @@ import {
   X,
   Check,
   ArrowRight,
+  Archive,
 } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
@@ -466,14 +468,24 @@ export function Intakes() {
         title="Intake"
         subtitle={`${total} lead${total !== 1 ? 's' : ''}`}
         actions={
-          <button
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-            {syncMutation.isPending ? 'Syncing...' : 'Sync from Google Sheets'}
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/intakes/archived"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text bg-bg-hover hover:bg-bg-surface border border-border rounded-lg transition-colors"
+              title="View archived leads"
+            >
+              <Archive className="w-4 h-4" />
+              Archive
+            </Link>
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              {syncMutation.isPending ? 'Syncing...' : 'Sync from Google Sheets'}
+            </button>
+          </div>
         }
       />
 
