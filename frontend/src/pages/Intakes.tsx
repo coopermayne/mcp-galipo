@@ -1,20 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, updateIntake, syncIntakes } from '../api';
+import { getIntakes, getIntakeCounts, updateIntake, syncIntakes } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
 import type { Intake, IntakeStatus } from '../types';
 import {
   RefreshCw,
   ChevronDown,
+  ChevronRight,
   Mail,
   Phone,
   MapPin,
   Calendar,
   X,
   Check,
+  ArrowRight,
 } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
@@ -30,6 +32,118 @@ function formatDateTime(dateStr: string | null): string {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
   });
+}
+
+const SCREENING_STATUSES: IntakeStatus[] = ['New', 'Screened', 'Needs Follow-Up', 'Atty Review'];
+const REJECT_STATUSES: IntakeStatus[] = ['Rejected', 'Rejection Sent'];
+const RETAIN_STATUSES: IntakeStatus[] = ['Send Retainer', 'Retainer Sent', 'Retained'];
+
+function PipelineStep({
+  status,
+  isActive,
+  count,
+  onClick,
+}: {
+  status: IntakeStatus;
+  isActive: boolean;
+  count?: number;
+  onClick: () => void;
+}) {
+  const color = INTAKE_STATUS_COLORS[status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+        isActive
+          ? `${color.bg} ${color.text}`
+          : 'text-text-muted hover:text-text hover:bg-bg-hover'
+      }`}
+    >
+      <span
+        className={`w-2 h-2 rounded-full flex-shrink-0 transition-all ${
+          isActive ? '' : 'opacity-50 group-hover:opacity-80'
+        }`}
+        style={{
+          backgroundColor: isActive ? 'currentColor' : undefined,
+          border: isActive ? undefined : '1.5px solid currentColor',
+        }}
+      />
+      {status}
+      {count !== undefined && (
+        <span className={`tabular-nums ${isActive ? 'opacity-80' : 'opacity-50'}`}>
+          ({count})
+        </span>
+      )}
+    </button>
+  );
+}
+
+function PipelineTrack({
+  statuses,
+  value,
+  counts,
+  onChange,
+}: {
+  statuses: IntakeStatus[];
+  value: string;
+  counts?: Record<string, number>;
+  onChange: (s: string) => void;
+}) {
+  return (
+    <div className="flex items-center">
+      {statuses.map((s, i) => (
+        <div key={s} className="flex items-center">
+          {i > 0 && (
+            <ChevronRight className="w-3 h-3 text-text-muted/30 flex-shrink-0 -mx-0.5" />
+          )}
+          <PipelineStep
+            status={s}
+            isActive={value === s}
+            count={counts?.[s] ?? 0}
+            onClick={() => onChange(s)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StatusPipeline({ value, onChange, counts }: { value: string; onChange: (s: string) => void; counts?: Record<string, number> }) {
+  return (
+    <div className="mb-5">
+      {/* Screening row */}
+      <PipelineTrack statuses={SCREENING_STATUSES} value={value} counts={counts} onChange={onChange} />
+
+      {/* Outcome tracks — two branches from Atty Review */}
+      <div className="flex items-stretch gap-0 ml-6 mt-0.5">
+        {/* Fork connector lines */}
+        <div className="flex flex-col items-center w-3 flex-shrink-0">
+          <div className="w-px flex-1 bg-border/60" />
+        </div>
+
+        <div className="flex flex-col gap-0">
+          {/* Reject track */}
+          <div className="flex items-center gap-0">
+            <div className="w-4 h-px bg-border/60 flex-shrink-0" />
+            <span className="text-[9px] uppercase tracking-wider text-red-400/70 dark:text-red-500/50 font-semibold mr-0.5 flex-shrink-0">
+              reject
+            </span>
+            <PipelineTrack statuses={REJECT_STATUSES} value={value} counts={counts} onChange={onChange} />
+          </div>
+
+          {/* Retain track */}
+          <div className="flex items-center gap-0">
+            <div className="w-4 h-px bg-border/60 flex-shrink-0" />
+            <span className="text-[9px] uppercase tracking-wider text-green-500/70 dark:text-green-500/50 font-semibold mr-0.5 flex-shrink-0">
+              retain
+            </span>
+            <PipelineTrack statuses={RETAIN_STATUSES} value={value} counts={counts} onChange={onChange} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function StatusBadge({ status, onChange }: { status: IntakeStatus; onChange: (s: IntakeStatus) => void }) {
@@ -128,6 +242,101 @@ function InlineNotes({
   );
 }
 
+function StatusChangeModal({
+  intakeName,
+  fromStatus,
+  toStatus,
+  currentNotes,
+  onSave,
+  onClose,
+}: {
+  intakeName: string | null;
+  fromStatus: IntakeStatus;
+  toStatus: IntakeStatus;
+  currentNotes: string | null;
+  onSave: (notes: string | undefined) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(currentNotes || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fromColor = INTAKE_STATUS_COLORS[fromStatus as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
+  const toColor = INTAKE_STATUS_COLORS[toStatus as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      const el = textareaRef.current;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+  }, []);
+
+  const hasChangedNotes = draft !== (currentNotes || '');
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-md">
+          <div className="p-4 border-b border-border">
+            <h3 className="font-semibold text-text text-sm">
+              {intakeName || 'Unknown'}
+            </h3>
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${fromColor.bg} ${fromColor.text}`}>
+                {fromStatus}
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 text-text-muted" />
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${toColor.bg} ${toColor.text}`}>
+                {toStatus}
+              </span>
+            </div>
+          </div>
+          <div className="p-4">
+            <label className="block text-xs font-medium text-text-muted mb-1.5">
+              Add a note about this change <span className="text-text-muted/60">(optional)</span>
+            </label>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="e.g. Spoke with client, needs more info about accident..."
+              className="w-full text-sm px-3 py-2 border border-border rounded-lg bg-bg-surface text-text resize-none placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+              rows={4}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.metaKey) {
+                  e.preventDefault();
+                  onSave(hasChangedNotes ? draft : undefined);
+                }
+                if (e.key === 'Escape') onClose();
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onSave(undefined)}
+              className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text bg-bg-hover rounded-lg transition-colors"
+            >
+              Skip Note
+            </button>
+            <button
+              onClick={() => onSave(draft)}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void }) {
   return (
     <>
@@ -218,10 +427,19 @@ export function Intakes() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('New');
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
+  const [pendingChange, setPendingChange] = useState<{
+    intake: Intake;
+    newStatus: IntakeStatus;
+  } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['intakes', statusFilter],
     queryFn: () => getIntakes({ status: statusFilter || undefined, limit: 200 }),
+  });
+
+  const { data: counts } = useQuery({
+    queryKey: ['intakes', 'counts'],
+    queryFn: getIntakeCounts,
   });
 
   const syncMutation = useMutation({
@@ -282,25 +500,8 @@ export function Intakes() {
           </div>
         )}
 
-        {/* Status filter tabs */}
-        <div className="mb-4 flex items-center gap-1 flex-wrap">
-          {INTAKE_STATUSES.map((s) => {
-            const c = INTAKE_STATUS_COLORS[s as IntakeStatusKey];
-            return (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  statusFilter === s
-                    ? `${c.bg} ${c.text}`
-                    : 'bg-bg-hover text-text-secondary hover:text-text'
-                }`}
-              >
-                {s}
-              </button>
-            );
-          })}
-        </div>
+        {/* Pipeline filter */}
+        <StatusPipeline value={statusFilter} onChange={setStatusFilter} counts={counts} />
 
         {/* Table */}
         {isLoading ? (
@@ -362,7 +563,7 @@ export function Intakes() {
                     <td className="px-4 py-3">
                       <StatusBadge
                         status={intake.status}
-                        onChange={(s) => updateMutation.mutate({ id: intake.id, status: s })}
+                        onChange={(s) => setPendingChange({ intake, newStatus: s })}
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -387,6 +588,26 @@ export function Intakes() {
         <DetailModal
           intake={selectedIntake}
           onClose={() => setSelectedIntake(null)}
+        />
+      )}
+
+      {/* Status Change + Notes Modal */}
+      {pendingChange && (
+        <StatusChangeModal
+          intakeName={pendingChange.intake.name}
+          fromStatus={pendingChange.intake.status}
+          toStatus={pendingChange.newStatus}
+          currentNotes={pendingChange.intake.notes}
+          onSave={(notes) => {
+            const payload: { id: number; status: IntakeStatus; notes?: string } = {
+              id: pendingChange.intake.id,
+              status: pendingChange.newStatus,
+            };
+            if (notes !== undefined) payload.notes = notes;
+            updateMutation.mutate(payload);
+            setPendingChange(null);
+          }}
+          onClose={() => setPendingChange(null)}
         />
       )}
     </>

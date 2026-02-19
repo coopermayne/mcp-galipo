@@ -52,6 +52,16 @@ def get_intakes(
         }
 
 
+def get_intake_status_counts() -> dict[str, int]:
+    """Get count of intakes grouped by status."""
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(Intake.status, func.count(Intake.id))
+            .group_by(Intake.status)
+        ).all()
+        return {status: count for status, count in rows}
+
+
 def get_intake_by_id(intake_id: int) -> Optional[dict]:
     """Get a single intake by ID."""
     with SessionLocal() as session:
