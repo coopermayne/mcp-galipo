@@ -101,7 +101,6 @@ class Case(Base):
     )
 
     # Relationships
-    activities: Mapped[list[Activity]] = relationship(back_populates="case")
     events: Mapped[list[Event]] = relationship(back_populates="case")
     notes: Mapped[list[Note]] = relationship(back_populates="case")
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case")
@@ -263,33 +262,6 @@ class User(Base):
 # ---------------------------------------------------------------------------
 # Child tables (have FK dependencies on tables above)
 # ---------------------------------------------------------------------------
-
-
-class Activity(Base):
-    __tablename__ = "activities"
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["case_id"],
-            ["cases.id"],
-            ondelete="CASCADE",
-            name="activities_case_id_fkey",
-        ),
-        PrimaryKeyConstraint("id", name="activities_pkey"),
-        Index("idx_activities_case_id", "case_id"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    date: Mapped[datetime.date] = mapped_column(Date)
-    description: Mapped[str] = mapped_column(Text)
-    type: Mapped[str] = mapped_column(String(50))
-    case_id: Mapped[Optional[int]] = mapped_column(Integer)
-    minutes: Mapped[Optional[int]] = mapped_column(Integer)
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
-    )
-
-    # Relationships
-    case: Mapped[Optional[Case]] = relationship(back_populates="activities")
 
 
 class Event(Base):
@@ -646,6 +618,9 @@ class Task(Base):
     docket_category: Mapped[Optional[str]] = mapped_column(String(20))
     docket_order: Mapped[Optional[int]] = mapped_column(Integer)
     assignee_id: Mapped[Optional[int]] = mapped_column(Integer)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
 
     # Relationships
     assignee: Mapped[Optional[User]] = relationship(back_populates="tasks")

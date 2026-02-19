@@ -37,7 +37,6 @@ def register_stats_routes(mcp):
         return JSONResponse({
             "case_statuses": db.CASE_STATUSES,
             "task_statuses": db.TASK_STATUSES,
-            "activity_types": db.ACTIVITY_TYPES,
             "role_categories": db.ROLE_CATEGORIES,
             "roles": roles,
             "jurisdictions": jurisdictions

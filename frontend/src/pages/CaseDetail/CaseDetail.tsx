@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, FileText, CheckSquare, Clock, StickyNote, History, Settings } from 'lucide-react';
 import { PageContent } from '../../components/layout';
-import { ConfirmModal, CreateTaskModal, CreateEventModal } from '../../components/common';
+import { ConfirmModal, CreateTaskModal, CreateEventModal, CreateLogEntryModal } from '../../components/common';
 import { getCase, getConstants, updateCase, deleteCase } from '../../api';
 import type { Case } from '../../types';
 import { OverviewTab, TasksTab, EventsTab, NotesTab, ActivityTab, SettingsTab } from './tabs';
@@ -22,6 +22,7 @@ export function CaseDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [showLogEntryModal, setShowLogEntryModal] = useState(false);
 
   const goToNextTab = useCallback(() => {
     const currentIndex = TAB_ORDER.indexOf(activeTab);
@@ -127,6 +128,13 @@ export function CaseDetail() {
         return;
       }
 
+      // Ctrl/Cmd+L: Open log entry modal (works even in input fields)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        setShowLogEntryModal(true);
+        return;
+      }
+
       // Tab switching only works outside of input fields and without modifiers
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isTyping) return;
@@ -158,8 +166,7 @@ export function CaseDetail() {
     );
   }
 
-  const completedTasksCount = caseData.tasks?.filter((t) => t.status === 'Done').length || 0;
-  const activityCount = (caseData.activities?.length || 0) + completedTasksCount;
+  const activityCount = caseData.tasks?.filter((t) => t.status !== 'Pending').length || 0;
 
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: FileText },
@@ -236,7 +243,6 @@ export function CaseDetail() {
           <PageContent>
             <ActivityTab
               caseId={caseId}
-              activities={caseData.activities || []}
               tasks={caseData.tasks || []}
             />
           </PageContent>
@@ -271,6 +277,12 @@ export function CaseDetail() {
       <CreateEventModal
         isOpen={showCreateEventModal}
         onClose={() => setShowCreateEventModal(false)}
+        caseId={caseId}
+      />
+
+      <CreateLogEntryModal
+        isOpen={showLogEntryModal}
+        onClose={() => setShowLogEntryModal(false)}
         caseId={caseId}
       />
     </>

@@ -274,35 +274,8 @@ def get_activity_context(user_id: int | None = None) -> dict:
                 "case": row["case_name"],
             })
 
-        # Get recent activities
-        rows = session.execute(text(f"""
-            SELECT
-                a.id,
-                a.type,
-                a.description,
-                a.date,
-                c.id as case_id,
-                c.case_name
-            FROM activities a
-            JOIN cases c ON a.case_id = c.id
-            WHERE a.date >= :one_week_ago
-              {uf}
-            ORDER BY a.date DESC
-        """), _user_params(user_id, {"one_week_ago": one_week_ago.date()})).mappings().all()
-
-        activities = []
-        for row in rows:
-            activities.append({
-                "id": row["id"],
-                "type": row["type"],
-                "description": row["description"],
-                "date": row["date"].isoformat() if row["date"] else None,
-                "case": row["case_name"],
-            })
-
     return {
         "completed_tasks": completed_tasks,
-        "activities": activities,
         "query_date": now.strftime("%Y-%m-%d"),
         "range_start": one_week_ago.strftime("%Y-%m-%d"),
     }

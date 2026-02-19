@@ -13,9 +13,8 @@ from fastmcp import Context
 import db
 from db import ValidationError
 from schemas import (
-    CaseStatus, TaskStatus, ActivityType, Urgency,
+    CaseStatus, TaskStatus, Urgency,
     SearchEntity, JudgeRole, ContactInfo,
-    ACTIVITY_TYPE_LIST,
 )
 
 
@@ -47,7 +46,6 @@ def not_found_error(resource: str, hint=None, suggestion=None) -> dict:
         "Event": "Use search(entity='events', case_id=N) to see events for a case",
         "Person": "Use search(entity='persons', query='...') to find the person_id",
         "Note": "Use get_details(entity='case', id=N) to see notes in the case summary",
-        "Activity": "Use search(entity='cases') to find the case, then check activities",
         "Jurisdiction": "Specify jurisdiction_id when creating a proceeding",
         "Proceeding": "Use get_details(entity='case', id=N) to see proceedings",
         "Assignment": "Use search(entity='persons', case_id=N) to see current assignments",
@@ -234,17 +232,6 @@ class ManageJudgeInput(BaseModel):
     chambers: Optional[str] = Field(None, description="Chambers location")
     courtroom_number: Optional[str] = Field(None, description="Courtroom number")
     notes: Optional[str] = Field(None, description="Free-text notes")
-
-
-class ManageActivityInput(BaseModel):
-    """Create, update, or delete an activity log entry."""
-    action: Literal["create", "update", "delete"] = Field(..., description="Action to perform")
-    activity_id: Optional[int] = Field(None, description="Required for update/delete")
-    case_id: Optional[int] = Field(None, description="Required for create")
-    description: Optional[str] = Field(None, description="Activity description (required for create)")
-    activity_type: Optional[ActivityType] = Field(None, description="Activity type")
-    date: Optional[str] = Field(None, description="Activity date YYYY-MM-DD (required for create)")
-    minutes: Optional[int] = Field(None, description="Duration in minutes")
 
 
 # =============================================================================
@@ -951,6 +938,7 @@ def register_tools(mcp):
                     urgency=data.urgency or "Medium",
                     event_id=data.event_id,
                     assignee_id=data.assignee_id,
+                    completion_date=data.completion_date,
                 )
                 return {"success": True, "message": f"Task created: {data.description}", "task_id": result["id"]}
 
@@ -1128,66 +1116,6 @@ def register_tools(mcp):
             return validation_error(str(e))
         except Exception as e:
             return error_response(f"manage_proceeding failed: {str(e)}", "MUTATION_ERROR")
-
-    # =========================================================================
-    # MANAGE ACTIVITY
-    # =========================================================================
-
-    @mcp.tool()
-    def manage_activity(context: Context, data: ManageActivityInput) -> dict:
-        """Create, update, or delete an activity log entry.
-
-        Examples:
-        - manage_activity(action="create", case_id=1, description="Client call", activity_type="Phone Call", date="2026-02-06", minutes=30)
-        - manage_activity(action="update", activity_id=5, minutes=45)
-        - manage_activity(action="delete", activity_id=5)
-        """
-        context.info(f"manage_activity: {data.action}")
-        try:
-            if data.action == "create":
-                if not data.case_id:
-                    return validation_error("case_id is required for create")
-                if not data.description:
-                    return validation_error("description is required for create")
-                if not data.activity_type:
-                    return validation_error("activity_type is required for create", valid_values=ACTIVITY_TYPE_LIST)
-                if not data.date:
-                    return validation_error("date is required for create")
-                result = db.add_activity(
-                    case_id=data.case_id,
-                    description=data.description,
-                    activity_type=data.activity_type,
-                    date=data.date,
-                    minutes=data.minutes,
-                )
-                return {"success": True, "message": f"Activity logged: {data.description}", "activity_id": result["id"]}
-
-            elif data.action == "update":
-                if not data.activity_id:
-                    return validation_error("activity_id is required for update")
-                result = db.update_activity(
-                    activity_id=data.activity_id,
-                    date=data.date,
-                    description=data.description,
-                    activity_type=data.activity_type,
-                    minutes=data.minutes,
-                )
-                if not result:
-                    return not_found_error("Activity")
-                return {"success": True, "message": f"Activity #{data.activity_id} updated", "activity_id": data.activity_id}
-
-            elif data.action == "delete":
-                if not data.activity_id:
-                    return validation_error("activity_id is required for delete")
-                deleted = db.delete_activity(data.activity_id)
-                if not deleted:
-                    return not_found_error("Activity")
-                return {"success": True, "message": f"Activity #{data.activity_id} deleted"}
-
-        except ValidationError as e:
-            return validation_error(str(e))
-        except Exception as e:
-            return error_response(f"manage_activity failed: {str(e)}", "MUTATION_ERROR")
 
     # =========================================================================
     # MANAGE JUDGE (proceedings mode)

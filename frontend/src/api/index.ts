@@ -95,9 +95,6 @@ export {
 } from './persons';
 export type { DuplicateGroup } from './persons';
 
-// Activities
-export { createActivity, deleteActivity } from './activities';
-
 // Proceedings
 export {
   getProceedings,

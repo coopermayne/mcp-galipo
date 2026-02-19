@@ -52,36 +52,6 @@ class RoleBriefOut(BaseModel):
 # Entity Output Models
 # =============================================================================
 
-# --- Activities ---
-
-class ActivityOut(BaseModel):
-    """Output schema for Activity ORM objects."""
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    case_id: Optional[int] = None
-    date: datetime.date
-    description: str
-    type: str
-    minutes: Optional[int] = None
-    created_at: Optional[datetime.datetime] = None
-
-
-class ActivityWithCaseOut(BaseModel):
-    """Activity with joined case info."""
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    case_id: Optional[int] = None
-    case_name: Optional[str] = None
-    short_name: Optional[str] = None
-    description: str
-    type: str
-    date: datetime.date
-    minutes: Optional[int] = None
-    created_at: Optional[datetime.datetime] = None
-
-
 # --- Roles ---
 
 class RoleOut(BaseModel):
@@ -323,6 +293,7 @@ class TaskOut(BaseModel):
     sort_order: Optional[int] = None
     assignee_id: Optional[int] = None
     created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None
 
 
 class TaskWithRelationsOut(TaskOut):
@@ -486,7 +457,6 @@ class CaseDetailOut(BaseModel):
     attorneys: list[dict] = []
     paralegals: list[dict] = []
     persons: list[dict] = []
-    activities: list[dict] = []
     events: list[dict] = []
     tasks: list[dict] = []
     notes: list[dict] = []

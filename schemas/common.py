@@ -22,11 +22,6 @@ TaskStatus = Literal[
     "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
 ]
 
-ActivityType = Literal[
-    "Meeting", "Filing", "Research", "Drafting", "Document Review",
-    "Phone Call", "Email", "Court Appearance", "Deposition", "Other"
-]
-
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
 Urgency = Literal["Low", "Medium", "High", "Urgent"]
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
@@ -39,7 +34,6 @@ JudgeRole = Literal["Presiding", "Magistrate", "Panel", "Other"]
 
 CASE_STATUS_LIST: list[str] = list(get_args(CaseStatus))
 TASK_STATUS_LIST: list[str] = list(get_args(TaskStatus))
-ACTIVITY_TYPE_LIST: list[str] = list(get_args(ActivityType))
 PERSON_SIDE_LIST: list[str] = list(get_args(PersonSide))
 URGENCY_LIST: list[str] = list(get_args(Urgency))
 JUDGE_ROLE_LIST: list[str] = list(get_args(JudgeRole))

@@ -76,7 +76,6 @@ export interface DashboardStats {
 export interface Constants {
   case_statuses: string[];
   task_statuses: string[];
-  activity_types: string[];
   role_categories: string[];
   roles: RoleRef[];
   jurisdictions?: Jurisdiction[];
