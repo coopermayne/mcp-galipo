@@ -438,6 +438,10 @@ export const INTAKE_STATUS_COLORS = {
     bg: 'bg-green-100 dark:bg-green-900/30',
     text: 'text-green-700 dark:text-green-300',
   },
+  Archived: {
+    bg: 'bg-gray-100 dark:bg-gray-700',
+    text: 'text-gray-500 dark:text-gray-400',
+  },
 } as const;
 
 export type IntakeStatusKey = keyof typeof INTAKE_STATUS_COLORS;

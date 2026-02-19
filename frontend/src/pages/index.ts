@@ -9,4 +9,5 @@ export { Login } from './Login';
 export { PersonsIndex, ClientsPage, CounselPage, ExpertsPage, DefendantsPage, MediatorsPage, JudgesPage, OtherPage } from './persons';
 export { Users } from './Users';
 export { Intakes } from './Intakes';
+export { ArchivedIntakes } from './ArchivedIntakes';
 export { TemplatesIndex, Pleadings, RFP, CaseList, Retainer, Disbursement } from './templates';

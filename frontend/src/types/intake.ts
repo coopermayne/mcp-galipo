@@ -9,7 +9,8 @@ export type IntakeStatus =
   | 'Rejection Sent'
   | 'Send Retainer'
   | 'Retainer Sent'
-  | 'Retained';
+  | 'Retained'
+  | 'Archived';
 
 export const INTAKE_STATUSES: IntakeStatus[] = [
   'New',

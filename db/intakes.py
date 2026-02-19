@@ -53,10 +53,11 @@ def get_intakes(
 
 
 def get_intake_status_counts() -> dict[str, int]:
-    """Get count of intakes grouped by status."""
+    """Get count of intakes grouped by status (excludes Archived)."""
     with SessionLocal() as session:
         rows = session.execute(
             select(Intake.status, func.count(Intake.id))
+            .where(Intake.status != "Archived")
             .group_by(Intake.status)
         ).all()
         return {status: count for status, count in rows}
