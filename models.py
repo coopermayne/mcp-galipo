@@ -68,7 +68,7 @@ class Intake(Base):
     )
     # Galipo fields
     status: Mapped[str] = mapped_column(
-        String(50), server_default=text("'Reviewing'::character varying")
+        String(50), server_default=text("'New'::character varying")
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
     google_row_number: Mapped[int] = mapped_column(Integer, unique=True)

@@ -1,19 +1,25 @@
 // Intake-related types
 
 export type IntakeStatus =
-  | 'Reviewing'
+  | 'New'
+  | 'Screened'
+  | 'Needs Follow-Up'
+  | 'Atty Review'
   | 'Rejected'
-  | 'Needs Rejection Letter'
-  | 'Needs Retainer'
-  | 'Waiting for Retainer'
+  | 'Rejection Sent'
+  | 'Send Retainer'
+  | 'Retainer Sent'
   | 'Retained';
 
 export const INTAKE_STATUSES: IntakeStatus[] = [
-  'Reviewing',
+  'New',
+  'Screened',
+  'Needs Follow-Up',
+  'Atty Review',
   'Rejected',
-  'Needs Rejection Letter',
-  'Needs Retainer',
-  'Waiting for Retainer',
+  'Rejection Sent',
+  'Send Retainer',
+  'Retainer Sent',
   'Retained',
 ];
 

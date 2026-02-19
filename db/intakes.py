@@ -159,7 +159,7 @@ def sync_from_sheet(rows: list[dict]) -> dict:
                 incident_description=row.get("incident_description"),
                 injury_description=row.get("injury_description"),
                 disclaimer_accepted=row.get("disclaimer_accepted", False),
-                status="Reviewing",
+                status="New",
             )
             session.add(intake)
             imported += 1

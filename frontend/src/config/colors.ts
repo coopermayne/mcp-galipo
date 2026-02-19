@@ -402,23 +402,35 @@ export type DateGroupKey = keyof typeof DATE_GROUP_COLORS;
 // =============================================================================
 
 export const INTAKE_STATUS_COLORS = {
-  Reviewing: {
+  New: {
+    bg: 'bg-slate-100 dark:bg-slate-800/50',
+    text: 'text-slate-600 dark:text-slate-400',
+  },
+  Screened: {
     bg: 'bg-blue-100 dark:bg-blue-900/30',
     text: 'text-blue-700 dark:text-blue-300',
+  },
+  'Needs Follow-Up': {
+    bg: 'bg-amber-100 dark:bg-amber-900/30',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+  'Atty Review': {
+    bg: 'bg-indigo-100 dark:bg-indigo-900/30',
+    text: 'text-indigo-700 dark:text-indigo-300',
   },
   Rejected: {
     bg: 'bg-red-100 dark:bg-red-900/30',
     text: 'text-red-700 dark:text-red-300',
   },
-  'Needs Rejection Letter': {
-    bg: 'bg-orange-100 dark:bg-orange-900/30',
-    text: 'text-orange-700 dark:text-orange-300',
+  'Rejection Sent': {
+    bg: 'bg-rose-100 dark:bg-rose-900/30',
+    text: 'text-rose-700 dark:text-rose-300',
   },
-  'Needs Retainer': {
-    bg: 'bg-amber-100 dark:bg-amber-900/30',
-    text: 'text-amber-700 dark:text-amber-300',
+  'Send Retainer': {
+    bg: 'bg-cyan-100 dark:bg-cyan-900/30',
+    text: 'text-cyan-700 dark:text-cyan-300',
   },
-  'Waiting for Retainer': {
+  'Retainer Sent': {
     bg: 'bg-purple-100 dark:bg-purple-900/30',
     text: 'text-purple-700 dark:text-purple-300',
   },
