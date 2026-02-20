@@ -1,4 +1,4 @@
-fastmcp
+fastmcp>=2.14,<3
 fastapi
 uvicorn[standard]
 bcrypt

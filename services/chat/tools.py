@@ -6,7 +6,6 @@ ensuring the chat feature always has access to the same tools as the MCP server.
 Supports mode-based tool filtering for focused chat interactions.
 """
 
-import asyncio
 from typing import Any
 from fastmcp import FastMCP
 from tools import register_tools
@@ -16,9 +15,6 @@ from .modes import get_mode_tools
 # This doesn't start a server, just gives us access to tool definitions
 _mcp = FastMCP("chat-tools-meta")
 register_tools(_mcp)
-
-# Pre-load tools dict using the public API (stable across FastMCP versions)
-_tools: dict[str, Any] = asyncio.run(_mcp.get_tools())
 
 # Tools to EXCLUDE from chat (blacklist approach - everything else is available)
 BLACKLIST: set[str] = {
@@ -88,7 +84,7 @@ def get_tool_definitions(mode: str | None = None) -> list[dict[str, Any]]:
     # Get the allowed tools for this mode (empty list = all tools)
     allowed_tools = get_mode_tools(mode) if mode and mode != "full" else []
 
-    for tool in _tools.values():
+    for tool in _mcp._tool_manager._tools.values():
         if tool.name in BLACKLIST:
             continue
 
@@ -124,7 +120,7 @@ def get_tool_names(mode: str | None = None) -> list[str]:
     allowed_tools = get_mode_tools(mode) if mode and mode != "full" else []
 
     return [
-        tool.name for tool in _tools.values()
+        tool.name for tool in _mcp._tool_manager._tools.values()
         if tool.name not in BLACKLIST
         and (not allowed_tools or tool.name in allowed_tools)
         and (tool.name not in PROCEEDINGS_ONLY or mode == "proceedings")
@@ -142,7 +138,7 @@ def is_tool_available(name: str) -> bool:
     """
     if name in BLACKLIST:
         return False
-    return name in _tools
+    return name in _mcp._tool_manager._tools
 
 
 # Export the MCP instance for the executor to use
