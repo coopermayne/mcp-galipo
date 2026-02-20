@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, /* analyzeIntakes, */ getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
+import { getIntakes, getIntakeCounts, getIntake, updateIntake, syncIntakes, /* analyzeIntakes, */ getIntakeActivity, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
-import type { Intake, IntakeStatus, IntakeComment } from '../types';
+import type { Intake, IntakeStatus, IntakeComment, IntakeActivity } from '../types';
 import { useIntakeSSE } from '../hooks';
 import {
   RefreshCw,
@@ -18,6 +18,7 @@ import {
   Calendar,
   X,
   Archive,
+  Activity,
   Sparkles,
   Star,
   Send,
@@ -257,7 +258,7 @@ function StatusBadge({ status, onChange }: { status: IntakeStatus; onChange: (s:
       </button>
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} />
           <div className="absolute z-20 mt-1 left-0 bg-bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
             {INTAKE_STATUSES.map((s) => {
               const c = INTAKE_STATUS_COLORS[s as IntakeStatusKey];
@@ -433,13 +434,13 @@ function DetailModal({
   intake,
   onClose,
   onSaveNotes,
-  onStatusClick,
+  onStatusChange,
   autoFocusComments = false,
 }: {
   intake: Intake;
   onClose: () => void;
   onSaveNotes: (notes: string) => void;
-  onStatusClick: (status: IntakeStatus) => void;
+  onStatusChange: (status: IntakeStatus) => void;
   autoFocusComments?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -487,12 +488,7 @@ function DetailModal({
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="flex items-center gap-2.5">
               <h3 className="font-semibold text-text">{intake.name || 'Unknown'}</h3>
-              <button
-                onClick={() => onStatusClick(intake.status)}
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(INTAKE_STATUS_COLORS[intake.status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New).bg} ${(INTAKE_STATUS_COLORS[intake.status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New).text} hover:opacity-80 transition-opacity`}
-              >
-                {intake.status}
-              </button>
+              <StatusBadge status={intake.status} onChange={onStatusChange} />
             </div>
             <button onClick={onClose} className="p-1 text-text-muted hover:text-text">
               <X className="w-5 h-5" />
@@ -652,12 +648,121 @@ function DetailModal({
   );
 }
 
+function StatusChip({ status, onClick }: { status: string; onClick?: () => void }) {
+  const color = INTAKE_STATUS_COLORS[status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium leading-none ${color.bg} ${color.text} hover:opacity-80 transition-opacity`}
+    >
+      {status}
+    </button>
+  );
+}
+
+function ActivityContent({ content, onStatusClick }: { content: string; onStatusClick: (status: string) => void }) {
+  // Parse "Name changed status from OldStatus to NewStatus"
+  const match = content.match(/^(.+?) changed status from (.+?) to (.+)$/);
+  if (!match) return <>{content}</>;
+  const [, name, fromStatus, toStatus] = match;
+  return (
+    <>
+      {name} changed status <StatusChip status={fromStatus} onClick={() => onStatusClick(fromStatus)} /> &rarr; <StatusChip status={toStatus} onClick={() => onStatusClick(toStatus)} />
+    </>
+  );
+}
+
+function ActivityModal({
+  onClose,
+  onSelectIntake,
+  onStatusClick,
+}: {
+  onClose: () => void;
+  onSelectIntake: (intakeId: number) => void;
+  onStatusClick: (status: string) => void;
+}) {
+  const { data: activity = [], isLoading } = useQuery({
+    queryKey: ['intake-activity'],
+    queryFn: () => getIntakeActivity(),
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
+        <div
+          className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-text-muted" />
+              <h3 className="font-semibold text-text">Recent Activity</h3>
+            </div>
+            <button onClick={onClose} className="p-1 text-text-muted hover:text-text">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-1 min-h-0">
+            {isLoading ? (
+              <p className="text-sm text-text-muted text-center py-8">Loading...</p>
+            ) : activity.length === 0 ? (
+              <p className="text-sm text-text-muted text-center py-8">No recent activity</p>
+            ) : (
+              activity.map((item: IntakeActivity) => {
+                const avatarColor = item.user_id ? getBadgeColorById(item.user_id) : getBadgeColorById(0);
+                return (
+                  <div key={item.id} className="flex gap-2.5 py-2 group">
+                    <div
+                      className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarColor.bg} ${avatarColor.text}`}
+                    >
+                      {item.user_initials || '??'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text leading-snug flex items-center flex-wrap gap-1">
+                        <ActivityContent content={item.content} onStatusClick={onStatusClick} />
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onSelectIntake(item.intake_id);
+                          }}
+                          className="text-xs text-primary-600 hover:text-primary-700 hover:underline truncate max-w-[200px]"
+                        >
+                          {item.intake_name || `Intake #${item.intake_id}`}
+                        </button>
+                        <span className="text-[10px] text-text-muted/50">
+                          {formatRelativeTime(item.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function Intakes() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('New');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
   const [autoFocusComments, setAutoFocusComments] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
 
   useIntakeSSE();
 
@@ -672,9 +777,13 @@ export function Intakes() {
   });
 
   const allIntakes: Intake[] = data?.intakes || [];
-  const selectedIntake = selectedIntakeId != null
-    ? allIntakes.find((i) => i.id === selectedIntakeId) ?? null
-    : null;
+
+  const { data: selectedIntake } = useQuery({
+    queryKey: ['intake', selectedIntakeId],
+    queryFn: () => getIntake(selectedIntakeId!),
+    enabled: selectedIntakeId != null,
+  });
+
   const intakes = searchQuery
     ? allIntakes.filter((i) => {
         const q = searchQuery.toLowerCase();
@@ -713,9 +822,12 @@ export function Intakes() {
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: number; status?: IntakeStatus; notes?: string }) =>
       updateIntake(id, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['intakes'] });
+      queryClient.invalidateQueries({ queryKey: ['intake', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['intake-comments'] });
+      queryClient.invalidateQueries({ queryKey: ['intake-activity'] });
     },
   });
 
@@ -728,6 +840,14 @@ export function Intakes() {
         subtitle={`${total} lead${total !== 1 ? 's' : ''}`}
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowActivity(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text bg-bg-hover hover:bg-bg-surface border border-border rounded-lg transition-colors"
+              title="View recent activity"
+            >
+              <Activity className="w-4 h-4" />
+              Activity
+            </button>
             <Link
               to="/intakes/archived"
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text bg-bg-hover hover:bg-bg-surface border border-border rounded-lg transition-colors"
@@ -948,8 +1068,17 @@ export function Intakes() {
           intake={selectedIntake}
           onClose={() => { setSelectedIntakeId(null); setAutoFocusComments(false); }}
           onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
-          onStatusClick={(s) => { setStatusFilter(s); setSelectedIntakeId(null); setAutoFocusComments(false); }}
+          onStatusChange={(s) => updateMutation.mutate({ id: selectedIntake.id, status: s })}
           autoFocusComments={autoFocusComments}
+        />
+      )}
+
+      {/* Activity Modal */}
+      {showActivity && (
+        <ActivityModal
+          onClose={() => setShowActivity(false)}
+          onSelectIntake={(id) => { setAutoFocusComments(false); setSelectedIntakeId(id); }}
+          onStatusClick={(s) => { setStatusFilter(s); setShowActivity(false); }}
         />
       )}
     </>

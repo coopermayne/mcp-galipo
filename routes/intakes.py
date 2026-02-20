@@ -44,6 +44,17 @@ def register_intake_routes(mcp):
         counts = await asyncio.to_thread(db.get_intake_status_counts)
         return JSONResponse(counts)
 
+    # --- Activity feed (registered BEFORE {intake_id} wildcard) ---
+
+    @mcp.custom_route("/api/v1/intakes/activity", methods=["GET"])
+    async def api_intake_activity(request):
+        """Get recent activity (system comments) across all intakes."""
+        if err := auth.require_auth(request):
+            return err
+        limit = int(request.query_params.get("limit", "50"))
+        activity = await asyncio.to_thread(db.get_recent_activity, limit)
+        return JSONResponse(activity)
+
     # --- Comment routes (registered BEFORE {intake_id} wildcard) ---
 
     @mcp.custom_route("/api/v1/intakes/unread-counts", methods=["GET"])

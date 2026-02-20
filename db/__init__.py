@@ -242,6 +242,7 @@ from .intake_comments import (
     add_intake_comment,
     mark_intake_read,
     get_unread_counts,
+    get_recent_activity,
 )
 
 # Bulk import
@@ -433,6 +434,7 @@ __all__ = [
     "add_intake_comment",
     "mark_intake_read",
     "get_unread_counts",
+    "get_recent_activity",
     # Bulk import
     "import_case",
 ]

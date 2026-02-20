@@ -1,4 +1,4 @@
-import type { Intake, IntakeComment, UpdateIntakeInput, SyncResult } from '../types';
+import type { Intake, IntakeComment, IntakeActivity, UpdateIntakeInput, SyncResult } from '../types';
 import { request } from './common';
 
 export async function getIntakes(params?: {
@@ -71,6 +71,10 @@ export async function markIntakeRead(intakeId: number): Promise<{ success: boole
   return request(`/intakes/${intakeId}/read`, {
     method: 'POST',
   });
+}
+
+export async function getIntakeActivity(limit = 50): Promise<IntakeActivity[]> {
+  return request(`/intakes/activity?limit=${limit}`);
 }
 
 export async function getIntakeUnreadCounts(ids: number[]): Promise<Record<string, number>> {
