@@ -5,6 +5,7 @@ import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
 import { getIntakes } from '../api';
 import type { Intake } from '../types';
+import { useIntakeSSE } from '../hooks';
 import {
   ArrowLeft,
   Mail,
@@ -120,6 +121,7 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
 }
 
 export function ArchivedIntakes() {
+  useIntakeSSE();
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
 
   const { data, isLoading } = useQuery({

@@ -8,6 +8,7 @@ import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '.
 import { INTAKE_STATUSES } from '../types';
 import type { Intake, IntakeStatus, IntakeComment } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useIntakeSSE } from '../hooks';
 import {
   RefreshCw,
   ChevronDown,
@@ -17,7 +18,6 @@ import {
   MapPin,
   Calendar,
   X,
-  Check,
   Archive,
   Sparkles,
   Star,
@@ -278,63 +278,6 @@ function StatusBadge({ status, onChange }: { status: IntakeStatus; onChange: (s:
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function InlineNotes({
-  value,
-  onSave,
-}: {
-  value: string | null;
-  onSave: (notes: string) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(value || '');
-
-  if (!isEditing) {
-    return (
-      <button
-        onClick={() => { setDraft(value || ''); setIsEditing(true); }}
-        className="text-xs text-left text-text-muted hover:text-text truncate max-w-[200px] block"
-        title={value || 'Click to add notes'}
-      >
-        {value || '\u2014'}
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        className="w-48 text-xs px-2 py-1 border border-border rounded bg-bg-surface text-text resize-none"
-        rows={2}
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            onSave(draft);
-            setIsEditing(false);
-          }
-          if (e.key === 'Escape') setIsEditing(false);
-        }}
-      />
-      <div className="flex flex-col gap-0.5">
-        <button
-          onClick={() => { onSave(draft); setIsEditing(false); }}
-          className="p-0.5 text-green-600 hover:text-green-700"
-        >
-          <Check className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => setIsEditing(false)}
-          className="p-0.5 text-text-muted hover:text-text"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
     </div>
   );
 }
@@ -763,8 +706,10 @@ export function Intakes() {
   const currentUserId = user?.id ?? 0;
   const [statusFilter, setStatusFilter] = useState<string>('New');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
+  const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
   const [autoFocusComments, setAutoFocusComments] = useState(false);
+
+  useIntakeSSE();
 
   const { data, isLoading } = useQuery({
     queryKey: ['intakes', statusFilter],
@@ -776,7 +721,10 @@ export function Intakes() {
     queryFn: getIntakeCounts,
   });
 
-  const allIntakes = data?.intakes || [];
+  const allIntakes: Intake[] = data?.intakes || [];
+  const selectedIntake = selectedIntakeId != null
+    ? allIntakes.find((i) => i.id === selectedIntakeId) ?? null
+    : null;
   const intakes = searchQuery
     ? allIntakes.filter((i) => {
         const q = searchQuery.toLowerCase();
@@ -958,7 +906,7 @@ export function Intakes() {
                   return (
                     <tr
                       key={intake.id}
-                      onClick={() => { setAutoFocusComments(false); setSelectedIntake(intake); }}
+                      onClick={() => { setAutoFocusComments(false); setSelectedIntakeId(intake.id); }}
                       className={`hover:bg-bg-hover transition-colors cursor-pointer ${idx > 0 ? 'border-t border-border' : ''}`}
                     >
                       <td className="px-4 py-3 text-text text-xs whitespace-nowrap">
@@ -989,7 +937,7 @@ export function Intakes() {
                       </td>
                       {(() => {
                         const days6 = daysUntilDeadline(intake.incident_date, 6);
-                        const days24 = daysUntilDeadline(intake.incident_date, 24);
+                        const days24 = daysUntilDeadline(intake.incident_date, 24)!;
                         return (
                           <>
                             <td className="px-2 py-3 text-center whitespace-nowrap">
@@ -1048,9 +996,9 @@ export function Intakes() {
       {selectedIntake && (
         <DetailModal
           intake={selectedIntake}
-          onClose={() => { setSelectedIntake(null); setAutoFocusComments(false); }}
+          onClose={() => { setSelectedIntakeId(null); setAutoFocusComments(false); }}
           onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
-          onStatusClick={(s) => { setStatusFilter(s); setSelectedIntake(null); setAutoFocusComments(false); }}
+          onStatusClick={(s) => { setStatusFilter(s); setSelectedIntakeId(null); setAutoFocusComments(false); }}
           currentUserId={currentUserId}
           autoFocusComments={autoFocusComments}
         />
