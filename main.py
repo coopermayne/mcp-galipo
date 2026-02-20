@@ -5,6 +5,8 @@ A FastMCP server exposing tools to query and manage legal cases.
 Uses PostgreSQL database for persistent storage.
 """
 
+import asyncio
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -17,6 +19,8 @@ from config import settings
 from tools import register_tools
 from routes import register_routes
 from mcp_auth import get_mcp_auth_provider
+
+logger = logging.getLogger(__name__)
 
 
 MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
@@ -100,6 +104,30 @@ def initialize_database():
         print("Database initialization complete.")
 
 
+INTAKE_SYNC_INTERVAL = 5 * 60  # 5 minutes
+
+
+async def _periodic_intake_sync():
+    """Background task: sync intakes from Google Sheets every 5 minutes."""
+    from routes.sse import broadcast
+
+    while True:
+        await asyncio.sleep(INTAKE_SYNC_INTERVAL)
+        try:
+            from services.google_sheets import fetch_all_rows
+
+            rows = await asyncio.to_thread(fetch_all_rows)
+            result = await asyncio.to_thread(db.sync_from_sheet, rows)
+            imported = result.get("imported", 0)
+            if imported > 0:
+                logger.info("Auto-sync: imported %d new intake(s)", imported)
+                broadcast({"entity": "intake", "action": "synced", "id": None, "intake_id": None, "user_id": 0})
+            else:
+                logger.debug("Auto-sync: no new intakes")
+        except Exception:
+            logger.exception("Auto-sync intake failed")
+
+
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     """Application lifespan handler.
@@ -109,8 +137,14 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     """
     # Startup
     initialize_database()
+    sync_task = asyncio.create_task(_periodic_intake_sync())
     yield {}
-    # Shutdown - SQLAlchemy engine cleanup is automatic
+    # Shutdown
+    sync_task.cancel()
+    try:
+        await sync_task
+    except asyncio.CancelledError:
+        pass
 
 
 # Initialize the MCP server with lifespan and optional auth
