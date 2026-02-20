@@ -95,7 +95,8 @@ def create_user(
     position: str,
     bar_number: Optional[str] = None,
     is_admin: bool = False,
-    must_change_password: bool = True
+    must_change_password: bool = True,
+    visible_features: Optional[dict] = None,
 ) -> dict:
     """Create a new user with hashed password."""
     password_hash_val = hash_password(password)
@@ -111,6 +112,7 @@ def create_user(
             bar_number=bar_number,
             is_admin=is_admin,
             must_change_password=must_change_password,
+            visible_features=visible_features,
         )
         session.add(user)
         session.flush()
@@ -131,7 +133,8 @@ def update_user(
     is_admin=_NOT_PROVIDED,
     must_change_password=_NOT_PROVIDED,
     is_active=_NOT_PROVIDED,
-    paralegal_id=_NOT_PROVIDED
+    paralegal_id=_NOT_PROVIDED,
+    visible_features=_NOT_PROVIDED,
 ) -> Optional[dict]:
     """Update a user's profile fields (not password)."""
     with SessionLocal() as session:
@@ -173,6 +176,9 @@ def update_user(
             changed = True
         if paralegal_id is not _NOT_PROVIDED:
             user.paralegal_id = paralegal_id
+            changed = True
+        if visible_features is not _NOT_PROVIDED:
+            user.visible_features = visible_features
             changed = True
 
         if changed:

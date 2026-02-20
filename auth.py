@@ -54,6 +54,7 @@ def authenticate(email: str, password: str) -> Optional[dict]:
                 "position": user["position"],
                 "isAdmin": user["is_admin"],
                 "paralegalId": user.get("paralegal_id"),
+                "visibleFeatures": user.get("visible_features"),
             },
             "mustChangePassword": user["must_change_password"],
         }
@@ -153,6 +154,7 @@ def get_session_user(token: str) -> Optional[dict]:
             "position": user["position"],
             "isAdmin": user["is_admin"],
             "paralegalId": user.get("paralegal_id"),
+            "visibleFeatures": user.get("visible_features"),
         }
     except jwt.ExpiredSignatureError:
         return None
@@ -246,6 +248,7 @@ def get_current_user(request) -> Optional[dict]:
                     "position": user["position"],
                     "isAdmin": user["is_admin"],
                     "paralegalId": user.get("paralegal_id"),
+                    "visibleFeatures": user.get("visible_features"),
                 }
         # Fallback to generic dev user
         return {

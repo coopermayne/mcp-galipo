@@ -17,6 +17,7 @@ export interface User {
   position: string;
   isAdmin: boolean;
   paralegalId?: number | null;
+  visibleFeatures?: Record<string, boolean> | null;
 }
 
 interface AuthContextType {
