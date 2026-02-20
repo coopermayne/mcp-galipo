@@ -26,7 +26,7 @@ import {
   UserCircle,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import { getAuthToken, useAuth } from '../../context/AuthContext';
+import { /* getAuthToken, */ useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ProfileDropdown } from '../auth';
 import type { LucideIcon } from 'lucide-react';
