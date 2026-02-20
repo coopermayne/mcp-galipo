@@ -24,9 +24,7 @@ import {
   Star,
   Send,
   MessageSquare,
-  Pencil,
   Search,
-  ClipboardList,
   Tag,
 } from 'lucide-react';
 
@@ -63,14 +61,6 @@ function formatPhone(phone: string): string {
   return phone;
 }
 
-function formatDateTime(dateStr: string | null): string {
-  if (!dateStr) return '\u2014';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
-}
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return '';
