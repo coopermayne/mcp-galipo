@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, analyzeIntakes, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
+import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, /* analyzeIntakes, */ getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
 import type { Intake, IntakeStatus, IntakeComment } from '../types';
@@ -703,12 +703,12 @@ export function Intakes() {
     },
   });
 
-  const analyzeMutation = useMutation({
-    mutationFn: () => analyzeIntakes(20),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['intakes'] });
-    },
-  });
+  // const analyzeMutation = useMutation({
+  //   mutationFn: () => analyzeIntakes(20),
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries({ queryKey: ['intakes'] });
+  //   },
+  // });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: number; status?: IntakeStatus; notes?: string }) =>
@@ -736,7 +736,7 @@ export function Intakes() {
               <Archive className="w-4 h-4" />
               Archive
             </Link>
-            <button
+            {/* <button
               onClick={() => analyzeMutation.mutate()}
               disabled={analyzeMutation.isPending}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text bg-bg-hover hover:bg-bg-surface border border-border rounded-lg transition-colors disabled:opacity-50"
@@ -744,7 +744,7 @@ export function Intakes() {
             >
               <Sparkles className={`w-4 h-4 ${analyzeMutation.isPending ? 'animate-pulse' : ''}`} />
               {analyzeMutation.isPending ? 'Analyzing...' : 'AI Analyze'}
-            </button>
+            </button> */}
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
@@ -780,7 +780,7 @@ export function Intakes() {
           </div>
         )}
 
-        {analyzeMutation.isSuccess && analyzeMutation.data && (
+        {/* {analyzeMutation.isSuccess && analyzeMutation.data && (
           <div className="mb-4 px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-sm text-purple-700 dark:text-purple-300 flex items-center justify-between">
             <span>
               Analyzed {analyzeMutation.data.analyzed} lead{analyzeMutation.data.analyzed !== 1 ? 's' : ''}.
@@ -799,7 +799,7 @@ export function Intakes() {
               <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        )} */}
 
         {/* Pipeline filter */}
         <StatusPipeline value={statusFilter} onChange={(s) => { setStatusFilter(s); setSearchQuery(''); }} counts={counts} />
