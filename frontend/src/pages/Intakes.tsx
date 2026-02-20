@@ -565,6 +565,22 @@ function DetailModal({
                       <Calendar className="w-4 h-4 text-text-muted" />
                       <span className="text-text">{formatDate(intake.incident_date)}</span>
                       {intake.incident_time && <span className="text-text-muted">at {intake.incident_time}</span>}
+                      {(() => {
+                        const days6 = daysUntilDeadline(intake.incident_date, 6);
+                        const days24 = daysUntilDeadline(intake.incident_date, 24)!;
+                        if (days6 === null) return null;
+                        return (
+                          <span className="text-text-muted ml-1">
+                            (<span className={`text-xs tabular-nums px-1 py-0.5 rounded ${
+                              days6 < 0 ? 'bg-red-500/20 text-red-400' : days6 <= 30 ? 'bg-yellow-500/20 text-yellow-400' : 'text-text'
+                            }`}>{days6}</span>
+                            <span className="mx-0.5">/</span>
+                            <span className={`text-xs tabular-nums px-1 py-0.5 rounded ${
+                              days24 < 0 ? 'bg-red-500/20 text-red-400' : days24 <= 30 ? 'bg-yellow-500/20 text-yellow-400' : 'text-text'
+                            }`}>{days24}</span>)
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                   {intake.location && (

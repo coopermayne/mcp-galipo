@@ -27,7 +27,7 @@ Brief description of what happened — the key facts and sequence of events.
 Physical and/or emotional injuries described by the potential client.
 
 ### Potential Claims
-Identify the likely legal theories (e.g. § 1983 excessive force, negligence, battery).
+A simple list of likely legal theories. Just name them — do NOT cite case law, statutes, or legal standards. Example: "Excessive force, wrongful death, battery" — not "§ 1983 excessive force (Whitley v. Albers standard)".
 
 ### Key Considerations
 Notable strengths, weaknesses, red flags, or things that need investigation. Keep this practical.
