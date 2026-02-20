@@ -115,12 +115,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Build navigation based on user role and visible features
   const navigation = useMemo(() => {
+    // Don't show full nav until user is loaded (prevents flash of all items on login)
+    if (!user) return baseNavigation.filter(item => item.featureKey === 'dashboard');
     let items = baseNavigation;
     // If non-admin user has visibleFeatures set, filter out disabled items
-    if (user && !user.isAdmin && user.visibleFeatures) {
+    if (!user.isAdmin && user.visibleFeatures) {
       items = items.filter(item => !item.featureKey || user.visibleFeatures![item.featureKey] !== false);
     }
-    if (user?.isAdmin) {
+    if (user.isAdmin) {
       return [...items, ...adminNavigation];
     }
     return items;
