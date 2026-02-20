@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, getIntakeCounts, getIntake, updateIntake, syncIntakes, /* analyzeIntakes, */ getIntakeActivity, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
+import { MarkdownContent } from '../components/chat/MarkdownContent';
+import { getIntakes, getIntakeCounts, getIntake, updateIntake, syncIntakes, /* analyzeIntakes, */ analyzeIntake, getIntakeActivity, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
 import type { Intake, IntakeStatus, IntakeComment, IntakeActivity } from '../types';
@@ -604,7 +605,9 @@ function DetailModal({
                     </div>
                   )}
                   {intake.ai_summary && (
-                    <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.ai_summary}</p>
+                    <div className="text-sm text-text-secondary">
+                      <MarkdownContent content={intake.ai_summary} />
+                    </div>
                   )}
                 </div>
               )}
@@ -831,6 +834,16 @@ export function Intakes() {
     },
   });
 
+  const [analyzingId, setAnalyzingId] = useState<number | null>(null);
+  const analyzeSingleMutation = useMutation({
+    mutationFn: (intakeId: number) => analyzeIntake(intakeId),
+    onMutate: (intakeId) => setAnalyzingId(intakeId),
+    onSettled: () => setAnalyzingId(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['intakes'] });
+    },
+  });
+
   const total = data?.total || 0;
 
   return (
@@ -1033,12 +1046,29 @@ export function Intakes() {
                         );
                       })()}
                       <td className="px-4 py-3">
-                        <span
-                          className="text-xs text-text line-clamp-3"
-                          title={intake.ai_summary || ''}
-                        >
-                          {intake.ai_summary || '\u2014'}
-                        </span>
+                        <div className="flex items-start gap-1.5">
+                          {analyzingId === intake.id ? (
+                            <span className="text-xs text-purple-500 italic flex items-center gap-1.5 flex-1">
+                              <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                              Analyzing...
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs text-text line-clamp-3 flex-1"
+                              title={intake.ai_summary || ''}
+                            >
+                              {intake.ai_summary || '\u2014'}
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); analyzeSingleMutation.mutate(intake.id); }}
+                            disabled={analyzingId === intake.id}
+                            className="flex-shrink-0 p-1 text-text-muted/40 hover:text-purple-500 transition-colors disabled:opacity-50"
+                            title={intake.ai_summary ? 'Regenerate AI analysis' : 'Generate AI analysis'}
+                          >
+                            <Sparkles className={`w-3.5 h-3.5 ${analyzingId === intake.id ? 'animate-pulse text-purple-500' : ''}`} />
+                          </button>
+                        </div>
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <StatusBadge

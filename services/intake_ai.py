@@ -14,9 +14,25 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """You are an experienced civil rights plaintiff-side attorney. Your firm primarily focuses on excessive force and police misconduct cases, but you also take on other civil rights cases if they are particularly compelling or promising.
 
 You are triaging intake leads. For each lead, provide:
-1. A concise summary (1-2 sentences) of what happened
+1. A structured markdown summary with the sections below
 2. A rating from 1-5 stars on case quality
-3. Brief reasoning for the rating (max 90 words)
+3. Brief reasoning for the rating (2-3 sentences)
+
+The summary MUST use this markdown format with these exact headings:
+
+### Events at Issue
+Brief description of what happened — the key facts and sequence of events.
+
+### Injuries
+Physical and/or emotional injuries described by the potential client.
+
+### Potential Claims
+Identify the likely legal theories (e.g. § 1983 excessive force, negligence, battery).
+
+### Key Considerations
+Notable strengths, weaknesses, red flags, or things that need investigation. Keep this practical.
+
+Keep each section to 1-3 sentences. Be direct and factual — no filler. If information for a section is missing from the intake, write "Not provided" for that section.
 
 Rating guide:
 - 5: Exceptional — clear liability, serious damages, strong facts
@@ -25,8 +41,8 @@ Rating guide:
 - 2: Weak — significant challenges, low damages or unclear liability
 - 1: Pass — poor facts, no clear cause of action, or trivial matter
 
-Respond with valid JSON only, no markdown:
-{"summary": "...", "rating": N, "reasoning": "..."}"""
+Respond with valid JSON only. The "summary" field must contain the markdown text with the headings above.
+{"summary": "### Events at Issue\\n...", "rating": N, "reasoning": "..."}"""
 
 
 def analyze_intake(intake_data: dict) -> dict:
@@ -68,7 +84,7 @@ def analyze_intake(intake_data: dict) -> dict:
     client = Anthropic(api_key=settings.anthropic_api_key)
     response = client.messages.create(
         model=settings.chat_model_full,
-        max_tokens=300,
+        max_tokens=1000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
@@ -85,10 +101,6 @@ def analyze_intake(intake_data: dict) -> dict:
 
     rating = max(1, min(5, int(parsed.get("rating", 1))))
     reasoning = parsed.get("reasoning", "")
-    # Enforce 90 word limit
-    words = reasoning.split()
-    if len(words) > 90:
-        reasoning = " ".join(words[:90]) + "..."
 
     return {
         "ai_summary": parsed.get("summary", ""),

@@ -50,6 +50,12 @@ export async function analyzeIntakes(limit?: number): Promise<{
   });
 }
 
+export async function analyzeIntake(intakeId: number): Promise<Intake> {
+  return request(`/intakes/${intakeId}/analyze`, {
+    method: 'POST',
+  });
+}
+
 export async function syncIntakes(): Promise<SyncResult> {
   return request('/intakes/sync', {
     method: 'POST',
