@@ -23,59 +23,59 @@ export function colorToClasses(color: ColorClasses): string {
 
 export const BADGE_PALETTE = {
   blue: {
-    bg: 'bg-blue-100 dark:bg-blue-900/30',
+    bg: 'bg-blue-100 dark:bg-blue-900',
     text: 'text-blue-700 dark:text-blue-300',
   },
   emerald: {
-    bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+    bg: 'bg-emerald-100 dark:bg-emerald-900',
     text: 'text-emerald-700 dark:text-emerald-300',
   },
   amber: {
-    bg: 'bg-amber-100 dark:bg-amber-900/30',
+    bg: 'bg-amber-100 dark:bg-amber-900',
     text: 'text-amber-700 dark:text-amber-300',
   },
   red: {
-    bg: 'bg-red-100 dark:bg-red-900/30',
+    bg: 'bg-red-100 dark:bg-red-900',
     text: 'text-red-700 dark:text-red-300',
   },
   violet: {
-    bg: 'bg-violet-100 dark:bg-violet-900/30',
+    bg: 'bg-violet-100 dark:bg-violet-900',
     text: 'text-violet-700 dark:text-violet-300',
   },
   pink: {
-    bg: 'bg-pink-100 dark:bg-pink-900/30',
+    bg: 'bg-pink-100 dark:bg-pink-900',
     text: 'text-pink-700 dark:text-pink-300',
   },
   cyan: {
-    bg: 'bg-cyan-100 dark:bg-cyan-900/30',
+    bg: 'bg-cyan-100 dark:bg-cyan-900',
     text: 'text-cyan-700 dark:text-cyan-300',
   },
   orange: {
-    bg: 'bg-orange-100 dark:bg-orange-900/30',
+    bg: 'bg-orange-100 dark:bg-orange-900',
     text: 'text-orange-700 dark:text-orange-300',
   },
   indigo: {
-    bg: 'bg-indigo-100 dark:bg-indigo-900/30',
+    bg: 'bg-indigo-100 dark:bg-indigo-900',
     text: 'text-indigo-700 dark:text-indigo-300',
   },
   teal: {
-    bg: 'bg-teal-100 dark:bg-teal-900/30',
+    bg: 'bg-teal-100 dark:bg-teal-900',
     text: 'text-teal-700 dark:text-teal-300',
   },
   purple: {
-    bg: 'bg-purple-100 dark:bg-purple-900/30',
+    bg: 'bg-purple-100 dark:bg-purple-900',
     text: 'text-purple-700 dark:text-purple-300',
   },
   lime: {
-    bg: 'bg-lime-100 dark:bg-lime-900/30',
+    bg: 'bg-lime-100 dark:bg-lime-900',
     text: 'text-lime-700 dark:text-lime-300',
   },
   rose: {
-    bg: 'bg-rose-100 dark:bg-rose-900/30',
+    bg: 'bg-rose-100 dark:bg-rose-900',
     text: 'text-rose-700 dark:text-rose-300',
   },
   sky: {
-    bg: 'bg-sky-100 dark:bg-sky-900/30',
+    bg: 'bg-sky-100 dark:bg-sky-900',
     text: 'text-sky-700 dark:text-sky-300',
   },
   slate: {
