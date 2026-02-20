@@ -106,5 +106,18 @@ class UpdateIntakeInput(BaseModel):
     notes: Optional[str] = None
 
 
+class CreateIntakeInput(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    case_type: Optional[str] = None
+    incident_date: Optional[str] = None
+    incident_time: Optional[str] = None
+    location: Optional[str] = None
+    incident_description: Optional[str] = None
+    injury_description: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class CreateIntakeCommentInput(BaseModel):
     content: str

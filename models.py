@@ -74,7 +74,7 @@ class Intake(Base):
     ai_summary: Mapped[Optional[str]] = mapped_column(Text)
     ai_rating: Mapped[Optional[int]] = mapped_column(Integer)
     ai_rating_reasoning: Mapped[Optional[str]] = mapped_column(Text)
-    google_row_number: Mapped[int] = mapped_column(Integer, unique=True)
+    google_row_number: Mapped[Optional[int]] = mapped_column(Integer, unique=True, nullable=True)
     # Timestamps
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP")

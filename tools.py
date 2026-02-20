@@ -234,6 +234,21 @@ class ManageJudgeInput(BaseModel):
     notes: Optional[str] = Field(None, description="Free-text notes")
 
 
+class ManageIntakeInput(BaseModel):
+    """Create a new intake from unstructured text."""
+    action: Literal["create"] = Field(..., description="Action to perform (only 'create' supported)")
+    name: Optional[str] = Field(None, description="Contact name")
+    email: Optional[str] = Field(None, description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+    case_type: Optional[str] = Field(None, description="Type of case (e.g. auto accident, slip and fall)")
+    incident_date: Optional[str] = Field(None, description="Date of incident YYYY-MM-DD")
+    incident_time: Optional[str] = Field(None, description="Time of incident")
+    location: Optional[str] = Field(None, description="Location of incident")
+    incident_description: Optional[str] = Field(None, description="Description of what happened")
+    injury_description: Optional[str] = Field(None, description="Description of injuries")
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+
 # =============================================================================
 # Tool Registration
 # =============================================================================
@@ -1197,3 +1212,32 @@ def register_tools(mcp):
             return {"success": True, "jurisdictions": jurisdictions}
         except Exception as e:
             return error_response(f"Failed to list jurisdictions: {str(e)}", "QUERY_ERROR")
+
+    # =========================================================================
+    # MANAGE INTAKE
+    # =========================================================================
+
+    @mcp.tool()
+    def manage_intake(context: Context, data: ManageIntakeInput) -> dict:
+        """Create a new intake from parsed contact/incident information.
+
+        Extract fields from unstructured text (voicemail notes, emails, etc.)
+        and create an intake record. All fields are optional but try to extract
+        at least name, phone, and incident_date.
+
+        Examples:
+        - manage_intake(action="create", name="John Smith", phone="555-1234", incident_date="2026-01-15", case_type="auto accident", incident_description="Rear-ended at intersection")
+        """
+        context.info(f"manage_intake: {data.action}")
+        try:
+            if data.action == "create":
+                kwargs = {}
+                for field in ["name", "email", "phone", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
+                    val = getattr(data, field)
+                    if val is not None:
+                        kwargs[field] = val
+                result = db.create_intake(**kwargs)
+                return {"success": True, "message": "Intake created", "intake_id": result["id"], "intake": result}
+
+        except Exception as e:
+            return error_response(f"manage_intake failed: {str(e)}", "MUTATION_ERROR")

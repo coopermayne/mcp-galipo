@@ -119,6 +119,22 @@ When the user mentions a judge:
 
 Keep responses brief and action-oriented.""",
     },
+    "intakes": {
+        "tools": [
+            "manage_intake",
+        ],
+        "system_prompt_addition": """You are in INTAKES mode - help the user create new intakes from unstructured text.
+
+The user will paste raw text like voicemail transcripts, emails, or handwritten notes. Your job:
+1. Parse the text and extract any available fields: name, phone, email, case type, incident date/time, location, incident description, injury description
+2. If CRITICAL fields are missing (name, phone number, or incident date), ask the user for them before creating
+3. Once you have enough info, call manage_intake(action="create", ...) with the extracted fields
+4. After creating, briefly confirm what was captured
+
+IMPORTANT: Be flexible with date formats — convert whatever the user gives into YYYY-MM-DD. Phone numbers can be any format. For case_type, normalize to common categories (auto accident, slip and fall, medical malpractice, etc.).
+
+Keep responses brief and action-oriented.""",
+    },
     "full": {
         "tools": [],  # Empty = all tools available
         "system_prompt_addition": """You have access to all available tools. Help the user with any request related to their cases, tasks, events, contacts, notes, and more.

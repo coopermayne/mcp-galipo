@@ -11,8 +11,10 @@ import {
   type DashboardPreset,
   type CasePreset,
   type ActionStarter,
+  type DashboardActionStarter,
   getModeColorClasses,
   DASHBOARD_PRESETS,
+  DASHBOARD_ACTION_STARTERS,
   CASE_PRESETS,
   ACTION_STARTERS,
 } from '../../config/chatModes';
@@ -21,7 +23,7 @@ interface ChatHomeScreenProps {
   caseContext?: number;
   onSendPreset: (preset: DashboardPreset) => void;
   onSendCasePreset: (preset: CasePreset) => void;
-  onSendActionStarter: (starter: ActionStarter) => void;
+  onSendActionStarter: (starter: ActionStarter | DashboardActionStarter) => void;
 }
 
 export function ChatHomeScreen({
@@ -115,10 +117,10 @@ export function ChatHomeScreen({
       </div>
 
       <h3 className="text-lg font-semibold text-text mb-2">
-        Quick Insights
+        Insights
       </h3>
       <p className="text-sm text-text-muted mb-6 text-center max-w-sm">
-        Get an overview of your cases and tasks
+        Surface what needs your attention
       </p>
 
       <div className="w-full max-w-sm space-y-3">
@@ -149,6 +151,35 @@ export function ChatHomeScreen({
             </button>
           );
         })}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="w-full max-w-sm mt-6">
+        <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 px-1">
+          Quick Actions
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {DASHBOARD_ACTION_STARTERS.map((starter) => {
+            const Icon = starter.icon;
+            const colors = getModeColorClasses(starter.color);
+
+            return (
+              <button
+                key={starter.id}
+                onClick={() => onSendActionStarter(starter)}
+                className={`
+                  flex items-center gap-2 px-3 py-2 rounded-lg
+                  border ${colors.border}
+                  ${colors.bgLight} ${colors.hover}
+                  transition-colors
+                `}
+              >
+                <Icon className={`w-4 h-4 ${colors.text}`} />
+                <span className={`text-sm font-medium ${colors.text}`}>{starter.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

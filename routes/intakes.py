@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 import db
 import auth
-from schemas import UpdateIntakeInput, CreateIntakeCommentInput
+from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 from .sse import broadcast, sse_generator, add_client, remove_client
 
@@ -35,6 +35,29 @@ def register_intake_routes(mcp):
             db.get_intakes, status=status, limit=limit, offset=offset
         )
         return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/intakes", methods=["POST"])
+    async def api_create_intake(request):
+        """Create a new intake (manual entry)."""
+        if err := auth.require_auth(request):
+            return err
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
+        try:
+            data = CreateIntakeInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+
+        result = await asyncio.to_thread(
+            db.create_intake, **data.model_dump(exclude_none=True)
+        )
+
+        broadcast({
+            "entity": "intake", "action": "created",
+            "id": result["id"], "intake_id": result["id"], "user_id": user_id,
+        })
+        return JSONResponse({"success": True, "intake": result}, status_code=201)
 
     @mcp.custom_route("/api/v1/intakes/counts", methods=["GET"])
     async def api_intake_counts(request):

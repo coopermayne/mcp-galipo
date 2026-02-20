@@ -6,7 +6,7 @@ import { ChatInput, type ChatInputHandle } from './ChatInput';
 import { ChatHomeScreen } from './ChatHomeScreen';
 import { streamChatMessage, getChatInfo } from '../../api/chat';
 import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult } from '../../types';
-import { type DashboardPreset, type PresetId, type CasePreset, type CasePresetId, type ActionStarter, type ChatMode } from '../../config/chatModes';
+import { type DashboardPreset, type PresetId, type CasePreset, type CasePresetId, type ActionStarter, type DashboardActionStarter, type ChatMode } from '../../config/chatModes';
 
 // Map mutation tools to the query keys they affect
 const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
@@ -19,6 +19,7 @@ const MUTATION_TOOL_QUERIES: Record<string, string[][]> = {
   manage_proceeding: [['proceedings'], ['case']],
   manage_activity: [['activities'], ['case']],
   manage_judge: [['judges'], ['case'], ['proceedings']],
+  manage_intake: [['intakes']],
 };
 
 interface ChatPanelProps {
@@ -378,7 +379,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
     handleSend(preset.description, false, preset.id);
   };
 
-  const handleSendActionStarter = (starter: ActionStarter) => {
+  const handleSendActionStarter = (starter: ActionStarter | DashboardActionStarter) => {
     // Set the mode and show a static greeting — no API call needed
     setActiveMode(starter.mode);
     const greetingMessage: ChatMessage = {

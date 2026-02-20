@@ -169,6 +169,43 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime.datetime]:
     return None
 
 
+def create_intake(
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    case_type: Optional[str] = None,
+    incident_date: Optional[str] = None,
+    incident_time: Optional[str] = None,
+    location: Optional[str] = None,
+    incident_description: Optional[str] = None,
+    injury_description: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> dict:
+    """Create a new intake (manual entry, no Google Sheet row)."""
+    with SessionLocal() as session:
+        intake = Intake(
+            name=name,
+            email=email,
+            phone=phone,
+            case_type=case_type,
+            incident_date=_parse_date(incident_date),
+            incident_time=incident_time,
+            location=location,
+            incident_description=incident_description,
+            injury_description=injury_description,
+            notes=notes,
+            google_row_number=None,
+            status="New",
+            submitted_on=datetime.datetime.now(),
+        )
+        session.add(intake)
+        session.flush()
+        session.refresh(intake)
+        result = _intake_to_dict(intake)
+        session.commit()
+        return result
+
+
 def sync_from_sheet(rows: list[dict]) -> dict:
     """Upsert rows from Google Sheet. Skips existing rows by google_row_number.
 

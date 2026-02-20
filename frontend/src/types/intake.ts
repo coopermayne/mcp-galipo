@@ -42,7 +42,7 @@ export interface Intake {
   ai_summary: string | null;
   ai_rating: number | null;
   ai_rating_reasoning: string | null;
-  google_row_number: number;
+  google_row_number: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
