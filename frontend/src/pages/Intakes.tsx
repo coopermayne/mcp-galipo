@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, analyzeIntakes } from '../api';
-import { INTAKE_STATUS_COLORS, type IntakeStatusKey } from '../config/colors';
+import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, analyzeIntakes, getIntakeComments, addIntakeComment, deleteIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
+import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
-import type { Intake, IntakeStatus } from '../types';
+import type { Intake, IntakeStatus, IntakeComment } from '../types';
+import { useAuth } from '../context/AuthContext';
 import {
   RefreshCw,
   ChevronDown,
@@ -17,14 +18,17 @@ import {
   Calendar,
   X,
   Check,
-  ArrowRight,
   Archive,
   Sparkles,
   Star,
+  Send,
+  MessageSquare,
+  Pencil,
+  Search,
 } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '\u2014';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -41,12 +45,27 @@ function formatPhone(phone: string): string {
 }
 
 function formatDateTime(dateStr: string | null): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '\u2014';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
   });
+}
+
+function formatRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const now = Date.now();
+  const d = new Date(dateStr).getTime();
+  const diff = now - d;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 const SCREENING_STATUSES: IntakeStatus[] = ['New', 'Screened', 'Needs Follow-Up', 'Atty Review'];
@@ -163,7 +182,7 @@ function StatusPipeline({ value, onChange, counts }: { value: string; onChange: 
 
 function StarRating({ rating, reasoning }: { rating: number | null; reasoning: string | null }) {
   if (rating === null) {
-    return <span className="text-xs text-text-muted/40">—</span>;
+    return <span className="text-xs text-text-muted/40">{'\u2014'}</span>;
   }
   return (
     <div className="relative group">
@@ -247,7 +266,7 @@ function InlineNotes({
         className="text-xs text-left text-text-muted hover:text-text truncate max-w-[200px] block"
         title={value || 'Click to add notes'}
       >
-        {value || '—'}
+        {value || '\u2014'}
       </button>
     );
   }
@@ -287,198 +306,398 @@ function InlineNotes({
   );
 }
 
-function StatusChangeModal({
-  intakeName,
-  fromStatus,
-  toStatus,
-  currentNotes,
-  onSave,
-  onClose,
-}: {
-  intakeName: string | null;
-  fromStatus: IntakeStatus;
-  toStatus: IntakeStatus;
-  currentNotes: string | null;
-  onSave: (notes: string | undefined) => void;
-  onClose: () => void;
-}) {
-  const [draft, setDraft] = useState(currentNotes || '');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fromColor = INTAKE_STATUS_COLORS[fromStatus as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
-  const toColor = INTAKE_STATUS_COLORS[toStatus as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      const el = textareaRef.current;
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
-  }, []);
-
-  const hasChangedNotes = draft !== (currentNotes || '');
-
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-md">
-          <div className="p-4 border-b border-border">
-            <h3 className="font-semibold text-text text-sm">
-              {intakeName || 'Unknown'}
-            </h3>
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${fromColor.bg} ${fromColor.text}`}>
-                {fromStatus}
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 text-text-muted" />
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${toColor.bg} ${toColor.text}`}>
-                {toStatus}
-              </span>
-            </div>
-          </div>
-          <div className="p-4">
-            <label className="block text-xs font-medium text-text-muted mb-1.5">
-              Add a note about this change <span className="text-text-muted/60">(optional)</span>
-            </label>
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="e.g. Spoke with client, needs more info about accident..."
-              className="w-full text-sm px-3 py-2 border border-border rounded-lg bg-bg-surface text-text resize-none placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-              rows={4}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.metaKey) {
-                  e.preventDefault();
-                  onSave(hasChangedNotes ? draft : undefined);
-                }
-                if (e.key === 'Escape') onClose();
-              }}
-            />
-          </div>
-          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
-            <button
-              onClick={onClose}
-              className="px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => onSave(undefined)}
-              className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text bg-bg-hover rounded-lg transition-colors"
-            >
-              Skip Note
-            </button>
-            <button
-              onClick={() => onSave(draft)}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
+    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary-600 text-white text-[10px] font-bold leading-none">
+      {count > 99 ? '99+' : count}
+    </span>
   );
 }
 
-function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void }) {
+function CommentsPanel({
+  intakeId,
+  currentUserId,
+  autoFocus = false,
+}: {
+  intakeId: number;
+  currentUserId: number;
+  autoFocus?: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const prevCountRef = useRef(0);
+
+  const { data: comments = [] } = useQuery({
+    queryKey: ['intake-comments', intakeId],
+    queryFn: () => getIntakeComments(intakeId),
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (content: string) => addIntakeComment(intakeId, content),
+    onSuccess: () => {
+      setDraft('');
+      queryClient.invalidateQueries({ queryKey: ['intake-comments', intakeId] });
+      queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (commentId: number) => deleteIntakeComment(intakeId, commentId),
+    onSuccess: () => {
+      setConfirmDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ['intake-comments', intakeId] });
+    },
+  });
+
+  // Auto-scroll to bottom on new comments
+  useEffect(() => {
+    if (comments.length > prevCountRef.current && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+    prevCountRef.current = comments.length;
+  }, [comments.length]);
+
+  // Auto-focus comment input when requested
+  useEffect(() => {
+    if (autoFocus && commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  }, [autoFocus]);
+
+  const handleSend = () => {
+    const content = draft.trim();
+    if (!content) return;
+    addMutation.mutate(content);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider mb-2 flex items-center gap-1.5">
+        <MessageSquare className="w-3.5 h-3.5" />
+        Comments
+        {comments.length > 0 && (
+          <span className="text-text-muted/50 font-normal">({comments.length})</span>
+        )}
+      </h4>
+
+      {/* Messages */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto space-y-3 min-h-0 mb-3 pr-1"
+      >
+        {comments.length === 0 ? (
+          <p className="text-xs text-text-muted/50 text-center py-6">No comments yet</p>
+        ) : (
+          comments.map((comment: IntakeComment) => {
+            if (comment.is_system) {
+              return (
+                <div key={comment.id} className="text-center py-1">
+                  <span className="text-[11px] text-text-muted/60 italic">
+                    {comment.content}
+                  </span>
+                  <span className="text-[10px] text-text-muted/40 ml-1.5">
+                    {formatRelativeTime(comment.created_at)}
+                  </span>
+                </div>
+              );
+            }
+
+            const isOwn = comment.user_id === currentUserId;
+            const avatarColor = comment.user_id ? getBadgeColorById(comment.user_id) : getBadgeColorById(0);
+
+            return (
+              <div key={comment.id} className="group flex gap-2">
+                {/* Avatar */}
+                <div
+                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarColor.bg} ${avatarColor.text}`}
+                >
+                  {comment.user_initials || '??'}
+                </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xs font-semibold text-text">
+                      {comment.user_first_name || 'Unknown'}
+                    </span>
+                    <span className="text-[10px] text-text-muted/50">
+                      {formatRelativeTime(comment.created_at)}
+                    </span>
+                    {isOwn && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setConfirmDeleteId(confirmDeleteId === comment.id ? null : comment.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-text-muted/40 hover:text-red-500"
+                          title="Delete comment"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        {confirmDeleteId === comment.id && (
+                          <>
+                            <div className="fixed inset-0 z-[60]" onClick={() => setConfirmDeleteId(null)} />
+                            <div className="absolute z-[70] top-full right-0 mt-1 bg-bg-surface border border-border rounded-lg shadow-lg p-2 whitespace-nowrap">
+                              <p className="text-xs text-text-muted mb-1.5">Delete this comment?</p>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => deleteMutation.mutate(comment.id)}
+                                  className="px-2 py-1 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 rounded transition-colors"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-2 py-1 text-[11px] font-medium text-text-muted hover:text-text transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">
+                    {comment.content}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="flex items-end gap-2 pt-2 border-t border-border">
+        <textarea
+          ref={commentInputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Add a comment..."
+          className="flex-1 text-sm px-3 py-2 border border-border rounded-lg bg-bg-surface text-text resize-none placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+          rows={2}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!draft.trim() || addMutation.isPending}
+          className="p-2 text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Send (Cmd+Enter)"
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DetailModal({
+  intake,
+  onClose,
+  onSaveNotes,
+  onStatusClick,
+  currentUserId,
+  autoFocusComments = false,
+}: {
+  intake: Intake;
+  onClose: () => void;
+  onSaveNotes: (notes: string) => void;
+  onStatusClick: (status: IntakeStatus) => void;
+  currentUserId: number;
+  autoFocusComments?: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [notesDraft, setNotesDraft] = useState(intake.notes || '');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const notesRef = useRef<HTMLDivElement>(null);
+  const hasChangedNotes = notesDraft !== (intake.notes || '');
+
+  // Set contentEditable text and place cursor at end when entering edit mode
+  useEffect(() => {
+    if (editingNotes && notesRef.current) {
+      notesRef.current.textContent = notesDraft;
+      notesRef.current.focus();
+      // Place cursor at end
+      const range = document.createRange();
+      range.selectNodeContents(notesRef.current);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, [editingNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mark as read when modal opens
+  useEffect(() => {
+    markIntakeRead(intake.id).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
+    });
+  }, [intake.id, queryClient]);
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+        <div className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="font-semibold text-text">{intake.name || 'Unknown'}</h3>
+            <div className="flex items-center gap-2.5">
+              <h3 className="font-semibold text-text">{intake.name || 'Unknown'}</h3>
+              <button
+                onClick={() => onStatusClick(intake.status)}
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${(INTAKE_STATUS_COLORS[intake.status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New).bg} ${(INTAKE_STATUS_COLORS[intake.status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New).text} hover:opacity-80 transition-opacity`}
+              >
+                {intake.status}
+              </button>
+            </div>
             <button onClick={onClose} className="p-1 text-text-muted hover:text-text">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-4 space-y-4">
-            {/* Contact */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Contact</h4>
-              {intake.email && (
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Mail className="w-4 h-4 text-text-muted" />
-                  <a href={`mailto:${intake.email}`} className="text-primary-600 hover:underline">{intake.email}</a>
-                </div>
-              )}
-              {intake.phone && (
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Phone className="w-4 h-4 text-text-muted" />
-                  <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
-                </div>
-              )}
-            </div>
-
-            {/* Incident Details */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Incident</h4>
-              {intake.case_type && (
-                <div className="text-sm"><span className="text-text-muted">Type:</span> <span className="text-text">{intake.case_type}</span></div>
-              )}
-              {intake.incident_date && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-text-muted" />
-                  <span className="text-text">{formatDate(intake.incident_date)}</span>
-                  {intake.incident_time && <span className="text-text-muted">at {intake.incident_time}</span>}
-                </div>
-              )}
-              {intake.location && (
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="w-4 h-4 text-text-muted" />
-                  <span className="text-text">{intake.location}</span>
-                </div>
-              )}
-            </div>
-
-            {/* AI Analysis */}
-            {(intake.ai_summary || intake.ai_rating) && (
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            {/* Left: details + notes */}
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto border-r border-border">
+              {/* Contact */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">AI Analysis</h4>
-                {intake.ai_rating && (
-                  <div className="flex items-center gap-2">
-                    <StarRating rating={intake.ai_rating} reasoning={intake.ai_rating_reasoning} />
-                    <span className="text-xs text-text-muted">{intake.ai_rating}/5</span>
+                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Contact</h4>
+                {intake.email && (
+                  <div className="flex items-center gap-2 text-sm text-text-secondary">
+                    <Mail className="w-4 h-4 text-text-muted" />
+                    <a href={`mailto:${intake.email}`} className="text-primary-600 hover:underline">{intake.email}</a>
                   </div>
                 )}
-                {intake.ai_summary && (
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.ai_summary}</p>
+                {intake.phone && (
+                  <div className="flex items-center gap-2 text-sm text-text-secondary">
+                    <Phone className="w-4 h-4 text-text-muted" />
+                    <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
+                  </div>
                 )}
-                {intake.ai_rating_reasoning && (
-                  <p className="text-xs text-text-muted italic">{intake.ai_rating_reasoning}</p>
+              </div>
+
+              {/* Incident Details */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Incident</h4>
+                {intake.case_type && (
+                  <div className="text-sm"><span className="text-text-muted">Type:</span> <span className="text-text">{intake.case_type}</span></div>
+                )}
+                {intake.incident_date && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="w-4 h-4 text-text-muted" />
+                    <span className="text-text">{formatDate(intake.incident_date)}</span>
+                    {intake.incident_time && <span className="text-text-muted">at {intake.incident_time}</span>}
+                  </div>
+                )}
+                {intake.location && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="w-4 h-4 text-text-muted" />
+                    <span className="text-text">{intake.location}</span>
+                  </div>
                 )}
               </div>
-            )}
 
-            {/* Notes */}
-            {intake.notes && (
+              {/* Notes — inline, click to edit */}
               <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Notes</h4>
-                <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.notes}</p>
+                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider flex items-center gap-1.5">
+                  Notes
+                  {!editingNotes && <Pencil className="w-3 h-3 text-text-muted/40" />}
+                </h4>
+                {editingNotes ? (
+                  <>
+                    <div
+                      ref={notesRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={(e) => setNotesDraft(e.currentTarget.textContent || '')}
+                      className="text-sm text-text whitespace-pre-wrap outline-none border-l-2 border-primary-400 pl-3 py-1 min-h-[2em] focus:border-primary-500"
+                      data-placeholder="Start typing notes..."
+                    />
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                      {hasChangedNotes ? (
+                        <>
+                          <button
+                            onClick={() => { setNotesDraft(intake.notes || ''); setEditingNotes(false); }}
+                            className="px-2.5 py-1 text-xs font-medium text-text-muted hover:text-text transition-colors"
+                          >
+                            Discard
+                          </button>
+                          <button
+                            onClick={() => { onSaveNotes(notesDraft); setEditingNotes(false); }}
+                            className="px-2.5 py-1 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
+                          >
+                            Save
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setEditingNotes(false)}
+                          className="px-2.5 py-1 text-xs font-medium text-text-muted hover:text-text transition-colors"
+                        >
+                          Done
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    onClick={() => setEditingNotes(true)}
+                    className="text-sm text-text-secondary whitespace-pre-wrap cursor-pointer rounded-lg px-3 py-2 border border-dashed border-border hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-colors"
+                  >
+                    {notesDraft || <span className="text-text-muted/50 italic">Click to add notes...</span>}
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Descriptions */}
-            {intake.incident_description && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Incident Description</h4>
-                <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.incident_description}</p>
-              </div>
-            )}
-            {intake.injury_description && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Injury Description</h4>
-                <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.injury_description}</p>
-              </div>
-            )}
+              {/* AI Analysis */}
+              {(intake.ai_summary || intake.ai_rating) && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">AI Analysis</h4>
+                  {intake.ai_rating && (
+                    <div className="flex items-center gap-2">
+                      <StarRating rating={intake.ai_rating} reasoning={intake.ai_rating_reasoning} />
+                      <span className="text-xs text-text-muted">{intake.ai_rating}/5</span>
+                    </div>
+                  )}
+                  {intake.ai_summary && (
+                    <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.ai_summary}</p>
+                  )}
+                  {intake.ai_rating_reasoning && (
+                    <p className="text-xs text-text-muted italic">{intake.ai_rating_reasoning}</p>
+                  )}
+                </div>
+              )}
 
-            {/* Meta */}
-            <div className="pt-2 border-t border-border text-xs text-text-muted space-y-1">
-              <div>Submitted: {formatDateTime(intake.submitted_on)}</div>
-              <div>Imported: {formatDateTime(intake.created_at)}</div>
-              {intake.disclaimer_accepted && <div className="text-green-600">Disclaimer accepted</div>}
+              {/* Descriptions */}
+              {intake.incident_description && (
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Incident Description</h4>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.incident_description}</p>
+                </div>
+              )}
+              {intake.injury_description && (
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Injury Description</h4>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.injury_description}</p>
+                </div>
+              )}
+
+              {/* Meta */}
+              <div className="pt-2 border-t border-border text-xs text-text-muted space-y-1">
+                <div>Submitted: {formatDateTime(intake.submitted_on)}</div>
+                <div>Imported: {formatDateTime(intake.created_at)}</div>
+                {intake.disclaimer_accepted && <div className="text-green-600">Disclaimer accepted</div>}
+              </div>
+            </div>
+
+            {/* Right: comments */}
+            <div className="w-96 p-4 overflow-y-auto flex flex-col">
+              <CommentsPanel intakeId={intake.id} currentUserId={currentUserId} autoFocus={autoFocusComments} />
             </div>
           </div>
         </div>
@@ -489,12 +708,12 @@ function DetailModal({ intake, onClose }: { intake: Intake; onClose: () => void 
 
 export function Intakes() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? 0;
   const [statusFilter, setStatusFilter] = useState<string>('New');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
-  const [pendingChange, setPendingChange] = useState<{
-    intake: Intake;
-    newStatus: IntakeStatus;
-  } | null>(null);
+  const [autoFocusComments, setAutoFocusComments] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['intakes', statusFilter],
@@ -504,6 +723,28 @@ export function Intakes() {
   const { data: counts } = useQuery({
     queryKey: ['intakes', 'counts'],
     queryFn: getIntakeCounts,
+  });
+
+  const allIntakes = data?.intakes || [];
+  const intakes = searchQuery
+    ? allIntakes.filter((i) => {
+        const q = searchQuery.toLowerCase();
+        const qDigits = searchQuery.replace(/\D/g, '');
+        return (
+          i.name?.toLowerCase().includes(q) ||
+          i.email?.toLowerCase().includes(q) ||
+          (qDigits.length >= 3 && i.phone?.replace(/\D/g, '').includes(qDigits)) ||
+          i.incident_description?.toLowerCase().includes(q) ||
+          i.notes?.toLowerCase().includes(q)
+        );
+      })
+    : allIntakes;
+  const intakeIds = intakes.map((i) => i.id);
+
+  const { data: unreadCounts } = useQuery({
+    queryKey: ['intake-unread-counts', intakeIds.join(',')],
+    queryFn: () => getIntakeUnreadCounts(intakeIds),
+    enabled: intakeIds.length > 0,
   });
 
   const syncMutation = useMutation({
@@ -525,10 +766,10 @@ export function Intakes() {
       updateIntake(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['intakes'] });
+      queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
     },
   });
 
-  const intakes = data?.intakes || [];
   const total = data?.total || 0;
 
   return (
@@ -561,7 +802,7 @@ export function Intakes() {
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              {syncMutation.isPending ? 'Syncing...' : 'Sync from Google Sheets'}
+              {syncMutation.isPending ? 'Syncing...' : 'Sync'}
             </button>
           </div>
         }
@@ -612,7 +853,27 @@ export function Intakes() {
         )}
 
         {/* Pipeline filter */}
-        <StatusPipeline value={statusFilter} onChange={setStatusFilter} counts={counts} />
+        <StatusPipeline value={statusFilter} onChange={(s) => { setStatusFilter(s); setSearchQuery(''); }} counts={counts} />
+
+        {/* Search */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted/50" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, email, phone, description, notes..."
+            className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-bg-surface text-text placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-text-muted/50 hover:text-text"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
 
         {/* Table */}
         {isLoading ? (
@@ -640,50 +901,60 @@ export function Intakes() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {intakes.map((intake) => (
-                  <tr
-                    key={intake.id}
-                    className="hover:bg-bg-hover/50 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                      {formatDate(intake.submitted_on)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => setSelectedIntake(intake)}
-                        className="font-medium text-text hover:text-primary-600 text-left"
-                      >
-                        {intake.name || '—'}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary text-xs">
-                      {intake.case_type || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                      {formatDate(intake.incident_date)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="text-xs text-text-muted line-clamp-2"
-                        title={intake.ai_summary || ''}
-                      >
-                        {intake.ai_summary || '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge
-                        status={intake.status}
-                        onChange={(s) => setPendingChange({ intake, newStatus: s })}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <InlineNotes
-                        value={intake.notes}
-                        onSave={(notes) => updateMutation.mutate({ id: intake.id, notes })}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {intakes.map((intake) => {
+                  const unread = unreadCounts?.[String(intake.id)] ?? 0;
+                  return (
+                    <tr
+                      key={intake.id}
+                      className="hover:bg-bg-hover/50 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
+                        {formatDate(intake.submitted_on)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => { setAutoFocusComments(false); setSelectedIntake(intake); }}
+                            className="font-medium text-text hover:text-primary-600 text-left"
+                          >
+                            {intake.name || '\u2014'}
+                          </button>
+                          <UnreadBadge count={unread} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary text-xs">
+                        {intake.case_type || '\u2014'}
+                      </td>
+                      <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
+                        {formatDate(intake.incident_date)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="text-xs text-text-muted line-clamp-2"
+                          title={intake.ai_summary || ''}
+                        >
+                          {intake.ai_summary || '\u2014'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge
+                          status={intake.status}
+                          onChange={(s) => {
+                            updateMutation.mutate({ id: intake.id, status: s });
+                            setAutoFocusComments(true);
+                            setSelectedIntake(intake);
+                          }}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <InlineNotes
+                          value={intake.notes}
+                          onSave={(notes) => updateMutation.mutate({ id: intake.id, notes })}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -694,27 +965,11 @@ export function Intakes() {
       {selectedIntake && (
         <DetailModal
           intake={selectedIntake}
-          onClose={() => setSelectedIntake(null)}
-        />
-      )}
-
-      {/* Status Change + Notes Modal */}
-      {pendingChange && (
-        <StatusChangeModal
-          intakeName={pendingChange.intake.name}
-          fromStatus={pendingChange.intake.status}
-          toStatus={pendingChange.newStatus}
-          currentNotes={pendingChange.intake.notes}
-          onSave={(notes) => {
-            const payload: { id: number; status: IntakeStatus; notes?: string } = {
-              id: pendingChange.intake.id,
-              status: pendingChange.newStatus,
-            };
-            if (notes !== undefined) payload.notes = notes;
-            updateMutation.mutate(payload);
-            setPendingChange(null);
-          }}
-          onClose={() => setPendingChange(null)}
+          onClose={() => { setSelectedIntake(null); setAutoFocusComments(false); }}
+          onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
+          onStatusClick={(s) => { setStatusFilter(s); setSelectedIntake(null); setAutoFocusComments(false); }}
+          currentUserId={currentUserId}
+          autoFocusComments={autoFocusComments}
         />
       )}
     </>

@@ -83,6 +83,73 @@ class Intake(Base):
         DateTime, server_default=text("CURRENT_TIMESTAMP")
     )
 
+    # Relationships
+    comments: Mapped[list[IntakeComment]] = relationship(back_populates="intake")
+
+
+class IntakeComment(Base):
+    __tablename__ = "intake_comments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["intake_id"],
+            ["intakes.id"],
+            ondelete="CASCADE",
+            name="intake_comments_intake_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="intake_comments_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="intake_comments_pkey"),
+        Index("idx_intake_comments_intake_id", "intake_id"),
+        Index("idx_intake_comments_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    intake_id: Mapped[int] = mapped_column(Integer)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    is_system: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    intake: Mapped[Intake] = relationship(back_populates="comments")
+    user: Mapped[Optional[User]] = relationship()
+
+
+class IntakeCommentRead(Base):
+    __tablename__ = "intake_comment_reads"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["intake_id"],
+            ["intakes.id"],
+            ondelete="CASCADE",
+            name="intake_comment_reads_intake_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="CASCADE",
+            name="intake_comment_reads_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("intake_id", "user_id", name="intake_comment_reads_pkey"),
+    )
+
+    intake_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
 
 class Objection(Base):
     __tablename__ = "objections"

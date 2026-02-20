@@ -210,6 +210,14 @@ body {
   animation: fadeSlideIn 150ms ease-out;
 }
 
+/* ContentEditable placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--theme-text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* React DatePicker Custom Styles */
 .react-datepicker {
   font-family: var(--font-family-sans);

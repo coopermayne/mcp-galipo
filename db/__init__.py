@@ -236,6 +236,15 @@ from .intakes import (
     sync_from_sheet,
 )
 
+# Intake comments
+from .intake_comments import (
+    get_intake_comments,
+    add_intake_comment,
+    delete_intake_comment,
+    mark_intake_read,
+    get_unread_counts,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -420,6 +429,12 @@ __all__ = [
     "update_intake",
     "delete_intake",
     "sync_from_sheet",
+    # Intake comments
+    "get_intake_comments",
+    "add_intake_comment",
+    "delete_intake_comment",
+    "mark_intake_read",
+    "get_unread_counts",
     # Bulk import
     "import_case",
 ]
