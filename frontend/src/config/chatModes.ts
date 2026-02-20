@@ -254,6 +254,40 @@ export const CHAT_MODES: Record<ChatMode, ChatModeConfig> = {
  */
 export const DASHBOARD_PRESETS: DashboardPreset[] = [
   {
+    id: 'priorities',
+    label: 'My Priorities',
+    description: 'What should I focus on today?',
+    icon: Sparkles,
+    color: 'blue',
+  },
+  {
+    id: 'deadlines',
+    label: 'Upcoming Deadlines',
+    description: 'Events and deadlines in the next 14 days',
+    icon: Clock,
+    color: 'green',
+  },
+  {
+    id: 'activity',
+    label: 'Recent Activity',
+    description: 'What has been completed recently',
+    icon: Activity,
+    color: 'purple',
+  },
+  {
+    id: 'overdue',
+    label: 'Overdue Items',
+    description: 'Tasks and events needing attention',
+    icon: AlertTriangle,
+    color: 'red',
+  },
+];
+
+/**
+ * Intake page presets - shown when chat is opened from the Intakes page.
+ */
+export const INTAKE_PRESETS: DashboardPreset[] = [
+  {
     id: 'sol_watch',
     label: 'SOL Watch',
     description: 'Cases approaching statute of limitations',

@@ -48,6 +48,10 @@ export function Layout() {
   const caseMatch = useMatch('/cases/:id');
   const caseContext = caseMatch?.params.id ? parseInt(caseMatch.params.id, 10) : undefined;
 
+  // Detect intakes page for chat context
+  const intakesMatch = useMatch('/intakes');
+  const pageContext = intakesMatch ? 'intakes' as const : undefined;
+
   // Keyboard shortcuts
   // Mac: Control + key
   // Windows: Alt + key (to avoid browser conflicts)
@@ -93,7 +97,7 @@ export function Layout() {
         {showChat && (
           <>
             <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
-            <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
+            <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} pageContext={pageContext} />
           </>
         )}
 

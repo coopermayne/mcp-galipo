@@ -3,6 +3,7 @@
  *
  * Shows context-appropriate UI:
  * - Case context: Case-specific preset buttons
+ * - Intakes page: Intake insight presets + New Intake action
  * - Dashboard/general: Dashboard preset buttons
  */
 
@@ -14,13 +15,17 @@ import {
   type DashboardActionStarter,
   getModeColorClasses,
   DASHBOARD_PRESETS,
+  INTAKE_PRESETS,
   DASHBOARD_ACTION_STARTERS,
   CASE_PRESETS,
   ACTION_STARTERS,
 } from '../../config/chatModes';
 
+export type PageContext = 'intakes' | undefined;
+
 interface ChatHomeScreenProps {
   caseContext?: number;
+  pageContext?: PageContext;
   onSendPreset: (preset: DashboardPreset) => void;
   onSendCasePreset: (preset: CasePreset) => void;
   onSendActionStarter: (starter: ActionStarter | DashboardActionStarter) => void;
@@ -28,6 +33,7 @@ interface ChatHomeScreenProps {
 
 export function ChatHomeScreen({
   caseContext,
+  pageContext,
   onSendPreset,
   onSendCasePreset,
   onSendActionStarter,
@@ -109,7 +115,14 @@ export function ChatHomeScreen({
     );
   }
 
-  // Dashboard context: Show preset inquiry buttons
+  // Choose presets and config based on page context
+  const isIntakes = pageContext === 'intakes';
+  const presets = isIntakes ? INTAKE_PRESETS : DASHBOARD_PRESETS;
+  const heading = isIntakes ? 'Insights' : 'Quick Insights';
+  const subheading = isIntakes
+    ? 'Surface what needs your attention'
+    : 'Get an overview of your cases and tasks';
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6">
       <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
@@ -117,14 +130,14 @@ export function ChatHomeScreen({
       </div>
 
       <h3 className="text-lg font-semibold text-text mb-2">
-        Insights
+        {heading}
       </h3>
       <p className="text-sm text-text-muted mb-6 text-center max-w-sm">
-        Surface what needs your attention
+        {subheading}
       </p>
 
       <div className="w-full max-w-sm space-y-3">
-        {DASHBOARD_PRESETS.map((preset) => {
+        {presets.map((preset) => {
           const Icon = preset.icon;
           const colors = getModeColorClasses(preset.color);
 
@@ -153,34 +166,36 @@ export function ChatHomeScreen({
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div className="w-full max-w-sm mt-6">
-        <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 px-1">
-          Quick Actions
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {DASHBOARD_ACTION_STARTERS.map((starter) => {
-            const Icon = starter.icon;
-            const colors = getModeColorClasses(starter.color);
+      {/* Quick Actions - only on intakes page */}
+      {isIntakes && (
+        <div className="w-full max-w-sm mt-6">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 px-1">
+            Quick Actions
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DASHBOARD_ACTION_STARTERS.map((starter) => {
+              const Icon = starter.icon;
+              const colors = getModeColorClasses(starter.color);
 
-            return (
-              <button
-                key={starter.id}
-                onClick={() => onSendActionStarter(starter)}
-                className={`
-                  flex items-center gap-2 px-3 py-2 rounded-lg
-                  border ${colors.border}
-                  ${colors.bgLight} ${colors.hover}
-                  transition-colors
-                `}
-              >
-                <Icon className={`w-4 h-4 ${colors.text}`} />
-                <span className={`text-sm font-medium ${colors.text}`}>{starter.label}</span>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={starter.id}
+                  onClick={() => onSendActionStarter(starter)}
+                  className={`
+                    flex items-center gap-2 px-3 py-2 rounded-lg
+                    border ${colors.border}
+                    ${colors.bgLight} ${colors.hover}
+                    transition-colors
+                  `}
+                >
+                  <Icon className={`w-4 h-4 ${colors.text}`} />
+                  <span className={`text-sm font-medium ${colors.text}`}>{starter.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
