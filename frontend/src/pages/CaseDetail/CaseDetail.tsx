@@ -203,7 +203,7 @@ export function CaseDetail() {
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="px-1.5 py-0.5 text-xs bg-bg-hover rounded-full">
+                <span className="px-1.5 py-0.5 text-xs bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-200 rounded-full">
                   {tab.count}
                 </span>
               )}
