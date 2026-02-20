@@ -84,6 +84,38 @@ def mark_intake_read(intake_id: int, user_id: int) -> None:
         session.commit()
 
 
+def get_recent_activity(limit: int = 50) -> list[dict]:
+    """Get recent system comments across all intakes (activity feed)."""
+    with SessionLocal() as session:
+        comments = (
+            session.scalars(
+                select(IntakeComment)
+                .options(
+                    joinedload(IntakeComment.user),
+                    joinedload(IntakeComment.intake),
+                )
+                .where(IntakeComment.is_system == True)  # noqa: E712
+                .order_by(IntakeComment.created_at.desc())
+                .limit(limit)
+            )
+            .unique()
+            .all()
+        )
+        return [
+            {
+                "id": c.id,
+                "intake_id": c.intake_id,
+                "intake_name": c.intake.name if c.intake else None,
+                "content": c.content,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+                "user_id": c.user_id,
+                "user_first_name": c.user.first_name if c.user else None,
+                "user_initials": c.user.initials if c.user else None,
+            }
+            for c in comments
+        ]
+
+
 def get_unread_counts(user_id: int, intake_ids: list[int]) -> dict[int, int]:
     """Get unread comment counts per intake for the given user.
 

@@ -32,6 +32,7 @@ export function useIntakeSSE() {
           if (data.entity === 'intake') {
             queryClient.invalidateQueries({ queryKey: ['intakes'] });
             queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
+            queryClient.invalidateQueries({ queryKey: ['intake-activity'] });
           } else if (data.entity === 'intake_comment') {
             queryClient.invalidateQueries({
               queryKey: ['intake-comments', data.intake_id],

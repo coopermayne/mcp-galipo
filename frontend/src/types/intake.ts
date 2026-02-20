@@ -59,6 +59,17 @@ export interface IntakeComment {
   user_initials: string | null;
 }
 
+export interface IntakeActivity {
+  id: number;
+  intake_id: number;
+  intake_name: string | null;
+  content: string;
+  created_at: string | null;
+  user_id: number | null;
+  user_first_name: string | null;
+  user_initials: string | null;
+}
+
 export interface UpdateIntakeInput {
   status?: IntakeStatus;
   notes?: string;

@@ -143,4 +143,4 @@ export { extractRFP, analyzeRFPRequests, generateRFPResponse } from './rfp';
 export { getObjections, createObjection, updateObjection, deleteObjection, reorderObjections } from './objections';
 
 // Intakes
-export { getIntakes, getIntakeCounts, getIntake, updateIntake, deleteIntake, syncIntakes, analyzeIntakes, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from './intakes';
+export { getIntakes, getIntakeCounts, getIntake, updateIntake, deleteIntake, syncIntakes, analyzeIntakes, getIntakeActivity, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from './intakes';
