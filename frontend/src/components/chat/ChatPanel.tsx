@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { X, MessageCircle, RotateCcw, AlertCircle } from 'lucide-react';
 import { MessageList } from './MessageList';
 import { ChatInput, type ChatInputHandle } from './ChatInput';
-import { ChatHomeScreen } from './ChatHomeScreen';
+import { ChatHomeScreen, type PageContext } from './ChatHomeScreen';
 import { streamChatMessage, getChatInfo } from '../../api/chat';
 import type { ChatMessage, ToolExecution, StreamEvent, ToolCall, ToolResult } from '../../types';
 import { type DashboardPreset, type PresetId, type CasePreset, type CasePresetId, type ActionStarter, type DashboardActionStarter, type ChatMode } from '../../config/chatModes';
@@ -26,9 +26,10 @@ interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   caseContext?: number;
+  pageContext?: PageContext;
 }
 
-export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
+export function ChatPanel({ isOpen, onClose, caseContext, pageContext }: ChatPanelProps) {
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -492,6 +493,7 @@ export function ChatPanel({ isOpen, onClose, caseContext }: ChatPanelProps) {
         {showHomeScreen ? (
           <ChatHomeScreen
             caseContext={caseContext}
+            pageContext={pageContext}
             onSendPreset={handleSendPreset}
             onSendCasePreset={handleSendCasePreset}
             onSendActionStarter={handleSendActionStarter}
