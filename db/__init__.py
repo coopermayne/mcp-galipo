@@ -233,6 +233,7 @@ from .intakes import (
     save_ai_analysis,
     update_intake,
     delete_intake,
+    create_intake,
     sync_from_sheet,
 )
 
@@ -428,6 +429,7 @@ __all__ = [
     "save_ai_analysis",
     "update_intake",
     "delete_intake",
+    "create_intake",
     "sync_from_sheet",
     # Intake comments
     "get_intake_comments",

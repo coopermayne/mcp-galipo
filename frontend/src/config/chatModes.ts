@@ -6,9 +6,9 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { CheckSquare, Calendar, Users, BarChart3, Sparkles, Clock, AlertTriangle, Activity, Scale } from 'lucide-react';
+import { CheckSquare, Calendar, Users, BarChart3, Sparkles, Clock, AlertTriangle, Activity, Scale, UserPlus } from 'lucide-react';
 
-export type ChatMode = 'tasks' | 'events' | 'people' | 'proceedings' | 'overview' | 'full';
+export type ChatMode = 'tasks' | 'events' | 'people' | 'proceedings' | 'intakes' | 'overview' | 'full';
 
 export interface ChatModeConfig {
   id: ChatMode;
@@ -19,7 +19,7 @@ export interface ChatModeConfig {
   suggestedQuestions: string[];
 }
 
-export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity';
+export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity' | 'sol_watch' | 'stale_intakes' | 'needs_attention';
 export type CasePresetId = 'case_summary' | 'case_next' | 'case_tasks' | 'case_events';
 export type ActionStarterId = 'add_events' | 'add_people' | 'add_tasks' | 'manage_proceedings';
 
@@ -40,6 +40,33 @@ export interface ActionStarter {
   mode: ChatMode;  // The mode to activate (filters tools)
   greeting: string;  // Static greeting shown immediately (no API call)
 }
+
+export type DashboardActionStarterId = 'new_intake';
+
+export interface DashboardActionStarter {
+  id: DashboardActionStarterId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  color: string;
+  mode: ChatMode;
+  greeting: string;
+}
+
+/**
+ * Dashboard action starters - available from the dashboard (no case context).
+ */
+export const DASHBOARD_ACTION_STARTERS: DashboardActionStarter[] = [
+  {
+    id: 'new_intake',
+    label: 'New Intake',
+    description: 'Create an intake from a voicemail, email, or notes',
+    icon: UserPlus,
+    color: 'green',
+    mode: 'intakes',
+    greeting: 'Paste the voicemail transcript, email, or notes below and I\'ll extract the contact and incident details to create a new intake.',
+  },
+];
 
 /**
  * Action starters - interactive modes for adding/managing data.
@@ -186,6 +213,18 @@ export const CHAT_MODES: Record<ChatMode, ChatModeConfig> = {
       'Assign a judge to the proceeding',
     ],
   },
+  intakes: {
+    id: 'intakes',
+    label: 'Intakes',
+    description: 'Create intakes from unstructured text',
+    icon: UserPlus,
+    color: 'green',
+    suggestedQuestions: [
+      'Create an intake from this voicemail',
+      'Log a new potential client',
+      'Add this email as an intake',
+    ],
+  },
   overview: {
     id: 'overview',
     label: 'Overview',
@@ -215,32 +254,25 @@ export const CHAT_MODES: Record<ChatMode, ChatModeConfig> = {
  */
 export const DASHBOARD_PRESETS: DashboardPreset[] = [
   {
-    id: 'priorities',
-    label: 'My Priorities',
-    description: 'What should I focus on today?',
-    icon: Sparkles,
-    color: 'blue',
-  },
-  {
-    id: 'deadlines',
-    label: 'Upcoming Deadlines',
-    description: 'Events and deadlines in the next 14 days',
-    icon: Clock,
-    color: 'green',
-  },
-  {
-    id: 'activity',
-    label: 'Recent Activity',
-    description: 'What has been completed recently',
-    icon: Activity,
-    color: 'purple',
-  },
-  {
-    id: 'overdue',
-    label: 'Overdue Items',
-    description: 'Tasks and events needing attention',
+    id: 'sol_watch',
+    label: 'SOL Watch',
+    description: 'Cases approaching statute of limitations',
     icon: AlertTriangle,
     color: 'red',
+  },
+  {
+    id: 'stale_intakes',
+    label: 'Unreviewed Intakes',
+    description: 'New intakes waiting to be processed',
+    icon: Clock,
+    color: 'amber',
+  },
+  {
+    id: 'needs_attention',
+    label: 'Needs Attention',
+    description: 'Overdue tasks, urgent items, stale cases',
+    icon: Activity,
+    color: 'purple',
   },
 ];
 

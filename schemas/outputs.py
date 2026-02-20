@@ -525,7 +525,7 @@ class IntakeOut(BaseModel):
     ai_summary: Optional[str] = None
     ai_rating: Optional[int] = None
     ai_rating_reasoning: Optional[str] = None
-    google_row_number: int
+    google_row_number: Optional[int] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
 

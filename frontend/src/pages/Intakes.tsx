@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Search,
   Tag,
+  StickyNote,
 } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
@@ -1057,10 +1058,14 @@ export function Intakes() {
                           }}
                         />
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs text-text truncate max-w-[200px] block">
-                          {intake.notes || '\u2014'}
-                        </span>
+                      <td className="px-4 py-3 text-center">
+                        {intake.notes ? (
+                          <span title={intake.notes}>
+                            <StickyNote className="w-4 h-4 text-amber-500 inline-block" />
+                          </span>
+                        ) : (
+                          <span className="text-text-muted/30">{'\u2014'}</span>
+                        )}
                       </td>
                     </tr>
                   );
