@@ -428,12 +428,16 @@ function DetailModal({
   onClose,
   onSaveNotes,
   onStatusChange,
+  onAnalyze,
+  isAnalyzing = false,
   autoFocusComments = false,
 }: {
   intake: Intake;
   onClose: () => void;
   onSaveNotes: (notes: string) => void;
   onStatusChange: (status: IntakeStatus) => void;
+  onAnalyze: () => void;
+  isAnalyzing?: boolean;
   autoFocusComments?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -646,11 +650,22 @@ function DetailModal({
               </div>
 
               {/* AI Analysis */}
-              {(intake.ai_summary || intake.ai_rating) && (
-                <div className="space-y-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
                   <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">
                     AI Summary
                   </h4>
+                  <button
+                    onClick={onAnalyze}
+                    disabled={isAnalyzing}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-purple-500 transition-colors disabled:opacity-50"
+                    title={intake.ai_summary ? 'Regenerate AI analysis' : 'Generate AI analysis'}
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin text-purple-500' : ''}`} />
+                    {isAnalyzing ? 'Analyzing...' : intake.ai_summary ? 'Regenerate' : 'Analyze'}
+                  </button>
+                </div>
+                {(intake.ai_summary || intake.ai_rating) ? (
                   <div className="ml-1 pl-4 border-l-2 border-border">
                     {intake.ai_rating && (
                       <div className="flex items-center gap-2 mb-2">
@@ -664,8 +679,10 @@ function DetailModal({
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-text-muted/50 italic ml-1">No analysis yet</p>
+                )}
+              </div>
 
               {/* Client-submitted descriptions */}
               {intake.incident_description && (
@@ -1092,14 +1109,16 @@ export function Intakes() {
                               {intake.ai_summary || '\u2014'}
                             </span>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); analyzeSingleMutation.mutate(intake.id); }}
-                            disabled={analyzingIds.has(intake.id)}
-                            className="flex-shrink-0 p-1 text-text-muted/40 hover:text-purple-500 transition-colors disabled:opacity-50"
-                            title={intake.ai_summary ? 'Regenerate AI analysis' : 'Generate AI analysis'}
-                          >
-                            <Sparkles className={`w-3.5 h-3.5 ${analyzingIds.has(intake.id) ? 'animate-pulse text-purple-500' : ''}`} />
-                          </button>
+                          {!intake.ai_summary && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); analyzeSingleMutation.mutate(intake.id); }}
+                              disabled={analyzingIds.has(intake.id)}
+                              className="flex-shrink-0 p-1 text-text-muted/40 hover:text-purple-500 transition-colors disabled:opacity-50"
+                              title="Generate AI analysis"
+                            >
+                              <Sparkles className={`w-3.5 h-3.5 ${analyzingIds.has(intake.id) ? 'animate-pulse text-purple-500' : ''}`} />
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -1135,6 +1154,8 @@ export function Intakes() {
           onClose={() => { setSelectedIntakeId(null); setAutoFocusComments(false); }}
           onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
           onStatusChange={(s) => updateMutation.mutate({ id: selectedIntake.id, status: s })}
+          onAnalyze={() => analyzeSingleMutation.mutate(selectedIntake.id)}
+          isAnalyzing={analyzingIds.has(selectedIntake.id)}
           autoFocusComments={autoFocusComments}
         />
       )}

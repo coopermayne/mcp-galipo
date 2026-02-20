@@ -45,11 +45,13 @@ Respond with valid JSON only. The "summary" field must contain the markdown text
 {"summary": "### Events at Issue\\n...", "rating": N, "reasoning": "..."}"""
 
 
-def analyze_intake(intake_data: dict) -> dict:
+def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | None = None) -> dict:
     """Analyze a single intake and return AI summary, rating, and reasoning.
 
     Args:
         intake_data: Dict with intake fields (name, case_type, incident_description, etc.)
+        notes: Internal staff notes about the intake
+        comments: List of comment dicts with 'content', 'user_first_name', 'is_system' fields
 
     Returns:
         {"ai_summary": str, "ai_rating": int, "ai_rating_reasoning": str}
@@ -71,6 +73,17 @@ def analyze_intake(intake_data: dict) -> dict:
         parts.append(f"Incident Description: {intake_data['incident_description']}")
     if intake_data.get("injury_description"):
         parts.append(f"Injury Description: {intake_data['injury_description']}")
+
+    if notes:
+        parts.append(f"\nStaff Notes: {notes}")
+
+    if comments:
+        non_system = [c for c in comments if not c.get("is_system")]
+        if non_system:
+            parts.append("\nTeam Discussion:")
+            for c in non_system:
+                author = c.get("user_first_name", "Unknown")
+                parts.append(f"  {author}: {c['content']}")
 
     if not parts:
         return {
