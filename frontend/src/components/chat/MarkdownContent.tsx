@@ -115,13 +115,13 @@ export const MarkdownContent = memo(function MarkdownContent({ content }: Markdo
           },
           // Style headers
           h1({ children }) {
-            return <h1 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h1>;
+            return <h1 className="text-lg font-bold mt-5 mb-2 first:mt-0 text-text border-b border-border pb-1">{children}</h1>;
           },
           h2({ children }) {
-            return <h2 className="text-base font-bold mt-3 mb-2 first:mt-0">{children}</h2>;
+            return <h2 className="text-sm font-semibold uppercase tracking-wide mt-5 mb-1.5 first:mt-0 text-text-muted">{children}</h2>;
           },
           h3({ children }) {
-            return <h3 className="text-sm font-bold mt-2 mb-1 first:mt-0">{children}</h3>;
+            return <h3 className="text-xs font-semibold uppercase tracking-wide mt-4 mb-1 first:mt-0 text-text-muted">{children}</h3>;
           },
           // Style lists
           ul({ children }) {
