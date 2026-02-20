@@ -240,7 +240,6 @@ from .intakes import (
 from .intake_comments import (
     get_intake_comments,
     add_intake_comment,
-    delete_intake_comment,
     mark_intake_read,
     get_unread_counts,
 )
@@ -432,7 +431,6 @@ __all__ = [
     # Intake comments
     "get_intake_comments",
     "add_intake_comment",
-    "delete_intake_comment",
     "mark_intake_read",
     "get_unread_counts",
     # Bulk import

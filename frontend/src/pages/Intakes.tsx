@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
-import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, analyzeIntakes, getIntakeComments, addIntakeComment, deleteIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
+import { getIntakes, getIntakeCounts, updateIntake, syncIntakes, analyzeIntakes, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
 import { INTAKE_STATUSES } from '../types';
 import type { Intake, IntakeStatus, IntakeComment } from '../types';
-import { useAuth } from '../context/AuthContext';
 import { useIntakeSSE } from '../hooks';
 import {
   RefreshCw,
@@ -293,16 +292,13 @@ function UnreadBadge({ count }: { count: number }) {
 
 function CommentsPanel({
   intakeId,
-  currentUserId,
   autoFocus = false,
 }: {
   intakeId: number;
-  currentUserId: number;
   autoFocus?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const prevCountRef = useRef(0);
@@ -318,14 +314,6 @@ function CommentsPanel({
       setDraft('');
       queryClient.invalidateQueries({ queryKey: ['intake-comments', intakeId] });
       queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (commentId: number) => deleteIntakeComment(intakeId, commentId),
-    onSuccess: () => {
-      setConfirmDeleteId(null);
-      queryClient.invalidateQueries({ queryKey: ['intake-comments', intakeId] });
     },
   });
 
@@ -382,7 +370,6 @@ function CommentsPanel({
               );
             }
 
-            const isOwn = comment.user_id === currentUserId;
             const avatarColor = comment.user_id ? getBadgeColorById(comment.user_id) : getBadgeColorById(0);
 
             return (
@@ -402,39 +389,6 @@ function CommentsPanel({
                     <span className="text-[10px] text-text-muted/50">
                       {formatRelativeTime(comment.created_at)}
                     </span>
-                    {isOwn && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setConfirmDeleteId(confirmDeleteId === comment.id ? null : comment.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-text-muted/40 hover:text-red-500"
-                          title="Delete comment"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                        {confirmDeleteId === comment.id && (
-                          <>
-                            <div className="fixed inset-0 z-[60]" onClick={() => setConfirmDeleteId(null)} />
-                            <div className="absolute z-[70] top-full right-0 mt-1 bg-bg-surface border border-border rounded-lg shadow-lg p-2 whitespace-nowrap">
-                              <p className="text-xs text-text-muted mb-1.5">Delete this comment?</p>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => deleteMutation.mutate(comment.id)}
-                                  className="px-2 py-1 text-[11px] font-medium text-white bg-red-500 hover:bg-red-600 rounded transition-colors"
-                                >
-                                  Delete
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteId(null)}
-                                  className="px-2 py-1 text-[11px] font-medium text-text-muted hover:text-text transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
                   <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">
                     {comment.content}
@@ -480,14 +434,12 @@ function DetailModal({
   onClose,
   onSaveNotes,
   onStatusClick,
-  currentUserId,
   autoFocusComments = false,
 }: {
   intake: Intake;
   onClose: () => void;
   onSaveNotes: (notes: string) => void;
   onStatusClick: (status: IntakeStatus) => void;
-  currentUserId: number;
   autoFocusComments?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -691,7 +643,7 @@ function DetailModal({
 
             {/* Right: comments */}
             <div className="w-96 p-4 overflow-y-auto flex flex-col">
-              <CommentsPanel intakeId={intake.id} currentUserId={currentUserId} autoFocus={autoFocusComments} />
+              <CommentsPanel intakeId={intake.id} autoFocus={autoFocusComments} />
             </div>
           </div>
         </div>
@@ -702,8 +654,6 @@ function DetailModal({
 
 export function Intakes() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const currentUserId = user?.id ?? 0;
   const [statusFilter, setStatusFilter] = useState<string>('New');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
@@ -999,7 +949,6 @@ export function Intakes() {
           onClose={() => { setSelectedIntakeId(null); setAutoFocusComments(false); }}
           onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
           onStatusClick={(s) => { setStatusFilter(s); setSelectedIntakeId(null); setAutoFocusComments(false); }}
-          currentUserId={currentUserId}
           autoFocusComments={autoFocusComments}
         />
       )}

@@ -209,29 +209,6 @@ def register_intake_routes(mcp):
         })
         return JSONResponse(comment, status_code=201)
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/comments/{comment_id}", methods=["DELETE"])
-    async def api_delete_intake_comment(request):
-        """Delete a comment (author only, no system messages)."""
-        if err := auth.require_auth(request):
-            return err
-        intake_id = int(request.path_params["intake_id"])
-        comment_id = int(request.path_params["comment_id"])
-        user = auth.get_current_user(request)
-        if not user:
-            return api_error("User not found", "UNAUTHORIZED", 401)
-
-        deleted = await asyncio.to_thread(
-            db.delete_intake_comment, comment_id, user["id"]
-        )
-        if not deleted:
-            return api_error("Comment not found or not authorized", "FORBIDDEN", 403)
-
-        broadcast({
-            "entity": "intake_comment", "action": "deleted",
-            "id": comment_id, "intake_id": intake_id, "user_id": user["id"],
-        })
-        return JSONResponse({"success": True})
-
     @mcp.custom_route("/api/v1/intakes/{intake_id}/read", methods=["POST"])
     async def api_mark_intake_read(request):
         """Mark all comments as read for the current user."""

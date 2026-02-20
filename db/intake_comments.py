@@ -69,21 +69,6 @@ def add_intake_comment(
         return result
 
 
-def delete_intake_comment(comment_id: int, user_id: int) -> bool:
-    """Delete a comment. Only the author can delete, and system messages cannot be deleted."""
-    with SessionLocal() as session:
-        comment = session.get(IntakeComment, comment_id)
-        if not comment:
-            return False
-        if comment.is_system:
-            return False
-        if comment.user_id != user_id:
-            return False
-        session.delete(comment)
-        session.commit()
-        return True
-
-
 def mark_intake_read(intake_id: int, user_id: int) -> None:
     """Mark all comments as read for this user on this intake (upsert)."""
     with SessionLocal() as session:
