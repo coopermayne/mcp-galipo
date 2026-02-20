@@ -1,4 +1,4 @@
-import type { Intake, UpdateIntakeInput, SyncResult } from '../types';
+import type { Intake, IntakeComment, UpdateIntakeInput, SyncResult } from '../types';
 import { request } from './common';
 
 export async function getIntakes(params?: {
@@ -54,4 +54,32 @@ export async function syncIntakes(): Promise<SyncResult> {
   return request('/intakes/sync', {
     method: 'POST',
   });
+}
+
+export async function getIntakeComments(intakeId: number): Promise<IntakeComment[]> {
+  return request(`/intakes/${intakeId}/comments`);
+}
+
+export async function addIntakeComment(intakeId: number, content: string): Promise<IntakeComment> {
+  return request(`/intakes/${intakeId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function deleteIntakeComment(intakeId: number, commentId: number): Promise<{ success: boolean }> {
+  return request(`/intakes/${intakeId}/comments/${commentId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function markIntakeRead(intakeId: number): Promise<{ success: boolean }> {
+  return request(`/intakes/${intakeId}/read`, {
+    method: 'POST',
+  });
+}
+
+export async function getIntakeUnreadCounts(ids: number[]): Promise<Record<string, number>> {
+  const params = ids.map((id) => `ids=${id}`).join('&');
+  return request(`/intakes/unread-counts?${params}`);
 }

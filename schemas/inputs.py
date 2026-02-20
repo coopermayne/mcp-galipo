@@ -104,3 +104,7 @@ class UpdateNoteInput(BaseModel):
 class UpdateIntakeInput(BaseModel):
     status: Optional[IntakeStatus] = None
     notes: Optional[str] = None
+
+
+class CreateIntakeCommentInput(BaseModel):
+    content: str

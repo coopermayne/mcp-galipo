@@ -175,6 +175,7 @@ export {
 export type {
   IntakeStatus,
   Intake,
+  IntakeComment,
   UpdateIntakeInput,
   SyncResult,
 } from './intake';

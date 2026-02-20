@@ -528,3 +528,16 @@ class IntakeOut(BaseModel):
     google_row_number: int
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
+
+
+class IntakeCommentOut(BaseModel):
+    """Output schema for intake comment."""
+    id: int
+    intake_id: int
+    content: str
+    is_system: bool = False
+    created_at: Optional[datetime.datetime] = None
+    user_id: Optional[int] = None
+    user_first_name: Optional[str] = None
+    user_last_name: Optional[str] = None
+    user_initials: Optional[str] = None
