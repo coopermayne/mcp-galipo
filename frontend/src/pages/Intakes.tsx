@@ -670,18 +670,6 @@ function StatusChip({ status, onClick }: { status: string; onClick?: () => void 
   );
 }
 
-function ActivityContent({ content, onStatusClick }: { content: string; onStatusClick: (status: string) => void }) {
-  // Parse "Name changed status from OldStatus to NewStatus"
-  const match = content.match(/^(.+?) changed status from (.+?) to (.+)$/);
-  if (!match) return <>{content}</>;
-  const [, name, fromStatus, toStatus] = match;
-  return (
-    <>
-      {name} changed status <StatusChip status={fromStatus} onClick={() => onStatusClick(fromStatus)} /> &rarr; <StatusChip status={toStatus} onClick={() => onStatusClick(toStatus)} />
-    </>
-  );
-}
-
 function ActivityModal({
   onClose,
   onSelectIntake,
@@ -728,33 +716,27 @@ function ActivityModal({
               <p className="text-sm text-text-muted text-center py-8">No recent activity</p>
             ) : (
               activity.map((item: IntakeActivity) => {
-                const avatarColor = item.user_id ? getBadgeColorById(item.user_id) : getBadgeColorById(0);
+                const match = item.content.match(/^(.+?) changed status from (.+?) to (.+)$/);
                 return (
-                  <div key={item.id} className="flex gap-2.5 py-2 group">
-                    <div
-                      className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarColor.bg} ${avatarColor.text}`}
-                    >
-                      {item.user_initials || '??'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text leading-snug flex items-center flex-wrap gap-1">
-                        <ActivityContent content={item.content} onStatusClick={onStatusClick} />
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <button
-                          onClick={() => {
-                            onClose();
-                            onSelectIntake(item.intake_id);
-                          }}
-                          className="text-xs text-primary-600 hover:text-primary-700 hover:underline truncate max-w-[200px]"
-                        >
-                          {item.intake_name || `Intake #${item.intake_id}`}
-                        </button>
-                        <span className="text-[10px] text-text-muted/50">
-                          {formatRelativeTime(item.created_at)}
-                        </span>
-                      </div>
-                    </div>
+                  <div key={item.id} className="py-2">
+                    <p className="text-sm text-text leading-snug flex items-center flex-wrap gap-1">
+                      <button
+                        onClick={() => { onClose(); onSelectIntake(item.intake_id); }}
+                        className="font-medium hover:text-primary-600 hover:underline"
+                      >
+                        {item.intake_name || `Intake #${item.intake_id}`}
+                      </button>
+                      {match ? (
+                        <>
+                          <StatusChip status={match[2]} onClick={() => onStatusClick(match[2])} /> &rarr; <StatusChip status={match[3]} onClick={() => onStatusClick(match[3])} />
+                        </>
+                      ) : (
+                        <span>{item.content}</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {match ? match[1] : ''} · {formatRelativeTime(item.created_at)}
+                    </p>
                   </div>
                 );
               })
