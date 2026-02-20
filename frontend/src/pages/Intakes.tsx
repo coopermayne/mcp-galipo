@@ -27,6 +27,7 @@ import {
   Search,
   Tag,
   StickyNote,
+  UserCheck,
 } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
@@ -509,6 +510,12 @@ function DetailModal({
                     <div className="flex items-center gap-2 text-sm text-text-secondary">
                       <Phone className="w-4 h-4 text-text-muted" />
                       <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
+                    </div>
+                  )}
+                  {intake.referral_note && (
+                    <div className="flex items-start gap-2 text-sm text-text-secondary">
+                      <UserCheck className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-text italic">{intake.referral_note}</span>
                     </div>
                   )}
                 </div>

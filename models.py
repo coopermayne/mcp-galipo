@@ -70,6 +70,7 @@ class Intake(Base):
     status: Mapped[str] = mapped_column(
         String(50), server_default=text("'New'::character varying")
     )
+    referral_note: Mapped[Optional[str]] = mapped_column(Text)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     ai_summary: Mapped[Optional[str]] = mapped_column(Text)
     ai_rating: Mapped[Optional[int]] = mapped_column(Integer)
