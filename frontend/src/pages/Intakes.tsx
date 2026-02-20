@@ -813,11 +813,11 @@ export function Intakes() {
     },
   });
 
-  const [analyzingId, setAnalyzingId] = useState<number | null>(null);
+  const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
   const analyzeSingleMutation = useMutation({
     mutationFn: (intakeId: number) => analyzeIntake(intakeId),
-    onMutate: (intakeId) => setAnalyzingId(intakeId),
-    onSettled: () => setAnalyzingId(null),
+    onMutate: (intakeId) => setAnalyzingIds(prev => new Set(prev).add(intakeId)),
+    onSettled: (_data, _error, intakeId) => setAnalyzingIds(prev => { const next = new Set(prev); next.delete(intakeId); return next; }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['intakes'] });
     },
@@ -1026,7 +1026,7 @@ export function Intakes() {
                       })()}
                       <td className="px-4 py-3">
                         <div className="flex items-start gap-1.5">
-                          {analyzingId === intake.id ? (
+                          {analyzingIds.has(intake.id) ? (
                             <span className="text-xs text-purple-500 italic flex items-center gap-1.5 flex-1">
                               <Sparkles className="w-3.5 h-3.5 animate-spin" />
                               Analyzing...
@@ -1041,11 +1041,11 @@ export function Intakes() {
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); analyzeSingleMutation.mutate(intake.id); }}
-                            disabled={analyzingId === intake.id}
+                            disabled={analyzingIds.has(intake.id)}
                             className="flex-shrink-0 p-1 text-text-muted/40 hover:text-purple-500 transition-colors disabled:opacity-50"
                             title={intake.ai_summary ? 'Regenerate AI analysis' : 'Generate AI analysis'}
                           >
-                            <Sparkles className={`w-3.5 h-3.5 ${analyzingId === intake.id ? 'animate-pulse text-purple-500' : ''}`} />
+                            <Sparkles className={`w-3.5 h-3.5 ${analyzingIds.has(intake.id) ? 'animate-pulse text-purple-500' : ''}`} />
                           </button>
                         </div>
                       </td>
