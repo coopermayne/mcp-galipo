@@ -19,7 +19,7 @@ export interface ChatModeConfig {
   suggestedQuestions: string[];
 }
 
-export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity' | 'sol_watch' | 'stale_intakes' | 'needs_attention';
+export type PresetId = 'priorities' | 'deadlines' | 'overdue' | 'activity' | 'sol_watch' | 'stale_intakes';
 export type CasePresetId = 'case_summary' | 'case_next' | 'case_tasks' | 'case_events';
 export type ActionStarterId = 'add_events' | 'add_people' | 'add_tasks' | 'manage_proceedings';
 
@@ -290,23 +290,16 @@ export const INTAKE_PRESETS: DashboardPreset[] = [
   {
     id: 'sol_watch',
     label: 'SOL Watch',
-    description: 'Cases approaching statute of limitations',
+    description: 'Intakes approaching statute of limitations',
     icon: AlertTriangle,
     color: 'red',
   },
   {
     id: 'stale_intakes',
     label: 'Unreviewed Intakes',
-    description: 'New intakes waiting to be processed',
+    description: 'New & screened intakes, oldest first',
     icon: Clock,
     color: 'amber',
-  },
-  {
-    id: 'needs_attention',
-    label: 'Needs Attention',
-    description: 'Overdue tasks, urgent items, stale cases',
-    icon: Activity,
-    color: 'purple',
   },
 ];
 
