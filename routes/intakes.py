@@ -1,19 +1,20 @@
 """
 Intake API routes.
 
-Handles intake CRUD, Google Sheets sync, and comments.
+Handles intake CRUD, Google Sheets sync, comments, and SSE streaming.
 """
 
 import asyncio
 import logging
 
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 import db
 import auth
 from schemas import UpdateIntakeInput, CreateIntakeCommentInput
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .sse import broadcast, sse_generator, add_client, remove_client
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,42 @@ def register_intake_routes(mcp):
         # JSON keys must be strings
         return JSONResponse({str(k): v for k, v in counts.items()})
 
+    # --- SSE stream (registered BEFORE {intake_id} wildcard) ---
+
+    @mcp.custom_route("/api/v1/intakes/stream", methods=["GET"])
+    async def api_intake_stream(request):
+        """SSE stream for real-time intake updates.
+
+        Auth via ?token= query param since EventSource can't set headers.
+        """
+        # Auth via query param (EventSource can't set headers)
+        if not auth.DEV_SKIP_AUTH:
+            token = request.query_params.get("token")
+            if not token:
+                token = auth.get_token_from_request(request)
+            if not token or not auth.validate_session(token):
+                return JSONResponse(
+                    {"error": "Authentication required"}, status_code=401
+                )
+
+        queue = add_client()
+
+        async def event_stream():
+            try:
+                async for chunk in sse_generator(queue):
+                    yield chunk
+            finally:
+                remove_client(queue)
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["GET"])
     async def api_get_intake(request):
         """Get a single intake by ID."""
@@ -82,6 +119,9 @@ def register_intake_routes(mcp):
         if err := auth.require_auth(request):
             return err
         intake_id = int(request.path_params["intake_id"])
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
         try:
             data = UpdateIntakeInput(**(await request.json()))
         except ValidationError as e:
@@ -95,7 +135,6 @@ def register_intake_routes(mcp):
         if "status" in updates:
             old_intake = await asyncio.to_thread(db.get_intake_by_id, intake_id)
             if old_intake and old_intake["status"] != updates["status"]:
-                user = auth.get_current_user(request)
                 if user:
                     name = user.get("firstName", "Someone")
                     msg = f"{name} changed status from {old_intake['status']} to {updates['status']}"
@@ -110,6 +149,11 @@ def register_intake_routes(mcp):
         result = await asyncio.to_thread(db.update_intake, intake_id, **updates)
         if not result:
             return api_error("Intake not found", "NOT_FOUND", 404)
+
+        broadcast({
+            "entity": "intake", "action": "updated",
+            "id": intake_id, "intake_id": intake_id, "user_id": user_id,
+        })
         return JSONResponse({"success": True, "intake": result})
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["DELETE"])
@@ -118,9 +162,17 @@ def register_intake_routes(mcp):
         if err := auth.require_auth(request):
             return err
         intake_id = int(request.path_params["intake_id"])
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
         deleted = await asyncio.to_thread(db.delete_intake, intake_id)
         if not deleted:
             return api_error("Intake not found", "NOT_FOUND", 404)
+
+        broadcast({
+            "entity": "intake", "action": "deleted",
+            "id": intake_id, "intake_id": intake_id, "user_id": user_id,
+        })
         return JSONResponse({"success": True})
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["GET"])
@@ -150,6 +202,11 @@ def register_intake_routes(mcp):
         comment = await asyncio.to_thread(
             db.add_intake_comment, intake_id, user["id"], data.content
         )
+
+        broadcast({
+            "entity": "intake_comment", "action": "created",
+            "id": comment.get("id"), "intake_id": intake_id, "user_id": user["id"],
+        })
         return JSONResponse(comment, status_code=201)
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}/comments/{comment_id}", methods=["DELETE"])
@@ -157,6 +214,7 @@ def register_intake_routes(mcp):
         """Delete a comment (author only, no system messages)."""
         if err := auth.require_auth(request):
             return err
+        intake_id = int(request.path_params["intake_id"])
         comment_id = int(request.path_params["comment_id"])
         user = auth.get_current_user(request)
         if not user:
@@ -167,6 +225,11 @@ def register_intake_routes(mcp):
         )
         if not deleted:
             return api_error("Comment not found or not authorized", "FORBIDDEN", 403)
+
+        broadcast({
+            "entity": "intake_comment", "action": "deleted",
+            "id": comment_id, "intake_id": intake_id, "user_id": user["id"],
+        })
         return JSONResponse({"success": True})
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}/read", methods=["POST"])
@@ -187,6 +250,9 @@ def register_intake_routes(mcp):
         """Run AI analysis on intakes that haven't been analyzed yet."""
         if err := auth.require_auth(request):
             return err
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
         try:
             body = await request.json()
         except Exception:
@@ -216,6 +282,13 @@ def register_intake_routes(mcp):
                 except Exception as e:
                     logger.warning("AI analysis failed for intake %d: %s", intake_id, e)
                     errors += 1
+
+            if analyzed > 0:
+                broadcast({
+                    "entity": "intake", "action": "analyzed",
+                    "id": None, "intake_id": None, "user_id": user_id,
+                })
+
             return JSONResponse({
                 "success": True,
                 "analyzed": analyzed,
@@ -233,10 +306,19 @@ def register_intake_routes(mcp):
         """Trigger a sync from Google Sheets."""
         if err := auth.require_auth(request):
             return err
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
         try:
             from services.google_sheets import fetch_all_rows
             rows = await asyncio.to_thread(fetch_all_rows)
             result = await asyncio.to_thread(db.sync_from_sheet, rows)
+
+            broadcast({
+                "entity": "intake", "action": "synced",
+                "id": None, "intake_id": None, "user_id": user_id,
+            })
+
             return JSONResponse({"success": True, **result})
         except RuntimeError as e:
             # Config errors (missing credentials/spreadsheet ID)
