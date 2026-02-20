@@ -6,7 +6,7 @@ import {
   CheckSquare,
   Clock,
   Scale,
-  Download,
+  // Download,
   Webhook,
   Users,
   UserCog,
@@ -87,7 +87,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
-  const [isExporting, setIsExporting] = useState(false);
+  // const [isExporting, setIsExporting] = useState(false);
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -138,7 +138,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     };
   }, [isMobileOpen]);
 
-  const handleExport = async () => {
+  /* const handleExport = async () => {
     setIsExporting(true);
     try {
       const token = getAuthToken();
@@ -152,10 +152,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         try {
           const body = await response.json();
           if (body?.error?.message) msg = body.error.message;
-        } catch { /* ignore parse errors */ }
+        } catch { }
         throw new Error(msg);
       }
-      // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = 'galipo_export.json';
       if (contentDisposition) {
@@ -164,7 +163,6 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           filename = match[1];
         }
       }
-      // Download the file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -180,7 +178,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     } finally {
       setIsExporting(false);
     }
-  };
+  }; */
 
   const linkClasses = (isActive: boolean) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
