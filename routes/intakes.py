@@ -325,7 +325,13 @@ def register_intake_routes(mcp):
 
         try:
             from services.intake_ai import analyze_intake
-            result = await asyncio.to_thread(analyze_intake, intake)
+            comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
+            result = await asyncio.to_thread(
+                analyze_intake,
+                intake,
+                notes=intake.get("notes", ""),
+                comments=comments,
+            )
             updated = await asyncio.to_thread(
                 db.save_ai_analysis,
                 intake_id,
