@@ -1,80 +1,101 @@
-/**
- * Dashboard - Customizable multi-panel dashboard
- *
- * Route: / (home)
- *
- * Features:
- * - Customizable layout presets (1, 1:1, 1:2, 2:1, 2:2)
- * - Each panel can be Tasks or Events widget
- * - Independent panel filters
- * - localStorage persistence for layout and configs
- *
- * Uses the universal panel layout system with allowedWidgets=['tasks', 'events'].
- */
-import { Header } from '../components/layout';
-import { LayoutSelector, PanelContainer } from '../components/panels';
-import { PanelLayoutProvider, usePanelLayout } from '../context/PanelLayoutContext';
-import type { PanelLayoutConfig, WidgetType } from '../types/panel-layout';
-import {
-  LAYOUT_CONTAINER_CLASSES,
-  LAYOUT_MAX_WIDTH_CLASSES,
-  getPanelClasses,
-  createDefaultTasksWidget,
-  createDefaultEventsWidget,
-} from '../types/panel-layout';
+import { useNavigate } from 'react-router-dom';
+import { Briefcase, Inbox, CheckSquare, Clock, FileText, Webhook, Users, MessageCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-const STORAGE_KEY = 'dashboard-layout';
-const ALLOWED_WIDGETS: WidgetType[] = ['tasks', 'events', 'chart'];
-
-const DEFAULT_CONFIG: PanelLayoutConfig = {
-  layout: '1:1',
-  panels: [
-    { ...createDefaultEventsWidget('panel-0'), groupBy: 'date', showPast: false, caseOwnerFilter: 'mine', attendeeFilter: 'all' },
-    { ...createDefaultTasksWidget('panel-1'), groupBy: 'date', showDone: false, caseOwnerFilter: 'mine', assigneeFilter: 'all' },
-  ],
-};
-
-function DashboardContent() {
-  const { config, setLayout, updatePanel, setPanelType, allowedWidgets, resetToDefault } = usePanelLayout();
-
-  return (
-    <div className="h-screen flex flex-col overflow-hidden bg-bg-base">
-      <Header
-        title="Dashboard"
-        subtitle="Your cases at a glance"
-        actions={<LayoutSelector value={config.layout} onChange={setLayout} onReset={resetToDefault} />}
-      />
-
-      {/* Panels Grid */}
-      <main
-        className={`flex-1 w-full grid gap-4 p-4 overflow-hidden ${LAYOUT_CONTAINER_CLASSES[config.layout]} ${LAYOUT_MAX_WIDTH_CLASSES[config.layout]}`}
-      >
-        {config.panels.map((panel, index) => (
-          <div
-            key={panel.id}
-            className={`min-h-0 w-full ${getPanelClasses(config.layout, index)}`}
-          >
-            <PanelContainer
-              config={panel}
-              allowedWidgets={allowedWidgets}
-              onConfigChange={(updates) => updatePanel(panel.id, updates)}
-              onTypeChange={(type) => setPanelType(panel.id, type)}
-            />
-          </div>
-        ))}
-      </main>
-    </div>
-  );
+interface Feature {
+  key: string;
+  name: string;
+  description: string;
+  icon: LucideIcon;
+  route: string | null;
 }
 
+const FEATURES: Feature[] = [
+  { key: 'cases', name: 'Cases', description: 'Manage case files and matters', icon: Briefcase, route: '/cases' },
+  { key: 'intakes', name: 'Intake', description: 'Review new client inquiries', icon: Inbox, route: '/intakes' },
+  { key: 'tasks', name: 'Tasks', description: 'Track to-dos and assignments', icon: CheckSquare, route: '/tasks' },
+  { key: 'calendar', name: 'Calendar', description: 'Upcoming events and deadlines', icon: Clock, route: '/calendar' },
+  { key: 'templates', name: 'Templates', description: 'Generate pleadings, RFPs, and more', icon: FileText, route: '/templates' },
+  { key: 'courtlistener', name: 'CourtListener', description: 'Monitor federal court filings', icon: Webhook, route: '/courtlistener' },
+  { key: 'people', name: 'People', description: 'Contacts, clients, counsel, and experts', icon: Users, route: '/persons' },
+  { key: 'chat', name: 'Chat', description: 'AI assistant for case research', icon: MessageCircle, route: null },
+];
+
 export function Dashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const firstName = user?.firstName ?? 'there';
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const allEnabled = user?.isAdmin || user?.visibleFeatures == null;
+  const enabledFeatures = allEnabled
+    ? FEATURES
+    : FEATURES.filter((f) => user?.visibleFeatures?.[f.key] !== false);
+  const disabledFeatures = allEnabled
+    ? []
+    : FEATURES.filter((f) => user?.visibleFeatures?.[f.key] === false);
+
   return (
-    <PanelLayoutProvider
-      storageKey={STORAGE_KEY}
-      allowedWidgets={ALLOWED_WIDGETS}
-      defaultConfig={DEFAULT_CONFIG}
-    >
-      <DashboardContent />
-    </PanelLayoutProvider>
+    <div className="h-screen flex flex-col overflow-auto bg-bg-base">
+      {/* Greeting */}
+      <div className="px-6 pt-8 pb-2">
+        <h1 className="text-2xl font-semibold text-text">Welcome back, {firstName}</h1>
+        <p className="text-text-muted mt-1">{today}</p>
+      </div>
+
+      {/* Your Tools */}
+      <div className="px-6 pt-6">
+        <h2 className="text-sm font-medium text-text-muted uppercase tracking-wide mb-4">Your Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {enabledFeatures.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <button
+                key={feature.key}
+                onClick={() => feature.route && navigate(feature.route)}
+                className="flex items-start gap-4 p-4 rounded-lg bg-bg-surface border border-border hover:border-primary-300 hover:shadow transition-all text-left cursor-pointer"
+              >
+                <div className="p-2 rounded-md bg-primary-50 dark:bg-primary-950">
+                  <Icon className="w-5 h-5 text-primary-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-text">{feature.name}</div>
+                  <div className="text-sm text-text-muted mt-0.5">{feature.description}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* More Tools Available (only for restricted users) */}
+      {disabledFeatures.length > 0 && (
+        <div className="px-6 pt-8 pb-8">
+          <h2 className="text-sm font-medium text-text-muted uppercase tracking-wide mb-1">More Tools Available</h2>
+          <p className="text-xs text-text-muted mb-4">Contact your admin to get access</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {disabledFeatures.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={feature.key}
+                  className="flex items-start gap-4 p-4 rounded-lg bg-bg-surface border border-border opacity-50"
+                >
+                  <div className="p-2 rounded-md bg-bg-muted">
+                    <Icon className="w-5 h-5 text-text-muted" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-text-muted">{feature.name}</div>
+                    <div className="text-sm text-text-muted mt-0.5">{feature.description}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

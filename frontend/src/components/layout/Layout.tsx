@@ -3,6 +3,7 @@ import { Outlet, useMatch, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { ChatButton, ChatPanel } from '../chat';
 import { QuickCaseSearch } from '../common';
+import { useAuth } from '../../context/AuthContext';
 
 // Detect if running on Mac
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
@@ -26,7 +27,11 @@ export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const { user } = useAuth();
   const location = useLocation();
+
+  // Chat is visible for admins, users with no feature restrictions, or users with chat enabled
+  const showChat = !user || user.isAdmin || !user.visibleFeatures || user.visibleFeatures.chat !== false;
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -85,8 +90,12 @@ export function Layout() {
         </main>
 
         {/* Chat UI */}
-        <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
-        <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
+        {showChat && (
+          <>
+            <ChatButton onClick={() => setIsChatOpen(true)} isOpen={isChatOpen} />
+            <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} caseContext={caseContext} />
+          </>
+        )}
 
         {/* Quick Case Search */}
         <QuickCaseSearch isOpen={isQuickSearchOpen} onClose={() => setIsQuickSearchOpen(false)} />

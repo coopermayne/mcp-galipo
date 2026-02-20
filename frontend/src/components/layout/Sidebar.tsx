@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Briefcase,
@@ -212,10 +212,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       >
         {/* Logo - matches header height and style */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-border">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <Scale className="w-6 h-6 text-primary-600 dark:text-primary-400" />
             <span className="font-semibold text-lg">Case Manager</span>
-          </div>
+          </Link>
           {/* Close button - mobile only */}
           <button
             onClick={onMobileClose}
