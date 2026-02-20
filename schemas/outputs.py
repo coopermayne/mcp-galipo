@@ -521,6 +521,7 @@ class IntakeOut(BaseModel):
     injury_description: Optional[str] = None
     disclaimer_accepted: Optional[bool] = None
     status: str
+    referral_note: Optional[str] = None
     notes: Optional[str] = None
     ai_summary: Optional[str] = None
     ai_rating: Optional[int] = None

@@ -110,6 +110,7 @@ class CreateIntakeInput(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    referral_note: Optional[str] = None
     case_type: Optional[str] = None
     incident_date: Optional[str] = None
     incident_time: Optional[str] = None

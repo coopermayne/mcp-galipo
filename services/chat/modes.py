@@ -127,8 +127,9 @@ Keep responses brief and action-oriented.""",
 
 The user will paste raw text like voicemail transcripts, emails, or handwritten notes. Your job:
 1. Parse the text and extract any available fields: name, phone, email, case type, incident date/time, location, incident description, injury description
-2. If CRITICAL fields are missing (name, phone number, or incident date), ask the user for them before creating
-3. Once you have enough info, call manage_intake(action="create", ...) with the extracted fields
+2. If the contact info belongs to a referring attorney or third party (not the actual client), set referral_note to identify them (e.g. "Referring attorney John Smith, Smith & Associates")
+3. If CRITICAL fields are missing (name, phone number, or incident date), ask the user for them before creating
+4. Once you have enough info, call manage_intake(action="create", ...) with the extracted fields
 4. After creating, briefly confirm what was captured
 
 IMPORTANT: Be flexible with date formats — convert whatever the user gives into YYYY-MM-DD. Phone numbers can be any format. For case_type, normalize to common categories (auto accident, slip and fall, medical malpractice, etc.).

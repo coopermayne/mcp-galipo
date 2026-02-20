@@ -240,6 +240,7 @@ class ManageIntakeInput(BaseModel):
     name: Optional[str] = Field(None, description="Contact name")
     email: Optional[str] = Field(None, description="Email address")
     phone: Optional[str] = Field(None, description="Phone number")
+    referral_note: Optional[str] = Field(None, description="If contact info is for a referring attorney or third party (not the actual client), note who they are and their affiliation here (e.g. 'Referring attorney John Smith, Smith & Associates')")
     case_type: Optional[str] = Field(None, description="Type of case (e.g. auto accident, slip and fall)")
     incident_date: Optional[str] = Field(None, description="Date of incident YYYY-MM-DD")
     incident_time: Optional[str] = Field(None, description="Time of incident")
@@ -1232,7 +1233,7 @@ def register_tools(mcp):
         try:
             if data.action == "create":
                 kwargs = {}
-                for field in ["name", "email", "phone", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
+                for field in ["name", "email", "phone", "referral_note", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
                     val = getattr(data, field)
                     if val is not None:
                         kwargs[field] = val
