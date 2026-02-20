@@ -67,12 +67,6 @@ export async function addIntakeComment(intakeId: number, content: string): Promi
   });
 }
 
-export async function deleteIntakeComment(intakeId: number, commentId: number): Promise<{ success: boolean }> {
-  return request(`/intakes/${intakeId}/comments/${commentId}`, {
-    method: 'DELETE',
-  });
-}
-
 export async function markIntakeRead(intakeId: number): Promise<{ success: boolean }> {
   return request(`/intakes/${intakeId}/read`, {
     method: 'POST',
