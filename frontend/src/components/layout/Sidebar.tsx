@@ -297,14 +297,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Footer */}
         <div className="p-3 border-t border-border space-y-1">
-          <button
+          {/* <button
             onClick={handleExport}
             disabled={isExporting}
             className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className={`w-5 h-5 ${isExporting ? 'animate-pulse' : ''}`} />
             {isExporting ? 'Exporting...' : 'Export Data'}
-          </button>
+          </button> */}
           <button
             onClick={toggleTheme}
             className="flex items-center gap-3 w-full px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text rounded-lg transition-colors"
