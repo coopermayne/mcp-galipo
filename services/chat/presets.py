@@ -287,84 +287,121 @@ def get_activity_context(user_id: int | None = None) -> dict:
 
 
 def get_sol_watch_context(user_id: int | None = None) -> dict:
-    """Find cases with approaching statute of limitations.
+    """Find intakes with approaching statute of limitations.
 
-    Uses date_of_injury + 2 years (CA personal injury default).
-    Flags cases within 6 months of SOL expiration.
+    Checks both:
+    - 6-month SOL (government claims)
+    - 2-year SOL (CA personal injury default)
+    Only considers intakes not yet retained/rejected/archived.
     """
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
-    sol_cutoff = now.date() + timedelta(days=180)  # 6 months out
-    uf = _user_filter_sql(user_id)
+    # Statuses for intakes still in the pipeline (not resolved)
+    status_filter = "AND i.status IN ('New', 'Screened', 'Needs Follow-Up', 'Atty Review', 'Send Retainer', 'Retainer Sent')"
 
     with SessionLocal() as session:
-        rows = session.execute(text(f"""
+        # Intakes approaching 6-month SOL (government claims)
+        rows_6mo = session.execute(text(f"""
             SELECT
-                c.id,
-                c.case_name,
-                c.status,
-                c.date_of_injury,
-                (c.date_of_injury + INTERVAL '2 years')::date AS sol_date,
-                ((c.date_of_injury + INTERVAL '2 years')::date - :now_date) AS days_remaining
-            FROM cases c
-            WHERE c.date_of_injury IS NOT NULL
-              AND c.status NOT IN ('Closed', 'Settl. Pend.')
-              AND (c.date_of_injury + INTERVAL '2 years')::date <= :sol_cutoff
-              AND (c.date_of_injury + INTERVAL '2 years')::date >= :now_date
-              {uf}
+                i.id,
+                i.name,
+                i.case_type,
+                i.status,
+                i.incident_date,
+                i.submitted_on,
+                i.ai_rating,
+                (i.incident_date + INTERVAL '6 months')::date AS sol_date,
+                ((i.incident_date + INTERVAL '6 months')::date - :now_date) AS days_remaining
+            FROM intakes i
+            WHERE i.incident_date IS NOT NULL
+              {status_filter}
+              AND (i.incident_date + INTERVAL '6 months')::date >= :now_date
             ORDER BY sol_date ASC
-        """), _user_params(user_id, {
-            "now_date": now.date(),
-            "sol_cutoff": sol_cutoff,
-        })).mappings().all()
+        """), {"now_date": now.date()}).mappings().all()
 
-        cases = []
-        for row in rows:
-            cases.append({
+        approaching_6mo = []
+        for row in rows_6mo:
+            approaching_6mo.append({
                 "id": row["id"],
-                "case_name": row["case_name"],
+                "name": row["name"],
+                "case_type": row["case_type"],
                 "status": row["status"],
-                "date_of_injury": row["date_of_injury"].isoformat() if row["date_of_injury"] else None,
+                "incident_date": row["incident_date"].isoformat() if row["incident_date"] else None,
                 "sol_date": row["sol_date"].isoformat() if row["sol_date"] else None,
                 "days_remaining": int(row["days_remaining"]) if row["days_remaining"] is not None else None,
+                "ai_rating": row["ai_rating"],
             })
 
-        # Also get cases where SOL has already passed (missed!)
+        # Intakes approaching 2-year SOL (within 6 months of expiring)
+        sol_cutoff_2yr = now.date() + timedelta(days=180)
+        rows_2yr = session.execute(text(f"""
+            SELECT
+                i.id,
+                i.name,
+                i.case_type,
+                i.status,
+                i.incident_date,
+                i.submitted_on,
+                i.ai_rating,
+                (i.incident_date + INTERVAL '2 years')::date AS sol_date,
+                ((i.incident_date + INTERVAL '2 years')::date - :now_date) AS days_remaining
+            FROM intakes i
+            WHERE i.incident_date IS NOT NULL
+              {status_filter}
+              AND (i.incident_date + INTERVAL '2 years')::date <= :sol_cutoff
+              AND (i.incident_date + INTERVAL '2 years')::date >= :now_date
+            ORDER BY sol_date ASC
+        """), {"now_date": now.date(), "sol_cutoff": sol_cutoff_2yr}).mappings().all()
+
+        approaching_2yr = []
+        for row in rows_2yr:
+            approaching_2yr.append({
+                "id": row["id"],
+                "name": row["name"],
+                "case_type": row["case_type"],
+                "status": row["status"],
+                "incident_date": row["incident_date"].isoformat() if row["incident_date"] else None,
+                "sol_date": row["sol_date"].isoformat() if row["sol_date"] else None,
+                "days_remaining": int(row["days_remaining"]) if row["days_remaining"] is not None else None,
+                "ai_rating": row["ai_rating"],
+            })
+
+        # Intakes where 2-year SOL has already passed
         expired = session.execute(text(f"""
             SELECT
-                c.id,
-                c.case_name,
-                c.status,
-                c.date_of_injury,
-                (c.date_of_injury + INTERVAL '2 years')::date AS sol_date
-            FROM cases c
-            WHERE c.date_of_injury IS NOT NULL
-              AND c.status NOT IN ('Closed', 'Settl. Pend.')
-              AND (c.date_of_injury + INTERVAL '2 years')::date < :now_date
-              {uf}
+                i.id,
+                i.name,
+                i.case_type,
+                i.status,
+                i.incident_date,
+                (i.incident_date + INTERVAL '2 years')::date AS sol_date
+            FROM intakes i
+            WHERE i.incident_date IS NOT NULL
+              {status_filter}
+              AND (i.incident_date + INTERVAL '2 years')::date < :now_date
             ORDER BY sol_date DESC
-        """), _user_params(user_id, {"now_date": now.date()})).mappings().all()
+        """), {"now_date": now.date()}).mappings().all()
 
-        expired_cases = []
+        expired_intakes = []
         for row in expired:
-            expired_cases.append({
+            expired_intakes.append({
                 "id": row["id"],
-                "case_name": row["case_name"],
+                "name": row["name"],
+                "case_type": row["case_type"],
                 "status": row["status"],
                 "sol_date": row["sol_date"].isoformat() if row["sol_date"] else None,
             })
 
     return {
-        "approaching": cases,
-        "expired": expired_cases,
+        "approaching_6mo": approaching_6mo,
+        "approaching_2yr": approaching_2yr,
+        "expired": expired_intakes,
         "query_date": now.strftime("%Y-%m-%d"),
-        "sol_window": "6 months",
-        "sol_rule": "2 years from date of injury (CA PI default)",
     }
 
 
 def get_stale_intakes_context(user_id: int | None = None) -> dict:
-    """Find intakes sitting in New status that haven't been acted on."""
+    """Find intakes in New or Screened status, ordered oldest first."""
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
 
@@ -382,14 +419,14 @@ def get_stale_intakes_context(user_id: int | None = None) -> dict:
                 i.ai_summary,
                 EXTRACT(EPOCH FROM (:now_ts - COALESCE(i.submitted_on, i.created_at))) / 3600 AS hours_old
             FROM intakes i
-            WHERE i.status = 'New'
+            WHERE i.status IN ('New', 'Screened')
             ORDER BY i.submitted_on ASC NULLS FIRST, i.created_at ASC
         """), {"now_ts": now}).mappings().all()
 
-        stale = []
+        intakes = []
         for row in rows:
             hours = round(row["hours_old"]) if row["hours_old"] else None
-            stale.append({
+            intakes.append({
                 "id": row["id"],
                 "name": row["name"],
                 "phone": row["phone"],
@@ -413,115 +450,8 @@ def get_stale_intakes_context(user_id: int | None = None) -> dict:
         status_counts = {r["status"]: r["count"] for r in status_rows}
 
     return {
-        "new_intakes": stale,
+        "unreviewed_intakes": intakes,
         "status_counts": status_counts,
-        "query_date": now.strftime("%Y-%m-%d"),
-    }
-
-
-def get_needs_attention_context(user_id: int | None = None) -> dict:
-    """Overdue tasks, missed events, and high-urgency items across all cases."""
-    pacific = ZoneInfo("America/Los_Angeles")
-    now = datetime.now(pacific)
-    uf = _user_filter_sql(user_id)
-
-    with SessionLocal() as session:
-        # Overdue tasks
-        rows = session.execute(text(f"""
-            SELECT
-                t.id,
-                t.description,
-                t.due_date,
-                t.urgency,
-                t.status,
-                c.id as case_id,
-                c.case_name,
-                (:now_date - t.due_date) AS days_overdue
-            FROM tasks t
-            JOIN cases c ON t.case_id = c.id
-            WHERE t.status != 'Done'
-              AND t.due_date < :now_date
-              AND c.status != 'Closed'
-              {uf}
-            ORDER BY t.due_date ASC
-            LIMIT 20
-        """), _user_params(user_id, {"now_date": now.date()})).mappings().all()
-
-        overdue_tasks = []
-        for row in rows:
-            overdue_tasks.append({
-                "id": row["id"],
-                "description": row["description"],
-                "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "days_overdue": int(row["days_overdue"]) if row["days_overdue"] else None,
-                "urgency": row["urgency"].lower() if row["urgency"] else "low",
-                "case": row["case_name"],
-            })
-
-        # Urgent/high tasks due in next 7 days
-        one_week = now.date() + timedelta(days=7)
-        rows = session.execute(text(f"""
-            SELECT
-                t.id,
-                t.description,
-                t.due_date,
-                t.urgency,
-                c.id as case_id,
-                c.case_name
-            FROM tasks t
-            JOIN cases c ON t.case_id = c.id
-            WHERE t.status != 'Done'
-              AND t.urgency IN ('Urgent', 'High')
-              AND (t.due_date IS NULL OR t.due_date <= :one_week)
-              AND c.status != 'Closed'
-              {uf}
-            ORDER BY
-                CASE t.urgency WHEN 'Urgent' THEN 2 ELSE 1 END DESC,
-                t.due_date ASC NULLS LAST
-            LIMIT 15
-        """), _user_params(user_id, {"one_week": one_week})).mappings().all()
-
-        urgent_tasks = []
-        for row in rows:
-            urgent_tasks.append({
-                "id": row["id"],
-                "description": row["description"],
-                "due_date": row["due_date"].isoformat() if row["due_date"] else None,
-                "urgency": row["urgency"].lower() if row["urgency"] else "low",
-                "case": row["case_name"],
-            })
-
-        # Cases with no recent activity (no task completed in 14+ days)
-        two_weeks_ago = now.date() - timedelta(days=14)
-        rows = session.execute(text(f"""
-            SELECT
-                c.id,
-                c.case_name,
-                c.status,
-                MAX(t.completion_date) AS last_completed
-            FROM cases c
-            LEFT JOIN tasks t ON t.case_id = c.id AND t.status = 'Done'
-            WHERE c.status NOT IN ('Closed', 'Settl. Pend.')
-              {uf}
-            GROUP BY c.id, c.case_name, c.status
-            HAVING MAX(t.completion_date) IS NULL OR MAX(t.completion_date) < :two_weeks_ago
-            ORDER BY MAX(t.completion_date) ASC NULLS FIRST
-            LIMIT 10
-        """), _user_params(user_id, {"two_weeks_ago": two_weeks_ago})).mappings().all()
-
-        stale_cases = []
-        for row in rows:
-            stale_cases.append({
-                "id": row["id"],
-                "case_name": row["case_name"],
-                "status": row["status"],
-                "last_completed": row["last_completed"].isoformat() if row["last_completed"] else "Never",
-            })
-
-    return {
-        "overdue_tasks": overdue_tasks,
-        "urgent_upcoming": urgent_tasks,
-        "stale_cases": stale_cases,
         "query_date": now.strftime("%Y-%m-%d"),
     }
 
@@ -857,35 +787,31 @@ Keep it conversational and highlight meaningful progress. If there's not much ac
     },
     "sol_watch": {
         "fetch": get_sol_watch_context,
-        "prompt": """Review the statute of limitations data below (using the 2-year California PI default).
+        "prompt": """Review the statute of limitations data for intakes below.
 
-If there are cases with EXPIRED SOL: lead with those as critical alerts.
-For approaching cases: list them by urgency (fewest days remaining first).
-For each case, note the SOL date and how many days remain.
+Two SOL windows are tracked:
+- 6-month SOL (government claims) — all active intakes with an incident date are shown
+- 2-year SOL (CA personal injury default) — intakes within 6 months of expiring
 
-If no cases are approaching SOL, say so — that's good news.
+If any intakes have an EXPIRED 2-year SOL: lead with those as critical alerts.
+Then show 6-month SOL intakes (these are the most urgent if approaching).
+Then show 2-year SOL intakes approaching expiration.
+
+For each intake, include their name, case type, incident date, SOL date, days remaining, and current status.
+If they have an AI rating, mention it.
+
+If no intakes are approaching SOL, say so — that's good news.
 Keep it concise and actionable.""",
     },
     "stale_intakes": {
         "fetch": get_stale_intakes_context,
-        "prompt": """Review these unprocessed intakes sitting in "New" status.
+        "prompt": """Review these unreviewed intakes sitting in "New" or "Screened" status, starting with the oldest.
 
 Highlight any that are more than 48 hours old — those need immediate attention.
 If any have AI ratings, mention the highest-rated ones first (they're the best leads).
-For each, summarize who they are, what happened, and how long they've been waiting.
+For each, summarize who they are, what type of case, and how long they've been waiting.
 
-If there are no new intakes, say so. End with the overall intake pipeline status (counts by status).""",
-    },
-    "needs_attention": {
-        "fetch": get_needs_attention_context,
-        "prompt": """Review what needs attention across all cases.
-
-Start with the most critical items:
-1. Overdue tasks (how many days overdue, which cases)
-2. Urgent/high-priority tasks due this week
-3. Cases going stale (no activity in 14+ days)
-
-Be direct and actionable. Group by case where it helps. Flag anything that's been overdue more than a week as critical.""",
+If there are no unreviewed intakes, say so. End with the overall intake pipeline status (counts by status).""",
     },
 }
 

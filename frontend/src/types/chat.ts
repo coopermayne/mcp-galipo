@@ -57,7 +57,7 @@ export type ChatMode = 'tasks' | 'events' | 'people' | 'proceedings' | 'intakes'
 
 export type ChatPreset =
   | 'priorities' | 'deadlines' | 'overdue' | 'activity'  // Dashboard presets (legacy)
-  | 'sol_watch' | 'stale_intakes' | 'needs_attention'  // Dashboard insight presets
+  | 'sol_watch' | 'stale_intakes'  // Intake page presets
   | 'case_summary' | 'case_next' | 'case_tasks' | 'case_events' | 'case_people';  // Case presets
 
 export interface ChatRequest {
