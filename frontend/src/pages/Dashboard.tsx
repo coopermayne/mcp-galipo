@@ -29,7 +29,10 @@ export function Dashboard() {
   const firstName = user?.firstName ?? 'there';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const allEnabled = user?.isAdmin || user?.visibleFeatures == null;
+  // Wait for user to load before computing features (prevents flash of all features on login)
+  if (!user) return null;
+
+  const allEnabled = user.isAdmin || user.visibleFeatures == null;
   const enabledFeatures = allEnabled
     ? FEATURES
     : FEATURES.filter((f) => user?.visibleFeatures?.[f.key] !== false);
