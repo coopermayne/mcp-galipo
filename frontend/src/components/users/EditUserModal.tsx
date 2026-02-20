@@ -1,9 +1,20 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Save } from 'lucide-react';
+import { X, Save, Eye } from 'lucide-react';
 import { updateUser, getUsers } from '../../api/users';
 import type { User, UpdateUserInput, UserPosition } from '../../types/user';
+
+const FEATURE_OPTIONS: { key: string; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'cases', label: 'Cases' },
+  { key: 'intakes', label: 'Intake' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'templates', label: 'Templates' },
+  { key: 'courtlistener', label: 'CourtListener' },
+  { key: 'people', label: 'People' },
+];
 
 interface EditUserModalProps {
   user: User | null;
@@ -45,6 +56,7 @@ export function EditUserModal({ user, onClose }: EditUserModalProps) {
         isAdmin: user.isAdmin,
         isActive: user.isActive,
         paralegalId: user.paralegalId,
+        visibleFeatures: user.visibleFeatures ?? null,
       });
     }
   }, [user]);
@@ -233,6 +245,53 @@ export function EditUserModal({ user, onClose }: EditUserModalProps) {
               </label>
             </div>
           </div>
+
+          {/* Visible Features - only for non-admin users */}
+          {!formData.isAdmin && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-text-secondary">
+                  <Eye className="w-4 h-4" />
+                  Sidebar Visibility
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    visibleFeatures: formData.visibleFeatures ? null : Object.fromEntries(
+                      FEATURE_OPTIONS.map(f => [f.key, true])
+                    ),
+                  })}
+                  className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  {formData.visibleFeatures ? 'Show All (reset)' : 'Customize'}
+                </button>
+              </div>
+              {formData.visibleFeatures ? (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {FEATURE_OPTIONS.map((feature) => (
+                    <label key={feature.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.visibleFeatures![feature.key] !== false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          visibleFeatures: {
+                            ...formData.visibleFeatures!,
+                            [feature.key]: e.target.checked,
+                          },
+                        })}
+                        className="rounded border-border text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-text">{feature.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-text-muted">All features visible (default)</p>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-border">

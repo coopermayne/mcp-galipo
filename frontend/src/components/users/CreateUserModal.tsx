@@ -1,9 +1,20 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, UserPlus } from 'lucide-react';
+import { X, UserPlus, Eye } from 'lucide-react';
 import { createUser } from '../../api/users';
 import type { CreateUserInput, UserPosition } from '../../types/user';
+
+const FEATURE_OPTIONS: { key: string; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'cases', label: 'Cases' },
+  { key: 'intakes', label: 'Intake' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'templates', label: 'Templates' },
+  { key: 'courtlistener', label: 'CourtListener' },
+  { key: 'people', label: 'People' },
+];
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -27,6 +38,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     position: 'paralegal',
     barNumber: '',
     isAdmin: false,
+    visibleFeatures: null,
   });
   const [error, setError] = useState('');
 
@@ -43,6 +55,7 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
         position: 'paralegal',
         barNumber: '',
         isAdmin: false,
+        visibleFeatures: null,
       });
       setError('');
     },
@@ -183,15 +196,62 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="isAdmin"
+              id="createIsAdmin"
               checked={formData.isAdmin}
               onChange={(e) => setFormData({ ...formData, isAdmin: e.target.checked })}
               className="rounded border-border text-primary-600 focus:ring-primary-500"
             />
-            <label htmlFor="isAdmin" className="text-sm text-text-secondary">
+            <label htmlFor="createIsAdmin" className="text-sm text-text-secondary">
               Admin privileges (can manage users)
             </label>
           </div>
+
+          {/* Visible Features - only for non-admin users */}
+          {!formData.isAdmin && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-text-secondary">
+                  <Eye className="w-4 h-4" />
+                  Sidebar Visibility
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    visibleFeatures: formData.visibleFeatures ? null : Object.fromEntries(
+                      FEATURE_OPTIONS.map(f => [f.key, true])
+                    ),
+                  })}
+                  className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  {formData.visibleFeatures ? 'Show All (reset)' : 'Customize'}
+                </button>
+              </div>
+              {formData.visibleFeatures ? (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {FEATURE_OPTIONS.map((feature) => (
+                    <label key={feature.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-hover cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.visibleFeatures![feature.key] !== false}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          visibleFeatures: {
+                            ...formData.visibleFeatures!,
+                            [feature.key]: e.target.checked,
+                          },
+                        })}
+                        className="rounded border-border text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-text">{feature.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-text-muted">All features visible (default)</p>
+              )}
+            </div>
+          )}
 
           <div className="bg-bg-hover rounded-lg p-3 text-sm text-text-muted">
             Default password will be set to <code className="bg-bg-elevated px-1 rounded">changeme</code>.

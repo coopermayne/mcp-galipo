@@ -41,6 +41,7 @@ def _user_to_camel(user: dict) -> dict:
         "mustChangePassword": user.get("must_change_password", False),
         "isActive": user.get("is_active", True),
         "paralegalId": user.get("paralegal_id"),
+        "visibleFeatures": user.get("visible_features"),
         "createdAt": user.get("created_at"),
         "updatedAt": user.get("updated_at"),
     }
@@ -155,6 +156,7 @@ def register_user_routes(mcp):
                 bar_number=data.get("barNumber"),
                 is_admin=data.get("isAdmin", False),
                 must_change_password=data.get("mustChangePassword", True),
+                visible_features=data.get("visibleFeatures"),
             )
             return JSONResponse({"success": True, "data": _user_to_camel(user)}, status_code=201)
         except Exception as e:
@@ -239,6 +241,8 @@ def register_user_routes(mcp):
                 update_data["is_active"] = data["isActive"]
             if "paralegalId" in data:
                 update_data["paralegal_id"] = data["paralegalId"]
+            if "visibleFeatures" in data:
+                update_data["visible_features"] = data["visibleFeatures"]
 
             user = update_user(user_id, **update_data)
             return JSONResponse({"success": True, "data": _user_to_camel(user)})

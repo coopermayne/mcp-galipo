@@ -36,19 +36,21 @@ interface NavItem {
   href: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  featureKey?: string;
   children?: { name: string; href: string; icon: LucideIcon }[];
 }
 
 const baseNavigation: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Cases', href: '/cases', icon: Briefcase },
-  { name: 'Intake', href: '/intakes', icon: Inbox },
-  { name: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { name: 'Calendar', href: '/calendar', icon: Clock },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, featureKey: 'dashboard' },
+  { name: 'Cases', href: '/cases', icon: Briefcase, featureKey: 'cases' },
+  { name: 'Intake', href: '/intakes', icon: Inbox, featureKey: 'intakes' },
+  { name: 'Tasks', href: '/tasks', icon: CheckSquare, featureKey: 'tasks' },
+  { name: 'Calendar', href: '/calendar', icon: Clock, featureKey: 'calendar' },
   {
     name: 'Templates',
     href: '/templates',
     icon: FileText,
+    featureKey: 'templates',
     children: [
       { name: 'Pleadings', href: '/templates/pleadings', icon: FileText },
       { name: 'RFP', href: '/templates/rfp', icon: FileSearch },
@@ -57,11 +59,12 @@ const baseNavigation: NavItem[] = [
       { name: 'Disbursement', href: '/templates/disbursement', icon: Receipt },
     ],
   },
-  { name: 'CourtListener', href: '/courtlistener', icon: Webhook },
+  { name: 'CourtListener', href: '/courtlistener', icon: Webhook, featureKey: 'courtlistener' },
   {
     name: 'People',
     href: '/persons',
     icon: Users,
+    featureKey: 'people',
     children: [
       { name: 'Clients', href: '/persons/clients', icon: Users },
       { name: 'Counsel', href: '/persons/counsel', icon: Briefcase },
@@ -110,13 +113,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     }
   }, [location.pathname]);
 
-  // Build navigation based on user role
+  // Build navigation based on user role and visible features
   const navigation = useMemo(() => {
-    if (user?.isAdmin) {
-      return [...baseNavigation, ...adminNavigation];
+    let items = baseNavigation;
+    // If non-admin user has visibleFeatures set, filter out disabled items
+    if (user && !user.isAdmin && user.visibleFeatures) {
+      items = items.filter(item => !item.featureKey || user.visibleFeatures![item.featureKey] !== false);
     }
-    return baseNavigation;
-  }, [user?.isAdmin]);
+    if (user?.isAdmin) {
+      return [...items, ...adminNavigation];
+    }
+    return items;
+  }, [user]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {

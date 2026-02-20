@@ -21,6 +21,7 @@ export interface User {
   isActive: boolean;
   paralegalId?: number | null;
   paralegal?: UserRef | null;
+  visibleFeatures?: Record<string, boolean> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +36,7 @@ export interface CreateUserInput {
   position: UserPosition;
   isAdmin?: boolean;
   mustChangePassword?: boolean;
+  visibleFeatures?: Record<string, boolean> | null;
 }
 
 export interface UpdateUserInput {
@@ -48,6 +50,7 @@ export interface UpdateUserInput {
   mustChangePassword?: boolean;
   isActive?: boolean;
   paralegalId?: number | null;
+  visibleFeatures?: Record<string, boolean> | null;
 }
 
 // Staff user for case assignments (subset of User fields)
