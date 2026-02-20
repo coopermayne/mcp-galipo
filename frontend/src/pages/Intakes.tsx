@@ -487,9 +487,15 @@ function DetailModal({
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
         <div className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="flex items-center gap-2.5">
-              <h3 className="font-semibold text-text">{intake.name || 'Unknown'}</h3>
-              <StatusBadge status={intake.status} onChange={onStatusChange} />
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h3 className="font-semibold text-text">{intake.name || 'Unknown'}</h3>
+                <StatusBadge status={intake.status} onChange={onStatusChange} />
+              </div>
+              {(() => {
+                const s = formatSubmitted(intake.submitted_on);
+                return s ? <div className="text-xs text-text-muted mt-0.5">Submitted {s.date} ({s.ago})</div> : null;
+              })()}
             </div>
             <button onClick={onClose} className="p-1 text-text-muted hover:text-text">
               <X className="w-5 h-5" />
@@ -501,143 +507,144 @@ function DetailModal({
               {/* Contact */}
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Contact</h4>
-                {intake.email && (
-                  <div className="flex items-center gap-2 text-sm text-text-secondary">
-                    <Mail className="w-4 h-4 text-text-muted" />
-                    <a href={`mailto:${intake.email}`} className="text-primary-600 hover:underline">{intake.email}</a>
-                  </div>
-                )}
-                {intake.phone && (
-                  <div className="flex items-center gap-2 text-sm text-text-secondary">
-                    <Phone className="w-4 h-4 text-text-muted" />
-                    <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
-                  </div>
-                )}
+                <div className="pl-5 space-y-2">
+                  {intake.email && (
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <Mail className="w-4 h-4 text-text-muted" />
+                      <a href={`mailto:${intake.email}`} className="text-primary-600 hover:underline">{intake.email}</a>
+                    </div>
+                  )}
+                  {intake.phone && (
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <Phone className="w-4 h-4 text-text-muted" />
+                      <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Incident Details */}
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Incident</h4>
-                {intake.case_type && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Tag className="w-4 h-4 text-text-muted" />
-                    <span className="text-text">{intake.case_type}</span>
-                  </div>
-                )}
-                {intake.incident_date && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-text-muted" />
-                    <span className="text-text">{formatDate(intake.incident_date)}</span>
-                    {intake.incident_time && <span className="text-text-muted">at {intake.incident_time}</span>}
-                  </div>
-                )}
-                {intake.location && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="w-4 h-4 text-text-muted" />
-                    <span className="text-text">{intake.location}</span>
-                  </div>
-                )}
+                <div className="pl-5 space-y-2">
+                  {intake.case_type && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Tag className="w-4 h-4 text-text-muted" />
+                      <span className="text-text">{intake.case_type}</span>
+                    </div>
+                  )}
+                  {intake.incident_date && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4 text-text-muted" />
+                      <span className="text-text">{formatDate(intake.incident_date)}</span>
+                      {intake.incident_time && <span className="text-text-muted">at {intake.incident_time}</span>}
+                    </div>
+                  )}
+                  {intake.location && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="w-4 h-4 text-text-muted" />
+                      <span className="text-text">{intake.location}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Notes — inline, click to edit */}
               <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider flex items-center gap-1.5">
-                  {!editingNotes && <Pencil className="w-3 h-3 text-text-muted/40" />}
+                <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">
                   Notes
                 </h4>
-                {editingNotes ? (
-                  <>
-                    <div
-                      ref={notesRef}
-                      contentEditable
-                      suppressContentEditableWarning
-                      onInput={(e) => setNotesDraft(e.currentTarget.textContent || '')}
-                      className="text-sm text-text whitespace-pre-wrap outline-none border-l-2 border-primary-400 pl-3 py-1 min-h-[2em] focus:border-primary-500"
-                      data-placeholder="Start typing notes..."
-                    />
-                    <div className="flex items-center justify-end gap-2 mt-2">
-                      {hasChangedNotes ? (
-                        <>
+                <div className="pl-5">
+                  {editingNotes ? (
+                    <>
+                      <div
+                        ref={notesRef}
+                        contentEditable
+                        suppressContentEditableWarning
+                        onInput={(e) => setNotesDraft(e.currentTarget.textContent || '')}
+                        className="text-sm text-text whitespace-pre-wrap outline-none border-l-2 border-primary-400 pl-3 py-1 min-h-[2em] focus:border-primary-500"
+                        data-placeholder="Start typing notes..."
+                      />
+                      <div className="flex items-center justify-end gap-2 mt-2">
+                        {hasChangedNotes ? (
+                          <>
+                            <button
+                              onClick={() => { setNotesDraft(intake.notes || ''); setEditingNotes(false); }}
+                              className="px-2.5 py-1 text-xs font-medium text-text-muted hover:text-text transition-colors"
+                            >
+                              Discard
+                            </button>
+                            <button
+                              onClick={() => { onSaveNotes(notesDraft); setEditingNotes(false); }}
+                              className="px-2.5 py-1 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
+                            >
+                              Save
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            onClick={() => { setNotesDraft(intake.notes || ''); setEditingNotes(false); }}
+                            onClick={() => setEditingNotes(false)}
                             className="px-2.5 py-1 text-xs font-medium text-text-muted hover:text-text transition-colors"
                           >
-                            Discard
+                            Done
                           </button>
-                          <button
-                            onClick={() => { onSaveNotes(notesDraft); setEditingNotes(false); }}
-                            className="px-2.5 py-1 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
-                          >
-                            Save
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => setEditingNotes(false)}
-                          className="px-2.5 py-1 text-xs font-medium text-text-muted hover:text-text transition-colors"
-                        >
-                          Done
-                        </button>
-                      )}
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div
+                      onClick={() => setEditingNotes(true)}
+                      className="text-sm text-text-secondary whitespace-pre-wrap cursor-pointer rounded-lg px-3 py-2 border border-dashed border-border hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-colors"
+                    >
+                      {notesDraft || <span className="text-text-muted/50 italic">Click to add notes...</span>}
                     </div>
-                  </>
-                ) : (
-                  <div
-                    onClick={() => setEditingNotes(true)}
-                    className="text-sm text-text-secondary whitespace-pre-wrap cursor-pointer rounded-lg px-3 py-2 border border-dashed border-border hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-colors"
-                  >
-                    {notesDraft || <span className="text-text-muted/50 italic">Click to add notes...</span>}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* AI Analysis */}
               {(intake.ai_summary || intake.ai_rating) && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">
                     AI Summary
                   </h4>
-                  {intake.ai_rating && (
-                    <div className="flex items-center gap-2">
-                      <StarRating rating={intake.ai_rating} reasoning={intake.ai_rating_reasoning} />
-                      <span className="text-xs text-text-muted">{intake.ai_rating}/5</span>
-                    </div>
-                  )}
-                  {intake.ai_summary && (
-                    <div className="text-sm text-text-secondary">
-                      <MarkdownContent content={intake.ai_summary} />
-                    </div>
-                  )}
+                  <div className="ml-1 pl-4 border-l-2 border-border">
+                    {intake.ai_rating && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <StarRating rating={intake.ai_rating} reasoning={intake.ai_rating_reasoning} />
+                        <span className="text-xs text-text-muted">{intake.ai_rating}/5</span>
+                      </div>
+                    )}
+                    {intake.ai_summary && (
+                      <div className="text-sm text-text-secondary">
+                        <MarkdownContent content={intake.ai_summary} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* Client-submitted descriptions */}
               {intake.incident_description && (
                 <div className="space-y-1">
-                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider flex items-center gap-1.5">
-                    <ClipboardList className="w-3.5 h-3.5" />
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">
                     PC Incident Description
                   </h4>
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.incident_description}</p>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap ml-1 pl-4 border-l-2 border-border">{intake.incident_description}</p>
                 </div>
               )}
               {intake.injury_description && (
                 <div className="space-y-1">
-                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider flex items-center gap-1.5">
-                    <ClipboardList className="w-3.5 h-3.5" />
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">
                     PC Injury Description
                   </h4>
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap">{intake.injury_description}</p>
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap ml-1 pl-4 border-l-2 border-border">{intake.injury_description}</p>
                 </div>
               )}
 
-              {/* Meta */}
-              <div className="pt-2 border-t border-border text-xs text-text-muted space-y-1">
-                <div>Submitted: {formatDateTime(intake.submitted_on)}</div>
-                <div>Imported: {formatDateTime(intake.created_at)}</div>
-                {intake.disclaimer_accepted && <div className="text-green-600">Disclaimer accepted</div>}
-              </div>
+              {intake.disclaimer_accepted && (
+                <div className="text-xs text-green-600">Disclaimer accepted</div>
+              )}
             </div>
 
             {/* Right: comments */}
