@@ -20,6 +20,16 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatSubmitted(dateStr: string | null): { date: string; time: string; ago: string } | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const ago = days === 0 ? 'today' : days === 1 ? '1 day' : `${days} days`;
+  return { date, time, ago };
+}
+
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length === 10) {
@@ -157,7 +167,7 @@ export function ArchivedIntakes() {
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Submitted</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
+              <tbody className="divide-y divide-border">
                 {intakes.map((intake) => (
                   <tr
                     key={intake.id}
@@ -190,7 +200,16 @@ export function ArchivedIntakes() {
                       {formatDate(intake.incident_date)}
                     </td>
                     <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                      {formatDate(intake.submitted_on)}
+                      {(() => {
+                        const s = formatSubmitted(intake.submitted_on);
+                        if (!s) return '—';
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <span>{s.date}, {s.time}</span>
+                            <span className="text-text-muted/70">({s.ago})</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

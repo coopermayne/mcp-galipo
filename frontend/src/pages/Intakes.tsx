@@ -33,6 +33,16 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatSubmitted(dateStr: string | null): { date: string; time: string; ago: string } | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const ago = days === 0 ? 'today' : days === 1 ? '1 day' : `${days} days`;
+  return { date, time, ago };
+}
+
 function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length === 10) {
@@ -890,7 +900,7 @@ export function Intakes() {
           <div className="bg-bg-surface rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-bg-hover/50">
+                <tr className="bg-bg-hover/50">
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[90px]">Submitted</th>
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[140px]">Name</th>
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[120px]">Case Type</th>
@@ -900,16 +910,25 @@ export function Intakes() {
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[160px]">Notes</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
-                {intakes.map((intake) => {
+              <tbody>
+                {intakes.map((intake, idx) => {
                   const unread = unreadCounts?.[String(intake.id)] ?? 0;
                   return (
                     <tr
                       key={intake.id}
-                      className="hover:bg-bg-hover/50 transition-colors"
+                      className={`hover:bg-bg-hover/50 transition-colors ${idx > 0 ? 'border-t border-border' : ''}`}
                     >
                       <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                        {formatDate(intake.submitted_on)}
+                        {(() => {
+                          const s = formatSubmitted(intake.submitted_on);
+                          if (!s) return '—';
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <span>{s.date}, {s.time}</span>
+                              <span className="text-text-muted/70">({s.ago})</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
