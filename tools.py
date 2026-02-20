@@ -237,10 +237,14 @@ class ManageJudgeInput(BaseModel):
 class ManageIntakeInput(BaseModel):
     """Create a new intake from unstructured text."""
     action: Literal["create"] = Field(..., description="Action to perform (only 'create' supported)")
-    name: Optional[str] = Field(None, description="Contact name")
-    email: Optional[str] = Field(None, description="Email address")
-    phone: Optional[str] = Field(None, description="Phone number")
-    referral_note: Optional[str] = Field(None, description="If contact info is for a referring attorney or third party (not the actual client), note who they are and their affiliation here (e.g. 'Referring attorney John Smith, Smith & Associates')")
+    name: Optional[str] = Field(None, description="Name of the injured person / potential client")
+    email: Optional[str] = Field(None, description="Email of the contact (injured person or referral source)")
+    phone: Optional[str] = Field(None, description="Phone of the contact (injured person or referral source)")
+    contact_relationship: Optional[str] = Field(None, description="Relationship of the contact to the injured person (e.g. 'self', 'mother', 'friend', 'spouse'). Omit if contact IS the injured person.")
+    referral_name: Optional[str] = Field(None, description="Name of the referring person (attorney, doctor, etc.) if this is a referral")
+    referral_org: Optional[str] = Field(None, description="Organization/firm of the referring person")
+    referral_email: Optional[str] = Field(None, description="Email of the referring person")
+    referral_phone: Optional[str] = Field(None, description="Phone of the referring person")
     case_type: Optional[str] = Field(None, description="Type of case (e.g. auto accident, slip and fall)")
     incident_date: Optional[str] = Field(None, description="Date of incident YYYY-MM-DD")
     incident_time: Optional[str] = Field(None, description="Time of incident")
@@ -1233,7 +1237,7 @@ def register_tools(mcp):
         try:
             if data.action == "create":
                 kwargs = {}
-                for field in ["name", "email", "phone", "referral_note", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
+                for field in ["name", "email", "phone", "contact_relationship", "referral_name", "referral_org", "referral_email", "referral_phone", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
                     val = getattr(data, field)
                     if val is not None:
                         kwargs[field] = val

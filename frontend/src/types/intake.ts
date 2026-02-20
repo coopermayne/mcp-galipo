@@ -38,7 +38,11 @@ export interface Intake {
   injury_description: string | null;
   disclaimer_accepted: boolean | null;
   status: IntakeStatus;
-  referral_note: string | null;
+  contact_relationship: string | null;
+  referral_name: string | null;
+  referral_org: string | null;
+  referral_email: string | null;
+  referral_phone: string | null;
   notes: string | null;
   ai_summary: string | null;
   ai_rating: number | null;

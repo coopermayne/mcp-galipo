@@ -512,14 +512,43 @@ function DetailModal({
                       <a href={`tel:${intake.phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.phone)}</a>
                     </div>
                   )}
-                  {intake.referral_note && (
+                  {intake.contact_relationship && (
                     <div className="flex items-start gap-2 text-sm text-text-secondary">
                       <UserCheck className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-text italic">{intake.referral_note}</span>
+                      <span className="text-text italic">Contact is {intake.contact_relationship} of injured person</span>
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Referral Source */}
+              {(intake.referral_name || intake.referral_org || intake.referral_email || intake.referral_phone) && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase text-text-muted tracking-wider">Referral Source</h4>
+                  <div className="pl-5 space-y-2">
+                    {(intake.referral_name || intake.referral_org) && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <UserCheck className="w-4 h-4 text-text-muted" />
+                        <span className="text-text">
+                          {intake.referral_name}{intake.referral_name && intake.referral_org ? ', ' : ''}{intake.referral_org}
+                        </span>
+                      </div>
+                    )}
+                    {intake.referral_email && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="w-4 h-4 text-text-muted" />
+                        <a href={`mailto:${intake.referral_email}`} className="text-primary-600 hover:underline">{intake.referral_email}</a>
+                      </div>
+                    )}
+                    {intake.referral_phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-text-muted" />
+                        <a href={`tel:${intake.referral_phone}`} className="text-primary-600 hover:underline">{formatPhone(intake.referral_phone)}</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Incident Details */}
               <div className="space-y-2">
