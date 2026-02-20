@@ -14,6 +14,7 @@ const FEATURE_OPTIONS: { key: string; label: string }[] = [
   { key: 'templates', label: 'Templates' },
   { key: 'courtlistener', label: 'CourtListener' },
   { key: 'people', label: 'People' },
+  { key: 'chat', label: 'Chat' },
 ];
 
 interface CreateUserModalProps {
