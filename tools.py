@@ -1242,6 +1242,21 @@ def register_tools(mcp):
                     if val is not None:
                         kwargs[field] = val
                 result = db.create_intake(**kwargs)
+
+                # Run AI analysis (summary + rating) on the new intake
+                try:
+                    from services.intake_ai import analyze_intake
+                    ai_result = analyze_intake(result)
+                    db.save_ai_analysis(
+                        result["id"],
+                        ai_result["ai_summary"],
+                        ai_result["ai_rating"],
+                        ai_result["ai_rating_reasoning"],
+                    )
+                    result.update(ai_result)
+                except Exception as e:
+                    context.warning(f"AI analysis failed (intake still created): {e}")
+
                 return {"success": True, "message": "Intake created", "intake_id": result["id"], "intake": result}
 
         except Exception as e:

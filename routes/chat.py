@@ -300,9 +300,11 @@ def register_chat_routes(mcp):
             tools = get_tool_definitions(mode)
         _logger.info(f"Tools after filtering: {len(tools)} tools")
 
-        # Model selection: Sonnet for freeform (full mode), Haiku for presets + scoped modes
+        # Model selection: Sonnet for freeform/intakes, Haiku for presets + other scoped modes
         if preset_data:
             selected_model = None  # Default (haiku) — just summarizing pre-loaded data
+        elif mode == "intakes":
+            selected_model = client.model_full  # Sonnet — intake parsing needs smarter model
         elif mode and mode != "full":
             selected_model = None  # Default (haiku) — scoped tools, clear intent
         else:
