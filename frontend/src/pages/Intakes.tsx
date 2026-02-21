@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
-import { ListPanel } from '../components/common';
+import { ListPanel, ToastContainer, useToast } from '../components/common';
 import { MarkdownContent } from '../components/chat/MarkdownContent';
 import { getIntakes, getIntakeCounts, getIntake, updateIntake, syncIntakes, /* analyzeIntakes, */ analyzeIntake, getIntakeActivity, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
@@ -996,6 +996,8 @@ export function Intakes() {
   const [autoFocusComments, setAutoFocusComments] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [pendingChange, setPendingChange] = useState<{ intakeId: number; status: IntakeStatus } | null>(null);
+  const [exitingRowId, setExitingRowId] = useState<number | null>(null);
+  const { toasts, showToast, dismissToast } = useToast();
 
   // Open intake from URL param (e.g. /intakes?selected=123)
   useEffect(() => {
@@ -1081,6 +1083,51 @@ export function Intakes() {
     mutationFn: (intakeId: number) => analyzeIntake(intakeId),
   });
 
+  /** Animate row exit (if visible in table), fire mutation, show undo toast. */
+  const executeStatusChange = (intakeId: number, newStatus: IntakeStatus) => {
+    const intake = allIntakes.find((i) => i.id === intakeId) || (selectedIntake?.id === intakeId ? selectedIntake : null);
+    const name = intake?.name || 'Unknown';
+    const oldStatus = intake?.status;
+    const isInTable = !selectedIntakeId && allIntakes.some((i) => i.id === intakeId);
+
+    const doMutateAndToast = () => {
+      updateMutation.mutate({ id: intakeId, status: newStatus });
+      setExitingRowId(null);
+
+      const newColor = INTAKE_STATUS_COLORS[newStatus as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
+      showToast({
+        message: (
+          <span className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => { setAutoFocusComments(false); setSelectedIntakeId(intakeId); }}
+              className="font-semibold text-white hover:underline"
+            >
+              {name}
+            </button>
+            <span className="text-text-muted">moved to</span>
+            <button
+              onClick={() => setStatusFilter(newStatus)}
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium leading-none ${newColor.bg} ${newColor.text} hover:opacity-80 transition-opacity`}
+            >
+              {newStatus}
+            </button>
+          </span>
+        ),
+        onUndo: oldStatus ? () => {
+          updateMutation.mutate({ id: intakeId, status: oldStatus });
+        } : undefined,
+        duration: 8000,
+      });
+    };
+
+    if (isInTable) {
+      setExitingRowId(intakeId);
+      setTimeout(doMutateAndToast, 300);
+    } else {
+      doMutateAndToast();
+    }
+  };
+
   /** Check for comment before status change; prompt if missing. */
   const requestStatusChange = (intakeId: number, newStatus: IntakeStatus) => {
     // Find the intake in list data or selected intake
@@ -1089,7 +1136,7 @@ export function Intakes() {
       setPendingChange({ intakeId, status: newStatus });
       return;
     }
-    updateMutation.mutate({ id: intakeId, status: newStatus });
+    executeStatusChange(intakeId, newStatus);
   };
 
   const total = data?.total || 0;
@@ -1238,7 +1285,7 @@ export function Intakes() {
                     <tr
                       key={intake.id}
                       onClick={() => { setAutoFocusComments(false); setSelectedIntakeId(intake.id); }}
-                      className={`hover:bg-bg-hover transition-colors cursor-pointer ${idx > 0 ? 'border-t border-border' : ''}`}
+                      className={`hover:bg-bg-hover transition-colors cursor-pointer ${idx > 0 ? 'border-t border-border' : ''} ${exitingRowId === intake.id ? 'animate-row-exit' : ''}`}
                     >
                       <td className="px-4 py-3 text-text text-xs whitespace-nowrap">
                         {(() => {
@@ -1396,12 +1443,15 @@ export function Intakes() {
             setPendingChange(null);
           }}
           onSkip={() => {
-            updateMutation.mutate({ id: pendingChange.intakeId, status: pendingChange.status });
+            executeStatusChange(pendingChange.intakeId, pendingChange.status);
             setPendingChange(null);
           }}
           onClose={() => setPendingChange(null)}
         />
       )}
+
+      {/* Undo toasts for status changes */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </>
   );
 }
