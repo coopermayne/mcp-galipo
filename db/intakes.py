@@ -88,8 +88,17 @@ def get_unanalyzed_intake_ids(limit: int = 50, include_analyzed: bool = False) -
         return list(session.scalars(stmt).all())
 
 
+def set_ai_analyzing(intake_id: int, analyzing: bool) -> None:
+    """Set the ai_analyzing flag on an intake."""
+    with SessionLocal() as session:
+        intake = session.get(Intake, intake_id)
+        if intake:
+            intake.ai_analyzing = analyzing
+            session.commit()
+
+
 def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_reasoning: str) -> Optional[dict]:
-    """Save AI analysis results for an intake."""
+    """Save AI analysis results for an intake and clear ai_analyzing flag."""
     with SessionLocal() as session:
         intake = session.get(Intake, intake_id)
         if not intake:
@@ -97,6 +106,7 @@ def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_
         intake.ai_summary = ai_summary
         intake.ai_rating = ai_rating
         intake.ai_rating_reasoning = ai_rating_reasoning
+        intake.ai_analyzing = False
         session.flush()
         session.refresh(intake)
         result = _intake_to_dict(intake)

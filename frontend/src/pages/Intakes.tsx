@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
 import { ListPanel } from '../components/common';
@@ -810,11 +810,25 @@ function ActivityModal({
 
 export function Intakes() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<string>('New');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
   const [autoFocusComments, setAutoFocusComments] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+
+  // Open intake from URL param (e.g. /intakes?selected=123)
+  useEffect(() => {
+    const selectedParam = searchParams.get('selected');
+    if (selectedParam) {
+      const id = parseInt(selectedParam, 10);
+      if (!isNaN(id)) {
+        setSelectedIntakeId(id);
+        setAutoFocusComments(false);
+      }
+      setSearchParams({}, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useIntakeSSE();
 
@@ -883,14 +897,8 @@ export function Intakes() {
     },
   });
 
-  const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
   const analyzeSingleMutation = useMutation({
     mutationFn: (intakeId: number) => analyzeIntake(intakeId),
-    onMutate: (intakeId) => setAnalyzingIds(prev => new Set(prev).add(intakeId)),
-    onSettled: (_data, _error, intakeId) => setAnalyzingIds(prev => { const next = new Set(prev); next.delete(intakeId); return next; }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['intakes'] });
-    },
   });
 
   const total = data?.total || 0;
@@ -1096,7 +1104,7 @@ export function Intakes() {
                       })()}
                       <td className="px-4 py-3">
                         <div className="flex items-start gap-1.5">
-                          {analyzingIds.has(intake.id) ? (
+                          {intake.ai_analyzing ? (
                             <span className="text-xs text-purple-500 italic flex items-center gap-1.5 flex-1">
                               <Sparkles className="w-3.5 h-3.5 animate-spin" />
                               Analyzing...
@@ -1109,14 +1117,13 @@ export function Intakes() {
                               {intake.ai_summary || '\u2014'}
                             </span>
                           )}
-                          {!intake.ai_summary && (
+                          {!intake.ai_summary && !intake.ai_analyzing && (
                             <button
                               onClick={(e) => { e.stopPropagation(); analyzeSingleMutation.mutate(intake.id); }}
-                              disabled={analyzingIds.has(intake.id)}
-                              className="flex-shrink-0 p-1 text-text-muted/40 hover:text-purple-500 transition-colors disabled:opacity-50"
+                              className="flex-shrink-0 p-1 text-text-muted/40 hover:text-purple-500 transition-colors"
                               title="Generate AI analysis"
                             >
-                              <Sparkles className={`w-3.5 h-3.5 ${analyzingIds.has(intake.id) ? 'animate-pulse text-purple-500' : ''}`} />
+                              <Sparkles className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
@@ -1155,7 +1162,7 @@ export function Intakes() {
           onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
           onStatusChange={(s) => updateMutation.mutate({ id: selectedIntake.id, status: s })}
           onAnalyze={() => analyzeSingleMutation.mutate(selectedIntake.id)}
-          isAnalyzing={analyzingIds.has(selectedIntake.id)}
+          isAnalyzing={selectedIntake.ai_analyzing}
           autoFocusComments={autoFocusComments}
         />
       )}

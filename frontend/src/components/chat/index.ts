@@ -6,3 +6,4 @@ export { MarkdownContent } from './MarkdownContent';
 export { ToolCallIndicator } from './ToolCallIndicator';
 export { ToolResultRenderer, hasInteractiveResult } from './ToolResultRenderer';
 export { ChatEventItem } from './ChatEventItem';
+export { ChatIntakeItem, ChatIntakePreview } from './ChatIntakeItem';

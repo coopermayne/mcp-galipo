@@ -5,6 +5,7 @@
  * instead of raw JSON. Falls back to formatted JSON for other tools.
  */
 import { ChatEventItem } from './ChatEventItem';
+import { ChatIntakeItem, ChatIntakePreview } from './ChatIntakeItem';
 
 interface ToolResultRendererProps {
   toolName: string;
@@ -26,6 +27,12 @@ export function hasInteractiveResult(toolName: string, result: string, isError?:
   if (toolName === 'manage_event') {
     const eventId = extractEntityId(parsed, 'event_id');
     return eventId !== null;
+  }
+
+  if (toolName === 'manage_intake') {
+    const obj = parsed as Record<string, unknown>;
+    if (obj.success === true && typeof obj.intake_id === 'number') return true;
+    if (obj.success === true && obj.preview === true) return true;
   }
 
   return false;
@@ -74,6 +81,17 @@ export function ToolResultRenderer({ toolName, result, isError, mode = 'full' }:
     const eventId = extractEntityId(parsed, 'event_id');
     if (eventId !== null) {
       return <ChatEventItem eventId={eventId} isNew={true} />;
+    }
+  }
+
+  // Render intake cards from manage_intake
+  if (parsed && toolName === 'manage_intake') {
+    const obj = parsed as Record<string, unknown>;
+    if (obj.success === true && typeof obj.intake_id === 'number') {
+      return <ChatIntakeItem intakeId={obj.intake_id as number} isNew={true} />;
+    }
+    if (obj.success === true && obj.preview === true && typeof obj.fields === 'object' && obj.fields !== null) {
+      return <ChatIntakePreview fields={obj.fields as Record<string, unknown>} />;
     }
   }
 
