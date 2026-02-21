@@ -67,6 +67,17 @@ def register_static_routes(mcp):
             return FileResponse(file_path, media_type=content_type)
         return HTMLResponse("Not found", status_code=404)
 
+    # Public legal pages (no auth, served before SPA catch-all)
+    @mcp.custom_route("/privacy-policy", methods=["GET"])
+    async def serve_privacy_policy(request):
+        """Serve SMS privacy policy page."""
+        return FileResponse(STATIC_DIR / "sms-policy.html", media_type="text/html")
+
+    @mcp.custom_route("/terms", methods=["GET"])
+    async def serve_terms(request):
+        """Serve SMS terms and conditions page."""
+        return FileResponse(STATIC_DIR / "sms-policy.html", media_type="text/html")
+
     # SPA catch-all routes - must be registered last
     @mcp.custom_route("/", methods=["GET"])
     async def serve_react_app_root(request):
