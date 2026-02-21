@@ -210,6 +210,16 @@ body {
   animation: fadeSlideIn 150ms ease-out;
 }
 
+/* Row exit animation for intake status changes */
+@keyframes rowExit {
+  0%   { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(-30px); }
+}
+
+.animate-row-exit {
+  animation: rowExit 300ms ease-in forwards;
+}
+
 /* ContentEditable placeholder */
 [contenteditable][data-placeholder]:empty::before {
   content: attr(data-placeholder);
