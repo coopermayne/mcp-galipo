@@ -406,7 +406,7 @@ export const INTAKE_STATUS_COLORS = {
     bg: 'bg-slate-100 dark:bg-slate-800/50',
     text: 'text-slate-600 dark:text-slate-400',
   },
-  Screened: {
+  'Dave Review': {
     bg: 'bg-blue-100 dark:bg-blue-900/30',
     text: 'text-blue-700 dark:text-blue-300',
   },
@@ -418,15 +418,15 @@ export const INTAKE_STATUS_COLORS = {
     bg: 'bg-indigo-100 dark:bg-indigo-900/30',
     text: 'text-indigo-700 dark:text-indigo-300',
   },
-  Rejected: {
+  'Needs Rejection Letter': {
     bg: 'bg-red-100 dark:bg-red-900/30',
     text: 'text-red-700 dark:text-red-300',
   },
-  'Rejection Sent': {
+  'Rejection Letter Sent': {
     bg: 'bg-rose-100 dark:bg-rose-900/30',
     text: 'text-rose-700 dark:text-rose-300',
   },
-  'Send Retainer': {
+  'Needs Retainer': {
     bg: 'bg-cyan-100 dark:bg-cyan-900/30',
     text: 'text-cyan-700 dark:text-cyan-300',
   },
@@ -434,7 +434,7 @@ export const INTAKE_STATUS_COLORS = {
     bg: 'bg-purple-100 dark:bg-purple-900/30',
     text: 'text-purple-700 dark:text-purple-300',
   },
-  Retained: {
+  'Retainer Signed': {
     bg: 'bg-green-100 dark:bg-green-900/30',
     text: 'text-green-700 dark:text-green-300',
   },

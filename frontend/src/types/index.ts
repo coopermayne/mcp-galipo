@@ -174,6 +174,9 @@ export {
 // Intake types
 export type {
   IntakeStatus,
+  ActionButtonStyle,
+  ActionButtonIcon,
+  IntakeActionButton,
   Intake,
   IntakeComment,
   IntakeActivity,
@@ -181,7 +184,7 @@ export type {
   SyncResult,
 } from './intake';
 
-export { INTAKE_STATUSES } from './intake';
+export { INTAKE_STATUSES, INTAKE_TRANSITIONS, INTAKE_ACTION_BUTTONS } from './intake';
 
 // Template types
 export type {

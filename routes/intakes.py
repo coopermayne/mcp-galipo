@@ -100,6 +100,15 @@ def register_intake_routes(mcp):
         # JSON keys must be strings
         return JSONResponse({str(k): v for k, v in counts.items()})
 
+    # --- Transitions map (registered BEFORE {intake_id} wildcard) ---
+
+    @mcp.custom_route("/api/v1/intakes/transitions", methods=["GET"])
+    async def api_intake_transitions(request):
+        """Get the allowed status transitions map."""
+        if err := auth.require_auth(request):
+            return err
+        return JSONResponse(INTAKE_TRANSITIONS)
+
     # --- SSE stream (registered BEFORE {intake_id} wildcard) ---
 
     @mcp.custom_route("/api/v1/intakes/stream", methods=["GET"])
@@ -169,9 +178,12 @@ def register_intake_routes(mcp):
         if "status" in updates:
             old_intake = await asyncio.to_thread(db.get_intake_by_id, intake_id)
             if old_intake and old_intake["status"] != updates["status"]:
+                old_status = old_intake["status"]
+                new_status = updates["status"]
+
                 if user:
                     name = user.get("firstName", "Someone")
-                    msg = f"{name} changed status from {old_intake['status']} to {updates['status']}"
+                    msg = f"{name} changed status from {old_status} to {new_status}"
                     await asyncio.to_thread(
                         db.add_intake_comment,
                         intake_id,

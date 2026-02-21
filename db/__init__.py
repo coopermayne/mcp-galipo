@@ -244,6 +244,7 @@ from .intake_comments import (
     add_intake_comment,
     get_last_read_at,
     mark_intake_read,
+    get_comment_flags,
     get_unread_counts,
     get_recent_activity,
 )

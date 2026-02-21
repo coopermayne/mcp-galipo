@@ -5,7 +5,7 @@ Intake comment operations — threaded comments per intake lead.
 import datetime
 from typing import Optional
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
@@ -123,6 +123,57 @@ def get_recent_activity(limit: int = 50) -> list[dict]:
             }
             for c in comments
         ]
+
+
+def get_comment_flags(intake_ids: list[int]) -> dict[int, bool]:
+    """For each intake, return True if there's a user comment since the last status change.
+
+    Logic:
+    - No user comments at all → False
+    - User comment exists but no status change ever happened → True
+    - User comment exists after the last status change → True
+    - Otherwise → False
+    """
+    if not intake_ids:
+        return {}
+
+    with SessionLocal() as session:
+        # Last status-change system comment per intake
+        last_changes = dict(
+            session.execute(
+                select(IntakeComment.intake_id, func.max(IntakeComment.created_at))
+                .where(
+                    IntakeComment.intake_id.in_(intake_ids),
+                    IntakeComment.is_system == True,  # noqa: E712
+                )
+                .group_by(IntakeComment.intake_id)
+            ).all()
+        )
+
+        # Last user (non-system) comment per intake
+        last_user_comments = dict(
+            session.execute(
+                select(IntakeComment.intake_id, func.max(IntakeComment.created_at))
+                .where(
+                    IntakeComment.intake_id.in_(intake_ids),
+                    or_(
+                        IntakeComment.is_system == False,  # noqa: E712
+                        IntakeComment.is_system.is_(None),
+                    ),
+                )
+                .group_by(IntakeComment.intake_id)
+            ).all()
+        )
+
+    result = {}
+    for iid in intake_ids:
+        last_comment = last_user_comments.get(iid)
+        if last_comment is None:
+            result[iid] = False
+        else:
+            last_change = last_changes.get(iid)
+            result[iid] = last_change is None or last_comment > last_change
+    return result
 
 
 def get_unread_counts(user_id: int, intake_ids: list[int]) -> dict[int, int]:
