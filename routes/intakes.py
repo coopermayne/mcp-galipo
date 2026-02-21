@@ -211,12 +211,15 @@ def register_intake_routes(mcp):
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["GET"])
     async def api_list_intake_comments(request):
-        """List all comments for an intake."""
+        """List all comments for an intake, with the user's last_read_at."""
         if err := auth.require_auth(request):
             return err
         intake_id = int(request.path_params["intake_id"])
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
         comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
-        return JSONResponse(comments)
+        last_read_at = await asyncio.to_thread(db.get_last_read_at, intake_id, user_id)
+        return JSONResponse({"comments": comments, "last_read_at": last_read_at})
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["POST"])
     async def api_add_intake_comment(request):

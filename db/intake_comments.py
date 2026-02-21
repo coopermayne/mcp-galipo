@@ -69,6 +69,15 @@ def add_intake_comment(
         return result
 
 
+def get_last_read_at(intake_id: int, user_id: int) -> Optional[str]:
+    """Get the last_read_at ISO string for this user on this intake."""
+    with SessionLocal() as session:
+        record = session.get(IntakeCommentRead, (intake_id, user_id))
+        if record and record.last_read_at:
+            return record.last_read_at.isoformat()
+        return None
+
+
 def mark_intake_read(intake_id: int, user_id: int) -> None:
     """Mark all comments as read for this user on this intake (upsert)."""
     with SessionLocal() as session:

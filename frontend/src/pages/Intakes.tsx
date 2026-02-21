@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, PageContent } from '../components/layout';
@@ -296,11 +296,20 @@ function CommentsPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const prevCountRef = useRef(0);
+  // Freeze last_read_at on first load so it doesn't change when the query refetches
+  const lastReadAtRef = useRef<string | null | undefined>(undefined);
 
-  const { data: comments = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ['intake-comments', intakeId],
     queryFn: () => getIntakeComments(intakeId),
   });
+  const comments = data?.comments ?? [];
+
+  // Capture last_read_at only on the first fetch
+  if (data && lastReadAtRef.current === undefined) {
+    lastReadAtRef.current = data.last_read_at;
+  }
+  const newSince = lastReadAtRef.current;
 
   const addMutation = useMutation({
     mutationFn: (content: string) => addIntakeComment(intakeId, content),
@@ -350,16 +359,31 @@ function CommentsPanel({
         {comments.length === 0 ? (
           <p className="text-xs text-text-muted/50 text-center py-6">No comments yet</p>
         ) : (
-          comments.map((comment: IntakeComment) => {
+          comments.map((comment: IntakeComment, idx: number) => {
+            const isNew = newSince && comment.created_at && comment.created_at > newSince;
+            // Show "New" divider before the first new comment
+            const prevComment = idx > 0 ? comments[idx - 1] : null;
+            const prevIsNew = prevComment && newSince && prevComment.created_at && prevComment.created_at > newSince;
+            const showNewDivider = isNew && !prevIsNew;
+
             if (comment.is_system) {
               return (
-                <div key={comment.id} className="text-center py-1">
-                  <span className="text-[11px] text-text-muted/60 italic">
-                    {comment.content}
-                  </span>
-                  <span className="text-[10px] text-text-muted/40 ml-1.5">
-                    {formatRelativeTime(comment.created_at)}
-                  </span>
+                <div key={comment.id}>
+                  {showNewDivider && (
+                    <div className="flex items-center gap-2 py-1.5">
+                      <div className="flex-1 h-px bg-primary-500/40" />
+                      <span className="text-[10px] font-semibold text-primary-500 uppercase tracking-wider">New</span>
+                      <div className="flex-1 h-px bg-primary-500/40" />
+                    </div>
+                  )}
+                  <div className="text-center py-1">
+                    <span className="text-[11px] text-text-muted/60 italic">
+                      {comment.content}
+                    </span>
+                    <span className="text-[10px] text-text-muted/40 ml-1.5">
+                      {formatRelativeTime(comment.created_at)}
+                    </span>
+                  </div>
                 </div>
               );
             }
@@ -367,26 +391,35 @@ function CommentsPanel({
             const avatarColor = comment.user_id ? getBadgeColorById(comment.user_id) : getBadgeColorById(0);
 
             return (
-              <div key={comment.id} className="group flex gap-2">
-                {/* Avatar */}
-                <div
-                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarColor.bg} ${avatarColor.text}`}
-                >
-                  {comment.user_initials || '??'}
-                </div>
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xs font-semibold text-text">
-                      {comment.user_first_name || 'Unknown'}
-                    </span>
-                    <span className="text-[10px] text-text-muted/50">
-                      {formatRelativeTime(comment.created_at)}
-                    </span>
+              <div key={comment.id}>
+                {showNewDivider && (
+                  <div className="flex items-center gap-2 py-1.5">
+                    <div className="flex-1 h-px bg-primary-500/40" />
+                    <span className="text-[10px] font-semibold text-primary-500 uppercase tracking-wider">New</span>
+                    <div className="flex-1 h-px bg-primary-500/40" />
                   </div>
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">
-                    {comment.content}
-                  </p>
+                )}
+                <div className={`group flex gap-2 ${isNew ? 'pl-2 border-l-2 border-primary-500/60' : ''}`}>
+                  {/* Avatar */}
+                  <div
+                    className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${avatarColor.bg} ${avatarColor.text}`}
+                  >
+                    {comment.user_initials || '??'}
+                  </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-xs font-semibold text-text">
+                        {comment.user_first_name || 'Unknown'}
+                      </span>
+                      <span className="text-[10px] text-text-muted/50">
+                        {formatRelativeTime(comment.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">
+                      {comment.content}
+                    </p>
+                  </div>
                 </div>
               </div>
             );
@@ -461,26 +494,28 @@ function DetailModal({
     }
   }, [editingNotes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mark as read when modal opens
-  useEffect(() => {
+  const handleClose = useCallback(() => {
     markIntakeRead(intake.id).then(() => {
       queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
     });
-  }, [intake.id, queryClient]);
+    // Clear cached comments so next open fetches fresh last_read_at
+    queryClient.removeQueries({ queryKey: ['intake-comments', intake.id] });
+    onClose();
+  }, [intake.id, queryClient, onClose]);
 
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [handleClose]);
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} />
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={handleClose} />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={handleClose}>
         <div className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div>
@@ -493,7 +528,7 @@ function DetailModal({
                 return s ? <div className="text-xs text-text-muted mt-0.5">Submitted {s.date} ({s.ago})</div> : null;
               })()}
             </div>
-            <button onClick={onClose} className="p-1 text-text-muted hover:text-text">
+            <button onClick={handleClose} className="p-1 text-text-muted hover:text-text">
               <X className="w-5 h-5" />
             </button>
           </div>
