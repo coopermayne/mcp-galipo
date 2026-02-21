@@ -21,6 +21,10 @@
     "puppeteer": {
       "command": "npx",
       "args": ["-y", "@anthropic/mcp-puppeteer"]
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
     }
   }
 }
