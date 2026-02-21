@@ -242,6 +242,7 @@ from .intakes import (
 from .intake_comments import (
     get_intake_comments,
     add_intake_comment,
+    get_last_read_at,
     mark_intake_read,
     get_unread_counts,
     get_recent_activity,
@@ -436,6 +437,7 @@ __all__ = [
     # Intake comments
     "get_intake_comments",
     "add_intake_comment",
+    "get_last_read_at",
     "mark_intake_read",
     "get_unread_counts",
     "get_recent_activity",

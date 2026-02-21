@@ -62,7 +62,7 @@ export async function syncIntakes(): Promise<SyncResult> {
   });
 }
 
-export async function getIntakeComments(intakeId: number): Promise<IntakeComment[]> {
+export async function getIntakeComments(intakeId: number): Promise<{ comments: IntakeComment[]; last_read_at: string | null }> {
   return request(`/intakes/${intakeId}/comments`);
 }
 
