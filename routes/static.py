@@ -58,6 +58,7 @@ def register_static_routes(mcp):
             content_types = {
                 ".css": "text/css",
                 ".js": "application/javascript",
+                ".html": "text/html",
                 ".png": "image/png",
                 ".jpg": "image/jpeg",
                 ".svg": "image/svg+xml"
