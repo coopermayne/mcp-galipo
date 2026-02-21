@@ -297,7 +297,7 @@ def get_sol_watch_context(user_id: int | None = None) -> dict:
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
     # Statuses for intakes still in the pipeline (not resolved)
-    status_filter = "AND i.status IN ('New', 'Screened', 'Needs Follow-Up', 'Atty Review', 'Send Retainer', 'Retainer Sent')"
+    status_filter = "AND i.status IN ('New', 'Dave Review', 'Needs Follow-Up', 'Atty Review', 'Needs Retainer', 'Retainer Sent')"
 
     with SessionLocal() as session:
         # Intakes approaching 6-month SOL (government claims)
@@ -401,7 +401,7 @@ def get_sol_watch_context(user_id: int | None = None) -> dict:
 
 
 def get_stale_intakes_context(user_id: int | None = None) -> dict:
-    """Find intakes in New or Screened status, ordered oldest first."""
+    """Find intakes in New or Dave Review status, ordered oldest first."""
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
 
@@ -419,7 +419,7 @@ def get_stale_intakes_context(user_id: int | None = None) -> dict:
                 i.ai_summary,
                 EXTRACT(EPOCH FROM (:now_ts - COALESCE(i.submitted_on, i.created_at))) / 3600 AS hours_old
             FROM intakes i
-            WHERE i.status IN ('New', 'Screened')
+            WHERE i.status IN ('New', 'Dave Review')
             ORDER BY i.submitted_on ASC NULLS FIRST, i.created_at ASC
         """), {"now_ts": now}).mappings().all()
 
@@ -805,7 +805,7 @@ Keep it concise and actionable.""",
     },
     "stale_intakes": {
         "fetch": get_stale_intakes_context,
-        "prompt": """Review these unreviewed intakes sitting in "New" or "Screened" status, starting with the oldest.
+        "prompt": """Review these unreviewed intakes sitting in "New" or "Dave Review" status, starting with the oldest.
 
 Highlight any that are more than 48 hours old — those need immediate attention.
 If any have AI ratings, mention the highest-rated ones first (they're the best leads).

@@ -9,6 +9,7 @@ from typing import Optional
 from sqlalchemy import select, func
 
 from .session import SessionLocal
+from .intake_comments import get_comment_flags
 from models import Intake
 from schemas import IntakeOut
 
@@ -46,10 +47,15 @@ def get_intakes(
             stmt = stmt.where(f)
 
         intakes = session.scalars(stmt).all()
-        return {
-            "intakes": [_intake_to_dict(i) for i in intakes],
-            "total": total,
-        }
+        items = [_intake_to_dict(i) for i in intakes]
+
+    # Batch-fetch comment flags (outside the session — get_comment_flags opens its own)
+    ids = [item["id"] for item in items]
+    flags = get_comment_flags(ids) if ids else {}
+    for item in items:
+        item["has_comment_since_status_change"] = flags.get(item["id"], False)
+
+    return {"intakes": items, "total": total}
 
 
 def get_intake_status_counts() -> dict[str, int]:
@@ -69,7 +75,10 @@ def get_intake_by_id(intake_id: int) -> Optional[dict]:
         intake = session.get(Intake, intake_id)
         if not intake:
             return None
-        return _intake_to_dict(intake)
+        result = _intake_to_dict(intake)
+    flags = get_comment_flags([intake_id])
+    result["has_comment_since_status_change"] = flags.get(intake_id, False)
+    return result
 
 
 def get_unanalyzed_intake_ids(limit: int = 50, include_analyzed: bool = False) -> list[int]:

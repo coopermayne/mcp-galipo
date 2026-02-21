@@ -25,9 +25,9 @@ TaskStatus = Literal[
 PersonSide = Literal["plaintiff", "defendant", "neutral"]
 Urgency = Literal["Low", "Medium", "High", "Urgent"]
 IntakeStatus = Literal[
-    "New", "Screened", "Needs Follow-Up", "Atty Review",
-    "Rejected", "Rejection Sent",
-    "Send Retainer", "Retainer Sent", "Retained",
+    "New", "Dave Review", "Needs Follow-Up", "Atty Review",
+    "Needs Rejection Letter", "Rejection Letter Sent",
+    "Needs Retainer", "Retainer Sent", "Retainer Signed",
     "Archived",
 ]
 
@@ -45,6 +45,19 @@ PERSON_SIDE_LIST: list[str] = list(get_args(PersonSide))
 URGENCY_LIST: list[str] = list(get_args(Urgency))
 INTAKE_STATUS_LIST: list[str] = list(get_args(IntakeStatus))
 JUDGE_ROLE_LIST: list[str] = list(get_args(JudgeRole))
+
+# Allowed status transitions for intakes (status -> list of valid next statuses)
+INTAKE_TRANSITIONS: dict[str, list[str]] = {
+    "New": ["Dave Review"],
+    "Dave Review": ["Needs Follow-Up", "Atty Review", "Needs Rejection Letter", "Needs Retainer"],
+    "Needs Follow-Up": ["Dave Review"],
+    "Atty Review": ["Dave Review"],
+    "Needs Rejection Letter": ["Rejection Letter Sent"],
+    "Rejection Letter Sent": [],  # terminal — archive only
+    "Needs Retainer": ["Retainer Sent"],
+    "Retainer Sent": ["Retainer Signed"],
+    "Retainer Signed": [],  # terminal — archive only
+}
 
 
 # =============================================================================

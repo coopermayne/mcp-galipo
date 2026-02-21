@@ -6,8 +6,8 @@ import { ListPanel } from '../components/common';
 import { MarkdownContent } from '../components/chat/MarkdownContent';
 import { getIntakes, getIntakeCounts, getIntake, updateIntake, syncIntakes, /* analyzeIntakes, */ analyzeIntake, getIntakeActivity, getIntakeComments, addIntakeComment, markIntakeRead, getIntakeUnreadCounts } from '../api';
 import { INTAKE_STATUS_COLORS, type IntakeStatusKey, getBadgeColorById } from '../config/colors';
-import { INTAKE_STATUSES } from '../types';
-import type { Intake, IntakeStatus, IntakeComment, IntakeActivity } from '../types';
+import { INTAKE_STATUSES, INTAKE_ACTION_BUTTONS } from '../types';
+import type { Intake, IntakeStatus, IntakeComment, IntakeActivity, ActionButtonStyle, ActionButtonIcon } from '../types';
 import { useIntakeSSE } from '../hooks';
 import {
   RefreshCw,
@@ -28,7 +28,15 @@ import {
   Tag,
   StickyNote,
   UserCheck,
+  Scale,
+  CircleHelp,
+  CircleCheck,
+  CircleX,
+  MailCheck,
+  FileUp,
+  FilePen,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '\u2014';
@@ -87,9 +95,62 @@ function daysUntilDeadline(incidentDate: string | null, months: number): number 
   return Math.ceil((deadline.getTime() - Date.now()) / 86400000);
 }
 
-const SCREENING_STATUSES: IntakeStatus[] = ['New', 'Screened', 'Needs Follow-Up', 'Atty Review'];
-const REJECT_STATUSES: IntakeStatus[] = ['Rejected', 'Rejection Sent'];
-const RETAIN_STATUSES: IntakeStatus[] = ['Send Retainer', 'Retainer Sent', 'Retained'];
+const ACTION_ICON_MAP: Record<ActionButtonIcon, LucideIcon> = {
+  'send': Send,
+  'scale': Scale,
+  'circle-help': CircleHelp,
+  'circle-check': CircleCheck,
+  'circle-x': CircleX,
+  'mail-check': MailCheck,
+  'file-up': FileUp,
+  'file-pen': FilePen,
+};
+
+const ACTION_BUTTON_STYLES: Record<ActionButtonStyle, { btn: string; icon: string }> = {
+  green: {
+    btn: 'border-green-200 dark:border-green-800/40 bg-green-50/80 dark:bg-green-900/15 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30',
+    icon: 'text-green-500 dark:text-green-400',
+  },
+  red: {
+    btn: 'border-red-200 dark:border-red-800/40 bg-red-50/80 dark:bg-red-900/15 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30',
+    icon: 'text-red-500 dark:text-red-400',
+  },
+  blue: {
+    btn: 'border-blue-200 dark:border-blue-800/40 bg-blue-50/80 dark:bg-blue-900/15 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30',
+    icon: 'text-blue-500 dark:text-blue-400',
+  },
+  amber: {
+    btn: 'border-amber-200 dark:border-amber-800/40 bg-amber-50/80 dark:bg-amber-900/15 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30',
+    icon: 'text-amber-500 dark:text-amber-400',
+  },
+  indigo: {
+    btn: 'border-indigo-200 dark:border-indigo-800/40 bg-indigo-50/80 dark:bg-indigo-900/15 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30',
+    icon: 'text-indigo-500 dark:text-indigo-400',
+  },
+  purple: {
+    btn: 'border-purple-200 dark:border-purple-800/40 bg-purple-50/80 dark:bg-purple-900/15 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30',
+    icon: 'text-purple-500 dark:text-purple-400',
+  },
+  slate: {
+    btn: 'border-slate-200 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-800/20 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/40',
+    icon: 'text-slate-400 dark:text-slate-500',
+  },
+};
+
+/** Icon-only button styles for table rows (more compact, just a tinted circle on hover) */
+const ACTION_ICON_STYLES: Record<ActionButtonStyle, string> = {
+  green: 'text-green-500/70 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/25 dark:text-green-400/70 dark:hover:text-green-400',
+  red: 'text-red-500/70 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/25 dark:text-red-400/70 dark:hover:text-red-400',
+  blue: 'text-blue-500/70 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/25 dark:text-blue-400/70 dark:hover:text-blue-400',
+  amber: 'text-amber-500/70 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/25 dark:text-amber-400/70 dark:hover:text-amber-400',
+  indigo: 'text-indigo-500/70 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/25 dark:text-indigo-400/70 dark:hover:text-indigo-400',
+  purple: 'text-purple-500/70 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/25 dark:text-purple-400/70 dark:hover:text-purple-400',
+  slate: 'text-slate-400/70 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/30 dark:text-slate-500/70 dark:hover:text-slate-400',
+};
+
+const SCREENING_STATUSES: IntakeStatus[] = ['New', 'Dave Review', 'Needs Follow-Up', 'Atty Review'];
+const REJECT_STATUSES: IntakeStatus[] = ['Needs Rejection Letter', 'Rejection Letter Sent'];
+const RETAIN_STATUSES: IntakeStatus[] = ['Needs Retainer', 'Retainer Sent', 'Retainer Signed'];
 
 function PipelineStep({
   status,
@@ -239,6 +300,7 @@ function StarRating({ rating, reasoning }: { rating: number | null; reasoning: s
 function StatusBadge({ status, onChange }: { status: IntakeStatus; onChange: (s: IntakeStatus) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const color = INTAKE_STATUS_COLORS[status as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
+  const allStatuses: IntakeStatus[] = [...INTAKE_STATUSES, 'Archived'];
 
   return (
     <div className="relative">
@@ -253,8 +315,8 @@ function StatusBadge({ status, onChange }: { status: IntakeStatus; onChange: (s:
         <>
           <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} />
           <div className="absolute z-20 mt-1 left-0 bg-bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
-            {INTAKE_STATUSES.map((s) => {
-              const c = INTAKE_STATUS_COLORS[s as IntakeStatusKey];
+            {allStatuses.map((s) => {
+              const c = INTAKE_STATUS_COLORS[s as IntakeStatusKey] || INTAKE_STATUS_COLORS.New;
               return (
                 <button
                   key={s}
@@ -317,6 +379,9 @@ function CommentsPanel({
       setDraft('');
       queryClient.invalidateQueries({ queryKey: ['intake-comments', intakeId] });
       queryClient.invalidateQueries({ queryKey: ['intake-unread-counts'] });
+      // Refresh the intake so has_comment_since_status_change updates
+      queryClient.invalidateQueries({ queryKey: ['intake', intakeId] });
+      queryClient.invalidateQueries({ queryKey: ['intakes'] });
     },
   });
 
@@ -527,8 +592,31 @@ function DetailModal({
                 const s = formatSubmitted(intake.submitted_on);
                 return s ? <div className="text-xs text-text-muted mt-0.5">Submitted {s.date} ({s.ago})</div> : null;
               })()}
+              {/* Action buttons */}
+              {(() => {
+                const actions = INTAKE_ACTION_BUTTONS[intake.status];
+                if (!actions || actions.length === 0) return null;
+                return (
+                  <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                    {actions.map((action) => {
+                      const Icon = ACTION_ICON_MAP[action.icon];
+                      const style = ACTION_BUTTON_STYLES[action.style];
+                      return (
+                        <button
+                          key={action.target}
+                          onClick={() => onStatusChange(action.target)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${style.btn}`}
+                        >
+                          <Icon className={`w-3.5 h-3.5 ${style.icon}`} />
+                          {action.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
-            <button onClick={handleClose} className="p-1 text-text-muted hover:text-text">
+            <button onClick={handleClose} className="p-1 text-text-muted hover:text-text self-start">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -843,6 +931,62 @@ function ActivityModal({
   );
 }
 
+function CommentPrompt({
+  onComment,
+  onSkip,
+  onClose,
+}: {
+  onComment: () => void;
+  onSkip: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[80] bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" onClick={onClose}>
+        <div
+          className="bg-bg-surface rounded-xl border border-border shadow-xl w-full max-w-sm p-5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+              <MessageSquare className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-text text-sm">No comment added</h3>
+              <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                Changing status without a comment can be confusing for the team. Consider adding a note first.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={onSkip}
+              className="px-3 py-1.5 text-xs font-medium text-text-muted hover:text-text transition-colors"
+            >
+              Change Without Comment
+            </button>
+            <button
+              onClick={onComment}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+            >
+              Comment First
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function Intakes() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -851,6 +995,7 @@ export function Intakes() {
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
   const [autoFocusComments, setAutoFocusComments] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+  const [pendingChange, setPendingChange] = useState<{ intakeId: number; status: IntakeStatus } | null>(null);
 
   // Open intake from URL param (e.g. /intakes?selected=123)
   useEffect(() => {
@@ -935,6 +1080,17 @@ export function Intakes() {
   const analyzeSingleMutation = useMutation({
     mutationFn: (intakeId: number) => analyzeIntake(intakeId),
   });
+
+  /** Check for comment before status change; prompt if missing. */
+  const requestStatusChange = (intakeId: number, newStatus: IntakeStatus) => {
+    // Find the intake in list data or selected intake
+    const intake = allIntakes.find((i) => i.id === intakeId) || (selectedIntake?.id === intakeId ? selectedIntake : null);
+    if (intake && !intake.has_comment_since_status_change) {
+      setPendingChange({ intakeId, status: newStatus });
+      return;
+    }
+    updateMutation.mutate({ id: intakeId, status: newStatus });
+  };
 
   const total = data?.total || 0;
 
@@ -1072,7 +1228,7 @@ export function Intakes() {
                   <th className="text-center px-2 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[90px]">6mo/2yr</th>
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">AI Summary</th>
                   <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[110px]">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-muted text-xs uppercase tracking-wider w-[100px]">Notes</th>
+                  <th className="text-left px-2 py-3 font-medium text-text-muted text-xs uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1164,21 +1320,40 @@ export function Intakes() {
                         </div>
                       </td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <StatusBadge
-                          status={intake.status}
-                          onChange={(s) => {
-                            updateMutation.mutate({ id: intake.id, status: s });
-                          }}
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <StatusBadge
+                            status={intake.status}
+                            onChange={(s) => requestStatusChange(intake.id, s)}
+                          />
+                          {intake.notes && (
+                            <span title={intake.notes}>
+                              <StickyNote className="w-3.5 h-3.5 text-amber-400/60" />
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        {intake.notes ? (
-                          <span title={intake.notes}>
-                            <StickyNote className="w-4 h-4 text-amber-500 inline-block" />
-                          </span>
-                        ) : (
-                          <span className="text-text-muted/30">{'\u2014'}</span>
-                        )}
+                      <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          const actions = INTAKE_ACTION_BUTTONS[intake.status];
+                          if (!actions || actions.length === 0) return null;
+                          return (
+                            <div className="flex items-center gap-0.5">
+                              {actions.map((action) => {
+                                const Icon = ACTION_ICON_MAP[action.icon];
+                                return (
+                                  <button
+                                    key={action.target}
+                                    onClick={() => requestStatusChange(intake.id, action.target)}
+                                    className={`p-1.5 rounded-md transition-colors ${ACTION_ICON_STYLES[action.style]}`}
+                                    title={action.label}
+                                  >
+                                    <Icon className="w-4 h-4" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -1195,7 +1370,7 @@ export function Intakes() {
           intake={selectedIntake}
           onClose={() => { setSelectedIntakeId(null); setAutoFocusComments(false); }}
           onSaveNotes={(notes) => updateMutation.mutate({ id: selectedIntake.id, notes })}
-          onStatusChange={(s) => updateMutation.mutate({ id: selectedIntake.id, status: s })}
+          onStatusChange={(s) => requestStatusChange(selectedIntake.id, s)}
           onAnalyze={() => analyzeSingleMutation.mutate(selectedIntake.id)}
           isAnalyzing={selectedIntake.ai_analyzing}
           autoFocusComments={autoFocusComments}
@@ -1208,6 +1383,23 @@ export function Intakes() {
           onClose={() => setShowActivity(false)}
           onSelectIntake={(id) => { setAutoFocusComments(false); setSelectedIntakeId(id); }}
           onStatusClick={(s) => { setStatusFilter(s); setShowActivity(false); }}
+        />
+      )}
+
+      {/* Comment Prompt — appears when changing status without a comment */}
+      {pendingChange && (
+        <CommentPrompt
+          onComment={() => {
+            // Open the detail modal focused on comments
+            setSelectedIntakeId(pendingChange.intakeId);
+            setAutoFocusComments(true);
+            setPendingChange(null);
+          }}
+          onSkip={() => {
+            updateMutation.mutate({ id: pendingChange.intakeId, status: pendingChange.status });
+            setPendingChange(null);
+          }}
+          onClose={() => setPendingChange(null)}
         />
       )}
     </>
