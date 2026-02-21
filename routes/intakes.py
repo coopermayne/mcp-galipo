@@ -314,7 +314,11 @@ def register_intake_routes(mcp):
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}/analyze", methods=["POST"])
     async def api_analyze_single_intake(request):
-        """Run AI analysis on a single intake."""
+        """Run AI analysis on a single intake (non-blocking).
+
+        Sets ai_analyzing=True, returns 202, and runs analysis in the background.
+        When done, broadcasts SSE so the frontend refreshes.
+        """
         if err := auth.require_auth(request):
             return err
         intake_id = int(request.path_params["intake_id"])
@@ -323,32 +327,44 @@ def register_intake_routes(mcp):
         if not intake:
             return api_error("Intake not found", "NOT_FOUND", 404)
 
-        try:
-            from services.intake_ai import analyze_intake
-            comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
-            result = await asyncio.to_thread(
-                analyze_intake,
-                intake,
-                notes=intake.get("notes", ""),
-                comments=comments,
-            )
-            updated = await asyncio.to_thread(
-                db.save_ai_analysis,
-                intake_id,
-                result["ai_summary"],
-                result["ai_rating"],
-                result["ai_rating_reasoning"],
-            )
-            broadcast({
-                "entity": "intake", "action": "analyzed",
-                "id": intake_id, "intake_id": intake_id,
-            })
-            return JSONResponse(updated or result)
-        except RuntimeError as e:
-            return api_error(str(e), "CONFIG_ERROR", 400)
-        except Exception as e:
-            logger.exception("AI analysis failed for intake %d", intake_id)
-            return api_error(f"Analysis failed: {str(e)}", "ANALYSIS_ERROR", 500)
+        # Mark as analyzing and notify clients immediately
+        await asyncio.to_thread(db.set_ai_analyzing, intake_id, True)
+        broadcast({
+            "entity": "intake", "action": "analyzing",
+            "id": intake_id, "intake_id": intake_id,
+        })
+
+        async def _background_analyze():
+            try:
+                from services.intake_ai import analyze_intake
+                comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
+                result = await asyncio.to_thread(
+                    analyze_intake,
+                    intake,
+                    notes=intake.get("notes", ""),
+                    comments=comments,
+                )
+                await asyncio.to_thread(
+                    db.save_ai_analysis,
+                    intake_id,
+                    result["ai_summary"],
+                    result["ai_rating"],
+                    result["ai_rating_reasoning"],
+                )
+                broadcast({
+                    "entity": "intake", "action": "analyzed",
+                    "id": intake_id, "intake_id": intake_id,
+                })
+            except Exception as e:
+                logger.exception("Background AI analysis failed for intake %d", intake_id)
+                await asyncio.to_thread(db.set_ai_analyzing, intake_id, False)
+                broadcast({
+                    "entity": "intake", "action": "updated",
+                    "id": intake_id, "intake_id": intake_id,
+                })
+
+        asyncio.create_task(_background_analyze())
+        return JSONResponse({"success": True, "message": "Analysis started"}, status_code=202)
 
     @mcp.custom_route("/api/v1/intakes/sync", methods=["POST"])
     async def api_sync_intakes(request):

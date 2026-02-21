@@ -5,6 +5,8 @@ All MCP tools in one file to encourage keeping the tool count small.
 """
 
 import asyncio
+import logging
+import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Optional, Literal
@@ -235,8 +237,8 @@ class ManageJudgeInput(BaseModel):
 
 
 class ManageIntakeInput(BaseModel):
-    """Create a new intake from unstructured text."""
-    action: Literal["create"] = Field(..., description="Action to perform (only 'create' supported)")
+    """Create or preview a new intake from unstructured text."""
+    action: Literal["create", "preview"] = Field(..., description="Action: 'preview' to show gathered fields to user, 'create' to save")
     name: Optional[str] = Field(None, description="Name of the injured person / potential client")
     email: Optional[str] = Field(None, description="Email of the contact (injured person or referral source)")
     phone: Optional[str] = Field(None, description="Phone of the contact (injured person or referral source)")
@@ -1222,19 +1224,53 @@ def register_tools(mcp):
     # MANAGE INTAKE
     # =========================================================================
 
+    _intake_logger = logging.getLogger(__name__ + ".intake")
+
+    def _run_background_analysis(intake_id: int, intake_data: dict, notes: str = "") -> None:
+        """Run AI analysis in a background thread, save results, broadcast SSE."""
+        from routes.sse import broadcast
+        try:
+            from services.intake_ai import analyze_intake
+            ai_result = analyze_intake(intake_data, notes=notes)
+            db.save_ai_analysis(
+                intake_id,
+                ai_result["ai_summary"],
+                ai_result["ai_rating"],
+                ai_result["ai_rating_reasoning"],
+            )
+            # Broadcast from background thread — broadcast uses put_nowait which is thread-safe for asyncio queues
+            broadcast({"entity": "intake", "action": "analyzed", "id": intake_id, "intake_id": intake_id})
+        except Exception as e:
+            _intake_logger.warning("Background AI analysis failed for intake %d: %s", intake_id, e)
+            db.set_ai_analyzing(intake_id, False)
+            broadcast({"entity": "intake", "action": "updated", "id": intake_id, "intake_id": intake_id})
+
     @mcp.tool()
     def manage_intake(context: Context, data: ManageIntakeInput) -> dict:
-        """Create a new intake from parsed contact/incident information.
+        """Create or preview a new intake from parsed contact/incident information.
+
+        Use action="preview" while still gathering info from the user — this
+        shows a visual card of what's been collected so far (no database write).
+        Use action="create" once you have enough info to save the intake.
 
         Extract fields from unstructured text (voicemail notes, emails, etc.)
         and create an intake record. All fields are optional but try to extract
         at least name, phone, and incident_date.
 
         Examples:
+        - manage_intake(action="preview", name="John Smith", phone="555-1234")
         - manage_intake(action="create", name="John Smith", phone="555-1234", incident_date="2026-01-15", case_type="auto accident", incident_description="Rear-ended at intersection")
         """
         context.info(f"manage_intake: {data.action}")
         try:
+            if data.action == "preview":
+                fields = {}
+                for field in ["name", "email", "phone", "contact_relationship", "referral_name", "referral_org", "referral_email", "referral_phone", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
+                    val = getattr(data, field)
+                    if val is not None:
+                        fields[field] = val
+                return {"success": True, "preview": True, "fields": fields}
+
             if data.action == "create":
                 kwargs = {}
                 for field in ["name", "email", "phone", "contact_relationship", "referral_name", "referral_org", "referral_email", "referral_phone", "case_type", "incident_date", "incident_time", "location", "incident_description", "injury_description", "notes"]:
@@ -1243,21 +1279,20 @@ def register_tools(mcp):
                         kwargs[field] = val
                 result = db.create_intake(**kwargs)
 
-                # Run AI analysis (summary + rating) on the new intake
-                try:
-                    from services.intake_ai import analyze_intake
-                    ai_result = analyze_intake(result)
-                    db.save_ai_analysis(
-                        result["id"],
-                        ai_result["ai_summary"],
-                        ai_result["ai_rating"],
-                        ai_result["ai_rating_reasoning"],
-                    )
-                    result.update(ai_result)
-                except Exception as e:
-                    context.warning(f"AI analysis failed (intake still created): {e}")
+                # Mark as analyzing and broadcast so UI updates immediately
+                from routes.sse import broadcast
+                db.set_ai_analyzing(result["id"], True)
+                broadcast({"entity": "intake", "action": "created", "id": result["id"], "intake_id": result["id"]})
 
-                return {"success": True, "message": "Intake created", "intake_id": result["id"], "intake": result}
+                # Fire background AI analysis
+                thread = threading.Thread(
+                    target=_run_background_analysis,
+                    args=(result["id"], result, kwargs.get("notes", "")),
+                    daemon=True,
+                )
+                thread.start()
+
+                return {"success": True, "message": "Intake created (AI analysis running in background)", "intake_id": result["id"], "intake": result}
 
         except Exception as e:
             return error_response(f"manage_intake failed: {str(e)}", "MUTATION_ERROR")
