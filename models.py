@@ -363,7 +363,7 @@ class User(Base):
         DateTime, server_default=text("CURRENT_TIMESTAMP")
     )
     paralegal_id: Mapped[Optional[int]] = mapped_column(Integer)
-    visible_features: Mapped[Optional[dict]] = mapped_column(JSONB)
+    visible_features: Mapped[Optional[list]] = mapped_column(JSONB)
 
     # Relationships
     paralegal: Mapped[Optional[User]] = relationship(
