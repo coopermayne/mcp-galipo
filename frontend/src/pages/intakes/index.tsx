@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getIntakes, getIntakeCounts, syncIntakes } from "@/services/intakes"
 import { getColumns } from "@/pages/intakes/columns"
+import { IntakePipelines } from "@/pages/intakes/components/intake-pipelines"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
 import {
   Table,
@@ -104,11 +105,14 @@ export default function IntakesPage() {
         </p>
       </div>
 
-      <IntakeToolbar
-        table={table}
+      <IntakePipelines
         counts={counts}
         selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
+      />
+
+      <IntakeToolbar
+        table={table}
         onSync={() => syncMutation.mutate()}
         isSyncing={syncMutation.isPending}
       />
@@ -168,7 +172,6 @@ export default function IntakesPage() {
           </TableBody>
         </Table>
       </div>
-
     </div>
   )
 }
