@@ -147,7 +147,7 @@ class UserOut(BaseModel):
     must_change_password: Optional[bool] = None
     is_active: Optional[bool] = None
     paralegal_id: Optional[int] = None
-    visible_features: Optional[dict] = None
+    visible_features: Optional[list] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
     paralegal: Optional[UserBriefOut] = None

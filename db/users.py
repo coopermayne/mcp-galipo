@@ -96,7 +96,7 @@ def create_user(
     bar_number: Optional[str] = None,
     is_admin: bool = False,
     must_change_password: bool = True,
-    visible_features: Optional[dict] = None,
+    visible_features: Optional[list] = None,
 ) -> dict:
     """Create a new user with hashed password."""
     password_hash_val = hash_password(password)
