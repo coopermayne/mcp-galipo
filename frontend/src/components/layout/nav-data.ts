@@ -14,6 +14,7 @@ export type NavItem = {
   title: string
   url: string
   icon: typeof DashboardBrowsingIcon
+  featureKey?: string
   items?: { title: string; url: string }[]
 }
 
@@ -30,31 +31,37 @@ export const navGroups: NavGroup[] = [
         title: "Dashboard",
         url: "/",
         icon: DashboardBrowsingIcon,
+        featureKey: "dashboard",
       },
       {
         title: "Intakes",
         url: "/intakes",
         icon: InboxDownloadIcon,
+        featureKey: "intakes",
       },
       {
         title: "Cases",
         url: "/cases",
         icon: Briefcase01Icon,
+        featureKey: "cases",
       },
       {
         title: "Tasks",
         url: "/tasks",
         icon: Task01Icon,
+        featureKey: "tasks",
       },
       {
         title: "Calendar",
         url: "/calendar",
         icon: Calendar03Icon,
+        featureKey: "calendar",
       },
       {
         title: "Contacts",
         url: "/contacts",
         icon: ContactBookIcon,
+        featureKey: "contacts",
         items: [
           { title: "Clients", url: "/contacts/clients" },
           { title: "Counsel", url: "/contacts/counsel" },
@@ -69,6 +76,7 @@ export const navGroups: NavGroup[] = [
         title: "Templates",
         url: "/templates",
         icon: LegalDocument01Icon,
+        featureKey: "templates",
         items: [
           { title: "Pleadings", url: "/templates/pleadings" },
           { title: "RFP", url: "/templates/rfp" },
@@ -81,6 +89,7 @@ export const navGroups: NavGroup[] = [
         title: "CourtListener",
         url: "/court-listener",
         icon: JusticeScale01Icon,
+        featureKey: "court-listener",
       },
     ],
   },
