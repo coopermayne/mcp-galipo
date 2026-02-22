@@ -4,7 +4,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   type SortingState,
   type ColumnFiltersState,
   type VisibilityState,
@@ -15,7 +14,6 @@ import { toast } from "sonner"
 import { getIntakes, getIntakeCounts, syncIntakes } from "@/services/intakes"
 import { getColumns } from "@/pages/intakes/columns"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
-import { DataTablePagination } from "@/components/common/data-table-pagination"
 import {
   Table,
   TableBody,
@@ -95,7 +93,6 @@ export default function IntakesPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   })
 
   return (
@@ -116,7 +113,7 @@ export default function IntakesPage() {
         isSyncing={syncMutation.isPending}
       />
 
-      <div className="rounded-md border">
+      <div className="border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -172,7 +169,6 @@ export default function IntakesPage() {
         </Table>
       </div>
 
-      <DataTablePagination table={table} />
     </div>
   )
 }
