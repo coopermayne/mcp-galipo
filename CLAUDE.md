@@ -150,7 +150,8 @@ React + Vite + shadcn/ui + Tailwind CSS v4 + TypeScript
 
 **Key libraries:**
 - **React Router v7** — client-side routing
-- **TanStack Query** — server state (caching, mutations, invalidation)
+- **TanStack Query (`@tanstack/react-query`)** — server state (caching, mutations, invalidation)
+- **TanStack Table (`@tanstack/react-table`)** — headless table logic (sorting, filtering, pagination)
 - **React Hook Form + Zod** — form handling and validation
 - **shadcn/ui** — component primitives (Radix-based)
 
@@ -268,6 +269,15 @@ frontend/src/
 - All styling via Tailwind utility classes.
 - Theming via CSS custom properties (defined in `index.css`).
 - Use the `cn()` helper from `lib/utils.ts` for conditional class merging.
+
+### Data Tables
+- Built on `@tanstack/react-table` + shadcn `<Table>` primitive
+- Three shared helpers in `components/common/`: `DataTableColumnHeader`, `DataTablePagination`, `DataTableViewOptions`
+- Each page composes `useReactTable` inline — no shared DataTable wrapper — because every table has unique toolbar, filters, and state
+- Each page defines its own `columns.tsx` co-located next to the page
+- Column headers use `DataTableColumnHeader` for sortable headers
+- Icons use Hugeicons (not Lucide) in all table helpers
+- Repeatable pattern for adding a new table page: **types → service → columns → feature components → page**
 
 ## Key Patterns
 

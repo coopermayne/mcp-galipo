@@ -1,6 +1,7 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { createBrowserRouter, RouterProvider } from "react-router"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeContext, useThemeProvider } from "@/hooks/use-theme"
 import { RootLayout } from "@/components/layout/root-layout"
 
@@ -9,6 +10,15 @@ import "./index.css"
 function lazy(importFn: () => Promise<{ default: React.ComponentType }>) {
   return () => importFn().then((m) => ({ Component: m.default }))
 }
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 const router = createBrowserRouter([
   {
@@ -31,9 +41,11 @@ function App() {
   const themeValue = useThemeProvider()
 
   return (
-    <ThemeContext.Provider value={themeValue}>
-      <RouterProvider router={router} />
-    </ThemeContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeContext.Provider value={themeValue}>
+        <RouterProvider router={router} />
+      </ThemeContext.Provider>
+    </QueryClientProvider>
   )
 }
 
