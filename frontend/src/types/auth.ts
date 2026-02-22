@@ -7,6 +7,7 @@ export interface AuthUser {
   position: string
   isAdmin: boolean
   paralegalId: number | null
+  visibleFeatures: string[] | null
 }
 
 export interface LoginResponse {
