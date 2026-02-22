@@ -2,9 +2,11 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { createBrowserRouter, RouterProvider } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { AuthContext, useAuthProvider } from "@/hooks/use-auth"
 import { ThemeContext, useThemeProvider } from "@/hooks/use-theme"
 import { RootLayout } from "@/components/layout/root-layout"
 import { Toaster } from "@/components/ui/sonner"
+import LoginPage from "@/pages/login"
 
 import "./index.css"
 
@@ -22,6 +24,7 @@ const queryClient = new QueryClient({
 })
 
 const router = createBrowserRouter([
+  { path: "login", element: <LoginPage /> },
   {
     element: <RootLayout />,
     children: [
@@ -39,15 +42,18 @@ const router = createBrowserRouter([
 ])
 
 function App() {
+  const authValue = useAuthProvider()
   const themeValue = useThemeProvider()
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeContext.Provider value={themeValue}>
-        <RouterProvider router={router} />
-        <Toaster />
-      </ThemeContext.Provider>
-    </QueryClientProvider>
+    <AuthContext.Provider value={authValue}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeContext.Provider value={themeValue}>
+          <RouterProvider router={router} />
+          <Toaster />
+        </ThemeContext.Provider>
+      </QueryClientProvider>
+    </AuthContext.Provider>
   )
 }
 
