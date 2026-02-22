@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table"
 import type { Intake, IntakeCountsResponse, IntakeStatus } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon } from "@hugeicons/core-free-icons"
+import { Search01Icon, RefreshIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DataTableViewOptions } from "@/components/common/data-table-view-options"
@@ -24,6 +24,8 @@ interface IntakeToolbarProps {
   counts: IntakeCountsResponse | undefined
   selectedStatus: string | null
   onStatusChange: (status: string | null) => void
+  onSync: () => void
+  isSyncing: boolean
 }
 
 export function IntakeToolbar({
@@ -31,6 +33,8 @@ export function IntakeToolbar({
   counts,
   selectedStatus,
   onStatusChange,
+  onSync,
+  isSyncing,
 }: IntakeToolbarProps) {
   const nameColumn = table.getColumn("name")
 
@@ -80,6 +84,19 @@ export function IntakeToolbar({
             className="h-8 pl-8"
           />
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={onSync}
+          disabled={isSyncing}
+        >
+          <HugeiconsIcon
+            icon={RefreshIcon}
+            className={cn("mr-2 size-4", isSyncing && "animate-spin")}
+          />
+          {isSyncing ? "Syncing..." : "Sync Google Sheets"}
+        </Button>
         <DataTableViewOptions table={table} />
       </div>
     </div>

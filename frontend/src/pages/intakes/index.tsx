@@ -10,8 +10,9 @@ import {
   type VisibilityState,
   flexRender,
 } from "@tanstack/react-table"
-import { useQuery } from "@tanstack/react-query"
-import { getIntakes, getIntakeCounts } from "@/services/intakes"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import { getIntakes, getIntakeCounts, syncIntakes } from "@/services/intakes"
 import { getColumns } from "@/pages/intakes/columns"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
 import { DataTablePagination } from "@/components/common/data-table-pagination"
@@ -26,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function IntakesPage() {
+  const queryClient = useQueryClient()
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -43,6 +45,25 @@ export default function IntakesPage() {
   const { data: counts } = useQuery({
     queryKey: ["intake-counts"],
     queryFn: getIntakeCounts,
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: syncIntakes,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["intakes"] })
+      queryClient.invalidateQueries({ queryKey: ["intake-counts"] })
+      if (data.imported > 0) {
+        toast.success(
+          `Imported ${data.imported} new intake${data.imported === 1 ? "" : "s"}` +
+            (data.skipped > 0 ? `, ${data.skipped} already existed` : "")
+        )
+      } else {
+        toast.info("No new intakes to import — everything is up to date.")
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
   })
 
   const columns = useMemo(
@@ -91,6 +112,8 @@ export default function IntakesPage() {
         counts={counts}
         selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
+        onSync={() => syncMutation.mutate()}
+        isSyncing={syncMutation.isPending}
       />
 
       <div className="rounded-md border">

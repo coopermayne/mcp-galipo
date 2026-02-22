@@ -55,3 +55,19 @@ export async function deleteIntake(
   if (!res.ok) throw new Error("Failed to delete intake")
   return res.json()
 }
+
+export interface SyncIntakesResponse {
+  success: boolean
+  imported: number
+  skipped: number
+  total: number
+}
+
+export async function syncIntakes(): Promise<SyncIntakesResponse> {
+  const res = await fetch("/api/v1/intakes/sync", { method: "POST" })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || "Failed to sync intakes")
+  }
+  return res.json()
+}
