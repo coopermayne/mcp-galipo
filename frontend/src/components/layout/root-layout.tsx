@@ -26,7 +26,7 @@ export function RootLayout() {
         <AppSidebar />
         <SidebarInset>
           <Header />
-          <main className="flex-1 overflow-auto">
+          <main className="mx-auto max-w-[1600px] flex-1 overflow-auto">
             <Outlet />
           </main>
         </SidebarInset>
