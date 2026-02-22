@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeContext, useThemeProvider } from "@/hooks/use-theme"
 import { RootLayout } from "@/components/layout/root-layout"
+import { Toaster } from "@/components/ui/sonner"
 
 import "./index.css"
 
@@ -44,6 +45,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeContext.Provider value={themeValue}>
         <RouterProvider router={router} />
+        <Toaster />
       </ThemeContext.Provider>
     </QueryClientProvider>
   )
