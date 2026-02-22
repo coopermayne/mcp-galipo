@@ -8,6 +8,10 @@ Galipo is a legal case management system for personal injury law firms. It opera
 - An **MCP server** with tools for Claude AI integration (via FastMCP, Streamable HTTP transport)
 - A **React web dashboard** for managing cases, tasks, deadlines, and contacts
 
+## Old Frontend (`_frontend_old/`)
+
+The `_frontend_old/` directory contains the previous frontend codebase, kept for reference only. **Do NOT reference, copy from, or use patterns from `_frontend_old/` unless the user explicitly directs you to.** The new frontend is a clean start with different conventions.
+
 ## Commands
 
 ### Backend (Python/FastAPI)
@@ -24,7 +28,7 @@ python main.py
 
 Note: Database migrations run via Alembic. See "Database Migrations" section below.
 
-### Frontend (React/Vite)
+### Frontend (React/Vite + shadcn/ui)
 ```bash
 cd frontend
 npm run dev          # Dev server at http://localhost:5173
@@ -123,14 +127,147 @@ main.py                    # FastAPI + MCP server entry point
 │   └── ...               # Other route modules (19 files total)
 ├── services/             # Domain services
 │   └── chat/             # In-app chat (presets, modes, executor)
-└── frontend/src/
-    ├── pages/            # Route pages (Dashboard, Cases, CaseDetail/, etc.)
-    ├── components/       # UI components by domain (cases/, tasks/, calendar/)
-    ├── api/              # API client functions
-    ├── config/           # App configuration (colors.ts, etc.)
-    ├── types/            # TypeScript interfaces
-    └── context/          # Auth & Theme contexts
+└── frontend/src/         # React + Vite + shadcn/ui
+    ├── components/
+    │   ├── ui/           # shadcn primitives only
+    │   ├── layout/       # app shell: sidebar, header, footer
+    │   └── common/       # shared app components (data-table, status-badge, etc.)
+    ├── pages/            # co-located feature modules
+    │   ├── dashboard/    #   index.tsx + components/
+    │   ├── intakes/      #   index.tsx + components/
+    │   ├── cases/        #   index.tsx + components/
+    │   └── ...
+    ├── hooks/            # shared React hooks
+    ├── lib/              # utilities (cn(), formatters)
+    ├── services/         # API client functions (one file per domain)
+    └── types/            # shared TypeScript types
 ```
+
+## Frontend — shadcn/ui Conventions
+
+### Stack
+React + Vite + shadcn/ui + Tailwind CSS v4 + TypeScript
+
+**Key libraries:**
+- **React Router v7** — client-side routing
+- **TanStack Query** — server state (caching, mutations, invalidation)
+- **React Hook Form + Zod** — form handling and validation
+- **shadcn/ui** — component primitives (Radix-based)
+
+**Config**: `frontend/components.json` — style: `radix-lyra`, base color: `neutral`, theme: `blue`, icons: `hugeicons`, font: `JetBrains Mono`
+
+### Naming Conventions
+- **Files**: `kebab-case.tsx` — e.g., `intake-form.tsx`, `status-badge.tsx`, `use-debounce.ts`
+- **Components**: `PascalCase` exports — e.g., `export function IntakeForm()`
+- **Hooks**: `camelCase` with `use` prefix — e.g., `useAuth`, `useDebounce`
+- **Services**: `kebab-case.ts` by domain — e.g., `services/cases.ts`, `services/intakes.ts`
+- **Types**: `PascalCase` interfaces/types — e.g., `Case`, `Intake`, `TaskStatus`
+
+### Imports
+- ALWAYS use the `@/` alias for imports: `import { Button } from "@/components/ui/button"`
+- NEVER use relative paths like `../../../components/ui/button`
+- The `@/` alias maps to `frontend/src/` and is configured in both Vite and TypeScript
+
+### API Proxy
+- Vite proxies `/api/*` requests to the backend (`http://localhost:$PORT`)
+- Frontend code calls `/api/v1/...` directly — no need to specify host/port
+- Configured in `vite.config.ts`, reads `PORT` and `VITE_PORT` from env
+
+### Auth
+- Auth is handled at the app shell level (layout wrapper)
+- Protected routes redirect to login when unauthenticated
+- Auth state is managed via a React context (`hooks/use-auth.ts` or similar)
+- API calls that return 401 should trigger a redirect to login
+
+### Reuse First — No Duplication
+
+**Before building any new component, ALWAYS check what already exists:**
+1. Check `components/common/` for shared components that do what you need (or could be extended).
+2. Check `components/ui/` for shadcn primitives that could be composed.
+3. Check other `pages/*/components/` folders — if a similar component exists for another feature, extract the shared parts into `components/common/` and have both features use it.
+
+**When building something new:**
+- Ask: "Could this be useful on another page?" If yes, build it in `components/common/` from the start.
+- If you find yourself copying a component from one feature to another, stop — refactor it into `components/common/` instead.
+- Prefer extending an existing component with a new variant/prop over creating a near-duplicate.
+- Shared hooks go in `hooks/`, not duplicated inside feature folders.
+
+### MCP Servers for UI Development
+- **shadcn MCP**: Browse, search, and install components from the registry. ALWAYS use this to check available components and their current props before implementing any UI.
+- **Context7**: Pull current shadcn/ui documentation before writing component code.
+- Never guess at component APIs — look them up first.
+- Use `npx shadcn@latest add <component>` to install components rather than manually creating them.
+
+### Folder Structure — Co-located Features
+
+```
+frontend/src/
+├── components/
+│   ├── ui/              # shadcn primitives ONLY (generic, reusable)
+│   ├── layout/          # app shell: sidebar, header, footer
+│   └── common/          # shared app components (data-table, status-badge, user-avatar, etc.)
+├── pages/
+│   ├── dashboard/
+│   │   ├── index.tsx          # page component (the route target)
+│   │   └── components/        # dashboard-specific components
+│   ├── intakes/
+│   │   ├── index.tsx
+│   │   └── components/
+│   ├── cases/
+│   │   ├── index.tsx
+│   │   └── components/
+│   └── ...
+├── hooks/               # shared hooks (useAuth, useDebounce, etc.)
+├── services/            # API client functions (one file per domain)
+├── types/               # shared TypeScript types/interfaces
+└── lib/                 # utilities (cn(), formatters, constants)
+```
+
+**Rules:**
+- Feature components live **next to their page** (`pages/intakes/components/`), not in a global features folder.
+- If a component is used by **2+ pages**, promote it to `components/common/`.
+- `components/ui/` is **strictly shadcn primitives** — no app logic, no feature components.
+- `components/layout/` is for the app shell (sidebar, header) that wraps all pages.
+- Each `services/` file maps to a backend domain (e.g., `services/cases.ts`, `services/intakes.ts`).
+
+### Component Philosophy: Three Layers
+
+**1. UI Layer (`components/ui/`)**
+- Contains shadcn primitives and modifications to them.
+- Everything here should be **generic and reusable** — not tied to any feature.
+- OK to modify: add variants, change styles, adjust defaults, tweak animations.
+- NOT OK: app-specific logic, feature components, business rules.
+
+**2. Common Layer (`components/common/`)**
+- Shared app-level components that compose `ui/` primitives.
+- Used across multiple pages (e.g., `DataTable`, `StatusBadge`, `UserAvatar`, `ConfirmDialog`).
+- App-aware but not feature-specific.
+
+**3. Feature Layer (`pages/*/components/`, `components/layout/`)**
+- Feature-specific components that live next to their page.
+- This is where business logic, validation, state management, and data fetching live.
+- Example: `pages/intakes/components/intake-form.tsx` imports `Input`, `Label`, `Select` from `ui/` and adds form logic.
+
+**Complex Components (e.g., Sidebar)**
+- shadcn ships multi-part primitives (`Sidebar`, `SidebarMenu`, `SidebarMenuItem`, etc.) — these stay in `ui/`.
+- Compose them into your actual implementation in `layout/` (e.g., `app-sidebar.tsx` with nav items, routes, and role logic).
+
+### Updating Components
+- shadcn is not a package dependency — components are copied into your codebase.
+- Radix UI and Tailwind update normally via npm.
+- To pull a new version of a shadcn component: `npx shadcn@latest add <component>` and merge changes via git diff.
+- Heavily modified components generally don't need to be re-pulled.
+
+### Layout & Responsiveness
+- shadcn does not provide a layout system. Use Tailwind responsive utilities directly.
+- Standard content wrapper: `<main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">`
+- Breakpoints: `sm`, `md`, `lg`, `xl`, `2xl` (mobile-first, prefix to override at larger sizes).
+- Use Tailwind grid/flex for responsive layouts (e.g., `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3`).
+
+### Styling
+- All styling via Tailwind utility classes.
+- Theming via CSS custom properties (defined in `index.css`).
+- Use the `cn()` helper from `lib/utils.ts` for conditional class merging.
 
 ## Key Patterns
 
@@ -141,73 +278,6 @@ main.py                    # FastAPI + MCP server entry point
 - **SQLAlchemy sessions**: All `db/` modules use `SessionLocal()` context manager. Two raw-SQL holdouts (`services/chat/presets.py`, `routes/export.py`) use `session.execute(text(...))` — same SQL, SQLAlchemy transport
 - **Pydantic schemas**: `schemas/` package has input models (`inputs.py`), output models (`outputs.py`), and shared Literal types (`common.py`). Re-exports everything so `from schemas import X` works
 - **MCP tools** return dicts/lists that FastMCP serializes; **routes** return FastAPI responses
-
-### Frontend
-- **TanStack Query** for server state (mutations invalidate related queries)
-- **TanStack Table** for data tables with sorting/filtering
-- **@dnd-kit** for drag-and-drop task reordering
-- **Tailwind CSS** for styling (utility classes)
-- API calls go through `frontend/src/api/` functions
-
-### Frontend Colors & Theming - IMPORTANT
-
-Colors are managed in two files - use the right one for your use case:
-
-**1. `frontend/src/index.css`** - CSS custom properties & theme variables
-- `--color-primary-*` - Primary brand palette (50-950)
-- `--color-urgency-*` - Urgency scale (1-4)
-- `--color-status-*` - Status colors (pending, active, done, blocked)
-- `--theme-bg-*`, `--theme-text-*`, `--theme-border-*` - Semantic theme tokens
-
-Use these for general theming via utility classes:
-```tsx
-// ✅ Semantic theme classes (auto dark mode)
-<div className="bg-bg-surface text-text border-border">
-<span className="text-text-muted">
-
-// ✅ Primary color from CSS vars
-<button className="bg-primary-500 hover:bg-primary-600">
-```
-
-**2. `frontend/src/config/colors.ts`** - Badge/status color mappings
-
-**All badge, pill, chip, and status colors MUST be imported from this file.**
-
-Never hardcode Tailwind color classes like `bg-blue-100 text-blue-700` directly in components:
-
-```tsx
-// ✅ CORRECT - import from centralized config
-import { getStatusColor, CASE_STATUS_COLORS, getBadgeColorById } from '@/config/colors';
-
-// For status badges (task, case, event statuses)
-const color = getStatusColor(status);
-<span className={`${color.bg} ${color.text}`}>{status}</span>
-
-// For case status specifically
-const color = CASE_STATUS_COLORS[caseStatus];
-
-// For user avatars, case chips, or ID-based coloring
-const colorClasses = getBadgeColorClassesById(userId);
-
-// ❌ WRONG - hardcoded colors
-<span className="bg-blue-100 text-blue-700">{status}</span>
-```
-
-**What's in `colors.ts`:**
-- `BADGE_PALETTE` - colorful palette for distinguishing items (users, cases)
-- `TASK_STATUS_COLORS` - Pending, Active, Done, Blocked, etc.
-- `CASE_STATUS_COLORS` - Discovery, Trial, Closed, etc.
-- `EVENT_STATUS_COLORS` - Met, Missed
-- `PRIORITY_COLORS` - priority 1-4 with hex values for inline styles
-- `URGENCY_COLORS` - Low, Medium, High, Urgent
-- `DATE_GROUP_COLORS` - overdue, today, this week, later
-- Helper functions: `getStatusColor()`, `getBadgeColorById()`, `colorToClasses()`
-
-**Why this matters:**
-- Ensures consistent colors across the app
-- All colors have dark mode variants built in
-- Single place to update if palette changes
-- Prevents color drift between similar components
 
 ### Database
 - **Schema source of truth**: `models.py` (SQLAlchemy declarative models). 16 model classes mapping to 16 tables
@@ -240,40 +310,6 @@ COPY templates/ ./templates/
 
 If you forget, production will crash with `ModuleNotFoundError` and the app will be down until fixed.
 
-## New Developer Setup
-
-1. **Clone the repo** and copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. **Edit `.env`** with your values:
-   - Set `DATABASE_URL` with your postgres username (run `whoami` to check)
-   - Set `DEV_AUTH_USER` to your email in the users table
-
-3. **Create the database:**
-   ```bash
-   createdb galipo  # or use Postgres.app UI
-   ```
-
-4. **Restore a production snapshot** (recommended for realistic test data):
-   ```bash
-   # Get a recent backup from the team, then:
-   ./scripts/restore.sh path/to/backup.sql
-   ```
-   We typically test against production snapshots to ensure realistic data. Ask the team for a recent backup file.
-
-5. **Install dependencies:**
-   ```bash
-   python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-   cd frontend && npm install && cd ..
-   ```
-
-6. **Start the dev servers:**
-   ```bash
-   /dev
-   ```
-
 ## Local Development
 
 **IMPORTANT:** When working locally, always use `/dev` to start or restart all development servers. This skill:
@@ -291,108 +327,9 @@ Use `/dev` liberally:
 
 Logs are written to `/tmp/backend_$PORT.log` and `/tmp/frontend_$VITE_PORT.log` for debugging.
 
-## Multi-Repo Development Setup
-
-For working on multiple branches/features simultaneously, you can run parallel copies of the repo with isolated databases and ports.
-
-### Port Configuration
-
-| Copy | Backend | Frontend | Database |
-|------|---------|----------|----------|
-| mcp-galipo | 8000 | 5173 | galipo |
-| mcp-galipo_2 | 8001 | 5174 | galipo_2 |
-| mcp-galipo_3 | 8002 | 5175 | galipo_3 |
-
-### Setup Steps
-
-**1. Create the databases:**
-
-```bash
-# Using Postgres.app (creates databases owned by your macOS user)
-/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "CREATE DATABASE galipo_2;"
-/Applications/Postgres.app/Contents/Versions/latest/bin/psql postgres -c "CREATE DATABASE galipo_3;"
-```
-
-> **Note:** With Postgres.app, databases are owned by your macOS username (e.g., `coopermayne`), so no GRANT commands are needed. If using a different postgres user, grant permissions accordingly.
-
-**2. Copy the repo:**
-
-```bash
-cd ~/Code  # or wherever your repos live
-cp -r mcp-galipo mcp-galipo_2
-cp -r mcp-galipo mcp-galipo_3
-```
-
-**3. Update `.env` in each copy:**
-
-Edit the `.env` file in each copy to use unique ports and databases. Only change the values shown below (keep other settings like `AUTH_*` and `ANTHROPIC_API_KEY` the same):
-
-For mcp-galipo_2:
-```bash
-DATABASE_URL=postgresql://YOUR_USER@localhost:5432/galipo_2
-PORT=8001
-VITE_PORT=5174
-```
-
-For mcp-galipo_3:
-```bash
-DATABASE_URL=postgresql://YOUR_USER@localhost:5432/galipo_3
-PORT=8002
-VITE_PORT=5175
-```
-
-> **Note:** Replace `YOUR_USER` with your postgres username. For Postgres.app, this is typically your macOS username (run `whoami` to check).
-
-**4. Reinstall frontend dependencies** (symlinks break during copy):
-
-```bash
-cd mcp-galipo_2/frontend && rm -rf node_modules && npm install
-cd mcp-galipo_3/frontend && rm -rf node_modules && npm install
-```
-
-**5. Start each environment:**
-
-Run `/dev` in each repo's Claude Code session. The backend will auto-run migrations on first start.
-
-**6. Seed with test data (optional):**
-
-```bash
-cd mcp-galipo_2
-set -a && source .env && set +a
-.venv/bin/python scripts/seed_dev_data.py
-```
-
-Repeat for mcp-galipo_3.
-
-### Accessing Each Copy
-
-- **mcp-galipo**: http://localhost:5173
-- **mcp-galipo_2**: http://localhost:5174
-- **mcp-galipo_3**: http://localhost:5175
-
-### How It Works
-
-The `/dev` skill sources the `.env` file and uses the configured ports:
-- Backend reads `PORT` for uvicorn
-- Frontend reads `VITE_PORT` for the dev server port
-- Frontend reads `PORT` to configure the API proxy (so `/api/*` requests go to the right backend)
-
-## Pre-Commit Verification
-
-**IMPORTANT:** After any changes that affect the database (models.py, alembic migrations, db/*.py functions), run `/verify` before pushing.
-
-The `/verify` skill checks:
-- Migration safety (Alembic migrations are valid, models match DB)
-- Type consistency across all layers (frontend types ↔ backend ↔ database)
-- API contract consistency (routes, MCP tools, frontend API)
-- Build verification (TypeScript compiles)
-- Export completeness (barrel files updated)
-
-This is critical because the **live production database** receives schema changes via Alembic migrations that run on deployment.
-
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in your values. See "New Developer Setup" above.
+Copy `.env.example` to `.env` and fill in your values.
 
 **IMPORTANT - Loading env vars correctly:**
 ```bash
@@ -429,7 +366,6 @@ See `.env.example` for a complete template.
 - **Frontend**: http://localhost:5173 (Vite dev server)
 - **Backend API**: http://localhost:8000/api/v1/*
 - **MCP Server**: http://localhost:8000/mcp (Streamable HTTP)
-- **Legacy frontend**: http://localhost:8000/legacy
 
 ## Git Practices
 
@@ -444,6 +380,7 @@ See `.env.example` for a complete template.
 Project MCP servers are configured in `.mcp.json`:
 - **postgres** - Database queries (read-only mode)
 - **context7** - Library documentation lookup
+- **shadcn** - Component registry browser/installer
 - **sequential-thinking** - Structured step-by-step reasoning
 
 **Note:** Only use the `sequential-thinking` MCP when explicitly requested by the user (e.g., "use sequential thinking to work through this"). Do not use it automatically.
@@ -451,4 +388,3 @@ Project MCP servers are configured in `.mcp.json`:
 ## Playwright Testing
 
 **Always close the browser** with `browser_close` when you are done with Playwright testing. Do not leave browser windows open.
-
