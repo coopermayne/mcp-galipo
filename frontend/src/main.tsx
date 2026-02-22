@@ -49,7 +49,7 @@ function App() {
     <AuthContext.Provider value={authValue}>
       <QueryClientProvider client={queryClient}>
         <ThemeContext.Provider value={themeValue}>
-          <RouterProvider router={router} />
+          <RouterProvider router={router} hydrateFallbackElement={null} />
           <Toaster />
         </ThemeContext.Provider>
       </QueryClientProvider>

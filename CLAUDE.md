@@ -269,6 +269,7 @@ frontend/src/
 - All styling via Tailwind utility classes.
 - Theming via CSS custom properties (defined in `index.css`).
 - Use the `cn()` helper from `lib/utils.ts` for conditional class merging.
+- **Square corners everywhere.** The app theme uses sharp/square corners — no `rounded-*` on containers, cards, tables, toasts, or other UI elements. All new components must match this convention.
 
 ### Data Tables
 - Built on `@tanstack/react-table` + shadcn `<Table>` primitive
