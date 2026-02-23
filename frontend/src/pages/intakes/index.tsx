@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,6 +9,7 @@ import {
   type VisibilityState,
   flexRender,
 } from "@tanstack/react-table"
+import { useNavigate } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getIntakes, getIntakeCounts, syncIntakes } from "@/services/intakes"
@@ -26,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function IntakesPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
@@ -38,6 +40,7 @@ export default function IntakesPage() {
       getIntakes({
         status: selectedStatus ?? undefined,
         limit: 200,
+        exclude_archived: selectedStatus === null,
       }),
   })
 
@@ -65,19 +68,21 @@ export default function IntakesPage() {
     },
   })
 
+  const onView = useCallback(
+    (intake: { id: number }) => navigate(`/intakes/${intake.id}`),
+    [navigate]
+  )
+
   const columns = useMemo(
     () =>
       getColumns({
-        onView: (intake) => {
-          // TODO: open detail sheet/modal
-          console.log("View intake", intake.id)
-        },
+        onView,
         onDelete: (intake) => {
           // TODO: confirm dialog + delete mutation
           console.log("Delete intake", intake.id)
         },
       }),
-    []
+    [onView]
   )
 
   const table = useReactTable({

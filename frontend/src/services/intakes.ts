@@ -1,6 +1,9 @@
 import type {
   IntakeListResponse,
   IntakeCountsResponse,
+  IntakeCommentsResponse,
+  IntakeComment,
+  IntakeTransitions,
   Intake,
 } from "@/types/intake"
 import { apiFetch } from "@/lib/api"
@@ -9,6 +12,7 @@ interface GetIntakesParams {
   status?: string
   limit?: number
   offset?: number
+  exclude_archived?: boolean
 }
 
 export async function getIntakes(
@@ -18,6 +22,7 @@ export async function getIntakes(
   if (params.status) searchParams.set("status", params.status)
   if (params.limit != null) searchParams.set("limit", String(params.limit))
   if (params.offset != null) searchParams.set("offset", String(params.offset))
+  if (params.exclude_archived) searchParams.set("exclude_archived", "true")
 
   const res = await apiFetch(`/api/v1/intakes?${searchParams}`)
   if (!res.ok) throw new Error("Failed to fetch intakes")
@@ -70,5 +75,46 @@ export async function syncIntakes(): Promise<SyncIntakesResponse> {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error || "Failed to sync intakes")
   }
+  return res.json()
+}
+
+export async function getIntakeComments(
+  id: number
+): Promise<IntakeCommentsResponse> {
+  const res = await apiFetch(`/api/v1/intakes/${id}/comments`)
+  if (!res.ok) throw new Error("Failed to fetch comments")
+  return res.json()
+}
+
+export async function createIntakeComment(
+  id: number,
+  content: string
+): Promise<IntakeComment> {
+  const res = await apiFetch(`/api/v1/intakes/${id}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  })
+  if (!res.ok) throw new Error("Failed to create comment")
+  return res.json()
+}
+
+export async function markIntakeRead(id: number): Promise<void> {
+  await apiFetch(`/api/v1/intakes/${id}/read`, { method: "POST" })
+}
+
+export async function analyzeIntake(
+  id: number
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiFetch(`/api/v1/intakes/${id}/analyze`, {
+    method: "POST",
+  })
+  if (!res.ok) throw new Error("Failed to start analysis")
+  return res.json()
+}
+
+export async function getIntakeTransitions(): Promise<IntakeTransitions> {
+  const res = await apiFetch("/api/v1/intakes/transitions")
+  if (!res.ok) throw new Error("Failed to fetch transitions")
   return res.json()
 }

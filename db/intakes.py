@@ -25,12 +25,15 @@ def get_intakes(
     status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
+    exclude_archived: bool = False,
 ) -> dict:
     """Get intakes with optional status filter and pagination."""
     with SessionLocal() as session:
         filters = []
         if status:
             filters.append(Intake.status == status)
+        if exclude_archived:
+            filters.append(Intake.status != "Archived")
 
         count_stmt = select(func.count(Intake.id))
         for f in filters:
@@ -59,11 +62,10 @@ def get_intakes(
 
 
 def get_intake_status_counts() -> dict[str, int]:
-    """Get count of intakes grouped by status (excludes Archived)."""
+    """Get count of intakes grouped by status (includes all statuses)."""
     with SessionLocal() as session:
         rows = session.execute(
             select(Intake.status, func.count(Intake.id))
-            .where(Intake.status != "Archived")
             .group_by(Intake.status)
         ).all()
         return {status: count for status, count in rows}

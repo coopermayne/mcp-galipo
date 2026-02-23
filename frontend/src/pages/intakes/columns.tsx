@@ -1,3 +1,4 @@
+import { Link } from "react-router"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -74,7 +75,12 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.getValue("name") || "—"}</span>
+        <Link
+          to={`/intakes/${row.original.id}`}
+          className="font-medium hover:underline"
+        >
+          {row.getValue("name") || "—"}
+        </Link>
       ),
     },
     {
