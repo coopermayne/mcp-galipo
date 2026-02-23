@@ -270,6 +270,7 @@ frontend/src/
 - Theming via CSS custom properties (defined in `index.css`).
 - Use the `cn()` helper from `lib/utils.ts` for conditional class merging.
 - **Square corners everywhere.** The app theme uses sharp/square corners — no `rounded-*` on containers, cards, tables, toasts, or other UI elements. All new components must match this convention.
+- **Semantic status colors**: Use the theme tokens `--success`, `--warning`, `--info`, `--purple` (and their `-foreground` pairs) defined in `index.css` for status badges and buttons. Do not use raw Tailwind color classes (e.g., `bg-blue-500/15`) for status colors.
 
 ### Data Tables
 - Built on `@tanstack/react-table` + shadcn `<Table>` primitive
