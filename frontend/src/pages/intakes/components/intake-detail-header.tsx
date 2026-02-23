@@ -91,6 +91,7 @@ interface IntakeDetailHeaderProps {
 export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
+  const [showArchiveWarning, setShowArchiveWarning] = useState(false)
 
   const { data: transitions } = useQuery({
     queryKey: ["intake-transitions"],
@@ -183,7 +184,17 @@ export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHead
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem
-                  onClick={() => statusMutation.mutate("Archived")}
+                  onClick={() => {
+                    const safeToArchive: IntakeStatus[] = [
+                      "Rejection Letter Sent",
+                      "Retainer Signed",
+                    ]
+                    if (safeToArchive.includes(intake.status)) {
+                      statusMutation.mutate("Archived")
+                    } else {
+                      setShowArchiveWarning(true)
+                    }
+                  }}
                   disabled={statusMutation.isPending}
                 >
                   Archive
@@ -219,6 +230,29 @@ export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHead
               }}
             >
               OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showArchiveWarning} onOpenChange={setShowArchiveWarning}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this intake?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Archiving removes this intake from the active pipeline. This should generally only be done after a rejection letter has been sent or a retainer has been signed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setShowArchiveWarning(false)
+                statusMutation.mutate("Archived")
+              }}
+            >
+              Archive Anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

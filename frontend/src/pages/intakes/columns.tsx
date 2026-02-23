@@ -66,6 +66,7 @@ function SolDays({ days }: { days: number }) {
 export function getColumns(options: {
   onView: (intake: Intake) => void
   onDelete: (intake: Intake) => void
+  unreadCounts: Record<number, number>
 }): ColumnDef<Intake>[] {
   return [
     {
@@ -80,14 +81,22 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
-      cell: ({ row }) => (
-        <Link
-          to={`/intakes/${row.original.id}`}
-          className="font-medium hover:underline"
-        >
-          {row.getValue("name") || "—"}
-        </Link>
-      ),
+      cell: ({ row }) => {
+        const count = options.unreadCounts[row.original.id]
+        return (
+          <Link
+            to={`/intakes/${row.original.id}`}
+            className="inline-flex items-center gap-1.5 font-medium hover:underline"
+          >
+            {row.getValue("name") || "—"}
+            {count > 0 && (
+              <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+                {count}
+              </span>
+            )}
+          </Link>
+        )
+      },
     },
     {
       accessorKey: "case_type",
