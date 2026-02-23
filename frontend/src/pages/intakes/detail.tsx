@@ -1,6 +1,7 @@
 import { useParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { getIntake } from "@/services/intakes"
+import { useBreadcrumbLabel } from "@/hooks/use-breadcrumb-label"
 import { IntakeDetailHeader } from "@/pages/intakes/components/intake-detail-header"
 import { IntakeMetadata } from "@/pages/intakes/components/intake-metadata"
 import { IntakeSubmission } from "@/pages/intakes/components/intake-submission"
@@ -23,6 +24,8 @@ export default function IntakeDetailPage() {
     enabled: !isNaN(intakeId),
   })
 
+  useBreadcrumbLabel(intake?.name)
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6 p-6">
@@ -34,11 +37,12 @@ export default function IntakeDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="flex flex-col gap-6 lg:col-span-3">
             <Skeleton className="h-48" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-28" />
             <Skeleton className="h-36" />
           </div>
-          <div className="flex flex-col gap-6 lg:col-span-2">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-48" />
+          <div className="lg:col-span-2">
+            <Skeleton className="h-96" />
           </div>
         </div>
       </div>
@@ -58,17 +62,19 @@ export default function IntakeDetailPage() {
       <IntakeDetailHeader intake={intake} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Left column — submission, AI analysis, notes */}
+        {/* Left column — details, AI analysis, notes, submission text */}
         <div className="flex flex-col gap-6 lg:col-span-3">
-          <IntakeSubmission intake={intake} />
+          <IntakeMetadata intake={intake} />
           <IntakeAiAnalysis intake={intake} />
           <IntakeNotes intake={intake} />
+          <IntakeSubmission intake={intake} />
         </div>
 
-        {/* Right column — metadata, comments */}
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <IntakeMetadata intake={intake} />
-          <IntakeComments intakeId={intake.id} />
+        {/* Right column — activity feed (sticky) */}
+        <div className="lg:col-span-2">
+          <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-9rem)]">
+            <IntakeComments intakeId={intake.id} />
+          </div>
         </div>
       </div>
     </div>

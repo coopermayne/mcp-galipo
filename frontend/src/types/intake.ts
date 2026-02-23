@@ -33,6 +33,7 @@ export interface Intake {
   ai_summary: string | null
   ai_rating: number | null
   ai_rating_reasoning: string | null
+  location_short: string | null
   ai_analyzing: boolean
   google_row_number: number | null
   created_at: string | null

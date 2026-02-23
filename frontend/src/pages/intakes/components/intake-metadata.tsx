@@ -1,5 +1,20 @@
 import type { Intake } from "@/types/intake"
-import { Separator } from "@/components/ui/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  UserIcon,
+  Mail01Icon,
+  CallIcon,
+  Tag01Icon,
+  Calendar03Icon,
+  Location01Icon,
+  Building01Icon,
+  Link01Icon,
+} from "@hugeicons/core-free-icons"
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
@@ -18,28 +33,10 @@ function daysUntil(doi: string, months: number): number {
   return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-function SolBadge({ days, label }: { days: number; label: string }) {
-  const color =
-    days < 0
-      ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
-      : days <= 30
-        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-400"
-        : "bg-muted text-foreground"
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium tabular-nums ${color}`}>
-      {label}: {days}d
-    </span>
-  )
-}
-
-function MetadataRow({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div className="flex items-start justify-between gap-2 py-1.5">
-      <span className="text-muted-foreground shrink-0 text-xs">{label}</span>
-      <span className="text-right text-xs font-medium">{value || "—"}</span>
-    </div>
-  )
+function solColor(days: number): string {
+  if (days < 0) return "text-red-600 dark:text-red-400"
+  if (days <= 30) return "text-yellow-700 dark:text-yellow-400"
+  return "text-muted-foreground"
 }
 
 interface IntakeMetadataProps {
@@ -48,45 +45,137 @@ interface IntakeMetadataProps {
 
 export function IntakeMetadata({ intake }: IntakeMetadataProps) {
   const hasDoi = !!intake.incident_date
+  const hasReferral = intake.referral_name || intake.referral_org || intake.referral_email || intake.referral_phone
 
   return (
-    <div className="border p-4">
-      <h3 className="mb-3 text-sm font-semibold">Details</h3>
-
-      <MetadataRow label="Case Type" value={intake.case_type} />
-      <MetadataRow label="Location" value={intake.location} />
-      <MetadataRow label="DOI" value={formatDate(intake.incident_date)} />
-      {intake.incident_time && (
-        <MetadataRow label="Time" value={intake.incident_time} />
-      )}
-      <MetadataRow label="Submitted" value={formatDate(intake.submitted_on)} />
-
-      {hasDoi && (
-        <div className="mt-2 flex gap-2">
-          <SolBadge days={daysUntil(intake.incident_date!, 6)} label="6MO" />
-          <SolBadge days={daysUntil(intake.incident_date!, 24)} label="2YR" />
+    <div className="grid grid-cols-1 gap-6 border p-4 md:grid-cols-2">
+      {/* Contact + Referral */}
+      <div>
+        <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Contact</h3>
+        <div className="flex flex-col gap-1.5">
+          {intake.name && (
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={UserIcon} className="size-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">{intake.name}</span>
+            </div>
+          )}
+          {intake.email && (
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={Mail01Icon} className="size-3.5 text-muted-foreground" />
+              <span className="text-xs">{intake.email}</span>
+            </div>
+          )}
+          {intake.phone && (
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={CallIcon} className="size-3.5 text-muted-foreground" />
+              <span className="text-xs">{intake.phone}</span>
+            </div>
+          )}
+          {intake.contact_relationship && (
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={Link01Icon} className="size-3.5 text-muted-foreground" />
+              <span className="text-xs">{intake.contact_relationship}</span>
+            </div>
+          )}
         </div>
-      )}
 
-      <Separator className="my-3" />
-      <h3 className="mb-3 text-sm font-semibold">Contact</h3>
-      <MetadataRow label="Name" value={intake.name} />
-      <MetadataRow label="Email" value={intake.email} />
-      <MetadataRow label="Phone" value={intake.phone} />
-      {intake.contact_relationship && (
-        <MetadataRow label="Relationship" value={intake.contact_relationship} />
-      )}
+        {hasReferral && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Referral</h3>
+            <div className="flex flex-col gap-1.5">
+              {intake.referral_name && (
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={UserIcon} className="size-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium">{intake.referral_name}</span>
+                </div>
+              )}
+              {intake.referral_org && (
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={Building01Icon} className="size-3.5 text-muted-foreground" />
+                  <span className="text-xs">{intake.referral_org}</span>
+                </div>
+              )}
+              {intake.referral_email && (
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={Mail01Icon} className="size-3.5 text-muted-foreground" />
+                  <span className="text-xs">{intake.referral_email}</span>
+                </div>
+              )}
+              {intake.referral_phone && (
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={CallIcon} className="size-3.5 text-muted-foreground" />
+                  <span className="text-xs">{intake.referral_phone}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
-      {(intake.referral_name || intake.referral_org || intake.referral_email || intake.referral_phone) && (
-        <>
-          <Separator className="my-3" />
-          <h3 className="mb-3 text-sm font-semibold">Referral</h3>
-          {intake.referral_name && <MetadataRow label="Name" value={intake.referral_name} />}
-          {intake.referral_org && <MetadataRow label="Organization" value={intake.referral_org} />}
-          {intake.referral_email && <MetadataRow label="Email" value={intake.referral_email} />}
-          {intake.referral_phone && <MetadataRow label="Phone" value={intake.referral_phone} />}
-        </>
-      )}
+      {/* Incident */}
+      <div>
+        <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Incident</h3>
+        <div className="flex flex-col gap-1.5">
+          {intake.case_type && (
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={Tag01Icon} className="size-3.5 text-muted-foreground" />
+              <span className="text-xs">{intake.case_type}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium">{formatDate(intake.incident_date)}</span>
+            {intake.incident_time && (
+              <span className="text-xs text-muted-foreground">at {intake.incident_time}</span>
+            )}
+            {hasDoi && (() => {
+              const six = daysUntil(intake.incident_date!, 6)
+              const two = daysUntil(intake.incident_date!, 24)
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-1 cursor-default text-[10px] tabular-nums">
+                      <span className="text-muted-foreground/40">(</span>
+                      <span className={solColor(six)}>{six}</span>
+                      <span className="text-muted-foreground/40"> / </span>
+                      <span className={solColor(two)}>{two}</span>
+                      <span className="text-muted-foreground/40">)</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{six} days to 6-month SOL · {two} days to 2-year SOL</p>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })()}
+          </div>
+          {intake.location && (
+            <div className="flex items-start gap-2">
+              <HugeiconsIcon icon={Location01Icon} className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              {intake.location_short && intake.location_short !== intake.location ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-default text-xs">{intake.location_short}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{intake.location}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <span className="text-xs">{intake.location_short ?? intake.location}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Submitted</h3>
+          <div className="flex items-center gap-2">
+            <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 text-muted-foreground" />
+            <span className="text-xs">{formatDate(intake.submitted_on)}</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

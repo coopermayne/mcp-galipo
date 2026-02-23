@@ -79,6 +79,7 @@ class Intake(Base):
     ai_summary: Mapped[Optional[str]] = mapped_column(Text)
     ai_rating: Mapped[Optional[int]] = mapped_column(Integer)
     ai_rating_reasoning: Mapped[Optional[str]] = mapped_column(Text)
+    location_short: Mapped[Optional[str]] = mapped_column(String(100))
     ai_analyzing: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     google_row_number: Mapped[Optional[int]] = mapped_column(Integer, unique=True, nullable=True)
     # Timestamps
