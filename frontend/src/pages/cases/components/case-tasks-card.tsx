@@ -5,8 +5,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon } from "@hugeicons/core-free-icons"
 import type { CaseTask } from "@/types/case"
 import { updateTask } from "@/services/tasks"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
+import { statuses, urgencies } from "@/pages/tasks/task-data"
+import { cn } from "@/lib/utils"
 import {
   Card,
   CardContent,
@@ -27,17 +27,79 @@ function formatDate(dateStr: string | null): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-const urgencyColors: Record<string, string> = {
-  Urgent: "bg-destructive text-white",
-  High: "bg-warning text-warning-foreground",
-  Medium: "bg-info text-info-foreground",
-  Low: "bg-muted text-muted-foreground",
-}
-
 interface CaseTasksCardProps {
   tasks: CaseTask[]
   caseId: number
   onAdd: () => void
+}
+
+function TaskRow({
+  task,
+  onToggle,
+}: {
+  task: CaseTask
+  onToggle: (isDone: boolean) => void
+}) {
+  const isDone = task.status === "Done"
+  const status = statuses.find((s) => s.value === task.status)
+  const urgency = urgencies.find((u) => u.value === task.urgency)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isOverdue =
+    task.due_date && parseLocalDate(task.due_date) < today && !isDone
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 py-1.5 text-xs group/task",
+        isDone && "text-muted-foreground"
+      )}
+    >
+      {/* Status icon — clickable to toggle done */}
+      <button
+        type="button"
+        onClick={() => onToggle(!isDone)}
+        className="shrink-0"
+        title={isDone ? "Mark pending" : "Mark done"}
+      >
+        {status ? (
+          <status.icon className={cn("size-4", status.iconColor)} />
+        ) : (
+          <div className="size-4" />
+        )}
+      </button>
+
+      {/* Description */}
+      <span
+        className={cn(
+          "flex-1 truncate",
+          isDone && "line-through"
+        )}
+      >
+        {task.description}
+      </span>
+
+      {/* Urgency icon */}
+      {urgency && !isDone && (
+        <urgency.icon
+          className={cn("size-3.5 shrink-0", urgency.iconColor)}
+        />
+      )}
+
+      {/* Due date */}
+      {task.due_date && !isDone && (
+        <span
+          className={cn(
+            "tabular-nums shrink-0",
+            isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
+          )}
+        >
+          {formatDate(task.due_date)}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export function CaseTasksCard({ tasks, caseId, onAdd }: CaseTasksCardProps) {
@@ -94,30 +156,15 @@ export function CaseTasksCard({ tasks, caseId, onAdd }: CaseTasksCardProps) {
         {tasks.length === 0 ? (
           <p className="text-xs text-muted-foreground py-1">No tasks.</p>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {pending.map((t) => (
-              <div key={t.id} className="flex items-center gap-2 py-1 text-xs">
-                <Checkbox
-                  checked={false}
-                  onCheckedChange={() =>
-                    toggleMutation.mutate({ taskId: t.id, isDone: true })
-                  }
-                  className="size-3.5"
-                />
-                <span className="flex-1 truncate">{t.description}</span>
-                {t.urgency && (
-                  <Badge
-                    className={`border-0 text-[10px] px-1.5 py-0 shrink-0 ${urgencyColors[t.urgency] ?? ""}`}
-                  >
-                    {t.urgency}
-                  </Badge>
-                )}
-                {t.due_date && (
-                  <span className="text-muted-foreground tabular-nums shrink-0">
-                    {formatDate(t.due_date)}
-                  </span>
-                )}
-              </div>
+              <TaskRow
+                key={t.id}
+                task={t}
+                onToggle={(isDone) =>
+                  toggleMutation.mutate({ taskId: t.id, isDone })
+                }
+              />
             ))}
             {done.length > 0 && (
               <div className="pt-1 border-t mt-1">
@@ -129,23 +176,15 @@ export function CaseTasksCard({ tasks, caseId, onAdd }: CaseTasksCardProps) {
                   {showDone ? "Hide" : "Show"} {done.length} completed
                 </button>
                 {showDone && (
-                  <div className="space-y-1 mt-1">
+                  <div className="space-y-0.5 mt-1">
                     {done.map((t) => (
-                      <div
+                      <TaskRow
                         key={t.id}
-                        className="flex items-center gap-2 py-1 text-xs text-muted-foreground"
-                      >
-                        <Checkbox
-                          checked
-                          onCheckedChange={() =>
-                            toggleMutation.mutate({ taskId: t.id, isDone: false })
-                          }
-                          className="size-3.5"
-                        />
-                        <span className="flex-1 truncate line-through">
-                          {t.description}
-                        </span>
-                      </div>
+                        task={t}
+                        onToggle={(isDone) =>
+                          toggleMutation.mutate({ taskId: t.id, isDone })
+                        }
+                      />
                     ))}
                   </div>
                 )}

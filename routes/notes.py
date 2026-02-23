@@ -26,6 +26,16 @@ def register_note_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
         result = await asyncio.to_thread(db.add_note, data.case_id, data.content)
+
+        # System comment for note creation
+        user = auth.get_current_user(request)
+        if user and data.case_id:
+            name = f"{user['firstName']} {user['lastName']}"
+            await asyncio.to_thread(
+                db.add_case_comment, data.case_id, user["id"],
+                f"{name} added a note", True,
+            )
+
         return JSONResponse({"success": True, "note": result})
 
     @mcp.custom_route("/api/v1/notes/{note_id}", methods=["DELETE"])

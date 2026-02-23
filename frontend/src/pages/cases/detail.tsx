@@ -7,10 +7,9 @@ import { updateCaseAssignment } from "@/services/persons"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CaseDetailHeader } from "@/pages/cases/components/case-detail-header"
-import { CaseInfoCard } from "@/pages/cases/components/case-info-card"
-import { CaseCounselCard } from "@/pages/cases/components/case-counsel-card"
-import { CaseDatesCard } from "@/pages/cases/components/case-dates-card"
-import { PersonCard } from "@/pages/cases/components/person-card"
+import { CaseSummarySection } from "@/pages/cases/components/case-summary-section"
+import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
+import { CaseInfoPanel } from "@/pages/cases/components/case-info-panel"
 import { AddPersonDialog } from "@/pages/cases/components/add-person-dialog"
 import { CaseTasksCard } from "@/pages/cases/components/case-tasks-card"
 import { AddTaskDialog } from "@/pages/cases/components/add-task-dialog"
@@ -67,23 +66,22 @@ export default function CaseDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-6 p-6">
         <div className="flex items-center gap-3">
           <Skeleton className="h-5 w-16" />
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-5 w-20" />
         </div>
-        <div className="grid grid-cols-12 gap-4">
-          <Skeleton className="col-span-4 h-64" />
-          <Skeleton className="col-span-4 h-64" />
-          <Skeleton className="col-span-4 h-64" />
-          <Skeleton className="col-span-3 h-40" />
-          <Skeleton className="col-span-3 h-40" />
-          <Skeleton className="col-span-3 h-40" />
-          <Skeleton className="col-span-3 h-40" />
-          <Skeleton className="col-span-6 h-48" />
-          <Skeleton className="col-span-6 h-48" />
-          <Skeleton className="col-span-12 h-40" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="flex flex-col gap-4 lg:col-span-3">
+            <Skeleton className="h-8" />
+            <Skeleton className="h-48" />
+            <Skeleton className="h-40" />
+            <Skeleton className="h-32" />
+          </div>
+          <div className="lg:col-span-2">
+            <Skeleton className="h-96" />
+          </div>
         </div>
       </div>
     )
@@ -99,7 +97,7 @@ export default function CaseDetailPage() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-6 p-6">
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
@@ -108,82 +106,33 @@ export default function CaseDetailPage() {
         </button>
         <CaseDetailHeader caseData={caseData} />
 
-        {/* 12-column grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
-          {/* Row 1: Case Info | Counsel & Mediator | Key Dates */}
-          <div className="lg:col-span-4">
-            <CaseInfoCard
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          {/* Left column — proceedings, people, tasks, events, notes */}
+          <div className="flex flex-col gap-4 lg:col-span-3">
+            <CaseSummarySection
               caseData={caseData}
-              onAddProceeding={() => setAddProceedingOpen(true)}
-            />
-          </div>
-          <div className="lg:col-span-4">
-            <CaseCounselCard
-              persons={caseData.persons}
               onAddPerson={openAddPerson}
+              onAddProceeding={() => setAddProceedingOpen(true)}
               onNest={handleNest}
             />
-          </div>
-          <div className="lg:col-span-4">
-            <CaseDatesCard caseData={caseData} />
-          </div>
-
-          {/* Row 2: Clients | Defendants | Experts | Other */}
-          <div className="md:col-span-1 lg:col-span-3">
-            <PersonCard
-              title="Clients"
-              category="client"
-              persons={caseData.persons}
-              onAdd={() => openAddPerson("client")}
-              onNest={handleNest}
-            />
-          </div>
-          <div className="md:col-span-1 lg:col-span-3">
-            <PersonCard
-              title="Defendants"
-              category="defendant"
-              persons={caseData.persons}
-              onAdd={() => openAddPerson("defendant")}
-              onNest={handleNest}
-            />
-          </div>
-          <div className="md:col-span-1 lg:col-span-3">
-            <PersonCard
-              title="Experts"
-              category="expert"
-              persons={caseData.persons}
-              onAdd={() => openAddPerson("expert")}
-              onNest={handleNest}
-            />
-          </div>
-          <div className="md:col-span-1 lg:col-span-3">
-            <PersonCard
-              title="Other"
-              category="other"
-              persons={caseData.persons}
-              onAdd={() => openAddPerson("other")}
-              onNest={handleNest}
-            />
-          </div>
-
-          {/* Row 3: Tasks | Events */}
-          <div className="lg:col-span-6">
             <CaseTasksCard
               tasks={caseData.tasks}
               caseId={caseData.id}
               onAdd={() => setAddTaskOpen(true)}
             />
-          </div>
-          <div className="lg:col-span-6">
             <CaseEventsCard
               events={caseData.events}
               onAdd={() => setAddEventOpen(true)}
             />
+            <CaseNotesPanel notes={caseData.notes} caseId={caseData.id} />
           </div>
 
-          {/* Notes — full width */}
-          <div className="md:col-span-2 lg:col-span-12">
-            <CaseNotesPanel notes={caseData.notes} caseId={caseData.id} />
+          {/* Right column — activity feed + summary/dates */}
+          <div className="lg:col-span-2">
+            <div className="lg:sticky lg:top-6 flex flex-col gap-4 lg:h-[calc(100vh-9rem)]">
+              <CaseActivityFeed caseId={caseData.id} />
+              <CaseInfoPanel caseData={caseData} />
+            </div>
           </div>
         </div>
 

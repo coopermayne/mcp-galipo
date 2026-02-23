@@ -46,6 +46,16 @@ def register_proceeding_routes(mcp):
             courtlistener_docket_id=data.get("courtlistener_docket_id"),
             pacer_case_id=data.get("pacer_case_id"),
         )
+
+        # System comment for proceeding creation
+        user = auth.get_current_user(request)
+        if user:
+            actor = f"{user['firstName']} {user['lastName']}"
+            await asyncio.to_thread(
+                db.add_case_comment, case_id, user["id"],
+                f'{actor} added proceeding {data["case_number"]}', True,
+            )
+
         return JSONResponse({"success": True, "proceeding": result})
 
     @mcp.custom_route("/api/v1/proceedings/{proceeding_id}", methods=["GET"])
