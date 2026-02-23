@@ -54,11 +54,11 @@ EXTRACT_INTAKE_INFO_TOOL = {
             },
             "incident_date": {
                 "type": "string",
-                "description": "Date of the incident (YYYY-MM-DD format if possible)"
+                "description": "Date of the incident. MUST be in YYYY-MM-DD format (e.g., '2026-01-20'). Convert all date formats — 'January 20, 2026' becomes '2026-01-20', 'Jan 20 2026' becomes '2026-01-20', etc. If the exact date cannot be determined, omit this field entirely."
             },
             "incident_time": {
                 "type": "string",
-                "description": "Time of the incident"
+                "description": "Time of day the incident occurred (e.g., '3:00 PM', 'morning', 'around noon'). This is ONLY for time-of-day, NOT the date. Never put a date or date-like value here."
             },
             "location": {
                 "type": "string",
@@ -92,7 +92,7 @@ The text may be:
 
 Extract all available fields. Only include fields that are clearly present in the text — do NOT guess or fabricate information. If a field is not mentioned, omit it entirely.
 
-For incident_date, try to convert to YYYY-MM-DD format when possible. If only a relative date is given (e.g., "last Tuesday"), leave it as-is.
+For incident_date, you MUST convert to YYYY-MM-DD format (e.g., "January 20, 2026" → "2026-01-20"). If only a relative date is given (e.g., "last Tuesday") or the date is ambiguous, omit the field. Never put a date into the incident_time field — that field is strictly for time-of-day only (e.g., "3:00 PM", "evening").
 
 For case_type, use standard personal injury categories: Auto Accident, Slip and Fall, Medical Malpractice, Dog Bite, Premises Liability, Product Liability, Workplace Injury, Wrongful Death, or describe the type if it doesn't fit these categories.
 
