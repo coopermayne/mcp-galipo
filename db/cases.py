@@ -82,6 +82,17 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
             ORDER BY pj.sort_order LIMIT 1
         )""").label("judge")
 
+        case_number_sq = literal_column("""(
+            SELECT p.case_number FROM proceedings p
+            WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
+        )""").label("case_number")
+
+        jurisdiction_sq = literal_column("""(
+            SELECT j.name FROM proceedings p
+            JOIN jurisdictions j ON p.jurisdiction_id = j.id
+            WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
+        )""").label("jurisdiction_name")
+
         client_count_sq = literal_column("""(
             SELECT COUNT(*) FROM person_roles pr
             JOIN roles r ON pr.role_id = r.id
@@ -108,7 +119,8 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
             select(
                 Case.id, Case.case_name, Case.short_name, Case.status,
                 Case.print_code, Case.attorney_ids, Case.paralegal_ids,
-                judge_sq, client_count_sq, defendant_count_sq,
+                judge_sq, case_number_sq, jurisdiction_sq,
+                client_count_sq, defendant_count_sq,
                 pending_task_sq, upcoming_event_sq,
             )
             .order_by(Case.case_name)
@@ -124,6 +136,16 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         cases = [_row_to_dict(r) for r in rows]
 
         return {"cases": cases, "total": total}
+
+
+def get_case_status_counts() -> dict[str, int]:
+    """Get count of cases grouped by status."""
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(Case.status, func.count(Case.id))
+            .group_by(Case.status)
+        ).all()
+        return {status: count for status, count in rows}
 
 
 def get_case_by_id(case_id: int) -> Optional[dict]:

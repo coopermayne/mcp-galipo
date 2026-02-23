@@ -32,6 +32,7 @@ const router = createBrowserRouter([
       { path: "intakes", lazy: lazy(() => import("@/pages/intakes")) },
       { path: "intakes/:id", lazy: lazy(() => import("@/pages/intakes/detail")) },
       { path: "cases", lazy: lazy(() => import("@/pages/cases")) },
+      { path: "cases/:id", lazy: lazy(() => import("@/pages/cases/detail")) },
       { path: "tasks", lazy: lazy(() => import("@/pages/tasks")) },
       { path: "calendar", lazy: lazy(() => import("@/pages/calendar")) },
       { path: "contacts/*", lazy: lazy(() => import("@/pages/contacts")) },
