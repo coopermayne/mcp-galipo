@@ -1,9 +1,15 @@
 import type { Table } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, RefreshIcon, Add01Icon, SparklesIcon } from "@hugeicons/core-free-icons"
+import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DataTableViewOptions } from "@/components/common/data-table-view-options"
 import { cn } from "@/lib/utils"
 
@@ -51,19 +57,23 @@ export function IntakeToolbar({
         />
         {isSyncing ? "Syncing..." : "Sync"}
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8"
-        onClick={onNewIntakeChat}
-      >
+      <Button size="sm" className="h-8" onClick={onNewIntakeChat}>
         <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
-        AI Intake
-      </Button>
-      <Button size="sm" className="h-8" onClick={onNewIntake}>
-        <HugeiconsIcon icon={Add01Icon} className="mr-2 size-4" />
         New Intake
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon-sm" className="h-8 w-8">
+            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onNewIntake}>
+            <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
+            Manual Intake Form
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DataTableViewOptions table={table} />
     </div>
   )

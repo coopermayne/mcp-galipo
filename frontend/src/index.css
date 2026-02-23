@@ -132,6 +132,15 @@
     }
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* Tiptap rich text editor */
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
