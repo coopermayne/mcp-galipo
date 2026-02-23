@@ -138,3 +138,21 @@ export interface CaseListResponse {
 }
 
 export type CaseCountsResponse = Record<string, number>
+
+export type TaskStatus =
+  | "Pending"
+  | "Active"
+  | "Done"
+  | "Partially Done"
+  | "Blocked"
+  | "Awaiting Atty Review"
+
+export type Urgency = "Low" | "Medium" | "High" | "Urgent"
+
+export type RoleCategory =
+  | "client"
+  | "defendant"
+  | "counsel"
+  | "mediator"
+  | "expert"
+  | "other"
