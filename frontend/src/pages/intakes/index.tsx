@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -98,22 +98,12 @@ export default function IntakesPage() {
     },
   })
 
-  const onView = useCallback(
-    (intake: { id: number }) => navigate(`/intakes/${intake.id}`),
-    [navigate]
-  )
-
   const columns = useMemo(
     () =>
       getColumns({
-        onView,
-        onDelete: (intake) => {
-          // TODO: confirm dialog + delete mutation
-          console.log("Delete intake", intake.id)
-        },
         unreadCounts: unreadCounts ?? {},
       }),
-    [onView, unreadCounts]
+    [unreadCounts]
   )
 
   const table = useReactTable({
@@ -186,7 +176,11 @@ export default function IntakesPage() {
               ))
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/intakes/${row.original.id}`)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(

@@ -18,6 +18,7 @@ export const INVALIDATION_MAP: Record<
     const keys: (string | (string | number)[])[] = [
       "intakes",
       "intake-counts",
+      "unread-counts",
     ]
     if (event.id) {
       keys.push(["intake", event.id])
@@ -26,7 +27,7 @@ export const INVALIDATION_MAP: Record<
   },
 
   intake_comment: (event) => {
-    const keys: (string | (string | number)[])[] = []
+    const keys: (string | (string | number)[])[] = ["unread-counts"]
     if (event.intake_id) {
       keys.push(["intake-comments", event.intake_id])
     }
