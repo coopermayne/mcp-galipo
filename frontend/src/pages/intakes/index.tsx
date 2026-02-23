@@ -12,7 +12,7 @@ import {
 import { useNavigate } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { getIntakes, getIntakeCounts, syncIntakes, createIntake, type CreateIntakeData } from "@/services/intakes"
+import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, type CreateIntakeData } from "@/services/intakes"
 import { getColumns } from "@/pages/intakes/columns"
 import { IntakePipelines } from "@/pages/intakes/components/intake-pipelines"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
@@ -53,11 +53,23 @@ export default function IntakesPage() {
     queryFn: getIntakeCounts,
   })
 
+  const intakeIds = useMemo(
+    () => intakesData?.intakes.map((i) => i.id) ?? [],
+    [intakesData]
+  )
+
+  const { data: unreadCounts } = useQuery({
+    queryKey: ["unread-counts", intakeIds],
+    queryFn: () => getUnreadCounts(intakeIds),
+    enabled: intakeIds.length > 0,
+  })
+
   const createMutation = useMutation({
     mutationFn: (data: CreateIntakeData) => createIntake(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["intakes"] })
       queryClient.invalidateQueries({ queryKey: ["intake-counts"] })
+      queryClient.invalidateQueries({ queryKey: ["unread-counts"] })
       toast.success("Intake created")
       setFormOpen(false)
     },
@@ -71,6 +83,7 @@ export default function IntakesPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["intakes"] })
       queryClient.invalidateQueries({ queryKey: ["intake-counts"] })
+      queryClient.invalidateQueries({ queryKey: ["unread-counts"] })
       if (data.imported > 0) {
         toast.success(
           `Imported ${data.imported} new intake${data.imported === 1 ? "" : "s"}` +
@@ -98,8 +111,9 @@ export default function IntakesPage() {
           // TODO: confirm dialog + delete mutation
           console.log("Delete intake", intake.id)
         },
+        unreadCounts: unreadCounts ?? {},
       }),
-    [onView]
+    [onView, unreadCounts]
   )
 
   const table = useReactTable({

@@ -152,7 +152,8 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{six} days to 6-month SOL · {two} days to 2-year SOL</p>
+                    <p>{six} days to 6-month SOL</p>
+                    <p>{two} days to 2-year SOL</p>
                   </TooltipContent>
                 </Tooltip>
               )

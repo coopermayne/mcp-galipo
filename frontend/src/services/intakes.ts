@@ -103,6 +103,22 @@ export async function markIntakeRead(id: number): Promise<void> {
   await apiFetch(`/api/v1/intakes/${id}/read`, { method: "POST" })
 }
 
+export async function getUnreadCounts(
+  ids: number[]
+): Promise<Record<number, number>> {
+  if (ids.length === 0) return {}
+  const params = ids.map((id) => `ids=${id}`).join("&")
+  const res = await apiFetch(`/api/v1/intakes/unread-counts?${params}`)
+  if (!res.ok) throw new Error("Failed to fetch unread counts")
+  const data: Record<string, number> = await res.json()
+  // Convert string keys back to numbers
+  const result: Record<number, number> = {}
+  for (const [k, v] of Object.entries(data)) {
+    result[Number(k)] = v
+  }
+  return result
+}
+
 export async function analyzeIntake(
   id: number
 ): Promise<{ success: boolean; message: string }> {

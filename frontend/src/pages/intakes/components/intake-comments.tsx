@@ -367,10 +367,14 @@ export function IntakeComments({ intakeId, textareaRef }: IntakeCommentsProps) {
     queryFn: () => getIntakeComments(intakeId),
   })
 
-  // Mark as read on mount
+  // Mark as read on mount and invalidate unread counts so list page updates
   useEffect(() => {
-    markIntakeRead(intakeId).catch(() => {})
-  }, [intakeId])
+    markIntakeRead(intakeId)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["unread-counts"] })
+      })
+      .catch(() => {})
+  }, [intakeId, queryClient])
 
   // Auto-scroll to bottom when comments change
   useEffect(() => {

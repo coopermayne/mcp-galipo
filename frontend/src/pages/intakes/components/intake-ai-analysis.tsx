@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import Markdown from "react-markdown"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { InformationCircleIcon, SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake } from "@/types/intake"
 import { analyzeIntake } from "@/services/intakes"
 import { Button } from "@/components/ui/button"
@@ -39,8 +39,8 @@ function RatingDisplay({
       {reasoning && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <button className="text-muted-foreground hover:text-foreground ml-1 transition-colors">
-              <HugeiconsIcon icon={InformationCircleIcon} className="size-4" />
+            <button className="text-primary hover:text-primary/80 ml-1 cursor-pointer text-xs font-medium underline underline-offset-2 transition-colors">
+              Why?
             </button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
@@ -104,6 +104,7 @@ export function IntakeAiAnalysis({ intake }: IntakeAiAnalysisProps) {
           onClick={() => analyzeMutation.mutate()}
           disabled={analyzeMutation.isPending}
         >
+          <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
           Analyze Intake
         </Button>
       </div>
@@ -120,6 +121,7 @@ export function IntakeAiAnalysis({ intake }: IntakeAiAnalysisProps) {
           onClick={() => analyzeMutation.mutate()}
           disabled={analyzeMutation.isPending}
         >
+          <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
           Re-analyze
         </Button>
       </div>

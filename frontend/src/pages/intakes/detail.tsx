@@ -33,7 +33,8 @@ export default function IntakeDetailPage() {
   useBreadcrumbLabel(intake?.name)
 
   const handleFocusComments = useCallback(() => {
-    commentInputRef.current?.focus()
+    // Delay so the AlertDialog fully unmounts before we steal focus
+    setTimeout(() => commentInputRef.current?.focus(), 150)
     setHighlightComments(true)
     setTimeout(() => setHighlightComments(false), 1500)
   }, [])

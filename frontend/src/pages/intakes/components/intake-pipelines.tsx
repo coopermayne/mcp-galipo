@@ -25,7 +25,7 @@ const PIPELINES: Pipeline[] = [
     statuses: ["Needs Rejection Letter", "Rejection Letter Sent"],
   },
   {
-    label: "RETAIN",
+    label: "ACCEPT",
     labelClass: "text-emerald-600 dark:text-emerald-400",
     statuses: ["Needs Retainer", "Retainer Sent", "Retainer Signed"],
   },
@@ -60,11 +60,18 @@ export function IntakePipelines({
           className={cn(
             "text-xs font-medium tracking-wide uppercase transition-colors",
             isActiveView && selectedStatus === null
-              ? "text-foreground underline underline-offset-4 decoration-2"
+              ? "text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          Active
+          <span
+            className={cn(
+              isActiveView && selectedStatus === null &&
+                "underline underline-offset-4 decoration-2"
+            )}
+          >
+            Active
+          </span>
           {counts && (
             <span className="ml-1 tabular-nums opacity-60">
               ({activeCount})
@@ -76,11 +83,18 @@ export function IntakePipelines({
           className={cn(
             "text-xs font-medium tracking-wide uppercase transition-colors",
             isArchivedView
-              ? "text-foreground underline underline-offset-4 decoration-2"
+              ? "text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          Archived
+          <span
+            className={cn(
+              isArchivedView &&
+                "underline underline-offset-4 decoration-2"
+            )}
+          >
+            Archived
+          </span>
           {counts && (
             <span className="ml-1 tabular-nums opacity-60">
               ({archivedCount})
