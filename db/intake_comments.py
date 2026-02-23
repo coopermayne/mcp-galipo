@@ -142,12 +142,14 @@ def get_comment_flags(intake_ids: list[int]) -> dict[int, bool]:
 
     with SessionLocal() as session:
         # Last status-change system comment per intake
+        # Only match "X changed status from Y to Z" entries, not all system comments
         last_changes = dict(
             session.execute(
                 select(IntakeComment.intake_id, func.max(IntakeComment.created_at))
                 .where(
                     IntakeComment.intake_id.in_(intake_ids),
                     IntakeComment.is_system == True,  # noqa: E712
+                    IntakeComment.content.like("%changed status from%"),
                 )
                 .group_by(IntakeComment.intake_id)
             ).all()

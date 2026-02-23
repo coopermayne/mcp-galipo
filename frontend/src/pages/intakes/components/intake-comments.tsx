@@ -354,9 +354,10 @@ function groupByDate(comments: IntakeComment[]): DateGroup[] {
 
 interface IntakeCommentsProps {
   intakeId: number
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>
 }
 
-export function IntakeComments({ intakeId }: IntakeCommentsProps) {
+export function IntakeComments({ intakeId, textareaRef }: IntakeCommentsProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -383,6 +384,7 @@ export function IntakeComments({ intakeId }: IntakeCommentsProps) {
     onSuccess: () => {
       setInput("")
       queryClient.invalidateQueries({ queryKey: ["intake-comments", intakeId] })
+      queryClient.invalidateQueries({ queryKey: ["intake", intakeId] })
       markIntakeRead(intakeId).catch(() => {})
     },
     onError: () => {
@@ -460,6 +462,7 @@ export function IntakeComments({ intakeId }: IntakeCommentsProps) {
 
       <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3">
         <Textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}

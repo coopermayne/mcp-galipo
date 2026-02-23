@@ -1,3 +1,4 @@
+import { useRef, useState, useCallback } from "react"
 import { useParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { getIntake } from "@/services/intakes"
@@ -9,10 +10,15 @@ import { IntakeAiAnalysis } from "@/pages/intakes/components/intake-ai-analysis"
 import { IntakeComments } from "@/pages/intakes/components/intake-comments"
 import { IntakeNotes } from "@/pages/intakes/components/intake-notes"
 import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 export default function IntakeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const intakeId = Number(id)
+
+  const commentInputRef = useRef<HTMLTextAreaElement>(null)
+  const commentsPanelRef = useRef<HTMLDivElement>(null)
+  const [highlightComments, setHighlightComments] = useState(false)
 
   const {
     data: intake,
@@ -25,6 +31,12 @@ export default function IntakeDetailPage() {
   })
 
   useBreadcrumbLabel(intake?.name)
+
+  const handleFocusComments = useCallback(() => {
+    commentInputRef.current?.focus()
+    setHighlightComments(true)
+    setTimeout(() => setHighlightComments(false), 1500)
+  }, [])
 
   if (isLoading) {
     return (
@@ -59,7 +71,7 @@ export default function IntakeDetailPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <IntakeDetailHeader intake={intake} />
+      <IntakeDetailHeader intake={intake} onFocusComments={handleFocusComments} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Left column — details, AI analysis, notes, submission text */}
@@ -72,8 +84,14 @@ export default function IntakeDetailPage() {
 
         {/* Right column — activity feed (sticky) */}
         <div className="lg:col-span-2">
-          <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-9rem)]">
-            <IntakeComments intakeId={intake.id} />
+          <div
+            ref={commentsPanelRef}
+            className={cn(
+              "lg:sticky lg:top-6 lg:h-[calc(100vh-9rem)] transition-shadow duration-500",
+              highlightComments && "ring-2 ring-primary"
+            )}
+          >
+            <IntakeComments intakeId={intake.id} textareaRef={commentInputRef} />
           </div>
         </div>
       </div>
