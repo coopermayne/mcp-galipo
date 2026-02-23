@@ -28,6 +28,7 @@ def register_task_routes(mcp):
         due_date_from = request.query_params.get("due_date_from")
         due_date_to = request.query_params.get("due_date_to")
         user_id = request.query_params.get("user_id")
+        assignee_id = request.query_params.get("assignee_id")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
@@ -43,7 +44,8 @@ def register_task_routes(mcp):
             due_date_to=due_date_to,
             limit=limit,
             offset=offset,
-            user_id=int(user_id) if user_id else None
+            user_id=int(user_id) if user_id else None,
+            assignee_id=int(assignee_id) if assignee_id else None
         )
         return JSONResponse(result)
 
@@ -68,6 +70,17 @@ def register_task_routes(mcp):
             data.completion_date,
         )
         return JSONResponse({"success": True, "task": result})
+
+    @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
+    async def api_get_task(request):
+        """Get a single task by ID."""
+        if err := auth.require_auth(request):
+            return err
+        task_id = int(request.path_params["task_id"])
+        result = await asyncio.to_thread(db.get_task_detail, task_id)
+        if not result:
+            return api_error("Task not found", "NOT_FOUND", 404)
+        return JSONResponse(result)
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["PUT"])
     async def api_update_task(request):
