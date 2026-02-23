@@ -5,28 +5,29 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 interface Pipeline {
   label: string
-  labelClass: string
+  badgeClass: string
   statuses: IntakeStatus[]
 }
 
 const PIPELINES: Pipeline[] = [
   {
     label: "REVIEW",
-    labelClass: "text-muted-foreground",
+    badgeClass: "bg-warning/15 text-warning border-warning/25",
     statuses: ["New", "Dave Review", "Needs Follow-Up", "Atty Review"],
   },
   {
     label: "REJECT",
-    labelClass: "text-red-600 dark:text-red-400",
+    badgeClass: "bg-destructive/15 text-destructive border-destructive/25",
     statuses: ["Needs Rejection Letter", "Rejection Letter Sent"],
   },
   {
     label: "ACCEPT",
-    labelClass: "text-emerald-600 dark:text-emerald-400",
+    badgeClass: "bg-success/15 text-success border-success/25",
     statuses: ["Needs Retainer", "Retainer Sent", "Retainer Signed"],
   },
 ]
@@ -108,14 +109,15 @@ export function IntakePipelines({
           <Breadcrumb key={pipeline.label}>
             <BreadcrumbList className="flex-nowrap gap-1">
               <BreadcrumbItem>
-                <span
+                <Badge
+                  variant="outline"
                   className={cn(
                     "mr-1 text-[10px] font-bold tracking-widest uppercase",
-                    pipeline.labelClass
+                    pipeline.badgeClass
                   )}
                 >
                   {pipeline.label}
-                </span>
+                </Badge>
               </BreadcrumbItem>
               {pipeline.statuses.map((status, i) => {
                 const isActive = selectedStatus === status
