@@ -8,6 +8,7 @@ import {
   UserBlock01Icon,
 } from "@hugeicons/core-free-icons"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
+import { getAvatarStyleById } from "@/lib/badge-colors"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -41,7 +42,10 @@ export function getColumns(options: {
         const name = [firstName, lastName].filter(Boolean).join(" ") || "—"
         return (
           <div className="flex items-center gap-2">
-            <span className="bg-muted text-muted-foreground flex size-6 shrink-0 items-center justify-center text-[10px] font-medium">
+            <span
+              className="flex size-6 shrink-0 items-center justify-center text-[10px] font-medium"
+              style={getAvatarStyleById(row.original.id)}
+            >
               {initials || "?"}
             </span>
             <span className="font-medium">{name}</span>
