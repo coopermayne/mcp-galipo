@@ -70,6 +70,31 @@ def register_intake_routes(mcp):
         counts = await asyncio.to_thread(db.get_intake_status_counts)
         return JSONResponse(counts)
 
+    @mcp.custom_route("/api/v1/intakes/extract", methods=["POST"])
+    async def api_extract_intake(request):
+        """Extract structured intake fields from raw text using AI."""
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            body = await request.json()
+        except Exception:
+            return api_error("Invalid JSON body", "BAD_REQUEST", 400)
+
+        text = body.get("text", "").strip()
+        if not text:
+            return api_error("Text is required", "VALIDATION_ERROR", 400)
+
+        try:
+            from services.intake_extractor import extract_intake_info
+            fields = await asyncio.to_thread(extract_intake_info, text)
+            return JSONResponse({"success": True, "fields": fields})
+        except ValueError as e:
+            return api_error(str(e), "EXTRACTION_ERROR", 400)
+        except Exception as e:
+            logger.exception("Intake extraction failed")
+            return api_error(f"Extraction failed: {str(e)}", "EXTRACTION_ERROR", 500)
+
     # --- Activity feed (registered BEFORE {intake_id} wildcard) ---
 
     @mcp.custom_route("/api/v1/intakes/activity", methods=["GET"])
@@ -270,6 +295,7 @@ def register_intake_routes(mcp):
                         result["ai_summary"],
                         result["ai_rating"],
                         result["ai_rating_reasoning"],
+                        result.get("ai_location_short"),
                     )
                     analyzed += 1
                 except Exception as e:
@@ -332,6 +358,7 @@ def register_intake_routes(mcp):
                     result["ai_summary"],
                     result["ai_rating"],
                     result["ai_rating_reasoning"],
+                    result.get("ai_location_short"),
                 )
                 broadcast({
                     "entity": "intake", "action": "analyzed",

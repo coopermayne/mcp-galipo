@@ -118,3 +118,45 @@ export async function getIntakeTransitions(): Promise<IntakeTransitions> {
   if (!res.ok) throw new Error("Failed to fetch transitions")
   return res.json()
 }
+
+export interface CreateIntakeData {
+  name?: string
+  email?: string
+  phone?: string
+  contact_relationship?: string
+  referral_name?: string
+  referral_org?: string
+  referral_email?: string
+  referral_phone?: string
+  case_type?: string
+  incident_date?: string
+  incident_time?: string
+  location?: string
+  incident_description?: string
+  injury_description?: string
+  notes?: string
+}
+
+export async function createIntake(
+  data: CreateIntakeData
+): Promise<{ success: boolean; intake: Intake }> {
+  const res = await apiFetch("/api/v1/intakes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to create intake")
+  return res.json()
+}
+
+export async function extractIntakeFields(
+  text: string
+): Promise<{ success: boolean; fields: CreateIntakeData }> {
+  const res = await apiFetch("/api/v1/intakes/extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  })
+  if (!res.ok) throw new Error("Failed to extract intake fields")
+  return res.json()
+}

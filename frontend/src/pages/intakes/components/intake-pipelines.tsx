@@ -60,7 +60,7 @@ export function IntakePipelines({
           className={cn(
             "text-xs font-medium tracking-wide uppercase transition-colors",
             isActiveView && selectedStatus === null
-              ? "text-foreground"
+              ? "text-foreground underline underline-offset-4 decoration-2"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -76,7 +76,7 @@ export function IntakePipelines({
           className={cn(
             "text-xs font-medium tracking-wide uppercase transition-colors",
             isArchivedView
-              ? "text-foreground"
+              ? "text-foreground underline underline-offset-4 decoration-2"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
