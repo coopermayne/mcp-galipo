@@ -12,10 +12,12 @@ import {
 import { useNavigate } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { getIntakes, getIntakeCounts, syncIntakes } from "@/services/intakes"
+import { getIntakes, getIntakeCounts, syncIntakes, createIntake, type CreateIntakeData } from "@/services/intakes"
 import { getColumns } from "@/pages/intakes/columns"
 import { IntakePipelines } from "@/pages/intakes/components/intake-pipelines"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
+import { IntakeFormDialog } from "@/pages/intakes/components/intake-form-dialog"
+import { IntakeChatDialog } from "@/pages/intakes/components/intake-chat-dialog"
 import {
   Table,
   TableBody,
@@ -33,6 +35,8 @@ export default function IntakesPage() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [formOpen, setFormOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
   const { data: intakesData, isLoading } = useQuery({
     queryKey: ["intakes", selectedStatus],
@@ -47,6 +51,19 @@ export default function IntakesPage() {
   const { data: counts } = useQuery({
     queryKey: ["intake-counts"],
     queryFn: getIntakeCounts,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (data: CreateIntakeData) => createIntake(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["intakes"] })
+      queryClient.invalidateQueries({ queryKey: ["intake-counts"] })
+      toast.success("Intake created")
+      setFormOpen(false)
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
   })
 
   const syncMutation = useMutation({
@@ -120,6 +137,8 @@ export default function IntakesPage() {
         table={table}
         onSync={() => syncMutation.mutate()}
         isSyncing={syncMutation.isPending}
+        onNewIntake={() => setFormOpen(true)}
+        onNewIntakeChat={() => setChatOpen(true)}
       />
 
       <div className="border">
@@ -177,6 +196,13 @@ export default function IntakesPage() {
           </TableBody>
         </Table>
       </div>
+      <IntakeFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSubmit={(data) => createMutation.mutate(data)}
+        isPending={createMutation.isPending}
+      />
+      <IntakeChatDialog open={chatOpen} onOpenChange={setChatOpen} />
     </div>
   )
 }
