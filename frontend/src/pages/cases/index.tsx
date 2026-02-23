@@ -12,12 +12,13 @@ import {
 import { useNavigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { useAuth } from "@/hooks/use-auth"
 import { getCases, getCaseCounts, createCase, type CreateCaseData } from "@/services/cases"
 import { getUsers } from "@/services/users"
 import { getColumns } from "@/pages/cases/columns"
-import { CasePipelines } from "@/pages/cases/components/case-pipelines"
-import { CaseToolbar } from "@/pages/cases/components/case-toolbar"
+import { CaseToolbar, type CaseScope } from "@/pages/cases/components/case-toolbar"
 import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
+import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function CasesPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const selectedStatus = searchParams.get("status")
@@ -43,19 +45,24 @@ export default function CasesPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [formOpen, setFormOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [scope, setScope] = useState<CaseScope>("mine")
+
+  const attorneyIds = scope === "mine" && user ? [user.id] : undefined
 
   const { data: casesData, isLoading } = useQuery({
-    queryKey: ["cases", selectedStatus],
+    queryKey: ["cases", selectedStatus, scope, user?.id],
     queryFn: () =>
       getCases({
         status: selectedStatus ?? undefined,
+        attorney_ids: attorneyIds,
         limit: 500,
       }),
   })
 
   const { data: counts } = useQuery({
-    queryKey: ["case-counts"],
-    queryFn: getCaseCounts,
+    queryKey: ["case-counts", scope, user?.id],
+    queryFn: () => getCaseCounts(attorneyIds),
   })
 
   const { data: usersData } = useQuery({
@@ -113,21 +120,25 @@ export default function CasesPage() {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Cases</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {scope === "mine" ? "Your Cases" : "All Cases"}
+        </h1>
         <p className="text-muted-foreground text-sm">
-          Manage your active caseload.
+          {scope === "mine"
+            ? "Cases assigned to you."
+            : "All cases in the system."}
         </p>
       </div>
 
-      <CasePipelines
+      <CaseToolbar
+        table={table}
         counts={counts}
         selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
-      />
-
-      <CaseToolbar
-        table={table}
-        onNewCase={() => setFormOpen(true)}
+        scope={scope}
+        onScopeChange={setScope}
+        onNewCaseChat={() => setChatOpen(true)}
+        onNewCaseManual={() => setFormOpen(true)}
       />
 
       <div className="border">
@@ -195,6 +206,7 @@ export default function CasesPage() {
         onSubmit={(data) => createMutation.mutate(data)}
         isPending={createMutation.isPending}
       />
+      <CaseChatDialog open={chatOpen} onOpenChange={setChatOpen} />
     </div>
   )
 }

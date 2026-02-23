@@ -57,8 +57,13 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
     with SessionLocal() as session:
         filters = []
         if status_filter:
-            validate_case_status(status_filter)
-            filters.append(Case.status == status_filter)
+            statuses = [s.strip() for s in status_filter.split(",")]
+            for s in statuses:
+                validate_case_status(s)
+            if len(statuses) == 1:
+                filters.append(Case.status == statuses[0])
+            else:
+                filters.append(Case.status.in_(statuses))
         if attorney_ids:
             filters.append(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
         elif unassigned:
@@ -138,13 +143,13 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         return {"cases": cases, "total": total}
 
 
-def get_case_status_counts() -> dict[str, int]:
-    """Get count of cases grouped by status."""
+def get_case_status_counts(attorney_ids: List[int] = None) -> dict[str, int]:
+    """Get count of cases grouped by status, optionally filtered by attorney."""
     with SessionLocal() as session:
-        rows = session.execute(
-            select(Case.status, func.count(Case.id))
-            .group_by(Case.status)
-        ).all()
+        stmt = select(Case.status, func.count(Case.id)).group_by(Case.status)
+        if attorney_ids:
+            stmt = stmt.where(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
+        rows = session.execute(stmt).all()
         return {status: count for status, count in rows}
 
 
