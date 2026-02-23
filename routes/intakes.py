@@ -56,6 +56,14 @@ def register_intake_routes(mcp):
             db.create_intake, **data.model_dump(exclude_none=True)
         )
 
+        # Log creation event
+        await asyncio.to_thread(
+            db.add_intake_comment,
+            result["id"], user_id,
+            "Intake created via web form",
+            True,  # is_system
+        )
+
         broadcast({
             "entity": "intake", "action": "created",
             "id": result["id"], "intake_id": result["id"], "user_id": user_id,
@@ -289,6 +297,7 @@ def register_intake_routes(mcp):
                     continue
                 try:
                     result = await asyncio.to_thread(analyze_intake, intake)
+                    is_regen = intake.get("ai_summary") is not None
                     await asyncio.to_thread(
                         db.save_ai_analysis,
                         intake_id,
@@ -296,6 +305,16 @@ def register_intake_routes(mcp):
                         result["ai_rating"],
                         result["ai_rating_reasoning"],
                         result.get("ai_location_short"),
+                    )
+                    # Log analysis event
+                    rating = result["ai_rating"]
+                    label = "regenerated" if is_regen else "completed"
+                    await asyncio.to_thread(
+                        db.add_intake_comment,
+                        intake_id, None,
+                        f"AI analysis {label} \u2014 rated {rating}/5",
+                        True,
+                        {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
                     )
                     analyzed += 1
                 except Exception as e:
@@ -360,6 +379,19 @@ def register_intake_routes(mcp):
                     result["ai_rating_reasoning"],
                     result.get("ai_location_short"),
                 )
+
+                # Log analysis event
+                is_regen = intake.get("ai_summary") is not None
+                rating = result["ai_rating"]
+                label = "regenerated" if is_regen else "completed"
+                await asyncio.to_thread(
+                    db.add_intake_comment,
+                    intake_id, None,
+                    f"AI analysis {label} \u2014 rated {rating}/5",
+                    True,  # is_system
+                    {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
+                )
+
                 broadcast({
                     "entity": "intake", "action": "analyzed",
                     "id": intake_id, "intake_id": intake_id,

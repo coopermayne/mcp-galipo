@@ -6,6 +6,10 @@ import {
   ArrowRight01Icon,
   ArrowTurnForwardIcon,
   InformationCircleIcon,
+  SparklesIcon,
+  GlobeIcon,
+  GridTableIcon,
+  AiBrainIcon,
 } from "@hugeicons/core-free-icons"
 import type { IntakeComment } from "@/types/intake"
 import type { IntakeStatus } from "@/types/intake"
@@ -18,6 +22,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { StatusBadge } from "./status-badge"
 import { cn } from "@/lib/utils"
 
@@ -141,8 +151,169 @@ function UserCommentEntry({ comment }: { comment: IntakeComment }) {
   )
 }
 
+// --- Detail Dialog ---
+
+function DetailDialog({
+  open,
+  onOpenChange,
+  detail,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  detail: Record<string, unknown>
+}) {
+  if (detail.type === "chat_transcript") {
+    const messages = (detail.messages ?? []) as Array<{
+      role: string
+      content: string
+    }>
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Chat Transcript</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "px-3 py-2 text-sm",
+                  msg.role === "user"
+                    ? "bg-primary/10 ml-6"
+                    : "bg-muted mr-6"
+                )}
+              >
+                <span className="mb-1 block text-[10px] font-medium uppercase text-muted-foreground">
+                  {msg.role === "user" ? "You" : "Assistant"}
+                </span>
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  if (detail.type === "ai_analysis") {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>AI Analysis Details</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Rating:</span>
+              <span className="text-sm">{String(detail.rating)}/5</span>
+            </div>
+            <div>
+              <span className="text-sm font-medium">Reasoning:</span>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                {String(detail.reasoning ?? "")}
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  return null
+}
+
+// --- Creation & Analysis Entries ---
+
+const CREATION_RE = /^Intake (created via|imported from)/
+
+function CreationEntry({ comment }: { comment: IntakeComment }) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const isAiChat = comment.content.includes("AI chat")
+  const isSheets = comment.content.includes("Google Sheets")
+
+  const icon = isAiChat
+    ? SparklesIcon
+    : isSheets
+      ? GridTableIcon
+      : GlobeIcon
+
+  return (
+    <>
+      <div className="relative flex gap-3 py-2">
+        <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
+          <HugeiconsIcon icon={icon} className="size-3 text-muted-foreground" />
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+          <span>{comment.content}</span>
+          {comment.detail?.type === "chat_transcript" && (
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="shrink-0 text-[10px] font-medium text-primary hover:underline"
+            >
+              View conversation
+            </button>
+          )}
+          <span className="ml-auto shrink-0 opacity-60">
+            {formatTime(comment.created_at)}
+          </span>
+        </div>
+      </div>
+      {comment.detail && (
+        <DetailDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          detail={comment.detail}
+        />
+      )}
+    </>
+  )
+}
+
+const ANALYSIS_RE = /^AI analysis (completed|regenerated)/
+
+function AnalysisEntry({ comment }: { comment: IntakeComment }) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  return (
+    <>
+      <div className="relative flex gap-3 py-2">
+        <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
+          <HugeiconsIcon
+            icon={AiBrainIcon}
+            className="size-3 text-muted-foreground"
+          />
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+          <span>{comment.content}</span>
+          {comment.detail?.type === "ai_analysis" && (
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="shrink-0 text-[10px] font-medium text-primary hover:underline"
+            >
+              View details
+            </button>
+          )}
+          <span className="ml-auto shrink-0 opacity-60">
+            {formatTime(comment.created_at)}
+          </span>
+        </div>
+      </div>
+      {comment.detail && (
+        <DetailDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          detail={comment.detail}
+        />
+      )}
+    </>
+  )
+}
+
 function TimelineEntry({ comment }: { comment: IntakeComment }) {
   if (comment.is_system) {
+    if (CREATION_RE.test(comment.content)) return <CreationEntry comment={comment} />
+    if (ANALYSIS_RE.test(comment.content)) return <AnalysisEntry comment={comment} />
     const parsed = parseStatusChange(comment.content)
     if (parsed) return <StatusChangeEntry comment={comment} />
     return <SystemMessageEntry comment={comment} />

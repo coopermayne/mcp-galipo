@@ -511,6 +511,35 @@ DATA:
                                         yield f"data: {json.dumps({'type': 'tool_result', 'id': tc.id, 'name': tc.name, 'result': result.content, 'is_error': result.is_error, 'duration_ms': duration_ms})}\n\n"
                                         await asyncio.sleep(0)  # Flush to client
 
+                                    # Detect successful manage_intake creation → log chat transcript
+                                    for tc, tr in zip(iteration_tool_calls, tool_results):
+                                        if tc.name == "manage_intake" and not tr.is_error:
+                                            try:
+                                                result_data = json.loads(tr.content) if isinstance(tr.content, str) else tr.content
+                                                new_intake_id = result_data.get("intake_id") if isinstance(result_data, dict) else None
+                                                if new_intake_id:
+                                                    # Sanitize conversation: keep only role + text content
+                                                    sanitized = []
+                                                    for msg in messages:
+                                                        role = msg.get("role", "")
+                                                        content = msg.get("content", "")
+                                                        if isinstance(content, str):
+                                                            sanitized.append({"role": role, "content": content})
+                                                        elif isinstance(content, list):
+                                                            text_parts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                                                            if text_parts:
+                                                                sanitized.append({"role": role, "content": " ".join(text_parts)})
+                                                    import db as _db_chat
+                                                    _db_chat.add_intake_comment(
+                                                        new_intake_id,
+                                                        _current_user_id,
+                                                        "Intake created via AI chat",
+                                                        True,  # is_system
+                                                        detail={"type": "chat_transcript", "messages": sanitized},
+                                                    )
+                                            except Exception:
+                                                _logger.exception("Failed to log AI chat intake creation")
+
                                     # Add tool results to history
                                     messages.append({
                                         "role": "user",

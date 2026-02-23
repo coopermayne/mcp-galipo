@@ -121,6 +121,9 @@ class IntakeComment(Base):
     is_system: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")
     )
+    detail: Mapped[Optional[dict]] = mapped_column(
+        JSONB(none_as_null=True)
+    )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP")
     )

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { Intake } from "@/types/intake"
 import { updateIntake } from "@/services/intakes"
-import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { RichTextEditor } from "@/components/common/rich-text-editor"
 
 interface IntakeNotesProps {
   intake: Intake
@@ -33,6 +33,14 @@ export function IntakeNotes({ intake }: IntakeNotesProps) {
     },
   })
 
+  const handleUpdate = useCallback(
+    (markdown: string) => {
+      setNotes(markdown)
+      setDirty(true)
+    },
+    []
+  )
+
   return (
     <div className="border p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -47,14 +55,10 @@ export function IntakeNotes({ intake }: IntakeNotesProps) {
           </Button>
         )}
       </div>
-      <Textarea
-        value={notes}
-        onChange={(e) => {
-          setNotes(e.target.value)
-          setDirty(true)
-        }}
+      <RichTextEditor
+        content={notes}
+        onUpdate={handleUpdate}
         placeholder="Add notes about this intake..."
-        className="min-h-24 resize-y"
       />
     </div>
   )

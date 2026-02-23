@@ -47,6 +47,7 @@ export interface IntakeComment {
   user_id: number
   content: string
   is_system: boolean
+  detail?: Record<string, unknown> | null
   created_at: string
   user_first_name: string | null
   user_last_name: string | null
