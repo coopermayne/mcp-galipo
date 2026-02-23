@@ -18,6 +18,7 @@ import {
   createIntakeComment,
   markIntakeRead,
 } from "@/services/intakes"
+import { getAvatarStyleById } from "@/lib/badge-colors"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -133,7 +134,7 @@ function UserCommentEntry({ comment }: { comment: IntakeComment }) {
     <div className="relative flex gap-3 py-2">
       {/* Avatar */}
       <Avatar size="sm" className="relative z-10 shrink-0">
-        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+        <AvatarFallback className="text-[10px]" style={getAvatarStyleById(comment.user_id)}>{initials}</AvatarFallback>
       </Avatar>
       {/* Content */}
       <div className="min-w-0 flex-1">
