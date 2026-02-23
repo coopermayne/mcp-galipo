@@ -6,13 +6,13 @@ import {
 } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
@@ -27,11 +27,11 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
   const { pathname } = useLocation()
 
   return (
-    <>
-      {groups.map((group) => (
-        <SidebarGroup key={group.label}>
-          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-          <SidebarMenu>
+    <SidebarGroup>
+      <SidebarMenu>
+        {groups.map((group, groupIndex) => (
+          <div key={group.label}>
+            {groupIndex > 0 && <SidebarSeparator className="my-2" />}
             {group.items.map((item) =>
               item.items ? (
                 <Collapsible
@@ -88,9 +88,9 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                 </SidebarMenuItem>
               )
             )}
-          </SidebarMenu>
-        </SidebarGroup>
-      ))}
-    </>
+          </div>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
   )
 }

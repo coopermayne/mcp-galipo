@@ -1,5 +1,4 @@
 import { useMemo } from "react"
-import { AppSwitcher } from "@/components/layout/app-switcher"
 import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
 import { navGroups } from "@/components/layout/nav-data"
@@ -9,7 +8,10 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
@@ -35,7 +37,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <AppSwitcher />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+              <span className="truncate text-base font-semibold group-data-[collapsible=icon]:hidden">Galipo</span>
+              <SidebarTrigger className="ml-auto group-data-[collapsible=icon]:ml-0" />
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain groups={filteredGroups} />
