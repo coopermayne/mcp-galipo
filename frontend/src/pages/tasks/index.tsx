@@ -4,36 +4,27 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
   type SortingState,
   type ColumnFiltersState,
   type VisibilityState,
-  flexRender,
 } from "@tanstack/react-table"
 import { useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/hooks/use-auth"
 import { getTasks, updateTask, deleteTask } from "@/services/tasks"
-import type { TaskListItem } from "@/types/task"
+import type { TaskListItem as TaskListItemType } from "@/types/task"
 import { getColumns } from "@/pages/tasks/columns"
 import {
   TaskToolbar,
   type TaskScope,
 } from "@/pages/tasks/components/task-toolbar"
 import { TaskDetailDialog } from "@/pages/tasks/components/task-detail-dialog"
-import { DataTablePagination } from "@/components/common/data-table-pagination"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
+import { TaskListItem } from "@/pages/tasks/components/task-list-item"
 
 export default function TasksPage() {
   const { user } = useAuth()
@@ -53,11 +44,11 @@ export default function TasksPage() {
     [setSearchParams]
   )
 
-  // Table state
+  // Table state (still used for filtering/sorting)
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [selectedTask, setSelectedTask] = useState<TaskListItem | null>(null)
+  const [selectedTask, setSelectedTask] = useState<TaskListItemType | null>(null)
 
   // Build query params based on scope
   const queryParams = useMemo(() => {
@@ -79,7 +70,7 @@ export default function TasksPage() {
 
   // Mutations
   const markDoneMutation = useMutation({
-    mutationFn: (task: TaskListItem) => updateTask(task.id, { status: "Done" }),
+    mutationFn: (task: TaskListItemType) => updateTask(task.id, { status: "Done" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] })
       toast.success("Task marked as done")
@@ -88,7 +79,7 @@ export default function TasksPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (task: TaskListItem) => deleteTask(task.id),
+    mutationFn: (task: TaskListItemType) => deleteTask(task.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] })
       toast.success("Task deleted")
@@ -96,6 +87,7 @@ export default function TasksPage() {
     onError: (e) => toast.error(e.message),
   })
 
+  // TanStack Table for filtering/sorting (we render list items, not a <Table>)
   const columns = useMemo(
     () =>
       getColumns({
@@ -121,10 +113,11 @@ export default function TasksPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
+
+  const filteredTasks = table.getRowModel().rows.map((row) => row.original)
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -139,67 +132,42 @@ export default function TasksPage() {
 
       <TaskToolbar table={table} scope={scope} onScopeChange={setScope} />
 
-      <div className="border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  {columns.map((_, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-[80px]" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedTask(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No tasks found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <DataTablePagination table={table} />
+      {/* Task list */}
+      <TooltipProvider delayDuration={300}>
+        <div className="border border-border">
+          {isLoading ? (
+            <div className="divide-y divide-border/50">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3 px-3 py-2.5">
+                  <Skeleton className="size-5 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <div className="flex gap-3">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-3 w-14" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredTasks.length ? (
+            filteredTasks.map((task) => (
+              <TaskListItem
+                key={task.id}
+                task={task}
+                onTaskClick={setSelectedTask}
+                onMarkDone={(t) => markDoneMutation.mutate(t)}
+                onDelete={(t) => deleteMutation.mutate(t)}
+              />
+            ))
+          ) : (
+            <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+              No tasks found.
+            </div>
+          )}
+        </div>
+      </TooltipProvider>
 
       <TaskDetailDialog
         task={selectedTask}

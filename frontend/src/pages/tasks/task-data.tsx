@@ -7,34 +7,24 @@ import {
   ArrowDown01Icon,
 } from "@hugeicons/core-free-icons"
 
-// --- SVG status icons ---
+// --- SVG status icons (square-based) ---
 
 export function PendingIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+      <rect x="2" y="2" width="20" height="20" stroke="currentColor" strokeWidth="2" />
     </svg>
   )
 }
 
 export function ActiveIcon({ className }: { className?: string }) {
-  const r1 = 2 * Math.PI * 6.5
-  const r2 = 2 * Math.PI * 3
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-      <circle
-        cx="12" cy="12" r="6.5"
-        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-        strokeDasharray={`${r1 * 0.4} ${r1 * 0.6}`}
-        style={{ animation: "task-spin-cw 4s linear infinite", transformOrigin: "center" }}
-      />
-      <circle
-        cx="12" cy="12" r="3"
-        stroke="currentColor" strokeWidth="1" strokeLinecap="round"
-        opacity="0.7"
-        strokeDasharray={`${r2 * 0.25} ${r2 * 0.75}`}
-        style={{ animation: "task-spin-ccw 2.5s linear infinite", transformOrigin: "center" }}
+      <rect x="2" y="2" width="20" height="20" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M10 8l6 4-6 4z"
+        fill="currentColor"
+        style={{ animation: "task-spin-pause 3s ease-in-out infinite", transformOrigin: "12px 12px" }}
       />
     </svg>
   )
@@ -43,7 +33,7 @@ export function ActiveIcon({ className }: { className?: string }) {
 export function DoneIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+      <rect x="2" y="2" width="20" height="20" stroke="currentColor" strokeWidth="2" />
       <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
@@ -52,7 +42,7 @@ export function DoneIcon({ className }: { className?: string }) {
 export function PartiallyDoneIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+      <rect x="2" y="2" width="20" height="20" stroke="currentColor" strokeWidth="2" />
       <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
@@ -61,7 +51,7 @@ export function PartiallyDoneIcon({ className }: { className?: string }) {
 export function BlockedIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+      <rect x="2" y="2" width="20" height="20" stroke="currentColor" strokeWidth="2" />
       <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
@@ -70,10 +60,10 @@ export function BlockedIcon({ className }: { className?: string }) {
 export function AwaitingReviewIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-      <circle cx="8" cy="12" r="1.2" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
-      <circle cx="16" cy="12" r="1.2" fill="currentColor" />
+      <rect x="2" y="2" width="20" height="20" stroke="currentColor" strokeWidth="2" />
+      <rect x="7" y="11" width="2" height="2" fill="currentColor" />
+      <rect x="11" y="11" width="2" height="2" fill="currentColor" />
+      <rect x="15" y="11" width="2" height="2" fill="currentColor" />
     </svg>
   )
 }

@@ -234,13 +234,11 @@
 }
 
 /* Task status icon animations */
-@keyframes task-spin-cw {
-  from { transform: rotate(0deg) }
-  to { transform: rotate(360deg) }
-}
-@keyframes task-spin-ccw {
-  from { transform: rotate(0deg) }
-  to { transform: rotate(-360deg) }
+@keyframes task-spin-pause {
+  0% { transform: rotate(0deg) }
+  /* Quick spin in the last 15% of the cycle (0.45s of 3s) */
+  85% { transform: rotate(0deg) }
+  100% { transform: rotate(360deg) }
 }
 
 /* Tiptap rich text editor */
