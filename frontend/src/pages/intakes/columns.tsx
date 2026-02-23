@@ -1,16 +1,6 @@
-import { Link } from "react-router"
 import type { ColumnDef } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ViewIcon, Delete01Icon } from "@hugeicons/core-free-icons"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 
 function formatDate(dateStr: string | null): string {
@@ -64,8 +54,6 @@ function SolDays({ days }: { days: number }) {
 }
 
 export function getColumns(options: {
-  onView: (intake: Intake) => void
-  onDelete: (intake: Intake) => void
   unreadCounts: Record<number, number>
 }): ColumnDef<Intake>[] {
   return [
@@ -84,17 +72,14 @@ export function getColumns(options: {
       cell: ({ row }) => {
         const count = options.unreadCounts[row.original.id]
         return (
-          <Link
-            to={`/intakes/${row.original.id}`}
-            className="inline-flex items-center gap-1.5 font-medium hover:underline"
-          >
+          <span className="inline-flex items-center gap-1.5 font-medium">
             {row.getValue("name") || "—"}
             {count > 0 && (
               <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
                 {count}
               </span>
             )}
-          </Link>
+          </span>
         )
       },
     },
@@ -150,33 +135,6 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Status" />
       ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
-    },
-    {
-      id: "actions",
-      enableHiding: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="size-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <HugeiconsIcon icon={MoreHorizontalCircle01Icon} className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => options.onView(row.original)}>
-              <HugeiconsIcon icon={ViewIcon} className="mr-2 size-4" />
-              View
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => options.onDelete(row.original)}
-              className="text-destructive focus:text-destructive"
-            >
-              <HugeiconsIcon icon={Delete01Icon} className="mr-2 size-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
     },
   ]
 }
