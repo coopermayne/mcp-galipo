@@ -6,12 +6,12 @@ import Markdown from "react-markdown"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { SentIcon, Loading03Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -83,18 +83,18 @@ export function IntakeChatDialog({ open, onOpenChange }: IntakeChatDialogProps) 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>AI Intake</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex w-full flex-col data-[side=right]:sm:max-w-[50vw]">
+        <SheetHeader>
+          <SheetTitle>AI Intake</SheetTitle>
+          <SheetDescription>
             Paste an email, voicemail transcript, or notes. Claude will parse it
             and create the intake.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto space-y-3 min-h-[300px] max-h-[55vh] pr-1">
+        <div className="scrollbar-hidden flex-1 overflow-y-auto space-y-3">
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <p className="text-muted-foreground text-sm text-center max-w-md">
@@ -147,8 +147,8 @@ export function IntakeChatDialog({ open, onOpenChange }: IntakeChatDialogProps) 
             <HugeiconsIcon icon={SentIcon} className="size-4" />
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }
 

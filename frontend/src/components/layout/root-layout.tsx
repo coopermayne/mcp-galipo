@@ -2,7 +2,7 @@ import { Navigate, Outlet } from "react-router"
 import { useAuth } from "@/hooks/use-auth"
 import { useSSE } from "@/hooks/use-sse"
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 export function RootLayout() {
@@ -26,9 +26,12 @@ export function RootLayout() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <main className="mx-auto w-full max-w-[1600px] flex-1 overflow-auto">
+          <div className="flex h-10 items-center px-4 md:hidden">
+            <SidebarTrigger />
+          </div>
+          <div className="mx-auto w-full max-w-[1600px] flex-1 overflow-auto">
             <Outlet />
-          </main>
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
