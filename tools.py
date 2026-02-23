@@ -240,8 +240,8 @@ class ManageIntakeInput(BaseModel):
     """Create or preview a new intake from unstructured text."""
     action: Literal["create", "preview"] = Field(..., description="Action: 'preview' to show gathered fields to user, 'create' to save")
     name: Optional[str] = Field(None, description="Name of the INJURED PERSON (not the contact or referral source). This is the case title.")
-    email: Optional[str] = Field(None, description="Email of the direct contact person — whoever we can reach (may be the injured person, or a family member/friend calling on their behalf)")
-    phone: Optional[str] = Field(None, description="Phone of the direct contact person — whoever we can reach (may be the injured person, or a family member/friend calling on their behalf)")
+    email: Optional[str] = Field(None, description="Email of the direct contact person — whoever we can reach (injured person or family/friend). NEVER put the referral attorney's email here. Leave blank if unknown.")
+    phone: Optional[str] = Field(None, description="Phone of the direct contact person — whoever we can reach (injured person or family/friend). NEVER put the referral attorney's phone here. Leave blank if unknown.")
     contact_relationship: Optional[str] = Field(None, description="Relationship of the contact to the injured person (e.g. 'brother', 'mother', 'friend', 'spouse'). Omit if the contact IS the injured person.")
     referral_name: Optional[str] = Field(None, description="Name of the referring professional (attorney, doctor, etc.) — NOT the family/friend contact")
     referral_org: Optional[str] = Field(None, description="Organization/firm of the referring professional")
@@ -1237,6 +1237,7 @@ def register_tools(mcp):
                 ai_result["ai_summary"],
                 ai_result["ai_rating"],
                 ai_result["ai_rating_reasoning"],
+                location_short=ai_result.get("ai_location_short"),
             )
             # Log analysis event
             rating = ai_result["ai_rating"]
