@@ -5,7 +5,7 @@ description: Open a browser and log in as a selected user for manual testing
 
 # Login as User
 
-Open the frontend in a browser, already logged in as a selected user, so you can start testing immediately.
+Open the frontend in a browser, already logged in as a selected user. Optimized for speed — minimal tool calls.
 
 ## Step 1: Ask Who to Log In As
 
@@ -51,56 +51,44 @@ Map the selected user to their email:
 
 If "Another user" is selected, ask for the email as free text.
 
-## Step 2: Get the Auth Token
+## Step 2: Get Token AND Open Browser (IN PARALLEL)
 
-Load environment variables and call the login API to get a JWT token for the selected user. The dev password for all users is `home3232`.
+**These two calls MUST happen in the same message (parallel tool calls):**
 
+**Call A — Bash:** Load env, get token, and echo both token and VITE_PORT:
 ```bash
 set -a && source .env 2>/dev/null && set +a
 PORT=${PORT:-8000}
+VITE_PORT=${VITE_PORT:-5173}
 
-# Login and capture the token
-RESPONSE=$(curl -s -X POST "http://localhost:$PORT/api/v1/auth/login" \
+TOKEN=$(curl -s -X POST "http://localhost:$PORT/api/v1/auth/login" \
   -H "Content-Type: application/json" \
-  -d "{\"username\": \"$USER_EMAIL\", \"password\": \"galipo2025\"}")
+  -d '{"username": "$USER_EMAIL", "password": "home3232"}' | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('token','FAIL'))")
 
-echo "$RESPONSE"
+echo "TOKEN=$TOKEN"
+echo "VITE_PORT=$VITE_PORT"
 ```
-
 Replace `$USER_EMAIL` with the selected user's email.
 
-Check the response:
-- If `"success": true` → extract the `token` field
-- If `"success": false` → tell the user login failed and show the error message. Do NOT proceed.
+**Call B — browser_navigate:** Navigate to `http://localhost:5173` (use VITE_PORT if known from env, default 5173).
 
-## Step 3: Open Browser with Playwright and Set Token
+## Step 3: Set Token and Reload
 
-Use the Playwright MCP tools to:
+After both parallel calls complete, check the token from Call A:
+- If token is `FAIL` → tell the user login failed, close browser, stop.
+- Otherwise → use `browser_evaluate` to set the token and reload:
 
-1. Navigate to the frontend URL:
-```
-browser_navigate → http://localhost:$VITE_PORT
-```
-(VITE_PORT from .env, default 5173)
-
-2. Set the auth token in localStorage and reload:
 ```
 browser_evaluate → () => {
   localStorage.setItem('token', '<TOKEN>');
   window.location.href = '/';
 }
 ```
-Replace `<TOKEN>` with the actual JWT token from Step 2.
 
-3. Wait for the page to load (wait for the page to settle ~2 seconds).
+**Do NOT wait or take a snapshot.** The user can see the browser themselves.
 
-4. Take a snapshot to confirm the user is logged in.
+## Step 4: Report (brief)
 
-## Step 4: Report
-
-Tell the user:
-- Logged in as **[Name]** ([email])
-- Browser is open at http://localhost:$VITE_PORT
-- They can start testing
+One line: `Logged in as **[Name]** ([email]) — browser is open.`
 
 Do NOT close the browser — the user needs it for manual testing.

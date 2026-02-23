@@ -1238,6 +1238,14 @@ def register_tools(mcp):
                 ai_result["ai_rating"],
                 ai_result["ai_rating_reasoning"],
             )
+            # Log analysis event
+            rating = ai_result["ai_rating"]
+            db.add_intake_comment(
+                intake_id, None,
+                f"AI analysis completed \u2014 rated {rating}/5",
+                True,
+                detail={"type": "ai_analysis", "rating": rating, "reasoning": ai_result["ai_rating_reasoning"], "is_regeneration": False},
+            )
             # Broadcast from background thread — broadcast uses put_nowait which is thread-safe for asyncio queues
             broadcast({"entity": "intake", "action": "analyzed", "id": intake_id, "intake_id": intake_id})
         except Exception as e:

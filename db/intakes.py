@@ -243,8 +243,11 @@ def sync_from_sheet(rows: list[dict]) -> dict:
 
     Returns {"imported": N, "skipped": N, "total": N}.
     """
+    from .intake_comments import add_intake_comment
+
     imported = 0
     skipped = 0
+    new_intake_ids: list[int] = []
 
     with SessionLocal() as session:
         # Get existing row numbers for dedup
@@ -274,9 +277,18 @@ def sync_from_sheet(rows: list[dict]) -> dict:
                 status="New",
             )
             session.add(intake)
+            session.flush()
+            new_intake_ids.append(intake.id)
             imported += 1
 
         session.commit()
+
+    # Log creation events (outside the sync session)
+    for iid in new_intake_ids:
+        try:
+            add_intake_comment(iid, None, "Intake imported from Google Sheets", True)
+        except Exception:
+            logger.warning("Failed to log creation comment for intake %d", iid)
 
     logger.info("Sync complete: %d imported, %d skipped", imported, skipped)
     return {"imported": imported, "skipped": skipped, "total": len(rows)}

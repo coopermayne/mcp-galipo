@@ -128,3 +128,12 @@
     @apply font-sans;
     }
 }
+
+/* Tiptap rich text editor */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
