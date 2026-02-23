@@ -42,9 +42,15 @@ export function IntakePipelines({
   selectedStatus,
   onStatusChange,
 }: IntakePipelinesProps) {
-  const total = counts
-    ? Object.values(counts).reduce((a, b) => a + b, 0)
+  const archivedCount = counts?.["Archived"] ?? 0
+  const activeCount = counts
+    ? Object.entries(counts)
+        .filter(([status]) => status !== "Archived")
+        .reduce((sum, [, count]) => sum + count, 0)
     : 0
+
+  const isArchivedView = selectedStatus === "Archived"
+  const isActiveView = !isArchivedView
 
   return (
     <div className="flex flex-col gap-2 border-b pb-4">
@@ -53,69 +59,93 @@ export function IntakePipelines({
           onClick={() => onStatusChange(null)}
           className={cn(
             "text-xs font-medium tracking-wide uppercase transition-colors",
-            selectedStatus === null
+            isActiveView && selectedStatus === null
               ? "text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          ALL
+          Active
           {counts && (
-            <span className="ml-1 tabular-nums opacity-60">({total})</span>
+            <span className="ml-1 tabular-nums opacity-60">
+              ({activeCount})
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => onStatusChange("Archived")}
+          className={cn(
+            "text-xs font-medium tracking-wide uppercase transition-colors",
+            isArchivedView
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Archived
+          {counts && (
+            <span className="ml-1 tabular-nums opacity-60">
+              ({archivedCount})
+            </span>
           )}
         </button>
       </div>
 
-      {PIPELINES.map((pipeline) => (
-        <Breadcrumb key={pipeline.label}>
-          <BreadcrumbList className="flex-nowrap gap-1">
-            <BreadcrumbItem>
-              <span
-                className={cn(
-                  "mr-1 text-[10px] font-bold tracking-widest uppercase",
-                  pipeline.labelClass
-                )}
-              >
-                {pipeline.label}
-              </span>
-            </BreadcrumbItem>
-            {pipeline.statuses.map((status, i) => {
-              const isActive = selectedStatus === status
-              const count = counts?.[status] ?? 0
-              return (
-                <BreadcrumbItem key={status} className="gap-1">
-                  {i > 0 && <BreadcrumbSeparator />}
-                  <button
-                    onClick={() =>
-                      onStatusChange(isActive ? null : status)
-                    }
-                    className={cn(
-                      "inline-flex items-center gap-1.5 text-xs transition-colors",
-                      isActive
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <span
+      {isActiveView &&
+        PIPELINES.map((pipeline) => (
+          <Breadcrumb key={pipeline.label}>
+            <BreadcrumbList className="flex-nowrap gap-1">
+              <BreadcrumbItem>
+                <span
+                  className={cn(
+                    "mr-1 text-[10px] font-bold tracking-widest uppercase",
+                    pipeline.labelClass
+                  )}
+                >
+                  {pipeline.label}
+                </span>
+              </BreadcrumbItem>
+              {pipeline.statuses.map((status, i) => {
+                const isActive = selectedStatus === status
+                const count = counts?.[status] ?? 0
+                return (
+                  <BreadcrumbItem key={status} className="gap-1">
+                    {i > 0 && <BreadcrumbSeparator />}
+                    <button
+                      onClick={() =>
+                        onStatusChange(isActive ? null : status)
+                      }
                       className={cn(
-                        "inline-block size-1.5 shrink-0 border",
+                        "inline-flex items-center gap-1.5 text-xs transition-colors",
                         isActive
-                          ? "border-foreground bg-foreground"
-                          : "border-muted-foreground/50 bg-transparent"
+                          ? "text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground"
                       )}
-                    />
-                    <span className={cn(isActive && "underline underline-offset-4 decoration-2")}>
-                      {status}
-                    </span>
-                    <span className="tabular-nums opacity-50">
-                      ({count})
-                    </span>
-                  </button>
-                </BreadcrumbItem>
-              )
-            })}
-          </BreadcrumbList>
-        </Breadcrumb>
-      ))}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block size-1.5 shrink-0 border",
+                          isActive
+                            ? "border-foreground bg-foreground"
+                            : "border-muted-foreground/50 bg-transparent"
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          isActive &&
+                            "underline underline-offset-4 decoration-2"
+                        )}
+                      >
+                        {status}
+                      </span>
+                      <span className="tabular-nums opacity-50">
+                        ({count})
+                      </span>
+                    </button>
+                  </BreadcrumbItem>
+                )
+              })}
+            </BreadcrumbList>
+          </Breadcrumb>
+        ))}
     </div>
   )
 }

@@ -30,6 +30,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, lazy: lazy(() => import("@/pages/dashboard")) },
       { path: "intakes", lazy: lazy(() => import("@/pages/intakes")) },
+      { path: "intakes/:id", lazy: lazy(() => import("@/pages/intakes/detail")) },
       { path: "cases", lazy: lazy(() => import("@/pages/cases")) },
       { path: "tasks", lazy: lazy(() => import("@/pages/tasks")) },
       { path: "calendar", lazy: lazy(() => import("@/pages/calendar")) },

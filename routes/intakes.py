@@ -13,6 +13,7 @@ from pydantic import ValidationError
 import db
 import auth
 from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput
+from schemas.common import INTAKE_TRANSITIONS
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 from .sse import broadcast, sse_generator, add_client, remove_client
 
@@ -30,9 +31,11 @@ def register_intake_routes(mcp):
         status = request.query_params.get("status")
         limit = int(request.query_params.get("limit", str(DEFAULT_PAGE_SIZE)))
         offset = int(request.query_params.get("offset", "0"))
+        exclude_archived = request.query_params.get("exclude_archived", "").lower() == "true"
 
         result = await asyncio.to_thread(
-            db.get_intakes, status=status, limit=limit, offset=offset
+            db.get_intakes, status=status, limit=limit, offset=offset,
+            exclude_archived=exclude_archived,
         )
         return JSONResponse(result)
 

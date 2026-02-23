@@ -47,8 +47,17 @@ export interface IntakeComment {
   content: string
   is_system: boolean
   created_at: string
-  user_name: string | null
+  user_first_name: string | null
+  user_last_name: string | null
+  user_initials: string | null
 }
+
+export interface IntakeCommentsResponse {
+  comments: IntakeComment[]
+  last_read_at: string | null
+}
+
+export type IntakeTransitions = Record<string, string[]>
 
 export interface IntakeListResponse {
   intakes: Intake[]
