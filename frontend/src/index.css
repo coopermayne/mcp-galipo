@@ -127,6 +127,9 @@
   html {
     @apply font-sans;
     }
+  button, [role="button"], a, select, summary, [type="button"], [type="submit"], [type="reset"], label[for] {
+    cursor: pointer;
+    }
 }
 
 /* Tiptap rich text editor */
