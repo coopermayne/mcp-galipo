@@ -2,7 +2,6 @@ import { useRef, useState, useCallback } from "react"
 import { useParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { getIntake } from "@/services/intakes"
-import { useBreadcrumbLabel } from "@/hooks/use-breadcrumb-label"
 import { IntakeDetailHeader } from "@/pages/intakes/components/intake-detail-header"
 import { IntakeMetadata } from "@/pages/intakes/components/intake-metadata"
 import { IntakeSubmission } from "@/pages/intakes/components/intake-submission"
@@ -29,8 +28,6 @@ export default function IntakeDetailPage() {
     queryFn: () => getIntake(intakeId),
     enabled: !isNaN(intakeId),
   })
-
-  useBreadcrumbLabel(intake?.name)
 
   const handleFocusComments = useCallback(() => {
     // Delay so the AlertDialog fully unmounts before we steal focus
