@@ -18,10 +18,11 @@ from models import (
 )
 
 
-# Color palette for case chips (10 visually distinct colors)
+# Color palette for case badges (16 visually distinct colors, synced with frontend lib/case-colors.ts)
 CASE_COLORS = [
     "blue", "emerald", "amber", "red", "violet",
     "pink", "cyan", "orange", "indigo", "teal",
+    "sky", "green", "purple", "fuchsia", "lime", "yellow",
 ]
 
 

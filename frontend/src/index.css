@@ -47,6 +47,40 @@
     --info-foreground: oklch(0.97 0.01 254);
     --purple: oklch(0.55 0.2 300);
     --purple-foreground: oklch(0.97 0.01 295);
+
+    /* ── Badge / avatar palette (16 colors) ── */
+    --palette-red:             oklch(0.58 0.22 27);
+    --palette-red-foreground:  oklch(0.97 0.01 27);
+    --palette-orange:             oklch(0.65 0.18 55);
+    --palette-orange-foreground:  oklch(0.97 0.01 55);
+    --palette-amber:             oklch(0.75 0.15 75);
+    --palette-amber-foreground:  oklch(0.16 0.05 55);
+    --palette-yellow:             oklch(0.78 0.15 95);
+    --palette-yellow-foreground:  oklch(0.20 0.02 95);
+    --palette-lime:             oklch(0.60 0.17 135);
+    --palette-lime-foreground:  oklch(0.97 0.01 135);
+    --palette-green:             oklch(0.52 0.17 150);
+    --palette-green-foreground:  oklch(0.98 0.01 155);
+    --palette-emerald:             oklch(0.55 0.15 168);
+    --palette-emerald-foreground:  oklch(0.97 0.01 168);
+    --palette-teal:             oklch(0.55 0.13 188);
+    --palette-teal-foreground:  oklch(0.97 0.01 188);
+    --palette-cyan:             oklch(0.58 0.14 210);
+    --palette-cyan-foreground:  oklch(0.97 0.01 210);
+    --palette-sky:             oklch(0.55 0.18 235);
+    --palette-sky-foreground:  oklch(0.97 0.01 235);
+    --palette-blue:             oklch(0.55 0.20 264);
+    --palette-blue-foreground:  oklch(0.97 0.01 254);
+    --palette-indigo:             oklch(0.52 0.20 280);
+    --palette-indigo-foreground:  oklch(0.97 0.01 280);
+    --palette-violet:             oklch(0.55 0.20 295);
+    --palette-violet-foreground:  oklch(0.97 0.01 295);
+    --palette-purple:             oklch(0.55 0.20 300);
+    --palette-purple-foreground:  oklch(0.97 0.01 295);
+    --palette-fuchsia:             oklch(0.58 0.20 330);
+    --palette-fuchsia-foreground:  oklch(0.97 0.01 330);
+    --palette-pink:             oklch(0.58 0.18 350);
+    --palette-pink-foreground:  oklch(0.97 0.01 350);
 }
 
 .dark {
@@ -89,6 +123,40 @@
     --info-foreground: oklch(0.97 0.01 254);
     --purple: oklch(0.55 0.2 300);
     --purple-foreground: oklch(0.97 0.01 295);
+
+    /* ── Badge / avatar palette (dark) ── */
+    --palette-red:             oklch(0.58 0.22 27);
+    --palette-red-foreground:  oklch(0.97 0.01 27);
+    --palette-orange:             oklch(0.65 0.18 55);
+    --palette-orange-foreground:  oklch(0.97 0.01 55);
+    --palette-amber:             oklch(0.65 0.14 75);
+    --palette-amber-foreground:  oklch(0.13 0.04 55);
+    --palette-yellow:             oklch(0.72 0.14 95);
+    --palette-yellow-foreground:  oklch(0.18 0.02 95);
+    --palette-lime:             oklch(0.58 0.16 135);
+    --palette-lime-foreground:  oklch(0.97 0.01 135);
+    --palette-green:             oklch(0.52 0.17 150);
+    --palette-green-foreground:  oklch(0.98 0.01 155);
+    --palette-emerald:             oklch(0.53 0.14 168);
+    --palette-emerald-foreground:  oklch(0.97 0.01 168);
+    --palette-teal:             oklch(0.53 0.12 188);
+    --palette-teal-foreground:  oklch(0.97 0.01 188);
+    --palette-cyan:             oklch(0.56 0.13 210);
+    --palette-cyan-foreground:  oklch(0.97 0.01 210);
+    --palette-sky:             oklch(0.53 0.17 235);
+    --palette-sky-foreground:  oklch(0.97 0.01 235);
+    --palette-blue:             oklch(0.55 0.20 264);
+    --palette-blue-foreground:  oklch(0.97 0.01 254);
+    --palette-indigo:             oklch(0.50 0.19 280);
+    --palette-indigo-foreground:  oklch(0.97 0.01 280);
+    --palette-violet:             oklch(0.53 0.19 295);
+    --palette-violet-foreground:  oklch(0.97 0.01 295);
+    --palette-purple:             oklch(0.55 0.20 300);
+    --palette-purple-foreground:  oklch(0.97 0.01 295);
+    --palette-fuchsia:             oklch(0.56 0.19 330);
+    --palette-fuchsia-foreground:  oklch(0.97 0.01 330);
+    --palette-pink:             oklch(0.56 0.17 350);
+    --palette-pink-foreground:  oklch(0.97 0.01 350);
 }
 
 @theme inline {
@@ -163,6 +231,16 @@
 }
 .scrollbar-hidden::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
+}
+
+/* Task status icon animations */
+@keyframes task-spin-cw {
+  from { transform: rotate(0deg) }
+  to { transform: rotate(360deg) }
+}
+@keyframes task-spin-ccw {
+  from { transform: rotate(0deg) }
+  to { transform: rotate(-360deg) }
 }
 
 /* Tiptap rich text editor */
