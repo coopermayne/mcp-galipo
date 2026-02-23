@@ -442,6 +442,8 @@ class CaseListOut(BaseModel):
     attorney_ids: Optional[list[int]] = None
     paralegal_ids: Optional[list[int]] = None
     judge: Optional[str] = None
+    case_number: Optional[str] = None
+    jurisdiction_name: Optional[str] = None
     client_count: Optional[int] = None
     defendant_count: Optional[int] = None
     pending_task_count: Optional[int] = None

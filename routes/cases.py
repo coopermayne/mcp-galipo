@@ -41,6 +41,14 @@ def register_case_routes(mcp):
             "total": result["total"]
         })
 
+    @mcp.custom_route("/api/v1/cases/counts", methods=["GET"])
+    async def api_case_counts(request):
+        """Get case counts grouped by status."""
+        if err := auth.require_auth(request):
+            return err
+        counts = await asyncio.to_thread(db.get_case_status_counts)
+        return JSONResponse(counts)
+
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["GET"])
     async def api_get_case(request):
         """Get a specific case by ID."""
