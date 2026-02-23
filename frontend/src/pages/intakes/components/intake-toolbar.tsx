@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, RefreshIcon } from "@hugeicons/core-free-icons"
+import { Search01Icon, RefreshIcon, Add01Icon, SparklesIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DataTableViewOptions } from "@/components/common/data-table-view-options"
@@ -11,12 +11,16 @@ interface IntakeToolbarProps {
   table: Table<Intake>
   onSync: () => void
   isSyncing: boolean
+  onNewIntake: () => void
+  onNewIntakeChat: () => void
 }
 
 export function IntakeToolbar({
   table,
   onSync,
   isSyncing,
+  onNewIntake,
+  onNewIntakeChat,
 }: IntakeToolbarProps) {
   const nameColumn = table.getColumn("name")
 
@@ -46,6 +50,19 @@ export function IntakeToolbar({
           className={cn("mr-2 size-4", isSyncing && "animate-spin")}
         />
         {isSyncing ? "Syncing..." : "Sync"}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8"
+        onClick={onNewIntakeChat}
+      >
+        <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
+        AI Intake
+      </Button>
+      <Button size="sm" className="h-8" onClick={onNewIntake}>
+        <HugeiconsIcon icon={Add01Icon} className="mr-2 size-4" />
+        New Intake
       </Button>
       <DataTableViewOptions table={table} />
     </div>
