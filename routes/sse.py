@@ -77,14 +77,13 @@ def register_sse_routes(mcp):
 
         Auth via ?token= query param since EventSource can't set headers.
         """
-        if not auth.DEV_SKIP_AUTH:
-            token = request.query_params.get("token")
-            if not token:
-                token = auth.get_token_from_request(request)
-            if not token or not auth.validate_session(token):
-                return JSONResponse(
-                    {"error": "Authentication required"}, status_code=401
-                )
+        token = request.query_params.get("token")
+        if not token:
+            token = auth.get_token_from_request(request)
+        if not token or not auth.validate_session(token):
+            return JSONResponse(
+                {"error": "Authentication required"}, status_code=401
+            )
 
         queue = add_client()
 

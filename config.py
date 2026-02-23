@@ -18,8 +18,6 @@ class Settings(BaseSettings):
     # Auth
     auth_username: str | None = None
     auth_password: str | None = None
-    dev_skip_auth: bool = False
-    dev_auth_user: str = ""
     jwt_secret: str = ""
 
     # Server
