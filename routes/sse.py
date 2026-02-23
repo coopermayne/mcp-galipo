@@ -35,7 +35,11 @@ async def sse_generator(queue: asyncio.Queue):
     """
     Yield SSE-formatted lines from a client queue.
     Sends a heartbeat comment every 15 seconds to keep the connection alive.
+    The initial comment fires immediately so EventSource.onopen triggers
+    without waiting for the first heartbeat (important when behind a proxy).
     """
+    # Immediate comment so the browser sees data and fires onopen
+    yield f": connected {int(time.time())}\n\n"
     try:
         while True:
             try:
@@ -60,3 +64,42 @@ def remove_client(queue: asyncio.Queue) -> None:
     """Unregister an SSE client."""
     _clients.discard(queue)
     logger.info("SSE client disconnected (%d remaining)", len(_clients))
+
+
+def register_sse_routes(mcp):
+    """Register the generic SSE stream endpoint."""
+    import auth
+    from fastapi.responses import JSONResponse, StreamingResponse
+
+    @mcp.custom_route("/api/v1/stream", methods=["GET"])
+    async def api_event_stream(request):
+        """SSE stream for real-time updates across the whole app.
+
+        Auth via ?token= query param since EventSource can't set headers.
+        """
+        if not auth.DEV_SKIP_AUTH:
+            token = request.query_params.get("token")
+            if not token:
+                token = auth.get_token_from_request(request)
+            if not token or not auth.validate_session(token):
+                return JSONResponse(
+                    {"error": "Authentication required"}, status_code=401
+                )
+
+        queue = add_client()
+
+        async def event_stream():
+            try:
+                async for chunk in sse_generator(queue):
+                    yield chunk
+            finally:
+                remove_client(queue)
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )

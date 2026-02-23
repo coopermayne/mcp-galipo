@@ -1,13 +1,13 @@
 """
 Intake API routes.
 
-Handles intake CRUD, Google Sheets sync, comments, and SSE streaming.
+Handles intake CRUD, Google Sheets sync, comments, and AI analysis.
 """
 
 import asyncio
 import logging
 
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 import db
@@ -15,7 +15,7 @@ import auth
 from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput
 from schemas.common import INTAKE_TRANSITIONS
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
-from .sse import broadcast, sse_generator, add_client, remove_client
+from .sse import broadcast
 
 logger = logging.getLogger(__name__)
 
@@ -111,42 +111,6 @@ def register_intake_routes(mcp):
         if err := auth.require_auth(request):
             return err
         return JSONResponse(INTAKE_TRANSITIONS)
-
-    # --- SSE stream (registered BEFORE {intake_id} wildcard) ---
-
-    @mcp.custom_route("/api/v1/intakes/stream", methods=["GET"])
-    async def api_intake_stream(request):
-        """SSE stream for real-time intake updates.
-
-        Auth via ?token= query param since EventSource can't set headers.
-        """
-        # Auth via query param (EventSource can't set headers)
-        if not auth.DEV_SKIP_AUTH:
-            token = request.query_params.get("token")
-            if not token:
-                token = auth.get_token_from_request(request)
-            if not token or not auth.validate_session(token):
-                return JSONResponse(
-                    {"error": "Authentication required"}, status_code=401
-                )
-
-        queue = add_client()
-
-        async def event_stream():
-            try:
-                async for chunk in sse_generator(queue):
-                    yield chunk
-            finally:
-                remove_client(queue)
-
-        return StreamingResponse(
-            event_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-            },
-        )
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["GET"])
     async def api_get_intake(request):

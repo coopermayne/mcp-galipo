@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router"
 import { useAuth } from "@/hooks/use-auth"
+import { useSSE } from "@/hooks/use-sse"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { Header } from "@/components/layout/header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -7,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 export function RootLayout() {
   const { user, isLoading } = useAuth()
+  useSSE()
 
   if (isLoading) {
     return (
