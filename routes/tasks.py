@@ -69,6 +69,17 @@ def register_task_routes(mcp):
             data.assignee_id,
             data.completion_date,
         )
+
+        # System comment for task creation
+        user = auth.get_current_user(request)
+        if user and data.case_id:
+            name = f"{user['firstName']} {user['lastName']}"
+            desc = data.description[:80] + ("..." if len(data.description) > 80 else "")
+            await asyncio.to_thread(
+                db.add_case_comment, data.case_id, user["id"],
+                f'{name} added task: "{desc}"', True,
+            )
+
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
@@ -92,10 +103,31 @@ def register_task_routes(mcp):
             data = UpdateTaskInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
+
+        # Capture old task for completion detection
+        old_task = None
+        if data.status == "Done":
+            old_task = await asyncio.to_thread(db.get_task_detail, task_id)
+
         updates = data.model_dump(exclude_unset=True)
         result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
+
+        # System comment for task completion
+        if data.status == "Done" and old_task and old_task.get("status") != "Done":
+            case_id = result.get("case_id") or (old_task.get("case_id") if old_task else None)
+            if case_id:
+                user = auth.get_current_user(request)
+                name = f"{user['firstName']} {user['lastName']}" if user else "System"
+                desc = result.get("description", "")
+                desc = desc[:80] + ("..." if len(desc) > 80 else "")
+                await asyncio.to_thread(
+                    db.add_case_comment, case_id,
+                    user["id"] if user else None,
+                    f'{name} completed task: "{desc}"', True,
+                )
+
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])

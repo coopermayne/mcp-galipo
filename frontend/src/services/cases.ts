@@ -2,6 +2,8 @@ import type {
   CaseListResponse,
   CaseCountsResponse,
   CaseDetail,
+  CaseCommentsResponse,
+  CaseComment,
 } from "@/types/case"
 import { apiFetch } from "@/lib/api"
 
@@ -86,5 +88,38 @@ export async function deleteCase(
 ): Promise<{ success: boolean }> {
   const res = await apiFetch(`/api/v1/cases/${id}`, { method: "DELETE" })
   if (!res.ok) throw new Error("Failed to delete case")
+  return res.json()
+}
+
+// --- Case Comments (Activity Feed) ---
+
+export async function getCaseComments(
+  caseId: number
+): Promise<CaseCommentsResponse> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/comments`)
+  if (!res.ok) throw new Error("Failed to fetch case comments")
+  return res.json()
+}
+
+export async function createCaseComment(
+  caseId: number,
+  content: string
+): Promise<CaseComment> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  })
+  if (!res.ok) throw new Error("Failed to create comment")
+  return res.json()
+}
+
+export async function markCaseRead(
+  caseId: number
+): Promise<{ success: boolean }> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/read`, {
+    method: "POST",
+  })
+  if (!res.ok) throw new Error("Failed to mark case as read")
   return res.json()
 }

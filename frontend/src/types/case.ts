@@ -139,6 +139,24 @@ export interface CaseListResponse {
 
 export type CaseCountsResponse = Record<string, number>
 
+export interface CaseComment {
+  id: number
+  case_id: number
+  user_id: number
+  content: string
+  is_system: boolean
+  detail?: Record<string, unknown> | null
+  created_at: string
+  user_first_name: string | null
+  user_last_name: string | null
+  user_initials: string | null
+}
+
+export interface CaseCommentsResponse {
+  comments: CaseComment[]
+  last_read_at: string | null
+}
+
 export type TaskStatus =
   | "Pending"
   | "Active"

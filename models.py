@@ -161,6 +161,73 @@ class IntakeCommentRead(Base):
     )
 
 
+class CaseComment(Base):
+    __tablename__ = "case_comments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"],
+            ["cases.id"],
+            ondelete="CASCADE",
+            name="case_comments_case_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="case_comments_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="case_comments_pkey"),
+        Index("idx_case_comments_case_id", "case_id"),
+        Index("idx_case_comments_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(Integer)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    is_system: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
+    detail: Mapped[Optional[dict]] = mapped_column(
+        JSONB(none_as_null=True)
+    )
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    case: Mapped[Case] = relationship(back_populates="comments")
+    user: Mapped[Optional[User]] = relationship()
+
+
+class CaseCommentRead(Base):
+    __tablename__ = "case_comment_reads"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"],
+            ["cases.id"],
+            ondelete="CASCADE",
+            name="case_comment_reads_case_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="CASCADE",
+            name="case_comment_reads_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("case_id", "user_id", name="case_comment_reads_pkey"),
+    )
+
+    case_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class Objection(Base):
     __tablename__ = "objections"
     __table_args__ = (
@@ -220,6 +287,7 @@ class Case(Base):
     )
 
     # Relationships
+    comments: Mapped[list[CaseComment]] = relationship(back_populates="case")
     events: Mapped[list[Event]] = relationship(back_populates="case")
     notes: Mapped[list[Note]] = relationship(back_populates="case")
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case")

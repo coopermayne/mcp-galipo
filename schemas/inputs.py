@@ -126,3 +126,11 @@ class CreateIntakeInput(BaseModel):
 
 class CreateIntakeCommentInput(BaseModel):
     content: str
+
+
+# =============================================================================
+# Route Input Models — Case Comments
+# =============================================================================
+
+class CreateCaseCommentInput(BaseModel):
+    content: str
