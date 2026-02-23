@@ -28,16 +28,16 @@ import {
 import { cn } from "@/lib/utils"
 
 const statusButtonColors: Record<IntakeStatus, string> = {
-  "New": "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900",
-  "Dave Review": "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900",
-  "Needs Follow-Up": "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900",
-  "Atty Review": "border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300 dark:hover:bg-purple-900",
-  "Needs Rejection Letter": "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-700 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900",
-  "Rejection Letter Sent": "border-red-200 bg-red-50/50 text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-900",
-  "Needs Retainer": "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900",
-  "Retainer Sent": "border-emerald-200 bg-emerald-50/50 text-emerald-600 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900",
-  "Retainer Signed": "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900",
-  "Archived": "border-neutral-300 bg-neutral-50 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800",
+  "New": "border-info bg-info text-info-foreground hover:bg-info/85",
+  "Dave Review": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
+  "Needs Follow-Up": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
+  "Atty Review": "border-purple bg-purple text-purple-foreground hover:bg-purple/85",
+  "Needs Rejection Letter": "border-destructive bg-destructive text-white hover:bg-destructive/85",
+  "Rejection Letter Sent": "border-destructive bg-destructive text-white hover:bg-destructive/85",
+  "Needs Retainer": "border-success bg-success text-success-foreground hover:bg-success/85",
+  "Retainer Sent": "border-success bg-success text-success-foreground hover:bg-success/85",
+  "Retainer Signed": "border-success bg-success text-success-foreground hover:bg-success/85",
+  "Archived": "border-muted bg-muted text-muted-foreground hover:bg-muted/85",
 }
 
 const ALL_STATUSES: IntakeStatus[] = [
@@ -145,7 +145,6 @@ export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHead
           {allowedTransitions.map((status: string) => (
             <Button
               key={status}
-              variant="outline"
               size="sm"
               className={cn(
                 "font-medium",
