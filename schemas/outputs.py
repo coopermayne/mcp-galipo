@@ -9,7 +9,7 @@ import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 
 # =============================================================================
@@ -151,6 +151,14 @@ class UserOut(BaseModel):
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
     paralegal: Optional[UserBriefOut] = None
+
+    @field_validator("visible_features", mode="before")
+    @classmethod
+    def _coerce_visible_features(cls, v):
+        """Convert old dict format {feat: bool} to new list format [feat, ...]."""
+        if isinstance(v, dict):
+            return [k for k, enabled in v.items() if enabled]
+        return v
 
 
 class UserWithPasswordOut(UserOut):
