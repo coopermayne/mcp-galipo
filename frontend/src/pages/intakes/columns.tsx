@@ -24,9 +24,15 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
+/** Parse a date-only string (YYYY-MM-DD) as local midnight, not UTC. */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
+
 function formatDoi(dateStr: string | null): string {
   if (!dateStr) return "—"
-  const d = new Date(dateStr)
+  const d = parseLocalDate(dateStr)
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -35,7 +41,7 @@ function formatDoi(dateStr: string | null): string {
 }
 
 function daysUntil(doi: string, months: number): number {
-  const d = new Date(doi)
+  const d = parseLocalDate(doi)
   const deadline = new Date(d)
   deadline.setMonth(deadline.getMonth() + months)
   const now = new Date()

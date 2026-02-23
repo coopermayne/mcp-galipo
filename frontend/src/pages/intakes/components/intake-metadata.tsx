@@ -16,9 +16,18 @@ import {
   Link01Icon,
 } from "@hugeicons/core-free-icons"
 
+/** Parse a date-only string (YYYY-MM-DD) as local midnight, not UTC. */
+function parseLocalDate(dateStr: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split("-").map(Number)
+    return new Date(y, m - 1, d)
+  }
+  return new Date(dateStr)
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return parseLocalDate(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -26,7 +35,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 function daysUntil(doi: string, months: number): number {
-  const deadline = new Date(doi)
+  const deadline = parseLocalDate(doi)
   deadline.setMonth(deadline.getMonth() + months)
   const now = new Date()
   now.setHours(0, 0, 0, 0)
