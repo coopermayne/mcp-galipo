@@ -239,21 +239,21 @@ class ManageJudgeInput(BaseModel):
 class ManageIntakeInput(BaseModel):
     """Create or preview a new intake from unstructured text."""
     action: Literal["create", "preview"] = Field(..., description="Action: 'preview' to show gathered fields to user, 'create' to save")
-    name: Optional[str] = Field(None, description="Name of the injured person / potential client")
-    email: Optional[str] = Field(None, description="Email of the contact (injured person or referral source)")
-    phone: Optional[str] = Field(None, description="Phone of the contact (injured person or referral source)")
-    contact_relationship: Optional[str] = Field(None, description="Relationship of the contact to the injured person (e.g. 'self', 'mother', 'friend', 'spouse'). Omit if contact IS the injured person.")
-    referral_name: Optional[str] = Field(None, description="Name of the referring person (attorney, doctor, etc.) if this is a referral")
-    referral_org: Optional[str] = Field(None, description="Organization/firm of the referring person")
-    referral_email: Optional[str] = Field(None, description="Email of the referring person")
-    referral_phone: Optional[str] = Field(None, description="Phone of the referring person")
+    name: Optional[str] = Field(None, description="Name of the INJURED PERSON (not the contact or referral source). This is the case title.")
+    email: Optional[str] = Field(None, description="Email of the direct contact person — whoever we can reach (may be the injured person, or a family member/friend calling on their behalf)")
+    phone: Optional[str] = Field(None, description="Phone of the direct contact person — whoever we can reach (may be the injured person, or a family member/friend calling on their behalf)")
+    contact_relationship: Optional[str] = Field(None, description="Relationship of the contact to the injured person (e.g. 'brother', 'mother', 'friend', 'spouse'). Omit if the contact IS the injured person.")
+    referral_name: Optional[str] = Field(None, description="Name of the referring professional (attorney, doctor, etc.) — NOT the family/friend contact")
+    referral_org: Optional[str] = Field(None, description="Organization/firm of the referring professional")
+    referral_email: Optional[str] = Field(None, description="Email of the referring professional")
+    referral_phone: Optional[str] = Field(None, description="Phone of the referring professional")
     case_type: Optional[str] = Field(None, description="Type of case (e.g. auto accident, slip and fall)")
     incident_date: Optional[str] = Field(None, description="Date of incident YYYY-MM-DD")
     incident_time: Optional[str] = Field(None, description="Time of incident")
     location: Optional[str] = Field(None, description="Location of incident")
     incident_description: Optional[str] = Field(None, description="Description of what happened")
     injury_description: Optional[str] = Field(None, description="Description of injuries")
-    notes: Optional[str] = Field(None, description="Additional notes")
+    notes: Optional[str] = Field(None, description="DO NOT USE — this field is reserved for office staff to enter internal notes manually. Never populate from AI.")
 
 
 # =============================================================================
