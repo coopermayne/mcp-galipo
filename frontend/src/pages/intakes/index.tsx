@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,7 +9,7 @@ import {
   type VisibilityState,
   flexRender,
 } from "@tanstack/react-table"
-import { useNavigate } from "react-router"
+import { useNavigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, type CreateIntakeData } from "@/services/intakes"
@@ -30,8 +30,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function IntakesPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
+  const selectedStatus = searchParams.get("status")
+  const setSelectedStatus = useCallback(
+    (status: string | null) => {
+      setSearchParams(status ? { status } : {}, { replace: true })
+    },
+    [setSearchParams]
+  )
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
