@@ -29,8 +29,14 @@ export async function getCases(
   return res.json()
 }
 
-export async function getCaseCounts(): Promise<CaseCountsResponse> {
-  const res = await apiFetch("/api/v1/cases/counts")
+export async function getCaseCounts(
+  attorney_ids?: number[]
+): Promise<CaseCountsResponse> {
+  const searchParams = new URLSearchParams()
+  if (attorney_ids?.length)
+    searchParams.set("attorney_ids", attorney_ids.join(","))
+  const qs = searchParams.toString()
+  const res = await apiFetch(`/api/v1/cases/counts${qs ? `?${qs}` : ""}`)
   if (!res.ok) throw new Error("Failed to fetch case counts")
   return res.json()
 }

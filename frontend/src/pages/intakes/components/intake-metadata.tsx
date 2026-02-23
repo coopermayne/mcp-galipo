@@ -1,4 +1,5 @@
 import type { Intake } from "@/types/intake"
+import { formatPhone } from "@/lib/utils"
 import {
   Tooltip,
   TooltipContent,
@@ -77,7 +78,7 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
           {intake.phone && (
             <div className="flex items-center gap-2">
               <HugeiconsIcon icon={CallIcon} className="size-3.5 text-muted-foreground" />
-              <span className="text-xs">{intake.phone}</span>
+              <span className="text-xs">{formatPhone(intake.phone)}</span>
             </div>
           )}
           {intake.contact_relationship && (
@@ -113,7 +114,7 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
               {intake.referral_phone && (
                 <div className="flex items-center gap-2">
                   <HugeiconsIcon icon={CallIcon} className="size-3.5 text-muted-foreground" />
-                  <span className="text-xs">{intake.referral_phone}</span>
+                  <span className="text-xs">{formatPhone(intake.referral_phone)}</span>
                 </div>
               )}
             </div>
