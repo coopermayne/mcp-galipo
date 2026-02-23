@@ -1,8 +1,16 @@
+import { Routes, Route } from "react-router"
+import { TemplatesHub } from "@/pages/templates/components/templates-hub"
+import { PleadingsPage } from "@/pages/templates/components/pleadings-page"
+import { RFPPage } from "@/pages/templates/components/rfp-page"
+import { ObjectionsPage } from "@/pages/templates/components/objections-page"
+
 export default function TemplatesPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Templates</h1>
-      <p className="text-muted-foreground mt-1">Document templates will go here.</p>
-    </div>
+    <Routes>
+      <Route index element={<TemplatesHub />} />
+      <Route path="pleadings" element={<PleadingsPage />} />
+      <Route path="rfp" element={<RFPPage />} />
+      <Route path="rfp/objections" element={<ObjectionsPage />} />
+    </Routes>
   )
 }
