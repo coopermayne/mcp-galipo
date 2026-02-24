@@ -5,9 +5,13 @@ import {
   Link04Icon,
   Flag02Icon,
   Tick02Icon,
+  Add01Icon,
+  Cancel01Icon,
 } from "@hugeicons/core-free-icons"
 import type { TaskListItem as TaskListItemType } from "@/types/task"
 import { getEventsByCase, type CaseEvent } from "@/services/events"
+import { getStaff } from "@/services/staff"
+import { getCase } from "@/services/cases"
 import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
@@ -36,6 +40,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
 import { statuses, urgencies } from "@/pages/tasks/task-data"
@@ -71,6 +80,171 @@ function urgencyRingColor(urgency: string | null): string {
     default:
       return "text-muted-foreground/50"
   }
+}
+
+function StaffRow({
+  staffId,
+  initials,
+  name,
+  onClick,
+}: {
+  staffId: number
+  initials: string
+  name: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 w-full px-1.5 py-1 text-xs hover:bg-accent transition-colors"
+    >
+      <span
+        className="inline-flex size-4 items-center justify-center text-[8px] font-medium shrink-0"
+        style={getAvatarStyleById(staffId)}
+      >
+        {initials}
+      </span>
+      {name}
+    </button>
+  )
+}
+
+function TaskAssigneePicker({
+  task,
+  onAssign,
+}: {
+  task: TaskListItemType
+  onAssign: (userId: number | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: getStaff,
+    enabled: open,
+  })
+
+  const { data: caseData } = useQuery({
+    queryKey: ["case", task.case_id],
+    queryFn: () => getCase(task.case_id!),
+    enabled: open && !!task.case_id,
+    staleTime: 60 * 1000,
+  })
+
+  const allStaff = staffData?.data ?? []
+  const available = allStaff.filter((s) => s.id !== task.assignee_id)
+
+  // Split into case staff vs others
+  const caseStaffIds = new Set([
+    ...(caseData?.attorneys ?? []).map((a) => a.id),
+    ...(caseData?.paralegals ?? []).map((p) => p.id),
+  ])
+  const onCase = available.filter((s) => caseStaffIds.has(s.id))
+  const others = available.filter((s) => !caseStaffIds.has(s.id))
+
+  function pick(id: number) {
+    onAssign(id)
+    setOpen(false)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {task.assignee ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex size-4 items-center justify-center text-[8px] font-medium"
+                  style={getAvatarStyleById(task.assignee.id)}
+                >
+                  {task.assignee.initials}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {task.assignee.first_name} {task.assignee.last_name}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="inline-flex size-4 items-center justify-center border border-dashed border-muted-foreground/40 text-muted-foreground/40 hover:border-muted-foreground hover:text-muted-foreground transition-colors">
+              <HugeiconsIcon icon={Add01Icon} className="size-2.5" />
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-48 p-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-2 space-y-0.5">
+          {/* Current assignee — with remove */}
+          {task.assignee && (
+            <>
+              <div className="flex items-center justify-between px-1.5 py-1 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-flex size-4 items-center justify-center text-[8px] font-medium shrink-0"
+                    style={getAvatarStyleById(task.assignee.id)}
+                  >
+                    {task.assignee.initials}
+                  </span>
+                  {task.assignee.first_name} {task.assignee.last_name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAssign(null)
+                    setOpen(false)
+                  }}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                </button>
+              </div>
+              {available.length > 0 && (
+                <div className="border-t border-border/50 my-1" />
+              )}
+            </>
+          )}
+
+          {/* Case staff first */}
+          {onCase.length > 0 && (
+            <>
+              {onCase.map((s) => (
+                <StaffRow
+                  key={s.id}
+                  staffId={s.id}
+                  initials={s.initials}
+                  name={`${s.firstName} ${s.lastName}`}
+                  onClick={() => pick(s.id)}
+                />
+              ))}
+              {others.length > 0 && (
+                <div className="border-t border-border/50 my-1" />
+              )}
+            </>
+          )}
+
+          {/* Other staff */}
+          {others.map((s) => (
+            <StaffRow
+              key={s.id}
+              staffId={s.id}
+              initials={s.initials}
+              name={`${s.firstName} ${s.lastName}`}
+              onClick={() => pick(s.id)}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 interface TaskListItemProps {
@@ -329,35 +503,24 @@ export function TaskListItem({
             </Select>
           </div>
 
-          {/* Case badge */}
-          {task.short_name && !hideCaseBadge && (
-            <Badge
-              className="text-[10px] px-1.5 py-0 h-4 leading-none"
-              style={getBadgeStyle(task.case_color)}
-            >
-              {task.short_name}
-            </Badge>
-          )}
-
-          {/* Assignee */}
-          {task.assignee && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="inline-flex size-4 shrink-0 items-center justify-center text-[8px] font-medium"
-                  style={getAvatarStyleById(task.assignee.id)}
-                >
-                  {task.assignee.initials}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                {task.assignee.first_name} {task.assignee.last_name}
-              </TooltipContent>
-            </Tooltip>
-          )}
         </div>
       </div>
 
+      {/* Right-aligned: case badge + assignee */}
+      <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
+        {task.short_name && !hideCaseBadge && (
+          <Badge
+            className="text-[10px] px-1.5 py-0 h-4 leading-none"
+            style={getBadgeStyle(task.case_color)}
+          >
+            {task.short_name}
+          </Badge>
+        )}
+        <TaskAssigneePicker
+          task={task}
+          onAssign={(userId) => onUpdateTask(task.id, "assignee_id", userId)}
+        />
+      </div>
     </div>
   )
 }
