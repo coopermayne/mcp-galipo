@@ -63,3 +63,13 @@ export async function deleteTask(taskId: number) {
   if (!res.ok) throw new Error("Failed to delete task")
   return res.json()
 }
+
+export async function rescheduleOverdueTasks(newDate: string, taskIds: number[]) {
+  const res = await apiFetch("/api/v1/tasks/reschedule-overdue", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_date: newDate, task_ids: taskIds }),
+  })
+  if (!res.ok) throw new Error("Failed to reschedule tasks")
+  return res.json()
+}
