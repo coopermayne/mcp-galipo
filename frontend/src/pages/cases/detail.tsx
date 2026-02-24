@@ -129,8 +129,8 @@ export default function CaseDetailPage() {
           {/* Right column — activity feed + summary/dates */}
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-6 flex flex-col gap-4 lg:h-[calc(100vh-9rem)]">
-              <CaseActivityFeed caseId={caseData.id} />
               <CaseInfoPanel caseData={caseData} />
+              <CaseActivityFeed caseId={caseData.id} />
             </div>
           </div>
         </div>
