@@ -73,7 +73,7 @@ export function TaskDetailDialog({
   })
 
   const { data: caseEvents } = useQuery({
-    queryKey: ["events", "case", task?.case_id],
+    queryKey: ["events", "case", task?.case_id, "list"],
     queryFn: () => getEventsByCase(task!.case_id!),
     enabled: !!task && !!task.case_id && open,
     staleTime: 60 * 1000,
