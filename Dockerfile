@@ -30,6 +30,10 @@ COPY templates/ ./templates/
 # Copy built React frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# Bake git commit hash into the image for /api/v1/health
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 EXPOSE 8000
 
 # Use gunicorn with uvicorn workers for production
