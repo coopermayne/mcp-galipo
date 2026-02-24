@@ -2,17 +2,20 @@ import { useState, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  PencilEdit01Icon,
-  Tick02Icon,
-  Delete02Icon,
   Link04Icon,
   Flag02Icon,
+  Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import type { TaskListItem as TaskListItemType } from "@/types/task"
 import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Combobox,
   ComboboxInput,
@@ -73,9 +76,8 @@ function urgencyRingColor(urgency: string | null): string {
 interface TaskListItemProps {
   task: TaskListItemType
   onTaskClick: (task: TaskListItemType) => void
-  onMarkDone: (task: TaskListItemType) => void
-  onDelete: (task: TaskListItemType) => void
   onUpdateTask: (taskId: number, field: string, value: unknown) => void
+  hideCaseBadge?: boolean
 }
 
 function isOverdue(dateStr: string | null): boolean {
@@ -197,9 +199,8 @@ function InlineEventLinker({
 export function TaskListItem({
   task,
   onTaskClick,
-  onMarkDone,
-  onDelete,
   onUpdateTask,
+  hideCaseBadge,
 }: TaskListItemProps) {
   const isDone = task.status === "Done"
   const status = statuses.find((s) => s.value === task.status)
@@ -208,37 +209,54 @@ export function TaskListItem({
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-3 px-3 py-2.5",
+        "group relative flex items-start gap-2.5 px-3 py-2",
         "border-b border-border/50",
         "hover:bg-accent/50 transition-colors cursor-pointer"
       )}
       onClick={() => onTaskClick(task)}
     >
-      {/* Status icon — colored by urgency */}
-      <button
-        className={cn(
-          "mt-0.5 shrink-0",
-          urgencyRingColor(task.urgency),
-          "hover:scale-110 transition-transform",
-          isDone && "text-success"
-        )}
-        onClick={(e) => {
-          e.stopPropagation()
-          if (!isDone) onMarkDone(task)
-        }}
-        title={isDone ? "Done" : "Mark as done"}
-      >
-        {status && (
-          <status.icon className="size-5" />
-        )}
-      </button>
+      {/* Status icon — dropdown to change status */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={cn(
+              "mt-0.5 shrink-0",
+              urgencyRingColor(task.urgency),
+              "hover:scale-110 transition-transform",
+              isDone && "text-success"
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {status && (
+              <status.icon className="size-4" />
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+          {statuses.map((s) => (
+            <DropdownMenuItem
+              key={s.value}
+              onClick={() => onUpdateTask(task.id, "status", s.value)}
+              className="flex items-center justify-between gap-4"
+            >
+              <span className={cn("inline-flex items-center gap-2", urgencyRingColor(task.urgency))}>
+                <s.icon className="size-4" />
+                {s.label}
+              </span>
+              {task.status === s.value && (
+                <HugeiconsIcon icon={Tick02Icon} className="size-4 text-foreground" />
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Title */}
         <p
           className={cn(
-            "text-sm leading-snug",
+            "text-xs leading-snug",
             isDone && "text-muted-foreground line-through"
           )}
         >
@@ -246,7 +264,7 @@ export function TaskListItem({
         </p>
 
         {/* Metadata row */}
-        <div className="flex items-center gap-3 mt-1 flex-wrap">
+        <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
           {/* Due date — interactive */}
           <div onClick={(e) => e.stopPropagation()}>
             <DatePicker
@@ -312,7 +330,7 @@ export function TaskListItem({
           </div>
 
           {/* Case badge */}
-          {task.short_name && (
+          {task.short_name && !hideCaseBadge && (
             <Badge
               className="text-[10px] px-1.5 py-0 h-4 leading-none"
               style={getBadgeStyle(task.case_color)}
@@ -340,50 +358,6 @@ export function TaskListItem({
         </div>
       </div>
 
-      {/* Hover actions */}
-      <div
-        className={cn(
-          "shrink-0 flex items-center gap-0.5",
-          "opacity-0 group-hover:opacity-100 transition-opacity"
-        )}
-      >
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={(e) => {
-            e.stopPropagation()
-            onTaskClick(task)
-          }}
-          title="Edit"
-        >
-          <HugeiconsIcon icon={PencilEdit01Icon} className="size-3.5" />
-        </Button>
-        {!isDone && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={(e) => {
-              e.stopPropagation()
-              onMarkDone(task)
-            }}
-            title="Mark done"
-          >
-            <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(task)
-          }}
-          title="Delete"
-        >
-          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-        </Button>
-      </div>
     </div>
   )
 }

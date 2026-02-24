@@ -116,7 +116,6 @@ export default function CaseDetailPage() {
               onNest={handleNest}
             />
             <CaseTasksCard
-              tasks={caseData.tasks}
               caseId={caseData.id}
               onAdd={() => setAddTaskOpen(true)}
             />

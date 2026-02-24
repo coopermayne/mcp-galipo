@@ -53,6 +53,8 @@ export function AddTaskDialog({ open, onOpenChange, caseId }: AddTaskDialogProps
       }),
     onSuccess: () => {
       toast.success("Task created")
+      queryClient.invalidateQueries({ queryKey: ["tasks", "case", caseId] })
+      queryClient.invalidateQueries({ queryKey: ["tasks"] })
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       queryClient.invalidateQueries({ queryKey: ["cases"] })
       onOpenChange(false)
