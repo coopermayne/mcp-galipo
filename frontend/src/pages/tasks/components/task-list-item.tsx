@@ -394,7 +394,7 @@ export function TaskListItem({
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "mt-0.5 shrink-0",
+              "shrink-0",
               urgencyRingColor(task.urgency),
               "hover:scale-110 transition-transform",
               isDone && "text-success"
