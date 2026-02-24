@@ -51,6 +51,7 @@ from .objections import register_objection_routes
 from .rfp import register_rfp_routes
 from .sse import register_sse_routes
 from .intakes import register_intake_routes
+from .health import register_health_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -110,6 +111,8 @@ def register_routes(mcp):
     register_sse_routes(mcp)
     _logger.debug("Registering intake routes...")
     register_intake_routes(mcp)
+    _logger.debug("Registering health routes...")
+    register_health_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     _logger.debug("Registering static routes...")
