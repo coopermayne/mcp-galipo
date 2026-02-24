@@ -5,7 +5,6 @@ import {
   PencilEdit01Icon,
   Tick02Icon,
   Delete02Icon,
-  Calendar03Icon,
   Link04Icon,
   Flag02Icon,
 } from "@hugeicons/core-free-icons"
@@ -13,6 +12,7 @@ import type { TaskListItem as TaskListItemType } from "@/types/task"
 import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { DatePicker } from "@/components/ui/date-picker"
 import {
   Combobox,
   ComboboxInput,
@@ -78,82 +78,11 @@ interface TaskListItemProps {
   onUpdateTask: (taskId: number, field: string, value: unknown) => void
 }
 
-function InlineDateEditor({
-  value,
-  onChange,
-}: {
-  value: string | null
-  onChange: (date: string | null) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const isOverdue =
-    value &&
-    parseLocalDate(value) <
-      (() => {
-        const t = new Date()
-        t.setHours(0, 0, 0, 0)
-        return t
-      })()
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        type="date"
-        defaultValue={value ?? ""}
-        className="h-5 text-xs bg-transparent border border-border px-1 text-foreground outline-none focus:border-ring"
-        autoFocus
-        onClick={(e) => e.stopPropagation()}
-        onBlur={(e) => {
-          const newVal = e.target.value || null
-          if (newVal !== value) onChange(newVal)
-          setEditing(false)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.currentTarget.blur()
-          } else if (e.key === "Escape") {
-            setEditing(false)
-          }
-        }}
-      />
-    )
-  }
-
-  if (value) {
-    return (
-      <button
-        type="button"
-        className={cn(
-          "inline-flex items-center gap-1 text-xs hover:underline",
-          isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
-        )}
-        onClick={(e) => {
-          e.stopPropagation()
-          setEditing(true)
-        }}
-      >
-        <HugeiconsIcon icon={Calendar03Icon} className="size-3" />
-        {formatDate(value)}
-      </button>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
-      onClick={(e) => {
-        e.stopPropagation()
-        setEditing(true)
-      }}
-    >
-      <HugeiconsIcon icon={Calendar03Icon} className="size-3" />
-      Set date
-    </button>
-  )
+function isOverdue(dateStr: string | null): boolean {
+  if (!dateStr) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return parseLocalDate(dateStr) < today
 }
 
 function InlineEventLinker({
@@ -319,10 +248,18 @@ export function TaskListItem({
         {/* Metadata row */}
         <div className="flex items-center gap-3 mt-1 flex-wrap">
           {/* Due date — interactive */}
-          <InlineDateEditor
-            value={task.due_date}
-            onChange={(date) => onUpdateTask(task.id, "due_date", date)}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <DatePicker
+              value={task.due_date}
+              onChange={(date) => onUpdateTask(task.id, "due_date", date)}
+              variant="inline"
+              placeholder="Set date"
+              formatValue={formatDate}
+              className={cn(
+                isOverdue(task.due_date) && "text-destructive font-medium"
+              )}
+            />
+          </div>
 
           {/* Linked event — inline combobox */}
           {(task.has_events || task.case_id) && (
