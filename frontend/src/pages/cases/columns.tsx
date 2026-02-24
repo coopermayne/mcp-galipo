@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
+import { getAvatarStyleById } from "@/lib/badge-colors"
 
 interface UserInfo {
   id: number
@@ -24,40 +25,52 @@ export function getColumns(options: {
       ),
     },
     {
-      id: "attorneys",
-      header: "Attorney(s)",
+      id: "details",
+      header: "Details",
       cell: ({ row }) => {
-        const ids = row.original.attorney_ids ?? []
-        if (ids.length === 0) return <span className="text-muted-foreground">—</span>
-        const names = ids
-          .map((id) => options.usersMap.get(id))
-          .filter(Boolean)
-          .map((u) => u!.initials)
-        return <span>{names.join(", ") || "—"}</span>
+        const { case_number, jurisdiction_name, judge } = row.original
+        if (!case_number && !jurisdiction_name && !judge) {
+          return <span className="text-muted-foreground">—</span>
+        }
+        const parts: string[] = []
+        if (jurisdiction_name) parts.push(jurisdiction_name)
+        if (judge) parts.push(`Judge ${judge}`)
+        return (
+          <div className="flex items-center gap-1.5 text-xs">
+            {case_number && (
+              <span className="font-mono">{case_number}</span>
+            )}
+            {parts.length > 0 && (
+              <span className="text-muted-foreground">({parts.join(", ")})</span>
+            )}
+          </div>
+        )
       },
     },
     {
-      accessorKey: "judge",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Judge" />
-      ),
-      cell: ({ row }) => row.getValue("judge") || <span className="text-muted-foreground">—</span>,
-    },
-    {
-      accessorKey: "case_number",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Case No" />
-      ),
-      cell: ({ row }) =>
-        row.getValue("case_number") || <span className="text-muted-foreground">—</span>,
-    },
-    {
-      accessorKey: "jurisdiction_name",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Jurisdiction" />
-      ),
-      cell: ({ row }) =>
-        row.getValue("jurisdiction_name") || <span className="text-muted-foreground">—</span>,
+      id: "attorneys",
+      header: "Team",
+      cell: ({ row }) => {
+        const ids = row.original.attorney_ids ?? []
+        if (ids.length === 0) return <span className="text-muted-foreground">—</span>
+        const users = ids
+          .map((id) => options.usersMap.get(id))
+          .filter(Boolean) as UserInfo[]
+        return (
+          <div className="flex gap-1">
+            {users.map((u) => (
+              <span
+                key={u.id}
+                className="inline-flex size-5 items-center justify-center text-[9px] font-medium shrink-0"
+                style={getAvatarStyleById(u.id)}
+                title={`${u.first_name} ${u.last_name}`}
+              >
+                {u.initials}
+              </span>
+            ))}
+          </div>
+        )
+      },
     },
     {
       accessorKey: "status",

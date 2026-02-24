@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { CourtLawIcon } from "@hugeicons/core-free-icons"
 import type { CaseDetail } from "@/types/case"
 import { Button } from "@/components/ui/button"
 import { PeopleModal } from "./people-modal"
@@ -94,8 +92,7 @@ export function CaseSummarySection({
         <div className="flex items-center gap-2 text-xs">
           {proceedingLine ? (
             <>
-              <HugeiconsIcon icon={CourtLawIcon} className="size-3.5 text-muted-foreground shrink-0" />
-              <span className="font-mono font-semibold">{proceedingLine.caseNumber}</span>
+              <span className="font-mono">{proceedingLine.caseNumber}</span>
               {proceedingLine.detail && (
                 <span className="text-muted-foreground">{proceedingLine.detail}</span>
               )}
