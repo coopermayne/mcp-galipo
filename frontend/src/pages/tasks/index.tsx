@@ -29,6 +29,7 @@ export default function TasksPage() {
   // URL-persisted state
   const scope = (searchParams.get("scope") as TaskScope) || "mine"
   const groupBy = (searchParams.get("group") as TaskGroupBy) || "date"
+  const showDone = searchParams.get("done") === "true"
 
   const setScope = useCallback(
     (s: TaskScope) => {
@@ -52,6 +53,21 @@ export default function TasksPage() {
     [setSearchParams]
   )
 
+  const setShowDone = useCallback(
+    (show: boolean) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (show) {
+          next.set("done", "true")
+        } else {
+          next.delete("done")
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams]
+  )
+
   // Table state (still used for filtering/sorting)
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -66,11 +82,16 @@ export default function TasksPage() {
     } else {
       params.assignee_id = user.id
     }
+    if (showDone) {
+      params.status = "Done"
+    } else {
+      params.exclude_status = "Done"
+    }
     return params
-  }, [scope, user])
+  }, [scope, user, showDone])
 
   const { data, isLoading } = useQuery({
-    queryKey: ["tasks", scope, user?.id],
+    queryKey: ["tasks", scope, user?.id, showDone],
     queryFn: () => getTasks(queryParams as Parameters<typeof getTasks>[0]),
     enabled: !!user,
   })
@@ -124,12 +145,15 @@ export default function TasksPage() {
         onScopeChange={setScope}
         groupBy={groupBy}
         onGroupByChange={setGroupBy}
+        showDone={showDone}
+        onShowDoneChange={setShowDone}
       />
 
       <TaskListView
         tasks={filteredTasks}
         isLoading={isLoading}
         groupBy={groupBy}
+        showDone={showDone}
       />
     </div>
   )

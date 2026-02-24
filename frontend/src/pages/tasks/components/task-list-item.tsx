@@ -252,6 +252,7 @@ interface TaskListItemProps {
   onTaskClick: (task: TaskListItemType) => void
   onUpdateTask: (taskId: number, field: string, value: unknown) => void
   hideCaseBadge?: boolean
+  showDone?: boolean
 }
 
 function isOverdue(dateStr: string | null): boolean {
@@ -370,11 +371,39 @@ function InlineEventLinker({
   )
 }
 
+function formatCompletionDate(task: TaskListItemType): string {
+  const dateStr = task.completion_date
+  if (!dateStr) return "Completed"
+  const d = parseLocalDate(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  let label: string
+  if (d.getTime() === today.getTime()) {
+    label = "Today"
+  } else if (d.getTime() === yesterday.getTime()) {
+    label = "Yesterday"
+  } else {
+    label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  }
+
+  // Append time from updated_at if available
+  if (task.updated_at) {
+    const ts = new Date(task.updated_at)
+    label += ` at ${ts.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+  }
+
+  return label
+}
+
 export function TaskListItem({
   task,
   onTaskClick,
   onUpdateTask,
   hideCaseBadge,
+  showDone,
 }: TaskListItemProps) {
   const isDone = task.status === "Done"
   const status = statuses.find((s) => s.value === task.status)
@@ -439,26 +468,35 @@ export function TaskListItem({
 
         {/* Metadata row */}
         <div className="flex items-center gap-2.5 mt-0.5">
-          {/* Due date — interactive */}
-          <div onClick={(e) => e.stopPropagation()}>
-            <DatePicker
-              value={task.due_date}
-              onChange={(date) => onUpdateTask(task.id, "due_date", date)}
-              variant="inline"
-              placeholder="Set date"
-              formatValue={formatDate}
-              className={cn(
-                isOverdue(task.due_date) && "text-destructive font-medium"
-              )}
-            />
-          </div>
+          {showDone ? (
+            /* Completion date — static display */
+            <span className="text-xs text-muted-foreground">
+              {formatCompletionDate(task)}
+            </span>
+          ) : (
+            <>
+              {/* Due date — interactive */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <DatePicker
+                  value={task.due_date}
+                  onChange={(date) => onUpdateTask(task.id, "due_date", date)}
+                  variant="inline"
+                  placeholder="Set date"
+                  formatValue={formatDate}
+                  className={cn(
+                    isOverdue(task.due_date) && "text-destructive font-medium"
+                  )}
+                />
+              </div>
 
-          {/* Linked event — inline combobox */}
-          {(task.has_events || task.case_id) && (
-            <InlineEventLinker
-              task={task}
-              onLink={(eventId) => onUpdateTask(task.id, "event_id", eventId)}
-            />
+              {/* Linked event — inline combobox */}
+              {(task.has_events || task.case_id) && (
+                <InlineEventLinker
+                  task={task}
+                  onLink={(eventId) => onUpdateTask(task.id, "event_id", eventId)}
+                />
+              )}
+            </>
           )}
 
           {/* Urgency — inline select */}

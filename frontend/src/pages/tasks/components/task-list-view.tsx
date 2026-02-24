@@ -24,6 +24,8 @@ interface TaskListViewProps {
   isLoading?: boolean
   groupBy?: TaskGroupBy
   hideCaseBadge?: boolean
+  /** Show completed tasks (changes grouping/sorting to use completion_date) */
+  showDone?: boolean
   /** Remove outer border (when embedded inside a Card) */
   noBorder?: boolean
   /** Query keys to invalidate after a task update */
@@ -35,6 +37,7 @@ export function TaskListView({
   isLoading,
   groupBy = "date",
   hideCaseBadge,
+  showDone,
   noBorder,
   invalidateKeys = [["tasks"]],
 }: TaskListViewProps) {
@@ -53,8 +56,8 @@ export function TaskListView({
   })
 
   const groups = useMemo(
-    () => groupTasks(tasks, groupBy),
-    [tasks, groupBy]
+    () => groupTasks(tasks, groupBy, showDone),
+    [tasks, groupBy, showDone]
   )
 
   return (
@@ -115,6 +118,7 @@ export function TaskListView({
                       updateFieldMutation.mutate({ taskId, field, value })
                     }
                     hideCaseBadge={hideCaseBadge || groupBy === "case"}
+                    showDone={showDone}
                   />
                 ))}
               </CollapsibleContent>
