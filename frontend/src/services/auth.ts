@@ -21,3 +21,15 @@ export async function verifyToken(): Promise<VerifyResponse> {
 export async function logout(): Promise<void> {
   await apiFetch("/api/v1/auth/logout", { method: "POST" })
 }
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<LoginResponse> {
+  const res = await apiFetch("/api/v1/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+  return res.json()
+}

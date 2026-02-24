@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import {
   Avatar,
@@ -28,11 +29,13 @@ import {
 } from "@hugeicons/core-free-icons"
 import { useTheme } from "@/hooks/use-theme"
 import { useAuth } from "@/hooks/use-auth"
+import { SettingsDialog } from "@/components/common/settings-dialog"
 
 export function NavUser() {
   const { isMobile } = useSidebar()
   const { theme, toggleTheme } = useTheme()
   const { user, logout } = useAuth()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const displayName = user
     ? `${user.firstName} ${user.lastName}`
@@ -43,6 +46,7 @@ export function NavUser() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
@@ -78,7 +82,7 @@ export function NavUser() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
                 <HugeiconsIcon icon={Settings05Icon} strokeWidth={2} />
                 Settings
               </DropdownMenuItem>
