@@ -291,4 +291,4 @@ def sync_from_sheet(rows: list[dict]) -> dict:
             logger.warning("Failed to log creation comment for intake %d", iid)
 
     logger.info("Sync complete: %d imported, %d skipped", imported, skipped)
-    return {"imported": imported, "skipped": skipped, "total": len(rows)}
+    return {"imported": imported, "skipped": skipped, "total": len(rows), "new_intake_ids": new_intake_ids}

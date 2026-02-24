@@ -436,7 +436,21 @@ def register_intake_routes(mcp):
                 "id": None, "intake_id": None, "user_id": user_id,
             })
 
-            return JSONResponse({"success": True, **result})
+            # Auto-trigger AI analysis for newly imported intakes
+            for iid in result.get("new_intake_ids", []):
+                try:
+                    intake_dict = await asyncio.to_thread(db.get_intake_by_id, iid)
+                    if intake_dict:
+                        await asyncio.to_thread(db.set_ai_analyzing, iid, True)
+                        broadcast({
+                            "entity": "intake", "action": "analyzing",
+                            "id": iid, "intake_id": iid,
+                        })
+                        asyncio.create_task(_run_background_analysis(iid, intake_dict))
+                except Exception:
+                    logger.warning("Failed to start AI analysis for synced intake %d", iid)
+
+            return JSONResponse({"success": True, **{k: v for k, v in result.items() if k != "new_intake_ids"}})
         except RuntimeError as e:
             # Config errors (missing credentials/spreadsheet ID)
             return api_error(str(e), "CONFIG_ERROR", 400)
