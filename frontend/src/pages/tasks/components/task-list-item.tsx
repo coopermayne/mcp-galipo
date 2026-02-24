@@ -273,7 +273,7 @@ function InlineEventLinker({
   const anchorRef = useRef<HTMLDivElement>(null)
 
   const { data: caseEvents } = useQuery({
-    queryKey: ["events", "case", task.case_id],
+    queryKey: ["events", "case", task.case_id, "list"],
     queryFn: () => getEventsByCase(task.case_id!),
     enabled: open && !!task.case_id,
     staleTime: 60 * 1000,
