@@ -1,3 +1,5 @@
+import { useState, useRef } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   PencilEdit01Icon,
@@ -8,8 +10,24 @@ import {
   Flag02Icon,
 } from "@hugeicons/core-free-icons"
 import type { TaskListItem as TaskListItemType } from "@/types/task"
+import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Tooltip,
   TooltipContent,
@@ -57,6 +75,194 @@ interface TaskListItemProps {
   onTaskClick: (task: TaskListItemType) => void
   onMarkDone: (task: TaskListItemType) => void
   onDelete: (task: TaskListItemType) => void
+  onUpdateTask: (taskId: number, field: string, value: unknown) => void
+}
+
+function InlineDateEditor({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (date: string | null) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const isOverdue =
+    value &&
+    parseLocalDate(value) <
+      (() => {
+        const t = new Date()
+        t.setHours(0, 0, 0, 0)
+        return t
+      })()
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="date"
+        defaultValue={value ?? ""}
+        className="h-5 text-xs bg-transparent border border-border px-1 text-foreground outline-none focus:border-ring"
+        autoFocus
+        onClick={(e) => e.stopPropagation()}
+        onBlur={(e) => {
+          const newVal = e.target.value || null
+          if (newVal !== value) onChange(newVal)
+          setEditing(false)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.currentTarget.blur()
+          } else if (e.key === "Escape") {
+            setEditing(false)
+          }
+        }}
+      />
+    )
+  }
+
+  if (value) {
+    return (
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-1 text-xs hover:underline",
+          isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
+        )}
+        onClick={(e) => {
+          e.stopPropagation()
+          setEditing(true)
+        }}
+      >
+        <HugeiconsIcon icon={Calendar03Icon} className="size-3" />
+        {formatDate(value)}
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+      onClick={(e) => {
+        e.stopPropagation()
+        setEditing(true)
+      }}
+    >
+      <HugeiconsIcon icon={Calendar03Icon} className="size-3" />
+      Set date
+    </button>
+  )
+}
+
+function InlineEventLinker({
+  task,
+  onLink,
+}: {
+  task: TaskListItemType
+  onLink: (eventId: number | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const anchorRef = useRef<HTMLDivElement>(null)
+
+  const { data: caseEvents } = useQuery({
+    queryKey: ["events", "case", task.case_id],
+    queryFn: () => getEventsByCase(task.case_id!),
+    enabled: open && !!task.case_id,
+    staleTime: 60 * 1000,
+  })
+
+  const selectedEvent = caseEvents?.find((e) => e.id === task.event_id) ?? null
+
+  // Has linked event — show it, click to change
+  if (task.has_events && !open) {
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+        onClick={(e) => {
+          e.stopPropagation()
+          if (task.case_id) setOpen(true)
+        }}
+      >
+        <HugeiconsIcon icon={Link04Icon} className="size-3" />
+        {task.event_description
+          ? <span className="truncate max-w-[160px]">{task.event_description}</span>
+          : "Event"}
+        {task.event_date && (
+          <span className="text-muted-foreground/70">
+            {formatDate(task.event_date)}
+          </span>
+        )}
+      </button>
+    )
+  }
+
+  // No event — show "Link event" button or the open combobox
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen(true)
+        }}
+      >
+        <HugeiconsIcon icon={Link04Icon} className="size-3" />
+        Link event
+      </button>
+    )
+  }
+
+  // Combobox is open
+  return (
+    <div
+      ref={anchorRef}
+      className="inline-flex"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Combobox
+        value={selectedEvent}
+        onValueChange={(event: CaseEvent | null) => {
+          onLink(event?.id ?? null)
+          setOpen(false)
+        }}
+        items={caseEvents ?? []}
+        itemToStringLabel={(event: CaseEvent) => event.description}
+        open
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setOpen(false)
+        }}
+      >
+        <ComboboxInput
+          placeholder="Search events..."
+          showClear={!!task.event_id}
+          showTrigger={false}
+          className="h-6 text-xs w-48"
+          autoFocus
+        />
+        <ComboboxContent anchor={anchorRef}>
+          <ComboboxList>
+            {(event: CaseEvent) => (
+              <ComboboxItem key={event.id} value={event}>
+                <div className="flex flex-col">
+                  <span>{event.description}</span>
+                  {event.date && (
+                    <span className="text-muted-foreground text-[10px]">
+                      {event.date}
+                    </span>
+                  )}
+                </div>
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+          <ComboboxEmpty>No events found</ComboboxEmpty>
+        </ComboboxContent>
+      </Combobox>
+    </div>
+  )
 }
 
 export function TaskListItem({
@@ -64,19 +270,11 @@ export function TaskListItem({
   onTaskClick,
   onMarkDone,
   onDelete,
+  onUpdateTask,
 }: TaskListItemProps) {
   const isDone = task.status === "Done"
   const status = statuses.find((s) => s.value === task.status)
   const urgency = urgencies.find((u) => u.value === task.urgency)
-
-  const isOverdue =
-    task.due_date &&
-    !isDone &&
-    parseLocalDate(task.due_date) < (() => {
-      const t = new Date()
-      t.setHours(0, 0, 0, 0)
-      return t
-    })()
 
   return (
     <div
@@ -120,48 +318,61 @@ export function TaskListItem({
 
         {/* Metadata row */}
         <div className="flex items-center gap-3 mt-1 flex-wrap">
-          {/* Due date */}
-          {task.due_date && (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 text-xs",
-                isOverdue
-                  ? "text-destructive font-medium"
-                  : "text-muted-foreground"
-              )}
-            >
-              <HugeiconsIcon icon={Calendar03Icon} className="size-3" />
-              {formatDate(task.due_date)}
-            </span>
+          {/* Due date — interactive */}
+          <InlineDateEditor
+            value={task.due_date}
+            onChange={(date) => onUpdateTask(task.id, "due_date", date)}
+          />
+
+          {/* Linked event — inline combobox */}
+          {(task.has_events || task.case_id) && (
+            <InlineEventLinker
+              task={task}
+              onLink={(eventId) => onUpdateTask(task.id, "event_id", eventId)}
+            />
           )}
 
-          {/* Linked event (shown separately from date) */}
-          {task.has_events && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <HugeiconsIcon icon={Link04Icon} className="size-3" />
-              {task.event_description
-                ? <span className="truncate max-w-[160px]">{task.event_description}</span>
-                : "Event"}
-              {task.event_date && (
-                <span className="text-muted-foreground/70">
-                  {formatDate(task.event_date)}
-                </span>
-              )}
-            </span>
-          )}
-
-          {/* Urgency flag */}
-          {urgency && (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 text-xs",
-                urgency.iconColor
-              )}
+          {/* Urgency — inline select */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex"
+          >
+            <Select
+              value={task.urgency ?? ""}
+              onValueChange={(val) => onUpdateTask(task.id, "urgency", val || null)}
             >
-              <HugeiconsIcon icon={Flag02Icon} className="size-3" />
-              {urgency.label}
-            </span>
-          )}
+              <SelectTrigger
+                className={cn(
+                  "h-5 border-0 bg-transparent px-0 pr-4 shadow-none focus:ring-0 focus-visible:ring-0 focus-visible:border-0",
+                  urgency ? urgency.iconColor : "text-muted-foreground/60"
+                )}
+              >
+                <SelectValue placeholder={
+                  <span className="inline-flex items-center gap-1 text-xs">
+                    <HugeiconsIcon icon={Flag02Icon} className="size-3" />
+                    Set urgency
+                  </span>
+                }>
+                  {urgency && (
+                    <span className="inline-flex items-center gap-1 text-xs">
+                      <HugeiconsIcon icon={Flag02Icon} className="size-3" />
+                      {urgency.label}
+                    </span>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {urgencies.map((u) => (
+                  <SelectItem key={u.value} value={u.value}>
+                    <span className={cn("inline-flex items-center gap-2", u.iconColor)}>
+                      <u.icon className="size-3.5" />
+                      {u.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Case badge */}
           {task.short_name && (
