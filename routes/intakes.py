@@ -20,6 +20,51 @@ from .sse import broadcast
 logger = logging.getLogger(__name__)
 
 
+async def _run_background_analysis(intake_id: int, intake_dict: dict):
+    """Run AI analysis in the background and broadcast results via SSE."""
+    try:
+        from services.intake_ai import analyze_intake
+        comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
+        result = await asyncio.to_thread(
+            analyze_intake,
+            intake_dict,
+            notes=intake_dict.get("notes", ""),
+            comments=comments,
+        )
+        await asyncio.to_thread(
+            db.save_ai_analysis,
+            intake_id,
+            result["ai_summary"],
+            result["ai_rating"],
+            result["ai_rating_reasoning"],
+            result.get("ai_location_short"),
+        )
+
+        # Log analysis event
+        is_regen = intake_dict.get("ai_summary") is not None
+        rating = result["ai_rating"]
+        label = "regenerated" if is_regen else "completed"
+        await asyncio.to_thread(
+            db.add_intake_comment,
+            intake_id, None,
+            f"AI analysis {label} \u2014 rated {rating}/5",
+            True,  # is_system
+            {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
+        )
+
+        broadcast({
+            "entity": "intake", "action": "analyzed",
+            "id": intake_id, "intake_id": intake_id,
+        })
+    except Exception:
+        logger.exception("Background AI analysis failed for intake %d", intake_id)
+        await asyncio.to_thread(db.set_ai_analyzing, intake_id, False)
+        broadcast({
+            "entity": "intake", "action": "updated",
+            "id": intake_id, "intake_id": intake_id,
+        })
+
+
 def register_intake_routes(mcp):
     """Register intake management routes."""
 
@@ -68,6 +113,15 @@ def register_intake_routes(mcp):
             "entity": "intake", "action": "created",
             "id": result["id"], "intake_id": result["id"], "user_id": user_id,
         })
+
+        # Auto-trigger AI analysis in the background
+        await asyncio.to_thread(db.set_ai_analyzing, result["id"], True)
+        broadcast({
+            "entity": "intake", "action": "analyzing",
+            "id": result["id"], "intake_id": result["id"],
+        })
+        asyncio.create_task(_run_background_analysis(result["id"], result))
+
         return JSONResponse({"success": True, "intake": result}, status_code=201)
 
     @mcp.custom_route("/api/v1/intakes/counts", methods=["GET"])
@@ -361,50 +415,7 @@ def register_intake_routes(mcp):
             "id": intake_id, "intake_id": intake_id,
         })
 
-        async def _background_analyze():
-            try:
-                from services.intake_ai import analyze_intake
-                comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
-                result = await asyncio.to_thread(
-                    analyze_intake,
-                    intake,
-                    notes=intake.get("notes", ""),
-                    comments=comments,
-                )
-                await asyncio.to_thread(
-                    db.save_ai_analysis,
-                    intake_id,
-                    result["ai_summary"],
-                    result["ai_rating"],
-                    result["ai_rating_reasoning"],
-                    result.get("ai_location_short"),
-                )
-
-                # Log analysis event
-                is_regen = intake.get("ai_summary") is not None
-                rating = result["ai_rating"]
-                label = "regenerated" if is_regen else "completed"
-                await asyncio.to_thread(
-                    db.add_intake_comment,
-                    intake_id, None,
-                    f"AI analysis {label} \u2014 rated {rating}/5",
-                    True,  # is_system
-                    {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
-                )
-
-                broadcast({
-                    "entity": "intake", "action": "analyzed",
-                    "id": intake_id, "intake_id": intake_id,
-                })
-            except Exception as e:
-                logger.exception("Background AI analysis failed for intake %d", intake_id)
-                await asyncio.to_thread(db.set_ai_analyzing, intake_id, False)
-                broadcast({
-                    "entity": "intake", "action": "updated",
-                    "id": intake_id, "intake_id": intake_id,
-                })
-
-        asyncio.create_task(_background_analyze())
+        asyncio.create_task(_run_background_analysis(intake_id, intake))
         return JSONResponse({"success": True, "message": "Analysis started"}, status_code=202)
 
     @mcp.custom_route("/api/v1/intakes/sync", methods=["POST"])

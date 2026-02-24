@@ -10,7 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DataTableViewOptions } from "@/components/common/data-table-view-options"
 import { cn } from "@/lib/utils"
 
 interface IntakeToolbarProps {
@@ -74,7 +73,6 @@ export function IntakeToolbar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <DataTableViewOptions table={table} />
     </div>
   )
 }
