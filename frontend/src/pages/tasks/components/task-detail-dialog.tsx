@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
@@ -5,6 +6,7 @@ import type { TaskListItem } from "@/types/task"
 import type { TaskStatus, Urgency } from "@/types/case"
 import { getTask, updateTask } from "@/services/tasks"
 import { getStaff } from "@/services/staff"
+import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { getBadgeStyle } from "@/lib/badge-colors"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox"
 
 const TASK_STATUSES: TaskStatus[] = [
   "Pending",
@@ -48,6 +58,7 @@ export function TaskDetailDialog({
 }: TaskDetailDialogProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const { data: detail } = useQuery({
     queryKey: ["task", task?.id],
@@ -59,6 +70,13 @@ export function TaskDetailDialog({
     queryKey: ["staff"],
     queryFn: getStaff,
     staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: caseEvents } = useQuery({
+    queryKey: ["events", "case", task?.case_id],
+    queryFn: () => getEventsByCase(task!.case_id!),
+    enabled: !!task && !!task.case_id && open,
+    staleTime: 60 * 1000,
   })
 
   const mutation = useMutation({
@@ -77,7 +95,7 @@ export function TaskDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent ref={dialogRef} className="sm:max-w-md">
         <DialogHeader>
           {/* Case badge */}
           {task.short_name && (
@@ -202,19 +220,46 @@ export function TaskDetailDialog({
         </div>
 
         {/* Linked event */}
-        {task.event_description && (
+        {task.case_id && (
           <div className="border-t pt-3">
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Linked Event
             </span>
-            <p className="text-xs mt-1">
-              {task.event_description}
-              {task.event_date && (
-                <span className="text-muted-foreground ml-1">
-                  ({task.event_date})
-                </span>
-              )}
-            </p>
+            <Combobox
+              value={caseEvents?.find((e) => e.id === (d?.event_id ?? task.event_id)) ?? null}
+              onValueChange={(event: CaseEvent | null) => {
+                mutation.mutate({
+                  field: "event_id",
+                  value: event?.id ?? null,
+                })
+              }}
+              items={caseEvents ?? []}
+              itemToStringLabel={(event: CaseEvent) => event.description}
+            >
+              <ComboboxInput
+                placeholder="Search events..."
+                showClear={!!(d?.event_id ?? task.event_id)}
+                showTrigger
+                className="mt-1 text-xs"
+              />
+              <ComboboxContent container={dialogRef}>
+                <ComboboxList>
+                  {(event: CaseEvent) => (
+                    <ComboboxItem key={event.id} value={event}>
+                      <div className="flex flex-col">
+                        <span>{event.description}</span>
+                        {event.date && (
+                          <span className="text-muted-foreground text-[10px]">
+                            {event.date}
+                          </span>
+                        )}
+                      </div>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+                <ComboboxEmpty>No events found</ComboboxEmpty>
+              </ComboboxContent>
+            </Combobox>
           </div>
         )}
       </DialogContent>
