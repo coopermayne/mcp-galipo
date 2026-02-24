@@ -29,13 +29,6 @@ import {
   ComboboxEmpty,
 } from "@/components/ui/combobox"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -499,47 +492,38 @@ export function TaskListItem({
             </>
           )}
 
-          {/* Urgency — inline select */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex"
-          >
-            <Select
-              value={task.urgency ?? ""}
-              onValueChange={(val) => onUpdateTask(task.id, "urgency", val || null)}
-            >
-              <SelectTrigger
+          {/* Urgency — flag icon with dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
                 className={cn(
-                  "h-5 border-0 bg-transparent px-0 pr-4 shadow-none focus:ring-0 focus-visible:ring-0 focus-visible:border-0",
+                  "shrink-0 inline-flex items-center h-4",
                   urgency ? urgency.iconColor : "text-muted-foreground/60"
                 )}
+                onClick={(e) => e.stopPropagation()}
               >
-                <SelectValue placeholder={
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <HugeiconsIcon icon={Flag02Icon} className="size-3" />
-                    Set urgency
+                <HugeiconsIcon icon={Flag02Icon} className="size-3" fill="currentColor" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+              {urgencies.map((u) => (
+                <DropdownMenuItem
+                  key={u.value}
+                  onClick={() => onUpdateTask(task.id, "urgency", u.value)}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <span className={cn("inline-flex items-center gap-2", u.iconColor)}>
+                    <u.icon className="size-3.5" />
+                    {u.label}
                   </span>
-                }>
-                  {urgency && (
-                    <span className="inline-flex items-center gap-1 text-xs">
-                      <HugeiconsIcon icon={Flag02Icon} className="size-3" />
-                      {urgency.label}
-                    </span>
+                  {task.urgency === u.value && (
+                    <HugeiconsIcon icon={Tick02Icon} className="size-4 text-foreground" />
                   )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {urgencies.map((u) => (
-                  <SelectItem key={u.value} value={u.value}>
-                    <span className={cn("inline-flex items-center gap-2", u.iconColor)}>
-                      <u.icon className="size-3.5" />
-                      {u.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Case badge */}
           {task.short_name && !hideCaseBadge && (
