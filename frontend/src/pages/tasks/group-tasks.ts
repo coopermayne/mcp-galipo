@@ -140,10 +140,95 @@ export function groupTasksByCase(tasks: TaskListItem[]): TaskGroup[] {
   return groups
 }
 
+/** Sort by completion_date descending (most recently completed first) */
+const sortByCompletionDesc = (a: TaskListItem, b: TaskListItem) => {
+  if (!a.completion_date) return 1
+  if (!b.completion_date) return -1
+  return b.completion_date.localeCompare(a.completion_date)
+}
+
+export function groupDoneTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
+  const today = todayMidnight()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  // Start of this week (Monday)
+  const thisWeekStart = new Date(today)
+  const dayOfWeek = thisWeekStart.getDay()
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  thisWeekStart.setDate(thisWeekStart.getDate() - daysSinceMonday)
+
+  // Start of last week
+  const lastWeekStart = new Date(thisWeekStart)
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7)
+
+  const buckets: Record<string, TaskListItem[]> = {
+    today: [],
+    yesterday: [],
+    this_week: [],
+    last_week: [],
+    earlier: [],
+  }
+
+  for (const task of tasks) {
+    if (!task.completion_date) {
+      buckets.earlier.push(task)
+      continue
+    }
+    const d = parseLocalDate(task.completion_date)
+    if (d.getTime() >= today.getTime()) {
+      buckets.today.push(task)
+    } else if (d.getTime() >= yesterday.getTime()) {
+      buckets.yesterday.push(task)
+    } else if (d >= thisWeekStart) {
+      buckets.this_week.push(task)
+    } else if (d >= lastWeekStart) {
+      buckets.last_week.push(task)
+    } else {
+      buckets.earlier.push(task)
+    }
+  }
+
+  for (const key of Object.keys(buckets)) {
+    buckets[key].sort(sortByCompletionDesc)
+  }
+
+  const config: { key: string; label: string; sortOrder: number }[] = [
+    { key: "today", label: "Today", sortOrder: 0 },
+    { key: "yesterday", label: "Yesterday", sortOrder: 1 },
+    { key: "this_week", label: "This Week", sortOrder: 2 },
+    { key: "last_week", label: "Last Week", sortOrder: 3 },
+    { key: "earlier", label: "Earlier", sortOrder: 4 },
+  ]
+
+  return config
+    .filter((c) => buckets[c.key].length > 0)
+    .map((c) => ({
+      key: c.key,
+      label: c.label,
+      tasks: buckets[c.key],
+      sortOrder: c.sortOrder,
+    }))
+}
+
+export function groupDoneTasksByCase(tasks: TaskListItem[]): TaskGroup[] {
+  const groups = groupTasksByCase(tasks)
+  for (const group of groups) {
+    group.tasks.sort(sortByCompletionDesc)
+  }
+  return groups
+}
+
 export function groupTasks(
   tasks: TaskListItem[],
-  groupBy: TaskGroupBy
+  groupBy: TaskGroupBy,
+  showDone?: boolean,
 ): TaskGroup[] {
+  if (showDone) {
+    return groupBy === "date"
+      ? groupDoneTasksByDate(tasks)
+      : groupDoneTasksByCase(tasks)
+  }
   return groupBy === "date"
     ? groupTasksByDate(tasks)
     : groupTasksByCase(tasks)

@@ -2,7 +2,7 @@ import type { Table } from "@tanstack/react-table"
 import type { TaskListItem } from "@/types/task"
 import type { TaskGroupBy } from "@/pages/tasks/group-tasks"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, Calendar03Icon, Briefcase01Icon } from "@hugeicons/core-free-icons"
+import { Search01Icon, Calendar03Icon, Briefcase01Icon, CheckmarkSquare01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -17,6 +17,8 @@ interface TaskToolbarProps {
   groupBy?: TaskGroupBy
   onGroupByChange?: (groupBy: TaskGroupBy) => void
   showGroupByCase?: boolean
+  showDone?: boolean
+  onShowDoneChange?: (show: boolean) => void
 }
 
 export function TaskToolbar({
@@ -26,6 +28,8 @@ export function TaskToolbar({
   groupBy,
   onGroupByChange,
   showGroupByCase = true,
+  showDone,
+  onShowDoneChange,
 }: TaskToolbarProps) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -48,6 +52,24 @@ export function TaskToolbar({
           />
         </div>
       </div>
+
+      {/* Show done toggle */}
+      {onShowDoneChange && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onShowDoneChange(!showDone)}
+          className={cn(
+            "h-8 px-2.5 border",
+            showDone
+              ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+              : "text-muted-foreground"
+          )}
+        >
+          <HugeiconsIcon icon={CheckmarkSquare01Icon} className="size-3.5 mr-1" />
+          Done
+        </Button>
+      )}
 
       {/* Group by toggle */}
       {groupBy && onGroupByChange && (
