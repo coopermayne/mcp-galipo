@@ -153,14 +153,14 @@ function TaskAssigneePicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="shrink-0"
+          className="shrink-0 inline-flex items-center h-4"
           onClick={(e) => e.stopPropagation()}
         >
           {task.assignee ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  className="inline-flex size-4 items-center justify-center text-[8px] font-medium"
+                  className="inline-flex size-4 items-center justify-center text-[8px] font-medium leading-none"
                   style={getAvatarStyleById(task.assignee.id)}
                 >
                   {task.assignee.initials}
@@ -438,7 +438,7 @@ export function TaskListItem({
         </p>
 
         {/* Metadata row */}
-        <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
+        <div className="flex items-center gap-2.5 mt-0.5">
           {/* Due date — interactive */}
           <div onClick={(e) => e.stopPropagation()}>
             <DatePicker
@@ -503,23 +503,22 @@ export function TaskListItem({
             </Select>
           </div>
 
-        </div>
-      </div>
+          {/* Case badge */}
+          {task.short_name && !hideCaseBadge && (
+            <Badge
+              className="text-[10px] px-1.5 py-0 h-4 leading-none"
+              style={getBadgeStyle(task.case_color)}
+            >
+              {task.short_name}
+            </Badge>
+          )}
 
-      {/* Right-aligned: case badge + assignee */}
-      <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
-        {task.short_name && !hideCaseBadge && (
-          <Badge
-            className="text-[10px] px-1.5 py-0 h-4 leading-none"
-            style={getBadgeStyle(task.case_color)}
-          >
-            {task.short_name}
-          </Badge>
-        )}
-        <TaskAssigneePicker
-          task={task}
-          onAssign={(userId) => onUpdateTask(task.id, "assignee_id", userId)}
-        />
+          {/* Assignee */}
+          <TaskAssigneePicker
+            task={task}
+            onAssign={(userId) => onUpdateTask(task.id, "assignee_id", userId)}
+          />
+        </div>
       </div>
     </div>
   )
