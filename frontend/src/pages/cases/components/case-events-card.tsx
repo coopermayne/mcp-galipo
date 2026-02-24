@@ -44,7 +44,8 @@ export function CaseEventsCard({ caseId, onAdd }: CaseEventsCardProps) {
     if (!search.trim()) return events
     const q = search.toLowerCase()
     return events.filter((e) =>
-      e.description.toLowerCase().includes(q)
+      e.description.toLowerCase().includes(q) ||
+      (e.short_name ?? e.case_name ?? "").toLowerCase().includes(q)
     )
   }, [events, search])
 
