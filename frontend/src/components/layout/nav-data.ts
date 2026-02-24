@@ -52,7 +52,7 @@ export const navGroups: NavGroup[] = [
         featureKey: "tasks",
       },
       {
-        title: "Events",
+        title: "Calendar",
         url: "/events",
         icon: Calendar03Icon,
         featureKey: "events",
@@ -72,6 +72,11 @@ export const navGroups: NavGroup[] = [
           { title: "Other", url: "/contacts/other" },
         ],
       },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
       {
         title: "Templates",
         url: "/templates",
