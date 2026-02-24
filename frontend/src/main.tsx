@@ -11,7 +11,18 @@ import LoginPage from "@/pages/login"
 import "./index.css"
 
 function lazy(importFn: () => Promise<{ default: React.ComponentType }>) {
-  return () => importFn().then((m) => ({ Component: m.default }))
+  return () =>
+    importFn()
+      .then((m) => ({ Component: m.default }))
+      .catch((err) => {
+        if (
+          err.message?.includes("Failed to fetch dynamically imported module") ||
+          err.message?.includes("Importing a module script failed")
+        ) {
+          window.location.reload()
+        }
+        throw err
+      })
 }
 
 const queryClient = new QueryClient({
