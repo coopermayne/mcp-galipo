@@ -322,8 +322,12 @@ def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = 
         return {"updated": result.rowcount}
 
 
-def reschedule_overdue_tasks(new_date: str) -> dict:
-    """Reschedule all overdue incomplete tasks to a new date."""
+def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
+    """Reschedule overdue incomplete tasks to a new date.
+
+    If task_ids is provided, only those tasks are updated (scoped to the user's
+    current view).  Otherwise all overdue incomplete tasks are updated.
+    """
     validate_date_format(new_date, "new_date")
 
     with SessionLocal() as session:
@@ -332,6 +336,8 @@ def reschedule_overdue_tasks(new_date: str) -> dict:
             .where(Task.due_date < func.current_date(), Task.status != "Done")
             .values(due_date=new_date)
         )
+        if task_ids:
+            stmt = stmt.where(Task.id.in_(task_ids))
         result = session.execute(stmt)
         session.commit()
         return {"updated": result.rowcount}

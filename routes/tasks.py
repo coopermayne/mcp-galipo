@@ -178,8 +178,10 @@ def register_task_routes(mcp):
         if not new_date:
             return api_error("new_date is required", "VALIDATION_ERROR", 400)
 
+        task_ids = data.get("task_ids")  # optional list to scope update
+
         try:
-            result = await asyncio.to_thread(db.reschedule_overdue_tasks, new_date)
+            result = await asyncio.to_thread(db.reschedule_overdue_tasks, new_date, task_ids)
             return JSONResponse({"success": True, **result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
