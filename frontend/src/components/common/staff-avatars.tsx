@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import type { CaseStaffUser } from "@/types/case"
 import {
   getStaff,
@@ -12,10 +12,6 @@ import {
   removeParalegal,
 } from "@/services/staff"
 import { getAvatarStyleById } from "@/lib/badge-colors"
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar"
 import {
   Popover,
   PopoverContent,
@@ -100,122 +96,140 @@ export function StaffAvatars({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="flex items-center cursor-pointer">
+        <button type="button" className="flex items-center gap-1 cursor-pointer">
           {allAssigned.length > 0 ? (
-            <div className="flex gap-1">
-              {allAssigned.map((user) => (
-                <Avatar key={user.id} size="sm">
-                  <AvatarFallback style={getAvatarStyleById(user.id)}>{user.initials}</AvatarFallback>
-                </Avatar>
-              ))}
-            </div>
+            allAssigned.map((user) => (
+              <span
+                key={user.id}
+                className="inline-flex size-5 items-center justify-center text-[9px] font-medium shrink-0"
+                style={getAvatarStyleById(user.id)}
+              >
+                {user.initials}
+              </span>
+            ))
           ) : (
-            <Avatar size="sm">
-              <AvatarFallback className="text-[10px]">+</AvatarFallback>
-            </Avatar>
+            <span className="inline-flex size-5 items-center justify-center border border-dashed border-muted-foreground/40 text-muted-foreground/40 hover:border-muted-foreground hover:text-muted-foreground transition-colors">
+              <HugeiconsIcon icon={Add01Icon} className="size-3" />
+            </span>
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
-          <div className="p-3 space-y-3">
-            {/* Assigned staff */}
-            {allAssigned.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Assigned
-                </p>
-                {attorneys.map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex items-center justify-between py-1 text-xs"
-                  >
-                    <span>
-                      {a.first_name} {a.last_name}{" "}
-                      <span className="text-muted-foreground">Attorney</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeAtty.mutate(a.id)}
-                      className="text-muted-foreground hover:text-destructive"
+      <PopoverContent align="start" className="w-48 p-0">
+        <div className="p-2 space-y-0.5">
+          {/* Assigned staff */}
+          {allAssigned.length > 0 && (
+            <>
+              {attorneys.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between px-1.5 py-1 text-xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-flex size-4 items-center justify-center text-[8px] font-medium shrink-0"
+                      style={getAvatarStyleById(a.id)}
                     >
-                      <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                    </button>
-                  </div>
-                ))}
-                {paralegals.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between py-1 text-xs"
-                  >
-                    <span>
-                      {p.first_name} {p.last_name}{" "}
-                      <span className="text-muted-foreground">Paralegal</span>
+                      {a.initials}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => removePara.mutate(p.id)}
-                      className="text-muted-foreground hover:text-destructive"
+                    {a.first_name} {a.last_name}
+                    <span className="text-muted-foreground">Atty</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAtty.mutate(a.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                  </button>
+                </div>
+              ))}
+              {paralegals.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between px-1.5 py-1 text-xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-flex size-4 items-center justify-center text-[8px] font-medium shrink-0"
+                      style={getAvatarStyleById(p.id)}
                     >
-                      <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Available attorneys */}
-            {availableAttorneys.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Add Attorney
-                </p>
-                {availableAttorneys.map((s) => (
+                      {p.initials}
+                    </span>
+                    {p.first_name} {p.last_name}
+                    <span className="text-muted-foreground">PL</span>
+                  </span>
                   <button
-                    key={s.id}
                     type="button"
-                    onClick={() => addAttorney.mutate(s.id)}
-                    className="flex items-center gap-2 w-full py-1 text-xs hover:bg-accent px-1 transition-colors"
+                    onClick={() => removePara.mutate(p.id)}
+                    className="text-muted-foreground hover:text-destructive"
                   >
-                    <Avatar size="sm">
-                      <AvatarFallback style={getAvatarStyleById(s.id)}>{s.initials}</AvatarFallback>
-                    </Avatar>
-                    {s.firstName} {s.lastName}
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
                   </button>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+              <div className="border-t border-border/50 my-1" />
+            </>
+          )}
 
-            {/* Available paralegals */}
-            {availableParalegals.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Add Paralegal
-                </p>
-                {availableParalegals.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => addParalegal.mutate(s.id)}
-                    className="flex items-center gap-2 w-full py-1 text-xs hover:bg-accent px-1 transition-colors"
+          {/* Available attorneys */}
+          {availableAttorneys.length > 0 && (
+            <>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1.5 pt-1">
+                Attorneys
+              </p>
+              {availableAttorneys.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => addAttorney.mutate(s.id)}
+                  className="flex items-center gap-1.5 w-full px-1.5 py-1 text-xs hover:bg-accent transition-colors"
+                >
+                  <span
+                    className="inline-flex size-4 items-center justify-center text-[8px] font-medium shrink-0"
+                    style={getAvatarStyleById(s.id)}
                   >
-                    <Avatar size="sm">
-                      <AvatarFallback style={getAvatarStyleById(s.id)}>{s.initials}</AvatarFallback>
-                    </Avatar>
-                    {s.firstName} {s.lastName}
-                  </button>
-                ))}
-              </div>
-            )}
+                    {s.initials}
+                  </span>
+                  {s.firstName} {s.lastName}
+                </button>
+              ))}
+            </>
+          )}
 
-            {availableAttorneys.length === 0 &&
-              availableParalegals.length === 0 &&
-              allAssigned.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  All staff members are already assigned.
-                </p>
-              )}
-          </div>
-        </PopoverContent>
+          {/* Available paralegals */}
+          {availableParalegals.length > 0 && (
+            <>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1.5 pt-1">
+                Paralegals
+              </p>
+              {availableParalegals.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => addParalegal.mutate(s.id)}
+                  className="flex items-center gap-1.5 w-full px-1.5 py-1 text-xs hover:bg-accent transition-colors"
+                >
+                  <span
+                    className="inline-flex size-4 items-center justify-center text-[8px] font-medium shrink-0"
+                    style={getAvatarStyleById(s.id)}
+                  >
+                    {s.initials}
+                  </span>
+                  {s.firstName} {s.lastName}
+                </button>
+              ))}
+            </>
+          )}
+
+          {availableAttorneys.length === 0 &&
+            availableParalegals.length === 0 &&
+            allAssigned.length > 0 && (
+              <p className="text-xs text-muted-foreground px-1.5 py-1">
+                All staff assigned.
+              </p>
+            )}
+        </div>
+      </PopoverContent>
     </Popover>
   )
 }
