@@ -53,10 +53,10 @@ INTAKE_TRANSITIONS: dict[str, list[str]] = {
     "Needs Follow-Up": ["Dave Review"],
     "Atty Review": ["Dave Review"],
     "Needs Rejection Letter": ["Rejection Letter Sent"],
-    "Rejection Letter Sent": [],  # terminal — archive only
+    "Rejection Letter Sent": ["Archived"],
     "Needs Retainer": ["Retainer Sent"],
     "Retainer Sent": ["Retainer Signed"],
-    "Retainer Signed": [],  # terminal — archive only
+    "Retainer Signed": ["Archived"],
 }
 
 

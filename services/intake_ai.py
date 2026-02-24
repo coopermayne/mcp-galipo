@@ -42,7 +42,7 @@ Rating guide:
 - 1: Pass — poor facts, no clear cause of action, or trivial matter
 
 Respond with valid JSON only. The "summary" field must contain the markdown text with the headings above.
-{"summary": "### Events at Issue\\n...", "rating": N, "reasoning": "..."}"""
+{"summary": "### Events at Issue\\n...", "rating": N, "reasoning": "...", "location_short": "City, ST or null"}"""
 
 
 def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | None = None) -> dict:
@@ -119,4 +119,5 @@ def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | No
         "ai_summary": parsed.get("summary", ""),
         "ai_rating": rating,
         "ai_rating_reasoning": reasoning,
+        "ai_location_short": parsed.get("location_short"),
     }

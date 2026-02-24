@@ -68,6 +68,17 @@ def register_event_routes(mcp):
             data.location,
             data.starred,
         )
+
+        # System comment for event creation
+        user = auth.get_current_user(request)
+        if user and data.case_id:
+            name = f"{user['firstName']} {user['lastName']}"
+            desc = data.description[:80] + ("..." if len(data.description) > 80 else "")
+            await asyncio.to_thread(
+                db.add_case_comment, data.case_id, user["id"],
+                f'{name} added event: "{desc}"', True,
+            )
+
         return JSONResponse({"success": True, "event": result})
 
     @mcp.custom_route("/api/v1/events/search", methods=["GET"])

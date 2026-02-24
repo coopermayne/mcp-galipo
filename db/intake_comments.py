@@ -20,6 +20,7 @@ def _comment_to_dict(comment: IntakeComment) -> dict:
         "intake_id": comment.intake_id,
         "content": comment.content,
         "is_system": comment.is_system or False,
+        "detail": comment.detail,
         "created_at": comment.created_at.isoformat() if comment.created_at else None,
         "user_id": comment.user_id,
         "user_first_name": user.first_name if user else None,
@@ -49,6 +50,7 @@ def add_intake_comment(
     user_id: Optional[int],
     content: str,
     is_system: bool = False,
+    detail: Optional[dict] = None,
 ) -> dict:
     """Insert a new comment. Returns the created comment dict."""
     with SessionLocal() as session:
@@ -57,6 +59,7 @@ def add_intake_comment(
             user_id=user_id,
             content=content,
             is_system=is_system,
+            detail=detail,
         )
         session.add(comment)
         session.flush()
@@ -139,12 +142,14 @@ def get_comment_flags(intake_ids: list[int]) -> dict[int, bool]:
 
     with SessionLocal() as session:
         # Last status-change system comment per intake
+        # Only match "X changed status from Y to Z" entries, not all system comments
         last_changes = dict(
             session.execute(
                 select(IntakeComment.intake_id, func.max(IntakeComment.created_at))
                 .where(
                     IntakeComment.intake_id.in_(intake_ids),
                     IntakeComment.is_system == True,  # noqa: E712
+                    IntakeComment.content.like("%changed status from%"),
                 )
                 .group_by(IntakeComment.intake_id)
             ).all()

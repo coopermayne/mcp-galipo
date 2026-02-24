@@ -28,6 +28,7 @@ def register_task_routes(mcp):
         due_date_from = request.query_params.get("due_date_from")
         due_date_to = request.query_params.get("due_date_to")
         user_id = request.query_params.get("user_id")
+        assignee_id = request.query_params.get("assignee_id")
         limit = request.query_params.get("limit")
         offset = request.query_params.get("offset", "0")
         limit = int(limit) if limit else DEFAULT_PAGE_SIZE
@@ -43,7 +44,8 @@ def register_task_routes(mcp):
             due_date_to=due_date_to,
             limit=limit,
             offset=offset,
-            user_id=int(user_id) if user_id else None
+            user_id=int(user_id) if user_id else None,
+            assignee_id=int(assignee_id) if assignee_id else None
         )
         return JSONResponse(result)
 
@@ -67,7 +69,29 @@ def register_task_routes(mcp):
             data.assignee_id,
             data.completion_date,
         )
+
+        # System comment for task creation
+        user = auth.get_current_user(request)
+        if user and data.case_id:
+            name = f"{user['firstName']} {user['lastName']}"
+            desc = data.description[:80] + ("..." if len(data.description) > 80 else "")
+            await asyncio.to_thread(
+                db.add_case_comment, data.case_id, user["id"],
+                f'{name} added task: "{desc}"', True,
+            )
+
         return JSONResponse({"success": True, "task": result})
+
+    @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
+    async def api_get_task(request):
+        """Get a single task by ID."""
+        if err := auth.require_auth(request):
+            return err
+        task_id = int(request.path_params["task_id"])
+        result = await asyncio.to_thread(db.get_task_detail, task_id)
+        if not result:
+            return api_error("Task not found", "NOT_FOUND", 404)
+        return JSONResponse(result)
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["PUT"])
     async def api_update_task(request):
@@ -79,10 +103,31 @@ def register_task_routes(mcp):
             data = UpdateTaskInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
+
+        # Capture old task for completion detection
+        old_task = None
+        if data.status == "Done":
+            old_task = await asyncio.to_thread(db.get_task_detail, task_id)
+
         updates = data.model_dump(exclude_unset=True)
         result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
+
+        # System comment for task completion
+        if data.status == "Done" and old_task and old_task.get("status") != "Done":
+            case_id = result.get("case_id") or (old_task.get("case_id") if old_task else None)
+            if case_id:
+                user = auth.get_current_user(request)
+                name = f"{user['firstName']} {user['lastName']}" if user else "System"
+                desc = result.get("description", "")
+                desc = desc[:80] + ("..." if len(desc) > 80 else "")
+                await asyncio.to_thread(
+                    db.add_case_comment, case_id,
+                    user["id"] if user else None,
+                    f'{name} completed task: "{desc}"', True,
+                )
+
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])

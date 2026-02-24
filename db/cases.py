@@ -18,10 +18,11 @@ from models import (
 )
 
 
-# Color palette for case chips (10 visually distinct colors)
+# Color palette for case badges (16 visually distinct colors, synced with frontend lib/case-colors.ts)
 CASE_COLORS = [
     "blue", "emerald", "amber", "red", "violet",
     "pink", "cyan", "orange", "indigo", "teal",
+    "sky", "green", "purple", "fuchsia", "lime", "yellow",
 ]
 
 
@@ -57,8 +58,13 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
     with SessionLocal() as session:
         filters = []
         if status_filter:
-            validate_case_status(status_filter)
-            filters.append(Case.status == status_filter)
+            statuses = [s.strip() for s in status_filter.split(",")]
+            for s in statuses:
+                validate_case_status(s)
+            if len(statuses) == 1:
+                filters.append(Case.status == statuses[0])
+            else:
+                filters.append(Case.status.in_(statuses))
         if attorney_ids:
             filters.append(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
         elif unassigned:
@@ -81,6 +87,17 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
             WHERE p.case_id = cases.id AND p.is_primary = true
             ORDER BY pj.sort_order LIMIT 1
         )""").label("judge")
+
+        case_number_sq = literal_column("""(
+            SELECT p.case_number FROM proceedings p
+            WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
+        )""").label("case_number")
+
+        jurisdiction_sq = literal_column("""(
+            SELECT j.name FROM proceedings p
+            JOIN jurisdictions j ON p.jurisdiction_id = j.id
+            WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
+        )""").label("jurisdiction_name")
 
         client_count_sq = literal_column("""(
             SELECT COUNT(*) FROM person_roles pr
@@ -108,7 +125,8 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
             select(
                 Case.id, Case.case_name, Case.short_name, Case.status,
                 Case.print_code, Case.attorney_ids, Case.paralegal_ids,
-                judge_sq, client_count_sq, defendant_count_sq,
+                judge_sq, case_number_sq, jurisdiction_sq,
+                client_count_sq, defendant_count_sq,
                 pending_task_sq, upcoming_event_sq,
             )
             .order_by(Case.case_name)
@@ -124,6 +142,16 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
         cases = [_row_to_dict(r) for r in rows]
 
         return {"cases": cases, "total": total}
+
+
+def get_case_status_counts(attorney_ids: List[int] = None) -> dict[str, int]:
+    """Get count of cases grouped by status, optionally filtered by attorney."""
+    with SessionLocal() as session:
+        stmt = select(Case.status, func.count(Case.id)).group_by(Case.status)
+        if attorney_ids:
+            stmt = stmt.where(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
+        rows = session.execute(stmt).all()
+        return {status: count for status, count in rows}
 
 
 def get_case_by_id(case_id: int) -> Optional[dict]:
