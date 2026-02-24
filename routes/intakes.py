@@ -1,22 +1,68 @@
 """
 Intake API routes.
 
-Handles intake CRUD, Google Sheets sync, comments, and SSE streaming.
+Handles intake CRUD, Google Sheets sync, comments, and AI analysis.
 """
 
 import asyncio
 import logging
 
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 import db
 import auth
 from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput
+from schemas.common import INTAKE_TRANSITIONS
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
-from .sse import broadcast, sse_generator, add_client, remove_client
+from .sse import broadcast
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_background_analysis(intake_id: int, intake_dict: dict):
+    """Run AI analysis in the background and broadcast results via SSE."""
+    try:
+        from services.intake_ai import analyze_intake
+        comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
+        result = await asyncio.to_thread(
+            analyze_intake,
+            intake_dict,
+            notes=intake_dict.get("notes", ""),
+            comments=comments,
+        )
+        await asyncio.to_thread(
+            db.save_ai_analysis,
+            intake_id,
+            result["ai_summary"],
+            result["ai_rating"],
+            result["ai_rating_reasoning"],
+            result.get("ai_location_short"),
+        )
+
+        # Log analysis event
+        is_regen = intake_dict.get("ai_summary") is not None
+        rating = result["ai_rating"]
+        label = "regenerated" if is_regen else "completed"
+        await asyncio.to_thread(
+            db.add_intake_comment,
+            intake_id, None,
+            f"AI analysis {label} \u2014 rated {rating}/5",
+            True,  # is_system
+            {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
+        )
+
+        broadcast({
+            "entity": "intake", "action": "analyzed",
+            "id": intake_id, "intake_id": intake_id,
+        })
+    except Exception:
+        logger.exception("Background AI analysis failed for intake %d", intake_id)
+        await asyncio.to_thread(db.set_ai_analyzing, intake_id, False)
+        broadcast({
+            "entity": "intake", "action": "updated",
+            "id": intake_id, "intake_id": intake_id,
+        })
 
 
 def register_intake_routes(mcp):
@@ -30,9 +76,11 @@ def register_intake_routes(mcp):
         status = request.query_params.get("status")
         limit = int(request.query_params.get("limit", str(DEFAULT_PAGE_SIZE)))
         offset = int(request.query_params.get("offset", "0"))
+        exclude_archived = request.query_params.get("exclude_archived", "").lower() == "true"
 
         result = await asyncio.to_thread(
-            db.get_intakes, status=status, limit=limit, offset=offset
+            db.get_intakes, status=status, limit=limit, offset=offset,
+            exclude_archived=exclude_archived,
         )
         return JSONResponse(result)
 
@@ -53,10 +101,27 @@ def register_intake_routes(mcp):
             db.create_intake, **data.model_dump(exclude_none=True)
         )
 
+        # Log creation event
+        await asyncio.to_thread(
+            db.add_intake_comment,
+            result["id"], user_id,
+            "Intake created via web form",
+            True,  # is_system
+        )
+
         broadcast({
             "entity": "intake", "action": "created",
             "id": result["id"], "intake_id": result["id"], "user_id": user_id,
         })
+
+        # Auto-trigger AI analysis in the background
+        await asyncio.to_thread(db.set_ai_analyzing, result["id"], True)
+        broadcast({
+            "entity": "intake", "action": "analyzing",
+            "id": result["id"], "intake_id": result["id"],
+        })
+        asyncio.create_task(_run_background_analysis(result["id"], result))
+
         return JSONResponse({"success": True, "intake": result}, status_code=201)
 
     @mcp.custom_route("/api/v1/intakes/counts", methods=["GET"])
@@ -66,6 +131,31 @@ def register_intake_routes(mcp):
             return err
         counts = await asyncio.to_thread(db.get_intake_status_counts)
         return JSONResponse(counts)
+
+    @mcp.custom_route("/api/v1/intakes/extract", methods=["POST"])
+    async def api_extract_intake(request):
+        """Extract structured intake fields from raw text using AI."""
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            body = await request.json()
+        except Exception:
+            return api_error("Invalid JSON body", "BAD_REQUEST", 400)
+
+        text = body.get("text", "").strip()
+        if not text:
+            return api_error("Text is required", "VALIDATION_ERROR", 400)
+
+        try:
+            from services.intake_extractor import extract_intake_info
+            fields = await asyncio.to_thread(extract_intake_info, text)
+            return JSONResponse({"success": True, "fields": fields})
+        except ValueError as e:
+            return api_error(str(e), "EXTRACTION_ERROR", 400)
+        except Exception as e:
+            logger.exception("Intake extraction failed")
+            return api_error(f"Extraction failed: {str(e)}", "EXTRACTION_ERROR", 500)
 
     # --- Activity feed (registered BEFORE {intake_id} wildcard) ---
 
@@ -108,42 +198,6 @@ def register_intake_routes(mcp):
         if err := auth.require_auth(request):
             return err
         return JSONResponse(INTAKE_TRANSITIONS)
-
-    # --- SSE stream (registered BEFORE {intake_id} wildcard) ---
-
-    @mcp.custom_route("/api/v1/intakes/stream", methods=["GET"])
-    async def api_intake_stream(request):
-        """SSE stream for real-time intake updates.
-
-        Auth via ?token= query param since EventSource can't set headers.
-        """
-        # Auth via query param (EventSource can't set headers)
-        if not auth.DEV_SKIP_AUTH:
-            token = request.query_params.get("token")
-            if not token:
-                token = auth.get_token_from_request(request)
-            if not token or not auth.validate_session(token):
-                return JSONResponse(
-                    {"error": "Authentication required"}, status_code=401
-                )
-
-        queue = add_client()
-
-        async def event_stream():
-            try:
-                async for chunk in sse_generator(queue):
-                    yield chunk
-            finally:
-                remove_client(queue)
-
-        return StreamingResponse(
-            event_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-            },
-        )
 
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["GET"])
     async def api_get_intake(request):
@@ -297,12 +351,24 @@ def register_intake_routes(mcp):
                     continue
                 try:
                     result = await asyncio.to_thread(analyze_intake, intake)
+                    is_regen = intake.get("ai_summary") is not None
                     await asyncio.to_thread(
                         db.save_ai_analysis,
                         intake_id,
                         result["ai_summary"],
                         result["ai_rating"],
                         result["ai_rating_reasoning"],
+                        result.get("ai_location_short"),
+                    )
+                    # Log analysis event
+                    rating = result["ai_rating"]
+                    label = "regenerated" if is_regen else "completed"
+                    await asyncio.to_thread(
+                        db.add_intake_comment,
+                        intake_id, None,
+                        f"AI analysis {label} \u2014 rated {rating}/5",
+                        True,
+                        {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
                     )
                     analyzed += 1
                 except Exception as e:
@@ -349,36 +415,7 @@ def register_intake_routes(mcp):
             "id": intake_id, "intake_id": intake_id,
         })
 
-        async def _background_analyze():
-            try:
-                from services.intake_ai import analyze_intake
-                comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
-                result = await asyncio.to_thread(
-                    analyze_intake,
-                    intake,
-                    notes=intake.get("notes", ""),
-                    comments=comments,
-                )
-                await asyncio.to_thread(
-                    db.save_ai_analysis,
-                    intake_id,
-                    result["ai_summary"],
-                    result["ai_rating"],
-                    result["ai_rating_reasoning"],
-                )
-                broadcast({
-                    "entity": "intake", "action": "analyzed",
-                    "id": intake_id, "intake_id": intake_id,
-                })
-            except Exception as e:
-                logger.exception("Background AI analysis failed for intake %d", intake_id)
-                await asyncio.to_thread(db.set_ai_analyzing, intake_id, False)
-                broadcast({
-                    "entity": "intake", "action": "updated",
-                    "id": intake_id, "intake_id": intake_id,
-                })
-
-        asyncio.create_task(_background_analyze())
+        asyncio.create_task(_run_background_analysis(intake_id, intake))
         return JSONResponse({"success": True, "message": "Analysis started"}, status_code=202)
 
     @mcp.custom_route("/api/v1/intakes/sync", methods=["POST"])

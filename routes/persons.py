@@ -221,6 +221,20 @@ def register_person_routes(mcp):
                 grouped_under_id=data.get("grouped_under_id"),
                 assigned_date=data.get("assigned_date")
             )
+
+            # System comment for person assignment
+            user = auth.get_current_user(request)
+            if user:
+                actor = f"{user['firstName']} {user['lastName']}"
+                person = await asyncio.to_thread(db.get_person_by_id, data["person_id"])
+                person_name = person.get("name", f"Person {data['person_id']}") if person else f"Person {data['person_id']}"
+                role = await asyncio.to_thread(db.get_role_by_id, data["role_id"])
+                role_name = role.get("name", "Unknown") if role else "Unknown"
+                await asyncio.to_thread(
+                    db.add_case_comment, case_id, user["id"],
+                    f"{actor} added {person_name} as {role_name}", True,
+                )
+
             return JSONResponse({"success": True, "assignment": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)

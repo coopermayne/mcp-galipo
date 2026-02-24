@@ -53,6 +53,7 @@ from .cases import (
     get_case_by_id,
     get_case_by_name,
     get_case_summary,
+    get_case_status_counts,
     get_all_case_names,
     create_case,
     update_case,
@@ -238,6 +239,15 @@ from .intakes import (
     sync_from_sheet,
 )
 
+# Case comments
+from .case_comments import (
+    get_case_comments,
+    add_case_comment,
+    get_last_read_at as get_case_last_read_at,
+    mark_case_read,
+    get_unread_counts as get_case_unread_counts,
+)
+
 # Intake comments
 from .intake_comments import (
     get_intake_comments,
@@ -291,6 +301,7 @@ __all__ = [
     "get_case_by_id",
     "get_case_by_name",
     "get_case_summary",
+    "get_case_status_counts",
     "get_all_case_names",
     "create_case",
     "update_case",
@@ -435,6 +446,12 @@ __all__ = [
     "delete_intake",
     "create_intake",
     "sync_from_sheet",
+    # Case comments
+    "get_case_comments",
+    "add_case_comment",
+    "get_case_last_read_at",
+    "mark_case_read",
+    "get_case_unread_counts",
     # Intake comments
     "get_intake_comments",
     "add_intake_comment",

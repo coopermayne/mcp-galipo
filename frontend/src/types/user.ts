@@ -1,65 +1,55 @@
-export type UserPosition = 'attorney' | 'paralegal' | 'manager' | 'admin';
+export type UserPosition = "attorney" | "paralegal" | "manager" | "admin"
 
-// Lightweight user reference for nested objects
-export interface UserRef {
-  id: number;
-  firstName: string;
-  lastName: string;
-  initials: string;
-}
+export type FeatureKey =
+  | "dashboard"
+  | "intakes"
+  | "cases"
+  | "tasks"
+  | "calendar"
+  | "contacts"
+  | "templates"
+  | "court-listener"
+
+export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
+  { value: "dashboard", label: "Dashboard" },
+  { value: "intakes", label: "Intakes" },
+  { value: "cases", label: "Cases" },
+  { value: "tasks", label: "Tasks" },
+  { value: "calendar", label: "Calendar" },
+  { value: "contacts", label: "Contacts" },
+  { value: "templates", label: "Templates" },
+  { value: "court-listener", label: "CourtListener" },
+]
 
 export interface User {
-  id: number;
-  email: string;
-  firstName: string;
-  lastName: string;
-  initials: string;
-  barNumber: string | null;
-  position: UserPosition;
-  isAdmin: boolean;
-  mustChangePassword: boolean;
-  isActive: boolean;
-  paralegalId?: number | null;
-  paralegal?: UserRef | null;
-  visibleFeatures?: Record<string, boolean> | null;
-  createdAt: string;
-  updatedAt: string;
+  id: number
+  email: string
+  firstName: string | null
+  lastName: string | null
+  initials: string | null
+  position: UserPosition | null
+  barNumber: string | null
+  isAdmin: boolean
+  mustChangePassword: boolean
+  isActive: boolean
+  paralegalId: number | null
+  visibleFeatures: FeatureKey[] | null
+  createdAt: string | null
+  updatedAt: string | null
+  paralegal: {
+    id: number
+    firstName: string | null
+    lastName: string | null
+    initials: string | null
+  } | null
 }
 
-export interface CreateUserInput {
-  email: string;
-  password?: string;
-  firstName: string;
-  lastName: string;
-  initials: string;
-  barNumber?: string;
-  position: UserPosition;
-  isAdmin?: boolean;
-  mustChangePassword?: boolean;
-  visibleFeatures?: Record<string, boolean> | null;
+export interface UsersResponse {
+  success: boolean
+  data: User[]
 }
 
-export interface UpdateUserInput {
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  initials?: string;
-  barNumber?: string | null;
-  position?: UserPosition;
-  isAdmin?: boolean;
-  mustChangePassword?: boolean;
-  isActive?: boolean;
-  paralegalId?: number | null;
-  visibleFeatures?: Record<string, boolean> | null;
-}
-
-// Staff user for case assignments (subset of User fields)
-export interface CaseStaffUser {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  initials: string;
-  position: UserPosition;
-  paralegal_id?: number;
+export interface UserResponse {
+  success: boolean
+  data: User
 }

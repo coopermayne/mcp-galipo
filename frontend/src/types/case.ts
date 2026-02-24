@@ -1,65 +1,176 @@
-// Case-related types
+export type CaseStatus =
+  | "Signing Up"
+  | "Prospective"
+  | "Pre-Filing"
+  | "Pleadings"
+  | "Discovery"
+  | "Expert Discovery"
+  | "Pre-trial"
+  | "Trial"
+  | "Post-Trial"
+  | "Appeal"
+  | "Settl. Pend."
+  | "Stayed"
+  | "Closed"
 
-import type { CaseStatus } from './common';
-import type { Task } from './task';
-import type { Event } from './event';
-import type { Note } from './note';
-import type { CasePerson } from './person';
-import type { Proceeding } from './proceeding';
-import type { CaseStaffUser } from './user';
-
-export interface Case {
-  id: number;
-  case_name: string;
-  short_name?: string;
-  color?: string;
-  status: CaseStatus;
-  case_summary?: string;
-  result?: string;
-  date_of_injury?: string;
-  created_at: string;
-  updated_at?: string;
-  persons: CasePerson[];
-  tasks?: Task[];
-  events?: Event[];
-  notes?: Note[];
-  proceedings?: Proceeding[];
-  // Staff assignments
-  attorney_ids: number[];
-  paralegal_ids: number[];
-  attorneys?: CaseStaffUser[];
-  paralegals?: CaseStaffUser[];
+export interface CaseListItem {
+  id: number
+  case_name: string
+  short_name: string | null
+  status: CaseStatus
+  print_code: string | null
+  attorney_ids: number[] | null
+  paralegal_ids: number[] | null
+  judge: string | null
+  case_number: string | null
+  jurisdiction_name: string | null
+  client_count: number | null
+  defendant_count: number | null
+  pending_task_count: number | null
+  upcoming_event_count: number | null
 }
 
-export interface CaseSummary {
-  id: number;
-  case_name: string;
-  short_name?: string;
-  color?: string;
-  status: CaseStatus;
-  judge?: string;
-  client_count?: number;
-  defendant_count?: number;
-  pending_task_count?: number;
-  upcoming_event_count?: number;
-  attorney_ids?: number[];
-  paralegal_ids?: number[];
+export interface CaseDetail {
+  id: number
+  case_name: string
+  short_name: string | null
+  status: CaseStatus
+  print_code: string | null
+  case_summary: string | null
+  result: string | null
+  date_of_injury: string | null
+  color: string | null
+  attorney_ids: number[] | null
+  paralegal_ids: number[] | null
+  created_at: string | null
+  updated_at: string | null
+  attorneys: CaseStaffUser[]
+  paralegals: CaseStaffUser[]
+  persons: CasePerson[]
+  events: CaseEvent[]
+  tasks: CaseTask[]
+  notes: CaseNote[]
+  proceedings: CaseProceeding[]
 }
 
-export interface CreateCaseInput {
-  case_name: string;
-  short_name?: string;
-  status?: CaseStatus;
-  case_summary?: string;
-  result?: string;
-  date_of_injury?: string;
+export interface CaseStaffUser {
+  id: number
+  email: string
+  first_name: string
+  last_name: string
+  initials: string
+  position: string
+  paralegal_id?: number | null
 }
 
-export interface UpdateCaseInput {
-  case_name?: string;
-  short_name?: string;
-  status?: CaseStatus;
-  case_summary?: string;
-  result?: string;
-  date_of_injury?: string;
+export interface CasePerson {
+  id: number
+  name: string
+  phones: unknown[]
+  emails: unknown[]
+  organization: string | null
+  person_notes: string | null
+  assignment_id: number
+  role_id: number
+  attributes: Record<string, unknown>
+  role_notes: string | null
+  is_primary: boolean | null
+  grouped_under_id: number | null
+  assigned_date: string | null
+  assigned_at: string | null
+  role: { id: number; name: string; category: string }
+  grouped_under_name: string | null
 }
+
+export interface CaseEvent {
+  id: number
+  date: string
+  time: string | null
+  location: string | null
+  description: string
+  document_link: string | null
+  calculation_note: string | null
+  starred: boolean | null
+}
+
+export interface CaseTask {
+  id: number
+  due_date: string | null
+  completion_date: string | null
+  description: string
+  status: string
+  urgency: string | null
+  event_id: number | null
+  sort_order: number | null
+  created_at: string | null
+  updated_at: string | null
+  assignee_id: number | null
+  event_description: string | null
+}
+
+export interface CaseNote {
+  id: number
+  content: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface CaseProceeding {
+  id: number
+  case_id: number | null
+  case_number: string
+  jurisdiction_id: number | null
+  sort_order: number | null
+  is_primary: boolean | null
+  notes: string | null
+  created_at: string | null
+  updated_at: string | null
+  jurisdiction_name: string | null
+  local_rules_link: string | null
+  judges: { judge_id: number; name: string; role: string | null; sort_order: number | null }[]
+  judge_name: string | null
+  judge_id: number | null
+}
+
+export interface CaseListResponse {
+  cases: CaseListItem[]
+  total: number
+}
+
+export type CaseCountsResponse = Record<string, number>
+
+export interface CaseComment {
+  id: number
+  case_id: number
+  user_id: number
+  content: string
+  is_system: boolean
+  detail?: Record<string, unknown> | null
+  created_at: string
+  user_first_name: string | null
+  user_last_name: string | null
+  user_initials: string | null
+}
+
+export interface CaseCommentsResponse {
+  comments: CaseComment[]
+  last_read_at: string | null
+}
+
+export type TaskStatus =
+  | "Pending"
+  | "Active"
+  | "Done"
+  | "Partially Done"
+  | "Blocked"
+  | "Awaiting Atty Review"
+
+export type Urgency = "Low" | "Medium" | "High" | "Urgent"
+
+export type RoleCategory =
+  | "client"
+  | "defendant"
+  | "counsel"
+  | "mediator"
+  | "expert"
+  | "other"

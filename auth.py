@@ -22,10 +22,6 @@ SESSION_EXPIRY_HOURS = 24
 AUTH_USERNAME = settings.auth_username
 AUTH_PASSWORD = settings.auth_password
 
-# Dev mode: skip auth entirely (set DEV_SKIP_AUTH=true in .env)
-DEV_SKIP_AUTH = settings.dev_skip_auth
-DEV_AUTH_USER = settings.dev_auth_user
-
 # JWT secret
 JWT_SECRET = settings.jwt_secret
 JWT_ALGORITHM = "HS256"
@@ -183,10 +179,6 @@ def require_auth(request) -> Optional[JSONResponse]:
     Check if request is authenticated.
     Returns None if authenticated, or a 401 JSONResponse if not.
     """
-    # Skip auth in dev mode
-    if DEV_SKIP_AUTH:
-        return None
-
     token = get_token_from_request(request)
 
     if not token:
@@ -214,12 +206,8 @@ def require_admin(request) -> Optional[JSONResponse]:
     if auth_error:
         return auth_error
 
-    # In dev mode, get user via get_current_user (handles DEV_AUTH_USER)
-    if DEV_SKIP_AUTH:
-        user = get_current_user(request)
-    else:
-        token = get_token_from_request(request)
-        user = get_session_user(token)
+    token = get_token_from_request(request)
+    user = get_session_user(token)
 
     if not user or not user.get("isAdmin"):
         return JSONResponse(
@@ -232,35 +220,6 @@ def require_admin(request) -> Optional[JSONResponse]:
 
 def get_current_user(request) -> Optional[dict]:
     """Get the current authenticated user from request."""
-    # Return dev user in dev mode
-    if DEV_SKIP_AUTH:
-        # If DEV_AUTH_USER is set, look up that real user
-        if DEV_AUTH_USER:
-            from db.users import get_user_by_email
-            user = get_user_by_email(DEV_AUTH_USER)
-            if user:
-                return {
-                    "id": user["id"],
-                    "email": user["email"],
-                    "firstName": user["first_name"],
-                    "lastName": user["last_name"],
-                    "initials": user["initials"],
-                    "position": user["position"],
-                    "isAdmin": user["is_admin"],
-                    "paralegalId": user.get("paralegal_id"),
-                    "visibleFeatures": user.get("visible_features"),
-                }
-        # Fallback to generic dev user
-        return {
-            "id": 0,
-            "email": "dev@localhost",
-            "firstName": "Dev",
-            "lastName": "User",
-            "initials": "DU",
-            "position": "admin",
-            "isAdmin": True,
-        }
-
     token = get_token_from_request(request)
     if not token:
         return None

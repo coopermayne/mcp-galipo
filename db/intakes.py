@@ -25,12 +25,15 @@ def get_intakes(
     status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
+    exclude_archived: bool = False,
 ) -> dict:
     """Get intakes with optional status filter and pagination."""
     with SessionLocal() as session:
         filters = []
         if status:
             filters.append(Intake.status == status)
+        if exclude_archived:
+            filters.append(Intake.status != "Archived")
 
         count_stmt = select(func.count(Intake.id))
         for f in filters:
@@ -59,11 +62,10 @@ def get_intakes(
 
 
 def get_intake_status_counts() -> dict[str, int]:
-    """Get count of intakes grouped by status (excludes Archived)."""
+    """Get count of intakes grouped by status (includes all statuses)."""
     with SessionLocal() as session:
         rows = session.execute(
             select(Intake.status, func.count(Intake.id))
-            .where(Intake.status != "Archived")
             .group_by(Intake.status)
         ).all()
         return {status: count for status, count in rows}
@@ -106,7 +108,7 @@ def set_ai_analyzing(intake_id: int, analyzing: bool) -> None:
             session.commit()
 
 
-def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_reasoning: str) -> Optional[dict]:
+def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_reasoning: str, location_short: Optional[str] = None) -> Optional[dict]:
     """Save AI analysis results for an intake and clear ai_analyzing flag."""
     with SessionLocal() as session:
         intake = session.get(Intake, intake_id)
@@ -115,6 +117,7 @@ def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_
         intake.ai_summary = ai_summary
         intake.ai_rating = ai_rating
         intake.ai_rating_reasoning = ai_rating_reasoning
+        intake.location_short = location_short
         intake.ai_analyzing = False
         session.flush()
         session.refresh(intake)
@@ -240,8 +243,11 @@ def sync_from_sheet(rows: list[dict]) -> dict:
 
     Returns {"imported": N, "skipped": N, "total": N}.
     """
+    from .intake_comments import add_intake_comment
+
     imported = 0
     skipped = 0
+    new_intake_ids: list[int] = []
 
     with SessionLocal() as session:
         # Get existing row numbers for dedup
@@ -271,9 +277,18 @@ def sync_from_sheet(rows: list[dict]) -> dict:
                 status="New",
             )
             session.add(intake)
+            session.flush()
+            new_intake_ids.append(intake.id)
             imported += 1
 
         session.commit()
+
+    # Log creation events (outside the sync session)
+    for iid in new_intake_ids:
+        try:
+            add_intake_comment(iid, None, "Intake imported from Google Sheets", True)
+        except Exception:
+            logger.warning("Failed to log creation comment for intake %d", iid)
 
     logger.info("Sync complete: %d imported, %d skipped", imported, skipped)
     return {"imported": imported, "skipped": skipped, "total": len(rows)}

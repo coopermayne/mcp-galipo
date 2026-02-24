@@ -9,7 +9,7 @@ import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
 
 
 # =============================================================================
@@ -147,10 +147,18 @@ class UserOut(BaseModel):
     must_change_password: Optional[bool] = None
     is_active: Optional[bool] = None
     paralegal_id: Optional[int] = None
-    visible_features: Optional[dict] = None
+    visible_features: Optional[list] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
     paralegal: Optional[UserBriefOut] = None
+
+    @field_validator("visible_features", mode="before")
+    @classmethod
+    def _coerce_visible_features(cls, v):
+        """Convert old dict format {feat: bool} to new list format [feat, ...]."""
+        if isinstance(v, dict):
+            return [k for k, enabled in v.items() if enabled]
+        return v
 
 
 class UserWithPasswordOut(UserOut):
@@ -434,6 +442,8 @@ class CaseListOut(BaseModel):
     attorney_ids: Optional[list[int]] = None
     paralegal_ids: Optional[list[int]] = None
     judge: Optional[str] = None
+    case_number: Optional[str] = None
+    jurisdiction_name: Optional[str] = None
     client_count: Optional[int] = None
     defendant_count: Optional[int] = None
     pending_task_count: Optional[int] = None
@@ -530,6 +540,7 @@ class IntakeOut(BaseModel):
     ai_summary: Optional[str] = None
     ai_rating: Optional[int] = None
     ai_rating_reasoning: Optional[str] = None
+    location_short: Optional[str] = None
     ai_analyzing: bool = False
     google_row_number: Optional[int] = None
     created_at: Optional[datetime.datetime] = None
