@@ -375,6 +375,17 @@ See `.env.example` for a complete template.
 - **Frontend**: http://localhost:5173 (Vite dev server)
 - **Backend API**: http://localhost:8000/api/v1/*
 - **MCP Server**: http://localhost:8000/mcp (Streamable HTTP)
+- **Health Check**: http://localhost:8000/api/v1/health (no auth required)
+
+### Production Health Check
+
+Use `/api/v1/health` to verify production deploy state. No authentication required.
+
+```bash
+curl https://your-production-host/api/v1/health
+```
+
+Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_seconds`. Compare `alembic_revision` against local (`alembic current`) to confirm production has the latest migrations. Compare `git_commit` to verify the deployed code version.
 
 ## Git Practices
 
