@@ -87,6 +87,15 @@ export default function TasksPage() {
     onError: (e) => toast.error(e.message),
   })
 
+  const updateFieldMutation = useMutation({
+    mutationFn: ({ taskId, field, value }: { taskId: number; field: string; value: unknown }) =>
+      updateTask(taskId, { [field]: value }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] })
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   // TanStack Table for filtering/sorting (we render list items, not a <Table>)
   const columns = useMemo(
     () =>
@@ -159,6 +168,9 @@ export default function TasksPage() {
                 onTaskClick={setSelectedTask}
                 onMarkDone={(t) => markDoneMutation.mutate(t)}
                 onDelete={(t) => deleteMutation.mutate(t)}
+                onUpdateTask={(taskId, field, value) =>
+                  updateFieldMutation.mutate({ taskId, field, value })
+                }
               />
             ))
           ) : (
