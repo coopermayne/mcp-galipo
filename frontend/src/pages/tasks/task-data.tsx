@@ -1,11 +1,6 @@
 import type { ComponentType } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ArrowUp02Icon,
-  ArrowUp01Icon,
-  ArrowRight01Icon,
-  ArrowDown01Icon,
-} from "@hugeicons/core-free-icons"
+import { Flag02Icon } from "@hugeicons/core-free-icons"
 
 // --- SVG status icons (square-based) ---
 
@@ -93,22 +88,13 @@ export const statuses: StatusOption[] = [
   { value: "Done", label: "Done", icon: DoneIcon, iconColor: "text-success" },
 ]
 
-function HugeArrowUp02({ className }: { className?: string }) {
-  return <HugeiconsIcon icon={ArrowUp02Icon} className={className} />
-}
-function HugeArrowUp01({ className }: { className?: string }) {
-  return <HugeiconsIcon icon={ArrowUp01Icon} className={className} />
-}
-function HugeArrowRight01({ className }: { className?: string }) {
-  return <HugeiconsIcon icon={ArrowRight01Icon} className={className} />
-}
-function HugeArrowDown01({ className }: { className?: string }) {
-  return <HugeiconsIcon icon={ArrowDown01Icon} className={className} />
+function SolidFlag({ className }: { className?: string }) {
+  return <HugeiconsIcon icon={Flag02Icon} className={className} fill="currentColor" />
 }
 
 export const urgencies: UrgencyOption[] = [
-  { value: "Urgent", label: "Urgent", icon: HugeArrowUp02, iconColor: "text-destructive" },
-  { value: "High", label: "High", icon: HugeArrowUp01, iconColor: "text-warning" },
-  { value: "Medium", label: "Medium", icon: HugeArrowRight01, iconColor: "text-info" },
-  { value: "Low", label: "Low", icon: HugeArrowDown01, iconColor: "text-muted-foreground" },
+  { value: "Urgent", label: "Urgent", icon: SolidFlag, iconColor: "text-destructive" },
+  { value: "High", label: "High", icon: SolidFlag, iconColor: "text-warning" },
+  { value: "Medium", label: "Medium", icon: SolidFlag, iconColor: "text-info" },
+  { value: "Low", label: "Low", icon: SolidFlag, iconColor: "text-muted-foreground" },
 ]
