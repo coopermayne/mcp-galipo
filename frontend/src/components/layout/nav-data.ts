@@ -52,10 +52,10 @@ export const navGroups: NavGroup[] = [
         featureKey: "tasks",
       },
       {
-        title: "Calendar",
-        url: "/calendar",
+        title: "Events",
+        url: "/events",
         icon: Calendar03Icon,
-        featureKey: "calendar",
+        featureKey: "events",
       },
       {
         title: "Contacts",

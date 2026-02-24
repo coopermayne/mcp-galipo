@@ -120,7 +120,7 @@ export default function CaseDetailPage() {
               onAdd={() => setAddTaskOpen(true)}
             />
             <CaseEventsCard
-              events={caseData.events}
+              caseId={caseData.id}
               onAdd={() => setAddEventOpen(true)}
             />
             <CaseNotesPanel notes={caseData.notes} caseId={caseData.id} />
