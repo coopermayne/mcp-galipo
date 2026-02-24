@@ -82,7 +82,17 @@ export function InlineEditField({
         displayClassName
       )}
     >
-      <span className="truncate">{value || placeholder}</span>
+      <span className="truncate">
+        {value
+          ? type === "date"
+            ? new Date(value + "T00:00:00").toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : value
+          : placeholder}
+      </span>
       <HugeiconsIcon
         icon={PencilEdit01Icon}
         className="size-3 shrink-0 opacity-0 group-hover/edit:opacity-50 transition-opacity"
