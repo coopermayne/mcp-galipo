@@ -39,6 +39,7 @@ def _event_with_case_dict(event: Event, case: Case, task_count: int = 0) -> dict
     d["short_name"] = case.short_name if case else None
     d["case_color"] = case.color if case else None
     d["task_count"] = task_count
+    d["attendee_ids"] = event.attendee_ids or []
     return d
 
 

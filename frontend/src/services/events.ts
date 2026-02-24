@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api"
+import type { EventListResponse, EventDetail, GetEventsParams } from "@/types/event"
 
 export interface CreateEventData {
   case_id: number
@@ -53,6 +54,39 @@ export interface CaseEvent {
   date: string
   time: string | null
   location: string | null
+}
+
+export async function getEvents(params: GetEventsParams = {}): Promise<EventListResponse> {
+  const qs = new URLSearchParams()
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined) qs.set(key, String(val))
+  }
+  const url = `/api/v1/events${qs.toString() ? `?${qs}` : ""}`
+  const res = await apiFetch(url)
+  if (!res.ok) throw new Error("Failed to fetch events")
+  return res.json()
+}
+
+export async function getEvent(eventId: number): Promise<{ event: EventDetail }> {
+  const res = await apiFetch(`/api/v1/events/${eventId}`)
+  if (!res.ok) throw new Error("Failed to fetch event")
+  return res.json()
+}
+
+export async function addAttendee(eventId: number, userId: number) {
+  const res = await apiFetch(`/api/v1/events/${eventId}/attendees/${userId}`, {
+    method: "POST",
+  })
+  if (!res.ok) throw new Error("Failed to add attendee")
+  return res.json()
+}
+
+export async function removeAttendee(eventId: number, userId: number) {
+  const res = await apiFetch(`/api/v1/events/${eventId}/attendees/${userId}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error("Failed to remove attendee")
+  return res.json()
 }
 
 export async function getEventsByCase(caseId: number): Promise<CaseEvent[]> {

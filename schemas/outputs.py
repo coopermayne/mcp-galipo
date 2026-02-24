@@ -277,6 +277,7 @@ class EventWithCaseOut(EventOut):
     short_name: Optional[str] = None
     case_color: Optional[str] = None
     task_count: int = 0
+    attendee_ids: list[int] = []
 
 
 class EventDetailOut(EventWithCaseOut):

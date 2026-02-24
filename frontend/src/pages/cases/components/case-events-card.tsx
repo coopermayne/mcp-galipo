@@ -1,7 +1,7 @@
-import { useMemo } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, StarIcon } from "@hugeicons/core-free-icons"
-import type { CaseEvent } from "@/types/case"
+import { Add01Icon } from "@hugeicons/core-free-icons"
+import { useQuery } from "@tanstack/react-query"
+import { getEvents } from "@/services/events"
 import {
   Card,
   CardContent,
@@ -10,58 +10,30 @@ import {
   CardAction,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-
-function parseLocalDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  return new Date(y, m - 1, d)
-}
-
-function formatDate(dateStr: string): string {
-  const d = parseLocalDate(dateStr)
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
+import { EventListView } from "@/pages/events/components/event-list-view"
 
 interface CaseEventsCardProps {
-  events: CaseEvent[]
+  caseId: number
   onAdd: () => void
 }
 
-export function CaseEventsCard({ events, onAdd }: CaseEventsCardProps) {
-  const today = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
+export function CaseEventsCard({ caseId, onAdd }: CaseEventsCardProps) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["events", "case", caseId],
+    queryFn: () => getEvents({ case_id: caseId, limit: 500 }),
+  })
 
-  const upcoming = useMemo(
-    () =>
-      events
-        .filter((e) => parseLocalDate(e.date) >= today)
-        .sort((a, b) => a.date.localeCompare(b.date)),
-    [events, today]
-  )
-
-  const past = useMemo(
-    () =>
-      events
-        .filter((e) => parseLocalDate(e.date) < today)
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 5),
-    [events, today]
-  )
+  const events = data?.events ?? []
+  const upcomingCount = events.length
 
   return (
     <Card size="sm">
       <CardHeader className="border-b">
         <CardTitle>
           Events
-          {upcoming.length > 0 && (
+          {upcomingCount > 0 && (
             <span className="ml-1 text-xs font-normal text-muted-foreground">
-              ({upcoming.length} upcoming)
+              ({upcomingCount} upcoming)
             </span>
           )}
         </CardTitle>
@@ -76,54 +48,15 @@ export function CaseEventsCard({ events, onAdd }: CaseEventsCardProps) {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent>
-        {events.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-1">No events.</p>
-        ) : (
-          <div className="space-y-2">
-            {upcoming.length > 0 && (
-              <div className="space-y-1">
-                {upcoming.map((e) => (
-                  <div key={e.id} className="flex items-start gap-2 py-1 text-xs">
-                    <span className="text-muted-foreground tabular-nums shrink-0 w-[80px]">
-                      {formatDate(e.date)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium">{e.description}</span>
-                      {e.location && (
-                        <span className="text-muted-foreground ml-1">
-                          @ {e.location}
-                        </span>
-                      )}
-                    </div>
-                    {e.starred && (
-                      <HugeiconsIcon
-                        icon={StarIcon}
-                        className="size-3 text-warning shrink-0 mt-0.5"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {past.length > 0 && (
-              <div className="pt-1 border-t">
-                <p className="text-xs text-muted-foreground mb-1">Recent past</p>
-                {past.map((e) => (
-                  <div
-                    key={e.id}
-                    className="flex items-start gap-2 py-1 text-xs text-muted-foreground"
-                  >
-                    <span className="tabular-nums shrink-0 w-[80px]">
-                      {formatDate(e.date)}
-                    </span>
-                    <span className="line-through">{e.description}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+      <CardContent className="p-0">
+        <EventListView
+          events={events}
+          isLoading={isLoading}
+          groupBy="date"
+          hideCaseBadge
+          noBorder
+          invalidateKeys={[["events", "case", String(caseId)], ["events"], ["case", String(caseId)]]}
+        />
       </CardContent>
     </Card>
   )
