@@ -46,7 +46,8 @@ export function CaseTasksCard({ caseId, onAdd }: CaseTasksCardProps) {
     if (!search.trim()) return tasks
     const q = search.toLowerCase()
     return tasks.filter((t) =>
-      t.description.toLowerCase().includes(q)
+      t.description.toLowerCase().includes(q) ||
+      (t.short_name ?? t.case_name ?? "").toLowerCase().includes(q)
     )
   }, [tasks, search])
 

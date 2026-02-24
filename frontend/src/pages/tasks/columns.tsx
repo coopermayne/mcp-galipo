@@ -73,6 +73,12 @@ export function getColumns(options: {
           </span>
         )
       },
+      filterFn: (row, _id, value: string) => {
+        const q = value.toLowerCase()
+        const desc = (row.getValue("description") as string).toLowerCase()
+        const caseName = (row.original.short_name ?? row.original.case_name ?? "").toLowerCase()
+        return desc.includes(q) || caseName.includes(q)
+      },
     },
     {
       id: "case",
