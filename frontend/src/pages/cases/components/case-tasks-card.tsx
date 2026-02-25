@@ -4,6 +4,7 @@ import {
   Add01Icon,
   Search01Icon,
   CheckmarkSquare01Icon,
+  SparklesIcon,
 } from "@hugeicons/core-free-icons"
 import { useQuery } from "@tanstack/react-query"
 import { getTasks } from "@/services/tasks"
@@ -22,9 +23,10 @@ import { cn } from "@/lib/utils"
 interface CaseTasksCardProps {
   caseId: number
   onAdd: () => void
+  onAiAdd?: () => void
 }
 
-export function CaseTasksCard({ caseId, onAdd }: CaseTasksCardProps) {
+export function CaseTasksCard({ caseId, onAdd, onAiAdd }: CaseTasksCardProps) {
   const [search, setSearch] = useState("")
   const [showDone, setShowDone] = useState(false)
 
@@ -67,6 +69,16 @@ export function CaseTasksCard({ caseId, onAdd }: CaseTasksCardProps) {
           )}
         </CardTitle>
         <CardAction>
+          {onAiAdd && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              onClick={onAiAdd}
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
