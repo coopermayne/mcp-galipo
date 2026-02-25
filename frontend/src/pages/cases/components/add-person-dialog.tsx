@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -22,11 +22,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+function formatRoleName(name: string) {
+  return name
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+}
+
 interface AddPersonDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   caseId: number
   category: string
+  roleId?: number | null
 }
 
 export function AddPersonDialog({
@@ -34,6 +42,7 @@ export function AddPersonDialog({
   onOpenChange,
   caseId,
   category,
+  roleId,
 }: AddPersonDialogProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
@@ -44,7 +53,7 @@ export function AddPersonDialog({
 
   const debouncedSearch = useDebounce(search, 300)
 
-  // Fetch roles filtered by category
+  // Fetch roles filtered by category (still needed for fallback display)
   const { data: rolesData } = useQuery({
     queryKey: ["roles", category],
     queryFn: () => getRoles(category),
@@ -60,24 +69,30 @@ export function AddPersonDialog({
 
   const roles = rolesData?.roles ?? []
   const persons = searchResults?.persons ?? []
+  const selectedRole = useMemo(
+    () => roles.find((r) => String(r.id) === selectedRoleId) ?? null,
+    [roles, selectedRoleId]
+  )
 
-  // Auto-select first role if only one
+  // Pre-select role from prop, or auto-select if only one
   useEffect(() => {
-    if (roles.length === 1 && !selectedRoleId) {
+    if (roleId) {
+      setSelectedRoleId(String(roleId))
+    } else if (roles.length === 1 && !selectedRoleId) {
       setSelectedRoleId(String(roles[0].id))
     }
-  }, [roles, selectedRoleId])
+  }, [roleId, roles, selectedRoleId])
 
   // Reset on open/close
   useEffect(() => {
     if (open) {
       setSearch("")
       setSelectedPersonId(null)
-      setSelectedRoleId("")
+      setSelectedRoleId(roleId ? String(roleId) : "")
       setNewPersonName("")
       setMode("search")
     }
-  }, [open])
+  }, [open, roleId])
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["case", caseId] })
@@ -131,30 +146,29 @@ export function AddPersonDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Add Person — {category.charAt(0).toUpperCase() + category.slice(1)}
+            Add {selectedRole ? formatRoleName(selectedRole.name) : category.charAt(0).toUpperCase() + category.slice(1)}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Role select */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Role</Label>
-            <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select role..." />
-              </SelectTrigger>
-              <SelectContent>
-                {roles.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name
-                      .split("_")
-                      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                      .join(" ")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Role select — only show if no role was pre-selected */}
+          {!roleId && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Role</Label>
+              <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {formatRoleName(r.name)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {mode === "search" ? (
             <>

@@ -1,17 +1,25 @@
 import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon } from "@hugeicons/core-free-icons"
 import type { CaseDetail, CasePerson } from "@/types/case"
 import type { PersonListItem } from "@/types/person"
+import { getRoles } from "@/services/roles"
 import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { PersonTree } from "@/components/common/person-tree"
 import { ContactDetailDialog } from "@/components/common/contact-detail-dialog"
 import { ProceedingsModal } from "./proceedings-modal"
 
 interface CaseSummarySectionProps {
   caseData: CaseDetail
-  onAddPerson: (category: string) => void
+  onAddPerson: (category: string, roleId: number) => void
   onAddProceeding: () => void
   onNest: (assignmentId: number, groupedUnderId: number | null) => void
 }
@@ -54,6 +62,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
 }
 
+function formatRoleName(name: string) {
+  return name
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+}
+
 /** Format judges array into compact string like "Judge X, Mag. Judge Y" */
 function formatJudges(judges: { name: string; role: string | null }[]): string {
   return judges
@@ -87,6 +102,22 @@ export function CaseSummarySection({
 }: CaseSummarySectionProps) {
   const counts = usePersonCounts(caseData)
   const [peopleCategory, setPeopleCategory] = useState<string | null>(null)
+
+  // Fetch roles for the active category (for the "+" dropdown)
+  // For counsel drawer, fetch both counsel and mediator roles
+  const roleQueryCategory = peopleCategory === "counsel" ? undefined : peopleCategory
+  const { data: rolesData } = useQuery({
+    queryKey: ["roles", roleQueryCategory],
+    queryFn: () => getRoles(roleQueryCategory ?? undefined),
+    enabled: !!peopleCategory,
+  })
+  const categoryRoles = useMemo(() => {
+    const all = rolesData?.roles ?? []
+    if (peopleCategory === "counsel") {
+      return all.filter((r) => r.category === "counsel" || r.category === "mediator")
+    }
+    return all
+  }, [rolesData, peopleCategory])
   const [selectedPerson, setSelectedPerson] = useState<PersonListItem | null>(null)
   const [proceedingsOpen, setProceedingsOpen] = useState(false)
 
@@ -177,20 +208,28 @@ export function CaseSummarySection({
 
         {/* Inline people drawer */}
         {peopleCategory && (
-          <div className="border border-border bg-muted/30 p-3 space-y-2">
+          <div className="ring-1 ring-foreground/10 bg-card p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-sm font-semibold">
                 {CATEGORY_LABELS[peopleCategory] ?? peopleCategory}
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 gap-1 px-2 text-xs"
-                onClick={() => onAddPerson(peopleCategory)}
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-3" />
-                Add
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-6">
+                    <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {categoryRoles.map((role) => (
+                    <DropdownMenuItem
+                      key={role.id}
+                      onClick={() => onAddPerson(peopleCategory, role.id)}
+                    >
+                      {formatRoleName(role.name)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <TooltipProvider>
               {filteredPersons.length > 0 ? (
