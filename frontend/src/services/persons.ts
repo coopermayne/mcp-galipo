@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api"
+import type { PersonListItem, PersonDetail } from "@/types/person"
 
 export interface PersonSearchResult {
   id: number
@@ -13,6 +14,8 @@ export interface SearchPersonsParams {
   name?: string
   category?: string
   limit?: number
+  offset?: number
+  include_roles?: boolean
 }
 
 export async function searchPersons(params: SearchPersonsParams = {}) {
@@ -20,9 +23,47 @@ export async function searchPersons(params: SearchPersonsParams = {}) {
   if (params.name) sp.set("name", params.name)
   if (params.category) sp.set("category", params.category)
   if (params.limit != null) sp.set("limit", String(params.limit))
-  sp.set("include_roles", "true")
+  if (params.offset != null) sp.set("offset", String(params.offset))
+  sp.set("include_roles", params.include_roles !== false ? "true" : "false")
   const res = await apiFetch(`/api/v1/persons?${sp}`)
   if (!res.ok) throw new Error("Failed to search persons")
+  return res.json() as Promise<{ persons: PersonListItem[]; total: number }>
+}
+
+export async function getPerson(personId: number): Promise<PersonDetail> {
+  const res = await apiFetch(`/api/v1/persons/${personId}`)
+  if (!res.ok) throw new Error("Failed to fetch person")
+  const data = await res.json()
+  return data.person
+}
+
+export async function updatePerson(
+  personId: number,
+  fields: Record<string, unknown>
+): Promise<PersonDetail> {
+  const res = await apiFetch(`/api/v1/persons/${personId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  })
+  if (!res.ok) throw new Error("Failed to update person")
+  const data = await res.json()
+  return data.person
+}
+
+export async function archivePerson(personId: number) {
+  const res = await apiFetch(`/api/v1/persons/${personId}/archive`, {
+    method: "POST",
+  })
+  if (!res.ok) throw new Error("Failed to archive person")
+  return res.json()
+}
+
+export async function deletePerson(personId: number) {
+  const res = await apiFetch(`/api/v1/persons/${personId}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error("Failed to delete person")
   return res.json()
 }
 
