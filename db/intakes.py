@@ -83,22 +83,6 @@ def get_intake_by_id(intake_id: int) -> Optional[dict]:
     return result
 
 
-def get_unanalyzed_intake_ids(limit: int = 50, include_analyzed: bool = False) -> list[int]:
-    """Get IDs of intakes to analyze (excludes Archived).
-
-    If include_analyzed is True, returns all non-archived intakes (for re-analysis).
-    """
-    with SessionLocal() as session:
-        stmt = (
-            select(Intake.id)
-            .where(Intake.status != "Archived")
-        )
-        if not include_analyzed:
-            stmt = stmt.where(Intake.ai_rating.is_(None))
-        stmt = stmt.order_by(Intake.submitted_on.desc().nullslast(), Intake.id.desc()).limit(limit)
-        return list(session.scalars(stmt).all())
-
-
 def set_ai_analyzing(intake_id: int, analyzing: bool) -> None:
     """Set the ai_analyzing flag on an intake."""
     with SessionLocal() as session:

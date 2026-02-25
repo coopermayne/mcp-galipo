@@ -230,7 +230,6 @@ from .intakes import (
     get_intakes,
     get_intake_by_id,
     get_intake_status_counts,
-    get_unanalyzed_intake_ids,
     set_ai_analyzing,
     save_ai_analysis,
     update_intake,
@@ -263,6 +262,9 @@ from .intake_comments import (
 from .import_case import (
     import_case,
 )
+
+# ORM event listeners (import registers them at startup)
+from . import listeners  # noqa: F401
 
 # Define __all__ for explicit exports
 __all__ = [
@@ -439,7 +441,6 @@ __all__ = [
     "get_intakes",
     "get_intake_by_id",
     "get_intake_status_counts",
-    "get_unanalyzed_intake_ids",
     "set_ai_analyzing",
     "save_ai_analysis",
     "update_intake",

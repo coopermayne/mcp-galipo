@@ -6,7 +6,9 @@ Uses Claude to generate a summary and case quality rating for intake leads.
 
 import json
 import logging
+
 from anthropic import Anthropic
+
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -121,3 +123,66 @@ def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | No
         "ai_rating_reasoning": reasoning,
         "ai_location_short": parsed.get("location_short"),
     }
+
+
+def run_background_analysis(intake_id: int) -> None:
+    """Run the full AI analysis pipeline for a single intake.
+
+    Designed to run in a background thread. Handles the complete lifecycle:
+    set_ai_analyzing(True) -> broadcast "analyzing" -> analyze -> save ->
+    log comment -> broadcast "analyzed". On failure: reset flag + broadcast "updated".
+    """
+    import db
+    from routes.sse import broadcast
+
+    try:
+        db.set_ai_analyzing(intake_id, True)
+        broadcast({
+            "entity": "intake", "action": "analyzing",
+            "id": intake_id, "intake_id": intake_id,
+        })
+
+        intake_data = db.get_intake_by_id(intake_id)
+        if not intake_data:
+            logger.warning("Intake %d not found for analysis", intake_id)
+            return
+
+        comments = db.get_intake_comments(intake_id)
+        result = analyze_intake(
+            intake_data,
+            notes=intake_data.get("notes", ""),
+            comments=comments,
+        )
+
+        db.save_ai_analysis(
+            intake_id,
+            result["ai_summary"],
+            result["ai_rating"],
+            result["ai_rating_reasoning"],
+            result.get("ai_location_short"),
+        )
+
+        is_regen = intake_data.get("ai_summary") is not None
+        rating = result["ai_rating"]
+        label = "regenerated" if is_regen else "completed"
+        db.add_intake_comment(
+            intake_id, None,
+            f"AI analysis {label} \u2014 rated {rating}/5",
+            True,
+            {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
+        )
+
+        broadcast({
+            "entity": "intake", "action": "analyzed",
+            "id": intake_id, "intake_id": intake_id,
+        })
+    except Exception:
+        logger.exception("Background AI analysis failed for intake %d", intake_id)
+        try:
+            db.set_ai_analyzing(intake_id, False)
+            broadcast({
+                "entity": "intake", "action": "updated",
+                "id": intake_id, "intake_id": intake_id,
+            })
+        except Exception:
+            logger.exception("Failed to reset ai_analyzing for intake %d", intake_id)
