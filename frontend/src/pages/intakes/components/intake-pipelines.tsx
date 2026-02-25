@@ -1,3 +1,4 @@
+import React from "react"
 import type { IntakeCountsResponse, IntakeStatus } from "@/types/intake"
 import {
   Breadcrumb,
@@ -123,40 +124,42 @@ export function IntakePipelines({
                 const isActive = selectedStatus === status
                 const count = counts?.[status] ?? 0
                 return (
-                  <BreadcrumbItem key={status} className="gap-1">
+                  <React.Fragment key={status}>
                     {i > 0 && <BreadcrumbSeparator />}
-                    <button
-                      onClick={() =>
-                        onStatusChange(isActive ? null : status)
-                      }
-                      className={cn(
-                        "inline-flex items-center gap-1.5 text-xs transition-colors",
-                        isActive
-                          ? "text-foreground font-medium"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <span
+                    <BreadcrumbItem className="gap-1">
+                      <button
+                        onClick={() =>
+                          onStatusChange(isActive ? null : status)
+                        }
                         className={cn(
-                          "inline-block size-1.5 shrink-0 border",
+                          "inline-flex items-center gap-1.5 text-xs transition-colors",
                           isActive
-                            ? "border-foreground bg-foreground"
-                            : "border-muted-foreground/50 bg-transparent"
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          isActive &&
-                            "underline underline-offset-4 decoration-2"
+                            ? "text-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        {status}
-                      </span>
-                      <span className="tabular-nums opacity-50">
-                        ({count})
-                      </span>
-                    </button>
-                  </BreadcrumbItem>
+                        <span
+                          className={cn(
+                            "inline-block size-1.5 shrink-0 border",
+                            isActive
+                              ? "border-foreground bg-foreground"
+                              : "border-muted-foreground/50 bg-transparent"
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            isActive &&
+                              "underline underline-offset-4 decoration-2"
+                          )}
+                        >
+                          {status}
+                        </span>
+                        <span className="tabular-nums opacity-50">
+                          ({count})
+                        </span>
+                      </button>
+                    </BreadcrumbItem>
+                  </React.Fragment>
                 )
               })}
             </BreadcrumbList>

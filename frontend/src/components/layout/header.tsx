@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import { Link, useLocation } from "react-router"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -85,16 +86,18 @@ export function Header() {
       <Breadcrumb>
         <BreadcrumbList>
           {crumbs.map((crumb, i) => (
-            <BreadcrumbItem key={crumb.label}>
+            <Fragment key={crumb.label}>
               {i > 0 && <BreadcrumbSeparator />}
-              {crumb.href ? (
-                <BreadcrumbLink asChild>
-                  <Link to={crumb.href}>{crumb.label}</Link>
-                </BreadcrumbLink>
-              ) : (
-                <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-              )}
-            </BreadcrumbItem>
+              <BreadcrumbItem>
+                {crumb.href ? (
+                  <BreadcrumbLink asChild>
+                    <Link to={crumb.href}>{crumb.label}</Link>
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                )}
+              </BreadcrumbItem>
+            </Fragment>
           ))}
         </BreadcrumbList>
       </Breadcrumb>
