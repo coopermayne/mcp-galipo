@@ -141,7 +141,7 @@ export function CaseToolbar({
             {filterLabel}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto p-3">
+        <PopoverContent align="start" className="w-auto max-w-[calc(100vw-2rem)] p-3">
           <div className="flex flex-col gap-3">
             {/* Scope selector */}
             <div className="flex items-center gap-1">
@@ -209,7 +209,7 @@ export function CaseToolbar({
                 )
                 return (
                   <Breadcrumb key={pipeline.label}>
-                    <BreadcrumbList className="flex-nowrap gap-1">
+                    <BreadcrumbList className="flex-wrap gap-1">
                       <BreadcrumbItem>
                         <button
                           onClick={() => {

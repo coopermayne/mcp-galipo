@@ -54,7 +54,7 @@ export function IntakePipelines({
   const isActiveView = !isArchivedView
 
   return (
-    <div className="flex flex-col gap-2 border-b pb-4">
+    <div className="flex flex-col gap-2 border-b pb-4 min-w-0">
       <div className="flex items-center gap-3">
         <button
           onClick={() => onStatusChange(null)}
@@ -106,8 +106,8 @@ export function IntakePipelines({
 
       {isActiveView &&
         PIPELINES.map((pipeline) => (
-          <Breadcrumb key={pipeline.label}>
-            <BreadcrumbList className="flex-nowrap gap-1">
+          <Breadcrumb key={pipeline.label} className="min-w-0 overflow-x-auto scrollbar-hidden">
+            <BreadcrumbList className="flex-nowrap gap-1 whitespace-nowrap">
               <BreadcrumbItem>
                 <Badge
                   variant="outline"

@@ -131,7 +131,7 @@ export default function CaseDetailPage() {
         >
           &larr; Back
         </button>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <CaseDetailHeader caseData={caseData} />
           <div className="flex items-center gap-2 shrink-0">
             <Button
