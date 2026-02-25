@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, Row } from "@tanstack/react-table"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -7,6 +7,55 @@ import type { Intake } from "@/types/intake"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { analyzeIntake } from "@/services/intakes"
+
+const SEARCHABLE_FIELDS: { key: keyof Intake; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "referral_name", label: "Referring Attorney" },
+  { key: "referral_org", label: "Referral Org" },
+  { key: "referral_email", label: "Referral Email" },
+  { key: "referral_phone", label: "Referral Phone" },
+  { key: "location_short", label: "Location" },
+  { key: "location", label: "Location" },
+  { key: "case_type", label: "Case Type" },
+  { key: "notes", label: "Notes" },
+  { key: "incident_description", label: "Incident" },
+  { key: "injury_description", label: "Injury" },
+  { key: "ai_summary", label: "AI Summary" },
+]
+
+export function intakeGlobalFilterFn(
+  row: Row<Intake>,
+  _columnId: string,
+  filterValue: string
+): boolean {
+  if (!filterValue) return true
+  const search = filterValue.toLowerCase()
+  return SEARCHABLE_FIELDS.some(({ key }) => {
+    const val = row.original[key]
+    return typeof val === "string" && val.toLowerCase().includes(search)
+  })
+}
+
+function getMatchReason(
+  intake: Intake,
+  search: string
+): { label: string; value: string } | null {
+  if (!search) return null
+  const s = search.toLowerCase()
+  if (intake.name?.toLowerCase().includes(s)) return null
+
+  for (const { key, label } of SEARCHABLE_FIELDS) {
+    if (key === "name") continue
+    const val = intake[key]
+    if (typeof val === "string" && val.toLowerCase().includes(s)) {
+      const display = val.length > 50 ? val.slice(0, 50) + "…" : val
+      return { label, value: display }
+    }
+  }
+  return null
+}
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
@@ -111,17 +160,26 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
-      cell: ({ row }) => {
+      cell: ({ row, table }) => {
         const count = options.unreadCounts[row.original.id]
+        const globalFilter = table.getState().globalFilter as string
+        const match = getMatchReason(row.original, globalFilter)
         return (
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            {row.getValue("name") || "—"}
-            {count > 0 && (
-              <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
-                {count}
+          <div className="flex flex-col">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              {row.getValue("name") || "—"}
+              {count > 0 && (
+                <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+                  {count}
+                </span>
+              )}
+            </span>
+            {match && (
+              <span className="text-muted-foreground text-xs truncate max-w-[300px]">
+                ↳ {match.label}: &ldquo;{match.value}&rdquo;
               </span>
             )}
-          </span>
+          </div>
         )
       },
     },
