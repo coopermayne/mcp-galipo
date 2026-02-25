@@ -27,8 +27,6 @@ export function IntakeToolbar({
   onNewIntake,
   onNewIntakeChat,
 }: IntakeToolbarProps) {
-  const nameColumn = table.getColumn("name")
-
   return (
     <div className="flex items-center gap-2">
       <div className="relative max-w-sm flex-1">
@@ -37,9 +35,9 @@ export function IntakeToolbar({
           className="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2"
         />
         <Input
-          placeholder="Filter by name..."
-          value={(nameColumn?.getFilterValue() as string) ?? ""}
-          onChange={(e) => nameColumn?.setFilterValue(e.target.value)}
+          placeholder="Search intakes..."
+          value={(table.getState().globalFilter as string) ?? ""}
+          onChange={(e) => table.setGlobalFilter(e.target.value)}
           className="h-8 pl-8"
         />
       </div>
