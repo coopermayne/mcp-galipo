@@ -1,7 +1,12 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake } from "@/types/intake"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
+import { analyzeIntake } from "@/services/intakes"
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
@@ -51,6 +56,43 @@ function SolDays({ days }: { days: number }) {
     )
   }
   return <span>{days}</span>
+}
+
+function AiRatingCell({ intake }: { intake: Intake }) {
+  const queryClient = useQueryClient()
+  const analyzeMutation = useMutation({
+    mutationFn: () => analyzeIntake(intake.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["intakes"] })
+      toast.success("AI analysis started")
+    },
+    onError: () => toast.error("Failed to start analysis"),
+  })
+
+  if (intake.ai_analyzing || analyzeMutation.isPending) {
+    return (
+      <span className="text-muted-foreground animate-pulse text-xs">
+        Analyzing...
+      </span>
+    )
+  }
+
+  if (intake.ai_rating != null) {
+    return <span>{intake.ai_rating}/5</span>
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        analyzeMutation.mutate()
+      }}
+      className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      title="Run AI analysis"
+    >
+      <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+    </button>
+  )
 }
 
 export function getColumns(options: {
@@ -117,17 +159,7 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="AI Rating" />
       ),
-      cell: ({ row }) => {
-        if (row.original.ai_analyzing) {
-          return (
-            <span className="text-muted-foreground animate-pulse text-xs">
-              Analyzing...
-            </span>
-          )
-        }
-        const rating = row.getValue("ai_rating") as number | null
-        return rating != null ? `${rating}/5` : "—"
-      },
+      cell: ({ row }) => <AiRatingCell intake={row.original} />,
     },
     {
       accessorKey: "status",
