@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import { Link, useLocation } from "react-router"
 import {
   Collapsible,
@@ -13,6 +14,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
@@ -25,6 +27,16 @@ function isActive(itemUrl: string, pathname: string) {
 
 export function NavMain({ groups }: { groups: NavGroup[] }) {
   const { pathname } = useLocation()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  // Close mobile sidebar on navigation (not on initial mount)
+  const prevPathname = useRef(pathname)
+  useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      prevPathname.current = pathname
+      if (isMobile) setOpenMobile(false)
+    }
+  }, [pathname, isMobile, setOpenMobile])
 
   return (
     <SidebarGroup>
