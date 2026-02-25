@@ -4,6 +4,7 @@ import {
   Add01Icon,
   Search01Icon,
   ArrowTurnBackwardIcon,
+  SparklesIcon,
 } from "@hugeicons/core-free-icons"
 import { useQuery } from "@tanstack/react-query"
 import { getEvents } from "@/services/events"
@@ -22,9 +23,10 @@ import { cn } from "@/lib/utils"
 interface CaseEventsCardProps {
   caseId: number
   onAdd: () => void
+  onAiAdd?: () => void
 }
 
-export function CaseEventsCard({ caseId, onAdd }: CaseEventsCardProps) {
+export function CaseEventsCard({ caseId, onAdd, onAiAdd }: CaseEventsCardProps) {
   const [search, setSearch] = useState("")
   const [showPast, setShowPast] = useState(false)
 
@@ -65,6 +67,16 @@ export function CaseEventsCard({ caseId, onAdd }: CaseEventsCardProps) {
           )}
         </CardTitle>
         <CardAction>
+          {onAiAdd && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              onClick={onAiAdd}
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

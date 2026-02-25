@@ -172,7 +172,7 @@ function DraggableRootNode({
         setDragRef(el)
         setDropRef(el)
       }}
-      className={`${isDragging ? "opacity-30" : ""} ${isOver ? "bg-accent/50" : ""} transition-colors`}
+      className={`${isDragging ? "opacity-30" : ""} ${isOver ? "bg-accent" : ""} transition-colors`}
     >
       <div className="flex items-center gap-1">
         <button
@@ -270,7 +270,7 @@ function RootDropZone({ isVisible, prefix }: { isVisible: boolean; prefix: strin
     <div
       ref={setNodeRef}
       className={`h-6 border border-dashed flex items-center justify-center text-[10px] text-muted-foreground transition-colors ${
-        isOver ? "border-foreground bg-accent/50 text-foreground" : "border-muted-foreground/30"
+        isOver ? "border-foreground bg-accent text-foreground" : "border-muted-foreground/30"
       }`}
     >
       Drop here to un-nest

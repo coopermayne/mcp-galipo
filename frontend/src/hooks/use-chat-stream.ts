@@ -17,9 +17,10 @@ export interface ToolActivity {
 
 interface UseChatStreamOptions {
   mode: string
+  caseContext?: number
 }
 
-export function useChatStream({ mode }: UseChatStreamOptions) {
+export function useChatStream({ mode, caseContext }: UseChatStreamOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const conversationIdRef = useRef<string | null>(null)
@@ -54,6 +55,7 @@ export function useChatStream({ mode }: UseChatStreamOptions) {
             message: text,
             conversation_id: conversationIdRef.current,
             mode,
+            ...(caseContext != null && { case_context: caseContext }),
           }),
         })
 
@@ -193,7 +195,7 @@ export function useChatStream({ mode }: UseChatStreamOptions) {
         setIsStreaming(false)
       }
     },
-    [mode]
+    [mode, caseContext]
   )
 
   return {

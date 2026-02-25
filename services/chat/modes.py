@@ -55,6 +55,29 @@ Common event patterns:
 
 Keep responses brief and action-oriented.""",
     },
+    "tasks_events": {
+        "tools": [
+            "search",
+            "get_details",
+            "manage_task",
+            "manage_event",
+        ],
+        "system_prompt_addition": """You are in TASKS & EVENTS mode - help the user add and manage both tasks and calendar events.
+
+Use this heuristic to decide which to create:
+- EVENTS have a specific date/time (hearings, depositions, mediations, deadlines with a calendar date)
+- TASKS are action items without a fixed calendar slot (follow ups, filings to prepare, calls to make)
+- When in doubt, ask the user
+
+When the user wants to add items:
+1. If they give you enough info, create immediately using the right tool (manage_task or manage_event)
+2. If info is missing, ask brief clarifying questions
+3. After creating, briefly confirm what was added
+
+IMPORTANT: If the user provides MULTIPLE items in a single message, create ALL of them by calling the appropriate tool for EACH one in a SINGLE response (parallel tool calls). Do not ask for confirmation - just create them all at once.
+
+Keep responses brief and action-oriented.""",
+    },
     "people": {
         "tools": [
             "search",
