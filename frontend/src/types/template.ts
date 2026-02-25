@@ -59,8 +59,10 @@ export interface RFPRequest {
 
 export interface RFPRequestWithObjections extends RFPRequest {
   objection_short_names: string[]
-  will_produce: boolean
-  withheld_on_objections: boolean
+  documents_produced: boolean
+  will_produce_later: boolean
+  documents_withheld: boolean
+  no_documents: boolean
 }
 
 export interface RFPExtractResponse {

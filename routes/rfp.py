@@ -198,8 +198,10 @@ def register_rfp_routes(mcp):
                 number=req.get("number", 0),
                 text=req.get("text", ""),
                 objections=formal_texts,
-                will_produce=req.get("will_produce", False),
-                withheld_on_objections=req.get("withheld_on_objections", False),
+                documents_produced=req.get("documents_produced", False),
+                will_produce_later=req.get("will_produce_later", False),
+                documents_withheld=req.get("documents_withheld", False),
+                no_documents=req.get("no_documents", False),
             ))
 
         responding_party = case_info.get("responding_party", "Responding Party")

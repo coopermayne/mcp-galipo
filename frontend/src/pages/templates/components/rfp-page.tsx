@@ -238,8 +238,10 @@ export function RFPPage() {
         response.requests.map((r) => ({
           ...r,
           objection_short_names: [],
-          will_produce: false,
-          withheld_on_objections: false,
+          documents_produced: false,
+          will_produce_later: false,
+          documents_withheld: false,
+          no_documents: false,
         }))
       )
       const set = response.case_info.set_number || "One"
@@ -331,11 +333,11 @@ export function RFPPage() {
     []
   )
 
-  // Toggle will_produce / withheld
-  const toggleRequestField = useCallback(
+  // Toggle response option
+  const toggleResponseField = useCallback(
     (
       reqIndex: number,
-      field: "will_produce" | "withheld_on_objections"
+      field: "documents_produced" | "will_produce_later" | "documents_withheld" | "no_documents"
     ) => {
       setRequests((prev) =>
         prev.map((req, i) => {
@@ -827,30 +829,24 @@ export function RFPPage() {
                   )}
 
                   {/* Response options */}
-                  <div className="flex items-center gap-4 pl-16">
-                    <label className="flex cursor-pointer items-center gap-1.5">
-                      <Checkbox
-                        checked={req.will_produce}
-                        onCheckedChange={() =>
-                          toggleRequestField(idx, "will_produce")
-                        }
-                      />
-                      <span className="text-muted-foreground text-xs">
-                        Will produce documents
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-1.5">
-                      <Checkbox
-                        checked={req.withheld_on_objections}
-                        onCheckedChange={() =>
-                          toggleRequestField(idx, "withheld_on_objections")
-                        }
-                      />
-                      <span className="text-muted-foreground text-xs">
-                        Documents withheld on objections
-                      </span>
-                    </label>
-                    {req.withheld_on_objections && (
+                  <div className="flex flex-wrap items-center gap-4 pl-16">
+                    {([
+                      ["documents_produced", "Documents produced"],
+                      ["will_produce_later", "Will produce later"],
+                      ["documents_withheld", "Documents withheld"],
+                      ["no_documents", "Reasonable search, no documents"],
+                    ] as const).map(([field, label]) => (
+                      <label key={field} className="flex cursor-pointer items-center gap-1.5">
+                        <Checkbox
+                          checked={req[field]}
+                          onCheckedChange={() => toggleResponseField(idx, field)}
+                        />
+                        <span className="text-muted-foreground text-xs">
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                    {req.documents_withheld && (
                       <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                         <HugeiconsIcon
                           icon={Alert02Icon}

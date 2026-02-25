@@ -21,8 +21,10 @@ class RFPRequestData:
     number: int = 0
     text: str = ""
     objections: List[str] = field(default_factory=list)  # List of formal_language strings
-    will_produce: bool = False
-    withheld_on_objections: bool = False
+    documents_produced: bool = False
+    will_produce_later: bool = False
+    documents_withheld: bool = False
+    no_documents: bool = False
 
 
 @dataclass
@@ -93,35 +95,77 @@ class RFPContext:
 
 
 def _build_response_text(req: RFPRequestData, responding_party: str) -> str:
-    """Build the response text for a single request."""
+    """Build the response text for a single request.
+
+    Multiple response flags can be combined (e.g. documents_produced + documents_withheld).
+    Each checked flag adds its paragraph to the response.
+    """
     parts = []
+    has_objections = bool(req.objections)
+    subject_to = "Subject to and without waiving the foregoing objections, "
 
-    if req.objections:
-        objection_text = " ".join(req.objections)
-        parts.append(objection_text)
+    if has_objections:
+        parts.append(" ".join(req.objections))
 
-    if req.will_produce and req.objections:
-        parts.append(
-            f"Subject to and without waiving the foregoing objections, "
-            f"{responding_party} will produce all responsive, non-privileged "
-            f"documents in their possession, custody, or control."
-        )
-    elif req.will_produce and not req.objections:
-        parts.append(
-            f"{responding_party} will produce all responsive, non-privileged "
-            f"documents in their possession, custody, or control."
-        )
-    elif req.withheld_on_objections and req.objections:
-        parts.append(
-            f"Based on the foregoing objections, {responding_party} declines "
-            f"to produce documents responsive to this request."
-        )
-    elif not req.objections and not req.will_produce:
-        parts.append(
+    response_parts = []
+
+    if req.documents_produced:
+        if has_objections:
+            response_parts.append(
+                f"{subject_to}{responding_party} has produced all responsive, "
+                f"non-privileged documents in their possession, custody, or control."
+            )
+        else:
+            response_parts.append(
+                f"{responding_party} has produced all responsive, non-privileged "
+                f"documents in their possession, custody, or control."
+            )
+
+    if req.will_produce_later:
+        if has_objections and not req.documents_produced:
+            response_parts.append(
+                f"{subject_to}{responding_party} will produce all responsive, "
+                f"non-privileged documents in their possession, custody, or control."
+            )
+        else:
+            response_parts.append(
+                f"{responding_party} will produce all responsive, non-privileged "
+                f"documents in their possession, custody, or control."
+            )
+
+    if req.documents_withheld:
+        if has_objections:
+            response_parts.append(
+                f"Based on the foregoing objections, {responding_party} declines "
+                f"to produce documents responsive to this request."
+            )
+        else:
+            response_parts.append(
+                f"{responding_party} declines to produce documents responsive "
+                f"to this request."
+            )
+
+    if req.no_documents:
+        if has_objections and not response_parts:
+            response_parts.append(
+                f"{subject_to}after a reasonable and diligent search, "
+                f"{responding_party} responds that there are no documents "
+                f"responsive to this request in their possession, custody, or control."
+            )
+        else:
+            response_parts.append(
+                f"After a reasonable and diligent search, {responding_party} responds "
+                f"that there are no documents responsive to this request in their "
+                f"possession, custody, or control."
+            )
+
+    if not response_parts:
+        response_parts.append(
             f"{responding_party} responds that there are no documents "
             f"responsive to this request in their possession, custody, or control."
         )
 
+    parts.extend(response_parts)
     return "\n\n".join(parts)
 
 
