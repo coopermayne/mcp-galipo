@@ -92,7 +92,7 @@ def set_ai_analyzing(intake_id: int, analyzing: bool) -> None:
             session.commit()
 
 
-def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_reasoning: str, location_short: Optional[str] = None) -> Optional[dict]:
+def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_reasoning: str, location_short: Optional[str] = None, ai_injury_rating: Optional[int] = None) -> Optional[dict]:
     """Save AI analysis results for an intake and clear ai_analyzing flag."""
     with SessionLocal() as session:
         intake = session.get(Intake, intake_id)
@@ -101,6 +101,7 @@ def save_ai_analysis(intake_id: int, ai_summary: str, ai_rating: int, ai_rating_
         intake.ai_summary = ai_summary
         intake.ai_rating = ai_rating
         intake.ai_rating_reasoning = ai_rating_reasoning
+        intake.ai_injury_rating = ai_injury_rating
         intake.location_short = location_short
         intake.ai_analyzing = False
         session.flush()
