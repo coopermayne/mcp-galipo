@@ -49,7 +49,7 @@ export interface CaseDetail {
   persons: CasePerson[]
   events: CaseEvent[]
   tasks: CaseTask[]
-  notes: CaseNote[]
+  notes: string | null
   proceedings: CaseProceeding[]
 }
 
@@ -106,13 +106,6 @@ export interface CaseTask {
   updated_at: string | null
   assignee_id: number | null
   event_description: string | null
-}
-
-export interface CaseNote {
-  id: number
-  content: string
-  created_at: string | null
-  updated_at: string | null
 }
 
 export interface CaseProceeding {

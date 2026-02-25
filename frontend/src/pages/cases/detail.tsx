@@ -30,6 +30,7 @@ export default function CaseDetailPage() {
   // Dialog state
   const [addPersonOpen, setAddPersonOpen] = useState(false)
   const [addPersonCategory, setAddPersonCategory] = useState("client")
+  const [addPersonRoleId, setAddPersonRoleId] = useState<number | null>(null)
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   const [addEventOpen, setAddEventOpen] = useState(false)
   const [addProceedingOpen, setAddProceedingOpen] = useState(false)
@@ -65,8 +66,9 @@ export default function CaseDetailPage() {
     [nestMutation]
   )
 
-  function openAddPerson(category: string) {
+  function openAddPerson(category: string, roleId: number) {
     setAddPersonCategory(category)
+    setAddPersonRoleId(roleId)
     setAddPersonOpen(true)
   }
 
@@ -172,7 +174,7 @@ export default function CaseDetailPage() {
               onAdd={() => setAddEventOpen(true)}
               onAiAdd={() => setAiTasksEventsOpen(true)}
             />
-            <CaseNotesPanel notes={caseData.notes} caseId={caseData.id} />
+            <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
           </div>
 
           {/* Right column — activity feed + summary/dates */}
@@ -190,6 +192,7 @@ export default function CaseDetailPage() {
           onOpenChange={setAddPersonOpen}
           caseId={caseData.id}
           category={addPersonCategory}
+          roleId={addPersonRoleId}
         />
         <AddTaskDialog
           open={addTaskOpen}

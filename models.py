@@ -286,10 +286,12 @@ class Case(Base):
         ARRAY(Integer()), server_default=text("'{}'::integer[]")
     )
 
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case")
     events: Mapped[list[Event]] = relationship(back_populates="case")
-    notes: Mapped[list[Note]] = relationship(back_populates="case")
+    note_records: Mapped[list[Note]] = relationship(back_populates="case")
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case")
     proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case")
     tasks: Mapped[list[Task]] = relationship(back_populates="case")
@@ -567,7 +569,7 @@ class Note(Base):
     )
 
     # Relationships
-    case: Mapped[Optional[Case]] = relationship(back_populates="notes")
+    case: Mapped[Optional[Case]] = relationship(back_populates="note_records")
 
 
 class PersonRole(Base):

@@ -32,6 +32,7 @@ class UpdateCaseInput(BaseModel):
     case_summary: Optional[str] = None
     result: Optional[str] = None
     date_of_injury: Optional[str] = None
+    notes: Optional[str] = None
 
 
 # =============================================================================
