@@ -1,8 +1,10 @@
 export default function CourtListenerPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">CourtListener</h1>
-      <p className="text-muted-foreground mt-1">CourtListener integration will go here.</p>
+    <div className="flex flex-col gap-4 p-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">CourtListener</h1>
+        <p className="text-muted-foreground text-sm">CourtListener integration will go here.</p>
+      </div>
     </div>
   )
 }

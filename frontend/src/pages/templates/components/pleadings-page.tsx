@@ -149,7 +149,7 @@ function FormField({
         {isValid && (
           <HugeiconsIcon
             icon={Tick02Icon}
-            className="size-3 text-green-500"
+            className="size-3 text-success"
             strokeWidth={2}
           />
         )}

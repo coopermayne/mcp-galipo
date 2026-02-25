@@ -242,7 +242,7 @@ function ToolIndicator({ tool }: { tool: ToolActivity }) {
       ) : tool.isError ? (
         <span className="text-destructive">Failed to create {label}</span>
       ) : (
-        <span className="text-green-600">Created {label}</span>
+        <span className="text-success">Created {label}</span>
       )}
     </div>
   )

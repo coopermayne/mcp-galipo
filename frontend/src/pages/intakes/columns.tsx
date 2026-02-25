@@ -42,12 +42,12 @@ function daysUntil(doi: string, months: number): number {
 function SolDays({ days }: { days: number }) {
   if (days < 0) {
     return (
-      <span className="rounded bg-red-100 px-1 text-red-600">{days}</span>
+      <span className="bg-destructive/15 px-1 text-destructive">{days}</span>
     )
   }
   if (days <= 30) {
     return (
-      <span className="rounded bg-yellow-100 px-1 text-yellow-700">{days}</span>
+      <span className="bg-warning/15 px-1 text-warning-foreground">{days}</span>
     )
   }
   return <span>{days}</span>

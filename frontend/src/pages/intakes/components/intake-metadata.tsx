@@ -44,8 +44,8 @@ function daysUntil(doi: string, months: number): number {
 }
 
 function solColor(days: number): string {
-  if (days < 0) return "text-red-600 dark:text-red-400"
-  if (days <= 30) return "text-yellow-700 dark:text-yellow-400"
+  if (days < 0) return "text-destructive"
+  if (days <= 30) return "text-warning-foreground"
   return "text-muted-foreground"
 }
 
