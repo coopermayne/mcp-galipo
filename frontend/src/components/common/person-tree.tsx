@@ -50,6 +50,7 @@ const ROLE_COLORS: Record<string, string> = {
 interface PersonTreeProps {
   persons: CasePerson[]
   onNest?: (assignmentId: number, groupedUnderId: number | null) => void
+  onPersonClick?: (person: CasePerson) => void
 }
 
 interface TreeNode {
@@ -82,13 +83,16 @@ function formatRoleName(name: string): string {
     .join(" ")
 }
 
-function PersonNodeContent({ person, isDragOverlay }: { person: CasePerson; isDragOverlay?: boolean }) {
+function PersonNodeContent({ person, isDragOverlay, onClick }: { person: CasePerson; isDragOverlay?: boolean; onClick?: (person: CasePerson) => void }) {
   const hasPhone = Array.isArray(person.phones) && person.phones.length > 0
   const hasEmail = Array.isArray(person.emails) && person.emails.length > 0
   const badgeStyle = getBadgeStyle(ROLE_COLORS[person.role.name])
 
   return (
-    <div className={`flex items-center gap-2 py-1 text-sm group/person ${isDragOverlay ? "bg-background shadow-md px-2" : ""}`}>
+    <div
+      className={`flex items-center gap-2 py-1 text-sm group/person ${isDragOverlay ? "bg-background shadow-md px-2" : ""} ${onClick ? "cursor-pointer hover:bg-accent/50 transition-colors" : ""}`}
+      onClick={onClick ? () => onClick(person) : undefined}
+    >
       <span className="font-medium truncate">{person.name}</span>
       <Badge
         variant="outline"
@@ -138,9 +142,11 @@ function PersonNodeContent({ person, isDragOverlay }: { person: CasePerson; isDr
 function DraggableRootNode({
   node,
   prefix,
+  onPersonClick,
 }: {
   node: TreeNode
   prefix: string
+  onPersonClick?: (person: CasePerson) => void
 }) {
   const {
     attributes,
@@ -178,7 +184,7 @@ function DraggableRootNode({
           <HugeiconsIcon icon={DragDropIcon} className="size-3.5" />
         </button>
         <div className="flex-1 min-w-0">
-          <PersonNodeContent person={node.person} />
+          <PersonNodeContent person={node.person} onClick={onPersonClick} />
         </div>
       </div>
       {node.children.length > 0 && (
@@ -188,6 +194,7 @@ function DraggableRootNode({
               key={child.person.assignment_id}
               node={child}
               prefix={prefix}
+              onPersonClick={onPersonClick}
             />
           ))}
         </div>
@@ -200,9 +207,11 @@ function DraggableRootNode({
 function DraggableChildNode({
   node,
   prefix,
+  onPersonClick,
 }: {
   node: TreeNode
   prefix: string
+  onPersonClick?: (person: CasePerson) => void
 }) {
   const {
     attributes,
@@ -226,21 +235,21 @@ function DraggableChildNode({
           <HugeiconsIcon icon={DragDropIcon} className="size-3.5" />
         </button>
         <div className="flex-1 min-w-0">
-          <PersonNodeContent person={node.person} />
+          <PersonNodeContent person={node.person} onClick={onPersonClick} />
         </div>
       </div>
     </div>
   )
 }
 
-function StaticPersonNode({ node }: { node: TreeNode }) {
+function StaticPersonNode({ node, onPersonClick }: { node: TreeNode; onPersonClick?: (person: CasePerson) => void }) {
   return (
     <div>
-      <PersonNodeContent person={node.person} />
+      <PersonNodeContent person={node.person} onClick={onPersonClick} />
       {node.children.length > 0 && (
         <div className="ml-3 border-l border-border pl-3">
           {node.children.map((child) => (
-            <StaticPersonNode key={child.person.assignment_id} node={child} />
+            <StaticPersonNode key={child.person.assignment_id} node={child} onPersonClick={onPersonClick} />
           ))}
         </div>
       )}
@@ -269,7 +278,7 @@ function RootDropZone({ isVisible, prefix }: { isVisible: boolean; prefix: strin
   )
 }
 
-export function PersonTree({ persons, onNest }: PersonTreeProps) {
+export function PersonTree({ persons, onNest, onPersonClick }: PersonTreeProps) {
   const tree = useMemo(() => buildTree(persons), [persons])
   const [activeId, setActiveId] = useState<number | null>(null)
   const prefix = useId()
@@ -296,7 +305,7 @@ export function PersonTree({ persons, onNest }: PersonTreeProps) {
     return (
       <div className="space-y-0.5">
         {tree.map((node) => (
-          <StaticPersonNode key={node.person.assignment_id} node={node} />
+          <StaticPersonNode key={node.person.assignment_id} node={node} onPersonClick={onPersonClick} />
         ))}
       </div>
     )
@@ -348,6 +357,7 @@ export function PersonTree({ persons, onNest }: PersonTreeProps) {
             key={node.person.assignment_id}
             node={node}
             prefix={prefix}
+            onPersonClick={onPersonClick}
           />
         ))}
         <RootDropZone isVisible={activeId != null} prefix={prefix} />
