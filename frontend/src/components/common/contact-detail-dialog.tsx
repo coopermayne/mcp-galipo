@@ -40,6 +40,8 @@ interface ContactDetailDialogProps {
   person: PersonListItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Additional query keys to invalidate on mutation success */
+  extraInvalidateKeys?: unknown[][]
 }
 
 function ContactInfoRow({
@@ -117,6 +119,7 @@ export function ContactDetailDialog({
   person,
   open,
   onOpenChange,
+  extraInvalidateKeys,
 }: ContactDetailDialogProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -133,6 +136,11 @@ export function ContactDetailDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["persons"] })
       queryClient.invalidateQueries({ queryKey: ["person", person?.id] })
+      if (extraInvalidateKeys) {
+        for (const key of extraInvalidateKeys) {
+          queryClient.invalidateQueries({ queryKey: key })
+        }
+      }
     },
     onError: (e) => toast.error(e.message),
   })

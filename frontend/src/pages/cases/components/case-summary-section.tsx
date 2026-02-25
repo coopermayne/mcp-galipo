@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react"
-import type { CaseDetail } from "@/types/case"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Add01Icon } from "@hugeicons/core-free-icons"
+import type { CaseDetail, CasePerson } from "@/types/case"
+import type { PersonListItem } from "@/types/person"
 import { Button } from "@/components/ui/button"
-import { PeopleModal } from "./people-modal"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { PersonTree } from "@/components/common/person-tree"
+import { ContactDetailDialog } from "@/components/common/contact-detail-dialog"
 import { ProceedingsModal } from "./proceedings-modal"
 
 interface CaseSummarySectionProps {
@@ -41,6 +46,14 @@ const PERSON_BUTTONS: { category: string; label: string }[] = [
   { category: "other", label: "Other" },
 ]
 
+const CATEGORY_LABELS: Record<string, string> = {
+  client: "Clients",
+  defendant: "Defendants",
+  counsel: "Counsel & Mediators",
+  expert: "Experts",
+  other: "Other",
+}
+
 /** Format judges array into compact string like "Judge X, Mag. Judge Y" */
 function formatJudges(judges: { name: string; role: string | null }[]): string {
   return judges
@@ -52,6 +65,20 @@ function formatJudges(judges: { name: string; role: string | null }[]): string {
     .join(", ")
 }
 
+/** Map a CasePerson to the PersonListItem shape that ContactDetailDialog expects. */
+function casePersonToListItem(p: CasePerson): PersonListItem {
+  return {
+    id: p.id,
+    name: p.name,
+    phones: (p.phones ?? []) as PersonListItem["phones"],
+    emails: (p.emails ?? []) as PersonListItem["emails"],
+    organization: p.organization,
+    notes: p.person_notes,
+    archived: null,
+    created_at: null,
+  }
+}
+
 export function CaseSummarySection({
   caseData,
   onAddPerson,
@@ -60,6 +87,7 @@ export function CaseSummarySection({
 }: CaseSummarySectionProps) {
   const counts = usePersonCounts(caseData)
   const [peopleCategory, setPeopleCategory] = useState<string | null>(null)
+  const [selectedPerson, setSelectedPerson] = useState<PersonListItem | null>(null)
   const [proceedingsOpen, setProceedingsOpen] = useState(false)
 
   const primary = useMemo(
@@ -84,6 +112,25 @@ export function CaseSummarySection({
   }, [primary])
 
   const proceedingCount = caseData.proceedings.length
+
+  // Filter persons for the active drawer category
+  const filteredPersons = useMemo(() => {
+    if (!peopleCategory) return []
+    if (peopleCategory === "counsel") {
+      return caseData.persons.filter(
+        (p) => p.role.category === "counsel" || p.role.category === "mediator"
+      )
+    }
+    return caseData.persons.filter((p) => p.role.category === peopleCategory)
+  }, [caseData.persons, peopleCategory])
+
+  function toggleCategory(category: string) {
+    setPeopleCategory((prev) => (prev === category ? null : category))
+  }
+
+  function handlePersonClick(person: CasePerson) {
+    setSelectedPerson(casePersonToListItem(person))
+  }
 
   return (
     <>
@@ -113,32 +160,66 @@ export function CaseSummarySection({
         <div className="flex flex-wrap gap-1.5">
           {PERSON_BUTTONS.map(({ category, label }) => {
             const count = counts[category] || 0
+            const isActive = peopleCategory === category
             return (
               <Button
                 key={category}
-                variant="outline"
+                variant={isActive ? "default" : "outline"}
                 size="sm"
                 className="h-6 px-2 text-xs"
-                onClick={() => setPeopleCategory(category)}
+                onClick={() => toggleCategory(category)}
               >
                 {label} ({count})
               </Button>
             )
           })}
         </div>
+
+        {/* Inline people drawer */}
+        {peopleCategory && (
+          <div className="border border-border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {CATEGORY_LABELS[peopleCategory] ?? peopleCategory}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 gap-1 px-2 text-xs"
+                onClick={() => onAddPerson(peopleCategory)}
+              >
+                <HugeiconsIcon icon={Add01Icon} className="size-3" />
+                Add
+              </Button>
+            </div>
+            <TooltipProvider>
+              {filteredPersons.length > 0 ? (
+                <PersonTree
+                  persons={filteredPersons}
+                  onNest={onNest}
+                  onPersonClick={handlePersonClick}
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground py-1">
+                  No persons in this category.
+                </p>
+              )}
+            </TooltipProvider>
+          </div>
+        )}
       </div>
 
-      {/* Modals */}
-      <PeopleModal
-        open={peopleCategory !== null}
-        onOpenChange={(open) => !open && setPeopleCategory(null)}
-        category={peopleCategory ?? "client"}
-        persons={caseData.persons}
-        onAdd={() => {
-          if (peopleCategory) onAddPerson(peopleCategory)
+      {/* Contact detail dialog */}
+      <ContactDetailDialog
+        person={selectedPerson}
+        open={!!selectedPerson}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPerson(null)
         }}
-        onNest={onNest}
+        extraInvalidateKeys={[["case", caseData.id]]}
       />
+
+      {/* Proceedings modal */}
       <ProceedingsModal
         open={proceedingsOpen}
         onOpenChange={setProceedingsOpen}

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/collapsible"
 import type { PersonListItem } from "@/types/person"
 import { ContactListItem } from "@/pages/contacts/components/contact-list-item"
-import { ContactDetailDialog } from "@/pages/contacts/components/contact-detail-dialog"
+import { ContactDetailDialog } from "@/components/common/contact-detail-dialog"
 import { categoryLabel } from "@/pages/contacts/contact-data"
 
 interface ContactsListViewProps {
