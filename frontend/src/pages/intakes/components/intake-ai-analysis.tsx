@@ -127,11 +127,31 @@ export function IntakeAiAnalysis({ intake }: IntakeAiAnalysisProps) {
       </div>
 
       {intake.ai_rating != null && (
-        <div className="mb-3">
-          <RatingDisplay
-            rating={intake.ai_rating}
-            reasoning={intake.ai_rating_reasoning}
-          />
+        <div className="mb-3 flex items-center gap-6">
+          <div>
+            <span className="text-muted-foreground mb-1 block text-xs">Case Quality</span>
+            <RatingDisplay
+              rating={intake.ai_rating}
+              reasoning={intake.ai_rating_reasoning}
+            />
+          </div>
+          {intake.ai_injury_rating != null && (
+            <div>
+              <span className="text-muted-foreground mb-1 block text-xs">Injury Severity</span>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{intake.ai_injury_rating}</span>
+                <span className="text-muted-foreground text-sm">/5</span>
+                <div className="ml-2 flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-2 w-4 ${i < intake.ai_injury_rating! ? "bg-primary" : "bg-muted"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

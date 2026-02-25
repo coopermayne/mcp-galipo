@@ -215,9 +215,20 @@ export function getColumns(options: {
     {
       accessorKey: "ai_rating",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="AI Rating" />
+        <DataTableColumnHeader column={column} title="Case" />
       ),
       cell: ({ row }) => <AiRatingCell intake={row.original} />,
+    },
+    {
+      accessorKey: "ai_injury_rating",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Injury" />
+      ),
+      cell: ({ row }) => {
+        const rating = row.original.ai_injury_rating
+        if (rating == null) return <span className="text-muted-foreground">—</span>
+        return <span>{rating}/5</span>
+      },
     },
     {
       accessorKey: "status",

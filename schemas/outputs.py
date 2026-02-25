@@ -541,6 +541,7 @@ class IntakeOut(BaseModel):
     ai_summary: Optional[str] = None
     ai_rating: Optional[int] = None
     ai_rating_reasoning: Optional[str] = None
+    ai_injury_rating: Optional[int] = None
     location_short: Optional[str] = None
     ai_analyzing: bool = False
     google_row_number: Optional[int] = None
