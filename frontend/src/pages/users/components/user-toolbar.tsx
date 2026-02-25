@@ -24,8 +24,8 @@ export function UserToolbar({
   const nameColumn = table.getColumn("lastName")
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative max-w-sm flex-1">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative min-w-[150px] max-w-sm flex-1">
         <HugeiconsIcon
           icon={Search01Icon}
           className="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2"

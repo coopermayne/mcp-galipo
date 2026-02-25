@@ -77,7 +77,7 @@ export function CaseDetailHeader({ caseData }: CaseDetailHeaderProps) {
 
   return (
     <div>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         <InlineEditField
           value={caseData.case_name}
           onSave={(v) => updateMutation.mutate({ case_name: v })}
