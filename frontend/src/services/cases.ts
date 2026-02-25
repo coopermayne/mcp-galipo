@@ -70,9 +70,11 @@ export async function createCase(
   return res.json()
 }
 
+export type UpdateCaseData = Partial<CreateCaseData> & { notes?: string }
+
 export async function updateCase(
   id: number,
-  data: Partial<CreateCaseData>
+  data: UpdateCaseData
 ): Promise<{ success: boolean; case: CaseDetail }> {
   const res = await apiFetch(`/api/v1/cases/${id}`, {
     method: "PUT",

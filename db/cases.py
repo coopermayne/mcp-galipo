@@ -13,7 +13,7 @@ from sqlalchemy.orm import aliased
 from .session import SessionLocal
 from .validation import validate_case_status, validate_date_format
 from models import (
-    Case, User, PersonRole, Role, Person, Event, Task, Note,
+    Case, User, PersonRole, Role, Person, Event, Task,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
 )
 
@@ -174,6 +174,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "attorney_ids": case.attorney_ids,
             "paralegal_ids": case.paralegal_ids,
             "created_at": _sv(case.created_at),
+            "notes": case.notes,
             "updated_at": _sv(case.updated_at),
         }
 
@@ -257,14 +258,6 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             .order_by(Task.sort_order.asc())
         )
         result["tasks"] = [_row_to_dict(r) for r in session.execute(task_stmt)]
-
-        # Notes
-        note_stmt = (
-            select(Note.id, Note.content, Note.created_at, Note.updated_at)
-            .where(Note.case_id == case_id)
-            .order_by(Note.created_at.desc())
-        )
-        result["notes"] = [_row_to_dict(r) for r in session.execute(note_stmt)]
 
         # Proceedings with jurisdiction
         proc_stmt = (
@@ -377,7 +370,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
     """Update case fields. Case numbers are managed via proceedings."""
     allowed_fields = [
         "case_name", "short_name", "status", "print_code",
-        "case_summary", "result", "date_of_injury"
+        "case_summary", "result", "date_of_injury", "notes"
     ]
 
     with SessionLocal() as session:
