@@ -6,7 +6,6 @@ All MCP tools in one file to encourage keeping the tool count small.
 
 import asyncio
 import logging
-import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Optional, Literal
@@ -1224,36 +1223,6 @@ def register_tools(mcp):
     # MANAGE INTAKE
     # =========================================================================
 
-    _intake_logger = logging.getLogger(__name__ + ".intake")
-
-    def _run_background_analysis(intake_id: int, intake_data: dict, notes: str = "") -> None:
-        """Run AI analysis in a background thread, save results, broadcast SSE."""
-        from routes.sse import broadcast
-        try:
-            from services.intake_ai import analyze_intake
-            ai_result = analyze_intake(intake_data, notes=notes)
-            db.save_ai_analysis(
-                intake_id,
-                ai_result["ai_summary"],
-                ai_result["ai_rating"],
-                ai_result["ai_rating_reasoning"],
-                location_short=ai_result.get("ai_location_short"),
-            )
-            # Log analysis event
-            rating = ai_result["ai_rating"]
-            db.add_intake_comment(
-                intake_id, None,
-                f"AI analysis completed \u2014 rated {rating}/5",
-                True,
-                detail={"type": "ai_analysis", "rating": rating, "reasoning": ai_result["ai_rating_reasoning"], "is_regeneration": False},
-            )
-            # Broadcast from background thread — broadcast uses put_nowait which is thread-safe for asyncio queues
-            broadcast({"entity": "intake", "action": "analyzed", "id": intake_id, "intake_id": intake_id})
-        except Exception as e:
-            _intake_logger.warning("Background AI analysis failed for intake %d: %s", intake_id, e)
-            db.set_ai_analyzing(intake_id, False)
-            broadcast({"entity": "intake", "action": "updated", "id": intake_id, "intake_id": intake_id})
-
     @mcp.tool()
     def manage_intake(context: Context, data: ManageIntakeInput) -> dict:
         """Create or preview a new intake from parsed contact/incident information.
@@ -1288,19 +1257,11 @@ def register_tools(mcp):
                         kwargs[field] = val
                 result = db.create_intake(**kwargs)
 
-                # Mark as analyzing and broadcast so UI updates immediately
+                # Notify UI of the new intake
                 from routes.sse import broadcast
-                db.set_ai_analyzing(result["id"], True)
                 broadcast({"entity": "intake", "action": "created", "id": result["id"], "intake_id": result["id"]})
 
-                # Fire background AI analysis
-                thread = threading.Thread(
-                    target=_run_background_analysis,
-                    args=(result["id"], result, kwargs.get("notes", "")),
-                    daemon=True,
-                )
-                thread.start()
-
+                # AI analysis is auto-triggered by the SQLAlchemy after_insert event listener
                 return {"success": True, "message": "Intake created (AI analysis running in background)", "intake_id": result["id"], "intake": result}
 
         except Exception as e:

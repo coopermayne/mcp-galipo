@@ -6,6 +6,7 @@ Handles intake CRUD, Google Sheets sync, comments, and AI analysis.
 
 import asyncio
 import logging
+import threading
 
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -18,51 +19,6 @@ from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 from .sse import broadcast
 
 logger = logging.getLogger(__name__)
-
-
-async def _run_background_analysis(intake_id: int, intake_dict: dict):
-    """Run AI analysis in the background and broadcast results via SSE."""
-    try:
-        from services.intake_ai import analyze_intake
-        comments = await asyncio.to_thread(db.get_intake_comments, intake_id)
-        result = await asyncio.to_thread(
-            analyze_intake,
-            intake_dict,
-            notes=intake_dict.get("notes", ""),
-            comments=comments,
-        )
-        await asyncio.to_thread(
-            db.save_ai_analysis,
-            intake_id,
-            result["ai_summary"],
-            result["ai_rating"],
-            result["ai_rating_reasoning"],
-            result.get("ai_location_short"),
-        )
-
-        # Log analysis event
-        is_regen = intake_dict.get("ai_summary") is not None
-        rating = result["ai_rating"]
-        label = "regenerated" if is_regen else "completed"
-        await asyncio.to_thread(
-            db.add_intake_comment,
-            intake_id, None,
-            f"AI analysis {label} \u2014 rated {rating}/5",
-            True,  # is_system
-            {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
-        )
-
-        broadcast({
-            "entity": "intake", "action": "analyzed",
-            "id": intake_id, "intake_id": intake_id,
-        })
-    except Exception:
-        logger.exception("Background AI analysis failed for intake %d", intake_id)
-        await asyncio.to_thread(db.set_ai_analyzing, intake_id, False)
-        broadcast({
-            "entity": "intake", "action": "updated",
-            "id": intake_id, "intake_id": intake_id,
-        })
 
 
 def register_intake_routes(mcp):
@@ -114,14 +70,7 @@ def register_intake_routes(mcp):
             "id": result["id"], "intake_id": result["id"], "user_id": user_id,
         })
 
-        # Auto-trigger AI analysis in the background
-        await asyncio.to_thread(db.set_ai_analyzing, result["id"], True)
-        broadcast({
-            "entity": "intake", "action": "analyzing",
-            "id": result["id"], "intake_id": result["id"],
-        })
-        asyncio.create_task(_run_background_analysis(result["id"], result))
-
+        # AI analysis is auto-triggered by the SQLAlchemy after_insert event listener
         return JSONResponse({"success": True, "intake": result}, status_code=201)
 
     @mcp.custom_route("/api/v1/intakes/counts", methods=["GET"])
@@ -325,80 +274,12 @@ def register_intake_routes(mcp):
         await asyncio.to_thread(db.mark_intake_read, intake_id, user["id"])
         return JSONResponse({"success": True})
 
-    @mcp.custom_route("/api/v1/intakes/analyze", methods=["POST"])
-    async def api_analyze_intakes(request):
-        """Run AI analysis on intakes that haven't been analyzed yet."""
-        if err := auth.require_auth(request):
-            return err
-        user = auth.get_current_user(request)
-        user_id = user["id"] if user else 0
-
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
-        limit = int(body.get("limit", 20))
-        reanalyze = bool(body.get("reanalyze", False))
-
-        try:
-            from services.intake_ai import analyze_intake
-            ids = await asyncio.to_thread(db.get_unanalyzed_intake_ids, limit, reanalyze)
-            analyzed = 0
-            errors = 0
-            for intake_id in ids:
-                intake = await asyncio.to_thread(db.get_intake_by_id, intake_id)
-                if not intake:
-                    continue
-                try:
-                    result = await asyncio.to_thread(analyze_intake, intake)
-                    is_regen = intake.get("ai_summary") is not None
-                    await asyncio.to_thread(
-                        db.save_ai_analysis,
-                        intake_id,
-                        result["ai_summary"],
-                        result["ai_rating"],
-                        result["ai_rating_reasoning"],
-                        result.get("ai_location_short"),
-                    )
-                    # Log analysis event
-                    rating = result["ai_rating"]
-                    label = "regenerated" if is_regen else "completed"
-                    await asyncio.to_thread(
-                        db.add_intake_comment,
-                        intake_id, None,
-                        f"AI analysis {label} \u2014 rated {rating}/5",
-                        True,
-                        {"type": "ai_analysis", "rating": rating, "reasoning": result["ai_rating_reasoning"], "is_regeneration": is_regen},
-                    )
-                    analyzed += 1
-                except Exception as e:
-                    logger.warning("AI analysis failed for intake %d: %s", intake_id, e)
-                    errors += 1
-
-            if analyzed > 0:
-                broadcast({
-                    "entity": "intake", "action": "analyzed",
-                    "id": None, "intake_id": None, "user_id": user_id,
-                })
-
-            return JSONResponse({
-                "success": True,
-                "analyzed": analyzed,
-                "errors": errors,
-                "remaining": max(0, len(ids) - analyzed),
-            })
-        except RuntimeError as e:
-            return api_error(str(e), "CONFIG_ERROR", 400)
-        except Exception as e:
-            logger.exception("AI analysis batch failed")
-            return api_error(f"Analysis failed: {str(e)}", "ANALYSIS_ERROR", 500)
-
     @mcp.custom_route("/api/v1/intakes/{intake_id}/analyze", methods=["POST"])
     async def api_analyze_single_intake(request):
         """Run AI analysis on a single intake (non-blocking).
 
-        Sets ai_analyzing=True, returns 202, and runs analysis in the background.
-        When done, broadcasts SSE so the frontend refreshes.
+        Returns 202 immediately and runs analysis in a background thread.
+        The analysis pipeline handles SSE broadcasts internally.
         """
         if err := auth.require_auth(request):
             return err
@@ -408,14 +289,12 @@ def register_intake_routes(mcp):
         if not intake:
             return api_error("Intake not found", "NOT_FOUND", 404)
 
-        # Mark as analyzing and notify clients immediately
-        await asyncio.to_thread(db.set_ai_analyzing, intake_id, True)
-        broadcast({
-            "entity": "intake", "action": "analyzing",
-            "id": intake_id, "intake_id": intake_id,
-        })
-
-        asyncio.create_task(_run_background_analysis(intake_id, intake))
+        from services.intake_ai import run_background_analysis
+        threading.Thread(
+            target=run_background_analysis,
+            args=(intake_id,),
+            daemon=True,
+        ).start()
         return JSONResponse({"success": True, "message": "Analysis started"}, status_code=202)
 
     @mcp.custom_route("/api/v1/intakes/sync", methods=["POST"])
@@ -436,20 +315,7 @@ def register_intake_routes(mcp):
                 "id": None, "intake_id": None, "user_id": user_id,
             })
 
-            # Auto-trigger AI analysis for newly imported intakes
-            for iid in result.get("new_intake_ids", []):
-                try:
-                    intake_dict = await asyncio.to_thread(db.get_intake_by_id, iid)
-                    if intake_dict:
-                        await asyncio.to_thread(db.set_ai_analyzing, iid, True)
-                        broadcast({
-                            "entity": "intake", "action": "analyzing",
-                            "id": iid, "intake_id": iid,
-                        })
-                        asyncio.create_task(_run_background_analysis(iid, intake_dict))
-                except Exception:
-                    logger.warning("Failed to start AI analysis for synced intake %d", iid)
-
+            # AI analysis is auto-triggered by the SQLAlchemy after_insert event listener
             return JSONResponse({"success": True, **{k: v for k, v in result.items() if k != "new_intake_ids"}})
         except RuntimeError as e:
             # Config errors (missing credentials/spreadsheet ID)
