@@ -62,12 +62,12 @@ function IntakeToolIndicator({ tool }: { tool: ToolActivity }) {
       ) : tool.isError ? (
         <span className="text-destructive">Failed to create {label}</span>
       ) : (
-        <span className="text-green-600 inline-flex items-center gap-1.5">
+        <span className="text-success inline-flex items-center gap-1.5">
           Created {label}
           {intakeId && (
             <Link
               to={`/intakes/${intakeId}`}
-              className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-green-700"
+              className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-success/80"
             >
               View #{intakeId}
               <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />

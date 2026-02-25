@@ -162,7 +162,7 @@ export default function UsersPage() {
         }}
       />
 
-      <div className="rounded-md border">
+      <div className="border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
