@@ -5,6 +5,7 @@ Intake CRUD operations and Google Sheet sync.
 import datetime
 import logging
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, func
 
@@ -213,7 +214,7 @@ def create_intake(
             notes=notes,
             google_row_number=None,
             status="New",
-            submitted_on=datetime.datetime.now(),
+            submitted_on=datetime.datetime.now(ZoneInfo("America/Los_Angeles")).replace(tzinfo=None),
         )
         session.add(intake)
         session.flush()
