@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from "react"
-import { useParams, useNavigate } from "react-router"
+import { useParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { getIntake } from "@/services/intakes"
 import { IntakeDetailHeader } from "@/pages/intakes/components/intake-detail-header"
@@ -10,10 +10,10 @@ import { IntakeComments } from "@/pages/intakes/components/intake-comments"
 import { IntakeNotes } from "@/pages/intakes/components/intake-notes"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { ListNav } from "@/components/common/list-nav"
 
 export default function IntakeDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const intakeId = Number(id)
 
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
@@ -70,12 +70,7 @@ export default function IntakeDetailPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
-      >
-        &larr; Back
-      </button>
+      <ListNav basePath="/intakes" currentId={intakeId} />
       <IntakeDetailHeader intake={intake} onFocusComments={handleFocusComments} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

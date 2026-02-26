@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { ListNavState } from "@/components/common/list-nav"
 
 export default function IntakesPage() {
   const navigate = useNavigate()
@@ -51,7 +52,7 @@ export default function IntakesPage() {
     queryFn: () =>
       getIntakes({
         status: selectedStatus ?? undefined,
-        limit: 200,
+        limit: 2000,
         exclude_archived: selectedStatus === null,
       }),
   })
@@ -190,7 +191,14 @@ export default function IntakesPage() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/intakes/${row.original.id}`)}
+                  onClick={() => {
+                    const rows = table.getRowModel().rows
+                    const listIds = rows.map((r) => r.original.id)
+                    const listIndex = rows.findIndex((r) => r.id === row.id)
+                    navigate(`/intakes/${row.original.id}`, {
+                      state: { listIds, listIndex, listPath: `/intakes${window.location.search}` } satisfies ListNavState,
+                    })
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
