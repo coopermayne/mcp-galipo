@@ -141,6 +141,19 @@ class CreateIntakeCommentInput(BaseModel):
     content: str
 
 
+class CreateInteractionInput(BaseModel):
+    interaction_type: Literal["email", "phone"]
+    direction: Optional[Literal["inbound", "outbound"]] = None
+    content: str
+
+
+class SaveInteractionInput(BaseModel):
+    interaction_type: Literal["email", "phone"]
+    direction: Optional[Literal["inbound", "outbound"]] = None
+    content: str
+    summary: str
+
+
 # =============================================================================
 # Route Input Models — Case Comments
 # =============================================================================

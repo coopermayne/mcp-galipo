@@ -10,6 +10,8 @@ import {
   GlobeIcon,
   GridTableIcon,
   AiBrainIcon,
+  Mail01Icon,
+  SmartPhone01Icon,
 } from "@hugeicons/core-free-icons"
 import type { IntakeComment } from "@/types/intake"
 import type { IntakeStatus } from "@/types/intake"
@@ -30,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { StatusBadge } from "./status-badge"
+import { AddInteractionDialog } from "./add-interaction-dialog"
 import { cn } from "@/lib/utils"
 
 // --- Helpers ---
@@ -221,6 +224,25 @@ function DetailDialog({
     )
   }
 
+  if (detail.type === "interaction") {
+    const typeLabel = detail.interaction_type === "phone" ? "Phone Call" : "Email"
+    const dirLabel = detail.direction ? ` (${detail.direction})` : ""
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{typeLabel}{dirLabel} — Full Content</DialogTitle>
+          </DialogHeader>
+          <div className="pt-2">
+            <p className="whitespace-pre-wrap text-sm">
+              {String(detail.full_content ?? "")}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return null
 }
 
@@ -311,8 +333,45 @@ function AnalysisEntry({ comment }: { comment: IntakeComment }) {
   )
 }
 
+function InteractionEntry({ comment }: { comment: IntakeComment }) {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const detail = comment.detail as Record<string, unknown>
+  const isPhone = detail?.interaction_type === "phone"
+  const icon = isPhone ? SmartPhone01Icon : Mail01Icon
+
+  return (
+    <>
+      <div className="relative flex gap-3 py-2">
+        <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
+          <HugeiconsIcon icon={icon} className="size-3 text-muted-foreground" />
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+          <span>{comment.content}</span>
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="shrink-0 text-[10px] font-medium text-primary hover:underline"
+          >
+            View full content
+          </button>
+          <span className="ml-auto shrink-0 opacity-60">
+            {formatTime(comment.created_at)}
+          </span>
+        </div>
+      </div>
+      {detail && (
+        <DetailDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          detail={detail}
+        />
+      )}
+    </>
+  )
+}
+
 function TimelineEntry({ comment }: { comment: IntakeComment }) {
   if (comment.is_system) {
+    if (comment.detail?.type === "interaction") return <InteractionEntry comment={comment} />
     if (CREATION_RE.test(comment.content)) return <CreationEntry comment={comment} />
     if (ANALYSIS_RE.test(comment.content)) return <AnalysisEntry comment={comment} />
     const parsed = parseStatusChange(comment.content)
@@ -361,6 +420,7 @@ interface IntakeCommentsProps {
 export function IntakeComments({ intakeId, textareaRef }: IntakeCommentsProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState("")
+  const [interactionOpen, setInteractionOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const { data, isLoading } = useQuery({
@@ -418,9 +478,22 @@ export function IntakeComments({ intakeId, textareaRef }: IntakeCommentsProps) {
 
   return (
     <div className="flex h-full flex-col border">
-      <div className="shrink-0 border-b p-3">
+      <div className="flex shrink-0 items-center justify-between border-b p-3">
         <h3 className="text-sm font-semibold">Activity</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setInteractionOpen(true)}
+        >
+          Log Interaction
+        </Button>
       </div>
+      <AddInteractionDialog
+        intakeId={intakeId}
+        open={interactionOpen}
+        onOpenChange={setInteractionOpen}
+      />
 
       <div
         ref={scrollRef}

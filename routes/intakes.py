@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 import db
 import auth
-from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput
+from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput, CreateInteractionInput, SaveInteractionInput
 from schemas.common import INTAKE_TRANSITIONS
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 from .sse import broadcast
@@ -262,6 +262,83 @@ def register_intake_routes(mcp):
 
         comment = await asyncio.to_thread(
             db.add_intake_comment, intake_id, user["id"], data.content
+        )
+
+        broadcast({
+            "entity": "intake_comment", "action": "created",
+            "id": comment.get("id"), "intake_id": intake_id, "user_id": user["id"],
+        })
+        return JSONResponse(comment, status_code=201)
+
+    @mcp.custom_route("/api/v1/intakes/{intake_id}/interactions/summarize", methods=["POST"])
+    async def api_summarize_interaction(request):
+        """Generate an AI summary for an interaction (preview step)."""
+        if err := auth.require_auth(request):
+            return err
+        intake_id = int(request.path_params["intake_id"])
+
+        try:
+            data = CreateInteractionInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+
+        # Fetch intake context for smarter summarization
+        intake = await asyncio.to_thread(db.get_intake_by_id, intake_id)
+        intake_context = None
+        if intake:
+            intake_context = {
+                k: intake.get(k)
+                for k in ("case_type", "incident_description", "injury_description", "ai_summary", "notes")
+            }
+
+        try:
+            from services.interaction_summarizer import summarize_interaction
+            summary = await asyncio.to_thread(
+                summarize_interaction,
+                data.content,
+                data.interaction_type,
+                data.direction,
+                intake_context,
+            )
+        except Exception as e:
+            logger.exception("Interaction summarization failed")
+            return api_error(f"Summarization failed: {str(e)}", "SUMMARIZATION_ERROR", 500)
+
+        return JSONResponse({"summary": summary})
+
+    @mcp.custom_route("/api/v1/intakes/{intake_id}/interactions", methods=["POST"])
+    async def api_save_interaction(request):
+        """Save a logged interaction with user-approved summary."""
+        if err := auth.require_auth(request):
+            return err
+        intake_id = int(request.path_params["intake_id"])
+        user = auth.get_current_user(request)
+        if not user:
+            return api_error("User not found", "UNAUTHORIZED", 401)
+
+        try:
+            data = SaveInteractionInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+
+        # Build display content from user-approved summary
+        user_name = user.get("firstName", "Someone")
+        direction_label = f" ({data.direction})" if data.direction else ""
+        content = f"{user_name} logged {data.interaction_type}{direction_label}: {data.summary}"
+
+        detail = {
+            "type": "interaction",
+            "interaction_type": data.interaction_type,
+            "direction": data.direction,
+            "full_content": data.content,
+            "user_name": user_name,
+        }
+
+        comment = await asyncio.to_thread(
+            db.add_intake_comment,
+            intake_id, user["id"], content,
+            True,  # is_system
+            detail,
         )
 
         broadcast({

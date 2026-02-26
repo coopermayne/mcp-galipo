@@ -165,6 +165,42 @@ export async function createIntake(
   return res.json()
 }
 
+export interface LogInteractionData {
+  interaction_type: "email" | "phone"
+  direction?: "inbound" | "outbound"
+  content: string
+}
+
+export interface SaveInteractionData extends LogInteractionData {
+  summary: string
+}
+
+export async function summarizeInteraction(
+  id: number,
+  data: LogInteractionData
+): Promise<{ summary: string }> {
+  const res = await apiFetch(`/api/v1/intakes/${id}/interactions/summarize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to summarize interaction")
+  return res.json()
+}
+
+export async function saveInteraction(
+  id: number,
+  data: SaveInteractionData
+): Promise<IntakeComment> {
+  const res = await apiFetch(`/api/v1/intakes/${id}/interactions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to save interaction")
+  return res.json()
+}
+
 export async function extractIntakeFields(
   text: string
 ): Promise<{ success: boolean; fields: CreateIntakeData }> {
