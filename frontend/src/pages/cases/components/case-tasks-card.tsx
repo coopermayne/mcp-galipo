@@ -130,6 +130,7 @@ export function CaseTasksCard({ caseId, onAdd, onAiAdd }: CaseTasksCardProps) {
             ["tasks", "case", String(caseId), !showDone],
             ["tasks"],
             ["case", String(caseId)],
+            ["case-comments", caseId],
           ]}
         />
       </CardContent>
