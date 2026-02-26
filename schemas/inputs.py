@@ -4,7 +4,7 @@ Pydantic input models for create/update operations.
 Used by both MCP tools and REST routes.
 """
 
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
 
 from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus
@@ -105,6 +105,18 @@ class UpdateNoteInput(BaseModel):
 class UpdateIntakeInput(BaseModel):
     status: Optional[IntakeStatus] = None
     notes: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    contact_relationship: Optional[str] = None
+    referral_name: Optional[str] = None
+    referral_org: Optional[str] = None
+    referral_email: Optional[str] = None
+    referral_phone: Optional[str] = None
+    case_type: Optional[str] = None
+    incident_date: Optional[str] = None
+    incident_time: Optional[str] = None
+    location: Optional[str] = None
 
 
 class CreateIntakeInput(BaseModel):
