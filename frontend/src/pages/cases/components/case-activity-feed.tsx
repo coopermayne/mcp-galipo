@@ -63,6 +63,7 @@ function getDateKey(dateStr: string): string {
 const STATUS_CHANGE_RE = /^(.+?) changed status from (.+?) to (.+)$/
 const TASK_ADDED_RE = /^(.+?) added task: "(.+)"$/
 const TASK_COMPLETED_RE = /^(.+?) completed task: "(.+)"$/
+const TASK_STATUS_RE = /^(.+?) changed task "(.+)" from (.+) to (.+)$/
 const EVENT_ADDED_RE = /^(.+?) added event: "(.+)"$/
 const NOTE_ADDED_RE = /^(.+?) added a note$/
 const PERSON_ADDED_RE = /^(.+?) added (.+?) as (.+)$/
@@ -161,6 +162,7 @@ function TimelineEntry({ comment }: { comment: CaseComment }) {
   if (comment.is_system) {
     if (parseStatusChange(comment.content)) return <StatusChangeEntry comment={comment} />
     if (TASK_COMPLETED_RE.test(comment.content)) return <IconEntry comment={comment} icon={Tick02Icon} />
+    if (TASK_STATUS_RE.test(comment.content)) return <IconEntry comment={comment} icon={Task01Icon} />
     if (TASK_ADDED_RE.test(comment.content)) return <IconEntry comment={comment} icon={Task01Icon} />
     if (EVENT_ADDED_RE.test(comment.content)) return <IconEntry comment={comment} icon={Calendar03Icon} />
     if (NOTE_ADDED_RE.test(comment.content)) return <IconEntry comment={comment} icon={Note01Icon} />

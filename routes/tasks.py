@@ -104,9 +104,9 @@ def register_task_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
-        # Capture old task for completion detection
+        # Capture old task for status change detection
         old_task = None
-        if data.status == "Done":
+        if data.status is not None:
             old_task = await asyncio.to_thread(db.get_task_detail, task_id)
 
         updates = data.model_dump(exclude_unset=True)
@@ -114,18 +114,22 @@ def register_task_routes(mcp):
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
 
-        # System comment for task completion
-        if data.status == "Done" and old_task and old_task.get("status") != "Done":
+        # System comment for task status changes
+        if data.status and old_task and old_task.get("status") != data.status:
             case_id = result.get("case_id") or (old_task.get("case_id") if old_task else None)
             if case_id:
                 user = auth.get_current_user(request)
                 name = f"{user['firstName']} {user['lastName']}" if user else "System"
                 desc = result.get("description", "")
                 desc = desc[:80] + ("..." if len(desc) > 80 else "")
+                if data.status == "Done":
+                    msg = f'{name} completed task: "{desc}"'
+                else:
+                    msg = f'{name} changed task "{desc}" from {old_task["status"]} to {data.status}'
                 await asyncio.to_thread(
                     db.add_case_comment, case_id,
                     user["id"] if user else None,
-                    f'{name} completed task: "{desc}"', True,
+                    msg, True,
                 )
 
         return JSONResponse({"success": True, "task": result})

@@ -128,6 +128,7 @@ export function CaseEventsCard({ caseId, onAdd, onAiAdd }: CaseEventsCardProps) 
             ["events", "case", String(caseId), !showPast],
             ["events"],
             ["case", String(caseId)],
+            ["case-comments", caseId],
           ]}
         />
       </CardContent>

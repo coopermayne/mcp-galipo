@@ -57,6 +57,7 @@ export function AddTaskDialog({ open, onOpenChange, caseId }: AddTaskDialogProps
       queryClient.invalidateQueries({ queryKey: ["tasks"] })
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       queryClient.invalidateQueries({ queryKey: ["cases"] })
+      queryClient.invalidateQueries({ queryKey: ["case-comments", caseId] })
       onOpenChange(false)
       setDescription("")
       setDueDate("")

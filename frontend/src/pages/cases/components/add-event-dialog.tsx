@@ -46,6 +46,7 @@ export function AddEventDialog({
       toast.success("Event created")
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       queryClient.invalidateQueries({ queryKey: ["cases"] })
+      queryClient.invalidateQueries({ queryKey: ["case-comments", caseId] })
       onOpenChange(false)
       setDescription("")
       setDate("")
