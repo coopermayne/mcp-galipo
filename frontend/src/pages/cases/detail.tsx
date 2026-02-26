@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react"
-import { useParams, useNavigate } from "react-router"
+import { useParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -21,10 +21,10 @@ import { CaseEventsCard } from "@/pages/cases/components/case-events-card"
 import { AddEventDialog } from "@/pages/cases/components/add-event-dialog"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { AddProceedingDialog } from "@/pages/cases/components/add-proceeding-dialog"
+import { ListNav } from "@/components/common/list-nav"
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const caseId = Number(id)
 
   // Dialog state
@@ -127,12 +127,7 @@ export default function CaseDetailPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-6 p-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
-        >
-          &larr; Back
-        </button>
+        <ListNav basePath="/cases" currentId={caseId} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <CaseDetailHeader caseData={caseData} />
           <div className="flex items-center gap-2 shrink-0">

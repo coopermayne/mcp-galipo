@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { ListNavState } from "@/components/common/list-nav"
 
 export default function CasesPage() {
   const navigate = useNavigate()
@@ -59,7 +60,7 @@ export default function CasesPage() {
       getCases({
         status: selectedStatus ?? undefined,
         attorney_ids: attorneyIds,
-        limit: 500,
+        limit: 2000,
       }),
   })
 
@@ -204,7 +205,14 @@ export default function CasesPage() {
                   <TableRow
                     key={row.id}
                     className="cursor-pointer"
-                    onClick={() => navigate(`/cases/${row.original.id}`)}
+                    onClick={() => {
+                      const rows = table.getRowModel().rows
+                      const listIds = rows.map((r) => r.original.id)
+                      const listIndex = rows.findIndex((r) => r.id === row.id)
+                      navigate(`/cases/${row.original.id}`, {
+                        state: { listIds, listIndex, listPath: `/cases${window.location.search}` } satisfies ListNavState,
+                      })
+                    }}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
