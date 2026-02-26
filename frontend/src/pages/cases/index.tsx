@@ -16,7 +16,8 @@ import { useAuth } from "@/hooks/use-auth"
 import { getCases, getCaseCounts, createCase, type CreateCaseData } from "@/services/cases"
 import { getUsers } from "@/services/users"
 import { getColumns } from "@/pages/cases/columns"
-import { CaseToolbar, type CaseScope } from "@/pages/cases/components/case-toolbar"
+import { CaseToolbar, type CaseScope, type CaseViewMode } from "@/pages/cases/components/case-toolbar"
+import { CaseGroupedView } from "@/pages/cases/components/case-grouped-view"
 import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
 import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
 import {
@@ -47,6 +48,8 @@ export default function CasesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [scope, setScope] = useState<CaseScope>("mine")
+  const [viewMode, setViewMode] = useState<CaseViewMode>("table")
+  const [showClosed, setShowClosed] = useState(false)
 
   const attorneyIds = scope === "mine" && user ? [user.id] : undefined
 
@@ -99,10 +102,16 @@ export default function CasesPage() {
     },
   })
 
+  const filteredCases = useMemo(() => {
+    const cases = casesData?.cases ?? []
+    if (showClosed) return cases.filter((c) => c.status === "Closed")
+    return cases.filter((c) => c.status !== "Closed")
+  }, [casesData, showClosed])
+
   const columns = useMemo(() => getColumns({ usersMap }), [usersMap])
 
   const table = useReactTable({
-    data: casesData?.cases ?? [],
+    data: filteredCases,
     columns,
     state: {
       sorting,
@@ -121,12 +130,18 @@ export default function CasesPage() {
     <div className="flex flex-col gap-4 p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          {scope === "mine" ? "Your Cases" : "All Cases"}
+          {showClosed
+            ? "Closed Cases"
+            : scope === "mine"
+              ? "Your Cases"
+              : "All Cases"}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {scope === "mine"
-            ? "Cases assigned to you."
-            : "All cases in the system."}
+          {showClosed
+            ? "Cases that have been closed."
+            : scope === "mine"
+              ? "Cases assigned to you."
+              : "All cases in the system."}
         </p>
       </div>
 
@@ -137,69 +152,84 @@ export default function CasesPage() {
         onStatusChange={setSelectedStatus}
         scope={scope}
         onScopeChange={setScope}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showClosed={showClosed}
+        onShowClosedChange={(show) => {
+          setShowClosed(show)
+          if (show) setSelectedStatus(null)
+        }}
         onNewCaseChat={() => setChatOpen(true)}
         onNewCaseManual={() => setFormOpen(true)}
       />
 
-      <div className="border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
+      {viewMode === "status" ? (
+        <CaseGroupedView
+          cases={table.getRowModel().rows.map((r) => r.original)}
+          isLoading={isLoading}
+          usersMap={usersMap}
+        />
+      ) : (
+        <div className="border">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {columns.map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-4 w-[80px]" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/cases/${row.original.id}`)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
                         )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  {columns.map((_, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-[80px]" />
-                    </TableCell>
-                  ))}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No cases found.
+                  </TableCell>
                 </TableRow>
-              ))
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/cases/${row.original.id}`)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No cases found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
       <CaseFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}

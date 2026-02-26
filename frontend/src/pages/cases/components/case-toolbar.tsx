@@ -8,6 +8,8 @@ import {
   MoreHorizontalIcon,
   NoteEditIcon,
   ArrowDown01Icon,
+  Layers01Icon,
+  Archive01Icon,
 } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -26,11 +28,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
 export type CaseScope = "mine" | "all"
+export type CaseViewMode = "table" | "status"
 
 interface Pipeline {
   label: string
@@ -60,7 +64,7 @@ const PIPELINES: Pipeline[] = [
   {
     label: "RESOLUTION",
     labelClass: "text-success",
-    statuses: ["Settl. Pend.", "Stayed", "Closed"],
+    statuses: ["Settl. Pend.", "Stayed"],
   },
 ]
 
@@ -71,6 +75,10 @@ interface CaseToolbarProps {
   onStatusChange: (status: string | null) => void
   scope: CaseScope
   onScopeChange: (scope: CaseScope) => void
+  viewMode: CaseViewMode
+  onViewModeChange: (mode: CaseViewMode) => void
+  showClosed: boolean
+  onShowClosedChange: (show: boolean) => void
   onNewCaseChat: () => void
   onNewCaseManual: () => void
 }
@@ -82,6 +90,10 @@ export function CaseToolbar({
   onStatusChange,
   scope,
   onScopeChange,
+  viewMode,
+  onViewModeChange,
+  showClosed,
+  onShowClosedChange,
   onNewCaseChat,
   onNewCaseManual,
 }: CaseToolbarProps) {
@@ -89,7 +101,10 @@ export function CaseToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
 
   const totalCount = counts
-    ? Object.values(counts).reduce((sum, count) => sum + count, 0)
+    ? Object.entries(counts).reduce(
+        (sum, [status, count]) => sum + (status === "Closed" ? 0 : count),
+        0
+      )
     : 0
 
   // Parse selected statuses (supports comma-separated for group selection)
@@ -282,6 +297,22 @@ export function CaseToolbar({
         </PopoverContent>
       </Popover>
 
+      {/* Group by status toggle */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onViewModeChange(viewMode === "status" ? "table" : "status")}
+        className={cn(
+          "h-8 px-2.5 border",
+          viewMode === "status"
+            ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+            : "text-muted-foreground"
+        )}
+      >
+        <HugeiconsIcon icon={Layers01Icon} className="size-3.5 mr-1" />
+        Status
+      </Button>
+
       {/* Overflow menu: New Case, Manual Form, Column toggles */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -290,6 +321,16 @@ export function CaseToolbar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
+          <DropdownMenuItem onClick={() => onShowClosedChange(!showClosed)}>
+            <HugeiconsIcon icon={Archive01Icon} className="mr-2 size-4" />
+            Closed Cases
+            {showClosed && (
+              <span className="bg-foreground text-background ml-auto px-1.5 py-0.5 text-[10px] font-medium leading-none">
+                ON
+              </span>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onNewCaseChat}>
             <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
             New Case (AI)
