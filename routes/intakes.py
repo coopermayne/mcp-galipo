@@ -199,6 +199,15 @@ def register_intake_routes(mcp):
         if not result:
             return api_error("Intake not found", "NOT_FOUND", 404)
 
+        # Re-run AI analysis when location changes (regenerates location_short)
+        if "location" in updates:
+            from services.intake_ai import run_background_analysis
+            threading.Thread(
+                target=run_background_analysis,
+                args=(intake_id,),
+                daemon=True,
+            ).start()
+
         broadcast({
             "entity": "intake", "action": "updated",
             "id": intake_id, "intake_id": intake_id, "user_id": user_id,
