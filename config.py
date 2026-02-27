@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     mcp_auth_password: str | None = None
     mcp_base_url: str | None = None
 
+    # Twilio SMS
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_phone_number: str | None = None
+
     # Google Sheets (intake sync)
     google_sheets_spreadsheet_id: str | None = None
     google_sheets_client_email: str | None = None

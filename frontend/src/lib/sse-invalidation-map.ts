@@ -33,6 +33,18 @@ export const INVALIDATION_MAP: Record<
     }
     return keys
   },
+
+  sms_message: (event) => {
+    const keys: (string | (string | number)[])[] = ["sms-conversations"]
+    if (event.conversation_id) {
+      keys.push(["sms-messages", event.conversation_id])
+    }
+    return keys
+  },
+
+  sms_conversation: () => {
+    return ["sms-conversations"]
+  },
 }
 
 /**
@@ -41,7 +53,7 @@ export const INVALIDATION_MAP: Record<
  * async background work like AI analysis and external syncs where the
  * initiating user's mutation handler can't predict the result.
  */
-const SERVER_SIDE_ACTIONS = new Set(["analyzed", "analyzing", "synced"])
+const SERVER_SIDE_ACTIONS = new Set(["analyzed", "analyzing", "synced", "received"])
 
 export function isServerSideAction(action: string): boolean {
   return SERVER_SIDE_ACTIONS.has(action)
