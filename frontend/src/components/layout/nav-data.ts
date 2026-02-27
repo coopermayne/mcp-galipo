@@ -15,7 +15,7 @@ export type NavItem = {
   url: string
   icon: typeof DashboardBrowsingIcon
   featureKey?: string
-  items?: { title: string; url: string }[]
+  items?: { title: string; url: string; separatorBefore?: boolean }[]
 }
 
 export type NavGroup = {
@@ -68,8 +68,8 @@ export const navGroups: NavGroup[] = [
           { title: "Experts", url: "/contacts/experts" },
           { title: "Defendants", url: "/contacts/defendants" },
           { title: "Mediators", url: "/contacts/mediators" },
-          { title: "Judges", url: "/contacts/judges" },
           { title: "Other", url: "/contacts/other" },
+          { title: "Judges", url: "/judges", separatorBefore: true },
         ],
       },
     ],
