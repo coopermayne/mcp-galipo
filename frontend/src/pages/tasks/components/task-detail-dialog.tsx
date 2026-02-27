@@ -4,10 +4,11 @@ import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import type { TaskListItem } from "@/types/task"
 import type { TaskStatus, Urgency } from "@/types/case"
-import { getTask, updateTask } from "@/services/tasks"
+import { getTask, updateTask, deleteTask } from "@/services/tasks"
 import { getStaff } from "@/services/staff"
 import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
+import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
 import { getBadgeStyle } from "@/lib/badge-colors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -89,6 +90,16 @@ export function TaskDetailDialog({
     onError: (e) => toast.error(e.message),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteTask(task!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] })
+      toast.success("Task deleted")
+      onOpenChange(false)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   if (!task) return null
 
   const d = detail ?? null
@@ -96,6 +107,11 @@ export function TaskDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent ref={dialogRef} className="sm:max-w-md">
+        <DetailDialogActions
+          entityName="task"
+          onDelete={() => deleteMutation.mutate()}
+          isPending={deleteMutation.isPending}
+        />
         <DialogHeader>
           {/* Case badge */}
           {task.short_name && (

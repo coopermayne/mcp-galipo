@@ -8,11 +8,13 @@ import type { EventListItem } from "@/types/event"
 import {
   getEvent,
   updateEvent,
+  deleteEvent,
   addAttendee,
   removeAttendee,
 } from "@/services/events"
 import { getStaff } from "@/services/staff"
 import { InlineEditField } from "@/components/common/inline-edit-field"
+import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -91,6 +93,16 @@ export function EventDetailDialog({
     onError: (e) => toast.error(e.message),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteEvent(event!.id),
+    onSuccess: () => {
+      invalidateAll()
+      toast.success("Event deleted")
+      onOpenChange(false)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   if (!event) return null
 
   const attendees = detail?.attendees ?? []
@@ -103,6 +115,12 @@ export function EventDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent ref={dialogRef} className="sm:max-w-md">
+        <DetailDialogActions
+          entityName="event"
+          onDelete={() => deleteMutation.mutate()}
+          isPending={deleteMutation.isPending}
+          deleteDescription="This will permanently delete this event and all linked tasks. This action cannot be undone."
+        />
         <DialogHeader>
           {event.short_name && (
             <Button
