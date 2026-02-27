@@ -57,7 +57,7 @@ EXTRACT_CASE_INFO_TOOL = {
                 "description": "Courtroom number or location (e.g., 'Courtroom 10A' or '350')"
             }
         },
-        "required": ["court", "case_number", "plaintiffs", "defendants", "judge"]
+        "required": ["court", "case_number", "plaintiffs", "defendants"]
     }
 }
 
@@ -110,7 +110,7 @@ Extract the following information if present:
 - Document/motion title
 - Hearing date, time, and courtroom
 
-Use the submit_case_info tool to provide the extracted information. If a field is not present in the document, omit it from the tool call (except required fields - make your best guess for those).
+Use the submit_case_info tool to provide the extracted information. If a field is not present in the document, omit it from the tool call. Do NOT use placeholders like "<UNKNOWN>" or "Unknown" — if you cannot determine a value, simply leave that field out of the tool call.
 
 Be precise and extract exactly what appears in the document. For the court field, preserve the multi-line formatting using \\n (e.g., "UNITED STATES DISTRICT COURT\\nCENTRAL DISTRICT OF CALIFORNIA")."""
 
