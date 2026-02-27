@@ -41,8 +41,8 @@ class Settings(BaseSettings):
 
     # Twilio SMS
     twilio_account_sid: str | None = None
-    twilio_auth_token: str | None = None
-    twilio_phone_number: str | None = None
+    twilio_token: str | None = None
+    twilio_phone: str | None = None
 
     # Google Sheets (intake sync)
     google_sheets_spreadsheet_id: str | None = None
