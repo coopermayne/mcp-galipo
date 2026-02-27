@@ -820,6 +820,67 @@ class Task(Base):
     webhook_logs: Mapped[list[WebhookLog]] = relationship(back_populates="task")
 
 
+class SmsConversation(Base):
+    __tablename__ = "sms_conversations"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sms_conversations_pkey"),
+        UniqueConstraint("phone_number", name="sms_conversations_phone_number_key"),
+        Index("idx_sms_conversations_phone_number", "phone_number"),
+        Index("idx_sms_conversations_last_message_at", "last_message_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    phone_number: Mapped[str] = mapped_column(String(20))
+    label: Mapped[Optional[str]] = mapped_column(Text)
+    last_message_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    messages: Mapped[list[SmsMessage]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class SmsMessage(Base):
+    __tablename__ = "sms_messages"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["conversation_id"],
+            ["sms_conversations.id"],
+            ondelete="CASCADE",
+            name="sms_messages_conversation_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["sent_by_user_id"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="sms_messages_sent_by_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="sms_messages_pkey"),
+        Index("idx_sms_messages_conversation_id", "conversation_id"),
+        Index("idx_sms_messages_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(Integer)
+    direction: Mapped[str] = mapped_column(String(10))
+    body: Mapped[str] = mapped_column(Text)
+    sent_by_user_id: Mapped[Optional[int]] = mapped_column(Integer)
+    twilio_sid: Mapped[Optional[str]] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(
+        String(20), server_default=text("'sent'::character varying")
+    )
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    conversation: Mapped[SmsConversation] = relationship(back_populates="messages")
+    sent_by_user: Mapped[Optional[User]] = relationship()
+
+
 class WebhookLog(Base):
     __tablename__ = "webhook_logs"
     __table_args__ = (

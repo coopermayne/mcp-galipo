@@ -258,6 +258,16 @@ from .intake_comments import (
     get_recent_activity,
 )
 
+# SMS
+from .sms import (
+    list_conversations as list_sms_conversations,
+    get_conversation as get_sms_conversation,
+    get_messages as get_sms_messages,
+    find_or_create_conversation as find_or_create_sms_conversation,
+    create_message as create_sms_message,
+    update_conversation_label as update_sms_conversation_label,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -460,6 +470,13 @@ __all__ = [
     "mark_intake_read",
     "get_unread_counts",
     "get_recent_activity",
+    # SMS
+    "list_sms_conversations",
+    "get_sms_conversation",
+    "get_sms_messages",
+    "find_or_create_sms_conversation",
+    "create_sms_message",
+    "update_sms_conversation_label",
     # Bulk import
     "import_case",
 ]

@@ -16,5 +16,6 @@ pypdf
 docxcompose
 pydantic-settings
 rapidfuzz
+twilio
 google-api-python-client
 google-auth
