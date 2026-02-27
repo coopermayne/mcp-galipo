@@ -71,6 +71,9 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                       <SidebarMenuSub>
                         {item.items.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
+                            {subItem.separatorBefore && (
+                              <SidebarSeparator className="my-1" />
+                            )}
                             <SidebarMenuSubButton
                               asChild
                               isActive={isActive(subItem.url, pathname)}
