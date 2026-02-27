@@ -29,17 +29,24 @@ def _get_twilio_client():
 
 
 def _validate_twilio_signature(request, body_params: dict) -> bool:
-    """Validate that the request came from Twilio."""
+    """Validate that the request came from Twilio.
+
+    Uses X-Forwarded-* headers to reconstruct the public URL, since behind
+    a reverse proxy request.url shows the internal address.
+    """
     if not settings.twilio_token:
         logger.warning("No Twilio auth token configured, skipping signature validation")
         return False
     from twilio.request_validator import RequestValidator
     validator = RequestValidator(settings.twilio_token)
 
-    # Build the full URL from the request
-    url = str(request.url)
+    # Reconstruct the public-facing URL that Twilio actually called
+    proto = request.headers.get("X-Forwarded-Proto", request.url.scheme)
+    host = request.headers.get("X-Forwarded-Host", request.headers.get("Host", request.url.hostname))
+    url = f"{proto}://{host}{request.url.path}"
     signature = request.headers.get("X-Twilio-Signature", "")
 
+    logger.debug("Twilio signature validation — url=%s", url)
     return validator.validate(url, body_params, signature)
 
 
