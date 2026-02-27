@@ -22,19 +22,19 @@ logger = logging.getLogger(__name__)
 
 def _get_twilio_client():
     """Lazy-load Twilio client only when needed."""
-    if not settings.twilio_account_sid or not settings.twilio_auth_token:
+    if not settings.twilio_account_sid or not settings.twilio_token:
         return None
     from twilio.rest import Client
-    return Client(settings.twilio_account_sid, settings.twilio_auth_token)
+    return Client(settings.twilio_account_sid, settings.twilio_token)
 
 
 def _validate_twilio_signature(request, body_params: dict) -> bool:
     """Validate that the request came from Twilio."""
-    if not settings.twilio_auth_token:
+    if not settings.twilio_token:
         logger.warning("No Twilio auth token configured, skipping signature validation")
         return False
     from twilio.request_validator import RequestValidator
-    validator = RequestValidator(settings.twilio_auth_token)
+    validator = RequestValidator(settings.twilio_token)
 
     # Build the full URL from the request
     url = str(request.url)
@@ -145,11 +145,11 @@ def register_sms_routes(mcp):
         twilio_sid = None
         status = "sent"
         client = _get_twilio_client()
-        if client and settings.twilio_phone_number:
+        if client and settings.twilio_phone:
             try:
                 twilio_msg = client.messages.create(
                     body=message_body,
-                    from_=settings.twilio_phone_number,
+                    from_=settings.twilio_phone,
                     to=conv["phone_number"],
                 )
                 twilio_sid = twilio_msg.sid
@@ -195,7 +195,7 @@ def register_sms_routes(mcp):
         body_params = dict(form)
 
         # Validate Twilio signature
-        if settings.twilio_auth_token:
+        if settings.twilio_token:
             if not _validate_twilio_signature(request, body_params):
                 logger.warning("Invalid Twilio signature on SMS webhook")
                 return PlainTextResponse("Forbidden", status_code=403)
