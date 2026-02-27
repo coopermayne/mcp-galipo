@@ -13,7 +13,7 @@ import { useNavigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, type CreateIntakeData } from "@/services/intakes"
-import { getColumns, intakeGlobalFilterFn } from "@/pages/intakes/columns"
+import { getColumns, intakeGlobalFilterFn, getSearchRank } from "@/pages/intakes/columns"
 import { IntakePipelines } from "@/pages/intakes/components/intake-pipelines"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
 import { IntakeFormDialog } from "@/pages/intakes/components/intake-form-dialog"
@@ -115,8 +115,16 @@ export default function IntakesPage() {
     [unreadCounts]
   )
 
+  const sortedData = useMemo(() => {
+    const intakes = intakesData?.intakes ?? []
+    if (!globalFilter) return intakes
+    return [...intakes].sort(
+      (a, b) => getSearchRank(b, globalFilter) - getSearchRank(a, globalFilter)
+    )
+  }, [intakesData, globalFilter])
+
   const table = useReactTable({
-    data: intakesData?.intakes ?? [],
+    data: sortedData,
     columns,
     state: {
       sorting,

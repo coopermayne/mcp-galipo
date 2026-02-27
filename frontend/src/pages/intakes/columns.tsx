@@ -8,22 +8,39 @@ import { DataTableColumnHeader } from "@/components/common/data-table-column-hea
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { analyzeIntake } from "@/services/intakes"
 
-const SEARCHABLE_FIELDS: { key: keyof Intake; label: string }[] = [
-  { key: "name", label: "Name" },
-  { key: "email", label: "Email" },
-  { key: "phone", label: "Phone" },
-  { key: "referral_name", label: "Referring Attorney" },
-  { key: "referral_org", label: "Referral Org" },
-  { key: "referral_email", label: "Referral Email" },
-  { key: "referral_phone", label: "Referral Phone" },
-  { key: "location_short", label: "Location" },
-  { key: "location", label: "Location" },
-  { key: "case_type", label: "Case Type" },
-  { key: "notes", label: "Notes" },
-  { key: "incident_description", label: "Incident" },
-  { key: "injury_description", label: "Injury" },
-  { key: "ai_summary", label: "AI Summary" },
+const SEARCHABLE_FIELDS: { key: keyof Intake; label: string; weight: number }[] = [
+  { key: "name", label: "Name", weight: 100 },
+  { key: "email", label: "Email", weight: 90 },
+  { key: "phone", label: "Phone", weight: 70 },
+  { key: "referral_name", label: "Referring Attorney", weight: 50 },
+  { key: "referral_org", label: "Referral Org", weight: 40 },
+  { key: "referral_email", label: "Referral Email", weight: 40 },
+  { key: "referral_phone", label: "Referral Phone", weight: 40 },
+  { key: "location_short", label: "Location", weight: 30 },
+  { key: "location", label: "Location", weight: 30 },
+  { key: "case_type", label: "Case Type", weight: 30 },
+  { key: "notes", label: "Notes", weight: 10 },
+  { key: "incident_description", label: "Incident", weight: 10 },
+  { key: "injury_description", label: "Injury", weight: 10 },
+  { key: "ai_summary", label: "AI Summary", weight: 10 },
 ]
+
+export function getSearchRank(intake: Intake, search: string): number {
+  if (!search) return 0
+  const s = search.toLowerCase()
+  let best = 0
+  for (const { key, weight } of SEARCHABLE_FIELDS) {
+    const val = intake[key]
+    if (typeof val === "string") {
+      const lower = val.toLowerCase()
+      if (lower.includes(s)) {
+        const bonus = lower.startsWith(s) ? 10 : 0
+        best = Math.max(best, weight + bonus)
+      }
+    }
+  }
+  return best
+}
 
 export function intakeGlobalFilterFn(
   row: Row<Intake>,
