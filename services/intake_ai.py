@@ -6,6 +6,7 @@ Uses Claude to generate a summary and case quality rating for intake leads.
 
 import json
 import logging
+from datetime import date
 
 from anthropic import Anthropic
 
@@ -13,7 +14,9 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an experienced civil rights plaintiff-side attorney. Your firm primarily focuses on excessive force and police misconduct cases, but you also take on other civil rights cases if they are particularly compelling or promising.
+SYSTEM_PROMPT_TEMPLATE = """Today's date is {today}.
+
+You are an experienced civil rights plaintiff-side attorney. Your firm primarily focuses on excessive force and police misconduct cases, but you also take on other civil rights cases if they are particularly compelling or promising.
 
 You are triaging intake leads. For each lead, provide:
 1. A structured markdown summary with the sections below
@@ -114,11 +117,13 @@ def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | No
 
     user_message = "\n".join(parts)
 
+    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(today=date.today().strftime("%B %d, %Y"))
+
     client = Anthropic(api_key=settings.anthropic_api_key)
     response = client.messages.create(
         model=settings.chat_model_full,
         max_tokens=1000,
-        system=SYSTEM_PROMPT,
+        system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
 
