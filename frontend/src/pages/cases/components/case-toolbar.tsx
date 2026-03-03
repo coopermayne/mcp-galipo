@@ -10,6 +10,7 @@ import {
   ArrowDown01Icon,
   Layers01Icon,
   Archive01Icon,
+  Download04Icon,
 } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { exportCaseReport } from "@/services/cases"
 
 export type CaseScope = "mine" | "all"
 export type CaseViewMode = "table" | "status"
@@ -329,6 +331,10 @@ export function CaseToolbar({
                 ON
               </span>
             )}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => exportCaseReport()}>
+            <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
+            Download Case Report
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onNewCaseChat}>

@@ -6,6 +6,7 @@ import type {
   CaseComment,
 } from "@/types/case"
 import { apiFetch } from "@/lib/api"
+import { downloadBlob } from "@/lib/download"
 
 interface GetCasesParams {
   status?: string
@@ -114,6 +115,14 @@ export async function createCaseComment(
   })
   if (!res.ok) throw new Error("Failed to create comment")
   return res.json()
+}
+
+export async function exportCaseReport(): Promise<void> {
+  const res = await apiFetch("/api/v1/export?format=docx")
+  if (!res.ok) throw new Error("Failed to export case report")
+  const blob = await res.blob()
+  const date = new Date().toISOString().slice(0, 10)
+  downloadBlob(blob, `Case Report ${date}.docx`)
 }
 
 export async function markCaseRead(
