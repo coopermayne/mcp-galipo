@@ -10,7 +10,16 @@ import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 import { getJudges, type JudgeListItem as JudgeListItemType } from "@/services/judges"
 import { JudgeListItem } from "@/pages/judges/components/judge-list-item"
 import { JudgeDetailDialog } from "@/pages/judges/components/judge-detail-dialog"
@@ -40,6 +49,22 @@ const columns: ColumnDef<JudgeListItemType>[] = [
       )
     },
   },
+  {
+    id: "title",
+    accessorFn: (row) => row.title ?? "",
+    filterFn: (row, _id, value: string) => {
+      if (!value) return true
+      return (row.original.title ?? "") === value
+    },
+  },
+  {
+    id: "jurisdiction",
+    accessorFn: (row) => row.jurisdiction_name ?? "",
+    filterFn: (row, _id, value: string) => {
+      if (!value) return true
+      return (row.original.jurisdiction_name ?? "") === value
+    },
+  },
 ]
 
 export default function JudgesPage() {
@@ -53,6 +78,23 @@ export default function JudgesPage() {
 
   const judges = useMemo(() => data?.judges ?? [], [data])
 
+  // Derive unique titles and jurisdictions from data
+  const titles = useMemo(() => {
+    const set = new Set<string>()
+    for (const j of judges) {
+      if (j.title) set.add(j.title)
+    }
+    return Array.from(set).sort()
+  }, [judges])
+
+  const jurisdictions = useMemo(() => {
+    const set = new Set<string>()
+    for (const j of judges) {
+      if (j.jurisdiction_name) set.add(j.jurisdiction_name)
+    }
+    return Array.from(set).sort()
+  }, [judges])
+
   const table = useReactTable({
     data: judges,
     columns,
@@ -63,6 +105,9 @@ export default function JudgesPage() {
   })
 
   const filteredJudges = table.getRowModel().rows.map((row) => row.original)
+
+  const activeTitle = (table.getColumn("title")?.getFilterValue() as string) ?? ""
+  const activeJurisdiction = (table.getColumn("jurisdiction")?.getFilterValue() as string) ?? ""
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -95,6 +140,69 @@ export default function JudgesPage() {
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {filteredJudges.length} judge{filteredJudges.length !== 1 ? "s" : ""}
           </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Title filter */}
+          {titles.length > 1 && (
+            <div className="flex items-center border h-8">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => table.getColumn("title")?.setFilterValue("")}
+                className={cn(
+                  "h-full px-2.5 border-0",
+                  !activeTitle
+                    ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                    : "text-muted-foreground"
+                )}
+              >
+                All
+              </Button>
+              {titles.map((title) => (
+                <Button
+                  key={title}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    table.getColumn("title")?.setFilterValue(
+                      activeTitle === title ? "" : title
+                    )
+                  }
+                  className={cn(
+                    "h-full px-2.5 border-0",
+                    activeTitle === title
+                      ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {title}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {/* Jurisdiction filter */}
+          {jurisdictions.length > 1 && (
+            <Select
+              value={activeJurisdiction}
+              onValueChange={(v) =>
+                table.getColumn("jurisdiction")?.setFilterValue(v === "all" ? "" : v)
+              }
+            >
+              <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
+                <SelectValue placeholder="Jurisdiction" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Jurisdictions</SelectItem>
+                {jurisdictions.map((j) => (
+                  <SelectItem key={j} value={j}>
+                    {j}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
