@@ -65,7 +65,7 @@ This rating is about the physical body. Psychological trauma, ER visits, and med
 Rate based on what's described in the intake. If injuries aren't mentioned, default to 1.
 
 Respond with valid JSON only. The "summary" field must contain the markdown text with the headings above.
-{"summary": "### Events at Issue\\n...", "rating": N, "injury_rating": N, "reasoning": "...", "location_short": "City, ST or null"}"""
+{{"summary": "### Events at Issue\\n...", "rating": N, "injury_rating": N, "reasoning": "...", "location_short": "City, ST or null"}}"""
 
 
 def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | None = None) -> dict:
