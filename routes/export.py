@@ -217,20 +217,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             cid = row_dict.pop("case_id")
             notes_by_case[cid].append(serialize_row(row_dict))
 
-        # 6. Batch fetch all activities for all cases
-        rows = session.execute(text("""
-            SELECT case_id, id, date, description, type, minutes, created_at
-            FROM activities
-            WHERE case_id = ANY(:case_ids)
-            ORDER BY case_id, date DESC
-        """), {"case_ids": case_ids}).mappings().all()
-        activities_by_case = defaultdict(list)
-        for row in rows:
-            row_dict = dict(row)
-            cid = row_dict.pop("case_id")
-            activities_by_case[cid].append(serialize_row(row_dict))
-
-        # 7. Batch fetch all proceedings for all cases (with full jurisdiction details)
+        # 6. Batch fetch all proceedings for all cases (with full jurisdiction details)
         rows = session.execute(text("""
             SELECT p.case_id, p.id, p.case_number, p.jurisdiction_id, p.sort_order,
                    p.is_primary, p.notes, p.courtlistener_docket_id, p.pacer_case_id,
@@ -322,8 +309,6 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
             case_data["events"] = [serialize_row(e) for e in raw_events]
 
             case_data["notes"] = notes_by_case.get(cid, [])
-            case_data["activities"] = activities_by_case.get(cid, [])
-
             # Add judges to proceedings
             proceedings = proceedings_by_case.get(cid, [])
             for p in proceedings:
