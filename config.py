@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     twilio_token: str | None = None
     twilio_phone: str | None = None
 
+    # Media storage
+    media_dir: str = "/app/media"
+
     # Google Sheets (intake sync)
     google_sheets_spreadsheet_id: str | None = None
     google_sheets_client_email: str | None = None

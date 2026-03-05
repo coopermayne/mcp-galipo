@@ -7,9 +7,12 @@ and receiving inbound messages via Twilio webhook.
 
 import asyncio
 import logging
+import os
+import uuid
+from pathlib import Path
 
 import httpx
-from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import ValidationError
 
 import auth
@@ -49,6 +52,27 @@ def _validate_twilio_signature(request, body_params: dict) -> bool:
 
     logger.debug("Twilio signature validation — url=%s", url)
     return validator.validate(url, body_params, signature)
+
+
+_CONTENT_TYPE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/heic": ".heic",
+    "video/mp4": ".mp4",
+    "video/3gpp": ".3gp",
+    "audio/mpeg": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/amr": ".amr",
+    "application/pdf": ".pdf",
+    "text/vcard": ".vcf",
+}
+
+
+def _ext_from_content_type(content_type: str) -> str:
+    """Map content type to file extension."""
+    return _CONTENT_TYPE_EXTENSIONS.get(content_type.split(";")[0].strip(), ".bin")
 
 
 def register_sms_routes(mcp):
@@ -250,18 +274,55 @@ def register_sms_routes(mcp):
             status="received",
         )
 
-        # Extract and save media attachments
+        # Download and save media attachments to disk
         if msg and num_media > 0:
-            for i in range(num_media):
-                media_url = body_params.get(f"MediaUrl{i}")
-                media_type = body_params.get(f"MediaContentType{i}", "application/octet-stream")
-                if media_url:
-                    await asyncio.to_thread(
-                        db.create_sms_message_media,
-                        message_id=msg["id"],
-                        content_type=media_type,
-                        original_url=media_url,
-                    )
+            twilio_auth = None
+            if settings.twilio_account_sid and settings.twilio_token:
+                twilio_auth = (settings.twilio_account_sid, settings.twilio_token)
+
+            media_dir = Path(settings.media_dir) / "sms"
+            media_dir.mkdir(parents=True, exist_ok=True)
+
+            async with httpx.AsyncClient() as http_client:
+                for i in range(num_media):
+                    media_url = body_params.get(f"MediaUrl{i}")
+                    media_type = body_params.get(f"MediaContentType{i}", "application/octet-stream")
+                    if not media_url:
+                        continue
+
+                    try:
+                        resp = await http_client.get(
+                            media_url,
+                            auth=twilio_auth,
+                            follow_redirects=True,
+                            timeout=30.0,
+                        )
+                        resp.raise_for_status()
+
+                        # Determine file extension from content type
+                        ext = _ext_from_content_type(media_type)
+                        filename = f"{uuid.uuid4().hex}{ext}"
+                        file_path = media_dir / filename
+                        file_path.write_bytes(resp.content)
+
+                        await asyncio.to_thread(
+                            db.create_sms_message_media,
+                            message_id=msg["id"],
+                            content_type=media_type,
+                            original_url=media_url,
+                            filename=filename,
+                            file_size=len(resp.content),
+                            local_path=str(file_path),
+                        )
+                    except Exception as e:
+                        logger.error("Failed to download media %s: %s", media_url, e)
+                        # Still record the media entry without local file
+                        await asyncio.to_thread(
+                            db.create_sms_message_media,
+                            message_id=msg["id"],
+                            content_type=media_type,
+                            original_url=media_url,
+                        )
 
         if msg:
             broadcast({
@@ -366,12 +427,8 @@ def register_sms_routes(mcp):
         return JSONResponse({"ok": True})
 
     @mcp.custom_route("/api/v1/sms/media/{media_id}", methods=["GET"])
-    async def api_proxy_media(request):
-        """Proxy a media file from Twilio.
-
-        Fetches from the original Twilio URL using basic auth, then streams
-        the content back. Supports ?token= param for use in img src attributes.
-        """
+    async def api_serve_media(request):
+        """Serve a media file from local storage."""
         if err := auth.require_auth(request):
             return err
 
@@ -381,33 +438,13 @@ def register_sms_routes(mcp):
         if not media:
             return api_error("Media not found", "NOT_FOUND", 404)
 
-        # Fetch from Twilio with basic auth
-        twilio_auth = None
-        if settings.twilio_account_sid and settings.twilio_token:
-            twilio_auth = (settings.twilio_account_sid, settings.twilio_token)
+        local_path = media.get("local_path")
+        if not local_path or not os.path.isfile(local_path):
+            return api_error("Media file not found on disk", "NOT_FOUND", 404)
 
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    media["original_url"],
-                    auth=twilio_auth,
-                    follow_redirects=True,
-                    timeout=30.0,
-                )
-                resp.raise_for_status()
-
-                headers = {
-                    "Content-Type": media["content_type"],
-                    "Cache-Control": "private, max-age=3600",
-                }
-                if media.get("filename"):
-                    headers["Content-Disposition"] = f'inline; filename="{media["filename"]}"'
-
-                return Response(
-                    content=resp.content,
-                    media_type=media["content_type"],
-                    headers=headers,
-                )
-        except Exception as e:
-            logger.error("Failed to proxy media %s: %s", media_id, e)
-            return api_error("Failed to fetch media", "PROXY_ERROR", 502)
+        return FileResponse(
+            local_path,
+            media_type=media["content_type"],
+            filename=media.get("filename"),
+            headers={"Cache-Control": "private, max-age=86400"},
+        )

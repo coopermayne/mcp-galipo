@@ -3,6 +3,8 @@ SMS conversation and message database operations.
 """
 
 import datetime
+import os
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import select, func, or_
@@ -135,7 +137,6 @@ def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dic
                     "id": m.id,
                     "content_type": m.content_type,
                     "filename": m.filename,
-                    "original_url": m.original_url,
                     "file_size": m.file_size,
                 })
 
@@ -304,14 +305,32 @@ def archive_conversation(conversation_id: int, archived: bool = True) -> Optiona
 
 
 def delete_conversation(conversation_id: int) -> bool:
-    """Delete a conversation and all its messages/media (CASCADE)."""
+    """Delete a conversation and all its messages/media (CASCADE).
+
+    Also removes local media files from disk.
+    """
     with SessionLocal() as session:
         conv = session.get(SmsConversation, conversation_id)
         if not conv:
             return False
+
+        # Collect local media files to delete after commit
+        media_paths = []
+        for msg in conv.messages:
+            for media in msg.media:
+                if media.local_path:
+                    media_paths.append(media.local_path)
+
         session.delete(conv)
         session.commit()
-        return True
+
+    # Clean up files after successful DB delete
+    for path in media_paths:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +344,7 @@ def create_message_media(
     original_url: str,
     filename: Optional[str] = None,
     file_size: Optional[int] = None,
+    local_path: Optional[str] = None,
 ) -> Optional[dict]:
     """Create a media attachment for a message."""
     with SessionLocal() as session:
@@ -338,6 +358,7 @@ def create_message_media(
             original_url=original_url,
             filename=filename,
             file_size=file_size,
+            local_path=local_path,
         )
         session.add(media)
         session.flush()
@@ -347,7 +368,6 @@ def create_message_media(
             "message_id": media.message_id,
             "content_type": media.content_type,
             "filename": media.filename,
-            "original_url": media.original_url,
             "file_size": media.file_size,
         }
         session.commit()
@@ -355,7 +375,7 @@ def create_message_media(
 
 
 def get_media_by_id(media_id: int) -> Optional[dict]:
-    """Get a media attachment by ID (includes original_url for proxying)."""
+    """Get a media attachment by ID."""
     with SessionLocal() as session:
         media = session.get(SmsMessageMedia, media_id)
         if not media:
@@ -365,6 +385,6 @@ def get_media_by_id(media_id: int) -> Optional[dict]:
             "message_id": media.message_id,
             "content_type": media.content_type,
             "filename": media.filename,
-            "original_url": media.original_url,
+            "local_path": media.local_path,
             "file_size": media.file_size,
         }

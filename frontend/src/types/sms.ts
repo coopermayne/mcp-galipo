@@ -13,7 +13,6 @@ export interface SmsMediaAttachment {
   id: number
   content_type: string
   filename: string | null
-  original_url: string
   file_size: number | null
 }
 
