@@ -9,6 +9,7 @@ import {
   sendMessage,
   createConversation,
   archiveConversation,
+  deleteConversation,
 } from "@/services/sms"
 import { ConversationList } from "@/pages/sms/components/conversation-list"
 import { MessageThread } from "@/pages/sms/components/message-thread"
@@ -139,6 +140,28 @@ export default function SmsPage() {
     },
   })
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (conversationId: number) => deleteConversation(conversationId),
+    onSuccess: (_, conversationId) => {
+      queryClient.invalidateQueries({ queryKey: ["sms-conversations"] })
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(null)
+      }
+      toast.success("Conversation deleted")
+    },
+    onError: () => {
+      toast.error("Failed to delete conversation")
+    },
+  })
+
+  const handleDelete = useCallback(
+    (conversationId: number) => {
+      deleteMutation.mutate(conversationId)
+    },
+    [deleteMutation]
+  )
+
   const handleNewConversation = useCallback(() => {
     setNewDialogOpen(true)
   }, [])
@@ -169,6 +192,7 @@ export default function SmsPage() {
           onSelect={setSelectedConversationId}
           onNewConversation={handleNewConversation}
           onArchive={handleArchive}
+          onDelete={handleDelete}
           showArchived={showArchived}
           onShowArchivedChange={setShowArchived}
           searchValue={searchValue}

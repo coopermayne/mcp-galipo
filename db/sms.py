@@ -303,6 +303,17 @@ def archive_conversation(conversation_id: int, archived: bool = True) -> Optiona
         return result
 
 
+def delete_conversation(conversation_id: int) -> bool:
+    """Delete a conversation and all its messages/media (CASCADE)."""
+    with SessionLocal() as session:
+        conv = session.get(SmsConversation, conversation_id)
+        if not conv:
+            return False
+        session.delete(conv)
+        session.commit()
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Media
 # ---------------------------------------------------------------------------

@@ -335,6 +335,36 @@ def register_sms_routes(mcp):
 
         return JSONResponse(result)
 
+    @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}", methods=["DELETE"])
+    async def api_delete_conversation(request):
+        """Delete an archived conversation and all its messages."""
+        if err := auth.require_auth(request):
+            return err
+
+        conversation_id = int(request.path_params["conversation_id"])
+
+        # Only allow deleting archived conversations
+        conv = await asyncio.to_thread(db.get_sms_conversation, conversation_id)
+        if not conv:
+            return api_error("Conversation not found", "NOT_FOUND", 404)
+        if not conv.get("archived"):
+            return api_error("Only archived conversations can be deleted", "VALIDATION_ERROR", 400)
+
+        deleted = await asyncio.to_thread(
+            db.delete_sms_conversation,
+            conversation_id=conversation_id,
+        )
+        if not deleted:
+            return api_error("Conversation not found", "NOT_FOUND", 404)
+
+        broadcast({
+            "entity": "sms_conversation",
+            "action": "deleted",
+            "id": conversation_id,
+        })
+
+        return JSONResponse({"ok": True})
+
     @mcp.custom_route("/api/v1/sms/media/{media_id}", methods=["GET"])
     async def api_proxy_media(request):
         """Proxy a media file from Twilio.

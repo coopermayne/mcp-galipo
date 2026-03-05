@@ -95,6 +95,16 @@ export async function archiveConversation(
   return res.json()
 }
 
+export async function deleteConversation(
+  conversationId: number
+): Promise<void> {
+  const res = await apiFetch(
+    `/api/v1/sms/conversations/${conversationId}`,
+    { method: "DELETE" }
+  )
+  if (!res.ok) throw new Error("Failed to delete conversation")
+}
+
 export function getMediaProxyUrl(mediaId: number): string {
   return `/api/v1/sms/media/${mediaId}`
 }
