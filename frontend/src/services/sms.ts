@@ -106,5 +106,7 @@ export async function deleteConversation(
 }
 
 export function getMediaProxyUrl(mediaId: number): string {
-  return `/api/v1/sms/media/${mediaId}`
+  const token = localStorage.getItem("token")
+  const params = token ? `?token=${encodeURIComponent(token)}` : ""
+  return `/api/v1/sms/media/${mediaId}${params}`
 }

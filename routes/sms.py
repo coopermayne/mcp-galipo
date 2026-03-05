@@ -428,8 +428,17 @@ def register_sms_routes(mcp):
 
     @mcp.custom_route("/api/v1/sms/media/{media_id}", methods=["GET"])
     async def api_serve_media(request):
-        """Serve a media file from local storage."""
-        if err := auth.require_auth(request):
+        """Serve a media file from local storage.
+
+        Accepts auth via Bearer header or ?token= query param (for img src).
+        """
+        # Allow token via query param for <img src> usage
+        token_param = request.query_params.get("token")
+        if token_param and not request.headers.get("Authorization"):
+            # Validate the query param token directly
+            if not auth.validate_session(token_param):
+                return api_error("Invalid or expired token", "UNAUTHORIZED", 401)
+        elif err := auth.require_auth(request):
             return err
 
         media_id = int(request.path_params["media_id"])
