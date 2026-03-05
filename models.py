@@ -906,6 +906,7 @@ class SmsMessageMedia(Base):
     content_type: Mapped[str] = mapped_column(String(100))
     filename: Mapped[Optional[str]] = mapped_column(String(255))
     original_url: Mapped[str] = mapped_column(Text)
+    local_path: Mapped[Optional[str]] = mapped_column(Text)
     file_size: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP")

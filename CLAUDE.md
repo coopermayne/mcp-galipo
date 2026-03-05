@@ -366,6 +366,7 @@ set -a && source .env && set +a
 | `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
 | `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP OAuth authentication (requires MCP_BASE_URL) |
 | `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |
+| `MEDIA_DIR` | No | /app/media | Directory for uploaded media files (SMS/MMS) |
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
 
 See `.env.example` for a complete template.

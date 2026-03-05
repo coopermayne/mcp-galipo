@@ -98,6 +98,10 @@ def initialize_database():
             # Seed lookup tables (idempotent - only inserts if empty)
             db.seed_db()
 
+        # Ensure media directory exists
+        from pathlib import Path
+        Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
+
         # Mark as initialized
         with open(init_marker, "w") as f:
             f.write("initialized")
