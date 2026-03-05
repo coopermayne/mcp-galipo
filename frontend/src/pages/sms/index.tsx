@@ -276,7 +276,7 @@ export default function SmsPage() {
               <Label htmlFor="phone">Phone Number</Label>
               <Input
                 id="phone"
-                placeholder="+1 (555) 123-4567"
+                placeholder="5551234567"
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
                 autoFocus
