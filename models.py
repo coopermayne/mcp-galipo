@@ -916,6 +916,31 @@ class SmsMessageMedia(Base):
     message: Mapped[SmsMessage] = relationship(back_populates="media")
 
 
+class SmsConversationRead(Base):
+    __tablename__ = "sms_conversation_reads"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["conversation_id"],
+            ["sms_conversations.id"],
+            ondelete="CASCADE",
+            name="sms_conversation_reads_conversation_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="CASCADE",
+            name="sms_conversation_reads_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("conversation_id", "user_id", name="sms_conversation_reads_pkey"),
+    )
+
+    conversation_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class WebhookLog(Base):
     __tablename__ = "webhook_logs"
     __table_args__ = (

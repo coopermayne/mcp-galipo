@@ -270,6 +270,8 @@ from .sms import (
     delete_conversation as delete_sms_conversation,
     create_message_media as create_sms_message_media,
     get_media_by_id as get_sms_media_by_id,
+    mark_conversation_read as mark_sms_conversation_read,
+    get_unread_counts as get_sms_unread_counts,
 )
 
 # Bulk import
@@ -485,6 +487,8 @@ __all__ = [
     "delete_sms_conversation",
     "create_sms_message_media",
     "get_sms_media_by_id",
+    "mark_sms_conversation_read",
+    "get_sms_unread_counts",
     # Bulk import
     "import_case",
 ]

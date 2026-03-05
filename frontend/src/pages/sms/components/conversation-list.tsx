@@ -43,6 +43,7 @@ interface ConversationListProps {
   searchValue: string
   onSearchChange: (value: string) => void
   isLoading?: boolean
+  unreadCounts?: Record<number, number>
 }
 
 function ConversationActions({
@@ -131,6 +132,7 @@ export function ConversationList({
   searchValue,
   onSearchChange,
   isLoading,
+  unreadCounts,
 }: ConversationListProps) {
   if (isLoading) {
     return (
@@ -205,8 +207,13 @@ export function ConversationList({
                   className="flex flex-1 flex-col gap-0.5 px-3 py-2.5 text-left"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
+                    <span className="flex items-center gap-1.5 truncate text-sm font-medium">
                       {conv.label || conv.phone_number}
+                      {(unreadCounts?.[conv.id] ?? 0) > 0 && (
+                        <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+                          {unreadCounts![conv.id]}
+                        </span>
+                      )}
                     </span>
                     {conv.last_message_at && (
                       <span className="shrink-0 text-xs text-muted-foreground">

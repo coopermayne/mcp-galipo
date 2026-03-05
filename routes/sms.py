@@ -426,6 +426,47 @@ def register_sms_routes(mcp):
 
         return JSONResponse({"ok": True})
 
+    @mcp.custom_route("/api/v1/sms/unread-counts", methods=["GET"])
+    async def api_unread_counts(request):
+        """Get unread inbound message counts for conversations."""
+        if err := auth.require_auth(request):
+            return err
+
+        user = auth.get_current_user(request)
+        if not user:
+            return api_error("Unauthorized", "UNAUTHORIZED", 401)
+
+        ids = request.query_params.getlist("ids")
+        if not ids:
+            return JSONResponse({})
+
+        conversation_ids = [int(i) for i in ids]
+        counts = await asyncio.to_thread(
+            db.get_sms_unread_counts,
+            user_id=user["id"],
+            conversation_ids=conversation_ids,
+        )
+        # Return string keys to match intakes pattern
+        return JSONResponse({str(k): v for k, v in counts.items()})
+
+    @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}/read", methods=["POST"])
+    async def api_mark_conversation_read(request):
+        """Mark a conversation as read for the current user."""
+        if err := auth.require_auth(request):
+            return err
+
+        user = auth.get_current_user(request)
+        if not user:
+            return api_error("Unauthorized", "UNAUTHORIZED", 401)
+
+        conversation_id = int(request.path_params["conversation_id"])
+        await asyncio.to_thread(
+            db.mark_sms_conversation_read,
+            conversation_id=conversation_id,
+            user_id=user["id"],
+        )
+        return JSONResponse({"success": True})
+
     @mcp.custom_route("/api/v1/sms/media/{media_id}", methods=["GET"])
     async def api_serve_media(request):
         """Serve a media file from local storage.
