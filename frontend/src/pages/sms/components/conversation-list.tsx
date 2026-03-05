@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -5,6 +6,7 @@ import {
   Archive02Icon,
   MoreVerticalIcon,
   InboxIcon,
+  Delete01Icon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -17,6 +19,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { SmsConversation } from "@/types/sms"
 
 interface ConversationListProps {
@@ -25,11 +37,86 @@ interface ConversationListProps {
   onSelect: (id: number) => void
   onNewConversation: () => void
   onArchive: (id: number, archived: boolean) => void
+  onDelete: (id: number) => void
   showArchived: boolean
   onShowArchivedChange: (show: boolean) => void
   searchValue: string
   onSearchChange: (value: string) => void
   isLoading?: boolean
+}
+
+function ConversationActions({
+  conv,
+  onArchive,
+  onDelete,
+}: {
+  conv: SmsConversation
+  onArchive: (id: number, archived: boolean) => void
+  onDelete: (id: number) => void
+}) {
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 mr-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          >
+            <HugeiconsIcon icon={MoreVerticalIcon} size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => onArchive(conv.id, !conv.archived)}
+          >
+            <HugeiconsIcon
+              icon={conv.archived ? InboxIcon : Archive02Icon}
+              size={14}
+              className="mr-2"
+            />
+            {conv.archived ? "Unarchive" : "Archive"}
+          </DropdownMenuItem>
+          {conv.archived && (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setShowConfirm(true)}
+            >
+              <HugeiconsIcon
+                icon={Delete01Icon}
+                size={14}
+                className="mr-2"
+              />
+              Delete
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this conversation and all its
+              messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => onDelete(conv.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
 }
 
 export function ConversationList({
@@ -38,6 +125,7 @@ export function ConversationList({
   onSelect,
   onNewConversation,
   onArchive,
+  onDelete,
   showArchived,
   onShowArchivedChange,
   searchValue,
@@ -141,29 +229,11 @@ export function ConversationList({
                     </p>
                   )}
                 </button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 mr-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                    >
-                      <HugeiconsIcon icon={MoreVerticalIcon} size={14} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => onArchive(conv.id, !conv.archived)}
-                    >
-                      <HugeiconsIcon
-                        icon={conv.archived ? InboxIcon : Archive02Icon}
-                        size={14}
-                        className="mr-2"
-                      />
-                      {conv.archived ? "Unarchive" : "Archive"}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <ConversationActions
+                      conv={conv}
+                      onArchive={onArchive}
+                      onDelete={onDelete}
+                    />
               </div>
             ))
           )}
