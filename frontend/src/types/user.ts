@@ -9,6 +9,7 @@ export type FeatureKey =
   | "contacts"
   | "templates"
   | "court-listener"
+  | "sms"
 
 export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "dashboard", label: "Dashboard" },
@@ -19,6 +20,7 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "contacts", label: "Contacts" },
   { value: "templates", label: "Templates" },
   { value: "court-listener", label: "CourtListener" },
+  { value: "sms", label: "SMS" },
 ]
 
 export interface User {
