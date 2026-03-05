@@ -827,12 +827,16 @@ class SmsConversation(Base):
         UniqueConstraint("phone_number", name="sms_conversations_phone_number_key"),
         Index("idx_sms_conversations_phone_number", "phone_number"),
         Index("idx_sms_conversations_last_message_at", "last_message_at"),
+        Index("idx_sms_conversations_archived", "archived"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     phone_number: Mapped[str] = mapped_column(String(20))
     label: Mapped[Optional[str]] = mapped_column(Text)
     last_message_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    archived: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP")
     )
@@ -879,6 +883,36 @@ class SmsMessage(Base):
     # Relationships
     conversation: Mapped[SmsConversation] = relationship(back_populates="messages")
     sent_by_user: Mapped[Optional[User]] = relationship()
+    media: Mapped[list[SmsMessageMedia]] = relationship(
+        back_populates="message", cascade="all, delete-orphan"
+    )
+
+
+class SmsMessageMedia(Base):
+    __tablename__ = "sms_message_media"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["message_id"],
+            ["sms_messages.id"],
+            ondelete="CASCADE",
+            name="sms_message_media_message_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="sms_message_media_pkey"),
+        Index("idx_sms_message_media_message_id", "message_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_id: Mapped[int] = mapped_column(Integer)
+    content_type: Mapped[str] = mapped_column(String(100))
+    filename: Mapped[Optional[str]] = mapped_column(String(255))
+    original_url: Mapped[str] = mapped_column(Text)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    message: Mapped[SmsMessage] = relationship(back_populates="media")
 
 
 class WebhookLog(Base):

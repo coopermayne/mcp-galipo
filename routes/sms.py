@@ -8,7 +8,8 @@ and receiving inbound messages via Twilio webhook.
 import asyncio
 import logging
 
-from fastapi.responses import JSONResponse, PlainTextResponse
+import httpx
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import ValidationError
 
 import auth
@@ -61,9 +62,15 @@ def register_sms_routes(mcp):
 
         limit = int(request.query_params.get("limit", "50"))
         offset = int(request.query_params.get("offset", "0"))
+        archived = request.query_params.get("archived", "false").lower() == "true"
+        search = request.query_params.get("search", "").strip() or None
 
         result = await asyncio.to_thread(
-            db.list_sms_conversations, limit=limit, offset=offset
+            db.list_sms_conversations,
+            limit=limit,
+            offset=offset,
+            archived=archived,
+            search=search,
         )
         return JSONResponse(result)
 
@@ -210,14 +217,15 @@ def register_sms_routes(mcp):
         from_number = body_params.get("From", "")
         message_body = body_params.get("Body", "")
         twilio_sid = body_params.get("MessageSid", "")
+        num_media = int(body_params.get("NumMedia", "0"))
 
-        if not from_number or not message_body:
+        if not from_number:
             return PlainTextResponse(
                 '<?xml version="1.0" encoding="UTF-8"?><Response/>',
                 media_type="text/xml",
             )
 
-        # Find or create conversation
+        # Find or create conversation (auto-unarchives on inbound via create_message)
         conv = await asyncio.to_thread(
             db.find_or_create_sms_conversation,
             phone_number=from_number,
@@ -232,15 +240,28 @@ def register_sms_routes(mcp):
                 "id": conv["id"],
             })
 
-        # Save message
+        # Save message (body may be empty for media-only MMS)
         msg = await asyncio.to_thread(
             db.create_sms_message,
             conversation_id=conv["id"],
             direction="inbound",
-            body=message_body,
+            body=message_body or "",
             twilio_sid=twilio_sid,
             status="received",
         )
+
+        # Extract and save media attachments
+        if msg and num_media > 0:
+            for i in range(num_media):
+                media_url = body_params.get(f"MediaUrl{i}")
+                media_type = body_params.get(f"MediaContentType{i}", "application/octet-stream")
+                if media_url:
+                    await asyncio.to_thread(
+                        db.create_sms_message_media,
+                        message_id=msg["id"],
+                        content_type=media_type,
+                        original_url=media_url,
+                    )
 
         if msg:
             broadcast({
@@ -282,3 +303,81 @@ def register_sms_routes(mcp):
             return api_error("Conversation not found", "NOT_FOUND", 404)
 
         return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}/archive", methods=["POST"])
+    async def api_archive_conversation(request):
+        """Archive or unarchive a conversation."""
+        if err := auth.require_auth(request):
+            return err
+
+        conversation_id = int(request.path_params["conversation_id"])
+
+        try:
+            body = await request.json()
+        except Exception:
+            return api_error("Invalid JSON body", "BAD_REQUEST", 400)
+
+        archived = body.get("archived", True)
+
+        result = await asyncio.to_thread(
+            db.archive_sms_conversation,
+            conversation_id=conversation_id,
+            archived=archived,
+        )
+        if not result:
+            return api_error("Conversation not found", "NOT_FOUND", 404)
+
+        broadcast({
+            "entity": "sms_conversation",
+            "action": "archived" if archived else "unarchived",
+            "id": conversation_id,
+        })
+
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/sms/media/{media_id}", methods=["GET"])
+    async def api_proxy_media(request):
+        """Proxy a media file from Twilio.
+
+        Fetches from the original Twilio URL using basic auth, then streams
+        the content back. Supports ?token= param for use in img src attributes.
+        """
+        if err := auth.require_auth(request):
+            return err
+
+        media_id = int(request.path_params["media_id"])
+
+        media = await asyncio.to_thread(db.get_sms_media_by_id, media_id)
+        if not media:
+            return api_error("Media not found", "NOT_FOUND", 404)
+
+        # Fetch from Twilio with basic auth
+        twilio_auth = None
+        if settings.twilio_account_sid and settings.twilio_token:
+            twilio_auth = (settings.twilio_account_sid, settings.twilio_token)
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    media["original_url"],
+                    auth=twilio_auth,
+                    follow_redirects=True,
+                    timeout=30.0,
+                )
+                resp.raise_for_status()
+
+                headers = {
+                    "Content-Type": media["content_type"],
+                    "Cache-Control": "private, max-age=3600",
+                }
+                if media.get("filename"):
+                    headers["Content-Disposition"] = f'inline; filename="{media["filename"]}"'
+
+                return Response(
+                    content=resp.content,
+                    media_type=media["content_type"],
+                    headers=headers,
+                )
+        except Exception as e:
+            logger.error("Failed to proxy media %s: %s", media_id, e)
+            return api_error("Failed to fetch media", "PROXY_ERROR", 502)

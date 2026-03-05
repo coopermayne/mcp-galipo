@@ -1,8 +1,22 @@
 import { formatDistanceToNow } from "date-fns"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Search01Icon,
+  Archive02Icon,
+  MoreVerticalIcon,
+  InboxIcon,
+} from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { SmsConversation } from "@/types/sms"
 
 interface ConversationListProps {
@@ -10,6 +24,11 @@ interface ConversationListProps {
   selectedId: number | null
   onSelect: (id: number) => void
   onNewConversation: () => void
+  onArchive: (id: number, archived: boolean) => void
+  showArchived: boolean
+  onShowArchivedChange: (show: boolean) => void
+  searchValue: string
+  onSearchChange: (value: string) => void
   isLoading?: boolean
 }
 
@@ -18,6 +37,11 @@ export function ConversationList({
   selectedId,
   onSelect,
   onNewConversation,
+  onArchive,
+  showArchived,
+  onShowArchivedChange,
+  searchValue,
+  onSearchChange,
   isLoading,
 }: ConversationListProps) {
   if (isLoading) {
@@ -35,52 +59,112 @@ export function ConversationList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b p-3">
-        <Button onClick={onNewConversation} className="w-full" size="sm">
-          New Message
-        </Button>
+      <div className="flex flex-col gap-2 border-b p-3">
+        <div className="flex items-center gap-2">
+          <Button onClick={onNewConversation} className="flex-1" size="sm">
+            New Message
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onShowArchivedChange(!showArchived)}
+            className={cn(
+              "h-8 w-8 p-0 border",
+              showArchived
+                ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                : "text-muted-foreground"
+            )}
+            title={showArchived ? "Showing archived" : "Show archived"}
+          >
+            <HugeiconsIcon icon={Archive02Icon} size={14} />
+          </Button>
+        </div>
+        <div className="relative">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            size={14}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder="Search conversations..."
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
       </div>
       <ScrollArea className="flex-1">
         <div className="flex flex-col">
           {conversations.length === 0 ? (
             <p className="p-4 text-center text-sm text-muted-foreground">
-              No conversations yet
+              {showArchived
+                ? "No archived conversations"
+                : searchValue
+                  ? "No matching conversations"
+                  : "No conversations yet"}
             </p>
           ) : (
             conversations.map((conv) => (
-              <button
+              <div
                 key={conv.id}
-                onClick={() => onSelect(conv.id)}
                 className={cn(
-                  "flex flex-col gap-0.5 border-b px-3 py-2.5 text-left transition-colors hover:bg-accent",
+                  "group flex items-start border-b transition-colors hover:bg-accent",
                   selectedId === conv.id && "bg-accent"
                 )}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium">
-                    {conv.label || conv.phone_number}
-                  </span>
-                  {conv.last_message_at && (
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDistanceToNow(
-                        new Date(conv.last_message_at + "Z"),
-                        { addSuffix: true }
-                      )}
+                <button
+                  onClick={() => onSelect(conv.id)}
+                  className="flex flex-1 flex-col gap-0.5 px-3 py-2.5 text-left"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium">
+                      {conv.label || conv.phone_number}
+                    </span>
+                    {conv.last_message_at && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDistanceToNow(
+                          new Date(conv.last_message_at + "Z"),
+                          { addSuffix: true }
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  {conv.label && (
+                    <span className="text-xs text-muted-foreground">
+                      {conv.phone_number}
                     </span>
                   )}
-                </div>
-                {conv.label && (
-                  <span className="text-xs text-muted-foreground">
-                    {conv.phone_number}
-                  </span>
-                )}
-                {conv.last_message_preview && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {conv.last_message_direction === "outbound" && "You: "}
-                    {conv.last_message_preview}
-                  </p>
-                )}
-              </button>
+                  {conv.last_message_preview && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {conv.last_message_direction === "outbound" && "You: "}
+                      {conv.last_message_preview}
+                    </p>
+                  )}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 mr-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                    >
+                      <HugeiconsIcon icon={MoreVerticalIcon} size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => onArchive(conv.id, !conv.archived)}
+                    >
+                      <HugeiconsIcon
+                        icon={conv.archived ? InboxIcon : Archive02Icon}
+                        size={14}
+                        className="mr-2"
+                      />
+                      {conv.archived ? "Unarchive" : "Archive"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ))
           )}
         </div>
