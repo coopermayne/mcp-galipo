@@ -13,6 +13,17 @@ from .session import SessionLocal
 from models import SmsConversation, SmsConversationRead, SmsMessage, SmsMessageMedia, User
 
 
+def normalize_phone(phone: str) -> str:
+    """Strip non-digits and ensure +1 prefix (E.164 US format)."""
+    digits = "".join(c for c in phone if c.isdigit())
+    if len(digits) == 10:
+        digits = "1" + digits
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    # Already has country code or international — return as +digits
+    return f"+{digits}" if digits else phone
+
+
 def list_conversations(
     limit: int = 50,
     offset: int = 0,
@@ -160,6 +171,7 @@ def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dic
 
 def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
     """Find existing conversation by phone number, or create a new one."""
+    phone_number = normalize_phone(phone_number)
     with SessionLocal() as session:
         conv = session.scalar(
             select(SmsConversation)
