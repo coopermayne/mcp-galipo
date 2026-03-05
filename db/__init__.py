@@ -266,6 +266,9 @@ from .sms import (
     find_or_create_conversation as find_or_create_sms_conversation,
     create_message as create_sms_message,
     update_conversation_label as update_sms_conversation_label,
+    archive_conversation as archive_sms_conversation,
+    create_message_media as create_sms_message_media,
+    get_media_by_id as get_sms_media_by_id,
 )
 
 # Bulk import
@@ -477,6 +480,9 @@ __all__ = [
     "find_or_create_sms_conversation",
     "create_sms_message",
     "update_sms_conversation_label",
+    "archive_sms_conversation",
+    "create_sms_message_media",
+    "get_sms_media_by_id",
     # Bulk import
     "import_case",
 ]

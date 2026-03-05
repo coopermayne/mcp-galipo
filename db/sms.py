@@ -5,21 +5,55 @@ SMS conversation and message database operations.
 import datetime
 from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from .session import SessionLocal
-from models import SmsConversation, SmsMessage, User
+from models import SmsConversation, SmsMessage, SmsMessageMedia, User
 
 
-def list_conversations(limit: int = 50, offset: int = 0) -> dict:
-    """List SMS conversations sorted by most recent message."""
+def list_conversations(
+    limit: int = 50,
+    offset: int = 0,
+    archived: bool = False,
+    search: Optional[str] = None,
+) -> dict:
+    """List SMS conversations sorted by most recent message.
+
+    Args:
+        archived: Filter by archived status (default False = active only)
+        search: Optional search term — matches label, phone_number, or message body (ILIKE)
+    """
     with SessionLocal() as session:
+        base_filter = SmsConversation.archived == archived
+
+        # Build search filter if provided
+        if search:
+            term = f"%{search}%"
+            # Subquery: conversation IDs with matching message body
+            msg_subq = (
+                select(SmsMessage.conversation_id)
+                .where(SmsMessage.body.ilike(term))
+                .distinct()
+                .subquery()
+            )
+            search_filter = or_(
+                SmsConversation.label.ilike(term),
+                SmsConversation.phone_number.ilike(term),
+                SmsConversation.id.in_(select(msg_subq.c.conversation_id)),
+            )
+            combined_filter = base_filter & search_filter
+        else:
+            combined_filter = base_filter
+
         total = session.scalar(
-            select(func.count()).select_from(SmsConversation)
+            select(func.count())
+            .select_from(SmsConversation)
+            .where(combined_filter)
         )
 
         stmt = (
             select(SmsConversation)
+            .where(combined_filter)
             .order_by(SmsConversation.last_message_at.desc().nullslast())
             .limit(limit)
             .offset(offset)
@@ -41,6 +75,7 @@ def list_conversations(limit: int = 50, offset: int = 0) -> dict:
                 "label": conv.label,
                 "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "archived": conv.archived or False,
                 "last_message_preview": (last_msg.body[:80] + "...") if last_msg and len(last_msg.body) > 80 else (last_msg.body if last_msg else None),
                 "last_message_direction": last_msg.direction if last_msg else None,
             })
@@ -60,11 +95,12 @@ def get_conversation(conversation_id: int) -> Optional[dict]:
             "label": conv.label,
             "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
             "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "archived": conv.archived or False,
         }
 
 
 def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dict:
-    """Get messages for a conversation, oldest first."""
+    """Get messages for a conversation, oldest first. Includes media attachments."""
     with SessionLocal() as session:
         conv = session.get(SmsConversation, conversation_id)
         if not conv:
@@ -85,6 +121,24 @@ def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dic
         )
         rows = session.execute(stmt).all()
 
+        # Batch-load media for all messages in this page
+        msg_ids = [msg.id for msg, _ in rows]
+        media_map: dict[int, list[dict]] = {}
+        if msg_ids:
+            media_rows = session.scalars(
+                select(SmsMessageMedia)
+                .where(SmsMessageMedia.message_id.in_(msg_ids))
+                .order_by(SmsMessageMedia.id)
+            ).all()
+            for m in media_rows:
+                media_map.setdefault(m.message_id, []).append({
+                    "id": m.id,
+                    "content_type": m.content_type,
+                    "filename": m.filename,
+                    "original_url": m.original_url,
+                    "file_size": m.file_size,
+                })
+
         messages = []
         for msg, user in rows:
             messages.append({
@@ -97,6 +151,7 @@ def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dic
                 "twilio_sid": msg.twilio_sid,
                 "status": msg.status,
                 "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                "media": media_map.get(msg.id, []),
             })
 
         return {"messages": messages, "total": total}
@@ -120,6 +175,7 @@ def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
                 "label": conv.label,
                 "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "archived": conv.archived or False,
                 "created": False,
             }
 
@@ -136,6 +192,7 @@ def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
             "label": conv.label,
             "last_message_at": None,
             "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "archived": False,
             "created": True,
         }
         session.commit()
@@ -150,7 +207,10 @@ def create_message(
     sent_by_user_id: int = None,
     status: str = "sent",
 ) -> Optional[dict]:
-    """Create a new SMS message and update conversation's last_message_at."""
+    """Create a new SMS message and update conversation's last_message_at.
+
+    Auto-unarchives the conversation if it was archived (e.g. inbound message).
+    """
     with SessionLocal() as session:
         conv = session.get(SmsConversation, conversation_id)
         if not conv:
@@ -170,6 +230,10 @@ def create_message(
 
         # Update conversation's last_message_at
         conv.last_message_at = now
+
+        # Auto-unarchive on inbound message
+        if direction == "inbound" and conv.archived:
+            conv.archived = False
 
         session.flush()
         session.refresh(msg)
@@ -191,6 +255,7 @@ def create_message(
             "twilio_sid": msg.twilio_sid,
             "status": msg.status,
             "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            "media": [],
         }
         session.commit()
         return result
@@ -211,6 +276,84 @@ def update_conversation_label(conversation_id: int, label: str) -> Optional[dict
             "label": conv.label,
             "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
             "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "archived": conv.archived or False,
         }
         session.commit()
         return result
+
+
+def archive_conversation(conversation_id: int, archived: bool = True) -> Optional[dict]:
+    """Archive or unarchive a conversation."""
+    with SessionLocal() as session:
+        conv = session.get(SmsConversation, conversation_id)
+        if not conv:
+            return None
+        conv.archived = archived
+        session.flush()
+        session.refresh(conv)
+        result = {
+            "id": conv.id,
+            "phone_number": conv.phone_number,
+            "label": conv.label,
+            "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "archived": conv.archived or False,
+        }
+        session.commit()
+        return result
+
+
+# ---------------------------------------------------------------------------
+# Media
+# ---------------------------------------------------------------------------
+
+
+def create_message_media(
+    message_id: int,
+    content_type: str,
+    original_url: str,
+    filename: Optional[str] = None,
+    file_size: Optional[int] = None,
+) -> Optional[dict]:
+    """Create a media attachment for a message."""
+    with SessionLocal() as session:
+        msg = session.get(SmsMessage, message_id)
+        if not msg:
+            return None
+
+        media = SmsMessageMedia(
+            message_id=message_id,
+            content_type=content_type,
+            original_url=original_url,
+            filename=filename,
+            file_size=file_size,
+        )
+        session.add(media)
+        session.flush()
+        session.refresh(media)
+        result = {
+            "id": media.id,
+            "message_id": media.message_id,
+            "content_type": media.content_type,
+            "filename": media.filename,
+            "original_url": media.original_url,
+            "file_size": media.file_size,
+        }
+        session.commit()
+        return result
+
+
+def get_media_by_id(media_id: int) -> Optional[dict]:
+    """Get a media attachment by ID (includes original_url for proxying)."""
+    with SessionLocal() as session:
+        media = session.get(SmsMessageMedia, media_id)
+        if not media:
+            return None
+        return {
+            "id": media.id,
+            "message_id": media.message_id,
+            "content_type": media.content_type,
+            "filename": media.filename,
+            "original_url": media.original_url,
+            "file_size": media.file_size,
+        }

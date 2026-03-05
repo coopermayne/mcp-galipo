@@ -1,11 +1,14 @@
 import { useState, useCallback } from "react"
+import { useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { useDebounce } from "@/hooks/use-debounce"
 import {
   getConversations,
   getMessages,
   sendMessage,
   createConversation,
+  archiveConversation,
 } from "@/services/sms"
 import { ConversationList } from "@/pages/sms/components/conversation-list"
 import { MessageThread } from "@/pages/sms/components/message-thread"
@@ -23,18 +26,50 @@ import { Button } from "@/components/ui/button"
 
 export default function SmsPage() {
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [selectedConversationId, setSelectedConversationId] = useState<
     number | null
   >(null)
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [newPhone, setNewPhone] = useState("")
   const [newLabel, setNewLabel] = useState("")
+  const [searchValue, setSearchValue] = useState("")
 
-  // Fetch conversations
+  // URL-driven archived state (same pattern as contacts page)
+  const showArchived = searchParams.get("archived") === "true"
+  const setShowArchived = useCallback(
+    (show: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (show) {
+            next.set("archived", "true")
+          } else {
+            next.delete("archived")
+          }
+          return next
+        },
+        { replace: true }
+      )
+      // Clear selection when switching views
+      setSelectedConversationId(null)
+    },
+    [setSearchParams]
+  )
+
+  // Debounce search for API calls
+  const debouncedSearch = useDebounce(searchValue, 300)
+
+  // Fetch conversations with archive + search filters
   const { data: conversationsData, isLoading: loadingConversations } = useQuery(
     {
-      queryKey: ["sms-conversations"],
-      queryFn: () => getConversations(),
+      queryKey: ["sms-conversations", { archived: showArchived, search: debouncedSearch }],
+      queryFn: () =>
+        getConversations({
+          archived: showArchived,
+          search: debouncedSearch || undefined,
+        }),
     }
   )
 
@@ -83,6 +118,27 @@ export default function SmsPage() {
     },
   })
 
+  // Archive mutation
+  const archiveMutation = useMutation({
+    mutationFn: ({
+      conversationId,
+      archived,
+    }: {
+      conversationId: number
+      archived: boolean
+    }) => archiveConversation(conversationId, archived),
+    onSuccess: (_, { conversationId, archived }) => {
+      queryClient.invalidateQueries({ queryKey: ["sms-conversations"] })
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(null)
+      }
+      toast.success(archived ? "Conversation archived" : "Conversation unarchived")
+    },
+    onError: () => {
+      toast.error("Failed to archive conversation")
+    },
+  })
+
   const handleNewConversation = useCallback(() => {
     setNewDialogOpen(true)
   }, [])
@@ -96,6 +152,13 @@ export default function SmsPage() {
     [newPhone, createMutation]
   )
 
+  const handleArchive = useCallback(
+    (conversationId: number, archived: boolean) => {
+      archiveMutation.mutate({ conversationId, archived })
+    },
+    [archiveMutation]
+  )
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Left panel — conversation list */}
@@ -105,6 +168,11 @@ export default function SmsPage() {
           selectedId={selectedConversationId}
           onSelect={setSelectedConversationId}
           onNewConversation={handleNewConversation}
+          onArchive={handleArchive}
+          showArchived={showArchived}
+          onShowArchivedChange={setShowArchived}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
           isLoading={loadingConversations}
         />
       </div>

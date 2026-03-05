@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { SmsMessage } from "@/types/sms"
+import { getMediaProxyUrl } from "@/services/sms"
+import type { SmsMessage, SmsMediaAttachment } from "@/types/sms"
 
 interface MessageThreadProps {
   messages: SmsMessage[]
@@ -24,6 +25,44 @@ function formatTime(dateStr: string | null) {
   if (d.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`
 
   return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`
+}
+
+function isImageType(contentType: string): boolean {
+  return contentType.startsWith("image/")
+}
+
+function MediaAttachment({ media }: { media: SmsMediaAttachment }) {
+  const proxyUrl = getMediaProxyUrl(media.id)
+
+  if (isImageType(media.content_type)) {
+    return (
+      <a href={proxyUrl} target="_blank" rel="noopener noreferrer" className="block">
+        <img
+          src={proxyUrl}
+          alt={media.filename || "Image"}
+          className="max-h-48 max-w-full object-contain"
+          loading="lazy"
+        />
+      </a>
+    )
+  }
+
+  // Non-image file — download link
+  return (
+    <a
+      href={proxyUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 text-xs underline"
+    >
+      {media.filename || "Download file"}
+      {media.file_size != null && (
+        <span className="text-[10px] opacity-70">
+          ({(media.file_size / 1024).toFixed(0)} KB)
+        </span>
+      )}
+    </a>
+  )
 }
 
 export function MessageThread({ messages, isLoading }: MessageThreadProps) {
@@ -97,7 +136,16 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
                     : "bg-muted"
                 )}
               >
-                <p className="whitespace-pre-wrap text-sm">{msg.body}</p>
+                {msg.media.length > 0 && (
+                  <div className="mb-1.5 flex flex-col gap-1.5">
+                    {msg.media.map((m) => (
+                      <MediaAttachment key={m.id} media={m} />
+                    ))}
+                  </div>
+                )}
+                {msg.body && (
+                  <p className="whitespace-pre-wrap text-sm">{msg.body}</p>
+                )}
                 <p
                   className={cn(
                     "mt-1 text-[10px]",
