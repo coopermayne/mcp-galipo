@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -10,6 +10,8 @@ import {
   createConversation,
   archiveConversation,
   deleteConversation,
+  getSmsUnreadCounts,
+  markSmsConversationRead,
 } from "@/services/sms"
 import { ConversationList } from "@/pages/sms/components/conversation-list"
 import { MessageThread } from "@/pages/sms/components/message-thread"
@@ -76,6 +78,19 @@ export default function SmsPage() {
 
   const conversations = conversationsData?.conversations ?? []
 
+  // Derive conversation IDs for unread count lookup
+  const conversationIds = useMemo(
+    () => conversations.map((c) => c.id),
+    [conversations]
+  )
+
+  // Fetch unread counts for visible conversations
+  const { data: unreadCounts } = useQuery({
+    queryKey: ["sms-unread-counts", conversationIds],
+    queryFn: () => getSmsUnreadCounts(conversationIds),
+    enabled: conversationIds.length > 0,
+  })
+
   // Fetch messages for selected conversation
   const { data: messagesData, isLoading: loadingMessages } = useQuery({
     queryKey: ["sms-messages", selectedConversationId],
@@ -84,6 +99,17 @@ export default function SmsPage() {
   })
 
   const messages = messagesData?.messages ?? []
+
+  // Handle selecting a conversation — also marks it as read
+  const handleSelectConversation = useCallback(
+    (id: number) => {
+      setSelectedConversationId(id)
+      markSmsConversationRead(id).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["sms-unread-counts"] })
+      })
+    },
+    [queryClient]
+  )
 
   // Get selected conversation info
   const selectedConversation = conversations.find(
@@ -189,7 +215,7 @@ export default function SmsPage() {
         <ConversationList
           conversations={conversations}
           selectedId={selectedConversationId}
-          onSelect={setSelectedConversationId}
+          onSelect={handleSelectConversation}
           onNewConversation={handleNewConversation}
           onArchive={handleArchive}
           onDelete={handleDelete}
@@ -198,6 +224,7 @@ export default function SmsPage() {
           searchValue={searchValue}
           onSearchChange={setSearchValue}
           isLoading={loadingConversations}
+          unreadCounts={unreadCounts}
         />
       </div>
 

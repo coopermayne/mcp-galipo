@@ -105,6 +105,29 @@ export async function deleteConversation(
   if (!res.ok) throw new Error("Failed to delete conversation")
 }
 
+export async function getSmsUnreadCounts(
+  ids: number[]
+): Promise<Record<number, number>> {
+  if (ids.length === 0) return {}
+  const params = ids.map((id) => `ids=${id}`).join("&")
+  const res = await apiFetch(`/api/v1/sms/unread-counts?${params}`)
+  if (!res.ok) throw new Error("Failed to fetch unread counts")
+  const data: Record<string, number> = await res.json()
+  // Convert string keys to numbers
+  const result: Record<number, number> = {}
+  for (const [k, v] of Object.entries(data)) {
+    result[Number(k)] = v
+  }
+  return result
+}
+
+export async function markSmsConversationRead(id: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/sms/conversations/${id}/read`, {
+    method: "POST",
+  })
+  if (!res.ok) throw new Error("Failed to mark conversation as read")
+}
+
 export function getMediaProxyUrl(mediaId: number): string {
   const token = localStorage.getItem("token")
   const params = token ? `?token=${encodeURIComponent(token)}` : ""

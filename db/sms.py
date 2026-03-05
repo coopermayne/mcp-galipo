@@ -7,10 +7,10 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, and_
 
 from .session import SessionLocal
-from models import SmsConversation, SmsMessage, SmsMessageMedia, User
+from models import SmsConversation, SmsConversationRead, SmsMessage, SmsMessageMedia, User
 
 
 def list_conversations(
@@ -388,3 +388,68 @@ def get_media_by_id(media_id: int) -> Optional[dict]:
             "local_path": media.local_path,
             "file_size": media.file_size,
         }
+
+
+# ---------------------------------------------------------------------------
+# Read tracking
+# ---------------------------------------------------------------------------
+
+
+def mark_conversation_read(conversation_id: int, user_id: int) -> None:
+    """Mark a conversation as read for this user (upsert)."""
+    with SessionLocal() as session:
+        existing = session.get(SmsConversationRead, (conversation_id, user_id))
+        if existing:
+            existing.last_read_at = func.now()
+        else:
+            session.add(SmsConversationRead(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                last_read_at=func.now(),
+            ))
+        session.commit()
+
+
+def get_unread_counts(user_id: int, conversation_ids: list[int]) -> dict[int, int]:
+    """Get unread inbound message counts per conversation for the given user.
+
+    A message is "unread" if it was created after the user's last_read_at
+    (or if the user has never read that conversation).
+    Only counts inbound messages (outbound were sent by users).
+    """
+    if not conversation_ids:
+        return {}
+
+    with SessionLocal() as session:
+        # Subquery: get last_read_at per conversation for this user
+        read_sub = (
+            select(
+                SmsConversationRead.conversation_id,
+                SmsConversationRead.last_read_at,
+            )
+            .where(SmsConversationRead.user_id == user_id)
+            .subquery()
+        )
+
+        # Count inbound messages newer than last_read_at (or all if never read)
+        stmt = (
+            select(
+                SmsMessage.conversation_id,
+                func.count(SmsMessage.id),
+            )
+            .outerjoin(read_sub, SmsMessage.conversation_id == read_sub.c.conversation_id)
+            .where(
+                and_(
+                    SmsMessage.conversation_id.in_(conversation_ids),
+                    SmsMessage.direction == "inbound",
+                    (
+                        (read_sub.c.last_read_at.is_(None))
+                        | (SmsMessage.created_at > read_sub.c.last_read_at)
+                    ),
+                )
+            )
+            .group_by(SmsMessage.conversation_id)
+        )
+
+        rows = session.execute(stmt).all()
+        return {conversation_id: count for conversation_id, count in rows}
