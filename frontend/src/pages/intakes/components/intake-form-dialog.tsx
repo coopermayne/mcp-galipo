@@ -153,7 +153,7 @@ export function IntakeFormDialog({
           {/* Contact Info */}
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">Contact</legend>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" value={form.name} onChange={set("name")} />
@@ -168,7 +168,7 @@ export function IntakeFormDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -195,7 +195,7 @@ export function IntakeFormDialog({
           {/* Referral Info */}
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">Referral</legend>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="referral_name">Referral Name</Label>
                 <Input
@@ -213,7 +213,7 @@ export function IntakeFormDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="referral_email">Referral Email</Label>
                 <Input
@@ -240,7 +240,7 @@ export function IntakeFormDialog({
           {/* Incident Info */}
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">Incident</legend>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="case_type">Case Type</Label>
                 <Input
