@@ -122,7 +122,7 @@ export function UserFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="firstName">First Name</Label>
               <Input
@@ -147,7 +147,7 @@ export function UserFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-[1fr_5rem] gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_5rem] gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -246,7 +246,7 @@ export function UserFormDialog({
 
           <div className="grid gap-1.5">
             <Label>Visible Features</Label>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
               {FEATURE_OPTIONS.map((opt) => (
                 <div key={opt.value} className="flex items-center gap-2">
                   <Checkbox
