@@ -83,8 +83,8 @@ export function Header() {
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 !h-4" />
-      <Breadcrumb>
-        <BreadcrumbList>
+      <Breadcrumb className="min-w-0">
+        <BreadcrumbList className="flex-nowrap overflow-hidden">
           {crumbs.map((crumb, i) => (
             <Fragment key={crumb.label}>
               {i > 0 && <BreadcrumbSeparator />}

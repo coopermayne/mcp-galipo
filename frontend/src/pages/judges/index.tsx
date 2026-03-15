@@ -119,9 +119,9 @@ export default function JudgesPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-1 items-center gap-2">
-          <div className="relative max-w-sm flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 basis-40 items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <HugeiconsIcon
               icon={Search01Icon}
               className="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2"

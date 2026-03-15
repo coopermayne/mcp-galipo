@@ -28,8 +28,8 @@ export function IntakeToolbar({
   onNewIntakeChat,
 }: IntakeToolbarProps) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative max-w-sm flex-1">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative min-w-0 flex-1 basis-40">
         <HugeiconsIcon
           icon={Search01Icon}
           className="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2"
@@ -50,13 +50,13 @@ export function IntakeToolbar({
       >
         <HugeiconsIcon
           icon={RefreshIcon}
-          className={cn("mr-2 size-4", isSyncing && "animate-spin")}
+          className={cn("sm:mr-2 size-4", isSyncing && "animate-spin")}
         />
-        {isSyncing ? "Syncing..." : "Sync"}
+        <span className="hidden sm:inline">{isSyncing ? "Syncing..." : "Sync"}</span>
       </Button>
       <Button size="sm" className="h-8" onClick={onNewIntakeChat}>
-        <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
-        New Intake
+        <HugeiconsIcon icon={SparklesIcon} className="sm:mr-2 size-4" />
+        <span className="hidden sm:inline">New Intake</span>
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

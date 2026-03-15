@@ -143,7 +143,7 @@ export function TaskDetailDialog({
           )}
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Status */}
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
