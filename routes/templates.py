@@ -252,9 +252,9 @@ def register_template_routes(mcp):
     @mcp.custom_route("/api/v1/toa/extract", methods=["POST"])
     async def api_toa_extract(request):
         """
-        Extract legal authorities from an uploaded .docx brief.
+        Extract legal authorities from an uploaded PDF brief.
 
-        Accepts multipart/form-data with a .docx file.
+        Accepts multipart/form-data with a PDF file.
         Uses Claude to identify all citations and return structured JSON.
         """
         if err := auth.require_auth(request):
@@ -271,9 +271,9 @@ def register_template_routes(mcp):
             return api_error("No file uploaded", "MISSING_FILE", 400)
 
         filename = getattr(file, "filename", "")
-        if not filename.lower().endswith(".docx"):
+        if not filename.lower().endswith(".pdf"):
             return api_error(
-                "Only .docx files are supported", "INVALID_FILE_TYPE", 400
+                "Only PDF files are supported", "INVALID_FILE_TYPE", 400
             )
 
         try:
