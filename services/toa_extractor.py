@@ -75,7 +75,7 @@ _SYSTEM_PROMPT = """You are a legal citation extraction engine. You will receive
 
 4. Normalize and deduplicate. Group all forms of the same authority under one canonical Bluebook citation. For cases, use the full case name as it first appears in the brief.
 
-5. Record every page on which each authority appears. Each page number appears only once per authority. Sort ascending.
+5. Record every page on which each authority appears. Each page number appears only once per authority. Sort ascending. If a citation spans a page break (starts at the bottom of one page and continues at the top of the next), attribute it to the page where it begins.
 
 6. Categorize each authority:
    - "case"
