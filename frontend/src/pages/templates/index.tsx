@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router"
 import { TemplatesHub } from "@/pages/templates/components/templates-hub"
 import { PleadingsPage } from "@/pages/templates/components/pleadings-page"
+import { TOAPage } from "@/pages/templates/components/toa-page"
 import { RFPPage } from "@/pages/templates/components/rfp-page"
 import { ObjectionsPage } from "@/pages/templates/components/objections-page"
 
@@ -9,6 +10,7 @@ export default function TemplatesPage() {
     <Routes>
       <Route index element={<TemplatesHub />} />
       <Route path="pleadings" element={<PleadingsPage />} />
+      <Route path="toa" element={<TOAPage />} />
       <Route path="rfp" element={<RFPPage />} />
       <Route path="rfp/objections" element={<ObjectionsPage />} />
     </Routes>

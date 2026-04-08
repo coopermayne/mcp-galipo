@@ -104,6 +104,31 @@ export interface UpdateObjectionInput {
   position?: number
 }
 
+// TOA types
+
+export interface TOAAuthority {
+  category: "case" | "constitutional_provision" | "statute" | "rule" | "other"
+  // Case fields
+  name?: string
+  cite?: string
+  // Statute/constitutional/rule fields
+  text?: string
+  // Other fields
+  author?: string
+  title?: string
+  rest?: string
+  // Common
+  pages: number[]
+  flags: string[]
+  flag_messages: string[]
+}
+
+export interface TOAExtractResponse {
+  success: boolean
+  authorities: TOAAuthority[]
+  page_count: number
+}
+
 // Attorney type (shared across templates)
 
 export interface Attorney {

@@ -91,6 +91,7 @@ export const navGroups: NavGroup[] = [
         featureKey: "templates",
         items: [
           { title: "Pleadings", url: "/templates/pleadings" },
+          { title: "TOA Generator", url: "/templates/toa" },
           { title: "RFP", url: "/templates/rfp" },
           { title: "Case List", url: "/templates/case-list" },
           { title: "Retainer", url: "/templates/retainer" },
