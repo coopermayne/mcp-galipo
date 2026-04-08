@@ -40,7 +40,7 @@ def register_auth_routes(mcp):
 
     @mcp.custom_route("/api/v1/auth/verify", methods=["GET"])
     async def api_auth_verify(request):
-        """Verify if current token is valid and return user info."""
+        """Verify if current token is valid, return user info and a refreshed token."""
         if err := auth.require_auth(request):
             return err
 
@@ -51,10 +51,14 @@ def register_auth_routes(mcp):
                 status_code=401
             )
 
+        # Issue a fresh token to extend the session (rolling expiry)
+        refreshed_token = auth.create_session(user)
+
         return JSONResponse({
             "success": True,
             "valid": True,
             "user": user,
+            "token": refreshed_token,
         })
 
     @mcp.custom_route("/api/v1/auth/change-password", methods=["POST"])
