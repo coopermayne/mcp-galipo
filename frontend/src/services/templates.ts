@@ -14,6 +14,8 @@ import type {
   CreateObjectionInput,
   UpdateObjectionInput,
   Attorney,
+  TOAExtractResponse,
+  TOAAuthority,
 } from "@/types/template"
 
 // --- Pleading endpoints ---
@@ -76,6 +78,40 @@ export async function generateDocument(
     }),
   })
   if (!res.ok) throw new Error("Failed to generate document")
+  const blob = await res.blob()
+  downloadBlob(blob, filename)
+}
+
+// --- TOA endpoints ---
+
+export async function extractTOAAuthorities(
+  file: File
+): Promise<TOAExtractResponse> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const res = await apiFetch("/api/v1/toa/extract", {
+    method: "POST",
+    body: formData,
+  })
+  if (!res.ok) throw new Error("Failed to extract authorities")
+  return res.json()
+}
+
+export async function generateTOA(
+  authorities: TOAAuthority[],
+  pageOffset: number,
+  filename: string
+): Promise<void> {
+  const res = await apiFetch("/api/v1/toa/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      authorities,
+      page_offset: pageOffset,
+      filename,
+    }),
+  })
+  if (!res.ok) throw new Error("Failed to generate TOA")
   const blob = await res.blob()
   downloadBlob(blob, filename)
 }

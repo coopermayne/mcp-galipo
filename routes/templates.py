@@ -3,9 +3,11 @@ Templates routes for PDF upload and case info extraction.
 
 Provides endpoints for:
 - Uploading PDF documents and extracting case information using AI
+- TOA (Table of Authorities) extraction and generation
 """
 
 import asyncio
+import json
 import logging
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -14,6 +16,8 @@ from db.users import get_user_by_id
 from services.pdf_extractor import extract_text_from_pdf
 from services.case_extractor import extract_case_info, improve_document_name, generate_filename
 from services.pleading_generator import context_from_case_info, generate_pleading
+from services.toa_extractor import extract_authorities
+from services.toa_generator import generate_toa
 from .common import api_error
 
 _logger = logging.getLogger("routes.templates")
@@ -235,6 +239,108 @@ def register_template_routes(mcp):
             return api_error("Failed to generate document", "GENERATE_ERROR", 500)
 
         # Return as downloadable file
+        return StreamingResponse(
+            doc_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+
+    # --- TOA (Table of Authorities) endpoints ---
+
+    @mcp.custom_route("/api/v1/toa/extract", methods=["POST"])
+    async def api_toa_extract(request):
+        """
+        Extract legal authorities from an uploaded .docx brief.
+
+        Accepts multipart/form-data with a .docx file.
+        Uses Claude to identify all citations and return structured JSON.
+        """
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            form = await request.form()
+        except Exception as e:
+            _logger.error(f"Failed to parse form data: {e}")
+            return api_error("Failed to parse form data", "INVALID_REQUEST", 400)
+
+        file = form.get("file")
+        if not file:
+            return api_error("No file uploaded", "MISSING_FILE", 400)
+
+        filename = getattr(file, "filename", "")
+        if not filename.lower().endswith(".docx"):
+            return api_error(
+                "Only .docx files are supported", "INVALID_FILE_TYPE", 400
+            )
+
+        try:
+            file_bytes = await file.read()
+        except Exception as e:
+            _logger.error(f"Failed to read uploaded file: {e}")
+            return api_error("Failed to read uploaded file", "FILE_READ_ERROR", 400)
+
+        if len(file_bytes) == 0:
+            return api_error("Uploaded file is empty", "EMPTY_FILE", 400)
+
+        try:
+            result = await asyncio.to_thread(extract_authorities, file_bytes)
+        except ValueError as e:
+            _logger.warning(f"TOA extraction failed: {e}")
+            return api_error(str(e), "EXTRACTION_ERROR", 400)
+        except Exception as e:
+            _logger.error(f"Unexpected error during TOA extraction: {e}")
+            return api_error(
+                "Failed to extract authorities", "EXTRACTION_ERROR", 500
+            )
+
+        return JSONResponse({
+            "success": True,
+            "authorities": result["authorities"],
+            "page_count": result["page_count"],
+        })
+
+    @mcp.custom_route("/api/v1/toa/generate", methods=["POST"])
+    async def api_toa_generate(request):
+        """
+        Generate a Table of Authorities .docx from extracted authorities.
+
+        Accepts JSON with:
+        - authorities: List of authority objects
+        - page_offset: Integer offset to add to all page numbers (default 0)
+        - filename: Desired filename for download (default "table_of_authorities.docx")
+        """
+        if err := auth.require_auth(request):
+            return err
+
+        try:
+            data = await request.json()
+        except Exception as e:
+            _logger.error(f"Failed to parse JSON: {e}")
+            return api_error("Invalid JSON", "INVALID_REQUEST", 400)
+
+        authorities = data.get("authorities", [])
+        page_offset = data.get("page_offset", 0)
+        filename = data.get("filename", "table_of_authorities.docx")
+
+        if not authorities:
+            return api_error(
+                "No authorities provided", "MISSING_AUTHORITIES", 400
+            )
+
+        if not filename.lower().endswith(".docx"):
+            filename += ".docx"
+
+        try:
+            doc_buffer = await asyncio.to_thread(
+                generate_toa, authorities, page_offset
+            )
+        except Exception as e:
+            _logger.error(f"Failed to generate TOA: {e}")
+            return api_error("Failed to generate TOA document", "GENERATE_ERROR", 500)
+
         return StreamingResponse(
             doc_buffer,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

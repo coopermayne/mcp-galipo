@@ -7,6 +7,7 @@ import {
   FileEditIcon,
   Invoice01Icon,
   ArrowRight01Icon,
+  TextNumberSignIcon,
 } from "@hugeicons/core-free-icons"
 
 const TEMPLATE_TOOLS = [
@@ -16,6 +17,14 @@ const TEMPLATE_TOOLS = [
     icon: LegalDocument01Icon,
     description:
       "Generate formatted pleading documents — motions, declarations, stipulations. Upload a PDF to auto-extract case info, then pick your document type and sections.",
+    ready: true,
+  },
+  {
+    name: "TOA Generator",
+    href: "/templates/toa",
+    icon: TextNumberSignIcon,
+    description:
+      "Generate a Table of Authorities from a legal brief. Upload a .docx, extract all citations with AI, review the results, and download a formatted TOA.",
     ready: true,
   },
   {
