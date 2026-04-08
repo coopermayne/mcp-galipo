@@ -24,7 +24,7 @@ const TEMPLATE_TOOLS = [
     href: "/templates/toa",
     icon: TextNumberSignIcon,
     description:
-      "Generate a Table of Authorities from a legal brief. Upload a .docx, extract all citations with AI, review the results, and download a formatted TOA.",
+      "Generate a Table of Authorities from a legal brief. Upload a PDF, extract all citations with AI, review the results, and download a formatted TOA.",
     ready: true,
   },
   {

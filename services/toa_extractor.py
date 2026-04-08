@@ -1,87 +1,48 @@
 """
 Table of Authorities extraction service.
 
-Extracts text from .docx files with page-break tracking, then uses Claude
-to identify and categorize all legal citations.
+Accepts PDF uploads and extracts per-page text with pypdf for accurate
+printed-page numbering. Sends text to Claude to identify and categorize
+all legal citations.
 """
 
 import json
 import logging
-import zipfile
 import re
 from io import BytesIO
-from xml.etree import ElementTree
 
 from anthropic import Anthropic
+from pypdf import PdfReader
 
 from config import settings
 
 _logger = logging.getLogger("services.toa_extractor")
 
-# Word XML namespace
-_WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
-
-def extract_text_with_pages(file_bytes: bytes) -> list[dict]:
+def extract_text_with_pages(pdf_bytes: bytes) -> list[dict]:
     """
-    Extract text from a .docx file, split by page breaks.
-
-    Parses the raw document.xml to detect <w:br w:type="page"/> and
-    <w:lastRenderedPageBreak/> tags as page boundaries.
+    Extract text from a PDF file, one entry per page.
 
     Returns:
         List of {"page": int, "text": str} dicts.
     """
     try:
-        with zipfile.ZipFile(BytesIO(file_bytes)) as zf:
-            xml_bytes = zf.read("word/document.xml")
-    except (zipfile.BadZipFile, KeyError) as e:
-        raise ValueError(f"Could not read .docx file: {e}")
+        reader = PdfReader(BytesIO(pdf_bytes))
+    except Exception as e:
+        raise ValueError(f"Could not read PDF: {e}")
 
-    root = ElementTree.fromstring(xml_bytes)
+    if len(reader.pages) == 0:
+        raise ValueError("PDF has no pages")
 
     pages: list[dict] = []
-    current_page = 1
-    current_text: list[str] = []
-
-    def _flush_page():
-        text = "".join(current_text).strip()
-        if text:
-            pages.append({"page": current_page, "text": text})
-
-    # Walk all elements looking for text runs and page breaks
-    for elem in root.iter():
-        tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
-
-        if tag == "lastRenderedPageBreak":
-            _flush_page()
-            current_text = []
-            current_page += 1
-
-        elif tag == "br":
-            br_type = elem.get(f"{{{_WORD_NS}}}type", "")
-            if br_type == "page":
-                _flush_page()
-                current_text = []
-                current_page += 1
-
-        elif tag == "t":
-            if elem.text:
-                current_text.append(elem.text)
-
-        elif tag == "tab":
-            current_text.append("\t")
-
-        elif tag == "p":
-            # Each paragraph ends with a newline
-            current_text.append("\n")
-
-    # Flush last page
-    _flush_page()
+    for i, page in enumerate(reader.pages):
+        text = page.extract_text()
+        if text and text.strip():
+            pages.append({"page": i + 1, "text": text.strip()})
 
     if not pages:
         raise ValueError(
-            "No extractable text found in .docx. The document may be empty or image-based."
+            "No extractable text found. The document may be scanned/image-based."
         )
 
     return pages

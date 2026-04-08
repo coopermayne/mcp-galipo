@@ -70,8 +70,8 @@ export function TOAPage() {
   )
 
   const handleFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".docx")) {
-      setError("Only .docx files are supported")
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Only PDF files are supported. Print your brief to PDF first.")
       return
     }
 
@@ -203,7 +203,7 @@ export function TOAPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".docx"
+              accept=".pdf"
               onChange={handleFileInputChange}
               className="hidden"
             />
@@ -266,7 +266,7 @@ export function TOAPage() {
                 />
                 <p className="text-sm">
                   <span className="text-primary font-medium">
-                    Drop a .docx brief
+                    Drop a PDF brief
                   </span>{" "}
                   <span className="text-muted-foreground">
                     or click to select
