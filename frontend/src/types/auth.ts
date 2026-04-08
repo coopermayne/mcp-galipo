@@ -22,5 +22,6 @@ export interface VerifyResponse {
   success: boolean
   valid: boolean
   user: AuthUser
+  token?: string
   error?: { message: string; code: string }
 }

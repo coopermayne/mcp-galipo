@@ -15,8 +15,8 @@ from config import settings
 from db.users import authenticate_user, get_user_by_id
 
 
-# Session expiry: 24 hours
-SESSION_EXPIRY_HOURS = 24
+# Session expiry: 30 days (rolling — refreshed on each verify)
+SESSION_EXPIRY_HOURS = 24 * 30
 
 # Legacy environment variables (fallback during transition)
 AUTH_USERNAME = settings.auth_username

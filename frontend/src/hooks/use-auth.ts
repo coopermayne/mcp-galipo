@@ -33,6 +33,10 @@ export function useAuthProvider(): AuthContextValue {
       .then((res) => {
         if (res.success && res.valid) {
           setUser(res.user)
+          // Store refreshed token to extend session
+          if (res.token) {
+            localStorage.setItem("token", res.token)
+          }
         } else {
           clearSession()
         }
