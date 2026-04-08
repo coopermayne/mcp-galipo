@@ -75,7 +75,7 @@ _SYSTEM_PROMPT = """You are a legal citation extraction engine. You will receive
 
 4. Normalize and deduplicate. Group all forms of the same authority under one canonical Bluebook citation. For cases, use the full case name as it first appears in the brief.
 
-5. Record every page on which each authority appears. Each page number appears only once per authority. Sort ascending. If a citation spans a page break (starts at the bottom of one page and continues at the top of the next), attribute it to the page where it begins.
+5. Record every page on which each authority appears. The page numbers in the "--- PAGE X ---" headers are the correct page numbers to use — return those exact numbers in the "pages" array. Each page number appears only once per authority. Sort ascending. If a citation spans a page break (starts at the bottom of one page and continues at the top of the next), attribute it to the page where it begins.
 
 6. Categorize each authority:
    - "case"
@@ -147,14 +147,14 @@ All entries include "pages" (array of integers), "flags" (array of strings, empt
 
 def extract_authorities(file_bytes: bytes) -> dict:
     """
-    Extract all legal authorities from a .docx brief.
+    Extract all legal authorities from a PDF brief.
 
-    1. Parses the .docx to get page-segmented text
+    1. Extracts per-page text from the PDF
     2. Sends text to Claude for citation extraction
     3. Returns parsed authorities with flags
 
     Args:
-        file_bytes: Raw .docx file bytes
+        file_bytes: Raw PDF file bytes
 
     Returns:
         Dict with "authorities" list and "page_count" int
@@ -179,9 +179,10 @@ def extract_authorities(file_bytes: bytes) -> dict:
     model = "claude-sonnet-4-20250514"
 
     user_message = (
-        "Here is the full text of a legal brief. Page boundaries are marked "
-        'with "--- PAGE X ---" headers. Extract all citations and return JSON '
-        "per your instructions.\n\n" + formatted_text
+        "Here is the full text of a legal brief. Each page is labeled with "
+        '"--- PAGE X ---" where X is the page number. Use these page numbers '
+        "exactly as given in the pages array. Extract all citations and return "
+        "JSON per your instructions.\n\n" + formatted_text
     )
 
     _logger.info(f"Sending {page_count}-page brief to Claude ({model}) for extraction")
