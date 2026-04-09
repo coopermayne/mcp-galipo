@@ -174,7 +174,7 @@ export function CaseSummarySection({
     <>
       <div className="space-y-4">
         {/* Proceedings list */}
-        <div className="flex items-start gap-2 border p-3">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-2 border p-3">
           <div className="flex-1 space-y-1">
             {sortedProceedings.length > 0 ? (
               sortedProceedings.map((p) => {
@@ -224,7 +224,7 @@ export function CaseSummarySection({
             <button
               type="button"
               onClick={onAiProceedings}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 self-end sm:self-start"
             >
               <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
               Manage proceedings
