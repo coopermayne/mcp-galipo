@@ -42,7 +42,10 @@ export function useAuthProvider(): AuthContextValue {
         }
       })
       .catch(() => {
-        clearSession()
+        // Network error (e.g. server restarting during deploy) —
+        // keep the token so the user isn't logged out. The 401
+        // handler in apiFetch will clear the session if the token
+        // is actually invalid once the server comes back.
       })
       .finally(() => {
         setIsLoading(false)

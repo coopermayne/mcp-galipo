@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     def set_jwt_secret_fallback(self) -> "Settings":
         """JWT_SECRET falls back to AUTH_PASSWORD, then a random hex string."""
         if not self.jwt_secret:
+            if self.is_production:
+                raise ValueError(
+                    "JWT_SECRET must be set in production — sessions will break on every deploy without it"
+                )
             if self.auth_password:
                 self.jwt_secret = self.auth_password
             else:

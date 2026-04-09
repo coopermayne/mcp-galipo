@@ -47,7 +47,6 @@ export default function IntakesPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [globalFilter, setGlobalFilter] = useState("")
-  const isArchivedView = selectedStatus === "Archived"
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
@@ -156,13 +155,13 @@ export default function IntakesPage() {
       columnFilters,
       columnVisibility,
       globalFilter,
-      ...(isArchivedView && { pagination }),
+      pagination,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
-    ...(isArchivedView && { onPaginationChange: setPagination }),
+    onPaginationChange: setPagination,
     globalFilterFn: intakeGlobalFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -261,9 +260,7 @@ export default function IntakesPage() {
           </TableBody>
         </Table>
       </div>
-      {selectedStatus === "Archived" && (
-        <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
-      )}
+      <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
       <IntakeFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
