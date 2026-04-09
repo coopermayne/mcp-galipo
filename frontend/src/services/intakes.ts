@@ -54,6 +54,18 @@ export async function updateIntake(
   return res.json()
 }
 
+export async function bulkArchiveByStatus(
+  status: string
+): Promise<{ success: boolean; count: number }> {
+  const res = await apiFetch("/api/v1/intakes/bulk-archive", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  })
+  if (!res.ok) throw new Error("Failed to bulk archive intakes")
+  return res.json()
+}
+
 export async function deleteIntake(
   id: number
 ): Promise<{ success: boolean }> {
