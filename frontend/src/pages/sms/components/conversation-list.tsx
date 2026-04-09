@@ -44,6 +44,7 @@ interface ConversationListProps {
   onSearchChange: (value: string) => void
   isLoading?: boolean
   unreadCounts?: Record<number, number>
+  firmNumber?: string | null
 }
 
 function ConversationActions({
@@ -133,6 +134,7 @@ export function ConversationList({
   onSearchChange,
   isLoading,
   unreadCounts,
+  firmNumber,
 }: ConversationListProps) {
   if (isLoading) {
     return (
@@ -169,6 +171,11 @@ export function ConversationList({
             <HugeiconsIcon icon={Archive02Icon} size={14} />
           </Button>
         </div>
+        {firmNumber && (
+          <p className="text-xs text-muted-foreground">
+            Sending from {firmNumber}
+          </p>
+        )}
         <div className="relative">
           <HugeiconsIcon
             icon={Search01Icon}

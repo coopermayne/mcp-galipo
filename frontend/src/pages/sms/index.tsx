@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useDebounce } from "@/hooks/use-debounce"
 import {
+  getFirmNumber,
   getConversations,
   getMessages,
   sendMessage,
@@ -26,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { formatPhone } from "@/lib/utils"
 
 export default function SmsPage() {
   const queryClient = useQueryClient()
@@ -63,6 +65,13 @@ export default function SmsPage() {
 
   // Debounce search for API calls
   const debouncedSearch = useDebounce(searchValue, 300)
+
+  // Fetch firm phone number for display
+  const { data: firmNumber } = useQuery({
+    queryKey: ["sms-firm-number"],
+    queryFn: getFirmNumber,
+    staleTime: Infinity,
+  })
 
   // Fetch conversations with archive + search filters
   const { data: conversationsData, isLoading: loadingConversations } = useQuery(
@@ -225,6 +234,7 @@ export default function SmsPage() {
           onSearchChange={setSearchValue}
           isLoading={loadingConversations}
           unreadCounts={unreadCounts}
+          firmNumber={firmNumber ? formatPhone(firmNumber) : null}
         />
       </div>
 

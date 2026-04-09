@@ -6,6 +6,12 @@ import type {
 } from "@/types/sms"
 import { apiFetch } from "@/lib/api"
 
+export async function getFirmNumber(): Promise<string | null> {
+  const res = await apiFetch("/api/v1/sms/firm-number")
+  const data = await res.json()
+  return data.phone_number
+}
+
 export async function getConversations(
   params: {
     limit?: number

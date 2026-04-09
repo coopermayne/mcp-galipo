@@ -78,6 +78,14 @@ def _ext_from_content_type(content_type: str) -> str:
 def register_sms_routes(mcp):
     """Register SMS messaging routes."""
 
+    @mcp.custom_route("/api/v1/sms/firm-number", methods=["GET"])
+    async def api_firm_number(request):
+        """Return the firm's Twilio phone number for display."""
+        if err := auth.require_auth(request):
+            return err
+        phone = settings.twilio_phone
+        return JSONResponse({"phone_number": phone} if phone else {"phone_number": None})
+
     @mcp.custom_route("/api/v1/sms/conversations", methods=["GET"])
     async def api_list_conversations(request):
         """List SMS conversations sorted by most recent."""
