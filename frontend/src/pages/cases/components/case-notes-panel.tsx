@@ -49,7 +49,7 @@ export function CaseNotesPanel({ caseId, notes: initialNotes }: CaseNotesPanelPr
 
   return (
     <Card size="sm">
-      <CardHeader className="border-b">
+      <CardHeader className="border-b bg-muted/40">
         <div className="flex items-center justify-between">
           <CardTitle>Notes</CardTitle>
           {dirty && (

@@ -59,7 +59,7 @@ export function CaseTasksCard({ caseId, onAdd, onAiAdd }: CaseTasksCardProps) {
 
   return (
     <Card size="sm">
-      <CardHeader className="border-b">
+      <CardHeader className="border-b bg-muted/40">
         <CardTitle>
           Tasks
           {tasks.length > 0 && (

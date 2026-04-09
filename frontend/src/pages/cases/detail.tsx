@@ -20,7 +20,6 @@ import { AddTaskDialog } from "@/pages/cases/components/add-task-dialog"
 import { CaseEventsCard } from "@/pages/cases/components/case-events-card"
 import { AddEventDialog } from "@/pages/cases/components/add-event-dialog"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
-import { AddProceedingDialog } from "@/pages/cases/components/add-proceeding-dialog"
 import { ListNav } from "@/components/common/list-nav"
 
 export default function CaseDetailPage() {
@@ -33,9 +32,9 @@ export default function CaseDetailPage() {
   const [addPersonRoleId, setAddPersonRoleId] = useState<number | null>(null)
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   const [addEventOpen, setAddEventOpen] = useState(false)
-  const [addProceedingOpen, setAddProceedingOpen] = useState(false)
   const [aiTasksEventsOpen, setAiTasksEventsOpen] = useState(false)
   const [aiPeopleOpen, setAiPeopleOpen] = useState(false)
+  const [aiProceedingsOpen, setAiProceedingsOpen] = useState(false)
 
   const queryClient = useQueryClient()
 
@@ -93,6 +92,19 @@ export default function CaseDetailPage() {
     },
   ], [caseId])
 
+  const aiProceedingsRules: ToolCompletionRule[] = useMemo(() => [
+    {
+      toolNames: ["manage_proceeding"],
+      queryKeys: [["case", caseId], ["cases"]],
+      toastMessage: "Proceeding updated via AI",
+    },
+    {
+      toolNames: ["manage_judge"],
+      queryKeys: [["case", caseId], ["judges"]],
+      toastMessage: "Judge updated via AI",
+    },
+  ], [caseId])
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6 p-6">
@@ -147,6 +159,14 @@ export default function CaseDetailPage() {
               <HugeiconsIcon icon={SparklesIcon} className="mr-1.5 size-3.5" />
               People
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAiProceedingsOpen(true)}
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="mr-1.5 size-3.5" />
+              Proceedings
+            </Button>
           </div>
         </div>
 
@@ -156,7 +176,7 @@ export default function CaseDetailPage() {
             <CaseSummarySection
               caseData={caseData}
               onAddPerson={openAddPerson}
-              onAddProceeding={() => setAddProceedingOpen(true)}
+              onAiProceedings={() => setAiProceedingsOpen(true)}
               onNest={handleNest}
             />
             <CaseTasksCard
@@ -199,11 +219,6 @@ export default function CaseDetailPage() {
           onOpenChange={setAddEventOpen}
           caseId={caseData.id}
         />
-        <AddProceedingDialog
-          open={addProceedingOpen}
-          onOpenChange={setAddProceedingOpen}
-          caseId={caseData.id}
-        />
         <AiChatSheet
           open={aiTasksEventsOpen}
           onOpenChange={setAiTasksEventsOpen}
@@ -225,6 +240,17 @@ export default function CaseDetailPage() {
           mode="people"
           caseContext={caseData.id}
           toolCompletionRules={aiPeopleRules}
+        />
+        <AiChatSheet
+          open={aiProceedingsOpen}
+          onOpenChange={setAiProceedingsOpen}
+          title="AI Proceedings"
+          description="Manage court proceedings, judges, and jurisdictions for this case via chat."
+          placeholder="e.g. Add a proceeding in C.D. Cal. case #2:24-cv-01234, assigned to Judge Dolly Gee..."
+          emptyStateText="Describe proceedings to add or edit. Claude can create proceedings, search/create judges, and assign them."
+          mode="proceedings"
+          caseContext={caseData.id}
+          toolCompletionRules={aiProceedingsRules}
         />
       </div>
     </TooltipProvider>

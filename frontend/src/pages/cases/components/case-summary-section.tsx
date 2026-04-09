@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon } from "@hugeicons/core-free-icons"
-import type { CaseDetail, CasePerson } from "@/types/case"
+import { Add01Icon, SparklesIcon, StarIcon } from "@hugeicons/core-free-icons"
+import { cn } from "@/lib/utils"
+import { updateProceeding } from "@/services/proceedings"
+import type { CaseDetail, CasePerson, CaseProceeding } from "@/types/case"
 import type { PersonListItem } from "@/types/person"
 import { getRoles } from "@/services/roles"
 import { Button } from "@/components/ui/button"
@@ -15,12 +18,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PersonTree } from "@/components/common/person-tree"
 import { ContactDetailDialog } from "@/components/common/contact-detail-dialog"
-import { ProceedingsModal } from "./proceedings-modal"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface CaseSummarySectionProps {
   caseData: CaseDetail
   onAddPerson: (category: string, roleId: number) => void
-  onAddProceeding: () => void
+  onAiProceedings?: () => void
   onNest: (assignmentId: number, groupedUnderId: number | null) => void
 }
 
@@ -97,9 +106,10 @@ function casePersonToListItem(p: CasePerson): PersonListItem {
 export function CaseSummarySection({
   caseData,
   onAddPerson,
-  onAddProceeding,
+  onAiProceedings,
   onNest,
 }: CaseSummarySectionProps) {
+  const queryClient = useQueryClient()
   const counts = usePersonCounts(caseData)
   const [peopleCategory, setPeopleCategory] = useState<string | null>(null)
 
@@ -119,30 +129,27 @@ export function CaseSummarySection({
     return all
   }, [rolesData, peopleCategory])
   const [selectedPerson, setSelectedPerson] = useState<PersonListItem | null>(null)
-  const [proceedingsOpen, setProceedingsOpen] = useState(false)
+  const [detailProceeding, setDetailProceeding] = useState<CaseProceeding | null>(null)
 
-  const primary = useMemo(
-    () => caseData.proceedings.find((p) => p.is_primary) ?? caseData.proceedings[0] ?? null,
+  // Sort proceedings: primary first, then by sort_order
+  const sortedProceedings = useMemo(
+    () => [...caseData.proceedings].sort((a, b) => {
+      if (a.is_primary && !b.is_primary) return -1
+      if (!a.is_primary && b.is_primary) return 1
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    }),
     [caseData.proceedings]
   )
 
-  // Build compact proceedings line: "1-c-1234 (C.D. Cal., Judge Dolly M. Gee)"
-  const proceedingLine = useMemo(() => {
-    if (!primary) return null
-    const parts: string[] = []
-    if (primary.jurisdiction_name) parts.push(primary.jurisdiction_name)
-    if (primary.judges.length > 0) {
-      parts.push(formatJudges(primary.judges))
-    } else if (primary.judge_name) {
-      parts.push(`Judge ${primary.judge_name}`)
-    }
-    return {
-      caseNumber: primary.case_number,
-      detail: parts.length > 0 ? `(${parts.join(", ")})` : null,
-    }
-  }, [primary])
-
-  const proceedingCount = caseData.proceedings.length
+  const setPrimaryMutation = useMutation({
+    mutationFn: (proceedingId: number) =>
+      updateProceeding(proceedingId, { is_primary: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["case", caseData.id] })
+      toast.success("Primary proceeding updated")
+    },
+    onError: (e) => toast.error(e.message),
+  })
 
   // Filter persons for the active drawer category
   const filteredPersons = useMemo(() => {
@@ -165,26 +172,64 @@ export function CaseSummarySection({
 
   return (
     <>
-      <div className="space-y-2">
-        {/* Compact proceedings line */}
-        <div className="flex items-center gap-2 text-xs">
-          {proceedingLine ? (
-            <>
-              <span className="font-mono">{proceedingLine.caseNumber}</span>
-              {proceedingLine.detail && (
-                <span className="text-muted-foreground">{proceedingLine.detail}</span>
-              )}
-            </>
-          ) : (
-            <span className="text-muted-foreground">No proceedings</span>
+      <div className="space-y-4">
+        {/* Proceedings list */}
+        <div className="flex items-start gap-2 border p-3">
+          <div className="flex-1 space-y-1">
+            {sortedProceedings.length > 0 ? (
+              sortedProceedings.map((p) => {
+                const parts: string[] = []
+                if (p.jurisdiction_name) parts.push(p.jurisdiction_name)
+                if (p.judges.length > 0) {
+                  parts.push(formatJudges(p.judges))
+                } else if (p.judge_name) {
+                  parts.push(`Judge ${p.judge_name}`)
+                }
+                const detail = parts.length > 0 ? `(${parts.join(", ")})` : null
+                return (
+                  <div key={p.id} className="flex items-center gap-2 text-xs group/proc">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!p.is_primary) setPrimaryMutation.mutate(p.id)
+                      }}
+                      className={cn(
+                        "shrink-0",
+                        p.is_primary
+                          ? "text-warning cursor-default"
+                          : "text-muted-foreground/30 hover:text-warning/60 cursor-pointer"
+                      )}
+                      title={p.is_primary ? "Primary proceeding" : "Set as primary"}
+                    >
+                      <HugeiconsIcon icon={StarIcon} className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailProceeding(p)}
+                      className="font-mono hover:underline"
+                    >
+                      {p.case_number}
+                    </button>
+                    {detail && (
+                      <span className="text-muted-foreground">{detail}</span>
+                    )}
+                  </div>
+                )
+              })
+            ) : (
+              <p className="text-xs text-muted-foreground">No proceedings</p>
+            )}
+          </div>
+          {onAiProceedings && (
+            <button
+              type="button"
+              onClick={onAiProceedings}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+              Manage proceedings
+            </button>
           )}
-          <button
-            type="button"
-            onClick={() => proceedingCount > 0 ? setProceedingsOpen(true) : onAddProceeding()}
-            className="text-primary hover:underline shrink-0 ml-auto"
-          >
-            {proceedingCount > 0 ? `Proceedings (${proceedingCount})` : "+ Add"}
-          </button>
         </div>
 
         {/* People — category buttons */}
@@ -258,14 +303,52 @@ export function CaseSummarySection({
         extraInvalidateKeys={[["case", caseData.id]]}
       />
 
-      {/* Proceedings modal */}
-      <ProceedingsModal
-        open={proceedingsOpen}
-        onOpenChange={setProceedingsOpen}
-        caseId={caseData.id}
-        proceedings={caseData.proceedings}
-        onAdd={onAddProceeding}
-      />
+      {/* Single proceeding detail dialog */}
+      {detailProceeding && (
+        <Dialog open={!!detailProceeding} onOpenChange={(open) => { if (!open) setDetailProceeding(null) }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-mono">{detailProceeding.case_number}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              {detailProceeding.is_primary && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Primary</Badge>
+              )}
+              {detailProceeding.jurisdiction_name && (
+                <p className="text-muted-foreground">
+                  {detailProceeding.jurisdiction_name}
+                  {detailProceeding.local_rules_link && (
+                    <>
+                      {" — "}
+                      <a
+                        href={detailProceeding.local_rules_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Local Rules
+                      </a>
+                    </>
+                  )}
+                </p>
+              )}
+              {detailProceeding.judges.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {detailProceeding.judges.length === 1 ? "Judge" : "Judges"}
+                  </p>
+                  {detailProceeding.judges.map((j) => (
+                    <p key={j.judge_id}>{j.role ? `${j.role}: ` : ""}{j.name}</p>
+                  ))}
+                </div>
+              )}
+              {detailProceeding.notes && (
+                <p className="text-muted-foreground text-xs">{detailProceeding.notes}</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }
