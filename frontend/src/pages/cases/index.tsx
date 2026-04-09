@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -45,7 +45,21 @@ export default function CasesPage() {
   )
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const isMobile = window.matchMedia("(max-width: 639px)").matches
+    return { details: !isMobile, attorneys: !isMobile }
+  })
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)")
+    const handler = (e: MediaQueryListEvent) => {
+      setColumnVisibility(e.matches
+        ? { details: false, attorneys: false }
+        : { details: true, attorneys: true })
+    }
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [scope, setScope] = useState<CaseScope>("mine")
