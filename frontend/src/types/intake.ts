@@ -40,6 +40,8 @@ export interface Intake {
   created_at: string | null
   updated_at: string | null
   has_comment_since_status_change: boolean
+  email_submission_count: number
+  email_submissions: { id: number; name: string | null; status: string; submitted_on: string | null }[]
 }
 
 export interface IntakeComment {

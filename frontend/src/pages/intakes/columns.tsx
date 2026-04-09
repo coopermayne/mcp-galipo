@@ -7,6 +7,11 @@ import type { Intake } from "@/types/intake"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { analyzeIntake } from "@/services/intakes"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 
 const SEARCHABLE_FIELDS: { key: keyof Intake; label: string; weight: number }[] = [
   { key: "name", label: "Name", weight: 100 },
@@ -197,6 +202,44 @@ export function getColumns(options: {
               </span>
             )}
           </div>
+        )
+      },
+    },
+    {
+      id: "dupes",
+      header: "Dupes",
+      cell: ({ row }) => {
+        const count = row.original.email_submission_count
+        if (!count || count <= 1) return null
+        const others = row.original.email_submissions
+        return (
+          <HoverCard openDelay={200} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              <span className="bg-warning/15 text-warning-foreground px-1.5 py-0.5 text-xs font-medium cursor-default tabular-nums">
+                {count}
+              </span>
+            </HoverCardTrigger>
+            <HoverCardContent align="start" className="w-64">
+              <p className="text-xs font-medium mb-1.5">
+                {count} submissions from this email
+              </p>
+              <div className="flex flex-col gap-1">
+                {others.map((s) => (
+                  <a
+                    key={s.id}
+                    href={`/intakes/${s.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs hover:underline text-primary truncate"
+                  >
+                    {s.name || "Unnamed"} — {s.status}
+                    {s.submitted_on
+                      ? ` (${new Date(s.submitted_on).toLocaleDateString("en-US", { month: "short", day: "numeric" })})`
+                      : ""}
+                  </a>
+                ))}
+              </div>
+            </HoverCardContent>
+          </HoverCard>
         )
       },
     },

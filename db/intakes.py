@@ -22,6 +22,31 @@ def _intake_to_dict(intake: Intake) -> dict:
     return IntakeOut.model_validate(intake).model_dump(mode="json")
 
 
+def _get_email_duplicates(emails: set[str]) -> dict[str, list[dict]]:
+    """For a set of emails, return a map of email -> list of {id, name, status, submitted_on}."""
+    if not emails:
+        return {}
+    with SessionLocal() as session:
+        stmt = (
+            select(Intake.id, Intake.name, Intake.email, Intake.status, Intake.submitted_on)
+            .where(func.lower(func.trim(Intake.email)).in_(emails))
+            .order_by(Intake.submitted_on.desc().nullslast())
+        )
+        rows = session.execute(stmt).all()
+
+    result: dict[str, list[dict]] = {}
+    for row in rows:
+        key = row.email.strip().lower()
+        entry = {
+            "id": row.id,
+            "name": row.name,
+            "status": row.status,
+            "submitted_on": row.submitted_on.isoformat() if row.submitted_on else None,
+        }
+        result.setdefault(key, []).append(entry)
+    return result
+
+
 def get_intakes(
     status: Optional[str] = None,
     limit: int = 100,
@@ -58,6 +83,17 @@ def get_intakes(
     flags = get_comment_flags(ids) if ids else {}
     for item in items:
         item["has_comment_since_status_change"] = flags.get(item["id"], False)
+
+    # Batch-fetch email duplicate counts
+    emails = {item["email"].strip().lower() for item in items if item.get("email")}
+    dupes = _get_email_duplicates(emails) if emails else {}
+    for item in items:
+        email = (item.get("email") or "").strip().lower()
+        matches = dupes.get(email, [])
+        # Exclude self from the list
+        others = [m for m in matches if m["id"] != item["id"]]
+        item["email_submission_count"] = len(matches)
+        item["email_submissions"] = others
 
     return {"intakes": items, "total": total}
 
