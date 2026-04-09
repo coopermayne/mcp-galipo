@@ -39,7 +39,9 @@ function formatDate(dateStr: string): string {
 
   if (d.getTime() === today.getTime()) return "Today"
   if (d.getTime() === tomorrow.getTime()) return "Tomorrow"
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  const dow = d.toLocaleDateString("en-US", { weekday: "short" })
+  return `${base} (${dow})`
 }
 
 function formatTime(timeStr: string | null): string | null {
