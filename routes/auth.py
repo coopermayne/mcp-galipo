@@ -52,7 +52,15 @@ def register_auth_routes(mcp):
             )
 
         # Issue a fresh token to extend the session (rolling expiry)
-        refreshed_token = auth.create_session(user)
+        # get_current_user returns camelCase keys, but create_session expects snake_case
+        if user["id"] == 0:
+            refreshed_token = auth.create_legacy_session(user["email"])
+        else:
+            refreshed_token = auth.create_session({
+                "id": user["id"],
+                "email": user["email"],
+                "is_admin": user.get("isAdmin", user.get("is_admin", False)),
+            })
 
         return JSONResponse({
             "success": True,
