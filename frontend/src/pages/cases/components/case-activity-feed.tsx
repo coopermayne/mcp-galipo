@@ -50,6 +50,7 @@ function formatDateHeader(dateStr: string): string {
     weekday: "short",
     month: "short",
     day: "numeric",
+    year: "numeric",
   })
 }
 
