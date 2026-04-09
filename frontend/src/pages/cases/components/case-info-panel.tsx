@@ -19,7 +19,9 @@ function parseLocalDate(dateStr: string): Date {
 
 function formatEventDate(dateStr: string): string {
   const d = parseLocalDate(dateStr)
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  const dow = d.toLocaleDateString("en-US", { weekday: "short" })
+  return `${base} (${dow})`
 }
 
 export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
