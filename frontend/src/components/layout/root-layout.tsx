@@ -1,13 +1,30 @@
+import { useState, useEffect } from "react"
 import { Navigate, Outlet } from "react-router"
 import { useAuth } from "@/hooks/use-auth"
 import { useSSE } from "@/hooks/use-sse"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { QuickCaseSearch } from "@/components/common/quick-case-search"
+
+const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
 
 export function RootLayout() {
   const { user, isLoading } = useAuth()
   useSSE()
+
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "g" && (isMac ? e.ctrlKey : e.altKey)) {
+        e.preventDefault()
+        setQuickSearchOpen((prev) => !prev)
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   if (isLoading) {
     return (
@@ -34,6 +51,7 @@ export function RootLayout() {
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <QuickCaseSearch open={quickSearchOpen} onOpenChange={setQuickSearchOpen} />
     </TooltipProvider>
   )
 }
