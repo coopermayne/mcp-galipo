@@ -56,7 +56,9 @@ function formatDate(dateStr: string): string {
 
   if (d.getTime() === today.getTime()) return "Today"
   if (d.getTime() === tomorrow.getTime()) return "Tomorrow"
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  const dow = d.toLocaleDateString("en-US", { weekday: "short" })
+  return `${base} (${dow})`
 }
 
 /** Map urgency to a ring color for the status icon */
@@ -379,7 +381,9 @@ function formatCompletionDate(task: TaskListItemType): string {
   } else if (d.getTime() === yesterday.getTime()) {
     label = "Yesterday"
   } else {
-    label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    const dow = d.toLocaleDateString("en-US", { weekday: "short" })
+    label = `${base} (${dow})`
   }
 
   // Append time from updated_at if available
