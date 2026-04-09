@@ -7,8 +7,6 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { QuickCaseSearch } from "@/components/common/quick-case-search"
 
-const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
-
 export function RootLayout() {
   const { user, isLoading } = useAuth()
   useSSE()
@@ -16,6 +14,7 @@ export function RootLayout() {
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
 
   useEffect(() => {
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "g" && (isMac ? e.ctrlKey : e.altKey)) {
         e.preventDefault()
