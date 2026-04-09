@@ -45,17 +45,16 @@ export default function CasesPage() {
   )
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
-    const isMobile = window.matchMedia("(max-width: 639px)").matches
-    return { details: !isMobile, attorneys: !isMobile }
-  })
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 639px)").matches)
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => ({
+    details: !isMobile, attorneys: !isMobile,
+  }))
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)")
     const handler = (e: MediaQueryListEvent) => {
-      setColumnVisibility(e.matches
-        ? { details: false, attorneys: false }
-        : { details: true, attorneys: true })
+      setIsMobile(e.matches)
+      setColumnVisibility({ details: !e.matches, attorneys: !e.matches })
     }
     mq.addEventListener("change", handler)
     return () => mq.removeEventListener("change", handler)
@@ -123,7 +122,7 @@ export default function CasesPage() {
     return cases.filter((c) => c.status !== "Closed")
   }, [casesData, showClosed])
 
-  const columns = useMemo(() => getColumns({ usersMap }), [usersMap])
+  const columns = useMemo(() => getColumns({ usersMap, isMobile }), [usersMap, isMobile])
 
   const table = useReactTable({
     data: filteredCases,

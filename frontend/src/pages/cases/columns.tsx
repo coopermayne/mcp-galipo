@@ -13,6 +13,7 @@ interface UserInfo {
 
 export function getColumns(options: {
   usersMap: Map<number, UserInfo>
+  isMobile?: boolean
 }): ColumnDef<CaseListItem>[] {
   return [
     {
@@ -20,9 +21,12 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Case Name" />
       ),
-      cell: ({ row }) => (
-        <span className="font-medium">{row.getValue("case_name")}</span>
-      ),
+      cell: ({ row }) => {
+        const name = options.isMobile && row.original.short_name
+          ? row.original.short_name
+          : row.getValue<string>("case_name")
+        return <span className="font-medium">{name}</span>
+      },
     },
     {
       id: "details",
