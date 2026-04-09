@@ -159,14 +159,6 @@ export default function CaseDetailPage() {
               <HugeiconsIcon icon={SparklesIcon} className="mr-1.5 size-3.5" />
               People
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAiProceedingsOpen(true)}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="mr-1.5 size-3.5" />
-              Proceedings
-            </Button>
           </div>
         </div>
 
