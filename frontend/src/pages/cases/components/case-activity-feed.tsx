@@ -265,7 +265,7 @@ export function CaseActivityFeed({ caseId }: CaseActivityFeedProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border">
-      <div className="shrink-0 border-b p-3">
+      <div className="shrink-0 border-b bg-muted/40 p-3">
         <h3 className="text-sm font-semibold">Activity</h3>
       </div>
 

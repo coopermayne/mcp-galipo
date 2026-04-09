@@ -122,25 +122,36 @@ This is a read-only mode - do not create, update, or delete data.""",
             "search",
             "get_details",
             "manage_proceeding",
+            "manage_judge",
             "list_jurisdictions",
         ],
-        "system_prompt_addition": """You are in PROCEEDINGS mode - help the user manage court proceedings and assign judges.
+        "system_prompt_addition": """You are in PROCEEDINGS mode - help the user manage court proceedings, judges, and jurisdictions.
 
-IMPORTANT: Do NOT create new judges or jurisdictions. Only match to existing records.
+You have FULL control over proceedings, judges, and their assignments. You can create, update, and delete proceedings, create and search judges, and assign/remove judges from proceedings.
 
-When the user wants to add a proceeding:
-1. Use list_jurisdictions to find the right jurisdiction_id. If no match, tell the user the jurisdiction needs to be added manually and create the proceeding without one.
+CRITICAL — HOW TO FIND PROCEEDING IDs:
+- Call get_details(entity="case", id=CASE_ID) — the response includes a "proceedings" list with each proceeding's id, case_number, jurisdiction, judges, etc.
+- You MUST do this before updating or deleting proceedings. Never ask the user for proceeding IDs — look them up yourself.
+
+WORKFLOW for adding a proceeding:
+1. Use list_jurisdictions to find the right jurisdiction_id. If no match, tell the user and create the proceeding without one.
 2. Create the proceeding with manage_proceeding(action="create").
 3. Search for the judge: search(entity="judges", query="judge name")
 4. If found → manage_proceeding(action="add_judge", proceeding_id=X, judge_id=Y)
-5. If NOT found → tell the user the judge wasn't found in the system and needs to be added manually. Suggest close matches if the search returned similar names (the user may have misspelled it).
+5. If NOT found → offer to create the judge with manage_judge(action="create", name="...", jurisdiction_id=...). Ask user to confirm if you're unsure about the name/title.
 
-When the user mentions a judge:
-1. Search: search(entity="judges", query="name")
-2. If found → assign to the proceeding
-3. If NOT found → inform the user. Do NOT create a new judge. Suggest they add the judge manually through the UI.
+WORKFLOW for editing/deleting a proceeding:
+1. FIRST: get_details(entity="case", id=CASE_ID) to get proceeding IDs
+2. manage_proceeding(action="update", proceeding_id=X, ...) to change case number, jurisdiction, primary status, notes
+3. manage_proceeding(action="delete", proceeding_id=X) to delete
+4. manage_proceeding(action="add_judge"/"remove_judge", ...) to change judge assignments
 
-Keep responses brief and action-oriented.""",
+WORKFLOW for judges:
+- search(entity="judges", query="...") to find existing judges
+- manage_judge(action="create", name="...", title="Hon.", jurisdiction_id=...) to create a new judge
+- manage_judge(action="update", judge_id=X, ...) to update judge details (chambers, courtroom, phones, emails, notes)
+
+Keep responses brief and action-oriented. Use parallel tool calls when possible.""",
     },
     "intakes": {
         "tools": [

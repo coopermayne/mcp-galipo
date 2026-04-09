@@ -1,24 +1,33 @@
+import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
+import { Delete01Icon } from "@hugeicons/core-free-icons"
 import type { CaseProceeding } from "@/types/case"
 import { deleteProceeding } from "@/services/proceedings"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface ProceedingsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   caseId: number
   proceedings: CaseProceeding[]
-  onAdd: () => void
 }
 
 export function ProceedingsModal({
@@ -26,9 +35,9 @@ export function ProceedingsModal({
   onOpenChange,
   caseId,
   proceedings,
-  onAdd,
 }: ProceedingsModalProps) {
   const queryClient = useQueryClient()
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteProceeding(id),
@@ -43,21 +52,7 @@ export function ProceedingsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Proceedings ({proceedings.length})</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1"
-              onClick={() => {
-                onAdd()
-                onOpenChange(false)
-              }}
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
-              Add
-            </Button>
-          </DialogTitle>
+          <DialogTitle>Proceedings ({proceedings.length})</DialogTitle>
         </DialogHeader>
         <div className="pt-2 space-y-3">
           {proceedings.length === 0 ? (
@@ -81,7 +76,7 @@ export function ProceedingsModal({
                   )}
                   <button
                     type="button"
-                    onClick={() => deleteMutation.mutate(p.id)}
+                    onClick={() => setConfirmDeleteId(p.id)}
                     className="text-muted-foreground hover:text-destructive opacity-0 group-hover/proc:opacity-100 transition-opacity ml-auto shrink-0"
                   >
                     <HugeiconsIcon icon={Delete01Icon} className="size-3.5" />
@@ -121,6 +116,29 @@ export function ProceedingsModal({
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete proceeding?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this proceeding and all judge assignments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteId) deleteMutation.mutate(confirmDeleteId)
+                setConfirmDeleteId(null)
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

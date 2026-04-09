@@ -57,7 +57,7 @@ export function CaseEventsCard({ caseId, onAdd, onAiAdd }: CaseEventsCardProps) 
 
   return (
     <Card size="sm">
-      <CardHeader className="border-b">
+      <CardHeader className="border-b bg-muted/40">
         <CardTitle>
           Events
           {events.length > 0 && (
