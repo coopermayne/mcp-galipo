@@ -233,6 +233,7 @@ from .intakes import (
     set_ai_analyzing,
     save_ai_analysis,
     update_intake,
+    bulk_archive_by_status,
     delete_intake,
     create_intake,
     sync_from_sheet,

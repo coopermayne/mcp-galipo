@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon } from "@hugeicons/core-free-icons"
+import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon, Archive01Icon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +18,8 @@ interface IntakeToolbarProps {
   isSyncing: boolean
   onNewIntake: () => void
   onNewIntakeChat: () => void
+  onBulkArchiveRejected: () => void
+  isBulkArchiving: boolean
 }
 
 export function IntakeToolbar({
@@ -26,6 +28,8 @@ export function IntakeToolbar({
   isSyncing,
   onNewIntake,
   onNewIntakeChat,
+  onBulkArchiveRejected,
+  isBulkArchiving,
 }: IntakeToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -68,6 +72,10 @@ export function IntakeToolbar({
           <DropdownMenuItem onClick={onNewIntake}>
             <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
             Manual Intake Form
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onBulkArchiveRejected} disabled={isBulkArchiving}>
+            <HugeiconsIcon icon={Archive01Icon} className="mr-2 size-4" />
+            Archive All Rejected
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

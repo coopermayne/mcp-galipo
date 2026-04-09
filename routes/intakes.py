@@ -214,6 +214,38 @@ def register_intake_routes(mcp):
         })
         return JSONResponse({"success": True, "intake": result})
 
+    @mcp.custom_route("/api/v1/intakes/bulk-archive", methods=["POST"])
+    async def api_bulk_archive_intakes(request):
+        """Archive all intakes with a given status."""
+        if err := auth.require_auth(request):
+            return err
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
+        body = await request.json()
+        status = body.get("status")
+        if not status:
+            return api_error("status is required", "VALIDATION_ERROR", 400)
+
+        archived_ids = await asyncio.to_thread(db.bulk_archive_by_status, status)
+
+        # Create system comments for each archived intake
+        if user and archived_ids:
+            name = user.get("firstName", "Someone")
+            msg = f"{name} changed status from {status} to Archived"
+            for intake_id in archived_ids:
+                await asyncio.to_thread(
+                    db.add_intake_comment, intake_id, user["id"], msg, True
+                )
+
+        if archived_ids:
+            broadcast({
+                "entity": "intake", "action": "bulk-archived",
+                "ids": archived_ids, "user_id": user_id,
+            })
+
+        return JSONResponse({"success": True, "count": len(archived_ids)})
+
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["DELETE"])
     async def api_delete_intake(request):
         """Delete an intake record."""

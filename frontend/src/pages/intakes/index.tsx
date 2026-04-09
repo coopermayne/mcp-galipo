@@ -4,15 +4,17 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   type SortingState,
   type ColumnFiltersState,
   type VisibilityState,
+  type PaginationState,
   flexRender,
 } from "@tanstack/react-table"
 import { useNavigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, type CreateIntakeData } from "@/services/intakes"
+import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, bulkArchiveByStatus, type CreateIntakeData } from "@/services/intakes"
 import { getColumns, intakeGlobalFilterFn, getSearchRank } from "@/pages/intakes/columns"
 import { IntakePipelines } from "@/pages/intakes/components/intake-pipelines"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
@@ -27,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DataTablePagination } from "@/components/common/data-table-pagination"
 import type { ListNavState } from "@/components/common/list-nav"
 
 export default function IntakesPage() {
@@ -44,6 +47,11 @@ export default function IntakesPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [globalFilter, setGlobalFilter] = useState("")
+  const isArchivedView = selectedStatus === "Archived"
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 50,
+  })
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
 
@@ -81,6 +89,23 @@ export default function IntakesPage() {
       queryClient.invalidateQueries({ queryKey: ["unread-counts"] })
       toast.success("Intake created")
       setFormOpen(false)
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const bulkArchiveMutation = useMutation({
+    mutationFn: () => bulkArchiveByStatus("Rejection Letter Sent"),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["intakes"] })
+      queryClient.invalidateQueries({ queryKey: ["intake-counts"] })
+      queryClient.invalidateQueries({ queryKey: ["unread-counts"] })
+      if (data.count > 0) {
+        toast.success(`Archived ${data.count} rejected intake${data.count === 1 ? "" : "s"}`)
+      } else {
+        toast.info("No rejected intakes to archive")
+      }
     },
     onError: (error) => {
       toast.error(error.message)
@@ -131,15 +156,18 @@ export default function IntakesPage() {
       columnFilters,
       columnVisibility,
       globalFilter,
+      ...(isArchivedView && { pagination }),
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
+    ...(isArchivedView && { onPaginationChange: setPagination }),
     globalFilterFn: intakeGlobalFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
   })
 
   return (
@@ -163,6 +191,8 @@ export default function IntakesPage() {
         isSyncing={syncMutation.isPending}
         onNewIntake={() => setFormOpen(true)}
         onNewIntakeChat={() => setChatOpen(true)}
+        onBulkArchiveRejected={() => bulkArchiveMutation.mutate()}
+        isBulkArchiving={bulkArchiveMutation.isPending}
       />
 
       <div className="border">
@@ -231,6 +261,9 @@ export default function IntakesPage() {
           </TableBody>
         </Table>
       </div>
+      {selectedStatus === "Archived" && (
+        <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
+      )}
       <IntakeFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
