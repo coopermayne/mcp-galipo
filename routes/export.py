@@ -89,7 +89,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
         rows = session.execute(text(f"""
             SELECT id, case_name, short_name, status, print_code, case_summary,
                    result, date_of_injury, color, attorney_ids, paralegal_ids,
-                   created_at, updated_at
+                   notes, created_at, updated_at
             FROM cases
             {where}
             ORDER BY case_name
@@ -308,7 +308,7 @@ def get_all_cases_with_data(exclude_closed: bool = False, user_id: int = None) -
                 evt.pop("attendee_ids", None)
             case_data["events"] = [serialize_row(e) for e in raw_events]
 
-            case_data["notes"] = notes_by_case.get(cid, [])
+            case_data["note_records"] = notes_by_case.get(cid, [])
             # Add judges to proceedings
             proceedings = proceedings_by_case.get(cid, [])
             for p in proceedings:

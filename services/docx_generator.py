@@ -137,8 +137,6 @@ def _transform_case(case_data: dict, today: str) -> dict:
     proceedings = case_data.get("proceedings", [])
     events = case_data.get("events", [])
     tasks = case_data.get("tasks", [])
-    notes = case_data.get("notes", [])
-
     # Metadata (same helpers as PDF generator)
     case_name = case_data.get("case_name", "Untitled Case")
     short_name = case_data.get("short_name") or case_name
@@ -148,7 +146,7 @@ def _transform_case(case_data: dict, today: str) -> dict:
     doi_raw = case_data.get("date_of_injury")
     doi = _format_date(doi_raw) if doi_raw else ""
     jurisdiction = _get_jurisdiction(proceedings)
-    clients = ", ".join(_get_persons_by_role(persons, "Client"))
+    clients = ", ".join(p.get("name", "") for p in persons if p.get("role_category") == "client")
     other_proceedings = _get_other_proceedings(proceedings)
     summary = case_data.get("case_summary") or ""
     trial_date = _get_trial_date(events)
@@ -188,30 +186,22 @@ def _transform_case(case_data: dict, today: str) -> dict:
     if judge:
         case_info_rt.add(f"Judge {judge}", color=CLR_NAVY, size=28)
 
-    # Detail line: "DOI: Jun 10, 2024  ·  Client: Evgeniy Gubanov"
+    # Other proceedings line: "Also: 5:25-cv-01887-JGB, CIVDS2500145"
+    other_proceedings_rt = RichText()
+    has_other_proceedings = bool(other_proceedings)
+    if has_other_proceedings:
+        other_proceedings_rt.add("Also: ", color=CLR_GREY, size=24)
+        other_proceedings_rt.add(other_proceedings, color=CLR_NAVY, size=24)
+
+    # Detail line: "Client: Evgeniy Gubanov"
     detail_rt = RichText()
-    has_detail = bool(doi or clients)
-    if doi:
-        detail_rt.add("DOI: ", color=CLR_GREY, size=24)
-        detail_rt.add(doi, color=CLR_NAVY, size=24)
-    if doi and clients:
-        detail_rt.add("   \u00b7   ", color=CLR_GREY, size=24)
+    has_detail = bool(clients)
     if clients:
         detail_rt.add("Client: ", color=CLR_GREY, size=24)
         detail_rt.add(clients, color=CLR_NAVY, size=24)
 
-    # Counsel line: all counsel grouped by side
-    plaintiff_counsel, defense_counsel = _get_counsel_groups(persons)
-    counsel_rt = RichText()
-    has_counsel = bool(plaintiff_counsel or defense_counsel)
-    if plaintiff_counsel:
-        counsel_rt.add("Co-Counsel: ", color=CLR_GREY, size=24)
-        counsel_rt.add(", ".join(plaintiff_counsel), color=CLR_NAVY, size=24)
-    if plaintiff_counsel and defense_counsel:
-        counsel_rt.add("   |   ", color=CLR_GREY, size=24)
-    if defense_counsel:
-        counsel_rt.add("Defense: ", color=CLR_GREY, size=24)
-        counsel_rt.add(", ".join(defense_counsel), color=CLR_NAVY, size=24)
+    # Counsel & mediators — one line per person with role badge
+    counsel_items = _build_counsel(persons)
 
     # Events with RichText
     event_items = _build_events(events, doi_raw, today)
@@ -219,8 +209,8 @@ def _transform_case(case_data: dict, today: str) -> dict:
     # Tasks with RichText (exclude only "Done" status)
     task_items = _build_tasks(tasks, today)
 
-    # Notes
-    note_items = _build_notes(notes)
+    # Notes — single markdown field on the case
+    case_notes = case_data.get("notes") or ""
 
     return {
         "case_name": case_name,
@@ -240,16 +230,90 @@ def _transform_case(case_data: dict, today: str) -> dict:
         "status_bg": colors["bg"],
         "case_info_rt": case_info_rt,
         "has_info": has_info,
+        "other_proceedings_rt": other_proceedings_rt,
+        "has_other_proceedings": has_other_proceedings,
         "detail_rt": detail_rt,
         "has_detail": has_detail,
-        "counsel_rt": counsel_rt,
-        "has_counsel": has_counsel,
+        "counsel_items": counsel_items,
+        "has_counsel": len(counsel_items) > 0,
         "has_timeline": len(event_items) > 0,
         "event_items": event_items,
         "task_items": task_items,
         "has_tasks": len(task_items) > 0,
-        "notes": note_items if note_items else None,
+        "notes": case_notes,
     }
+
+
+# Role badge colors — text and background, matching frontend person-tree.tsx
+ROLE_BADGE_COLORS = {
+    "referring_attorney": {"text": "FFFFFF", "bg": "0D9488"},  # teal
+    "co_counsel":         {"text": "FFFFFF", "bg": "16A34A"},  # green
+    "public_defender":    {"text": "FFFFFF", "bg": "16A34A"},  # green
+    "mediator":           {"text": "000000", "bg": "F59E0B"},  # amber
+    "opposing_counsel":   {"text": "FFFFFF", "bg": "DC2626"},  # red
+    "prosecutor":         {"text": "FFFFFF", "bg": "DC2626"},  # red
+    "defense_counsel":    {"text": "FFFFFF", "bg": "EA580C"},  # orange
+    "criminal_defense_attorney": {"text": "FFFFFF", "bg": "EA580C"},  # orange
+}
+
+# Display order for counsel role groups
+COUNSEL_ROLE_ORDER = [
+    "referring_attorney",
+    "co_counsel",
+    "public_defender",
+    "mediator",
+    "opposing_counsel",
+    "prosecutor",
+    "defense_counsel",
+    "criminal_defense_attorney",
+]
+
+COUNSEL_ROLE_LABELS = {
+    "referring_attorney": "Referring Attorney",
+    "co_counsel": "Co Counsel",
+    "public_defender": "Public Defender",
+    "mediator": "Mediator",
+    "opposing_counsel": "Opposing Counsel",
+    "prosecutor": "Prosecutor",
+    "defense_counsel": "Defense Counsel",
+    "criminal_defense_attorney": "Criminal Defense Attorney",
+}
+
+
+def _build_counsel(persons: list) -> list:
+    """Build counsel & mediator list grouped by role — one line per role with colored tag + names."""
+    from docxtpl import RichText
+
+    # Group names by role
+    by_role = {}
+    for p in persons:
+        if p.get("role_category") not in ("counsel", "mediator"):
+            continue
+        role = p.get("role", "")
+        name = p.get("name", "")
+        if name:
+            by_role.setdefault(role, []).append(name)
+
+    if not by_role:
+        return []
+
+    items = []
+    for role in COUNSEL_ROLE_ORDER:
+        names = by_role.get(role)
+        if not names:
+            continue
+        colors = ROLE_BADGE_COLORS.get(role, {"text": "FFFFFF", "bg": "6B7280"})
+        label = COUNSEL_ROLE_LABELS.get(role, role)
+
+        rt = RichText()
+        rt.add(f" {label} ", color=colors["text"], size=20,
+               bold=True, highlight=colors["bg"])
+        rt.add("  ", size=24)
+        rt.add(", ".join(names), color=CLR_NAVY, size=24)
+
+        items.append({"rt": rt})
+
+    return items
 
 
 def _build_events(events: list, doi_raw, today: str) -> list:
@@ -276,13 +340,15 @@ def _build_events(events: list, doi_raw, today: str) -> list:
         })
         idx += 1
 
-    # Sort by date
+    # Sort by date, skip past events unless starred
     all_events = sorted(events, key=lambda e: e.get("date", ""))
 
     for event in all_events:
         event_date = event.get("date", "")
         is_past = bool(event_date and event_date < today)
         is_starred = event.get("starred", False)
+        if is_past and not is_starred:
+            continue
         date_str = _format_date(event_date)
         time_str = event.get("time") or ""
         desc = event.get("description") or ""
@@ -323,8 +389,19 @@ def _build_events(events: list, doi_raw, today: str) -> list:
     return items
 
 
+# Task status symbols
+TASK_STATUS_SYMBOLS = {
+    "Pending":              "\u2610",  # ☐ empty checkbox
+    "Active":               "\u25D1",  # ◑ half-filled circle
+    "Partially Done":       "\u25D1",  # ◑ half-filled circle
+    "Blocked":              "\u2717",  # ✗ x mark
+    "Awaiting Atty Review": "\u25D1",  # ◑ half-filled circle
+    "Done":                 "\u2611",  # ☑ checked
+}
+
+
 def _build_tasks(tasks: list, today: str) -> list:
-    """Build task list with RichText objects. Urgency shown via visual markers."""
+    """Build task list with RichText objects. Status symbols + urgency styling."""
     from docxtpl import RichText
 
     # Filter: exclude Done tasks only
@@ -338,24 +415,29 @@ def _build_tasks(tasks: list, today: str) -> list:
         urgency = task.get("urgency", "Medium")
         if urgency is None:
             urgency = "Medium"
+        status = task.get("status") or "Pending"
         due_date = task.get("due_date") or ""
         is_overdue = bool(due_date and due_date < today)
+        symbol = TASK_STATUS_SYMBOLS.get(status, "\u2610")
 
         # Alternating background
         bg = BG_ALT if idx % 2 == 0 else BG_NONE
 
         desc_rt = RichText()
-        if is_overdue:
-            desc_rt.add("\u2610 ", color=CLR_GREY, size=24)
+        if status == "Blocked":
+            desc_rt.add(f"{symbol} ", color=CLR_RED, size=24)
+            desc_rt.add(desc, color=CLR_RED, size=24)
+        elif is_overdue:
+            desc_rt.add(f"{symbol} ", color=CLR_GREY, size=24)
             desc_rt.add(desc, color=CLR_GREY, italic=True, size=24)
         elif urgency == "Urgent":
-            desc_rt.add("\u2610 ", color=CLR_RED, size=24)
+            desc_rt.add(f"{symbol} ", color=CLR_RED, size=24)
             desc_rt.add(desc, bold=True, color=CLR_NAVY, size=24)
         elif urgency == "High":
-            desc_rt.add("\u2610 ", color=CLR_NAVY, size=24)
+            desc_rt.add(f"{symbol} ", color=CLR_NAVY, size=24)
             desc_rt.add(desc, bold=True, color=CLR_NAVY, size=24)
         else:
-            desc_rt.add("\u2610 ", color=CLR_GREY, size=24)
+            desc_rt.add(f"{symbol} ", color=CLR_GREY, size=24)
             desc_rt.add(desc, color=CLR_NAVY, size=24)
 
         items.append({
@@ -363,25 +445,6 @@ def _build_tasks(tasks: list, today: str) -> list:
             "bg": bg,
         })
 
-    return items
-
-
-def _build_notes(notes: list) -> list:
-    """Build note list (max 5, truncated to 500 chars)."""
-    items = []
-    for note in notes[:5]:
-        content = (note.get("content") or "").strip()
-        if not content:
-            continue
-        # Strip person mention markdown links
-        content = re.sub(r'\[@([^\]]+)\]\(person:\d+\)', r'\1', content)
-        if len(content) > 500:
-            content = content[:497] + "..."
-        created = _format_date(note.get("created_at"))
-        items.append({
-            "date": created,
-            "content": content,
-        })
     return items
 
 
@@ -418,7 +481,12 @@ def _get_trial_date(events):
 
 def _get_jurisdiction(proceedings):
     for proc in proceedings:
+        # Support both flat (jurisdiction_name) and nested (jurisdiction.name) formats
         name = proc.get("jurisdiction_name")
+        if not name:
+            jur = proc.get("jurisdiction")
+            if isinstance(jur, dict):
+                name = jur.get("name")
         if name:
             return name
     return ""
@@ -427,21 +495,6 @@ def _get_jurisdiction(proceedings):
 def _get_persons_by_role(persons, role):
     return [p.get("name", "") for p in persons if p.get("role") == role]
 
-
-def _get_counsel_groups(persons):
-    """Get counsel names grouped into plaintiff-side and defense-side lists."""
-    plaintiff = []
-    defense = []
-    for p in persons:
-        role = p.get("role", "")
-        name = p.get("name", "")
-        if not name:
-            continue
-        if role in ("Co-Counsel", "Public Defender", "Criminal Defense Attorney"):
-            plaintiff.append(name)
-        elif role in ("Opposing Counsel", "Prosecutor"):
-            defense.append(name)
-    return plaintiff, defense
 
 
 def _get_other_proceedings(proceedings):
