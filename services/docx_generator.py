@@ -284,32 +284,42 @@ def _build_counsel(persons: list) -> list:
     """Build counsel & mediator list grouped by role — one line per role with colored tag + names."""
     from docxtpl import RichText
 
-    # Group names by role
+    # Group persons by role
     by_role = {}
     for p in persons:
         if p.get("role_category") not in ("counsel", "mediator"):
             continue
         role = p.get("role", "")
-        name = p.get("name", "")
-        if name:
-            by_role.setdefault(role, []).append(name)
+        if p.get("name"):
+            by_role.setdefault(role, []).append(p)
 
     if not by_role:
         return []
 
+    # Roles that show firm name
+    SHOW_ORG_ROLES = {"opposing_counsel", "prosecutor", "defense_counsel", "criminal_defense_attorney"}
+
     items = []
     for role in COUNSEL_ROLE_ORDER:
-        names = by_role.get(role)
-        if not names:
+        role_persons = by_role.get(role)
+        if not role_persons:
             continue
         colors = ROLE_BADGE_COLORS.get(role, {"text": "FFFFFF", "bg": "6B7280"})
         label = COUNSEL_ROLE_LABELS.get(role, role)
+        show_org = role in SHOW_ORG_ROLES
 
         rt = RichText()
         rt.add(f" {label} ", color=colors["text"], size=20,
                bold=True, highlight=colors["bg"])
         rt.add("  ", size=24)
-        rt.add(", ".join(names), color=CLR_NAVY, size=24)
+
+        for i, p in enumerate(role_persons):
+            if i > 0:
+                rt.add(", ", color=CLR_NAVY, size=24)
+            rt.add(p["name"], color=CLR_NAVY, size=24)
+            org = p.get("organization")
+            if show_org and org:
+                rt.add(f" ({org})", color=CLR_GREY, size=24)
 
         items.append({"rt": rt})
 
