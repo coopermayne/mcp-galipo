@@ -66,7 +66,7 @@ def _render_summary_table(cases: list) -> str:
         status = escape(c.get('status', ''))
         case_num = escape(_get_primary_case_number(proceedings))
         judge = escape(_get_judge_name(proceedings, persons))
-        clients = escape(', '.join(_get_persons_by_role(persons, 'Client')))
+        clients = escape(', '.join(_get_persons_by_category(persons, 'client')))
         doi = escape(_format_date(c.get('date_of_injury')))
         row_class = 'alt-row' if i % 2 == 0 else ''
         rows += f"""<tr class="{row_class}">
@@ -106,7 +106,7 @@ def _render_case_page(case_data: dict) -> str:
     judge = escape(_get_judge_name(proceedings, persons) or '\u2014')
     jurisdiction = escape(_get_jurisdiction(proceedings) or '\u2014')
     opp_counsel = escape(', '.join(_get_persons_by_role(persons, 'Opposing Counsel')) or '\u2014')
-    clients = escape(', '.join(_get_persons_by_role(persons, 'Client')) or '\u2014')
+    clients = escape(', '.join(_get_persons_by_category(persons, 'client')) or '\u2014')
 
     short_line = ''
     if short_name and short_name != case_data.get('case_name'):
@@ -538,7 +538,12 @@ def _get_judge_name(proceedings, persons):
 
 def _get_jurisdiction(proceedings):
     for proc in proceedings:
+        # Support both flat (jurisdiction_name) and nested (jurisdiction.name) formats
         name = proc.get('jurisdiction_name')
+        if not name:
+            jur = proc.get('jurisdiction')
+            if isinstance(jur, dict):
+                name = jur.get('name')
         if name:
             return name
     return ''
@@ -546,6 +551,10 @@ def _get_jurisdiction(proceedings):
 
 def _get_persons_by_role(persons, role):
     return [p.get('name', '') for p in persons if p.get('role') == role]
+
+
+def _get_persons_by_category(persons, category):
+    return [p.get('name', '') for p in persons if p.get('role_category') == category]
 
 
 def _format_date(date_val):
