@@ -404,7 +404,7 @@ TASK_STATUS_SYMBOLS = {
     "Pending":              "\u2610",  # ☐ empty checkbox
     "Active":               "\u25D1",  # ◑ half-filled circle
     "Partially Done":       "\u25D1",  # ◑ half-filled circle
-    "Blocked":              "\u2717",  # ✗ x mark
+    "Blocked":              "\u2298",  # ⊘ circled slash
     "Awaiting Atty Review": "\u25D1",  # ◑ half-filled circle
     "Done":                 "\u2611",  # ☑ checked
 }
