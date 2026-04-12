@@ -55,7 +55,8 @@ function usePersonCounts(caseData: CaseDetail) {
   }, [caseData.persons])
 }
 
-const PERSON_BUTTONS: { category: string; label: string }[] = [
+const PERSON_BUTTONS: { category: string; label: string; hideCount?: boolean }[] = [
+  { category: "all", label: "All", hideCount: true },
   { category: "client", label: "Clients" },
   { category: "defendant", label: "Defendants" },
   { category: "counsel", label: "Counsel" },
@@ -64,6 +65,7 @@ const PERSON_BUTTONS: { category: string; label: string }[] = [
 ]
 
 const CATEGORY_LABELS: Record<string, string> = {
+  all: "All People",
   client: "Clients",
   defendant: "Defendants",
   counsel: "Counsel & Mediators",
@@ -119,7 +121,7 @@ export function CaseSummarySection({
   const { data: rolesData } = useQuery({
     queryKey: ["roles", roleQueryCategory],
     queryFn: () => getRoles(roleQueryCategory ?? undefined),
-    enabled: !!peopleCategory,
+    enabled: !!peopleCategory && peopleCategory !== "all",
   })
   const categoryRoles = useMemo(() => {
     const all = rolesData?.roles ?? []
@@ -154,6 +156,7 @@ export function CaseSummarySection({
   // Filter persons for the active drawer category
   const filteredPersons = useMemo(() => {
     if (!peopleCategory) return []
+    if (peopleCategory === "all") return caseData.persons
     if (peopleCategory === "counsel") {
       return caseData.persons.filter(
         (p) => p.role.category === "counsel" || p.role.category === "mediator"
@@ -234,7 +237,7 @@ export function CaseSummarySection({
 
         {/* People — category buttons */}
         <div className="flex flex-wrap gap-1.5">
-          {PERSON_BUTTONS.map(({ category, label }) => {
+          {PERSON_BUTTONS.map(({ category, label, hideCount }) => {
             const count = counts[category] || 0
             const isActive = peopleCategory === category
             return (
@@ -245,7 +248,7 @@ export function CaseSummarySection({
                 className="h-6 px-2 text-xs"
                 onClick={() => toggleCategory(category)}
               >
-                {label} ({count})
+                {label}{hideCount ? "" : ` (${count})`}
               </Button>
             )
           })}
@@ -258,23 +261,25 @@ export function CaseSummarySection({
               <span className="text-sm font-semibold">
                 {CATEGORY_LABELS[peopleCategory] ?? peopleCategory}
               </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-6">
-                    <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {categoryRoles.map((role) => (
-                    <DropdownMenuItem
-                      key={role.id}
-                      onClick={() => onAddPerson(peopleCategory, role.id)}
-                    >
-                      {formatRoleName(role.name)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {peopleCategory !== "all" && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="size-6">
+                      <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {categoryRoles.map((role) => (
+                      <DropdownMenuItem
+                        key={role.id}
+                        onClick={() => onAddPerson(peopleCategory, role.id)}
+                      >
+                        {formatRoleName(role.name)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             <TooltipProvider>
               {filteredPersons.length > 0 ? (
