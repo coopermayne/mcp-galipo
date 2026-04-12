@@ -183,7 +183,7 @@ export default function CaseDetailPage() {
               onAiAdd={() => setAiTasksEventsOpen(true)}
             />
             <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
-            <CaseFinancialsCard caseId={caseData.id} />
+            <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
           </div>
 
           {/* Right column — activity feed + summary/dates */}

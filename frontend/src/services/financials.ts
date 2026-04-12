@@ -107,6 +107,7 @@ export interface CreateCounselFeeData {
   fee_flat_amount?: number
   sort_order?: number
   notes?: string
+  person_role_id?: number
 }
 
 export async function createCounselFee(
