@@ -20,6 +20,7 @@ import { AddTaskDialog } from "@/pages/cases/components/add-task-dialog"
 import { CaseEventsCard } from "@/pages/cases/components/case-events-card"
 import { AddEventDialog } from "@/pages/cases/components/add-event-dialog"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
+import { CaseFinancialsCard } from "@/pages/cases/components/case-financials-card"
 import { ListNav } from "@/components/common/list-nav"
 
 export default function CaseDetailPage() {
@@ -181,6 +182,7 @@ export default function CaseDetailPage() {
               onAdd={() => setAddEventOpen(true)}
               onAiAdd={() => setAiTasksEventsOpen(true)}
             />
+            <CaseFinancialsCard caseId={caseData.id} />
             <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
           </div>
 

@@ -212,6 +212,63 @@ def delete_financial(financial_id: int) -> bool:
         return True
 
 
+def get_financial_by_case(case_id: int) -> Optional[dict]:
+    """Get the financial record for a case (one-to-one)."""
+    with SessionLocal() as session:
+        fin_id = session.scalar(
+            select(CaseFinancial.id).where(CaseFinancial.case_id == case_id)
+        )
+        if not fin_id:
+            return None
+    return get_financial_by_id(fin_id)
+
+
+# =============================================================================
+# Counsel Fee CRUD
+# =============================================================================
+
+def create_counsel_fee(financial_id: int, **kwargs) -> dict:
+    """Create a counsel fee record."""
+    with SessionLocal() as session:
+        fee = CaseCounselFee(financial_id=financial_id, **kwargs)
+        session.add(fee)
+        session.flush()
+        fid = fee.financial_id
+        session.commit()
+    return get_financial_by_id(fid)
+
+
+def update_counsel_fee(fee_id: int, **kwargs) -> Optional[dict]:
+    """Update a counsel fee record."""
+    allowed = [
+        "counsel_name", "is_our_firm", "fee_type",
+        "fee_percentage", "fee_flat_amount", "sort_order", "notes",
+    ]
+    with SessionLocal() as session:
+        fee = session.get(CaseCounselFee, fee_id)
+        if not fee:
+            return None
+        for field, value in kwargs.items():
+            if field not in allowed:
+                continue
+            setattr(fee, field, value)
+        fid = fee.financial_id
+        session.commit()
+    return get_financial_by_id(fid)
+
+
+def delete_counsel_fee(fee_id: int) -> Optional[dict]:
+    """Delete a counsel fee. Returns updated financial."""
+    with SessionLocal() as session:
+        fee = session.get(CaseCounselFee, fee_id)
+        if not fee:
+            return None
+        fid = fee.financial_id
+        session.delete(fee)
+        session.commit()
+    return get_financial_by_id(fid)
+
+
 def get_resolution_type_counts(attorney_ids: Optional[List[int]] = None) -> dict:
     """Get counts grouped by resolution_type."""
     with SessionLocal() as session:

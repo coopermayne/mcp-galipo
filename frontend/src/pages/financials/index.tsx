@@ -9,7 +9,7 @@ import {
   type VisibilityState,
   flexRender,
 } from "@tanstack/react-table"
-import { useSearchParams } from "react-router"
+import { useSearchParams, useNavigate } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
 import { getFinancials, getFinancialCounts } from "@/services/financials"
@@ -27,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function FinancialsPage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedType = searchParams.get("type")
@@ -164,7 +165,11 @@ export default function FinancialsPage() {
               ))
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/cases/${row.original.case_id}`)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
