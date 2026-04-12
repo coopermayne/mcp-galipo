@@ -47,9 +47,6 @@ export function getColumns(options: {
             {row.original.resolution_type && (
               <span className="text-muted-foreground text-[11px]">
                 {RESOLUTION_LABELS[row.original.resolution_type] ?? row.original.resolution_type}
-                {row.original.is_finalized && (
-                  <span className="ml-1.5 text-success font-medium">Final</span>
-                )}
               </span>
             )}
           </div>
@@ -80,12 +77,12 @@ export function getColumns(options: {
       ),
     },
     {
-      id: "costs",
-      header: "Costs",
+      id: "finalized",
+      header: "Status",
       cell: ({ row }) => (
-        <span className="tabular-nums">
-          {formatCurrency(row.original.costs_advanced)}
-        </span>
+        row.original.is_finalized
+          ? <span className="text-success text-xs font-medium">Final</span>
+          : <span className="text-muted-foreground text-xs">Pending</span>
       ),
     },
     {
