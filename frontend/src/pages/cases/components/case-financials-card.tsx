@@ -5,7 +5,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   Delete02Icon,
-  Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import type { CounselFee } from "@/types/financial"
 import {
@@ -23,9 +22,9 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -33,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 
 const RESOLUTION_TYPES = [
   { value: "settlement", label: "Settlement" },
@@ -163,26 +161,10 @@ export function CaseFinancialsCard({ caseId }: CaseFinancialsCardProps) {
   return (
     <Card size="sm">
       <CardHeader className="border-b bg-muted/40">
-        <CardTitle>
-          Financials
-          {financial.is_finalized && (
-            <span className="ml-1.5 text-xs font-normal text-success">Final</span>
-          )}
-        </CardTitle>
-        <CardAction>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("size-6", financial.is_finalized && "text-success")}
-            onClick={() => updateMutation.mutate({ is_finalized: !financial.is_finalized })}
-            title={financial.is_finalized ? "Mark as not finalized" : "Mark as finalized"}
-          >
-            <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
-          </Button>
-        </CardAction>
+        <CardTitle>Financials</CardTitle>
       </CardHeader>
       <CardContent className="p-3 space-y-3">
-        {/* Resolution type + date */}
+        {/* Resolution type + date + finalized */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <span className="text-xs text-muted-foreground block mb-1">Type</span>
@@ -210,6 +192,17 @@ export function CaseFinancialsCard({ caseId }: CaseFinancialsCardProps) {
               type="date"
               displayClassName="text-xs"
             />
+          </div>
+          <div className="col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={financial.is_finalized ?? false}
+                onCheckedChange={(checked) =>
+                  updateMutation.mutate({ is_finalized: !!checked })
+                }
+              />
+              <span className="text-xs">Finalized</span>
+            </label>
           </div>
         </div>
 
