@@ -209,19 +209,20 @@ export function getColumns(options: {
       id: "dupes",
       header: "Dupes",
       cell: ({ row }) => {
-        const count = row.original.email_submission_count
-        if (!count || count <= 1) return null
+        const total = row.original.email_submission_count
+        if (!total || total <= 1) return null
+        const dupes = total - 1
         const others = row.original.email_submissions
         return (
           <HoverCard openDelay={200} closeDelay={100}>
             <HoverCardTrigger asChild>
               <span className="bg-warning/15 text-warning-foreground px-1.5 py-0.5 text-xs font-medium cursor-default tabular-nums">
-                {count}
+                {dupes}
               </span>
             </HoverCardTrigger>
             <HoverCardContent align="start" className="w-64">
               <p className="text-xs font-medium mb-1.5">
-                {count} submissions from this email
+                {dupes} duplicate{dupes > 1 ? "s" : ""} from this email
               </p>
               <div className="flex flex-col gap-1">
                 {others.map((s) => (
