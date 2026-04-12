@@ -340,6 +340,24 @@ def register_sms_routes(mcp):
                 "conversation_id": conv["id"],
             })
 
+            # Send SMS notification to NOTIFY_PHONE
+            if settings.notify_phone and from_number != settings.notify_phone:
+                try:
+                    notify_client = _get_twilio_client()
+                    if notify_client and settings.twilio_phone:
+                        preview = (message_body[:80] + "…") if len(message_body) > 80 else message_body
+                        notify_body = f"New SMS from {from_number}"
+                        if preview:
+                            notify_body += f": \"{preview}\""
+                        notify_body += "\nhttps://galipo.coopermayne.com/sms"
+                        notify_client.messages.create(
+                            body=notify_body,
+                            from_=settings.twilio_phone,
+                            to=settings.notify_phone,
+                        )
+                except Exception as e:
+                    logger.error("Failed to send SMS notification: %s", e)
+
         # Return empty TwiML so Twilio doesn't auto-reply
         return PlainTextResponse(
             '<?xml version="1.0" encoding="UTF-8"?><Response/>',
