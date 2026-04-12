@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { useNavigate } from "react-router"
 import type { Table } from "@tanstack/react-table"
 import type { CaseListItem, CaseCountsResponse, CaseStatus } from "@/types/case"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -11,6 +12,7 @@ import {
   Layers01Icon,
   Archive01Icon,
   Download04Icon,
+  MoneyBag02Icon,
 } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -99,6 +101,7 @@ export function CaseToolbar({
   onNewCaseChat,
   onNewCaseManual,
 }: CaseToolbarProps) {
+  const navigate = useNavigate()
   const nameColumn = table.getColumn("case_name")
   const [filterOpen, setFilterOpen] = useState(false)
 
@@ -335,6 +338,10 @@ export function CaseToolbar({
           <DropdownMenuItem onClick={() => exportCaseReport()}>
             <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
             Download Case Report
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/financials")}>
+            <HugeiconsIcon icon={MoneyBag02Icon} className="mr-2 size-4" />
+            Financials
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onNewCaseChat}>

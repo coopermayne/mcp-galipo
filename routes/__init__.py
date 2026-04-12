@@ -52,6 +52,7 @@ from .rfp import register_rfp_routes
 from .sse import register_sse_routes
 from .sms import register_sms_routes
 from .intakes import register_intake_routes
+from .financials import register_financial_routes
 from .health import register_health_routes
 from .static import register_static_routes
 
@@ -114,6 +115,8 @@ def register_routes(mcp):
     register_sms_routes(mcp)
     _logger.debug("Registering intake routes...")
     register_intake_routes(mcp)
+    _logger.debug("Registering financial routes...")
+    register_financial_routes(mcp)
     _logger.debug("Registering health routes...")
     register_health_routes(mcp)
 
@@ -146,5 +149,6 @@ __all__ = [
     "register_sse_routes",
     "register_sms_routes",
     "register_intake_routes",
+    "register_financial_routes",
     "register_static_routes",
 ]
