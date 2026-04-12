@@ -215,7 +215,7 @@ export function EventDetailDialog({
                 className={cn(
                   "size-4",
                   (detail?.starred ?? event.starred)
-                    ? "text-warning"
+                    ? "text-warning fill-warning"
                     : "text-muted-foreground/40"
                 )}
               />

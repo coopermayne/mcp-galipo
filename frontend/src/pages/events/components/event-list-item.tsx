@@ -241,7 +241,7 @@ export function EventListItem({
           className={cn(
             "size-4 transition-colors",
             event.starred
-              ? "text-warning"
+              ? "text-warning fill-warning"
               : "text-muted-foreground/30 hover:text-warning/60"
           )}
         />
