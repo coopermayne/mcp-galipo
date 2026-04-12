@@ -38,6 +38,8 @@ interface FinancialToolbarProps {
   onTypeChange: (type: string | null) => void
   scope: FinancialScope
   onScopeChange: (scope: FinancialScope) => void
+  finalizedFilter: boolean | null
+  onFinalizedFilterChange: (value: boolean | null) => void
   onNewFinancial?: () => void
 }
 
@@ -48,6 +50,8 @@ export function FinancialToolbar({
   onTypeChange,
   scope,
   onScopeChange,
+  finalizedFilter,
+  onFinalizedFilterChange,
   onNewFinancial,
 }: FinancialToolbarProps) {
   const nameColumn = table.getColumn("case_name")
@@ -61,9 +65,9 @@ export function FinancialToolbar({
   const typeLabel = selectedType
     ? RESOLUTION_TYPES.find((t) => t.value === selectedType)?.label ?? selectedType
     : null
-  const filterLabel = typeLabel
-    ? `${scopeLabel} · ${typeLabel}`
-    : scopeLabel
+  const finalizedLabel = finalizedFilter === true ? "Final" : finalizedFilter === false ? "Pending" : null
+  const parts = [scopeLabel, typeLabel, finalizedLabel].filter(Boolean)
+  const filterLabel = parts.join(" · ")
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -170,6 +174,33 @@ export function FinancialToolbar({
                   </button>
                 )
               })}
+            </div>
+
+            <div className="border-t" />
+
+            {/* Finalized filter */}
+            <div className="flex items-center gap-1">
+              {([
+                { value: null, label: "All" },
+                { value: true, label: "Final" },
+                { value: false, label: "Pending" },
+              ] as const).map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => {
+                    onFinalizedFilterChange(opt.value)
+                    setFilterOpen(false)
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 text-xs font-medium tracking-wide uppercase transition-colors",
+                    finalizedFilter === opt.value
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         </PopoverContent>

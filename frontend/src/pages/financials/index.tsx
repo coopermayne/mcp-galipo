@@ -20,11 +20,21 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)
+}
 
 export default function FinancialsPage() {
   const navigate = useNavigate()
@@ -41,29 +51,31 @@ export default function FinancialsPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 639px)").matches)
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => ({
-    attorneys: !isMobile, costs: !isMobile, resolution_date: !isMobile,
+    attorneys: !isMobile, finalized: !isMobile, resolution_date: !isMobile,
   }))
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)")
     const handler = (e: MediaQueryListEvent) => {
       setIsMobile(e.matches)
-      setColumnVisibility({ attorneys: !e.matches, costs: !e.matches, resolution_date: !e.matches })
+      setColumnVisibility({ attorneys: !e.matches, finalized: !e.matches, resolution_date: !e.matches })
     }
     mq.addEventListener("change", handler)
     return () => mq.removeEventListener("change", handler)
   }, [])
 
   const [scope, setScope] = useState<FinancialScope>("all")
+  const [finalizedFilter, setFinalizedFilter] = useState<boolean | null>(null)
 
   const attorneyIds = scope === "mine" && user ? [user.id] : undefined
 
   const { data: financialsData, isLoading } = useQuery({
-    queryKey: ["financials", selectedType, scope, user?.id],
+    queryKey: ["financials", selectedType, scope, user?.id, finalizedFilter],
     queryFn: () =>
       getFinancials({
         resolution_type: selectedType ?? undefined,
         attorney_ids: attorneyIds,
+        is_finalized: finalizedFilter ?? undefined,
         limit: 2000,
       }),
   })
@@ -132,6 +144,8 @@ export default function FinancialsPage() {
         onTypeChange={setSelectedType}
         scope={scope}
         onScopeChange={setScope}
+        finalizedFilter={finalizedFilter}
+        onFinalizedFilterChange={setFinalizedFilter}
       />
 
       <div className="border">
@@ -191,6 +205,32 @@ export default function FinancialsPage() {
               </TableRow>
             )}
           </TableBody>
+          {!isLoading && table.getRowModel().rows.length > 0 && (
+            <TableFooter>
+              <TableRow className="bg-muted/40">
+                <TableCell className="font-medium text-xs">
+                  Totals ({table.getRowModel().rows.length})
+                </TableCell>
+                <TableCell className="tabular-nums font-medium">
+                  {formatCurrency(
+                    table.getRowModel().rows.reduce(
+                      (sum, row) => sum + (row.original.gross_recovery ?? 0), 0
+                    )
+                  )}
+                </TableCell>
+                <TableCell className="tabular-nums font-medium">
+                  {formatCurrency(
+                    table.getRowModel().rows.reduce(
+                      (sum, row) => sum + (row.original.our_fee ?? 0), 0
+                    )
+                  )}
+                </TableCell>
+                {Array.from({ length: table.getVisibleFlatColumns().length - 3 }).map((_, i) => (
+                  <TableCell key={i} />
+                ))}
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
     </div>
