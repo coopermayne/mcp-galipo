@@ -77,12 +77,12 @@ export function InlineEditField({
       type="button"
       onClick={() => setEditing(true)}
       className={cn(
-        "group/edit flex items-center gap-1 text-left text-sm hover:text-foreground transition-colors min-w-0 w-full",
+        "group/edit flex items-start gap-1 text-left text-sm hover:text-foreground transition-colors min-w-0 w-full",
         !value && "text-muted-foreground",
         displayClassName
       )}
     >
-      <span className="truncate">
+      <span className="break-words">
         {value
           ? type === "date"
             ? new Date(value + "T00:00:00").toLocaleDateString("en-US", {
