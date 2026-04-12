@@ -216,7 +216,7 @@ export function getColumns(options: {
         return (
           <HoverCard openDelay={200} closeDelay={100}>
             <HoverCardTrigger asChild>
-              <span className="bg-warning/15 text-warning-foreground px-1.5 py-0.5 text-xs font-medium cursor-default tabular-nums">
+              <span className="bg-warning text-warning-foreground px-1.5 py-0.5 text-xs font-medium cursor-default tabular-nums">
                 {dupes}
               </span>
             </HoverCardTrigger>
