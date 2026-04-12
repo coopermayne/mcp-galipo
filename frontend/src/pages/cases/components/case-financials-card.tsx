@@ -255,40 +255,62 @@ export function CaseFinancialsCard({ caseId }: CaseFinancialsCardProps) {
           />
         </div>
 
-        {/* Counsel Fees */}
+        {/* Our Fee */}
+        {(() => {
+          const ourFee = financial.counsel_fees.find((f) => f.is_our_firm)
+          if (!ourFee) return null
+          return (
+            <div className="border-t pt-3">
+              <span className="text-xs text-muted-foreground block mb-1.5">Our Fee</span>
+              <CounselFeeRow
+                fee={ourFee}
+                grossRecovery={financial.gross_recovery}
+                onUpdate={(data) => updateFeeMutation.mutate({ feeId: ourFee.id, data })}
+                canDelete={false}
+              />
+            </div>
+          )
+        })()}
+
+        {/* Co-Counsel Fees */}
         <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">Counsel Fees</span>
+            <span className="text-xs text-muted-foreground">Co-Counsel</span>
             <Button
               variant="ghost"
               size="icon"
               className="size-5"
               onClick={() => addFeeMutation.mutate({
-                counsel_name: "New Counsel",
+                counsel_name: "New Co-Counsel",
                 fee_type: "percentage",
+                is_our_firm: false,
                 sort_order: financial.counsel_fees.length,
               })}
             >
               <HugeiconsIcon icon={Add01Icon} className="size-3" />
             </Button>
           </div>
-          {financial.counsel_fees.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-2">
-              No counsel fees added.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {financial.counsel_fees.map((fee) => (
-                <CounselFeeRow
-                  key={fee.id}
-                  fee={fee}
-                  grossRecovery={financial.gross_recovery}
-                  onUpdate={(data) => updateFeeMutation.mutate({ feeId: fee.id, data })}
-                  onDelete={() => deleteFeeMutation.mutate(fee.id)}
-                />
-              ))}
-            </div>
-          )}
+          {(() => {
+            const coCounsel = financial.counsel_fees.filter((f) => !f.is_our_firm)
+            return coCounsel.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                No co-counsel added.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {coCounsel.map((fee) => (
+                  <CounselFeeRow
+                    key={fee.id}
+                    fee={fee}
+                    grossRecovery={financial.gross_recovery}
+                    onUpdate={(data) => updateFeeMutation.mutate({ feeId: fee.id, data })}
+                    onDelete={() => deleteFeeMutation.mutate(fee.id)}
+                    canDelete
+                  />
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Delete financial */}
@@ -338,11 +360,13 @@ function CounselFeeRow({
   grossRecovery,
   onUpdate,
   onDelete,
+  canDelete = true,
 }: {
   fee: CounselFee
   grossRecovery: number | null
   onUpdate: (data: Record<string, unknown>) => void
-  onDelete: () => void
+  onDelete?: () => void
+  canDelete?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const computedFee = fee.fee_type === "percentage" && fee.fee_percentage != null && grossRecovery != null
@@ -356,9 +380,6 @@ function CounselFeeRow({
           className="flex items-center gap-1.5 text-xs font-medium text-left min-w-0 hover:text-foreground transition-colors"
           onClick={() => setExpanded(!expanded)}
         >
-          {fee.is_our_firm && (
-            <span className="size-1.5 bg-success shrink-0" />
-          )}
           <span className="truncate">{fee.counsel_name || "Unnamed"}</span>
         </button>
         <span className="text-xs tabular-nums shrink-0">
@@ -381,20 +402,6 @@ function CounselFeeRow({
               onSave={(v) => onUpdate({ counsel_name: v })}
               displayClassName="text-xs justify-end"
             />
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">Our Firm</span>
-            <button
-              className={cn(
-                "text-xs px-1.5 py-0.5 border transition-colors",
-                fee.is_our_firm
-                  ? "bg-success/10 text-success border-success/30"
-                  : "text-muted-foreground"
-              )}
-              onClick={() => onUpdate({ is_our_firm: !fee.is_our_firm })}
-            >
-              {fee.is_our_firm ? "Yes" : "No"}
-            </button>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">Fee Type</span>
@@ -438,15 +445,17 @@ function CounselFeeRow({
               />
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-muted-foreground hover:text-destructive w-full h-6"
-            onClick={onDelete}
-          >
-            <HugeiconsIcon icon={Delete02Icon} className="size-3 mr-1" />
-            Remove
-          </Button>
+          {canDelete && onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-destructive w-full h-6"
+              onClick={onDelete}
+            >
+              <HugeiconsIcon icon={Delete02Icon} className="size-3 mr-1" />
+              Remove
+            </Button>
+          )}
         </div>
       )}
     </div>
