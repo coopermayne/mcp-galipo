@@ -7,6 +7,7 @@ import {
   Delete02Icon,
 } from "@hugeicons/core-free-icons"
 import type { CounselFee } from "@/types/financial"
+import type { CasePerson } from "@/types/case"
 import {
   getFinancialByCase,
   createFinancial,
@@ -25,6 +26,12 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Select,
   SelectContent,
@@ -56,11 +63,14 @@ function parseCurrency(str: string): number | undefined {
   return isNaN(n) ? undefined : n
 }
 
+const FEE_ELIGIBLE_ROLES = ["co_counsel", "referring_attorney"]
+
 interface CaseFinancialsCardProps {
   caseId: number
+  casePersons: CasePerson[]
 }
 
-export function CaseFinancialsCard({ caseId }: CaseFinancialsCardProps) {
+export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardProps) {
   const queryClient = useQueryClient()
   const queryKey = ["financial", "case", caseId]
 
@@ -267,22 +277,53 @@ export function CaseFinancialsCard({ caseId }: CaseFinancialsCardProps) {
 
         {/* Co-Counsel Fees */}
         <div className="border-t pt-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">Co-Counsel</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-5"
-              onClick={() => addFeeMutation.mutate({
-                counsel_name: "New Co-Counsel",
-                fee_type: "percentage",
-                is_our_firm: false,
-                sort_order: financial.counsel_fees.length,
-              })}
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-3" />
-            </Button>
-          </div>
+          {(() => {
+            const existingPersonRoleIds = new Set(
+              financial.counsel_fees
+                .filter((f) => f.person_role_id != null)
+                .map((f) => f.person_role_id)
+            )
+            const eligiblePersons = casePersons.filter(
+              (p) =>
+                FEE_ELIGIBLE_ROLES.includes(p.role.name) &&
+                !existingPersonRoleIds.has(p.assignment_id)
+            )
+            return (
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground">Co-Counsel</span>
+                {eligiblePersons.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-5">
+                        <HugeiconsIcon icon={Add01Icon} className="size-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {eligiblePersons.map((p) => (
+                        <DropdownMenuItem
+                          key={p.assignment_id}
+                          onClick={() =>
+                            addFeeMutation.mutate({
+                              counsel_name: p.name,
+                              fee_type: "percentage",
+                              is_our_firm: false,
+                              person_role_id: p.assignment_id,
+                              sort_order: financial.counsel_fees.length,
+                            })
+                          }
+                        >
+                          <span className="text-xs">{p.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {p.role.name.replace(/_/g, " ")}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            )
+          })()}
           {(() => {
             const coCounsel = financial.counsel_fees.filter((f) => !f.is_our_firm)
             return coCounsel.length === 0 ? (
