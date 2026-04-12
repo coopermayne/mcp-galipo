@@ -82,12 +82,14 @@ function getMatchReason(
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
   const d = new Date(dateStr)
-  return d.toLocaleString("en-US", {
+  const base = d.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   })
+  const dow = d.toLocaleDateString("en-US", { weekday: "short" })
+  return `(${dow}) ${base}`
 }
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight, not UTC. */
