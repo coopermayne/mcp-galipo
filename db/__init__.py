@@ -279,10 +279,14 @@ from .sms import (
 from .financials import (
     get_all_financials,
     get_financial_by_id,
+    get_financial_by_case,
     create_financial,
     update_financial,
     delete_financial,
     get_resolution_type_counts,
+    create_counsel_fee,
+    update_counsel_fee,
+    delete_counsel_fee,
 )
 
 # Bulk import
@@ -503,10 +507,14 @@ __all__ = [
     # Financials
     "get_all_financials",
     "get_financial_by_id",
+    "get_financial_by_case",
     "create_financial",
     "update_financial",
     "delete_financial",
     "get_resolution_type_counts",
+    "create_counsel_fee",
+    "update_counsel_fee",
+    "delete_counsel_fee",
     # Bulk import
     "import_case",
 ]

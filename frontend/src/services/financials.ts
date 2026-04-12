@@ -1,6 +1,7 @@
 import type {
   FinancialListResponse,
   FinancialCountsResponse,
+  FinancialDetail,
 } from "@/types/financial"
 import { apiFetch } from "@/lib/api"
 
@@ -65,10 +66,81 @@ export async function createFinancial(
   return res.json()
 }
 
+export async function getFinancialByCase(
+  caseId: number
+): Promise<FinancialDetail | null> {
+  const res = await apiFetch(`/api/v1/financials/by-case/${caseId}`)
+  if (!res.ok) throw new Error("Failed to fetch financial")
+  return res.json()
+}
+
+export type UpdateFinancialData = Partial<Omit<CreateFinancialData, "case_id">>
+
+export async function updateFinancial(
+  id: number,
+  data: UpdateFinancialData
+): Promise<{ success: boolean; financial: FinancialDetail }> {
+  const res = await apiFetch(`/api/v1/financials/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to update financial record")
+  return res.json()
+}
+
 export async function deleteFinancial(
   id: number
 ): Promise<{ success: boolean }> {
   const res = await apiFetch(`/api/v1/financials/${id}`, { method: "DELETE" })
   if (!res.ok) throw new Error("Failed to delete financial record")
+  return res.json()
+}
+
+// --- Counsel Fees ---
+
+export interface CreateCounselFeeData {
+  counsel_name?: string
+  is_our_firm?: boolean
+  fee_type?: string
+  fee_percentage?: number
+  fee_flat_amount?: number
+  sort_order?: number
+  notes?: string
+}
+
+export async function createCounselFee(
+  financialId: number,
+  data: CreateCounselFeeData
+): Promise<{ success: boolean; financial: FinancialDetail }> {
+  const res = await apiFetch(`/api/v1/financials/${financialId}/fees`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to create counsel fee")
+  return res.json()
+}
+
+export async function updateCounselFee(
+  feeId: number,
+  data: Partial<CreateCounselFeeData>
+): Promise<{ success: boolean; financial: FinancialDetail }> {
+  const res = await apiFetch(`/api/v1/counsel-fees/${feeId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to update counsel fee")
+  return res.json()
+}
+
+export async function deleteCounselFee(
+  feeId: number
+): Promise<{ success: boolean; financial: FinancialDetail }> {
+  const res = await apiFetch(`/api/v1/counsel-fees/${feeId}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error("Failed to delete counsel fee")
   return res.json()
 }

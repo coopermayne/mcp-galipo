@@ -67,6 +67,17 @@ def register_financial_routes(mcp):
         counts = await asyncio.to_thread(db.get_resolution_type_counts, attorney_ids)
         return JSONResponse(counts)
 
+    @mcp.custom_route("/api/v1/financials/by-case/{case_id}", methods=["GET"])
+    async def api_get_financial_by_case(request):
+        """Get the financial record for a case (one-to-one)."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        financial = await asyncio.to_thread(db.get_financial_by_case, case_id)
+        if not financial:
+            return JSONResponse(None)
+        return JSONResponse(financial)
+
     @mcp.custom_route("/api/v1/financials/{financial_id}", methods=["GET"])
     async def api_get_financial(request):
         """Get a specific financial record by ID."""
@@ -120,3 +131,42 @@ def register_financial_routes(mcp):
         if deleted:
             return JSONResponse({"success": True})
         return api_error("Financial record not found", "NOT_FOUND", 404)
+
+    # =========================================================================
+    # Counsel Fees
+    # =========================================================================
+
+    @mcp.custom_route("/api/v1/financials/{financial_id}/fees", methods=["POST"])
+    async def api_create_counsel_fee(request):
+        """Add a counsel fee to a financial record."""
+        if err := auth.require_auth(request):
+            return err
+        financial_id = int(request.path_params["financial_id"])
+        body = await request.json()
+        result = await asyncio.to_thread(
+            db.create_counsel_fee, financial_id, **body
+        )
+        return JSONResponse({"success": True, "financial": result})
+
+    @mcp.custom_route("/api/v1/counsel-fees/{fee_id}", methods=["PUT"])
+    async def api_update_counsel_fee(request):
+        """Update a counsel fee."""
+        if err := auth.require_auth(request):
+            return err
+        fee_id = int(request.path_params["fee_id"])
+        body = await request.json()
+        result = await asyncio.to_thread(db.update_counsel_fee, fee_id, **body)
+        if not result:
+            return api_error("Counsel fee not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "financial": result})
+
+    @mcp.custom_route("/api/v1/counsel-fees/{fee_id}", methods=["DELETE"])
+    async def api_delete_counsel_fee(request):
+        """Delete a counsel fee."""
+        if err := auth.require_auth(request):
+            return err
+        fee_id = int(request.path_params["fee_id"])
+        result = await asyncio.to_thread(db.delete_counsel_fee, fee_id)
+        if not result:
+            return api_error("Counsel fee not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "financial": result})
