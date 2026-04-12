@@ -275,6 +275,16 @@ from .sms import (
     get_unread_counts as get_sms_unread_counts,
 )
 
+# Financials
+from .financials import (
+    get_all_financials,
+    get_financial_by_id,
+    create_financial,
+    update_financial,
+    delete_financial,
+    get_resolution_type_counts,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -490,6 +500,13 @@ __all__ = [
     "get_sms_media_by_id",
     "mark_sms_conversation_read",
     "get_sms_unread_counts",
+    # Financials
+    "get_all_financials",
+    "get_financial_by_id",
+    "create_financial",
+    "update_financial",
+    "delete_financial",
+    "get_resolution_type_counts",
     # Bulk import
     "import_case",
 ]

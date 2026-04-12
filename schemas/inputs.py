@@ -7,7 +7,7 @@ Used by both MCP tools and REST routes.
 from typing import Literal, Optional
 from pydantic import BaseModel
 
-from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus
+from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus, ResolutionType
 
 
 # =============================================================================
@@ -160,3 +160,28 @@ class SaveInteractionInput(BaseModel):
 
 class CreateCaseCommentInput(BaseModel):
     content: str
+
+
+# =============================================================================
+# Route Input Models — Financials
+# =============================================================================
+
+class CreateFinancialInput(BaseModel):
+    case_id: int
+    resolution_type: Optional[ResolutionType] = None
+    resolution_date: Optional[str] = None
+    gross_recovery: Optional[float] = None
+    costs_advanced: Optional[float] = None
+    liens_total: Optional[float] = None
+    is_finalized: Optional[bool] = False
+    notes: Optional[str] = None
+
+
+class UpdateFinancialInput(BaseModel):
+    resolution_type: Optional[ResolutionType] = None
+    resolution_date: Optional[str] = None
+    gross_recovery: Optional[float] = None
+    costs_advanced: Optional[float] = None
+    liens_total: Optional[float] = None
+    is_finalized: Optional[bool] = None
+    notes: Optional[str] = None

@@ -33,6 +33,7 @@ IntakeStatus = Literal[
 
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
 JudgeRole = Literal["Presiding", "Magistrate", "Panel", "Other"]
+ResolutionType = Literal["settlement", "verdict", "judgment", "arbitration_award"]
 
 
 # =============================================================================
@@ -45,6 +46,7 @@ PERSON_SIDE_LIST: list[str] = list(get_args(PersonSide))
 URGENCY_LIST: list[str] = list(get_args(Urgency))
 INTAKE_STATUS_LIST: list[str] = list(get_args(IntakeStatus))
 JUDGE_ROLE_LIST: list[str] = list(get_args(JudgeRole))
+RESOLUTION_TYPE_LIST: list[str] = list(get_args(ResolutionType))
 
 # Allowed status transitions for intakes (status -> list of valid next statuses)
 INTAKE_TRANSITIONS: dict[str, list[str]] = {

@@ -20,6 +20,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
     PrimaryKeyConstraint,
     Sequence,
     String,
@@ -292,6 +293,7 @@ class Case(Base):
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case")
     events: Mapped[list[Event]] = relationship(back_populates="case")
+    financial: Mapped[Optional[CaseFinancial]] = relationship(back_populates="case", uselist=False)
     note_records: Mapped[list[Note]] = relationship(back_populates="case")
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case")
     proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case")
@@ -999,3 +1001,87 @@ class WebhookLog(Base):
         back_populates="webhook_logs"
     )
     task: Mapped[Optional[Task]] = relationship(back_populates="webhook_logs")
+
+
+# ---------------------------------------------------------------------------
+# Financial tracking
+# ---------------------------------------------------------------------------
+
+class CaseFinancial(Base):
+    """One-to-one financial summary for a resolved case."""
+
+    __tablename__ = "case_financials"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"], ["cases.id"], ondelete="CASCADE",
+            name="case_financials_case_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="case_financials_pkey"),
+        UniqueConstraint("case_id", name="case_financials_case_id_key"),
+        Index("idx_case_financials_case_id", "case_id"),
+        Index("idx_case_financials_resolution_type", "resolution_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(Integer)
+    resolution_type: Mapped[Optional[str]] = mapped_column(String(50))
+    resolution_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    gross_recovery: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
+    costs_advanced: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
+    liens_total: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
+    is_finalized: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    case: Mapped[Case] = relationship(back_populates="financial")
+    counsel_fees: Mapped[list[CaseCounselFee]] = relationship(
+        back_populates="financial", cascade="all, delete-orphan"
+    )
+
+
+class CaseCounselFee(Base):
+    """Per-counsel fee arrangement on a case financial."""
+
+    __tablename__ = "case_counsel_fees"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["financial_id"], ["case_financials.id"], ondelete="CASCADE",
+            name="case_counsel_fees_financial_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["person_role_id"], ["person_roles.id"], ondelete="SET NULL",
+            name="case_counsel_fees_person_role_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="case_counsel_fees_pkey"),
+        Index("idx_case_counsel_fees_financial_id", "financial_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    financial_id: Mapped[int] = mapped_column(Integer)
+    person_role_id: Mapped[Optional[int]] = mapped_column(Integer)
+    counsel_name: Mapped[Optional[str]] = mapped_column(String(255))
+    is_our_firm: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
+    fee_type: Mapped[Optional[str]] = mapped_column(
+        String(20), server_default=text("'percentage'::character varying")
+    )
+    fee_percentage: Mapped[Optional[float]] = mapped_column(Numeric(5, 2))
+    fee_flat_amount: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, server_default=text("0"))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    financial: Mapped[CaseFinancial] = relationship(back_populates="counsel_fees")
+    person_role: Mapped[Optional[PersonRole]] = relationship()
