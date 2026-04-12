@@ -30,7 +30,7 @@ export function getColumns(): ColumnDef<EventListItem>[] {
         return (
           <HugeiconsIcon
             icon={StarIcon}
-            className={`size-3.5 ${starred ? "text-warning" : "text-transparent"}`}
+            className={`size-3.5 ${starred ? "text-warning fill-warning" : "text-transparent"}`}
           />
         )
       },
