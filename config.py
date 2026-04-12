@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     twilio_token: str | None = None
     twilio_phone: str | None = None
 
+    # SMS notification (phone number to text when inbound SMS arrives)
+    notify_phone: str | None = None
+
     # Media storage
     media_dir: str = "/app/media"
 
