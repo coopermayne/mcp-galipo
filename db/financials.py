@@ -169,11 +169,20 @@ def get_financial_by_id(financial_id: int) -> Optional[dict]:
 
 
 def create_financial(case_id: int, **kwargs) -> dict:
-    """Create a financial record for a case."""
+    """Create a financial record for a case. Auto-creates an 'our firm' counsel fee."""
     with SessionLocal() as session:
         fin = CaseFinancial(case_id=case_id, **kwargs)
         session.add(fin)
         session.flush()
+        # Always create our firm's fee entry
+        our_fee = CaseCounselFee(
+            financial_id=fin.id,
+            counsel_name="Galipo Law",
+            is_our_firm=True,
+            fee_type="percentage",
+            sort_order=0,
+        )
+        session.add(our_fee)
         fid = fin.id
         session.commit()
     return get_financial_by_id(fid)
