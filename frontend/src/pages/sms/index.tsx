@@ -127,10 +127,11 @@ export default function SmsPage() {
 
   // Send message mutation
   const sendMutation = useMutation({
-    mutationFn: (body: string) => sendMessage(selectedConversationId!, body),
-    onSuccess: () => {
+    mutationFn: ({ conversationId, body }: { conversationId: number; body: string }) =>
+      sendMessage(conversationId, body),
+    onSuccess: (_data, { conversationId }) => {
       queryClient.invalidateQueries({
-        queryKey: ["sms-messages", selectedConversationId],
+        queryKey: ["sms-messages", conversationId],
       })
       queryClient.invalidateQueries({ queryKey: ["sms-conversations"] })
     },
@@ -239,7 +240,7 @@ export default function SmsPage() {
       </div>
 
       {/* Right panel — message thread */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {selectedConversationId == null ? (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-sm text-muted-foreground">
@@ -268,7 +269,9 @@ export default function SmsPage() {
             />
 
             <ComposeInput
-              onSend={(body) => sendMutation.mutate(body)}
+              onSend={(body) =>
+                sendMutation.mutate({ conversationId: selectedConversationId!, body })
+              }
               isSending={sendMutation.isPending}
             />
           </>

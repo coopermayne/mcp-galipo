@@ -101,7 +101,7 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="min-h-0 flex-1">
       <div className="flex flex-col gap-2 p-4">
         {messages.map((msg) => {
           const isOutbound = msg.direction === "outbound"
@@ -130,7 +130,7 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
 
               <div
                 className={cn(
-                  "max-w-[70%] px-3 py-2",
+                  "max-w-[70%] break-words px-3 py-2",
                   isOutbound
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted"
