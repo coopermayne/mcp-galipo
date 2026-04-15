@@ -130,7 +130,7 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
 
               <div
                 className={cn(
-                  "max-w-[70%] break-words px-3 py-2",
+                  "max-w-[70%] min-w-0 break-words px-3 py-2",
                   isOutbound
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted"
