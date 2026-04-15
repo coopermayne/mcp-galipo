@@ -12,6 +12,14 @@ export async function getFirmNumber(): Promise<string | null> {
   return data.phone_number
 }
 
+export async function getConversation(
+  conversationId: number
+): Promise<SmsConversation> {
+  const res = await apiFetch(`/api/v1/sms/conversations/${conversationId}`)
+  if (!res.ok) throw new Error("Failed to fetch conversation")
+  return res.json()
+}
+
 export async function getConversations(
   params: {
     limit?: number

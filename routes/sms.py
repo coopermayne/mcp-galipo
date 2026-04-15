@@ -106,6 +106,18 @@ def register_sms_routes(mcp):
         )
         return JSONResponse(result)
 
+    @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}", methods=["GET"])
+    async def api_get_conversation(request):
+        """Get a single conversation by ID."""
+        if err := auth.require_auth(request):
+            return err
+
+        conversation_id = int(request.path_params["conversation_id"])
+        conv = await asyncio.to_thread(db.get_sms_conversation, conversation_id)
+        if not conv:
+            return api_error("Conversation not found", "NOT_FOUND", 404)
+        return JSONResponse(conv)
+
     @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}/messages", methods=["GET"])
     async def api_get_messages(request):
         """Get messages for a conversation."""
