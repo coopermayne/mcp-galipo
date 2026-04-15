@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router"
 import { formatDistanceToNow } from "date-fns"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -33,8 +34,6 @@ import type { SmsConversation } from "@/types/sms"
 
 interface ConversationListProps {
   conversations: SmsConversation[]
-  selectedId: number | null
-  onSelect: (id: number) => void
   onNewConversation: () => void
   onArchive: (id: number, archived: boolean) => void
   onDelete: (id: number) => void
@@ -123,8 +122,6 @@ function ConversationActions({
 
 export function ConversationList({
   conversations,
-  selectedId,
-  onSelect,
   onNewConversation,
   onArchive,
   onDelete,
@@ -204,13 +201,10 @@ export function ConversationList({
             conversations.map((conv) => (
               <div
                 key={conv.id}
-                className={cn(
-                  "group flex items-start border-b transition-colors hover:bg-accent",
-                  selectedId === conv.id && "bg-accent"
-                )}
+                className="group flex items-start border-b transition-colors hover:bg-accent"
               >
-                <button
-                  onClick={() => onSelect(conv.id)}
+                <Link
+                  to={`/sms/${conv.id}`}
                   className="flex flex-1 flex-col gap-0.5 px-3 py-2.5 text-left"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -242,12 +236,12 @@ export function ConversationList({
                       {conv.last_message_preview}
                     </p>
                   )}
-                </button>
+                </Link>
                 <ConversationActions
-                      conv={conv}
-                      onArchive={onArchive}
-                      onDelete={onDelete}
-                    />
+                  conv={conv}
+                  onArchive={onArchive}
+                  onDelete={onDelete}
+                />
               </div>
             ))
           )}
