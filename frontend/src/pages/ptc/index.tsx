@@ -350,7 +350,7 @@ function EventLine({ event }: { event: StreamEvent }) {
       }
       return (
         <div className="text-xs text-muted-foreground">
-          API: <span className="font-mono">{event.duration_ms}ms</span>
+          API: <span className="font-mono">{event.duration_ms as number}ms</span>
           {" "}&middot;{" "}
           <span className="font-mono">
             {(event.usage as { input_tokens: number })?.input_tokens}in/{(event.usage as { output_tokens: number })?.output_tokens}out
@@ -373,7 +373,7 @@ function EventLine({ event }: { event: StreamEvent }) {
       return (
         <div className="text-xs text-muted-foreground pl-2">
           &rarr; {formatBytes(event.result_length as number)} in{" "}
-          <span className="font-mono">{event.duration_ms}ms</span>
+          <span className="font-mono">{event.duration_ms as number}ms</span>
         </div>
       )
     default:
