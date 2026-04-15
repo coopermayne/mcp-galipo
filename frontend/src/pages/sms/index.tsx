@@ -240,7 +240,7 @@ export default function SmsPage() {
       </div>
 
       {/* Right panel — message thread */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {selectedConversationId == null ? (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-sm text-muted-foreground">
