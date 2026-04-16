@@ -144,7 +144,7 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
                   </div>
                 )}
                 {msg.body && (
-                  <p className="whitespace-pre-wrap text-sm">{msg.body}</p>
+                  <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{msg.body}</p>
                 )}
                 <p
                   className={cn(
