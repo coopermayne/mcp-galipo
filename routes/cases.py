@@ -79,7 +79,10 @@ def register_case_routes(mcp):
             case_summary=data.case_summary,
             result=data.result,
             date_of_injury=data.date_of_injury,
-            short_name=data.short_name
+            short_name=data.short_name,
+            trial_date=data.trial_date,
+            claim_deadline=data.claim_deadline,
+            complaint_deadline=data.complaint_deadline,
         )
         return JSONResponse({"success": True, "case": result})
 

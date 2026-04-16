@@ -4,6 +4,7 @@ export type FeatureKey =
   | "dashboard"
   | "intakes"
   | "cases"
+  | "case-detail"
   | "tasks"
   | "calendar"
   | "contacts"
@@ -15,6 +16,7 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "dashboard", label: "Dashboard" },
   { value: "intakes", label: "Intakes" },
   { value: "cases", label: "Cases" },
+  { value: "case-detail", label: "Case Detail Page" },
   { value: "tasks", label: "Tasks" },
   { value: "calendar", label: "Calendar" },
   { value: "contacts", label: "Contacts" },

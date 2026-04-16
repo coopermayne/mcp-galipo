@@ -11,6 +11,40 @@ interface UserInfo {
   initials: string
 }
 
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return ""
+  const d = new Date(dateStr + "T00:00:00")
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function daysUntil(dateStr: string | null): number | null {
+  if (!dateStr) return null
+  const d = new Date(dateStr + "T00:00:00")
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function DateCell({ value, warnDays }: { value: string | null; warnDays?: number }) {
+  if (!value) return <span className="text-muted-foreground">—</span>
+  const days = daysUntil(value)
+  const isUrgent = warnDays != null && days != null && days >= 0 && days <= warnDays
+  const isPast = days != null && days < 0
+  return (
+    <span
+      className={
+        isPast
+          ? "text-destructive font-medium"
+          : isUrgent
+            ? "text-warning-foreground font-medium"
+            : ""
+      }
+    >
+      {formatDate(value)}
+    </span>
+  )
+}
+
 export function getColumns(options: {
   usersMap: Map<number, UserInfo>
   isMobile?: boolean
@@ -75,6 +109,34 @@ export function getColumns(options: {
           </div>
         )
       },
+    },
+    {
+      accessorKey: "date_of_injury",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="DOI" />
+      ),
+      cell: ({ row }) => <DateCell value={row.original.date_of_injury} />,
+    },
+    {
+      accessorKey: "trial_date",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Trial" />
+      ),
+      cell: ({ row }) => <DateCell value={row.original.trial_date} warnDays={90} />,
+    },
+    {
+      accessorKey: "claim_deadline",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Claim DL" />
+      ),
+      cell: ({ row }) => <DateCell value={row.original.claim_deadline} warnDays={30} />,
+    },
+    {
+      accessorKey: "complaint_deadline",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Complaint DL" />
+      ),
+      cell: ({ row }) => <DateCell value={row.original.complaint_deadline} warnDays={30} />,
     },
     {
       accessorKey: "status",

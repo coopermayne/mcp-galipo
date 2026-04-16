@@ -21,6 +21,11 @@ export interface CaseListItem {
   print_code: string | null
   attorney_ids: number[] | null
   paralegal_ids: number[] | null
+  date_of_injury: string | null
+  trial_date: string | null
+  claim_deadline: string | null
+  complaint_deadline: string | null
+  color: string | null
   judge: string | null
   case_number: string | null
   jurisdiction_name: string | null
@@ -39,6 +44,9 @@ export interface CaseDetail {
   case_summary: string | null
   result: string | null
   date_of_injury: string | null
+  trial_date: string | null
+  claim_deadline: string | null
+  complaint_deadline: string | null
   color: string | null
   attorney_ids: number[] | null
   paralegal_ids: number[] | null
