@@ -2,6 +2,7 @@ import {
   DashboardBrowsingIcon,
   InboxDownloadIcon,
   Briefcase01Icon,
+  Briefcase02Icon,
   MoneyBag02Icon,
   Task01Icon,
   Calendar03Icon,
@@ -42,9 +43,15 @@ export const navGroups: NavGroup[] = [
         featureKey: "intakes",
       },
       {
-        title: "Cases",
+        title: "My Cases",
         url: "/cases",
         icon: Briefcase01Icon,
+        featureKey: "cases",
+      },
+      {
+        title: "All Cases",
+        url: "/cases/all",
+        icon: Briefcase02Icon,
         featureKey: "cases",
       },
       {

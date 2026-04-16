@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
+import { FeatureGate } from "@/components/common/feature-gate"
 import { CaseDetailHeader } from "@/pages/cases/components/case-detail-header"
 import { CaseSummarySection } from "@/pages/cases/components/case-summary-section"
 import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
@@ -24,6 +25,14 @@ import { CaseFinancialsCard } from "@/pages/cases/components/case-financials-car
 import { ListNav } from "@/components/common/list-nav"
 
 export default function CaseDetailPage() {
+  return (
+    <FeatureGate feature="case-detail" redirectTo="/cases">
+      <CaseDetailContent />
+    </FeatureGate>
+  )
+}
+
+function CaseDetailContent() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
 

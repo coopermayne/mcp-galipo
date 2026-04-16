@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react"
 import { useSearchParams, useNavigate } from "react-router"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useDebounce } from "@/hooks/use-debounce"
 import {
@@ -69,6 +69,7 @@ export default function SmsPage() {
         archived: showArchived,
         search: debouncedSearch || undefined,
       }),
+    placeholderData: keepPreviousData,
   })
 
   const conversations = conversationsData?.conversations ?? []

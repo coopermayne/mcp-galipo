@@ -125,6 +125,8 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
             select(
                 Case.id, Case.case_name, Case.short_name, Case.status,
                 Case.print_code, Case.attorney_ids, Case.paralegal_ids,
+                Case.date_of_injury, Case.trial_date, Case.claim_deadline,
+                Case.complaint_deadline, Case.color,
                 judge_sq, case_number_sq, jurisdiction_sq,
                 client_count_sq, defendant_count_sq,
                 pending_task_sq, upcoming_event_sq,
@@ -170,6 +172,9 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "case_summary": case.case_summary,
             "result": case.result,
             "date_of_injury": _sv(case.date_of_injury),
+            "trial_date": _sv(case.trial_date),
+            "claim_deadline": _sv(case.claim_deadline),
+            "complaint_deadline": _sv(case.complaint_deadline),
             "color": case.color,
             "attorney_ids": case.attorney_ids,
             "paralegal_ids": case.paralegal_ids,
@@ -337,10 +342,15 @@ def get_all_case_names() -> List[str]:
 
 def create_case(case_name: str, status: str = "Signing Up",
                 print_code: str = None, case_summary: str = None, result: str = None,
-                date_of_injury: str = None, short_name: str = None) -> dict:
+                date_of_injury: str = None, short_name: str = None,
+                trial_date: str = None, claim_deadline: str = None,
+                complaint_deadline: str = None) -> dict:
     """Create a new case. Case numbers are added via proceedings."""
     validate_case_status(status)
     validate_date_format(date_of_injury, "date_of_injury")
+    validate_date_format(trial_date, "trial_date")
+    validate_date_format(claim_deadline, "claim_deadline")
+    validate_date_format(complaint_deadline, "complaint_deadline")
 
     if short_name is None:
         short_name = case_name.split()[0] if case_name else None
@@ -356,6 +366,9 @@ def create_case(case_name: str, status: str = "Signing Up",
             case_summary=case_summary,
             result=result,
             date_of_injury=date_of_injury,
+            trial_date=trial_date,
+            claim_deadline=claim_deadline,
+            complaint_deadline=complaint_deadline,
             color=color,
         )
         session.add(case)
@@ -370,7 +383,8 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
     """Update case fields. Case numbers are managed via proceedings."""
     allowed_fields = [
         "case_name", "short_name", "status", "print_code",
-        "case_summary", "result", "date_of_injury", "notes"
+        "case_summary", "result", "date_of_injury", "notes",
+        "trial_date", "claim_deadline", "complaint_deadline",
     ]
 
     with SessionLocal() as session:
@@ -387,7 +401,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
 
             if field == "status":
                 validate_case_status(value)
-            elif field == "date_of_injury":
+            elif field in ("date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"):
                 validate_date_format(value, field)
 
             setattr(case, field, value)

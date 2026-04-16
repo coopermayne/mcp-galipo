@@ -274,6 +274,9 @@ class Case(Base):
     case_summary: Mapped[Optional[str]] = mapped_column(Text)
     result: Mapped[Optional[str]] = mapped_column(Text)
     date_of_injury: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    trial_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    claim_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    complaint_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP")
     )
