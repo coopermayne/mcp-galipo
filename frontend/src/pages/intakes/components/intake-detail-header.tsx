@@ -2,9 +2,9 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
-import { updateIntake, getIntakeTransitions } from "@/services/intakes"
+import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +25,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
 const statusButtonColors: Record<IntakeStatus, string> = {
@@ -91,14 +92,31 @@ function shouldEncourageComment(from: IntakeStatus, to: IntakeStatus): boolean {
   )
 }
 
-interface IntakeDetailHeaderProps {
-  intake: Intake
-  onFocusComments: () => void
+function getCommentPlaceholder(from: IntakeStatus, to: IntakeStatus): string {
+  // Contextual hints based on the specific transition
+  if (to === "Awaiting PC") return "e.g. Left voicemail, waiting for callback..."
+  if (to === "Needs Follow-Up" && from === "Awaiting PC") return "e.g. No response after 3 days, need to try again..."
+  if (to === "Needs Follow-Up" && from === "Dave Review") return "e.g. Need police report before we can evaluate..."
+  if (to === "Needs Follow-Up" && from === "Atty Review") return "e.g. Attorney wants more info on prior treatment..."
+  if (to === "Dave Review" && from === "New") return "e.g. Looks like a PI case, needs Dave's review..."
+  if (to === "Dave Review" && from === "Awaiting PC") return "e.g. Client sent medical records, ready for review..."
+  if (to === "Dave Review" && from === "Needs Follow-Up") return "e.g. Got the missing info, ready for Dave..."
+  if (to === "Dave Review" && from === "Atty Review") return "e.g. Attorney says needs more investigation..."
+  if (to === "Atty Review") return "e.g. Liability is questionable..."
+  if (to === "Needs Rejection Letter") return "e.g. SOL expired, no viable claim..."
+  if (to === "Needs Retainer") return "e.g. Good case, ready to sign up..."
+  return "Add a note..."
 }
 
-export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHeaderProps) {
+interface IntakeDetailHeaderProps {
+  intake: Intake
+  onFocusComments?: () => void
+}
+
+export function IntakeDetailHeader({ intake }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
+  const [commentDraft, setCommentDraft] = useState("")
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
 
   const { data: transitions } = useQuery({
@@ -119,6 +137,13 @@ export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHead
     },
     onError: () => {
       toast.error("Failed to update status")
+    },
+  })
+
+  const commentMutation = useMutation({
+    mutationFn: (content: string) => createIntakeComment(intake.id, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["intake-comments", intake.id] })
     },
   })
 
@@ -212,31 +237,49 @@ export function IntakeDetailHeader({ intake, onFocusComments }: IntakeDetailHead
         </div>
       </div>
 
-      <AlertDialog open={pendingStatus !== null} onOpenChange={(open) => { if (!open) setPendingStatus(null) }}>
+      <AlertDialog open={pendingStatus !== null} onOpenChange={(open) => { if (!open) { setPendingStatus(null); setCommentDraft("") } }}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Add a comment first?</AlertDialogTitle>
+            <AlertDialogTitle>Add a note</AlertDialogTitle>
+            <div className="flex items-center justify-center gap-2 py-1">
+              <StatusBadge status={intake.status} />
+              <HugeiconsIcon icon={ArrowRight01Icon} className="size-4 text-muted-foreground" />
+              {pendingStatus && <StatusBadge status={pendingStatus} />}
+            </div>
             <AlertDialogDescription>
-              Leaving a note about why you're moving this intake helps the team stay in the loop.
+              Leave a note about why you're moving this intake. This helps the team stay in the loop.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <Textarea
+            placeholder={pendingStatus ? getCommentPlaceholder(intake.status, pendingStatus) : "Add a note..."}
+            value={commentDraft}
+            onChange={(e) => setCommentDraft(e.target.value)}
+            className="min-h-[80px] text-sm"
+            autoFocus
+          />
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
                 const status = pendingStatus
                 setPendingStatus(null)
+                setCommentDraft("")
                 if (status) statusMutation.mutate(status)
               }}
             >
               Skip
             </AlertDialogCancel>
             <AlertDialogAction
+              disabled={!commentDraft.trim() || commentMutation.isPending}
               onClick={() => {
+                const status = pendingStatus
+                const note = commentDraft.trim()
                 setPendingStatus(null)
-                onFocusComments()
+                setCommentDraft("")
+                if (note) commentMutation.mutate(note)
+                if (status) statusMutation.mutate(status)
               }}
             >
-              OK
+              Submit
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
