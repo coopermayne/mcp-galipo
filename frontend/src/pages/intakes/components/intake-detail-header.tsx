@@ -31,6 +31,7 @@ const statusButtonColors: Record<IntakeStatus, string> = {
   "New": "border-info bg-info text-info-foreground hover:bg-info/85",
   "Dave Review": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
   "Needs Follow-Up": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
+  "Awaiting PC": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
   "Atty Review": "border-purple bg-purple text-purple-foreground hover:bg-purple/85",
   "Needs Rejection Letter": "border-destructive bg-destructive text-white hover:bg-destructive/85",
   "Rejection Letter Sent": "border-destructive bg-destructive text-white hover:bg-destructive/85",
@@ -44,6 +45,7 @@ const ALL_STATUSES: IntakeStatus[] = [
   "New",
   "Dave Review",
   "Needs Follow-Up",
+  "Awaiting PC",
   "Atty Review",
   "Needs Rejection Letter",
   "Rejection Letter Sent",
@@ -63,6 +65,12 @@ const COMMENT_ENCOURAGED_TRANSITIONS: Array<{ from: IntakeStatus; to: IntakeStat
   // To "Needs Follow-Up" (why?)
   { from: "Dave Review", to: "Needs Follow-Up" },
   { from: "Atty Review", to: "Needs Follow-Up" },
+  // To "Awaiting PC" (what follow-up was done?)
+  { from: "Needs Follow-Up", to: "Awaiting PC" },
+  { from: "Dave Review", to: "Awaiting PC" },
+  // From "Awaiting PC" (what did client respond?)
+  { from: "Awaiting PC", to: "Needs Follow-Up" },
+  { from: "Awaiting PC", to: "Dave Review" },
   // From "Needs Follow-Up" (what happened?)
   { from: "Needs Follow-Up", to: "New" },
   { from: "Needs Follow-Up", to: "Dave Review" },

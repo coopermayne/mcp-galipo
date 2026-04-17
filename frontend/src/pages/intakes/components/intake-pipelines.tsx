@@ -19,7 +19,7 @@ const PIPELINES: Pipeline[] = [
   {
     label: "REVIEW",
     badgeClass: "bg-warning/15 text-warning border-warning/25",
-    statuses: ["New", "Dave Review", "Needs Follow-Up", "Atty Review"],
+    statuses: ["New", "Dave Review", "Needs Follow-Up", "Awaiting PC", "Atty Review"],
   },
   {
     label: "REJECT",

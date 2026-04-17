@@ -2,6 +2,7 @@ export type IntakeStatus =
   | "New"
   | "Dave Review"
   | "Needs Follow-Up"
+  | "Awaiting PC"
   | "Atty Review"
   | "Needs Rejection Letter"
   | "Rejection Letter Sent"

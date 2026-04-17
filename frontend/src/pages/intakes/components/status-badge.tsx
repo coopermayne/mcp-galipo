@@ -6,6 +6,7 @@ const statusColors: Record<IntakeStatus, string> = {
   "New": "bg-info text-info-foreground",
   "Dave Review": "bg-warning text-warning-foreground",
   "Needs Follow-Up": "bg-warning text-warning-foreground",
+  "Awaiting PC": "bg-warning text-warning-foreground",
   "Atty Review": "bg-purple text-purple-foreground",
   "Needs Rejection Letter": "bg-destructive text-white",
   "Rejection Letter Sent": "bg-destructive text-white",
