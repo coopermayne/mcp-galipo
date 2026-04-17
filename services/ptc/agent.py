@@ -27,7 +27,10 @@ MODEL = "claude-sonnet-4-6"
 def _get_client() -> anthropic.Anthropic:
     if not settings.anthropic_api_key:
         raise ValueError("ANTHROPIC_API_KEY is required for PTC")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return anthropic.Anthropic(
+        api_key=settings.anthropic_api_key,
+        default_headers={"anthropic-beta": "advanced-tool-use-2025-11-20"},
+    )
 
 
 def run_ptc_query(

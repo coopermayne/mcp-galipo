@@ -56,7 +56,9 @@ def build_system_prompt(user_id: int | None = None, case_context: int | None = N
         "  For example, call search_cases() with no status filter to get ALL cases, then count/group in Python.",
         "- Aggregate and filter results in your Python code — don't print raw data dumps.",
         "- Return concise, decision-ready summaries.",
-        "- When creating/updating records, confirm what was done with the new IDs.",
+        "- When creating/updating/deleting records, confirm what was done with the IDs.",
+        "- For bulk operations, use bulk_update_tasks instead of looping update_task.",
+        "- For destructive operations (delete_task, delete_event, delete_note), confirm the target before executing.",
     ])
 
     return "\n".join(parts)
