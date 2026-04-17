@@ -297,7 +297,7 @@ def get_sol_watch_context(user_id: int | None = None) -> dict:
     pacific = ZoneInfo("America/Los_Angeles")
     now = datetime.now(pacific)
     # Statuses for intakes still in the pipeline (not resolved)
-    status_filter = "AND i.status IN ('New', 'Dave Review', 'Needs Follow-Up', 'Atty Review', 'Needs Retainer', 'Retainer Sent')"
+    status_filter = "AND i.status IN ('New', 'Dave Review', 'Needs Follow-Up', 'Awaiting PC', 'Atty Review', 'Needs Retainer', 'Retainer Sent')"
 
     with SessionLocal() as session:
         # Intakes approaching 6-month SOL (government claims)
