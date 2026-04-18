@@ -788,10 +788,10 @@ def _get_detail_css() -> str:
     }
     .tl-comment {
       margin-top: 2px;
-      background: #f1f5f9;
-      padding: 4px 8px;
+      border-left: 2px solid #cbd5e1;
+      padding: 2px 8px;
       font-size: 8px;
-      color: #0f172a;
+      color: #334155;
       white-space: pre-wrap;
       line-height: 1.4;
     }
