@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon, Archive01Icon } from "@hugeicons/core-free-icons"
+import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon, Archive01Icon, PrinterIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 interface IntakeToolbarProps {
@@ -20,6 +21,7 @@ interface IntakeToolbarProps {
   onNewIntakeChat: () => void
   onBulkArchiveRejected: () => void
   isBulkArchiving: boolean
+  selectedStatus: string | null
 }
 
 export function IntakeToolbar({
@@ -30,7 +32,21 @@ export function IntakeToolbar({
   onNewIntakeChat,
   onBulkArchiveRejected,
   isBulkArchiving,
+  selectedStatus,
 }: IntakeToolbarProps) {
+  const handlePrint = async () => {
+    const params = new URLSearchParams()
+    if (selectedStatus) params.set("status", selectedStatus)
+    const url = `/api/v1/intakes/export${params.toString() ? `?${params}` : ""}`
+    const res = await apiFetch(url)
+    if (!res.ok) return
+    const blob = await res.blob()
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "intakes.pdf"
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative min-w-0 flex-1 basis-40">
@@ -69,6 +85,10 @@ export function IntakeToolbar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handlePrint}>
+            <HugeiconsIcon icon={PrinterIcon} className="mr-2 size-4" />
+            Print List
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={onNewIntake}>
             <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
             Manual Intake Form

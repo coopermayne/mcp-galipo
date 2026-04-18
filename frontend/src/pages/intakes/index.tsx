@@ -192,6 +192,7 @@ export default function IntakesPage() {
         onNewIntakeChat={() => setChatOpen(true)}
         onBulkArchiveRejected={() => bulkArchiveMutation.mutate()}
         isBulkArchiving={bulkArchiveMutation.isPending}
+        selectedStatus={selectedStatus}
       />
 
       <div className="border">
