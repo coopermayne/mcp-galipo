@@ -78,6 +78,9 @@ export function IntakeToolbar({
         <HugeiconsIcon icon={SparklesIcon} className="sm:mr-2 size-4" />
         <span className="hidden sm:inline">New Intake</span>
       </Button>
+      <Button variant="outline" size="icon-sm" className="h-8 w-8" onClick={handlePrint} title="Print List">
+        <HugeiconsIcon icon={PrinterIcon} className="size-4" />
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon-sm" className="h-8 w-8">
@@ -85,10 +88,6 @@ export function IntakeToolbar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handlePrint}>
-            <HugeiconsIcon icon={PrinterIcon} className="mr-2 size-4" />
-            Print List
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={onNewIntake}>
             <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
             Manual Intake Form
