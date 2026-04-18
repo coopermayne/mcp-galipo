@@ -1,0 +1,278 @@
+"""
+PDF intake list generator.
+
+Generates a professional intake list report as a PDF,
+styled to match the frontend's visual design.
+Uses WeasyPrint to render HTML/CSS to PDF.
+"""
+
+from io import BytesIO
+from html import escape
+from datetime import datetime, date
+from math import ceil
+
+
+def generate_intake_list_pdf(intakes: list, status_filter: str | None = None) -> BytesIO:
+    """Generate a professional PDF intake list report."""
+    from weasyprint import HTML
+    html = _build_html(intakes, status_filter)
+    buf = BytesIO()
+    HTML(string=html).write_pdf(buf)
+    buf.seek(0)
+    return buf
+
+
+def _build_html(intakes: list, status_filter: str | None) -> str:
+    now = datetime.now()
+    date_str = now.strftime('%B %d, %Y')
+    count = len(intakes)
+    subtitle = f'{count} intake{"s" if count != 1 else ""}'
+    if status_filter:
+        subtitle = f'{status_filter} &middot; {subtitle}'
+
+    rows = '\n'.join(_render_row(i, idx) for idx, i in enumerate(intakes))
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{_get_css()}
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <div class="report-title">Intake List</div>
+  <div class="report-meta">{date_str} &middot; {subtitle}</div>
+</div>
+
+<table class="intake-table">
+  <thead>
+    <tr>
+      <th>Submitted</th>
+      <th>Name</th>
+      <th>Case Type</th>
+      <th>DOI</th>
+      <th class="sol-header">6MO / 2YR</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {rows}
+  </tbody>
+</table>
+
+</body>
+</html>"""
+
+
+def _render_row(intake: dict, idx: int) -> str:
+    row_class = 'alt-row' if idx % 2 == 0 else ''
+
+    submitted = _format_submitted(intake.get('submitted_on'))
+    name = escape(intake.get('name') or '—')
+    case_type = escape(intake.get('case_type') or '—')
+    doi = _format_doi(intake.get('incident_date'))
+    sol_html = _render_sol(intake.get('incident_date'))
+    status = intake.get('status', '')
+    status_class = _status_css_class(status)
+
+    return f"""<tr class="{row_class}">
+      <td class="submitted-col">{submitted}</td>
+      <td class="name-col">{name}</td>
+      <td>{case_type}</td>
+      <td>{doi}</td>
+      <td class="sol-col">{sol_html}</td>
+      <td><span class="status-badge {status_class}">{escape(status)}</span></td>
+    </tr>"""
+
+
+def _render_sol(incident_date: str | None) -> str:
+    if not incident_date:
+        return '<span class="em">—</span>'
+
+    six_mo = _days_until(incident_date, 6)
+    two_yr = _days_until(incident_date, 24)
+
+    six_html = _sol_span(six_mo)
+    two_html = _sol_span(two_yr)
+
+    return f'{six_html} <span class="sol-sep">/</span> {two_html}'
+
+
+def _sol_span(days: int) -> str:
+    if days < 0:
+        return f'<span class="sol-danger">{days}</span>'
+    if days <= 30:
+        return f'<span class="sol-warning">{days}</span>'
+    return f'<span class="sol-normal">{days}</span>'
+
+
+def _days_until(doi_str: str, months: int) -> int:
+    try:
+        if isinstance(doi_str, date) and not isinstance(doi_str, datetime):
+            doi = doi_str
+        else:
+            doi = datetime.strptime(str(doi_str)[:10], '%Y-%m-%d').date()
+        year = doi.year + (doi.month - 1 + months) // 12
+        month = (doi.month - 1 + months) % 12 + 1
+        day = min(doi.day, 28)  # safe day
+        deadline = date(year, month, day)
+        today = date.today()
+        return (deadline - today).days
+    except (ValueError, TypeError):
+        return 9999
+
+
+def _status_css_class(status: str) -> str:
+    mapping = {
+        'New': 'status-info',
+        'Dave Review': 'status-warning',
+        'Needs Follow-Up': 'status-warning',
+        'Awaiting PC': 'status-warning',
+        'Atty Review': 'status-purple',
+        'Needs Rejection Letter': 'status-destructive',
+        'Rejection Letter Sent': 'status-destructive',
+        'Needs Retainer': 'status-success',
+        'Retainer Sent': 'status-success',
+        'Retainer Signed': 'status-success',
+        'Archived': 'status-muted',
+    }
+    return mapping.get(status, 'status-muted')
+
+
+def _format_submitted(val) -> str:
+    if not val:
+        return '—'
+    try:
+        if isinstance(val, str):
+            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+        elif isinstance(val, datetime):
+            dt = val
+        else:
+            return str(val)
+        return dt.strftime('%b %-d')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _format_doi(val) -> str:
+    if not val:
+        return '—'
+    try:
+        if isinstance(val, date) and not isinstance(val, datetime):
+            d = val
+        elif isinstance(val, str):
+            d = datetime.strptime(val[:10], '%Y-%m-%d').date()
+        else:
+            return str(val)
+        return d.strftime('%-m/%-d/%y')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _get_css() -> str:
+    return """
+    @page {
+      size: letter portrait;
+      margin: 0.5in 1.25in;
+      @bottom-right {
+        content: counter(page);
+        font-family: 'Inter', 'Helvetica Neue', sans-serif;
+        font-size: 7px;
+        color: #94a3b8;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Helvetica Neue', 'Segoe UI', sans-serif;
+      font-size: 8.5px;
+      color: #0f172a;
+      line-height: 1.35;
+    }
+
+    /* === Report header === */
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .report-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .report-meta { font-size: 8px; color: #94a3b8; }
+
+    /* === Intake table === */
+    .intake-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .intake-table thead tr { background: #0f172a; }
+    .intake-table th {
+      padding: 2px 3px;
+      text-align: left;
+      font-size: 6.5px;
+      font-weight: 600;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .intake-table td {
+      padding: 2px 3px;
+      font-size: 7.5px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .intake-table .alt-row { background: #f8fafc; }
+
+    .submitted-col {
+      white-space: nowrap;
+      font-size: 7.5px;
+      color: #475569;
+    }
+    .name-col { font-weight: 600; }
+
+    /* === SOL column === */
+    .sol-header { text-align: center; }
+    .sol-col {
+      text-align: center;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      font-size: 8px;
+    }
+    .sol-sep { color: #94a3b8; }
+    .sol-danger {
+      background: #fee2e2;
+      color: #dc2626;
+      padding: 0 3px;
+      font-weight: 600;
+    }
+    .sol-warning {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 0 3px;
+      font-weight: 600;
+    }
+    .sol-normal { color: #0f172a; }
+
+    /* === Status badges === */
+    .status-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      font-size: 7px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-info { background: #dbeafe; color: #1d4ed8; }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .status-purple { background: #f3e8ff; color: #7c3aed; }
+    .status-destructive { background: #fee2e2; color: #dc2626; }
+    .status-success { background: #dcfce7; color: #166534; }
+    .status-muted { background: #f1f5f9; color: #64748b; }
+
+    .em { color: #cbd5e1; }
+    """
