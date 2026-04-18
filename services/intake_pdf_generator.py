@@ -631,6 +631,7 @@ def _get_detail_css() -> str:
       margin-bottom: 10px;
     }
     .d-title { font-size: 16px; font-weight: 700; }
+    .d-header .status-badge { font-size: 16px; font-weight: 400; }
 
     /* === Status badges (shared) === */
     .status-badge {
