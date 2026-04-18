@@ -378,6 +378,7 @@ def _build_detail_page(intake: dict, comments: list) -> str:
     # --- AI Summary ---
     if intake.get('ai_summary'):
         summary = escape(intake['ai_summary'])
+        summary = re.sub(r'^#{1,6}\s+(.+)$', r'<strong>\1</strong>', summary, flags=re.MULTILINE)
         summary = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', summary)
         summary = summary.replace('\n', '<br>')
         sections.append(f'<div class="d-section"><h3 class="d-section-title">AI Summary</h3><div class="d-ai-summary">{summary}</div></div>')
@@ -389,13 +390,21 @@ def _build_detail_page(intake: dict, comments: list) -> str:
         notes = notes.replace('\n', '<br>')
         sections.append(f'<div class="d-section"><h3 class="d-section-title">Notes</h3><div class="d-text">{notes}</div></div>')
 
-    # --- Incident / Injury Description ---
+    # --- Incident / Injury Description (skip if >50 words, AI summary covers it) ---
     if intake.get('incident_description'):
-        desc = escape(intake['incident_description'])
-        sections.append(f'<div class="d-section"><h3 class="d-section-title">Incident Description</h3><div class="d-text">{desc}</div></div>')
+        words = intake['incident_description'].split()
+        if len(words) <= 50:
+            desc = escape(intake['incident_description'])
+            sections.append(f'<div class="d-section"><h3 class="d-section-title">Incident Description</h3><div class="d-text">{desc}</div></div>')
+        else:
+            sections.append(f'<div class="d-section"><h3 class="d-section-title">Incident Description</h3><div class="d-text d-truncated">PC Incident Description too long, not printed</div></div>')
     if intake.get('injury_description'):
-        desc = escape(intake['injury_description'])
-        sections.append(f'<div class="d-section"><h3 class="d-section-title">Injury Description</h3><div class="d-text">{desc}</div></div>')
+        words = intake['injury_description'].split()
+        if len(words) <= 50:
+            desc = escape(intake['injury_description'])
+            sections.append(f'<div class="d-section"><h3 class="d-section-title">Injury Description</h3><div class="d-text">{desc}</div></div>')
+        else:
+            sections.append(f'<div class="d-section"><h3 class="d-section-title">Injury Description</h3><div class="d-text d-truncated">PC Injury Description too long, not printed</div></div>')
 
     # --- Activity Log (timeline style) ---
     if comments:
@@ -701,6 +710,10 @@ def _get_detail_css() -> str:
       color: #334155;
       line-height: 1.45;
       white-space: pre-wrap;
+    }
+    .d-truncated {
+      font-style: italic;
+      color: #94a3b8;
     }
 
     /* === Activity timeline === */
