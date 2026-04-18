@@ -10,6 +10,7 @@ import {
   archiveConversation,
   deleteConversation,
   getSmsUnreadCounts,
+  updateConversationLabel,
 } from "@/services/sms"
 import { ConversationList } from "@/pages/sms/components/conversation-list"
 import {
@@ -33,6 +34,10 @@ export default function SmsPage() {
   const [newPhone, setNewPhone] = useState("")
   const [newLabel, setNewLabel] = useState("")
   const [searchValue, setSearchValue] = useState("")
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [renameId, setRenameId] = useState<number | null>(null)
+  const [renameLabel, setRenameLabel] = useState("")
 
   // URL-driven archived state
   const showArchived = searchParams.get("archived") === "true"
@@ -128,6 +133,19 @@ export default function SmsPage() {
     },
   })
 
+  const renameMutation = useMutation({
+    mutationFn: ({ id, label }: { id: number; label: string }) =>
+      updateConversationLabel(id, label),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sms-conversations"] })
+      setRenameDialogOpen(false)
+      toast.success("Conversation renamed")
+    },
+    onError: () => {
+      toast.error("Failed to rename conversation")
+    },
+  })
+
   const handleArchive = useCallback(
     (conversationId: number, archived: boolean) => {
       archiveMutation.mutate({ conversationId, archived })
@@ -140,6 +158,24 @@ export default function SmsPage() {
       deleteMutation.mutate(conversationId)
     },
     [deleteMutation]
+  )
+
+  const handleRename = useCallback(
+    (conversationId: number, currentLabel: string) => {
+      setRenameId(conversationId)
+      setRenameLabel(currentLabel)
+      setRenameDialogOpen(true)
+    },
+    []
+  )
+
+  const handleRenameSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      if (renameId == null) return
+      renameMutation.mutate({ id: renameId, label: renameLabel.trim() })
+    },
+    [renameId, renameLabel, renameMutation]
   )
 
   const handleCreateSubmit = useCallback(
@@ -158,6 +194,7 @@ export default function SmsPage() {
         onNewConversation={() => setNewDialogOpen(true)}
         onArchive={handleArchive}
         onDelete={handleDelete}
+        onRename={handleRename}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
         searchValue={searchValue}
@@ -166,6 +203,42 @@ export default function SmsPage() {
         unreadCounts={unreadCounts}
         firmNumber={firmNumber ? formatPhone(firmNumber) : null}
       />
+
+      {/* Rename conversation dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Conversation</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="rename-label">Label</Label>
+              <Input
+                id="rename-label"
+                placeholder="e.g. John Smith"
+                value={renameLabel}
+                onChange={(e) => setRenameLabel(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRenameDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={renameMutation.isPending}
+              >
+                {renameMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* New conversation dialog */}
       <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
