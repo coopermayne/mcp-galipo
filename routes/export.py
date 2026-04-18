@@ -17,7 +17,7 @@ from sqlalchemy import text
 import auth
 from db.session import SessionLocal
 from services.pdf_generator import generate_case_list_pdf
-from services.intake_pdf_generator import generate_intake_list_pdf
+from services.intake_pdf_generator import generate_intake_list_pdf, generate_intake_detail_pdf
 from services.docx_generator import generate_case_list_docx
 from routes.common import api_error
 
@@ -419,6 +419,37 @@ def register_export_routes(mcp):
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"galipo_intakes_{timestamp}.pdf"
+        return Response(
+            content=pdf_buf.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @mcp.custom_route("/api/v1/intakes/{intake_id}/export", methods=["GET"])
+    async def api_export_intake_detail(request):
+        """Export a single intake as PDF."""
+        if err := auth.require_auth(request):
+            return err
+
+        from db.intakes import get_intake_by_id
+        from db.intake_comments import get_intake_comments
+
+        intake_id = int(request.path_params["intake_id"])
+        intake = await asyncio.to_thread(get_intake_by_id, intake_id)
+        if not intake:
+            return api_error("Intake not found", "NOT_FOUND", 404)
+
+        comments = await asyncio.to_thread(get_intake_comments, intake_id)
+
+        try:
+            pdf_buf = await asyncio.to_thread(generate_intake_detail_pdf, intake, comments)
+        except Exception as e:
+            logger.error("Intake detail PDF failed:\n%s", traceback.format_exc())
+            return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
+
+        name_slug = (intake.get("name") or "intake").replace(" ", "_")[:30]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{name_slug}_{timestamp}.pdf"
         return Response(
             content=pdf_buf.getvalue(),
             media_type="application/pdf",
