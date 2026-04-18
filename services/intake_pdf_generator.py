@@ -341,13 +341,13 @@ def _build_detail_page(intake: dict, comments: list) -> str:
 
     sections = []
 
+    # Hidden element to feed the @page footer via CSS string-set
+    sections.append(f'<span class="printed-date">Printed {date_str}</span>')
+
     # --- Header ---
     sections.append(f"""<div class="d-header">
-  <div class="d-header-left">
-    <span class="d-title">{name}</span>
-    <span class="status-badge {status_cls}">{escape(status)}</span>
-  </div>
-  <div class="d-header-right">Printed {date_str}</div>
+  <span class="d-title">{name}</span>
+  <span class="status-badge {status_cls}">{escape(status)}</span>
 </div>""")
 
     # --- Metadata grid ---
@@ -597,6 +597,12 @@ def _get_detail_css() -> str:
     @page {
       size: letter portrait;
       margin: 0.35in 0.4in;
+      @bottom-left {
+        content: string(printed-date);
+        font-family: 'Inter', 'Helvetica Neue', sans-serif;
+        font-size: 7px;
+        color: #94a3b8;
+      }
       @bottom-right {
         content: counter(page);
         font-family: 'Inter', 'Helvetica Neue', sans-serif;
@@ -604,6 +610,7 @@ def _get_detail_css() -> str:
         color: #94a3b8;
       }
     }
+    .printed-date { string-set: printed-date content(); display: none; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -623,9 +630,7 @@ def _get_detail_css() -> str:
       padding-bottom: 5px;
       margin-bottom: 10px;
     }
-    .d-header-left { display: flex; align-items: baseline; gap: 8px; }
     .d-title { font-size: 16px; font-weight: 700; }
-    .d-header-right { font-size: 8px; color: #94a3b8; }
 
     /* === Status badges (shared) === */
     .status-badge {
