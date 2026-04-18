@@ -293,37 +293,92 @@ def generate_intake_detail_pdf(intake: dict, comments: list) -> BytesIO:
 
 
 def generate_intake_batch_pdf(intakes_with_comments: list[tuple[dict, list]]) -> BytesIO:
-    """Generate a PDF with multiple intakes, each on its own page."""
+    """Generate a PDF with multiple intakes, each on its own page, plus an index."""
     from weasyprint import HTML
 
     now = datetime.now()
     date_str = now.strftime('%B %d, %Y')
     count = len(intakes_with_comments)
+    css = _get_detail_css()
 
-    pages = []
-    for i, (intake, comments) in enumerate(intakes_with_comments):
-        page_class = 'detail-page' if i > 0 else 'detail-page-first'
+    # --- Pass 1: render each intake individually to count pages ---
+    intake_pages = []  # list of (intake, comments, page_html, page_count)
+    for intake, comments in intakes_with_comments:
         page_html = _build_detail_page(intake, comments)
-        pages.append(f'<div class="{page_class}">{page_html}</div>')
+        single_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>{css}</style></head><body>{page_html}</body></html>"""
+        doc = HTML(string=single_html).render()
+        intake_pages.append((intake, comments, page_html, len(doc.pages)))
 
-    body = '\n'.join(pages)
-    html = f"""<!DOCTYPE html>
+    # --- Build index, then figure out how many pages the index itself takes ---
+    def _build_index_html(entries: list[tuple[str, str, int]], count: int, date_str: str) -> str:
+        rows = []
+        for idx, (name, status, page_num) in enumerate(entries):
+            row_cls = 'alt-row' if idx % 2 == 0 else ''
+            status_cls = _status_css_class(status)
+            rows.append(f"""<tr class="{row_cls}">
+              <td class="idx-num">{idx + 1}</td>
+              <td class="idx-name">{escape(name)}</td>
+              <td><span class="status-badge {status_cls}">{escape(status)}</span></td>
+              <td class="idx-page">{page_num}</td>
+            </tr>""")
+        return f"""<div class="idx-header">
+  <span class="idx-title">Intake Packet</span>
+  <span class="idx-meta">{date_str} &middot; {count} intake{'s' if count != 1 else ''}</span>
+</div>
+<table class="idx-table">
+  <thead><tr>
+    <th class="idx-num-h">#</th>
+    <th>Name</th>
+    <th>Status</th>
+    <th class="idx-page-h">Page</th>
+  </tr></thead>
+  <tbody>{''.join(rows)}</tbody>
+</table>"""
+
+    # First guess: assume index is 1 page, calculate page numbers
+    index_page_count = 1
+    for _ in range(3):  # iterate to converge (index might push to 2 pages)
+        current_page = index_page_count + 1
+        entries = []
+        for intake, _comments, _html, pg_count in intake_pages:
+            name = intake.get('name') or 'Unnamed Intake'
+            status = intake.get('status', '')
+            entries.append((name, status, current_page))
+            current_page += pg_count
+
+        index_body = _build_index_html(entries, count, date_str)
+        index_full = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>{css}\n{_get_index_css()}</style></head><body>{index_body}</body></html>"""
+        doc = HTML(string=index_full).render()
+        new_count = len(doc.pages)
+        if new_count == index_page_count:
+            break
+        index_page_count = new_count
+
+    # --- Pass 2: render final document with index + all intakes ---
+    detail_pages = []
+    for i, (intake, comments, page_html, pg_count) in enumerate(intake_pages):
+        detail_pages.append(f'<div class="detail-page">{page_html}</div>')
+
+    final_html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-{_get_detail_css()}
+{css}
+{_get_index_css()}
 .detail-page {{ page-break-before: always; }}
-.detail-page-first {{ }}
 </style>
 </head>
 <body>
-{body}
+{index_body}
+{''.join(detail_pages)}
 </body>
 </html>"""
 
     buf = BytesIO()
-    HTML(string=html).write_pdf(buf)
+    HTML(string=final_html).write_pdf(buf)
     buf.seek(0)
     return buf
 
@@ -590,6 +645,53 @@ def _render_timeline_entry(c: dict) -> str:
         <span class="tl-time">{ts}</span>
       </div>
     </div>"""
+
+
+def _get_index_css() -> str:
+    return """
+    /* === Index page === */
+    .idx-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 5px;
+      margin-bottom: 12px;
+    }
+    .idx-title { font-size: 18px; font-weight: 700; color: #0f172a; }
+    .idx-meta { font-size: 8px; color: #94a3b8; }
+
+    .idx-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .idx-table thead tr { background: #0f172a; }
+    .idx-table th {
+      padding: 3px 6px;
+      text-align: left;
+      font-size: 7px;
+      font-weight: 600;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .idx-table td {
+      padding: 4px 6px;
+      font-size: 9px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .idx-table .alt-row { background: #f8fafc; }
+    .idx-num, .idx-num-h { width: 24px; text-align: center; }
+    .idx-num { color: #94a3b8; font-size: 8px; }
+    .idx-name { font-weight: 600; }
+    .idx-page, .idx-page-h { width: 36px; text-align: right; }
+    .idx-page {
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      font-weight: 600;
+      color: #475569;
+    }
+    """
 
 
 def _get_detail_css() -> str:
