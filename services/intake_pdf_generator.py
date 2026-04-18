@@ -1,11 +1,11 @@
 """
-PDF intake list generator.
+PDF intake generator.
 
-Generates a professional intake list report as a PDF,
-styled to match the frontend's visual design.
-Uses WeasyPrint to render HTML/CSS to PDF.
+Generates professional intake PDFs (list and detail) styled to match
+the frontend's visual design. Uses WeasyPrint to render HTML/CSS to PDF.
 """
 
+import re
 from io import BytesIO
 from html import escape
 from datetime import datetime, date
@@ -273,6 +273,313 @@ def _get_css() -> str:
     .status-destructive { background: #fee2e2; color: #dc2626; }
     .status-success { background: #dcfce7; color: #166534; }
     .status-muted { background: #f1f5f9; color: #64748b; }
+
+    .em { color: #cbd5e1; }
+    """
+
+
+# =============================================================================
+# Individual Intake Detail PDF
+# =============================================================================
+
+def generate_intake_detail_pdf(intake: dict, comments: list) -> BytesIO:
+    """Generate a PDF for a single intake with all details and activity."""
+    from weasyprint import HTML
+    html = _build_detail_html(intake, comments)
+    buf = BytesIO()
+    HTML(string=html).write_pdf(buf)
+    buf.seek(0)
+    return buf
+
+
+def _build_detail_html(intake: dict, comments: list) -> str:
+    now = datetime.now()
+    date_str = now.strftime('%B %d, %Y')
+    name = escape(intake.get('name') or 'Unnamed Intake')
+    status = intake.get('status', '')
+    status_cls = _status_css_class(status)
+
+    sections = []
+
+    # --- Metadata grid ---
+    meta_items = []
+    _add_meta(meta_items, 'Case Type', intake.get('case_type'))
+    _add_meta(meta_items, 'DOI', _format_doi(intake.get('incident_date')))
+    sol_html = _render_sol(intake.get('incident_date'))
+    if intake.get('incident_date'):
+        meta_items.append(f'<div class="d-meta-item"><span class="d-meta-label">6MO / 2YR</span><span class="d-meta-value mono">{sol_html}</span></div>')
+    _add_meta(meta_items, 'Location', intake.get('location_short') or intake.get('location'))
+    _add_meta(meta_items, 'Submitted', _format_submitted_full(intake.get('submitted_on')))
+    _add_meta(meta_items, 'Phone', intake.get('phone'))
+    _add_meta(meta_items, 'Email', intake.get('email'))
+    _add_meta(meta_items, 'Contact Relationship', intake.get('contact_relationship'))
+
+    if meta_items:
+        sections.append(f'<div class="d-meta-grid">{"".join(meta_items)}</div>')
+
+    # --- Referral ---
+    ref_items = []
+    _add_meta(ref_items, 'Name', intake.get('referral_name'))
+    _add_meta(ref_items, 'Organization', intake.get('referral_org'))
+    _add_meta(ref_items, 'Email', intake.get('referral_email'))
+    _add_meta(ref_items, 'Phone', intake.get('referral_phone'))
+    if ref_items:
+        sections.append(f'<div class="d-section"><h3 class="d-section-title">Referral</h3><div class="d-meta-grid">{"".join(ref_items)}</div></div>')
+
+    # --- AI Summary ---
+    if intake.get('ai_summary'):
+        summary = escape(intake['ai_summary'])
+        summary = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', summary)
+        summary = summary.replace('\n', '<br>')
+        sections.append(f'<div class="d-section"><h3 class="d-section-title">AI Summary</h3><div class="d-ai-summary">{summary}</div></div>')
+
+    # --- Notes ---
+    if intake.get('notes'):
+        notes = escape(intake['notes'])
+        notes = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', notes)
+        notes = notes.replace('\n', '<br>')
+        sections.append(f'<div class="d-section"><h3 class="d-section-title">Notes</h3><div class="d-text">{notes}</div></div>')
+
+    # --- Incident / Injury Description ---
+    if intake.get('incident_description'):
+        desc = escape(intake['incident_description'])
+        sections.append(f'<div class="d-section"><h3 class="d-section-title">Incident Description</h3><div class="d-text">{desc}</div></div>')
+    if intake.get('injury_description'):
+        desc = escape(intake['injury_description'])
+        sections.append(f'<div class="d-section"><h3 class="d-section-title">Injury Description</h3><div class="d-text">{desc}</div></div>')
+
+    # --- Activity Log ---
+    if comments:
+        activity_rows = []
+        for c in comments:
+            ts = _format_activity_time(c.get('created_at'))
+            content = escape(c.get('content', ''))
+            is_system = c.get('is_system', False)
+            user_name = ''
+            if not is_system:
+                first = c.get('user_first_name') or ''
+                last = c.get('user_last_name') or ''
+                user_name = f'{first} {last}'.strip()
+
+            if is_system:
+                # Check for status change
+                status_match = re.match(r'^(.+?) changed status from (.+?) to (.+)$', c.get('content', ''))
+                if status_match:
+                    who = escape(status_match.group(1))
+                    from_s = status_match.group(2)
+                    to_s = status_match.group(3)
+                    from_cls = _status_css_class(from_s)
+                    to_cls = _status_css_class(to_s)
+                    content = f'{who}: <span class="status-badge {from_cls}">{escape(from_s)}</span> &rarr; <span class="status-badge {to_cls}">{escape(to_s)}</span>'
+                activity_rows.append(f'<tr class="activity-system"><td class="activity-time">{ts}</td><td>{content}</td></tr>')
+            else:
+                activity_rows.append(f'<tr><td class="activity-time">{ts}</td><td><strong>{escape(user_name)}</strong>: {content}</td></tr>')
+
+        sections.append(f"""<div class="d-section">
+          <h3 class="d-section-title">Activity</h3>
+          <table class="activity-table"><tbody>{"".join(activity_rows)}</tbody></table>
+        </div>""")
+
+    body = '\n'.join(sections)
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{_get_detail_css()}
+</style>
+</head>
+<body>
+
+<div class="d-header">
+  <div class="d-header-left">
+    <span class="d-title">{name}</span>
+    <span class="status-badge {status_cls}">{escape(status)}</span>
+  </div>
+  <div class="d-header-right">Printed {date_str}</div>
+</div>
+
+{body}
+
+</body>
+</html>"""
+
+
+def _add_meta(items: list, label: str, value) -> None:
+    if not value or value == '—':
+        return
+    items.append(f'<div class="d-meta-item"><span class="d-meta-label">{escape(label)}</span><span class="d-meta-value">{escape(str(value))}</span></div>')
+
+
+def _format_submitted_full(val) -> str:
+    if not val:
+        return ''
+    try:
+        if isinstance(val, str):
+            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+        elif isinstance(val, datetime):
+            dt = val
+        else:
+            return str(val)
+        return dt.strftime('%b %-d, %Y at %-I:%M %p')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _format_activity_time(val) -> str:
+    if not val:
+        return ''
+    try:
+        if isinstance(val, str):
+            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+        elif isinstance(val, datetime):
+            dt = val
+        else:
+            return str(val)
+        return dt.strftime('%-m/%-d %I:%M %p')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _get_detail_css() -> str:
+    return """
+    @page {
+      size: letter portrait;
+      margin: 0.35in 0.4in;
+      @bottom-right {
+        content: counter(page);
+        font-family: 'Inter', 'Helvetica Neue', sans-serif;
+        font-size: 7px;
+        color: #94a3b8;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Helvetica Neue', 'Segoe UI', sans-serif;
+      font-size: 8.5px;
+      color: #0f172a;
+      line-height: 1.4;
+    }
+
+    /* === Header === */
+    .d-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+    }
+    .d-header-left { display: flex; align-items: baseline; gap: 8px; }
+    .d-title { font-size: 16px; font-weight: 700; }
+    .d-header-right { font-size: 8px; color: #94a3b8; }
+
+    /* === Status badges (shared) === */
+    .status-badge {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 7px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-info { background: #dbeafe; color: #1d4ed8; }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .status-purple { background: #f3e8ff; color: #7c3aed; }
+    .status-destructive { background: #fee2e2; color: #dc2626; }
+    .status-success { background: #dcfce7; color: #166534; }
+    .status-muted { background: #f1f5f9; color: #64748b; }
+
+    /* === Sections === */
+    .d-section { margin-top: 10px; }
+    .d-section-title {
+      font-size: 9px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+      padding-bottom: 2px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    /* === Metadata grid === */
+    .d-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 0;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+    .d-meta-item {
+      padding: 3px 6px;
+      border-bottom: 1px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
+    }
+    .d-meta-item:nth-child(4n) { border-right: none; }
+    .d-meta-label {
+      display: block;
+      font-size: 6px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .d-meta-value {
+      font-size: 8px;
+      color: #0f172a;
+      font-weight: 500;
+      word-break: break-word;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      font-size: 7.5px;
+    }
+
+    /* === SOL colors === */
+    .sol-sep { color: #94a3b8; }
+    .sol-danger { background: #fee2e2; color: #dc2626; padding: 0 2px; font-weight: 600; }
+    .sol-warning { background: #fef3c7; color: #92400e; padding: 0 2px; font-weight: 600; }
+    .sol-normal { color: #0f172a; }
+
+    /* === AI Summary === */
+    .d-ai-summary {
+      font-size: 8px;
+      color: #334155;
+      line-height: 1.45;
+      border-left: 3px solid #4771ff;
+      padding: 4px 8px;
+    }
+
+    /* === Text blocks (notes, descriptions) === */
+    .d-text {
+      font-size: 8px;
+      color: #334155;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    /* === Activity table === */
+    .activity-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .activity-table td {
+      padding: 2px 4px;
+      font-size: 7.5px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: top;
+    }
+    .activity-time {
+      white-space: nowrap;
+      color: #94a3b8;
+      font-size: 7px;
+      width: 70px;
+    }
+    .activity-system td { color: #64748b; }
 
     .em { color: #cbd5e1; }
     """

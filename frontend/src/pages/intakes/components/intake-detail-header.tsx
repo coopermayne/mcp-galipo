@@ -2,9 +2,10 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon, PrinterIcon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
 import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
+import { apiFetch } from "@/lib/api"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -158,6 +159,17 @@ export function IntakeDetailHeader({ intake }: IntakeDetailHeaderProps) {
     }
   }
 
+  const handlePrint = async () => {
+    const res = await apiFetch(`/api/v1/intakes/${intake.id}/export`)
+    if (!res.ok) return
+    const blob = await res.blob()
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "intake.pdf"
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   const allowedTransitions = transitions?.[intake.status] ?? []
   const moveToStatuses = ALL_STATUSES.filter((s) => s !== intake.status)
   const isArchived = intake.status === "Archived"
@@ -189,6 +201,9 @@ export function IntakeDetailHeader({ intake }: IntakeDetailHeaderProps) {
               {status}
             </Button>
           ))}
+          <Button variant="outline" size="icon" className="size-8" onClick={handlePrint} title="Print">
+            <HugeiconsIcon icon={PrinterIcon} className="size-4" />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="size-8">
