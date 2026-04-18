@@ -626,12 +626,12 @@ def _get_detail_css() -> str:
       font-weight: 600;
       white-space: nowrap;
     }
-    .status-info { border: 1px solid #1d4ed8; color: #1d4ed8; }
-    .status-warning { border: 1px solid #92400e; color: #92400e; }
-    .status-purple { border: 1px solid #7c3aed; color: #7c3aed; }
-    .status-destructive { border: 1px solid #dc2626; color: #dc2626; }
-    .status-success { border: 1px solid #166534; color: #166534; }
-    .status-muted { border: 1px solid #94a3b8; color: #64748b; }
+    .status-info { background: #dbeafe; color: #1d4ed8; }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .status-purple { background: #f3e8ff; color: #7c3aed; }
+    .status-destructive { background: #fee2e2; color: #dc2626; }
+    .status-success { background: #dcfce7; color: #166534; }
+    .status-muted { background: #f1f5f9; color: #64748b; }
 
     /* === Sections === */
     .d-section { margin-top: 10px; }
@@ -706,10 +706,9 @@ def _get_detail_css() -> str:
     /* === Activity timeline === */
     .tl-container {
       position: relative;
-      padding-left: 16px;
-      border-left: 1px solid #cbd5e1;
-      margin-left: 6px;
-      max-width: 50%;
+      padding-left: 20px;
+      border-left: 1px solid #e2e8f0;
+      margin-left: 8px;
     }
     .tl-date-header {
       font-size: 7px;
@@ -718,46 +717,46 @@ def _get_detail_css() -> str:
       letter-spacing: 0.4px;
       color: #94a3b8;
       padding: 5px 0 2px 0;
-      margin-left: -16px;
-      padding-left: 16px;
+      margin-left: -20px;
+      padding-left: 20px;
     }
     .tl-entry {
       display: flex;
       align-items: flex-start;
-      gap: 6px;
+      gap: 8px;
       padding: 3px 0;
       position: relative;
     }
     .tl-icon {
-      width: 14px;
-      height: 14px;
-      border: 1px solid #cbd5e1;
+      width: 16px;
+      height: 16px;
+      background: #f1f5f9;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7px;
+      color: #64748b;
+      flex-shrink: 0;
+      position: relative;
+      left: -28px;
+      margin-right: -20px;
+    }
+    .tl-avatar {
+      width: 16px;
+      height: 16px;
+      background: #4771ff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 6px;
-      color: #64748b;
-      flex-shrink: 0;
-      position: relative;
-      left: -23px;
-      margin-right: -16px;
-    }
-    .tl-avatar {
-      width: 14px;
-      height: 14px;
-      border: 1.5px solid #4771ff;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 5px;
       font-weight: 700;
-      color: #4771ff;
+      color: #fff;
       flex-shrink: 0;
       position: relative;
-      left: -23px;
-      margin-right: -16px;
+      left: -28px;
+      margin-right: -20px;
     }
     .tl-body {
       flex: 1;
@@ -789,10 +788,10 @@ def _get_detail_css() -> str:
     }
     .tl-comment {
       margin-top: 2px;
-      border-left: 2px solid #cbd5e1;
-      padding: 2px 8px;
+      background: #f1f5f9;
+      padding: 4px 8px;
       font-size: 8px;
-      color: #334155;
+      color: #0f172a;
       white-space: pre-wrap;
       line-height: 1.4;
     }
