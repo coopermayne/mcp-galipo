@@ -292,7 +292,47 @@ def generate_intake_detail_pdf(intake: dict, comments: list) -> BytesIO:
     return buf
 
 
-def _build_detail_html(intake: dict, comments: list) -> str:
+def generate_intake_batch_pdf(intakes_with_comments: list[tuple[dict, list]]) -> BytesIO:
+    """Generate a PDF with multiple intakes, each on its own page."""
+    from weasyprint import HTML
+
+    now = datetime.now()
+    date_str = now.strftime('%B %d, %Y')
+    count = len(intakes_with_comments)
+
+    pages = []
+    for i, (intake, comments) in enumerate(intakes_with_comments):
+        page_class = 'detail-page' if i > 0 else 'detail-page-first'
+        page_html = _build_detail_page(intake, comments)
+        pages.append(f'<div class="{page_class}">{page_html}</div>')
+
+    body = '\n'.join(pages)
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{_get_detail_css()}
+.detail-page {{ page-break-before: always; }}
+.detail-page-first {{ }}
+</style>
+</head>
+<body>
+{body}
+</body>
+</html>"""
+
+    buf = BytesIO()
+    HTML(string=html).write_pdf(buf)
+    buf.seek(0)
+    return buf
+
+
+def _build_detail_page(intake: dict, comments: list) -> str:
+    """Build the inner HTML content for a single intake detail (header + sections).
+
+    Used by both single-detail and batch PDF generators.
+    """
     now = datetime.now()
     date_str = now.strftime('%B %d, %Y')
     name = escape(intake.get('name') or 'Unnamed Intake')
@@ -300,6 +340,15 @@ def _build_detail_html(intake: dict, comments: list) -> str:
     status_cls = _status_css_class(status)
 
     sections = []
+
+    # --- Header ---
+    sections.append(f"""<div class="d-header">
+  <div class="d-header-left">
+    <span class="d-title">{name}</span>
+    <span class="status-badge {status_cls}">{escape(status)}</span>
+  </div>
+  <div class="d-header-right">Printed {date_str}</div>
+</div>""")
 
     # --- Metadata grid ---
     meta_items = []
@@ -348,39 +397,24 @@ def _build_detail_html(intake: dict, comments: list) -> str:
         desc = escape(intake['injury_description'])
         sections.append(f'<div class="d-section"><h3 class="d-section-title">Injury Description</h3><div class="d-text">{desc}</div></div>')
 
-    # --- Activity Log ---
+    # --- Activity Log (timeline style) ---
     if comments:
-        activity_rows = []
-        for c in comments:
-            ts = _format_activity_time(c.get('created_at'))
-            content = escape(c.get('content', ''))
-            is_system = c.get('is_system', False)
-            user_name = ''
-            if not is_system:
-                first = c.get('user_first_name') or ''
-                last = c.get('user_last_name') or ''
-                user_name = f'{first} {last}'.strip()
-
-            if is_system:
-                # Check for status change
-                status_match = re.match(r'^(.+?) changed status from (.+?) to (.+)$', c.get('content', ''))
-                if status_match:
-                    who = escape(status_match.group(1))
-                    from_s = status_match.group(2)
-                    to_s = status_match.group(3)
-                    from_cls = _status_css_class(from_s)
-                    to_cls = _status_css_class(to_s)
-                    content = f'{who}: <span class="status-badge {from_cls}">{escape(from_s)}</span> &rarr; <span class="status-badge {to_cls}">{escape(to_s)}</span>'
-                activity_rows.append(f'<tr class="activity-system"><td class="activity-time">{ts}</td><td>{content}</td></tr>')
-            else:
-                activity_rows.append(f'<tr><td class="activity-time">{ts}</td><td><strong>{escape(user_name)}</strong>: {content}</td></tr>')
-
+        grouped = _group_comments_by_date(comments)
+        timeline_html = []
+        for date_label, group in grouped:
+            timeline_html.append(f'<div class="tl-date-header">{escape(date_label)}</div>')
+            for c in group:
+                timeline_html.append(_render_timeline_entry(c))
         sections.append(f"""<div class="d-section">
           <h3 class="d-section-title">Activity</h3>
-          <table class="activity-table"><tbody>{"".join(activity_rows)}</tbody></table>
+          <div class="tl-container">{"".join(timeline_html)}</div>
         </div>""")
 
-    body = '\n'.join(sections)
+    return '\n'.join(sections)
+
+
+def _build_detail_html(intake: dict, comments: list) -> str:
+    page_content = _build_detail_page(intake, comments)
 
     return f"""<!DOCTYPE html>
 <html>
@@ -391,17 +425,7 @@ def _build_detail_html(intake: dict, comments: list) -> str:
 </style>
 </head>
 <body>
-
-<div class="d-header">
-  <div class="d-header-left">
-    <span class="d-title">{name}</span>
-    <span class="status-badge {status_cls}">{escape(status)}</span>
-  </div>
-  <div class="d-header-right">Printed {date_str}</div>
-</div>
-
-{body}
-
+{page_content}
 </body>
 </html>"""
 
@@ -440,6 +464,123 @@ def _format_activity_time(val) -> str:
         return dt.strftime('%-m/%-d %I:%M %p')
     except (ValueError, TypeError):
         return str(val)
+
+
+def _format_activity_time_short(val) -> str:
+    if not val:
+        return ''
+    try:
+        if isinstance(val, str):
+            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+        elif isinstance(val, datetime):
+            dt = val
+        else:
+            return str(val)
+        return dt.strftime('%-I:%M %p')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _format_date_header(val) -> str:
+    if not val:
+        return ''
+    try:
+        if isinstance(val, str):
+            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+        elif isinstance(val, datetime):
+            dt = val
+        else:
+            return str(val)
+        today = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+        diff = (today.date() - dt.date()).days
+        if diff == 0:
+            return 'Today'
+        if diff == 1:
+            return 'Yesterday'
+        return dt.strftime('%a, %b %-d')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _get_date_key(val) -> str:
+    try:
+        if isinstance(val, str):
+            dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+        elif isinstance(val, datetime):
+            dt = val
+        else:
+            return str(val)
+        return dt.strftime('%Y-%m-%d')
+    except (ValueError, TypeError):
+        return str(val)
+
+
+def _group_comments_by_date(comments: list) -> list:
+    groups = []
+    current_key = ''
+    for c in comments:
+        key = _get_date_key(c.get('created_at'))
+        if key != current_key:
+            current_key = key
+            label = _format_date_header(c.get('created_at'))
+            groups.append((label, [c]))
+        else:
+            groups[-1][1].append(c)
+    return groups
+
+
+def _render_timeline_entry(c: dict) -> str:
+    ts = _format_activity_time_short(c.get('created_at'))
+    content_raw = c.get('content', '')
+    is_system = c.get('is_system', False)
+
+    if not is_system:
+        first = c.get('user_first_name') or ''
+        last = c.get('user_last_name') or ''
+        user_name = f'{first} {last}'.strip() or 'Unknown'
+        initials = (first[:1] + last[:1]).upper() or '?'
+        return f"""<div class="tl-entry">
+          <div class="tl-avatar">{escape(initials)}</div>
+          <div class="tl-body">
+            <div class="tl-meta"><span class="tl-name">{escape(user_name)}</span><span class="tl-time">{ts}</span></div>
+            <div class="tl-comment">{escape(content_raw)}</div>
+          </div>
+        </div>"""
+
+    status_match = re.match(r'^(.+?) changed status from (.+?) to (.+)$', content_raw)
+    if status_match:
+        who = escape(status_match.group(1))
+        from_s = status_match.group(2)
+        to_s = status_match.group(3)
+        from_cls = _status_css_class(from_s)
+        to_cls = _status_css_class(to_s)
+        return f"""<div class="tl-entry">
+          <div class="tl-icon">&#x21BB;</div>
+          <div class="tl-body tl-system-body">
+            <span>{who}</span>
+            <span class="status-badge {from_cls}">{escape(from_s)}</span>
+            <span class="tl-arrow">&rarr;</span>
+            <span class="status-badge {to_cls}">{escape(to_s)}</span>
+            <span class="tl-time">{ts}</span>
+          </div>
+        </div>"""
+
+    icon = '&#x2139;'
+    if 'created via' in content_raw or 'imported from' in content_raw:
+        icon = '&#x2605;'
+    elif 'AI analysis' in content_raw:
+        icon = '&#x2B50;'
+    elif c.get('detail', {}).get('type') == 'interaction':
+        detail = c.get('detail', {})
+        icon = '&#x260E;' if detail.get('interaction_type') == 'phone' else '&#x2709;'
+
+    return f"""<div class="tl-entry">
+      <div class="tl-icon">{icon}</div>
+      <div class="tl-body tl-system-body">
+        <span>{escape(content_raw)}</span>
+        <span class="tl-time">{ts}</span>
+      </div>
+    </div>"""
 
 
 def _get_detail_css() -> str:
@@ -562,24 +703,102 @@ def _get_detail_css() -> str:
       white-space: pre-wrap;
     }
 
-    /* === Activity table === */
-    .activity-table {
-      width: 100%;
-      border-collapse: collapse;
+    /* === Activity timeline === */
+    .tl-container {
+      position: relative;
+      padding-left: 20px;
+      border-left: 1px solid #e2e8f0;
+      margin-left: 8px;
     }
-    .activity-table td {
-      padding: 2px 4px;
-      font-size: 7.5px;
-      border-bottom: 1px solid #f1f5f9;
-      vertical-align: top;
-    }
-    .activity-time {
-      white-space: nowrap;
-      color: #94a3b8;
+    .tl-date-header {
       font-size: 7px;
-      width: 70px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #94a3b8;
+      padding: 5px 0 2px 0;
+      margin-left: -20px;
+      padding-left: 20px;
     }
-    .activity-system td { color: #64748b; }
+    .tl-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 3px 0;
+      position: relative;
+    }
+    .tl-icon {
+      width: 16px;
+      height: 16px;
+      background: #f1f5f9;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7px;
+      color: #64748b;
+      flex-shrink: 0;
+      position: relative;
+      left: -28px;
+      margin-right: -20px;
+    }
+    .tl-avatar {
+      width: 16px;
+      height: 16px;
+      background: #4771ff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 6px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      position: relative;
+      left: -28px;
+      margin-right: -20px;
+    }
+    .tl-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .tl-system-body {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      font-size: 7.5px;
+      color: #64748b;
+    }
+    .tl-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .tl-name {
+      font-size: 8px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .tl-time {
+      font-size: 6.5px;
+      color: #94a3b8;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .tl-comment {
+      margin-top: 2px;
+      background: #f1f5f9;
+      padding: 4px 8px;
+      font-size: 8px;
+      color: #0f172a;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+    .tl-arrow {
+      font-size: 7px;
+      color: #94a3b8;
+    }
 
     .em { color: #cbd5e1; }
     """

@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table"
 import type { Intake } from "@/types/intake"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon, Archive01Icon, PrinterIcon } from "@hugeicons/core-free-icons"
+import { Search01Icon, RefreshIcon, SparklesIcon, MoreHorizontalIcon, NoteEditIcon, Archive01Icon, PrinterIcon, CheckListIcon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,10 @@ interface IntakeToolbarProps {
   onBulkArchiveRejected: () => void
   isBulkArchiving: boolean
   selectedStatus: string | null
+  selectionMode: boolean
+  onToggleSelectionMode: () => void
+  onPrintSelected: () => void
+  isPrintingBatch: boolean
 }
 
 export function IntakeToolbar({
@@ -33,7 +37,13 @@ export function IntakeToolbar({
   onBulkArchiveRejected,
   isBulkArchiving,
   selectedStatus,
+  selectionMode,
+  onToggleSelectionMode,
+  onPrintSelected,
+  isPrintingBatch,
 }: IntakeToolbarProps) {
+  const selectedCount = Object.keys(table.getState().rowSelection).length
+
   const handlePrint = async () => {
     const params = new URLSearchParams()
     if (selectedStatus) params.set("status", selectedStatus)
@@ -47,6 +57,39 @@ export function IntakeToolbar({
     a.click()
     URL.revokeObjectURL(a.href)
   }
+
+  if (selectionMode) {
+    return (
+      <div className="flex items-center gap-2 bg-muted/50 border px-3 py-2">
+        <span className="text-sm font-medium">
+          {selectedCount > 0
+            ? `${selectedCount} intake${selectedCount === 1 ? "" : 's'} selected`
+            : 'Select intakes to print'}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            className="h-8"
+            onClick={onPrintSelected}
+            disabled={selectedCount === 0 || isPrintingBatch}
+          >
+            <HugeiconsIcon icon={PrinterIcon} className="mr-2 size-4" />
+            {isPrintingBatch ? "Generating..." : `Print ${selectedCount > 0 ? selectedCount : ''}`}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={onToggleSelectionMode}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} className="mr-2 size-4" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative min-w-0 flex-1 basis-40">
@@ -80,6 +123,9 @@ export function IntakeToolbar({
       </Button>
       <Button variant="outline" size="icon-sm" className="h-8 w-8" onClick={handlePrint} title="Print List">
         <HugeiconsIcon icon={PrinterIcon} className="size-4" />
+      </Button>
+      <Button variant="outline" size="icon-sm" className="h-8 w-8" onClick={onToggleSelectionMode} title="Select & Print">
+        <HugeiconsIcon icon={CheckListIcon} className="size-4" />
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

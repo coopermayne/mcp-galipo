@@ -17,7 +17,7 @@ from sqlalchemy import text
 import auth
 from db.session import SessionLocal
 from services.pdf_generator import generate_case_list_pdf
-from services.intake_pdf_generator import generate_intake_list_pdf, generate_intake_detail_pdf
+from services.intake_pdf_generator import generate_intake_list_pdf, generate_intake_detail_pdf, generate_intake_batch_pdf
 from services.docx_generator import generate_case_list_docx
 from routes.common import api_error
 
@@ -450,6 +450,48 @@ def register_export_routes(mcp):
         name_slug = (intake.get("name") or "intake").replace(" ", "_")[:30]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{name_slug}_{timestamp}.pdf"
+        return Response(
+            content=pdf_buf.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @mcp.custom_route("/api/v1/intakes/export/batch", methods=["POST"])
+    async def api_export_intakes_batch(request):
+        """Export multiple intakes as a single PDF, one per page."""
+        if err := auth.require_auth(request):
+            return err
+
+        from db.intakes import get_intake_by_id
+        from db.intake_comments import get_intake_comments
+
+        try:
+            body = await request.json()
+        except Exception:
+            return api_error("Invalid JSON body", "INVALID_INPUT", 400)
+
+        ids = body.get("ids", [])
+        if not ids or not isinstance(ids, list):
+            return api_error("ids must be a non-empty list", "INVALID_INPUT", 400)
+
+        intakes_with_comments = []
+        for intake_id in ids:
+            intake = await asyncio.to_thread(get_intake_by_id, int(intake_id))
+            if intake:
+                comments = await asyncio.to_thread(get_intake_comments, int(intake_id))
+                intakes_with_comments.append((intake, comments))
+
+        if not intakes_with_comments:
+            return api_error("No intakes found for the given IDs", "NOT_FOUND", 404)
+
+        try:
+            pdf_buf = await asyncio.to_thread(generate_intake_batch_pdf, intakes_with_comments)
+        except Exception as e:
+            logger.error("Batch intake PDF failed:\n%s", traceback.format_exc())
+            return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"galipo_intakes_batch_{timestamp}.pdf"
         return Response(
             content=pdf_buf.getvalue(),
             media_type="application/pdf",
