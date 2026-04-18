@@ -213,6 +213,24 @@ export async function saveInteraction(
   return res.json()
 }
 
+export async function exportIntakesBatch(ids: number[]): Promise<void> {
+  const res = await apiFetch("/api/v1/intakes/export/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  })
+  if (!res.ok) throw new Error("Failed to generate batch PDF")
+  const blob = await res.blob()
+  const a = document.createElement("a")
+  a.href = URL.createObjectURL(blob)
+  a.download =
+    res.headers
+      .get("Content-Disposition")
+      ?.match(/filename="(.+)"/)?.[1] ?? "intakes_batch.pdf"
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 export async function extractIntakeFields(
   text: string
 ): Promise<{ success: boolean; fields: CreateIntakeData }> {

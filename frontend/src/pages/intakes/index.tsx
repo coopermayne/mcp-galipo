@@ -9,12 +9,13 @@ import {
   type ColumnFiltersState,
   type VisibilityState,
   type PaginationState,
+  type RowSelectionState,
   flexRender,
 } from "@tanstack/react-table"
 import { useNavigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, bulkArchiveByStatus, type CreateIntakeData } from "@/services/intakes"
+import { getIntakes, getIntakeCounts, getUnreadCounts, syncIntakes, createIntake, bulkArchiveByStatus, exportIntakesBatch, type CreateIntakeData } from "@/services/intakes"
 import { getColumns, intakeGlobalFilterFn, getSearchRank } from "@/pages/intakes/columns"
 import { IntakePipelines } from "@/pages/intakes/components/intake-pipelines"
 import { IntakeToolbar } from "@/pages/intakes/components/intake-toolbar"
@@ -53,6 +54,9 @@ export default function IntakesPage() {
   })
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [isPrintingBatch, setIsPrintingBatch] = useState(false)
 
   const { data: intakesData, isLoading } = useQuery({
     queryKey: ["intakes", selectedStatus],
@@ -135,8 +139,9 @@ export default function IntakesPage() {
     () =>
       getColumns({
         unreadCounts: unreadCounts ?? {},
+        selectionMode,
       }),
-    [unreadCounts]
+    [unreadCounts, selectionMode]
   )
 
   const sortedData = useMemo(() => {
@@ -156,18 +161,43 @@ export default function IntakesPage() {
       columnVisibility,
       globalFilter,
       pagination,
+      rowSelection,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: selectionMode,
     globalFilterFn: intakeGlobalFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   })
+
+  const handleToggleSelectionMode = useCallback(() => {
+    setSelectionMode((prev) => {
+      if (prev) setRowSelection({})
+      return !prev
+    })
+  }, [])
+
+  const handlePrintSelected = useCallback(async () => {
+    const selectedRows = table.getFilteredSelectedRowModel().rows
+    const ids = selectedRows.map((r) => r.original.id)
+    if (ids.length === 0) return
+    setIsPrintingBatch(true)
+    try {
+      await exportIntakesBatch(ids)
+      toast.success(`Generated PDF for ${ids.length} intake${ids.length === 1 ? '' : 's'}`)
+    } catch {
+      toast.error("Failed to generate batch PDF")
+    } finally {
+      setIsPrintingBatch(false)
+    }
+  }, [table])
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -193,6 +223,10 @@ export default function IntakesPage() {
         onBulkArchiveRejected={() => bulkArchiveMutation.mutate()}
         isBulkArchiving={bulkArchiveMutation.isPending}
         selectedStatus={selectedStatus}
+        selectionMode={selectionMode}
+        onToggleSelectionMode={handleToggleSelectionMode}
+        onPrintSelected={handlePrintSelected}
+        isPrintingBatch={isPrintingBatch}
       />
 
       <div className="border">
@@ -229,7 +263,12 @@ export default function IntakesPage() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
+                  data-state={row.getIsSelected() && "selected"}
                   onClick={() => {
+                    if (selectionMode) {
+                      row.toggleSelected(!row.getIsSelected())
+                      return
+                    }
                     const rows = table.getRowModel().rows
                     const listIds = rows.map((r) => r.original.id)
                     const listIndex = rows.findIndex((r) => r.id === row.id)

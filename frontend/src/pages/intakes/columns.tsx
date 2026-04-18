@@ -6,6 +6,7 @@ import { SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake } from "@/types/intake"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { analyzeIntake } from "@/services/intakes"
 import {
   HoverCard,
@@ -170,8 +171,35 @@ function AiRatingCell({ intake }: { intake: Intake }) {
 
 export function getColumns(options: {
   unreadCounts: Record<number, number>
+  selectionMode?: boolean
 }): ColumnDef<Intake>[] {
+  const selectColumn: ColumnDef<Intake> = {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+        onClick={(e) => e.stopPropagation()}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        onClick={(e) => e.stopPropagation()}
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  }
+
   return [
+    ...(options.selectionMode ? [selectColumn] : []),
     {
       accessorKey: "submitted_on",
       header: ({ column }) => (
