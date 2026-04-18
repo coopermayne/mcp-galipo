@@ -121,12 +121,23 @@ export function IntakeToolbar({
         <HugeiconsIcon icon={SparklesIcon} className="sm:mr-2 size-4" />
         <span className="hidden sm:inline">New Intake</span>
       </Button>
-      <Button variant="outline" size="icon-sm" className="h-8 w-8" onClick={handlePrint} title="Print List">
-        <HugeiconsIcon icon={PrinterIcon} className="size-4" />
-      </Button>
-      <Button variant="outline" size="icon-sm" className="h-8 w-8" onClick={onToggleSelectionMode} title="Select & Print">
-        <HugeiconsIcon icon={CheckListIcon} className="size-4" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon-sm" className="h-8 w-8" title="Print">
+            <HugeiconsIcon icon={PrinterIcon} className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handlePrint}>
+            <HugeiconsIcon icon={PrinterIcon} className="mr-2 size-4" />
+            Print Intake List
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onToggleSelectionMode}>
+            <HugeiconsIcon icon={CheckListIcon} className="mr-2 size-4" />
+            Print Selection
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon-sm" className="h-8 w-8">
