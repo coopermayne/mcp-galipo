@@ -8,6 +8,7 @@ import {
   MoreVerticalIcon,
   InboxIcon,
   Delete01Icon,
+  PencilEdit01Icon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -37,6 +38,7 @@ interface ConversationListProps {
   onNewConversation: () => void
   onArchive: (id: number, archived: boolean) => void
   onDelete: (id: number) => void
+  onRename: (id: number, currentLabel: string) => void
   showArchived: boolean
   onShowArchivedChange: (show: boolean) => void
   searchValue: string
@@ -50,10 +52,12 @@ function ConversationActions({
   conv,
   onArchive,
   onDelete,
+  onRename,
 }: {
   conv: SmsConversation
   onArchive: (id: number, archived: boolean) => void
   onDelete: (id: number) => void
+  onRename: (id: number, currentLabel: string) => void
 }) {
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -70,6 +74,16 @@ function ConversationActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => onRename(conv.id, conv.label || "")}
+          >
+            <HugeiconsIcon
+              icon={PencilEdit01Icon}
+              size={14}
+              className="mr-2"
+            />
+            Rename
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => onArchive(conv.id, !conv.archived)}
           >
@@ -125,6 +139,7 @@ export function ConversationList({
   onNewConversation,
   onArchive,
   onDelete,
+  onRename,
   showArchived,
   onShowArchivedChange,
   searchValue,
@@ -241,6 +256,7 @@ export function ConversationList({
                   conv={conv}
                   onArchive={onArchive}
                   onDelete={onDelete}
+                  onRename={onRename}
                 />
               </div>
             ))
