@@ -45,6 +45,7 @@ EAGER_TOOLS: dict[str, set[str]] = {
         "manage_person",
         "manage_case_staff",
         "manage_proceeding",
+        "manage_judge",
         "list_jurisdictions",
     },
 }
