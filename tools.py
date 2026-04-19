@@ -1090,8 +1090,7 @@ def register_tools(mcp):
         After creating, try to assign the judge:
         1. search(entity="judges", query="judge name") to find existing judge
         2. If found → manage_proceeding(action="add_judge", proceeding_id=X, judge_id=Y)
-        3. If NOT found → do NOT create a new judge. Instead, add judge name to
-           the proceeding notes so it can be assigned manually later.
+        3. If NOT found → create with manage_judge(action="create", name="...", jurisdiction_id=...), then assign
 
         Examples:
         - manage_proceeding(action="create", case_id=1, case_number="24STCV12345", notes="Court: C.D. Cal.")
