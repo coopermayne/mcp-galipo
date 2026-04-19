@@ -21,7 +21,7 @@ from .validation import (
     ValidationError,
     CASE_STATUSES,
 )
-from .fuzzy_match import resolve_judge
+from .fuzzy_match import resolve_judge, resolve_jurisdiction, resolve_person
 from models import (
     Case, Person, Role, PersonRole, Jurisdiction, Proceeding,
     ProceedingJudge, Judge, Event, Note, Task, User,
@@ -227,19 +227,30 @@ def _create_person_and_assign(session, case_id: int, person_data: dict) -> dict:
     if person_data.get("email") and not emails:
         emails = [{"value": person_data["email"], "primary": True}]
 
-    # Create the person
-    person = Person(
-        name=name,
-        phones=phones,
-        emails=emails,
-        address=person_data.get("address"),
-        organization=person_data.get("organization"),
-        notes=person_data.get("notes"),
-    )
-    session.add(person)
-    session.flush()
-    person_id = person.id
-    result["person_id"] = person_id
+    # Fuzzy match against existing persons before creating
+    match = resolve_person(session, name)
+    if match.match_type in ("exact", "fuzzy"):
+        # Reuse existing person
+        person = session.get(Person, match.person.person_id)
+        person_id = person.id
+        result["person_id"] = person_id
+        result["matched_existing"] = True
+        result["match_type"] = match.match_type
+        result["match_score"] = match.person.score
+    else:
+        # Create new person
+        person = Person(
+            name=name,
+            phones=phones,
+            emails=emails,
+            address=person_data.get("address"),
+            organization=person_data.get("organization"),
+            notes=person_data.get("notes"),
+        )
+        session.add(person)
+        session.flush()
+        person_id = person.id
+        result["person_id"] = person_id
 
     # Assign to case if role is provided
     if role_id:
@@ -315,12 +326,8 @@ def _create_proceeding(session, case_id: int, proc_data: dict) -> dict:
     jurisdiction_name = proc_data.get("jurisdiction")
 
     if jurisdiction_name and not jurisdiction_id:
-        # Try to find existing
-        jur = session.scalar(
-            select(Jurisdiction).where(
-                func.lower(Jurisdiction.name) == func.lower(jurisdiction_name)
-            )
-        )
+        # Try to find existing (fuzzy: matches aliases and name variations)
+        jur = resolve_jurisdiction(session, jurisdiction_name)
         if jur:
             jurisdiction_id = jur.id
         else:

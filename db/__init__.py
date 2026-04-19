@@ -97,6 +97,8 @@ from .persons import (
     find_duplicate_persons,
     preview_merge,
     merge_persons,
+    check_person_duplicates,
+    fuzzy_search_persons_db,
 )
 
 # Judge operations (standalone judge entity)
@@ -372,6 +374,8 @@ __all__ = [
     "find_duplicate_persons",
     "preview_merge",
     "merge_persons",
+    "check_person_duplicates",
+    "fuzzy_search_persons_db",
     # Judges
     "get_judges",
     "get_judge_by_id",
