@@ -194,6 +194,7 @@ def register_chat_routes(mcp):
         return JSONResponse({
             "model": _settings.chat_model,
             "model_full": _settings.chat_model_full,
+            "model_max": _settings.chat_model_max,
         })
 
     @mcp.custom_route("/api/v1/chat/stream", methods=["POST"])
@@ -295,11 +296,17 @@ def register_chat_routes(mcp):
             tools = []  # No tools needed for presets
         else:
             tools = get_tool_definitions(mode)
-        _logger.info(f"Tools after filtering: {len(tools)} tools")
+        # Log detailed tool breakdown
+        eager_tools = [t["name"] for t in tools if not t.get("defer_loading") and "type" not in t]
+        deferred_tools = [t["name"] for t in tools if t.get("defer_loading")]
+        server_tools = [t.get("name", t.get("type", "?")) for t in tools if "type" in t]
+        _logger.info(f"Tools: {len(tools)} total | eager={eager_tools} | deferred={deferred_tools} | server={server_tools}")
 
-        # Model selection: Sonnet for freeform/intakes, Haiku for presets + other scoped modes
+        # Model selection: Opus for case_setup, Sonnet for freeform/intakes, Haiku for scoped modes
         if preset_data:
             selected_model = None  # Default (haiku) — just summarizing pre-loaded data
+        elif mode == "case_setup":
+            selected_model = client.model_max  # Opus — complex multi-tool case creation
         elif mode == "intakes":
             selected_model = client.model_full  # Sonnet — intake parsing needs smarter model
         elif mode and mode != "full":
@@ -433,6 +440,24 @@ DATA:
                                 yield f"data: {json.dumps({'type': 'text', 'content': content})}\n\n"
                                 await asyncio.sleep(0)  # Flush to client
 
+                            elif event_type == "server_tool_use":
+                                # Server-side tool (tool search) — Anthropic handles execution
+                                subtype = event.get("subtype")
+                                if subtype == "start":
+                                    _logger.info(f"[deferred] Tool search triggered by Claude (server_tool_use start)")
+                                    yield f"data: {json.dumps({'type': 'tool_search', 'status': 'searching'})}\n\n"
+                                    await asyncio.sleep(0)
+                                elif subtype == "done":
+                                    _logger.info(f"[deferred] Tool search complete (server_tool_use done)")
+
+                            elif event_type == "tool_search_result":
+                                # Tool search found tools — inform the client
+                                tools_found = event.get("tools_found", [])
+                                _logger.info(f"[deferred] Tool search results: {tools_found}")
+                                if tools_found:
+                                    yield f"data: {json.dumps({'type': 'tool_search', 'status': 'found', 'tools': tools_found})}\n\n"
+                                    await asyncio.sleep(0)
+
                             elif event_type == StreamEventType.TOOL_USE.value:
                                 subtype = event.get("subtype")
 
@@ -473,6 +498,11 @@ DATA:
                                     total_output_tokens += usage.get("output_tokens", 0)
                                     total_cache_creation_tokens += usage.get("cache_creation_input_tokens", 0)
                                     total_cache_read_tokens += usage.get("cache_read_input_tokens", 0)
+                                    _logger.info(
+                                        f"[tokens] iter={iteration} in={usage.get('input_tokens',0)} out={usage.get('output_tokens',0)} "
+                                        f"cache_create={usage.get('cache_creation_input_tokens',0)} cache_read={usage.get('cache_read_input_tokens',0)} "
+                                        f"stop={stop_reason} tools_called={[tc.name for tc in iteration_tool_calls]}"
+                                    )
 
                                 if stop_reason == "tool_use" and iteration_tool_calls:
                                     # Add assistant message with tool calls to history

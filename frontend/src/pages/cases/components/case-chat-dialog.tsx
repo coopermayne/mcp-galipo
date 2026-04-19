@@ -12,9 +12,34 @@ interface CaseChatDialogProps {
 
 const TOOL_RULES: ToolCompletionRule[] = [
   {
-    toolNames: ["manage_case"],
+    toolNames: ["manage_case", "manage_case_staff"],
     queryKeys: [["cases"], ["case-counts"]],
-    toastMessage: "Case created via AI",
+    toastMessage: "Case updated via AI",
+  },
+  {
+    toolNames: ["manage_person", "manage_case_role", "merge_persons"],
+    queryKeys: [["cases"], ["persons"]],
+    toastMessage: "Person updated via AI",
+  },
+  {
+    toolNames: ["manage_proceeding", "manage_judge"],
+    queryKeys: [["cases"], ["judges"]],
+    toastMessage: "Proceeding updated via AI",
+  },
+  {
+    toolNames: ["manage_task"],
+    queryKeys: [["tasks"]],
+    toastMessage: "Task created via AI",
+  },
+  {
+    toolNames: ["manage_event"],
+    queryKeys: [["events"]],
+    toastMessage: "Event created via AI",
+  },
+  {
+    toolNames: ["manage_note"],
+    queryKeys: [["notes"]],
+    toastMessage: "Note created via AI",
   },
 ]
 
@@ -23,11 +48,11 @@ export function CaseChatDialog({ open, onOpenChange }: CaseChatDialogProps) {
     <AiChatSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="AI Case Creation"
-      description="Describe the case details and Claude will create it for you. You can provide case name, status, parties, date of injury, and more."
-      placeholder="Describe the case to create..."
-      emptyStateText='Describe the new case — e.g. "Create a case for Smith v. Jones, auto accident on 2025-12-15, pre-filing status" — and Claude will set it up.'
-      mode="full"
+      title="AI Case Setup"
+      description="Paste a case file, complaint, or case details. Claude (Opus) will create the case, add all parties, proceedings, deadlines, and tasks."
+      placeholder="Paste case file, complaint, or describe the case to set up..."
+      emptyStateText="Paste the full case file or describe the case in detail. Claude will extract everything — parties, proceedings, judges, deadlines, tasks — and set up the entire case."
+      mode="case_setup"
       toolCompletionRules={TOOL_RULES}
       renderToolIndicator={(tool) => <CaseToolIndicator tool={tool} />}
     />
@@ -44,9 +69,21 @@ function parseCaseId(result?: string): number | null {
   }
 }
 
+const TOOL_LABELS: Record<string, string> = {
+  manage_case: "case",
+  manage_person: "person",
+  manage_case_role: "role assignment",
+  merge_persons: "person merge",
+  manage_proceeding: "proceeding",
+  manage_judge: "judge",
+  manage_case_staff: "staff assignment",
+  manage_task: "task",
+  manage_event: "event",
+  manage_note: "note",
+}
+
 function CaseToolIndicator({ tool }: { tool: ToolActivity }) {
-  const label =
-    tool.name === "manage_case" ? "case" : tool.name.replace(/_/g, " ")
+  const label = TOOL_LABELS[tool.name] ?? tool.name.replace(/_/g, " ")
   const caseId = useMemo(() => parseCaseId(tool.result), [tool.result])
 
   return (

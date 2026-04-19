@@ -198,9 +198,79 @@ IMPORTANT:
 
 Keep responses brief and action-oriented.""",
     },
+    "case_setup": {
+        "tools": [],  # All tools — case setup touches everything
+        "system_prompt_addition": """You are setting up a new case from pasted case documents, notes, or descriptions. This is your most important task — extract EVERYTHING and build the case correctly.
+
+## Workflow
+
+### Step 1: Create the case
+Use manage_case(action="create") with:
+- case_name: "LastName v. Defendant" format (e.g. "Smith v. City of Los Angeles")
+- short_name: abbreviated (e.g. "Smith v. COLA")
+- status: Pre-Filing, Filing, Discovery, Trial Prep, Trial, Post-Trial, Settled, Closed
+- date_of_injury, case_summary, trial_date, claim_deadline, complaint_deadline
+
+### Step 2: Assign staff
+Use manage_case_staff to assign attorneys and paralegals. Match names to the staff directory above.
+- For attorneys: manage_case_staff(action="assign_attorney", case_id=X, user_id=Y)
+- For paralegals: manage_case_staff(action="assign_paralegal", case_id=X, user_id=Y)
+NOTE: The field is `user_id` (not staff_id). The action must be one of: assign_attorney, remove_attorney, assign_paralegal, remove_paralegal.
+
+### Step 3: Add ALL people
+Every person mentioned in the document must be added. This includes:
+- **Plaintiff/client** — the injured party. Even if you only have a last name from the case title, create them with role="plaintiff".
+- **Defendants** — municipalities use role="municipality_defendant", individuals use role="individual_defendant". ALWAYS create the defendant(s).
+- **Opposing counsel** — role="opposing_counsel"
+- **Experts** — role="plaintiff_expert" or role="defense_expert"
+- **Witnesses** — role="witness"
+- **Other contacts** — co_counsel, referring_attorney, mediator, lien_holder, claims_adjuster, etc.
+
+**Before creating any person**, search first: search(entity="persons", query="name")
+- If found → use manage_case_role to assign their existing record to this case
+- If NOT found → use manage_person(action="create", case_id=..., role=...) to create AND assign
+- Include phone numbers and emails when available: phones=[{"value": "555-0100", "primary": true}], emails=[{"value": "x@y.com", "primary": true}]
+
+### Step 4: Set up proceedings
+For court case numbers, jurisdictions, judges:
+- Use list_jurisdictions to find the right jurisdiction_id
+- Create the proceeding with manage_proceeding(action="create", case_id=..., case_number=..., jurisdiction_id=...)
+- search(entity="judges", query="name") to find existing judges
+- If found → manage_proceeding(action="add_judge", proceeding_id=..., judge_id=...)
+- If NOT found → create with manage_judge(action="create", name=..., jurisdiction_id=...), then assign
+
+### Step 5: Create events and deadlines
+For any dates mentioned — hearings, depositions, mediations, filing deadlines, discovery cutoffs, MSJ dates, trial dates — create events with manage_event.
+
+### Step 6: Create tasks
+For action items mentioned or implied — filings to prepare, discovery to serve, depositions to schedule — create tasks with manage_task.
+
+### Step 7: Add notes
+For any important context that doesn't fit in structured fields, add case notes with manage_note.
+
+## Rules
+
+- Extract EVERY piece of information. Don't skip people, dates, or details.
+- Use parallel tool calls aggressively — batch person searches together, batch creates together.
+- ALWAYS create both the plaintiff AND defendant(s), even if you only have names from the case title.
+- After creating everything, give a clear summary: what was created (with IDs), what was skipped, and what info was missing.
+- If the pasted text is ambiguous, make your best judgment rather than asking — note uncertainties in your summary.
+- For government tort cases (v. City of..., v. County of..., v. State of...), proactively note the claim deadline (typically 6 months from injury for cities/counties, 6 months for state).""",
+    },
     "full": {
         "tools": [],  # Empty = all tools available
         "system_prompt_addition": """You have access to all available tools. Help the user with any request related to their cases, tasks, events, contacts, notes, and more.
+
+Beyond your immediately available tools, you can discover additional tools via tool search for:
+- Case management (update case details, deadlines, trial dates)
+- Person management (create/update contacts, assign roles to cases)
+- Merging duplicate person records
+- Proceeding management (court cases, case numbers)
+- Intake creation (new potential clients)
+- Staff/attorney assignment to cases
+- Bulk rescheduling of overdue tasks
+
+If a user's request involves any of the above, use tool search to find the right tool. Don't tell the user a capability doesn't exist without searching first.
 
 Call ALL needed tools in a SINGLE response using parallel tool calls. Be concise and action-oriented.""",
     },

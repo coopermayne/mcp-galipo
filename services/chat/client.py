@@ -13,6 +13,21 @@ from config import settings
 from .types import ToolCall, StreamEventType
 
 
+def _apply_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Apply cache_control to the last non-deferred tool in the list.
+
+    Deferred tools cannot have cache_control set (Anthropic API constraint).
+    """
+    tools = list(tools)  # Copy to avoid mutating original
+    # Find last non-deferred, non-server tool
+    for i in range(len(tools) - 1, -1, -1):
+        t = tools[i]
+        if not t.get("defer_loading") and "type" not in t:
+            tools[i] = {**t, "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+            break
+    return tools
+
+
 # System prompt for the chat assistant
 SYSTEM_PROMPT = """You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
@@ -59,6 +74,7 @@ class ChatClient:
         )
         self.model = settings.chat_model
         self.model_full = settings.chat_model_full
+        self.model_max = settings.chat_model_max
         self.max_tokens = settings.chat_max_tokens
 
     async def send_message(
@@ -91,14 +107,9 @@ class ChatClient:
         }
 
         # Only include tools if provided and non-empty
-        # Add 1-hour cache control to last tool to cache all tool definitions
+        # Add 1-hour cache control to last non-deferred tool
         if tools:
-            tools = list(tools)  # Copy to avoid mutating original
-            tools[-1] = {
-                **tools[-1],
-                "cache_control": {"type": "ephemeral", "ttl": "1h"}
-            }
-            kwargs["tools"] = tools
+            kwargs["tools"] = _apply_cache_control(tools)
 
         response = await self.client.messages.create(**kwargs)
 
@@ -153,71 +164,97 @@ class ChatClient:
         }
 
         # Only include tools if provided and non-empty
-        # Add 1-hour cache control to last tool to cache all tool definitions
+        # Add 1-hour cache control to last non-deferred tool
         if tools:
-            tools = list(tools)  # Copy to avoid mutating original
-            tools[-1] = {
-                **tools[-1],
-                "cache_control": {"type": "ephemeral", "ttl": "1h"}
-            }
-            kwargs["tools"] = tools
+            kwargs["tools"] = _apply_cache_control(tools)
 
         # Track current tool being built (for accumulating JSON input)
         current_tool_id: str | None = None
         current_tool_name: str | None = None
         current_tool_input_json: str = ""
+        current_block_is_server_tool: bool = False
 
         async with self.client.messages.stream(**kwargs) as stream:
             async for event in stream:
                 event_type = event.type
 
                 if event_type == "content_block_start":
-                    # Check if this is a tool_use block
                     content_block = event.content_block
                     if content_block.type == "tool_use":
+                        # Client tool use — we need to execute this
                         current_tool_id = content_block.id
                         current_tool_name = content_block.name
                         current_tool_input_json = ""
-                        # Emit tool_start event
+                        current_block_is_server_tool = False
                         yield {
                             "type": StreamEventType.TOOL_USE.value,
                             "subtype": "start",
                             "id": current_tool_id,
                             "name": current_tool_name,
                         }
+                    elif content_block.type == "server_tool_use":
+                        # Server tool (tool_search) — Anthropic executes this
+                        current_tool_id = content_block.id
+                        current_tool_name = content_block.name
+                        current_tool_input_json = ""
+                        current_block_is_server_tool = True
+                        yield {
+                            "type": "server_tool_use",
+                            "subtype": "start",
+                            "id": current_tool_id,
+                            "name": current_tool_name,
+                        }
+                    elif content_block.type == "tool_search_tool_result":
+                        # Tool search results — pass through for visibility
+                        tool_refs = []
+                        if hasattr(content_block, "content") and hasattr(content_block.content, "tool_references"):
+                            tool_refs = [ref.tool_name for ref in content_block.content.tool_references]
+                        yield {
+                            "type": "tool_search_result",
+                            "tool_use_id": content_block.tool_use_id,
+                            "tools_found": tool_refs,
+                        }
 
                 elif event_type == "content_block_delta":
                     delta = event.delta
                     if delta.type == "text_delta":
-                        # Emit text delta
                         yield {
                             "type": StreamEventType.TEXT.value,
                             "content": delta.text,
                         }
                     elif delta.type == "input_json_delta":
-                        # Accumulate tool input JSON
                         current_tool_input_json += delta.partial_json
 
                 elif event_type == "content_block_stop":
-                    # If we were building a tool, emit the complete tool call
                     if current_tool_id and current_tool_name:
-                        try:
-                            arguments = json.loads(current_tool_input_json) if current_tool_input_json else {}
-                        except json.JSONDecodeError:
-                            arguments = {}
+                        if current_block_is_server_tool:
+                            # Server tool done — no execution needed on our side
+                            yield {
+                                "type": "server_tool_use",
+                                "subtype": "done",
+                                "id": current_tool_id,
+                                "name": current_tool_name,
+                            }
+                        else:
+                            # Client tool done — needs execution
+                            try:
+                                arguments = json.loads(current_tool_input_json) if current_tool_input_json else {}
+                            except json.JSONDecodeError:
+                                arguments = {}
 
-                        yield {
-                            "type": StreamEventType.TOOL_USE.value,
-                            "subtype": "done",
-                            "id": current_tool_id,
-                            "name": current_tool_name,
-                            "arguments": arguments,
-                        }
+                            yield {
+                                "type": StreamEventType.TOOL_USE.value,
+                                "subtype": "done",
+                                "id": current_tool_id,
+                                "name": current_tool_name,
+                                "arguments": arguments,
+                            }
 
                         # Reset tool tracking
                         current_tool_id = None
                         current_tool_name = None
                         current_tool_input_json = ""
+                        current_block_is_server_tool = False
 
                 elif event_type == "message_stop":
                     # Get the final message to extract stop_reason and usage
