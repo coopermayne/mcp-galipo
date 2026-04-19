@@ -15,6 +15,11 @@ from sqlalchemy.orm import aliased
 
 from .session import SessionLocal
 from .validation import validate_date_format, ValidationError
+from .fuzzy_match import (
+    resolve_person as _resolve_person,
+    fuzzy_search_persons as _fuzzy_search_persons,
+    PersonMatchResult,
+)
 from models import Person, PersonRole, Role, Case, ExpertiseType
 from schemas import PersonOut, CasePersonOut, RoleBriefOut, RoleAssignmentOut
 
@@ -291,6 +296,18 @@ def search_persons(name: str = None, role_id: int = None, category: str = None,
                 p["roles"] = roles_map.get(p["id"], [])
 
         return {"persons": persons, "total": total}
+
+
+def check_person_duplicates(name: str) -> PersonMatchResult:
+    """Check if a person name fuzzy-matches existing persons."""
+    with SessionLocal() as session:
+        return _resolve_person(session, name)
+
+
+def fuzzy_search_persons_db(name: str, limit: int = 10) -> list[dict]:
+    """Fuzzy search for persons by name. Returns scored results."""
+    with SessionLocal() as session:
+        return _fuzzy_search_persons(session, name, limit=limit)
 
 
 def delete_person(person_id: int) -> bool:

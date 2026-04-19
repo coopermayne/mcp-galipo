@@ -86,6 +86,14 @@ def get_judges(search: str = None, jurisdiction_id: int = None,
             stmt = stmt.where(cond)
 
         judges = [_judge_to_dict(j) for j in session.scalars(stmt).unique().all()]
+
+        # Fuzzy fallback: if search was provided but ilike found nothing,
+        # try fuzzy matching and return scored results
+        if search and not judges:
+            fuzzy_results = _fuzzy_search(session, search, jurisdiction_id=jurisdiction_id, limit=limit)
+            if fuzzy_results:
+                return {"judges": fuzzy_results, "total": len(fuzzy_results), "fuzzy_search": True}
+
         return {"judges": judges, "total": total}
 
 

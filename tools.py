@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from fastmcp import Context
 import db
 from db import ValidationError
+from db.fuzzy_match import resolve_judge
+from db.session import SessionLocal
 from schemas import (
     CaseStatus, TaskStatus, Urgency,
     SearchEntity, JudgeRole, ContactInfo,
@@ -153,6 +155,7 @@ class ManagePersonInput(BaseModel):
     # Optional: auto-assign to a case on create (saves a separate manage_case_role call)
     case_id: Optional[int] = Field(None, description="If provided on create, auto-assign this person to the case")
     role: Optional[str] = Field(None, description="Role name for auto-assign (e.g. 'plaintiff_expert', 'opposing_counsel'). Requires case_id.")
+    skip_duplicate_check: Optional[bool] = Field(False, description="Set true after user confirmed this is not a duplicate")
 
 
 class ManageCaseRoleInput(BaseModel):
@@ -236,6 +239,7 @@ class ManageJudgeInput(BaseModel):
     chambers: Optional[str] = Field(None, description="Chambers location")
     courtroom_number: Optional[str] = Field(None, description="Courtroom number")
     notes: Optional[str] = Field(None, description="Free-text notes")
+    skip_duplicate_check: Optional[bool] = Field(False, description="Set true after user confirmed this is not a duplicate")
 
 
 class ManageIntakeInput(BaseModel):
@@ -560,6 +564,14 @@ def register_tools(mcp):
                     limit=data.limit,
                     offset=data.offset,
                 )
+
+                # Fuzzy fallback: if substring search found nothing and a
+                # name query was provided, try fuzzy matching
+                if data.query and not results.get("persons"):
+                    fuzzy_results = db.fuzzy_search_persons_db(data.query, limit=data.limit)
+                    if fuzzy_results:
+                        return {"success": True, "persons": fuzzy_results, "total": len(fuzzy_results), "fuzzy_search": True}
+
                 return {"success": True, **results}
 
             elif data.entity == "events":
@@ -716,8 +728,11 @@ def register_tools(mcp):
     def manage_person(context: Context, data: ManagePersonInput) -> dict:
         """Create, update, or delete a person (contact).
 
-        On create, optionally pass case_id + role to auto-assign them to a case
-        in one call (instead of a separate manage_case_role call).
+        On create, automatically checks for existing persons with similar names
+        (fuzzy matching). If a likely match is found, returns candidates instead
+        of creating a duplicate. Set skip_duplicate_check=true to force creation.
+
+        Optionally pass case_id + role to auto-assign them to a case in one call.
 
         Examples:
         - manage_person(action="create", name="John Smith", case_id=1, role="plaintiff")
@@ -730,6 +745,41 @@ def register_tools(mcp):
             if data.action == "create":
                 if not data.name:
                     return validation_error("name is required for create")
+
+                # Pre-creation duplicate check
+                if not data.skip_duplicate_check:
+                    match = db.check_person_duplicates(data.name)
+                    if match.match_type == "exact":
+                        p = match.person
+                        return {
+                            "success": True,
+                            "created": False,
+                            "duplicate_warning": f"Exact match found: '{p.name}' (id={p.person_id}, org={p.organization or 'N/A'})",
+                            "existing_person": {"id": p.person_id, "name": p.name, "organization": p.organization},
+                            "suggestion": f"If this is the same person, use person_id={p.person_id} (e.g. to assign them to a case with manage_case_role). If this is a different person, re-call with skip_duplicate_check=true.",
+                        }
+                    elif match.match_type == "fuzzy":
+                        p = match.person
+                        return {
+                            "success": True,
+                            "created": False,
+                            "duplicate_warning": f"Likely match found (score={p.score}): '{p.name}' (id={p.person_id}, org={p.organization or 'N/A'})",
+                            "existing_person": {"id": p.person_id, "name": p.name, "organization": p.organization, "score": p.score},
+                            "suggestion": f"Ask the user: is '{data.name}' the same person as '{p.name}'? If yes, use person_id={p.person_id}. If no, re-call with skip_duplicate_check=true.",
+                        }
+                    elif match.match_type == "ambiguous":
+                        candidates = [
+                            {"id": c.person_id, "name": c.name, "organization": c.organization, "score": c.score}
+                            for c in match.candidates
+                        ]
+                        return {
+                            "success": True,
+                            "created": False,
+                            "duplicate_warning": f"Found {len(candidates)} possible matches for '{data.name}'",
+                            "candidates": candidates,
+                            "suggestion": "Ask the user which person (if any) is correct. Use that person_id, or re-call with skip_duplicate_check=true to create a new person.",
+                        }
+
                 result = db.create_person(
                     name=data.name,
                     phones=[p.model_dump() for p in data.phones] if data.phones else None,
@@ -759,7 +809,7 @@ def register_tools(mcp):
                 msg = f"Person '{data.name}' created"
                 if assignment:
                     msg += f" and assigned as {data.role} on case #{data.case_id}"
-                return {"success": True, "message": msg, "person_id": result["id"]}
+                return {"success": True, "created": True, "message": msg, "person_id": result["id"]}
 
             elif data.action == "update":
                 if not data.person_id:
@@ -1174,8 +1224,9 @@ def register_tools(mcp):
     def manage_judge(context: Context, data: ManageJudgeInput) -> dict:
         """Create, update, or delete a judge.
 
-        Before creating a new judge, ALWAYS search first:
-        search(entity="judges", query="judge name") to check if they already exist.
+        On create, automatically checks for existing judges with similar names
+        (fuzzy matching). If a likely match is found, returns candidates instead
+        of creating a duplicate. Set skip_duplicate_check=true to force creation.
 
         Examples:
         - manage_judge(action="create", name="Hon. Jane Wilson", jurisdiction_id=1)
@@ -1187,6 +1238,42 @@ def register_tools(mcp):
             if data.action == "create":
                 if not data.name:
                     return validation_error("name is required for create")
+
+                # Pre-creation duplicate check
+                if not data.skip_duplicate_check:
+                    with SessionLocal() as session:
+                        match = resolve_judge(session, data.name, data.jurisdiction_id)
+                    if match.match_type == "exact":
+                        j = match.judge
+                        return {
+                            "success": True,
+                            "created": False,
+                            "duplicate_warning": f"Exact match found: '{j.name}' (id={j.judge_id}, jurisdiction={j.jurisdiction_name or 'N/A'})",
+                            "existing_judge": {"id": j.judge_id, "name": j.name, "jurisdiction_id": j.jurisdiction_id, "jurisdiction_name": j.jurisdiction_name},
+                            "suggestion": f"This judge already exists (id={j.judge_id}). Use this judge_id for proceeding assignments. If this is a different judge, re-call with skip_duplicate_check=true.",
+                        }
+                    elif match.match_type == "fuzzy":
+                        j = match.judge
+                        return {
+                            "success": True,
+                            "created": False,
+                            "duplicate_warning": f"Likely match found (score={j.score}): '{j.name}' (id={j.judge_id}, jurisdiction={j.jurisdiction_name or 'N/A'})",
+                            "existing_judge": {"id": j.judge_id, "name": j.name, "jurisdiction_id": j.jurisdiction_id, "jurisdiction_name": j.jurisdiction_name, "score": j.score},
+                            "suggestion": f"Ask the user: is '{data.name}' the same judge as '{j.name}'? If yes, use judge_id={j.judge_id}. If no, re-call with skip_duplicate_check=true.",
+                        }
+                    elif match.match_type == "ambiguous":
+                        candidates = [
+                            {"id": c.judge_id, "name": c.name, "jurisdiction_id": c.jurisdiction_id, "jurisdiction_name": c.jurisdiction_name, "score": c.score}
+                            for c in match.candidates
+                        ]
+                        return {
+                            "success": True,
+                            "created": False,
+                            "duplicate_warning": f"Found {len(candidates)} possible matches for '{data.name}'",
+                            "candidates": candidates,
+                            "suggestion": "Ask the user which judge (if any) is correct. Use that judge_id, or re-call with skip_duplicate_check=true to create a new judge.",
+                        }
+
                 result = db.create_judge(
                     name=data.name,
                     title=data.title,
@@ -1197,7 +1284,7 @@ def register_tools(mcp):
                     courtroom_number=data.courtroom_number,
                     notes=data.notes,
                 )
-                return {"success": True, "message": f"Judge '{data.name}' created", "judge_id": result["id"]}
+                return {"success": True, "created": True, "message": f"Judge '{data.name}' created", "judge_id": result["id"]}
 
             elif data.action == "update":
                 if not data.judge_id:
