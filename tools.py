@@ -135,6 +135,9 @@ class ManageCaseInput(BaseModel):
     case_summary: Optional[str] = Field(None, description="Case summary text")
     result: Optional[str] = Field(None, description="Case result/outcome")
     date_of_injury: Optional[str] = Field(None, description="Date of injury (YYYY-MM-DD)")
+    trial_date: Optional[str] = Field(None, description="Trial date (YYYY-MM-DD)")
+    claim_deadline: Optional[str] = Field(None, description="Government claim filing deadline (YYYY-MM-DD)")
+    complaint_deadline: Optional[str] = Field(None, description="Complaint filing deadline (YYYY-MM-DD)")
 
 
 class ManagePersonInput(BaseModel):
@@ -253,6 +256,29 @@ class ManageIntakeInput(BaseModel):
     incident_description: Optional[str] = Field(None, description="Description of what happened")
     injury_description: Optional[str] = Field(None, description="Description of injuries")
     notes: Optional[str] = Field(None, description="DO NOT USE — this field is reserved for office staff to enter internal notes manually. Never populate from AI.")
+
+
+class ManageCaseStaffInput(BaseModel):
+    """Assign or remove an attorney or paralegal from a case."""
+    action: Literal["assign_attorney", "remove_attorney", "assign_paralegal", "remove_paralegal"] = Field(..., description="Action to perform")
+    case_id: int = Field(..., description="Case ID")
+    user_id: int = Field(..., description="Staff member ID (use list_staff to find IDs)")
+
+
+class MergePersonsInput(BaseModel):
+    """Find duplicate persons or merge two persons into one."""
+    action: Literal["find_duplicates", "merge"] = Field(..., description="find_duplicates to list potential dupes, merge to combine two persons")
+    # For merge
+    primary_id: Optional[int] = Field(None, description="(merge) Person ID to keep")
+    secondary_id: Optional[int] = Field(None, description="(merge) Person ID to merge into primary and delete")
+    field_resolutions: Optional[dict] = Field(None, description="(merge) Which fields to keep from secondary, e.g. {\"phone\": \"secondary\", \"email\": \"secondary\"}")
+
+
+class RescheduleOverdueInput(BaseModel):
+    """Reschedule overdue tasks to a new date."""
+    new_date: str = Field(..., description="New due date for overdue tasks (YYYY-MM-DD)")
+    task_ids: Optional[list[int]] = Field(None, description="Specific task IDs to reschedule. If omitted, reschedules ALL overdue incomplete tasks.")
+    case_id: Optional[int] = Field(None, description="Only reschedule overdue tasks for this case")
 
 
 # =============================================================================
@@ -650,6 +676,9 @@ def register_tools(mcp):
                     result=data.result,
                     date_of_injury=data.date_of_injury,
                     short_name=data.short_name,
+                    trial_date=data.trial_date,
+                    claim_deadline=data.claim_deadline,
+                    complaint_deadline=data.complaint_deadline,
                 )
                 return {"success": True, "message": f"Case '{data.case_name}' created", "case_id": result["id"]}
 
@@ -657,7 +686,7 @@ def register_tools(mcp):
                 if not data.case_id:
                     return validation_error("case_id is required for update")
                 kwargs = {}
-                for field in ["case_name", "short_name", "status", "print_code", "case_summary", "result", "date_of_injury"]:
+                for field in ["case_name", "short_name", "status", "print_code", "case_summary", "result", "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"]:
                     val = getattr(data, field)
                     if val is not None:
                         kwargs[field] = val
@@ -1266,3 +1295,109 @@ def register_tools(mcp):
 
         except Exception as e:
             return error_response(f"manage_intake failed: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
+    # MANAGE CASE STAFF (attorney/paralegal assignment)
+    # =========================================================================
+
+    @mcp.tool()
+    def manage_case_staff(context: Context, data: ManageCaseStaffInput) -> dict:
+        """Assign or remove an attorney or paralegal from a case.
+
+        Assigning an attorney auto-assigns their default paralegal if configured.
+        Use list_staff() to find user IDs.
+
+        Examples:
+        - manage_case_staff(action="assign_attorney", case_id=1, user_id=3)
+        - manage_case_staff(action="remove_attorney", case_id=1, user_id=3)
+        - manage_case_staff(action="assign_paralegal", case_id=1, user_id=5)
+        - manage_case_staff(action="remove_paralegal", case_id=1, user_id=5)
+        """
+        context.info(f"manage_case_staff: {data.action} user #{data.user_id} on case #{data.case_id}")
+        try:
+            if data.action == "assign_attorney":
+                result = db.assign_attorney_to_case(data.case_id, data.user_id)
+            elif data.action == "remove_attorney":
+                result = db.remove_attorney_from_case(data.case_id, data.user_id)
+            elif data.action == "assign_paralegal":
+                result = db.assign_paralegal_to_case(data.case_id, data.user_id)
+            else:  # remove_paralegal
+                result = db.remove_paralegal_from_case(data.case_id, data.user_id)
+
+            if result.get("error"):
+                return error_response(result["error"], "MUTATION_ERROR")
+            return {"success": True, "message": f"{data.action} completed for case #{data.case_id}", **result}
+
+        except Exception as e:
+            return error_response(f"manage_case_staff failed: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
+    # MERGE PERSONS (duplicate detection + merge)
+    # =========================================================================
+
+    @mcp.tool()
+    def merge_persons(context: Context, data: MergePersonsInput) -> dict:
+        """Find duplicate persons or merge two persons into one.
+
+        Use find_duplicates first to see potential matches, then merge to combine.
+        Merge reassigns all case roles from secondary to primary and deletes secondary.
+
+        Examples:
+        - merge_persons(action="find_duplicates")
+        - merge_persons(action="merge", primary_id=5, secondary_id=12, field_resolutions={"phone": "secondary"})
+        """
+        context.info(f"merge_persons: {data.action}")
+        try:
+            if data.action == "find_duplicates":
+                result = db.find_duplicate_persons()
+                return {"success": True, **result}
+
+            elif data.action == "merge":
+                if not data.primary_id or not data.secondary_id:
+                    return validation_error("primary_id and secondary_id are required for merge")
+                result = db.merge_persons(
+                    primary_id=data.primary_id,
+                    secondary_id=data.secondary_id,
+                    field_resolutions=data.field_resolutions,
+                )
+                if result.get("error"):
+                    return error_response(result["error"], "MUTATION_ERROR")
+                return {"success": True, "message": f"Merged person #{data.secondary_id} into #{data.primary_id}", **result}
+
+        except Exception as e:
+            return error_response(f"merge_persons failed: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
+    # RESCHEDULE OVERDUE TASKS
+    # =========================================================================
+
+    @mcp.tool()
+    def reschedule_overdue(context: Context, data: RescheduleOverdueInput) -> dict:
+        """Reschedule overdue incomplete tasks to a new date.
+
+        Can target specific tasks by ID, all overdue tasks for a case, or all overdue tasks globally.
+
+        Examples:
+        - reschedule_overdue(new_date="2026-05-01")
+        - reschedule_overdue(new_date="2026-05-01", case_id=2)
+        - reschedule_overdue(new_date="2026-05-01", task_ids=[10, 11, 12])
+        """
+        context.info(f"reschedule_overdue: to {data.new_date}")
+        try:
+            task_ids = data.task_ids
+            # If case_id provided without task_ids, find overdue tasks for that case
+            if data.case_id and not task_ids:
+                tasks = db.search_tasks(
+                    case_id=data.case_id,
+                    due_date_before=datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d"),
+                    limit=500,
+                )
+                task_ids = [t["id"] for t in tasks if t.get("status") != "Done"]
+
+            result = db.reschedule_overdue_tasks(data.new_date, task_ids=task_ids)
+            return {"success": True, "message": f"Rescheduled {result['updated']} overdue tasks to {data.new_date}", **result}
+
+        except ValidationError as e:
+            return validation_error(str(e))
+        except Exception as e:
+            return error_response(f"reschedule_overdue failed: {str(e)}", "MUTATION_ERROR")
