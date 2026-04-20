@@ -176,7 +176,7 @@ def _get_css() -> str:
     return """
     @page {
       size: letter portrait;
-      margin: 0.5in 1.25in;
+      margin: 0.25in 0.625in;
       @bottom-right {
         content: counter(page);
         font-family: 'Inter', 'Helvetica Neue', sans-serif;
