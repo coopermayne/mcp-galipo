@@ -20,6 +20,8 @@ import {
   type TaskScope,
 } from "@/pages/tasks/components/task-toolbar"
 import { TaskListView } from "@/pages/tasks/components/task-list-view"
+import { AddTaskDialog } from "@/pages/tasks/components/add-task-dialog"
+import { TaskChatDialog } from "@/pages/tasks/components/task-chat-dialog"
 import type { TaskGroupBy } from "@/pages/tasks/group-tasks"
 
 export default function TasksPage() {
@@ -67,6 +69,10 @@ export default function TasksPage() {
     },
     [setSearchParams]
   )
+
+  // Dialog state
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [chatDialogOpen, setChatDialogOpen] = useState(false)
 
   // Table state (still used for filtering/sorting)
   const [sorting, setSorting] = useState<SortingState>([])
@@ -147,6 +153,8 @@ export default function TasksPage() {
         onGroupByChange={setGroupBy}
         showDone={showDone}
         onShowDoneChange={setShowDone}
+        onAddManual={() => setAddDialogOpen(true)}
+        onAddAI={() => setChatDialogOpen(true)}
       />
 
       <TaskListView
@@ -155,6 +163,9 @@ export default function TasksPage() {
         groupBy={groupBy}
         showDone={showDone}
       />
+
+      <AddTaskDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+      <TaskChatDialog open={chatDialogOpen} onOpenChange={setChatDialogOpen} />
     </div>
   )
 }
