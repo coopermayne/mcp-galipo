@@ -70,7 +70,7 @@ export const navGroups: NavGroup[] = [
         title: "Calendar",
         url: "/events",
         icon: Calendar03Icon,
-        featureKey: "events",
+        featureKey: "calendar",
       },
       {
         title: "Contacts",
