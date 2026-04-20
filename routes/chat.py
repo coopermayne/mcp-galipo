@@ -370,6 +370,41 @@ Always be helpful and concise. When you need more information to complete a task
 
 The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}."""
 
+            try:
+                proceedings = _db.get_proceedings(case_context)
+            except Exception as e:
+                _logger.warning(f"Failed to pre-load proceedings for case {case_context}: {e}")
+                proceedings = []
+
+            if proceedings:
+                lines = []
+                for p in proceedings:
+                    judges = p.get("judges") or []
+                    judges_str = ", ".join(
+                        f"{j.get('name')} (judge_id={j.get('judge_id')})" for j in judges
+                    ) or "none"
+                    lines.append(
+                        f"  - proceeding_id={p['id']}, case_number={p.get('case_number') or 'N/A'}, "
+                        f"jurisdiction={p.get('jurisdiction_name') or 'N/A'}, "
+                        f"primary={bool(p.get('is_primary'))}, judges=[{judges_str}]"
+                    )
+                default_note = (
+                    "This is the only proceeding — use its proceeding_id directly when the user refers to \"the proceeding\"."
+                    if len(proceedings) == 1
+                    else "When the user refers to \"the proceeding\" without specifying, default to the primary proceeding. If the user's reference is ambiguous across multiple proceedings, ask a brief clarifying question."
+                )
+                system_prompt += (
+                    "\n\nProceedings already attached to this case (use these proceeding_ids directly — do NOT call get_details just to look them up):\n"
+                    + "\n".join(lines)
+                    + f"\n{default_note}"
+                )
+            else:
+                system_prompt += (
+                    "\n\nThis case currently has NO proceedings. Before adding a judge, you must first create a proceeding with manage_proceeding(action=\"create\", case_id="
+                    + str(case_context)
+                    + ", case_number=...)."
+                )
+
         # Add mode-specific system prompt if a mode is active
         mode_prompt = get_mode_system_prompt(mode)
         if mode_prompt:
