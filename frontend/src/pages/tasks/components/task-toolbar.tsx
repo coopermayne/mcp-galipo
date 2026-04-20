@@ -2,7 +2,14 @@ import type { Table } from "@tanstack/react-table"
 import type { TaskListItem } from "@/types/task"
 import type { TaskGroupBy } from "@/pages/tasks/group-tasks"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, Calendar03Icon, Briefcase01Icon, CheckmarkSquare01Icon } from "@hugeicons/core-free-icons"
+import {
+  Search01Icon,
+  Calendar03Icon,
+  Briefcase01Icon,
+  CheckmarkSquare01Icon,
+  NoteEditIcon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -19,6 +26,8 @@ interface TaskToolbarProps {
   showGroupByCase?: boolean
   showDone?: boolean
   onShowDoneChange?: (show: boolean) => void
+  onAddManual?: () => void
+  onAddAI?: () => void
 }
 
 export function TaskToolbar({
@@ -30,6 +39,8 @@ export function TaskToolbar({
   showGroupByCase = true,
   showDone,
   onShowDoneChange,
+  onAddManual,
+  onAddAI,
 }: TaskToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -51,6 +62,28 @@ export function TaskToolbar({
             className="h-8 pl-8"
           />
         </div>
+        {onAddManual && (
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="h-8 w-8"
+            onClick={onAddManual}
+            title="New Task (Manual)"
+          >
+            <HugeiconsIcon icon={NoteEditIcon} className="size-4" />
+          </Button>
+        )}
+        {onAddAI && (
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="h-8 w-8"
+            onClick={onAddAI}
+            title="New Task (AI)"
+          >
+            <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+          </Button>
+        )}
       </div>
 
       {/* Show done toggle */}
