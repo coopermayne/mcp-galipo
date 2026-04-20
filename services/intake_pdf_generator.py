@@ -180,7 +180,7 @@ def _get_css() -> str:
       @bottom-right {
         content: counter(page);
         font-family: 'Inter', 'Helvetica Neue', sans-serif;
-        font-size: 7px;
+        font-size: 11px;
         color: #94a3b8;
       }
     }
@@ -189,7 +189,7 @@ def _get_css() -> str:
 
     body {
       font-family: 'Inter', 'Helvetica Neue', 'Segoe UI', sans-serif;
-      font-size: 8.5px;
+      font-size: 12.5px;
       color: #0f172a;
       line-height: 1.35;
     }
@@ -203,8 +203,8 @@ def _get_css() -> str:
       padding-bottom: 6px;
       margin-bottom: 8px;
     }
-    .report-title { font-size: 16px; font-weight: 700; color: #0f172a; }
-    .report-meta { font-size: 8px; color: #94a3b8; }
+    .report-title { font-size: 20px; font-weight: 700; color: #0f172a; }
+    .report-meta { font-size: 12px; color: #94a3b8; }
 
     /* === Intake table === */
     .intake-table {
@@ -213,17 +213,17 @@ def _get_css() -> str:
     }
     .intake-table thead tr { background: #0f172a; }
     .intake-table th {
-      padding: 2px 3px;
+      padding: 3px 4px;
       text-align: left;
-      font-size: 6.5px;
+      font-size: 11px;
       font-weight: 600;
       color: #fff;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
     .intake-table td {
-      padding: 2px 3px;
-      font-size: 7.5px;
+      padding: 3px 4px;
+      font-size: 11.5px;
       border-bottom: 1px solid #f1f5f9;
       vertical-align: middle;
     }
@@ -231,7 +231,7 @@ def _get_css() -> str:
 
     .submitted-col {
       white-space: nowrap;
-      font-size: 7.5px;
+      font-size: 11.5px;
       color: #475569;
     }
     .name-col { font-weight: 600; }
@@ -242,7 +242,7 @@ def _get_css() -> str:
       text-align: center;
       white-space: nowrap;
       font-family: 'JetBrains Mono', 'SF Mono', monospace;
-      font-size: 8px;
+      font-size: 12px;
     }
     .sol-sep { color: #94a3b8; }
     .sol-danger {
@@ -263,7 +263,7 @@ def _get_css() -> str:
     .status-badge {
       display: inline-block;
       padding: 1px 6px;
-      font-size: 7px;
+      font-size: 11px;
       font-weight: 600;
       white-space: nowrap;
     }
@@ -658,8 +658,8 @@ def _get_index_css() -> str:
       padding-bottom: 5px;
       margin-bottom: 12px;
     }
-    .idx-title { font-size: 18px; font-weight: 700; color: #0f172a; }
-    .idx-meta { font-size: 8px; color: #94a3b8; }
+    .idx-title { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .idx-meta { font-size: 12px; color: #94a3b8; }
 
     .idx-table {
       width: 100%;
@@ -669,7 +669,7 @@ def _get_index_css() -> str:
     .idx-table th {
       padding: 3px 6px;
       text-align: left;
-      font-size: 7px;
+      font-size: 11px;
       font-weight: 600;
       color: #fff;
       text-transform: uppercase;
@@ -677,13 +677,13 @@ def _get_index_css() -> str:
     }
     .idx-table td {
       padding: 4px 6px;
-      font-size: 9px;
+      font-size: 13px;
       border-bottom: 1px solid #f1f5f9;
       vertical-align: middle;
     }
     .idx-table .alt-row { background: #f8fafc; }
     .idx-num, .idx-num-h { width: 24px; text-align: center; }
-    .idx-num { color: #94a3b8; font-size: 8px; }
+    .idx-num { color: #94a3b8; font-size: 12px; }
     .idx-name { font-weight: 600; }
     .idx-page, .idx-page-h { width: 36px; text-align: right; }
     .idx-page {
@@ -702,13 +702,13 @@ def _get_detail_css() -> str:
       @bottom-left {
         content: string(printed-date);
         font-family: 'Inter', 'Helvetica Neue', sans-serif;
-        font-size: 7px;
+        font-size: 11px;
         color: #94a3b8;
       }
       @bottom-right {
         content: counter(page);
         font-family: 'Inter', 'Helvetica Neue', sans-serif;
-        font-size: 7px;
+        font-size: 11px;
         color: #94a3b8;
       }
     }
@@ -718,7 +718,7 @@ def _get_detail_css() -> str:
 
     body {
       font-family: 'Inter', 'Helvetica Neue', 'Segoe UI', sans-serif;
-      font-size: 8.5px;
+      font-size: 12.5px;
       color: #0f172a;
       line-height: 1.4;
     }
@@ -732,14 +732,14 @@ def _get_detail_css() -> str:
       padding-bottom: 5px;
       margin-bottom: 10px;
     }
-    .d-title { font-size: 16px; font-weight: 700; }
-    .d-header .status-badge { font-size: 16px; font-weight: 400; }
+    .d-title { font-size: 20px; font-weight: 700; }
+    .d-header .status-badge { font-size: 20px; font-weight: 400; }
 
     /* === Status badges (shared) === */
     .status-badge {
       display: inline-block;
       padding: 1px 5px;
-      font-size: 7px;
+      font-size: 11px;
       font-weight: 600;
       white-space: nowrap;
     }
@@ -753,7 +753,7 @@ def _get_detail_css() -> str:
     /* === Sections === */
     .d-section { margin-top: 10px; }
     .d-section-title {
-      font-size: 9px;
+      font-size: 13px;
       font-weight: 700;
       color: #475569;
       text-transform: uppercase;
@@ -773,28 +773,28 @@ def _get_detail_css() -> str:
       overflow: hidden;
     }
     .d-meta-item {
-      padding: 3px 6px;
+      padding: 4px 6px;
       border-bottom: 1px solid #e2e8f0;
       border-right: 1px solid #e2e8f0;
     }
     .d-meta-item:nth-child(4n) { border-right: none; }
     .d-meta-label {
       display: block;
-      font-size: 6px;
+      font-size: 11px;
       font-weight: 700;
       color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
     .d-meta-value {
-      font-size: 8px;
+      font-size: 12px;
       color: #0f172a;
       font-weight: 500;
       word-break: break-word;
     }
     .mono {
       font-family: 'JetBrains Mono', 'SF Mono', monospace;
-      font-size: 7.5px;
+      font-size: 11.5px;
     }
 
     /* === SOL colors === */
@@ -805,7 +805,7 @@ def _get_detail_css() -> str:
 
     /* === AI Summary === */
     .d-ai-summary {
-      font-size: 8px;
+      font-size: 12px;
       color: #334155;
       line-height: 1.45;
       border-left: 3px solid #4771ff;
@@ -814,7 +814,7 @@ def _get_detail_css() -> str:
 
     /* === Text blocks (notes, descriptions) === */
     .d-text {
-      font-size: 8px;
+      font-size: 12px;
       color: #334155;
       line-height: 1.45;
       white-space: pre-wrap;
@@ -832,7 +832,7 @@ def _get_detail_css() -> str:
       margin-left: 8px;
     }
     .tl-date-header {
-      font-size: 7px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.4px;
@@ -849,14 +849,14 @@ def _get_detail_css() -> str:
       position: relative;
     }
     .tl-icon {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       background: #f1f5f9;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 7px;
+      font-size: 11px;
       color: #64748b;
       flex-shrink: 0;
       position: relative;
@@ -864,14 +864,14 @@ def _get_detail_css() -> str:
       margin-right: -20px;
     }
     .tl-avatar {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       background: #4771ff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 6px;
+      font-size: 11px;
       font-weight: 700;
       color: #fff;
       flex-shrink: 0;
@@ -888,7 +888,7 @@ def _get_detail_css() -> str:
       align-items: center;
       gap: 4px;
       flex-wrap: wrap;
-      font-size: 7.5px;
+      font-size: 11.5px;
       color: #64748b;
     }
     .tl-meta {
@@ -897,12 +897,12 @@ def _get_detail_css() -> str:
       gap: 6px;
     }
     .tl-name {
-      font-size: 8px;
+      font-size: 12px;
       font-weight: 600;
       color: #0f172a;
     }
     .tl-time {
-      font-size: 6.5px;
+      font-size: 11px;
       color: #94a3b8;
       margin-left: auto;
       flex-shrink: 0;
@@ -911,13 +911,13 @@ def _get_detail_css() -> str:
       margin-top: 2px;
       border-left: 2px solid #cbd5e1;
       padding: 2px 8px;
-      font-size: 8px;
+      font-size: 12px;
       color: #334155;
       white-space: pre-wrap;
       line-height: 1.4;
     }
     .tl-arrow {
-      font-size: 7px;
+      font-size: 11px;
       color: #94a3b8;
     }
 
