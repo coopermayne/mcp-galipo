@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useCallback } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,7 +19,9 @@ import {
   MoreHorizontalIcon,
   Download04Icon,
 } from "@hugeicons/core-free-icons"
+import { useNavigate } from "react-router"
 import { getCase, createCase, type CreateCaseData, exportCaseReport } from "@/services/cases"
+import type { ListNavState } from "@/components/common/list-nav"
 import { getColumns } from "@/pages/cases/columns"
 import { CaseQuickView } from "@/pages/cases/components/case-quick-view"
 import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
@@ -67,10 +69,15 @@ export function CaseTable({
   onColumnVisibilityChange,
 }: CaseTableProps) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null)
+
+  const onPreview = useCallback((id: number) => {
+    setSelectedCaseId(id)
+  }, [])
 
   const createMutation = useMutation({
     mutationFn: (data: CreateCaseData) => createCase(data),
@@ -102,6 +109,7 @@ export function CaseTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: { onPreview },
   })
 
   const nameColumn = table.getColumn("case_name")
@@ -182,9 +190,16 @@ export function CaseTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer group/row"
                   data-state={selectedCaseId === row.original.id ? "selected" : undefined}
-                  onClick={() => setSelectedCaseId(row.original.id)}
+                  onClick={() => {
+                    const rows = table.getRowModel().rows
+                    const listIds = rows.map((r) => r.original.id)
+                    const listIndex = rows.findIndex((r) => r.id === row.id)
+                    navigate(`/cases/${row.original.id}`, {
+                      state: { listIds, listIndex, listPath: `/cases${window.location.search}` } satisfies ListNavState,
+                    })
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

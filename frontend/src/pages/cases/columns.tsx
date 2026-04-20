@@ -1,4 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { EyeIcon } from "@hugeicons/core-free-icons"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
@@ -144,6 +146,27 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Status" />
       ),
       cell: ({ row }) => <CaseStatusBadge status={row.original.status} />,
+    },
+    {
+      id: "preview",
+      header: "",
+      size: 40,
+      cell: ({ row, table }) => {
+        const onPreview = (table.options.meta as { onPreview?: (id: number) => void })?.onPreview
+        return (
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100 transition-opacity p-1"
+            onClick={(e) => {
+              e.stopPropagation()
+              onPreview?.(row.original.id)
+            }}
+            title="Quick view"
+          >
+            <HugeiconsIcon icon={EyeIcon} className="size-4" />
+          </button>
+        )
+      },
     },
   ]
 }
