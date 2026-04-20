@@ -11,6 +11,7 @@ export type FeatureKey =
   | "templates"
   | "court-listener"
   | "sms"
+  | "ai-chat"
 
 export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "dashboard", label: "Dashboard" },
@@ -23,7 +24,13 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "templates", label: "Templates" },
   { value: "court-listener", label: "CourtListener" },
   { value: "sms", label: "SMS" },
+  { value: "ai-chat", label: "AI Chat" },
 ]
+
+/** Features enabled when visibleFeatures is null (full access). ai-chat is opt-in only. */
+export const DEFAULT_FEATURES: FeatureKey[] = FEATURE_OPTIONS
+  .filter((f) => f.value !== "ai-chat")
+  .map((f) => f.value)
 
 export interface User {
   id: number

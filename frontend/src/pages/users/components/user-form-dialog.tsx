@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import type { User, UserPosition, FeatureKey } from "@/types/user"
-import { FEATURE_OPTIONS } from "@/types/user"
+import { FEATURE_OPTIONS, DEFAULT_FEATURES } from "@/types/user"
 import {
   Dialog,
   DialogContent,
@@ -99,15 +99,19 @@ export function UserFormDialog({
 
   function toggleFeature(feature: FeatureKey) {
     setForm((prev) => {
-      const current = prev.visibleFeatures ?? FEATURE_OPTIONS.map((f) => f.value)
+      const current = prev.visibleFeatures ?? [...DEFAULT_FEATURES]
       const next = current.includes(feature)
         ? current.filter((f) => f !== feature)
         : [...current, feature]
-      return { ...prev, visibleFeatures: next.length === FEATURE_OPTIONS.length ? null : next }
+      // Collapse to null only if exactly the default features are selected (no opt-in features)
+      const isDefault =
+        next.length === DEFAULT_FEATURES.length &&
+        DEFAULT_FEATURES.every((f) => next.includes(f))
+      return { ...prev, visibleFeatures: isDefault ? null : next }
     })
   }
 
-  const effectiveFeatures = form.visibleFeatures ?? FEATURE_OPTIONS.map((f) => f.value)
+  const effectiveFeatures = form.visibleFeatures ?? [...DEFAULT_FEATURES]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -84,13 +84,15 @@ export function RootLayout() {
         </SidebarInset>
       </SidebarProvider>
       <QuickCaseSearch open={quickSearchOpen} onOpenChange={setQuickSearchOpen} />
-      <Button
-        size="icon"
-        className="fixed bottom-5 right-5 z-50 size-12 shadow-lg"
-        onClick={() => setChatOpen(true)}
-      >
-        <HugeiconsIcon icon={SparklesIcon} className="size-5" />
-      </Button>
+      {user.visibleFeatures?.includes("ai-chat") && (
+        <Button
+          size="icon"
+          className="fixed bottom-5 right-5 z-50 size-12 shadow-lg"
+          onClick={() => setChatOpen(true)}
+        >
+          <HugeiconsIcon icon={SparklesIcon} className="size-5" />
+        </Button>
+      )}
       <AiChatSheet
         open={chatOpen}
         onOpenChange={setChatOpen}
