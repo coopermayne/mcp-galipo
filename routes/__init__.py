@@ -54,6 +54,7 @@ from .sms import register_sms_routes
 from .intakes import register_intake_routes
 from .financials import register_financial_routes
 from .health import register_health_routes
+from .activity import register_activity_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -119,6 +120,8 @@ def register_routes(mcp):
     register_financial_routes(mcp)
     _logger.debug("Registering health routes...")
     register_health_routes(mcp)
+    _logger.debug("Registering activity routes...")
+    register_activity_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     _logger.debug("Registering static routes...")
@@ -150,5 +153,6 @@ __all__ = [
     "register_sms_routes",
     "register_intake_routes",
     "register_financial_routes",
+    "register_activity_routes",
     "register_static_routes",
 ]

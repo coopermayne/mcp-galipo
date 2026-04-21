@@ -291,6 +291,14 @@ from .financials import (
     delete_counsel_fee,
 )
 
+# Activity tracking
+from .activity import (
+    touch_last_active,
+    record_page_view,
+    get_activity_summary,
+    get_user_page_views,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -519,6 +527,11 @@ __all__ = [
     "create_counsel_fee",
     "update_counsel_fee",
     "delete_counsel_fee",
+    # Activity tracking
+    "touch_last_active",
+    "record_page_view",
+    "get_activity_summary",
+    "get_user_page_views",
     # Bulk import
     "import_case",
 ]

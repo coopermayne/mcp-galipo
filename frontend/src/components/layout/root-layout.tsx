@@ -4,6 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { SparklesIcon } from "@hugeicons/core-free-icons"
 import { useAuth } from "@/hooks/use-auth"
 import { useSSE } from "@/hooks/use-sse"
+import { usePageTracking } from "@/hooks/use-page-tracking"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -32,6 +33,7 @@ const GENERAL_CHAT_RULES: ToolCompletionRule[] = [
 export function RootLayout() {
   const { user, isLoading } = useAuth()
   useSSE()
+  usePageTracking()
 
   const [quickSearchOpen, setQuickSearchOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
