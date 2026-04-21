@@ -78,6 +78,8 @@ export default function ActivityPage() {
   const [selectedUser, setSelectedUser] = useState<ActivityUser | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
+  const [userPage, setUserPage] = useState(1)
+  const userPageSize = 25
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["activity-summary"],
@@ -90,8 +92,8 @@ export default function ActivityPage() {
   })
 
   const { data: userViews, isLoading: userViewsLoading } = useQuery({
-    queryKey: ["activity-user-views", selectedUser?.id],
-    queryFn: () => getUserPageViews(selectedUser!.id),
+    queryKey: ["activity-user-views", selectedUser?.id, userPage, userPageSize],
+    queryFn: () => getUserPageViews(selectedUser!.id, userPage, userPageSize),
     enabled: !!selectedUser,
   })
 
@@ -138,7 +140,7 @@ export default function ActivityPage() {
                   <TableRow
                     key={user.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedUser(user)}
+                    onClick={() => { setSelectedUser(user); setUserPage(1) }}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -313,8 +315,7 @@ export default function ActivityPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Page</TableHead>
-                  <TableHead className="w-[80px] text-right">Views</TableHead>
-                  <TableHead className="w-[120px]">Last Visit</TableHead>
+                  <TableHead className="w-[180px]">Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -322,25 +323,21 @@ export default function ActivityPage() {
                   Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-10 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                     </TableRow>
                   ))
-                ) : !userViews?.length ? (
+                ) : !userViews?.items.length ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
                       No page views recorded
                     </TableCell>
                   </TableRow>
                 ) : (
-                  userViews.map((view) => (
-                    <TableRow key={view.path}>
+                  userViews.items.map((view) => (
+                    <TableRow key={view.id}>
                       <TableCell className="font-mono text-sm">{view.path}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {view.view_count.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {timeAgo(view.last_viewed)}
+                      <TableCell className="text-muted-foreground text-sm">
+                        {formatTimestamp(view.viewed_at)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -348,6 +345,38 @@ export default function ActivityPage() {
               </TableBody>
             </Table>
           </div>
+          {userViews && userViews.total_pages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-muted-foreground text-xs">
+                {userViews.total.toLocaleString()} views
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="text-xs font-medium">
+                  Page {userViews.page} of {userViews.total_pages}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    className="size-8 p-0"
+                    onClick={() => setUserPage((p) => Math.max(1, p - 1))}
+                    disabled={userPage <= 1}
+                  >
+                    <span className="sr-only">Previous page</span>
+                    <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-8 p-0"
+                    onClick={() => setUserPage((p) => Math.min(userViews.total_pages, p + 1))}
+                    disabled={userPage >= userViews.total_pages}
+                  >
+                    <span className="sr-only">Next page</span>
+                    <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

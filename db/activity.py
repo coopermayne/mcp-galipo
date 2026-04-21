@@ -99,23 +99,36 @@ def get_page_views_paginated(page: int = 1, page_size: int = 25) -> dict:
         }
 
 
-def get_user_page_views(user_id: int, limit: int = 50) -> list[dict]:
-    """Get recent page views for a specific user."""
+def get_user_page_views(user_id: int, page: int = 1, page_size: int = 25) -> dict:
+    """Get page views for a specific user, most recent first, with pagination."""
+    offset = (page - 1) * page_size
     with SessionLocal() as session:
-        views = session.execute(
-            select(PageView.path, func.count().label("view_count"),
-                   func.max(PageView.viewed_at).label("last_viewed"))
+        total = session.scalar(
+            select(func.count()).select_from(PageView)
             .where(PageView.user_id == user_id)
-            .group_by(PageView.path)
-            .order_by(desc("view_count"))
-            .limit(limit)
+        )
+
+        rows = session.execute(
+            select(PageView.id, PageView.path, PageView.viewed_at)
+            .where(PageView.user_id == user_id)
+            .order_by(desc(PageView.viewed_at))
+            .offset(offset)
+            .limit(page_size)
         ).all()
 
-        return [
+        items = [
             {
-                "path": v.path,
-                "view_count": v.view_count,
-                "last_viewed": v.last_viewed.isoformat() if v.last_viewed else None,
+                "id": r.id,
+                "path": r.path,
+                "viewed_at": r.viewed_at.isoformat() if r.viewed_at else None,
             }
-            for v in views
+            for r in rows
         ]
+
+        return {
+            "items": items,
+            "total": total or 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": max(1, -(-total // page_size)) if total else 1,
+        }

@@ -67,5 +67,9 @@ def register_activity_routes(mcp):
             return err
 
         user_id = int(request.path_params["user_id"])
-        views = get_user_page_views(user_id)
-        return JSONResponse({"success": True, "data": views})
+        page = int(request.query_params.get("page", "1"))
+        page_size = int(request.query_params.get("page_size", "25"))
+        page_size = min(page_size, 100)
+
+        data = get_user_page_views(user_id, page=page, page_size=page_size)
+        return JSONResponse({"success": True, "data": data})

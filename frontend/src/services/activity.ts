@@ -30,10 +30,12 @@ export interface PageViewsResponse {
   total_pages: number
 }
 
-export interface UserPageView {
-  path: string
-  view_count: number
-  last_viewed: string | null
+export interface UserPageViewsResponse {
+  items: { id: number; path: string; viewed_at: string | null }[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
 }
 
 export async function getActivitySummary(): Promise<ActivitySummary> {
@@ -57,8 +59,16 @@ export async function getPageViews(
   return json.data
 }
 
-export async function getUserPageViews(userId: number): Promise<UserPageView[]> {
-  const res = await apiFetch(`/api/v1/activity/user/${userId}`)
+export async function getUserPageViews(
+  userId: number,
+  page: number = 1,
+  pageSize: number = 25
+): Promise<UserPageViewsResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  })
+  const res = await apiFetch(`/api/v1/activity/user/${userId}?${params}`)
   if (!res.ok) throw new Error("Failed to fetch user page views")
   const json = await res.json()
   return json.data
