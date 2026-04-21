@@ -9,14 +9,25 @@ export interface ActivityUser {
   last_active_at: string | null
 }
 
-export interface TopPage {
-  path: string
-  view_count: number
-}
-
 export interface ActivitySummary {
   users: ActivityUser[]
-  top_pages: TopPage[]
+}
+
+export interface PageViewItem {
+  id: number
+  path: string
+  viewed_at: string | null
+  user_id: number
+  user_name: string
+  user_initials: string
+}
+
+export interface PageViewsResponse {
+  items: PageViewItem[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
 }
 
 export interface UserPageView {
@@ -28,6 +39,20 @@ export interface UserPageView {
 export async function getActivitySummary(): Promise<ActivitySummary> {
   const res = await apiFetch("/api/v1/activity/summary")
   if (!res.ok) throw new Error("Failed to fetch activity summary")
+  const json = await res.json()
+  return json.data
+}
+
+export async function getPageViews(
+  page: number = 1,
+  pageSize: number = 25
+): Promise<PageViewsResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  })
+  const res = await apiFetch(`/api/v1/activity/views?${params}`)
+  if (!res.ok) throw new Error("Failed to fetch page views")
   const json = await res.json()
   return json.data
 }

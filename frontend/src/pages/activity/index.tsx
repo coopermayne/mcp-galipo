@@ -1,9 +1,28 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { getActivitySummary, getUserPageViews } from "@/services/activity"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  ArrowLeftDoubleIcon,
+  ArrowRightDoubleIcon,
+} from "@hugeicons/core-free-icons"
+import {
+  getActivitySummary,
+  getPageViews,
+  getUserPageViews,
+} from "@/services/activity"
 import type { ActivityUser } from "@/services/activity"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -35,6 +54,17 @@ function timeAgo(dateStr: string | null): string {
   return date.toLocaleDateString()
 }
 
+function formatTimestamp(dateStr: string | null): string {
+  if (!dateStr) return ""
+  const date = new Date(dateStr)
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
 function statusColor(dateStr: string | null): "default" | "secondary" | "destructive" | "outline" {
   if (!dateStr) return "secondary"
   const diffMs = Date.now() - new Date(dateStr).getTime()
@@ -46,13 +76,20 @@ function statusColor(dateStr: string | null): "default" | "secondary" | "destruc
 
 export default function ActivityPage() {
   const [selectedUser, setSelectedUser] = useState<ActivityUser | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
-  const { data, isLoading } = useQuery({
+  const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["activity-summary"],
     queryFn: getActivitySummary,
   })
 
-  const { data: userViews, isLoading: viewsLoading } = useQuery({
+  const { data: views, isLoading: viewsLoading } = useQuery({
+    queryKey: ["activity-views", page, pageSize],
+    queryFn: () => getPageViews(page, pageSize),
+  })
+
+  const { data: userViews, isLoading: userViewsLoading } = useQuery({
     queryKey: ["activity-user-views", selectedUser?.id],
     queryFn: () => getUserPageViews(selectedUser!.id),
     enabled: !!selectedUser,
@@ -81,7 +118,7 @@ export default function ActivityPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {summaryLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
@@ -90,14 +127,14 @@ export default function ActivityPage() {
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                   </TableRow>
                 ))
-              ) : data?.users.length === 0 ? (
+              ) : summary?.users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     No users found
                   </TableCell>
                 </TableRow>
               ) : (
-                data?.users.map((user) => (
+                summary?.users.map((user) => (
                   <TableRow
                     key={user.id}
                     className="cursor-pointer hover:bg-muted/50"
@@ -138,37 +175,49 @@ export default function ActivityPage() {
         </div>
       </div>
 
-      {/* Top Pages Table */}
+      {/* Page Views Log */}
       <div className="space-y-3">
-        <h2 className="text-lg font-medium">Top Pages (Last 30 Days)</h2>
+        <h2 className="text-lg font-medium">Page Views</h2>
         <div className="border">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[200px]">User</TableHead>
                 <TableHead>Page</TableHead>
-                <TableHead className="w-[120px] text-right">Views</TableHead>
+                <TableHead className="w-[180px]">Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {viewsLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-64" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                   </TableRow>
                 ))
-              ) : data?.top_pages.length === 0 ? (
+              ) : !views?.items.length ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
                     No page views recorded yet
                   </TableCell>
                 </TableRow>
               ) : (
-                data?.top_pages.map((page) => (
-                  <TableRow key={page.path}>
-                    <TableCell className="font-mono text-sm">{page.path}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {page.view_count.toLocaleString()}
+                views.items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-[10px]">
+                            {item.user_initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{item.user_name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{item.path}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatTimestamp(item.viewed_at)}
                     </TableCell>
                   </TableRow>
                 ))
@@ -176,6 +225,79 @@ export default function ActivityPage() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {views && views.total_pages > 0 && (
+          <div className="flex items-center justify-between px-2">
+            <div className="text-muted-foreground text-xs">
+              {views.total.toLocaleString()} total page views
+            </div>
+            <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                <p className="text-xs font-medium">Rows per page</p>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value))
+                    setPage(1)
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {[25, 50, 100].map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-xs font-medium">
+                Page {views.page} of {views.total_pages}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  className="hidden size-8 p-0 lg:flex"
+                  onClick={() => setPage(1)}
+                  disabled={page <= 1}
+                >
+                  <span className="sr-only">Go to first page</span>
+                  <HugeiconsIcon icon={ArrowLeftDoubleIcon} className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="size-8 p-0"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  <span className="sr-only">Go to previous page</span>
+                  <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="size-8 p-0"
+                  onClick={() => setPage((p) => Math.min(views.total_pages, p + 1))}
+                  disabled={page >= views.total_pages}
+                >
+                  <span className="sr-only">Go to next page</span>
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="hidden size-8 p-0 lg:flex"
+                  onClick={() => setPage(views.total_pages)}
+                  disabled={page >= views.total_pages}
+                >
+                  <span className="sr-only">Go to last page</span>
+                  <HugeiconsIcon icon={ArrowRightDoubleIcon} className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* User Detail Dialog */}
@@ -196,7 +318,7 @@ export default function ActivityPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {viewsLoading ? (
+                {userViewsLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
