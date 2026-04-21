@@ -296,6 +296,7 @@ from .activity import (
     touch_last_active,
     record_page_view,
     get_activity_summary,
+    get_page_views_paginated,
     get_user_page_views,
 )
 
@@ -531,6 +532,7 @@ __all__ = [
     "touch_last_active",
     "record_page_view",
     "get_activity_summary",
+    "get_page_views_paginated",
     "get_user_page_views",
     # Bulk import
     "import_case",

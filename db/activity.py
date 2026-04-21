@@ -40,9 +40,8 @@ def record_page_view(user_id: int, path: str) -> None:
 
 
 def get_activity_summary() -> dict:
-    """Get activity summary for all users: last active times and page view stats."""
+    """Get activity summary: user list with last active times."""
     with SessionLocal() as session:
-        # Get all active users with their last_active_at
         users = session.execute(
             select(User.id, User.first_name, User.last_name, User.email,
                    User.initials, User.last_active_at)
@@ -61,20 +60,42 @@ def get_activity_summary() -> dict:
                 "last_active_at": u.last_active_at.isoformat() if u.last_active_at else None,
             })
 
-        # Top pages across all users (last 30 days)
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        return {"users": user_list}
 
-        top_pages = session.execute(
-            select(PageView.path, func.count().label("view_count"))
-            .where(PageView.viewed_at >= thirty_days_ago)
-            .group_by(PageView.path)
-            .order_by(desc("view_count"))
-            .limit(50)
+
+def get_page_views_paginated(page: int = 1, page_size: int = 25) -> dict:
+    """Get all page views, most recent first, with pagination."""
+    offset = (page - 1) * page_size
+    with SessionLocal() as session:
+        total = session.scalar(select(func.count()).select_from(PageView))
+
+        rows = session.execute(
+            select(PageView.id, PageView.path, PageView.viewed_at,
+                   PageView.user_id, User.first_name, User.last_name,
+                   User.initials)
+            .join(User, PageView.user_id == User.id)
+            .order_by(desc(PageView.viewed_at))
+            .offset(offset)
+            .limit(page_size)
         ).all()
 
+        items = []
+        for r in rows:
+            items.append({
+                "id": r.id,
+                "path": r.path,
+                "viewed_at": r.viewed_at.isoformat() if r.viewed_at else None,
+                "user_id": r.user_id,
+                "user_name": f"{r.first_name} {r.last_name}",
+                "user_initials": r.initials,
+            })
+
         return {
-            "users": user_list,
-            "top_pages": [{"path": p.path, "view_count": p.view_count} for p in top_pages],
+            "items": items,
+            "total": total or 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": max(1, -(-total // page_size)) if total else 1,
         }
 
 
