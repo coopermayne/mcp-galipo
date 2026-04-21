@@ -39,9 +39,14 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 
+/** Parse an ISO string as UTC (backend stores UTC but omits the Z). */
+function parseUTC(dateStr: string): Date {
+  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z")
+}
+
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return "Never"
-  const date = new Date(dateStr)
+  const date = parseUTC(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMin = Math.floor(diffMs / 60000)
@@ -56,7 +61,7 @@ function timeAgo(dateStr: string | null): string {
 
 function formatTimestamp(dateStr: string | null): string {
   if (!dateStr) return ""
-  const date = new Date(dateStr)
+  const date = parseUTC(dateStr)
   return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -67,7 +72,7 @@ function formatTimestamp(dateStr: string | null): string {
 
 function statusColor(dateStr: string | null): "default" | "secondary" | "destructive" | "outline" {
   if (!dateStr) return "secondary"
-  const diffMs = Date.now() - new Date(dateStr).getTime()
+  const diffMs = Date.now() - parseUTC(dateStr).getTime()
   const diffHrs = diffMs / 3600000
   if (diffHrs < 1) return "default"
   if (diffHrs < 24) return "outline"
@@ -162,9 +167,9 @@ export default function ActivityPage() {
                       <Badge variant={statusColor(user.last_active_at)}>
                         {!user.last_active_at
                           ? "Inactive"
-                          : Date.now() - new Date(user.last_active_at).getTime() < 3600000
+                          : Date.now() - parseUTC(user.last_active_at).getTime() < 3600000
                             ? "Online"
-                            : Date.now() - new Date(user.last_active_at).getTime() < 86400000
+                            : Date.now() - parseUTC(user.last_active_at).getTime() < 86400000
                               ? "Today"
                               : "Away"}
                       </Badge>
