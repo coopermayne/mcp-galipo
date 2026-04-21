@@ -13,6 +13,7 @@ import jwt
 
 from config import settings
 from db.users import authenticate_user, get_user_by_id
+from db.activity import touch_last_active
 
 
 # Session expiry: 30 days (rolling — refreshed on each verify)
@@ -178,6 +179,7 @@ def require_auth(request) -> Optional[JSONResponse]:
     """
     Check if request is authenticated.
     Returns None if authenticated, or a 401 JSONResponse if not.
+    Also updates the user's last_active_at timestamp (throttled to once/min).
     """
     token = get_token_from_request(request)
 
@@ -192,6 +194,15 @@ def require_auth(request) -> Optional[JSONResponse]:
             {"success": False, "error": {"message": "Invalid or expired token", "code": "UNAUTHORIZED"}},
             status_code=401
         )
+
+    # Update last_active_at (throttled inside touch_last_active)
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = int(payload.get("sub", 0))
+        if user_id > 0:
+            touch_last_active(user_id)
+    except Exception:
+        pass  # Don't let tracking failures break auth
 
     return None
 

@@ -11,6 +11,7 @@ import {
   LegalDocument01Icon,
   JusticeScale01Icon,
   UserGroupIcon,
+  Activity01Icon,
 } from "@hugeicons/core-free-icons"
 
 export type NavItem = {
@@ -127,6 +128,11 @@ export const navGroups: NavGroup[] = [
         title: "Users",
         url: "/users",
         icon: UserGroupIcon,
+      },
+      {
+        title: "Activity",
+        url: "/activity",
+        icon: Activity01Icon,
       },
     ],
   },

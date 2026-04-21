@@ -444,6 +444,7 @@ class User(Base):
     )
     paralegal_id: Mapped[Optional[int]] = mapped_column(Integer)
     visible_features: Mapped[Optional[list]] = mapped_column(JSONB)
+    last_active_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
 
     # Relationships
     paralegal: Mapped[Optional[User]] = relationship(
@@ -1088,3 +1089,30 @@ class CaseCounselFee(Base):
     # Relationships
     financial: Mapped[CaseFinancial] = relationship(back_populates="counsel_fees")
     person_role: Mapped[Optional[PersonRole]] = relationship()
+
+
+# ---------------------------------------------------------------------------
+# User activity tracking
+# ---------------------------------------------------------------------------
+
+class PageView(Base):
+    """Tracks page views per user for activity analytics."""
+
+    __tablename__ = "page_views"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="CASCADE",
+            name="page_views_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="page_views_pkey"),
+        Index("idx_page_views_user_id", "user_id"),
+        Index("idx_page_views_viewed_at", "viewed_at"),
+        Index("idx_page_views_path", "path"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer)
+    path: Mapped[str] = mapped_column(String(500))
+    viewed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
