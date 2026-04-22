@@ -7,6 +7,7 @@ import type { CaseDetail } from "@/types/case"
 import { updateCase } from "@/services/cases"
 import { getEvents } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
+import { parseUTC } from "@/lib/utils"
 
 interface CaseInfoPanelProps {
   caseData: CaseDetail
@@ -52,7 +53,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
   const createdDate = useMemo(
     () =>
       caseData.created_at
-        ? new Date(caseData.created_at).toLocaleDateString("en-US", {
+        ? parseUTC(caseData.created_at).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
             year: "numeric",

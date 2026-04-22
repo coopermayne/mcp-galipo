@@ -28,8 +28,10 @@ import { CaseStatusBadge } from "./status-badge"
 
 // --- Helpers ---
 
+import { parseUTC } from "@/lib/utils"
+
 function formatTime(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = parseUTC(dateStr)
   return d.toLocaleString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -37,7 +39,7 @@ function formatTime(dateStr: string): string {
 }
 
 function formatDateHeader(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = parseUTC(dateStr)
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -55,7 +57,7 @@ function formatDateHeader(dateStr: string): string {
 }
 
 function getDateKey(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = parseUTC(dateStr)
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
 

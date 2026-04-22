@@ -39,10 +39,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 
-/** Parse an ISO string as UTC (backend stores UTC but omits the Z). */
-function parseUTC(dateStr: string): Date {
-  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z")
-}
+import { parseUTC } from "@/lib/utils"
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return "Never"
