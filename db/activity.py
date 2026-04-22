@@ -34,7 +34,7 @@ def touch_last_active(user_id: int) -> None:
 def record_page_view(user_id: int, path: str) -> None:
     """Record a page view for the given user."""
     with SessionLocal() as session:
-        pv = PageView(user_id=user_id, path=path, viewed_at=datetime.now(timezone.utc))
+        pv = PageView(user_id=user_id, path=path)
         session.add(pv)
         session.commit()
 

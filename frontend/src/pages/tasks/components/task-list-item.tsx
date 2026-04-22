@@ -38,7 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { cn, parseUTC } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
 import { statuses, urgencies } from "@/pages/tasks/task-data"
 
@@ -388,7 +388,7 @@ function formatCompletionDate(task: TaskListItemType): string {
 
   // Append time from updated_at if available
   if (task.updated_at) {
-    const ts = parseUTC(task.updated_at)
+    const ts = new Date(task.updated_at)
     label += ` at ${ts.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
   }
 
