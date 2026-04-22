@@ -28,8 +28,15 @@ import { CaseStatusBadge } from "./status-badge"
 
 // --- Helpers ---
 
-function formatTime(dateStr: string): string {
+/** Shift a timestamp back 7 hours to correct for server UTC offset. Temporary fix. */
+function adjustDate(dateStr: string): Date {
   const d = new Date(dateStr)
+  d.setHours(d.getHours() - 7)
+  return d
+}
+
+function formatTime(dateStr: string): string {
+  const d = adjustDate(dateStr)
   return d.toLocaleString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -37,7 +44,7 @@ function formatTime(dateStr: string): string {
 }
 
 function formatDateHeader(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = adjustDate(dateStr)
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -55,7 +62,7 @@ function formatDateHeader(dateStr: string): string {
 }
 
 function getDateKey(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = adjustDate(dateStr)
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
 
