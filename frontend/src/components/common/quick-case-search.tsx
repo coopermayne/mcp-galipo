@@ -18,8 +18,6 @@ import {
 } from "@/components/ui/dialog"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import { getCases, createCaseComment } from "@/services/cases"
-import { createTask } from "@/services/tasks"
-import { createEvent } from "@/services/events"
 import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -33,11 +31,6 @@ const ACTION_LABELS: Record<QuickAction, string> = {
   event: "Event",
 }
 
-const INPUT_PLACEHOLDERS: Record<Exclude<QuickAction, "go">, string> = {
-  task: "Enter task description...",
-  note: "Enter activity note...",
-  event: "Enter event description (date defaults to today)...",
-}
 
 interface QuickCaseSearchProps {
   open: boolean
@@ -45,7 +38,6 @@ interface QuickCaseSearchProps {
 }
 
 interface InputMode {
-  action: Exclude<QuickAction, "go">
   caseId: number
   caseName: string
 }
@@ -112,12 +104,15 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
 
   function handleSelect(caseId: number, caseName: string) {
     const action = ACTIONS[actionIndex]
-    if (action === "go") {
+    if (action === "task" || action === "event") {
+      onOpenChange(false)
+      navigate(`/cases/${caseId}?ai=${action === "task" ? "tasks" : "events"}`)
+    } else if (action === "note") {
+      setInputMode({ caseId, caseName })
+      setInputValue("")
+    } else {
       onOpenChange(false)
       navigate(`/cases/${caseId}`)
-    } else {
-      setInputMode({ action, caseId, caseName })
-      setInputValue("")
     }
   }
 
@@ -126,22 +121,8 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
 
     setIsSubmitting(true)
     try {
-      const { action, caseId } = inputMode
-      if (action === "task") {
-        await createTask({ case_id: caseId, description: inputValue.trim() })
-        queryClient.invalidateQueries({ queryKey: ["tasks"] })
-      } else if (action === "note") {
-        await createCaseComment(caseId, inputValue.trim())
-        queryClient.invalidateQueries({ queryKey: ["cases", caseId] })
-      } else if (action === "event") {
-        const today = new Date().toISOString().slice(0, 10)
-        await createEvent({
-          case_id: caseId,
-          date: today,
-          description: inputValue.trim(),
-        })
-        queryClient.invalidateQueries({ queryKey: ["events"] })
-      }
+      await createCaseComment(inputMode.caseId, inputValue.trim())
+      queryClient.invalidateQueries({ queryKey: ["cases", inputMode.caseId] })
       setInputMode(null)
       setActionIndex(0)
       onOpenChange(false)
@@ -163,13 +144,11 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogHeader className="sr-only">
         <DialogTitle>
-          {inputMode
-            ? `Add ${ACTION_LABELS[inputMode.action]}`
-            : "Quick Case Search"}
+          {inputMode ? "Add Note" : "Quick Case Search"}
         </DialogTitle>
         <DialogDescription>
           {inputMode
-            ? `Add a ${ACTION_LABELS[inputMode.action].toLowerCase()} to ${inputMode.caseName}`
+            ? `Add a note to ${inputMode.caseName}`
             : "Search for a case by name"}
         </DialogDescription>
       </DialogHeader>
@@ -181,7 +160,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
           <div className="flex flex-col">
             <div className="border-b px-3 py-2">
               <span className="text-muted-foreground text-xs">
-                Add {ACTION_LABELS[inputMode.action]} to{" "}
+                Add Note to{" "}
               </span>
               <span className="text-xs font-medium">{inputMode.caseName}</span>
             </div>
@@ -196,7 +175,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
                     handleSubmitInput()
                   }
                 }}
-                placeholder={INPUT_PLACEHOLDERS[inputMode.action]}
+                placeholder="Enter activity note..."
                 className="w-full bg-transparent text-xs outline-none"
                 disabled={isSubmitting}
               />
