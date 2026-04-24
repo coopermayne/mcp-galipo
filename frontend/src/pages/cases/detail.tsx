@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react"
-import { useParams } from "react-router"
+import { useState, useCallback, useEffect, useMemo } from "react"
+import { useParams, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -35,6 +35,7 @@ export default function CaseDetailPage() {
 function CaseDetailContent() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Dialog state
   const [addPersonOpen, setAddPersonOpen] = useState(false)
@@ -47,6 +48,14 @@ function CaseDetailContent() {
   const [aiEventsOpen, setAiEventsOpen] = useState(false)
   const [aiPeopleOpen, setAiPeopleOpen] = useState(false)
   const [aiProceedingsOpen, setAiProceedingsOpen] = useState(false)
+
+  useEffect(() => {
+    const aiMode = searchParams.get("ai")
+    if (!aiMode) return
+    if (aiMode === "tasks") setAiTasksOpen(true)
+    else if (aiMode === "events") setAiEventsOpen(true)
+    setSearchParams((prev) => { prev.delete("ai"); return prev }, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const queryClient = useQueryClient()
 
