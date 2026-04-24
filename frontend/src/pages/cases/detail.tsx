@@ -43,6 +43,8 @@ function CaseDetailContent() {
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   const [addEventOpen, setAddEventOpen] = useState(false)
   const [aiTasksEventsOpen, setAiTasksEventsOpen] = useState(false)
+  const [aiTasksOpen, setAiTasksOpen] = useState(false)
+  const [aiEventsOpen, setAiEventsOpen] = useState(false)
   const [aiPeopleOpen, setAiPeopleOpen] = useState(false)
   const [aiProceedingsOpen, setAiProceedingsOpen] = useState(false)
 
@@ -87,6 +89,22 @@ function CaseDetailContent() {
       queryKeys: [["tasks", "case", caseId], ["tasks"], ["case", caseId]],
       toastMessage: "Task created via AI",
     },
+    {
+      toolNames: ["manage_event"],
+      queryKeys: [["events", "case", caseId], ["events"], ["case", caseId]],
+      toastMessage: "Event created via AI",
+    },
+  ], [caseId])
+
+  const aiTasksOnlyRules: ToolCompletionRule[] = useMemo(() => [
+    {
+      toolNames: ["manage_task"],
+      queryKeys: [["tasks", "case", caseId], ["tasks"], ["case", caseId]],
+      toastMessage: "Task created via AI",
+    },
+  ], [caseId])
+
+  const aiEventsOnlyRules: ToolCompletionRule[] = useMemo(() => [
     {
       toolNames: ["manage_event"],
       queryKeys: [["events", "case", caseId], ["events"], ["case", caseId]],
@@ -184,12 +202,12 @@ function CaseDetailContent() {
             <CaseTasksCard
               caseId={caseData.id}
               onAdd={() => setAddTaskOpen(true)}
-              onAiAdd={() => setAiTasksEventsOpen(true)}
+              onAiAdd={() => setAiTasksOpen(true)}
             />
             <CaseEventsCard
               caseId={caseData.id}
               onAdd={() => setAddEventOpen(true)}
-              onAiAdd={() => setAiTasksEventsOpen(true)}
+              onAiAdd={() => setAiEventsOpen(true)}
             />
             <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
             <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
@@ -232,6 +250,28 @@ function CaseDetailContent() {
           mode="tasks_events"
           caseContext={caseData.id}
           toolCompletionRules={aiTasksEventsRules}
+        />
+        <AiChatSheet
+          open={aiTasksOpen}
+          onOpenChange={setAiTasksOpen}
+          title="AI Tasks"
+          description="Describe tasks and Claude will create them for this case."
+          placeholder="e.g. Follow up with client by Friday, file MSJ, respond to discovery..."
+          emptyStateText="Describe tasks to add to this case. Claude will create them with the right priority and due date."
+          mode="tasks"
+          caseContext={caseData.id}
+          toolCompletionRules={aiTasksOnlyRules}
+        />
+        <AiChatSheet
+          open={aiEventsOpen}
+          onOpenChange={setAiEventsOpen}
+          title="AI Events"
+          description="Describe calendar events and Claude will create them for this case."
+          placeholder="e.g. Depo next Tuesday at 10am, mediation March 15, MSJ hearing on Friday..."
+          emptyStateText="Describe calendar events to add to this case. Claude will create them with the right date and time."
+          mode="events"
+          caseContext={caseData.id}
+          toolCompletionRules={aiEventsOnlyRules}
         />
         <AiChatSheet
           open={aiPeopleOpen}
