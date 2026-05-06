@@ -37,11 +37,18 @@ export default function MyCasesPage() {
     return () => mq.removeEventListener("change", handler)
   }, [])
 
-  const attorneyIds = user ? [user.id] : undefined
+  const isParalegal = user?.position === "paralegal"
+  const attorneyIds = user && !isParalegal ? [user.id] : undefined
+  const paralegalIds = user && isParalegal ? [user.id] : undefined
 
   const { data: casesData, isLoading } = useQuery({
-    queryKey: ["cases", "mine", user?.id],
-    queryFn: () => getCases({ attorney_ids: attorneyIds, limit: 2000 }),
+    queryKey: ["cases", "mine", user?.id, isParalegal],
+    queryFn: () =>
+      getCases({
+        attorney_ids: attorneyIds,
+        paralegal_ids: paralegalIds,
+        limit: 2000,
+      }),
     enabled: !!user,
   })
 
