@@ -53,8 +53,8 @@ def get_next_case_color() -> str:
 
 def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                   offset: int = None, attorney_ids: List[int] = None,
-                  unassigned: bool = False) -> dict:
-    """Get all cases with optional status filter and attorney filter."""
+                  unassigned: bool = False, paralegal_ids: List[int] = None) -> dict:
+    """Get all cases with optional status filter and attorney/paralegal filter."""
     with SessionLocal() as session:
         filters = []
         if status_filter:
@@ -67,6 +67,8 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                 filters.append(Case.status.in_(statuses))
         if attorney_ids:
             filters.append(Case.attorney_ids.op('&&')(cast(attorney_ids, SA_ARRAY(Integer()))))
+        elif paralegal_ids:
+            filters.append(Case.paralegal_ids.op('&&')(cast(paralegal_ids, SA_ARRAY(Integer()))))
         elif unassigned:
             filters.append(or_(
                 Case.attorney_ids == None,

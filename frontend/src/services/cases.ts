@@ -13,6 +13,7 @@ interface GetCasesParams {
   limit?: number
   offset?: number
   attorney_ids?: number[]
+  paralegal_ids?: number[]
   unassigned?: boolean
 }
 
@@ -25,6 +26,8 @@ export async function getCases(
   if (params.offset != null) searchParams.set("offset", String(params.offset))
   if (params.attorney_ids?.length)
     searchParams.set("attorney_ids", params.attorney_ids.join(","))
+  if (params.paralegal_ids?.length)
+    searchParams.set("paralegal_ids", params.paralegal_ids.join(","))
   if (params.unassigned) searchParams.set("unassigned", "true")
 
   const res = await apiFetch(`/api/v1/cases?${searchParams}`)
