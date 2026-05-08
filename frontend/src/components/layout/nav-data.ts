@@ -4,6 +4,7 @@ import {
   Briefcase01Icon,
   Briefcase02Icon,
   MoneyBag02Icon,
+  Invoice02Icon,
   Task01Icon,
   Calendar03Icon,
   ContactBookIcon,
@@ -60,6 +61,12 @@ export const navGroups: NavGroup[] = [
         url: "/financials",
         icon: MoneyBag02Icon,
         featureKey: "financials",
+      },
+      {
+        title: "Invoices",
+        url: "/invoices",
+        icon: Invoice02Icon,
+        featureKey: "invoices",
       },
       {
         title: "Tasks",

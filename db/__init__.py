@@ -300,6 +300,18 @@ from .activity import (
     get_user_page_views,
 )
 
+# Invoices
+from .invoices import (
+    list_invoices,
+    get_invoice,
+    create_invoice,
+    update_invoice,
+    mark_invoice_paid,
+    mark_invoice_unpaid,
+    delete_invoice,
+    get_invoice_stats,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -534,6 +546,15 @@ __all__ = [
     "get_activity_summary",
     "get_page_views_paginated",
     "get_user_page_views",
+    # Invoices
+    "list_invoices",
+    "get_invoice",
+    "create_invoice",
+    "update_invoice",
+    "mark_invoice_paid",
+    "mark_invoice_unpaid",
+    "delete_invoice",
+    "get_invoice_stats",
     # Bulk import
     "import_case",
 ]

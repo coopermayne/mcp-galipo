@@ -301,6 +301,7 @@ class Case(Base):
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case")
     proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case")
     tasks: Mapped[list[Task]] = relationship(back_populates="case")
+    invoices: Mapped[list[Invoice]] = relationship(back_populates="case")
 
 
 class ExpertiseType(Base):
@@ -1049,6 +1050,50 @@ class CaseFinancial(Base):
     counsel_fees: Mapped[list[CaseCounselFee]] = relationship(
         back_populates="financial", cascade="all, delete-orphan"
     )
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"], ["cases.id"], ondelete="CASCADE",
+            name="invoices_case_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="invoices_pkey"),
+        Index("idx_invoices_case_id", "case_id"),
+        Index("idx_invoices_status", "status"),
+        Index("idx_invoices_due_date", "due_date"),
+        Index("idx_invoices_date", "date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(
+        String(20), server_default=text("'unpaid'::character varying")
+    )
+    vendor: Mapped[str] = mapped_column(String(255))
+    amount: Mapped[float] = mapped_column(Numeric(14, 2))
+    date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    due_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    category: Mapped[Optional[str]] = mapped_column(String(50))
+    payable_to: Mapped[Optional[str]] = mapped_column(String(255))
+    payment_address: Mapped[Optional[str]] = mapped_column(Text)
+    check_number: Mapped[Optional[str]] = mapped_column(String(50))
+    paid_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    file_path: Mapped[Optional[str]] = mapped_column(Text)
+    file_name: Mapped[Optional[str]] = mapped_column(String(255))
+    content_type: Mapped[Optional[str]] = mapped_column(String(100))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    case: Mapped[Case] = relationship(back_populates="invoices")
 
 
 class CaseCounselFee(Base):
