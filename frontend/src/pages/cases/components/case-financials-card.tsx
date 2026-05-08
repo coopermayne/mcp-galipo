@@ -1,13 +1,16 @@
 import { useState } from "react"
+import { Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   Delete02Icon,
+  ArrowRight01Icon,
 } from "@hugeicons/core-free-icons"
 import type { CounselFee } from "@/types/financial"
 import type { CasePerson } from "@/types/case"
+import { getInvoiceStats } from "@/services/invoices"
 import {
   getFinancialByCase,
   createFinancial,
@@ -77,6 +80,11 @@ export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardPr
   const { data: financial, isLoading } = useQuery({
     queryKey,
     queryFn: () => getFinancialByCase(caseId),
+  })
+
+  const { data: invoiceStats } = useQuery({
+    queryKey: ["invoices", "stats", caseId],
+    queryFn: () => getInvoiceStats(caseId),
   })
 
   const invalidate = () => {
@@ -164,6 +172,30 @@ export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardPr
             Add Financial Data
           </Button>
         </CardContent>
+        <div className="border-t px-3 py-2">
+          <Link
+            to={`/cases/${caseId}/costs`}
+            className="flex items-center justify-between group"
+          >
+            <div>
+              <span className="text-xs font-medium">Costs & Invoices</span>
+              {invoiceStats && invoiceStats.unpaid_count > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {invoiceStats.unpaid_count} unpaid &middot; $
+                  {Number(invoiceStats.unpaid_total).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                  })}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">No unpaid invoices</p>
+              )}
+            </div>
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors"
+            />
+          </Link>
+        </div>
       </Card>
     )
   }
@@ -345,6 +377,32 @@ export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardPr
               </div>
             )
           })()}
+        </div>
+
+        {/* Costs / Invoices link */}
+        <div className="border-t pt-3">
+          <Link
+            to={`/cases/${caseId}/costs`}
+            className="flex items-center justify-between group hover:bg-muted/50 -mx-3 px-3 py-2 transition-colors"
+          >
+            <div>
+              <span className="text-xs font-medium">Costs & Invoices</span>
+              {invoiceStats && invoiceStats.unpaid_count > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {invoiceStats.unpaid_count} unpaid &middot; $
+                  {Number(invoiceStats.unpaid_total).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                  })}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">No unpaid invoices</p>
+              )}
+            </div>
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors"
+            />
+          </Link>
         </div>
 
         {/* Delete financial */}

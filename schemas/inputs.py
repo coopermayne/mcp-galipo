@@ -191,3 +191,43 @@ class UpdateFinancialInput(BaseModel):
     liens_total: Optional[float] = None
     is_finalized: Optional[bool] = None
     notes: Optional[str] = None
+
+
+# =============================================================================
+# Route Input Models — Invoices
+# =============================================================================
+
+class CreateInvoiceInput(BaseModel):
+    case_id: int
+    vendor: str
+    amount: float
+    status: Optional[Literal["unpaid", "paid"]] = "unpaid"
+    date: Optional[str] = None
+    due_date: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    check_number: Optional[str] = None
+    paid_date: Optional[str] = None
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    content_type: Optional[str] = None
+    payable_to: Optional[str] = None
+    payment_address: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class UpdateInvoiceInput(BaseModel):
+    vendor: Optional[str] = None
+    amount: Optional[float] = None
+    date: Optional[str] = None
+    due_date: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    payable_to: Optional[str] = None
+    payment_address: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class MarkInvoicePaidInput(BaseModel):
+    check_number: Optional[str] = None
+    paid_date: Optional[str] = None
