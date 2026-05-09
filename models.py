@@ -1052,12 +1052,39 @@ class CaseFinancial(Base):
     )
 
 
+class Payee(Base):
+    __tablename__ = "payees"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="payees_pkey"),
+        Index("idx_payees_name", "name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    address: Mapped[Optional[str]] = mapped_column(Text)
+    w9_file_path: Mapped[Optional[str]] = mapped_column(Text)
+    w9_file_name: Mapped[Optional[str]] = mapped_column(String(255))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    invoices: Mapped[list[Invoice]] = relationship(back_populates="payee")
+
+
 class Invoice(Base):
     __tablename__ = "invoices"
     __table_args__ = (
         ForeignKeyConstraint(
             ["case_id"], ["cases.id"], ondelete="CASCADE",
             name="invoices_case_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["payee_id"], ["payees.id"], ondelete="SET NULL",
+            name="invoices_payee_id_fkey",
         ),
         ForeignKeyConstraint(
             ["paid_by_person_id"], ["persons.id"], ondelete="SET NULL",
@@ -1072,18 +1099,16 @@ class Invoice(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     case_id: Mapped[int] = mapped_column(Integer)
+    payee_id: Mapped[Optional[int]] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(
         String(20), server_default=text("'unpaid'::character varying")
     )
-    vendor: Mapped[str] = mapped_column(String(255))
     amount: Mapped[float] = mapped_column(Numeric(14, 2))
     case_amount: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
     date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     due_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     description: Mapped[Optional[str]] = mapped_column(Text)
     category: Mapped[Optional[str]] = mapped_column(String(50))
-    payable_to: Mapped[Optional[str]] = mapped_column(String(255))
-    payment_address: Mapped[Optional[str]] = mapped_column(Text)
     check_number: Mapped[Optional[str]] = mapped_column(String(50))
     paid_by_person_id: Mapped[Optional[int]] = mapped_column(Integer)
     paid_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
@@ -1100,6 +1125,7 @@ class Invoice(Base):
 
     # Relationships
     case: Mapped[Case] = relationship(back_populates="invoices")
+    payee: Mapped[Optional[Payee]] = relationship(back_populates="invoices")
     paid_by_person: Mapped[Optional[Person]] = relationship(foreign_keys=[paid_by_person_id])
 
 

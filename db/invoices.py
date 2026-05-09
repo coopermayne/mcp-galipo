@@ -8,16 +8,24 @@ from typing import Optional
 from sqlalchemy import select, func, case as sa_case
 
 from .session import SessionLocal
-from models import Invoice, Case, CaseComment, Person
+from models import Invoice, Case, CaseComment, Person, Payee
 
 
-def _invoice_to_dict(inv: Invoice, case_name: str = None, paid_by_name: str = None) -> dict:
+def _invoice_to_dict(
+    inv: Invoice,
+    case_name: str = None,
+    paid_by_name: str = None,
+    payee_name: str = None,
+    payee_address: str = None,
+) -> dict:
     return {
         "id": inv.id,
         "case_id": inv.case_id,
         "case_name": case_name,
         "status": inv.status,
-        "vendor": inv.vendor,
+        "payee_id": inv.payee_id,
+        "payee_name": payee_name,
+        "payee_address": payee_address,
         "amount": str(inv.amount) if inv.amount is not None else None,
         "case_amount": str(inv.case_amount) if inv.case_amount is not None else None,
         "date": inv.date.isoformat() if inv.date else None,
@@ -31,8 +39,6 @@ def _invoice_to_dict(inv: Invoice, case_name: str = None, paid_by_name: str = No
         "content_type": inv.content_type,
         "paid_by_person_id": inv.paid_by_person_id,
         "paid_by_name": paid_by_name,
-        "payable_to": inv.payable_to,
-        "payment_address": inv.payment_address,
         "notes": inv.notes,
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
         "updated_at": inv.updated_at.isoformat() if inv.updated_at else None,
@@ -50,9 +56,16 @@ def list_invoices(
 ) -> dict:
     paid_by = Person.__table__.alias("paid_by")
     stmt = (
-        select(Invoice, Case.case_name, paid_by.c.name.label("paid_by_name"))
+        select(
+            Invoice,
+            Case.case_name,
+            paid_by.c.name.label("paid_by_name"),
+            Payee.name.label("payee_name"),
+            Payee.address.label("payee_address"),
+        )
         .join(Case, Invoice.case_id == Case.id)
         .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
+        .outerjoin(Payee, Invoice.payee_id == Payee.id)
     )
 
     if case_id:
@@ -62,7 +75,7 @@ def list_invoices(
     if search:
         pattern = f"%{search}%"
         stmt = stmt.where(
-            Invoice.vendor.ilike(pattern)
+            Payee.name.ilike(pattern)
             | Invoice.description.ilike(pattern)
             | Case.case_name.ilike(pattern)
         )
@@ -71,7 +84,7 @@ def list_invoices(
         "due_date": Invoice.due_date,
         "date": Invoice.date,
         "amount": Invoice.amount,
-        "vendor": Invoice.vendor,
+        "payee": Payee.name,
         "paid_date": Invoice.paid_date,
         "created_at": Invoice.created_at,
     }.get(sort_by, Invoice.due_date)
@@ -100,7 +113,10 @@ def list_invoices(
     with SessionLocal() as session:
         total = session.scalar(count_stmt)
         rows = session.execute(stmt.limit(limit).offset(offset)).all()
-        invoices = [_invoice_to_dict(inv, case_name, pbn) for inv, case_name, pbn in rows]
+        invoices = [
+            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr)
+            for inv, case_name, pbn, payee_name, payee_addr in rows
+        ]
         return {"invoices": invoices, "total": total}
 
 
@@ -108,21 +124,28 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
     with SessionLocal() as session:
         paid_by = Person.__table__.alias("paid_by")
         row = session.execute(
-            select(Invoice, Case.case_name, paid_by.c.name.label("paid_by_name"))
+            select(
+                Invoice,
+                Case.case_name,
+                paid_by.c.name.label("paid_by_name"),
+                Payee.name.label("payee_name"),
+                Payee.address.label("payee_address"),
+            )
             .join(Case, Invoice.case_id == Case.id)
             .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
+            .outerjoin(Payee, Invoice.payee_id == Payee.id)
             .where(Invoice.id == invoice_id)
         ).first()
         if not row:
             return None
-        inv, case_name, pbn = row
-        return _invoice_to_dict(inv, case_name, pbn)
+        inv, case_name, pbn, payee_name, payee_addr = row
+        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr)
 
 
 def create_invoice(
     case_id: int,
-    vendor: str,
     amount: float,
+    payee_id: int = None,
     status: str = "unpaid",
     date: str = None,
     due_date: str = None,
@@ -133,8 +156,6 @@ def create_invoice(
     file_path: str = None,
     file_name: str = None,
     content_type: str = None,
-    payable_to: str = None,
-    payment_address: str = None,
     case_amount: float = None,
     paid_by_person_id: int = None,
     notes: str = None,
@@ -142,7 +163,7 @@ def create_invoice(
     with SessionLocal() as session:
         inv = Invoice(
             case_id=case_id,
-            vendor=vendor,
+            payee_id=payee_id,
             amount=amount,
             case_amount=case_amount,
             status=status,
@@ -156,8 +177,6 @@ def create_invoice(
             file_path=file_path,
             file_name=file_name,
             content_type=content_type,
-            payable_to=payable_to,
-            payment_address=payment_address,
             notes=notes,
         )
         session.add(inv)
@@ -166,15 +185,24 @@ def create_invoice(
         case = session.get(Case, case_id)
         case_name = case.case_name if case else None
 
+        payee_name = None
+        payee_address = None
+        if payee_id:
+            payee = session.get(Payee, payee_id)
+            if payee:
+                payee_name = payee.name
+                payee_address = payee.address
+
+        comment_payee = payee_name or "unknown payee"
         comment = CaseComment(
             case_id=case_id,
-            content=f"Invoice added: ${amount:,.2f} to {vendor}",
+            content=f"Invoice added: ${amount:,.2f} to {comment_payee}",
             is_system=True,
         )
         session.add(comment)
 
         session.refresh(inv)
-        result = _invoice_to_dict(inv, case_name)
+        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address)
         session.commit()
         return result
 
@@ -199,7 +227,14 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
         if inv.paid_by_person_id:
             p = session.get(Person, inv.paid_by_person_id)
             paid_by_name = p.name if p else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name)
+        payee_name = None
+        payee_address = None
+        if inv.payee_id:
+            payee = session.get(Payee, inv.payee_id)
+            if payee:
+                payee_name = payee.name
+                payee_address = payee.address
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address)
         session.commit()
         return result
 
@@ -217,9 +252,18 @@ def mark_invoice_paid(
         inv.paid_date = paid_date or datetime.date.today().isoformat()
         inv.updated_at = datetime.datetime.now()
 
+        payee_name = None
+        payee_address = None
+        if inv.payee_id:
+            payee = session.get(Payee, inv.payee_id)
+            if payee:
+                payee_name = payee.name
+                payee_address = payee.address
+
+        comment_payee = payee_name or "unknown payee"
         comment = CaseComment(
             case_id=inv.case_id,
-            content=f"Invoice paid: ${float(inv.amount):,.2f} to {inv.vendor}"
+            content=f"Invoice paid: ${float(inv.amount):,.2f} to {comment_payee}"
             + (f" (Ref: {check_number})" if check_number else ""),
             is_system=True,
         )
@@ -234,7 +278,7 @@ def mark_invoice_paid(
         if inv.paid_by_person_id:
             p = session.get(Person, inv.paid_by_person_id)
             paid_by_name = p.name if p else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name)
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address)
         session.commit()
         return result
 
@@ -259,7 +303,14 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
         if inv.paid_by_person_id:
             p = session.get(Person, inv.paid_by_person_id)
             paid_by_name = p.name if p else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name)
+        payee_name = None
+        payee_address = None
+        if inv.payee_id:
+            payee = session.get(Payee, inv.payee_id)
+            if payee:
+                payee_name = payee.name
+                payee_address = payee.address
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address)
         session.commit()
         return result
 

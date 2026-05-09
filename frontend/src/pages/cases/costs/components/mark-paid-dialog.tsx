@@ -61,7 +61,7 @@ export function MarkPaidDialog({
           <DialogTitle>Mark as Paid</DialogTitle>
           {invoice && (
             <p className="text-sm text-muted-foreground">
-              {invoice.vendor} &middot;{" "}
+              {invoice.payee_name ?? "No payee"} &middot;{" "}
               {Number(invoice.amount).toLocaleString("en-US", {
                 style: "currency",
                 currency: "USD",

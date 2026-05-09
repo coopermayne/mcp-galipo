@@ -79,7 +79,6 @@ export function InvoiceDropzone({ caseId, onSuccess }: InvoiceDropzoneProps) {
     async (data: Record<string, unknown>) => {
       await createInvoice({
         case_id: caseId,
-        vendor: data.vendor as string,
         amount: data.amount as number,
         date: (data.date as string) || undefined,
         due_date: (data.due_date as string) || undefined,
@@ -87,6 +86,7 @@ export function InvoiceDropzone({ caseId, onSuccess }: InvoiceDropzoneProps) {
         category: (data.category as string) || undefined,
         check_number: (data.check_number as string) || undefined,
         notes: (data.notes as string) || undefined,
+        payee_id: (data.payee_id as number) || undefined,
         file_path: confirmData?.filePath,
         file_name: confirmData?.fileName,
         content_type: confirmData?.contentType,

@@ -144,9 +144,8 @@ def register_invoice_routes(mcp):
         result = await asyncio.to_thread(
             db.create_invoice,
             data.case_id,
-            data.vendor,
             data.amount,
-            **data.model_dump(exclude={"case_id", "vendor", "amount"}, exclude_none=True),
+            **data.model_dump(exclude={"case_id", "amount"}, exclude_none=True),
         )
         return JSONResponse({"success": True, "invoice": result})
 

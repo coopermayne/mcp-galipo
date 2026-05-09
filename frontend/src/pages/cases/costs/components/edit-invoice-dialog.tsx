@@ -28,6 +28,7 @@ import {
 } from "@/services/invoices"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Attachment01Icon } from "@hugeicons/core-free-icons"
+import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
 
 interface EditInvoiceDialogProps {
   invoice: Invoice | null
@@ -40,7 +41,7 @@ export function EditInvoiceDialog({
   onOpenChange,
   onSuccess,
 }: EditInvoiceDialogProps) {
-  const [vendor, setVendor] = useState("")
+  const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
   const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
@@ -48,8 +49,6 @@ export function EditInvoiceDialog({
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
   const [paidByPersonId, setPaidByPersonId] = useState("")
-  const [payableTo, setPayableTo] = useState("")
-  const [paymentAddress, setPaymentAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -61,7 +60,7 @@ export function EditInvoiceDialog({
 
   useEffect(() => {
     if (invoice) {
-      setVendor(invoice.vendor)
+      setPayeeId(invoice.payee_id ?? null)
       setAmount(String(invoice.amount))
       setCaseAmount(invoice.case_amount ?? "")
       setDate(invoice.date ?? "")
@@ -69,20 +68,17 @@ export function EditInvoiceDialog({
       setDescription(invoice.description ?? "")
       setCategory(invoice.category ?? "")
       setPaidByPersonId(invoice.paid_by_person_id ? String(invoice.paid_by_person_id) : "")
-      setPayableTo(invoice.payable_to ?? "")
-      setPaymentAddress(invoice.payment_address ?? "")
       setNotes(invoice.notes ?? "")
     }
   }, [invoice])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!invoice || !vendor.trim() || !amount) return
+    if (!invoice || !amount) return
 
     setSaving(true)
     try {
       await updateInvoice(invoice.id, {
-        vendor: vendor.trim(),
         amount: parseFloat(amount),
         case_amount: caseAmount ? parseFloat(caseAmount) : null,
         date: date || undefined,
@@ -90,8 +86,7 @@ export function EditInvoiceDialog({
         description: description.trim() || undefined,
         category: category || undefined,
         paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : null,
-        payable_to: payableTo.trim() || undefined,
-        payment_address: paymentAddress.trim() || undefined,
+        payee_id: payeeId,
         notes: notes.trim() || undefined,
       })
       toast.success("Invoice updated")
@@ -122,16 +117,12 @@ export function EditInvoiceDialog({
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <PayeeSearch
+            value={payeeId}
+            valueName={invoice?.payee_name}
+            onChange={setPayeeId}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="edit-vendor">Vendor</Label>
-              <Input
-                id="edit-vendor"
-                value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
-                required
-              />
-            </div>
             <div>
               <Label htmlFor="edit-amount">Total Amount</Label>
               <Input
@@ -217,25 +208,6 @@ export function EditInvoiceDialog({
             />
           </div>
           <div>
-            <Label htmlFor="edit-payable-to">Payable To</Label>
-            <Input
-              id="edit-payable-to"
-              value={payableTo}
-              onChange={(e) => setPayableTo(e.target.value)}
-              placeholder="Name to make check out to"
-            />
-          </div>
-          <div>
-            <Label htmlFor="edit-payment-address">Payment Address</Label>
-            <Textarea
-              id="edit-payment-address"
-              value={paymentAddress}
-              onChange={(e) => setPaymentAddress(e.target.value)}
-              rows={3}
-              placeholder="Address to mail payment to"
-            />
-          </div>
-          <div>
             <Label htmlFor="edit-notes">Notes</Label>
             <Textarea
               id="edit-notes"
@@ -265,7 +237,7 @@ export function EditInvoiceDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !vendor.trim() || !amount}>
+            <Button type="submit" disabled={saving || !amount}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>

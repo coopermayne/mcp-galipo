@@ -194,13 +194,29 @@ class UpdateFinancialInput(BaseModel):
 
 
 # =============================================================================
+# Route Input Models — Payees
+# =============================================================================
+
+class CreatePayeeInput(BaseModel):
+    name: str
+    address: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class UpdatePayeeInput(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# =============================================================================
 # Route Input Models — Invoices
 # =============================================================================
 
 class CreateInvoiceInput(BaseModel):
     case_id: int
-    vendor: str
     amount: float
+    payee_id: Optional[int] = None
     case_amount: Optional[float] = None
     status: Optional[Literal["unpaid", "paid"]] = "unpaid"
     date: Optional[str] = None
@@ -213,22 +229,18 @@ class CreateInvoiceInput(BaseModel):
     file_path: Optional[str] = None
     file_name: Optional[str] = None
     content_type: Optional[str] = None
-    payable_to: Optional[str] = None
-    payment_address: Optional[str] = None
     notes: Optional[str] = None
 
 
 class UpdateInvoiceInput(BaseModel):
-    vendor: Optional[str] = None
     amount: Optional[float] = None
     case_amount: Optional[float] = None
+    payee_id: Optional[int] = None
     date: Optional[str] = None
     due_date: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
     paid_by_person_id: Optional[int] = None
-    payable_to: Optional[str] = None
-    payment_address: Optional[str] = None
     notes: Optional[str] = None
 
 

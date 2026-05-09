@@ -40,7 +40,7 @@ function formatCurrency(amount: string): string {
 }
 
 const SEARCHABLE_FIELDS: { key: keyof Invoice; weight: number }[] = [
-  { key: "vendor", weight: 100 },
+  { key: "payee_name", weight: 100 },
   { key: "case_name", weight: 90 },
   { key: "description", weight: 50 },
   { key: "category", weight: 40 },
@@ -105,13 +105,13 @@ export function getColumns(options: {
 
   cols.push(
     {
-      accessorKey: "vendor",
+      accessorKey: "payee_name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Vendor" />
+        <DataTableColumnHeader column={column} title="Payee" />
       ),
       cell: ({ row }) => (
         <span className="font-medium truncate max-w-[200px] block">
-          {row.getValue("vendor")}
+          {row.getValue("payee_name") ?? "No payee"}
         </span>
       ),
     },
