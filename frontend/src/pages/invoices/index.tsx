@@ -81,6 +81,7 @@ export default function InvoicesPage() {
     if (statusFilter === "unpaid") {
       hidden.paid_date = false
       hidden.check_number = false
+      hidden.paid_by_name = false
     } else {
       hidden.due_date = false
     }

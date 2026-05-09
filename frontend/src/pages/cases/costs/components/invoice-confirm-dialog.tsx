@@ -40,6 +40,7 @@ export function InvoiceConfirmDialog({
   const [dueDate, setDueDate] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
+  const [caseAmount, setCaseAmount] = useState("")
   const [checkNumber, setCheckNumber] = useState("")
   const [payableTo, setPayableTo] = useState("")
   const [paymentAddress, setPaymentAddress] = useState("")
@@ -54,6 +55,7 @@ export function InvoiceConfirmDialog({
       setDueDate(extracted.due_date ?? "")
       setDescription(extracted.description ?? "")
       setCategory(extracted.category ?? "")
+      setCaseAmount("")
       setCheckNumber(extracted.check_number ?? "")
       setPayableTo(extracted.payable_to ?? "")
       setPaymentAddress(extracted.payment_address ?? "")
@@ -70,6 +72,7 @@ export function InvoiceConfirmDialog({
       await onConfirm({
         vendor: vendor.trim(),
         amount: parseFloat(amount),
+        case_amount: caseAmount ? parseFloat(caseAmount) : undefined,
         date: date || undefined,
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
@@ -105,7 +108,7 @@ export function InvoiceConfirmDialog({
               />
             </div>
             <div>
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">Total Amount</Label>
               <Input
                 id="amount"
                 type="number"
@@ -114,6 +117,20 @@ export function InvoiceConfirmDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
+            </div>
+            <div>
+              <Label htmlFor="case_amount">Case Amount</Label>
+              <Input
+                id="case_amount"
+                type="number"
+                step="0.01"
+                value={caseAmount}
+                onChange={(e) => setCaseAmount(e.target.value)}
+                placeholder="Full amount"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank if full amount applies
+              </p>
             </div>
             <div>
               <Label htmlFor="category">Category</Label>

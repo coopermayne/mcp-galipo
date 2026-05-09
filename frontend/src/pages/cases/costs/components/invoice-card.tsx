@@ -76,8 +76,15 @@ export function InvoiceCard({ invoice, onMarkPaid, onClick, onChanged }: Invoice
         <div className="flex items-center gap-3 flex-wrap">
           <span className="font-medium text-sm truncate">{invoice.vendor}</span>
           <span className="text-sm font-semibold tabular-nums">
-            {formatCurrency(invoice.amount)}
+            {invoice.case_amount
+              ? formatCurrency(invoice.case_amount)
+              : formatCurrency(invoice.amount)}
           </span>
+          {invoice.case_amount && (
+            <span className="text-xs text-muted-foreground">
+              of {formatCurrency(invoice.amount)}
+            </span>
+          )}
           {isPaid && invoice.paid_date && (
             <span className="text-xs text-muted-foreground">
               Paid {formatDate(invoice.paid_date)}
@@ -91,6 +98,11 @@ export function InvoiceCard({ invoice, onMarkPaid, onClick, onChanged }: Invoice
           {!isPaid && invoice.due_date && (
             <span className="text-xs text-muted-foreground">
               Due {formatDate(invoice.due_date)}
+            </span>
+          )}
+          {invoice.paid_by_name && (
+            <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground">
+              Paid by: {invoice.paid_by_name}
             </span>
           )}
           {invoice.payable_to && (

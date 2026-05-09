@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   updateInvoice,
   INVOICE_CATEGORIES,
   getInvoiceFileUrl,
+  getCaseCounsel,
 } from "@/services/invoices"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Attachment01Icon } from "@hugeicons/core-free-icons"
@@ -40,23 +42,33 @@ export function EditInvoiceDialog({
 }: EditInvoiceDialogProps) {
   const [vendor, setVendor] = useState("")
   const [amount, setAmount] = useState("")
+  const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
+  const [paidByPersonId, setPaidByPersonId] = useState("")
   const [payableTo, setPayableTo] = useState("")
   const [paymentAddress, setPaymentAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
+  const { data: counsel } = useQuery({
+    queryKey: ["case-counsel", invoice?.case_id],
+    queryFn: () => getCaseCounsel(invoice!.case_id),
+    enabled: !!invoice?.case_id,
+  })
+
   useEffect(() => {
     if (invoice) {
       setVendor(invoice.vendor)
       setAmount(String(invoice.amount))
+      setCaseAmount(invoice.case_amount ?? "")
       setDate(invoice.date ?? "")
       setDueDate(invoice.due_date ?? "")
       setDescription(invoice.description ?? "")
       setCategory(invoice.category ?? "")
+      setPaidByPersonId(invoice.paid_by_person_id ? String(invoice.paid_by_person_id) : "")
       setPayableTo(invoice.payable_to ?? "")
       setPaymentAddress(invoice.payment_address ?? "")
       setNotes(invoice.notes ?? "")
@@ -72,10 +84,12 @@ export function EditInvoiceDialog({
       await updateInvoice(invoice.id, {
         vendor: vendor.trim(),
         amount: parseFloat(amount),
+        case_amount: caseAmount ? parseFloat(caseAmount) : null,
         date: date || undefined,
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
         category: category || undefined,
+        paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : null,
         payable_to: payableTo.trim() || undefined,
         payment_address: paymentAddress.trim() || undefined,
         notes: notes.trim() || undefined,
@@ -119,7 +133,7 @@ export function EditInvoiceDialog({
               />
             </div>
             <div>
-              <Label htmlFor="edit-amount">Amount</Label>
+              <Label htmlFor="edit-amount">Total Amount</Label>
               <Input
                 id="edit-amount"
                 type="number"
@@ -128,6 +142,20 @@ export function EditInvoiceDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
+            </div>
+            <div>
+              <Label htmlFor="edit-case-amount">Case Amount</Label>
+              <Input
+                id="edit-case-amount"
+                type="number"
+                step="0.01"
+                value={caseAmount}
+                onChange={(e) => setCaseAmount(e.target.value)}
+                placeholder="Full amount"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank if full amount applies to this case
+              </p>
             </div>
             <div>
               <Label htmlFor="edit-category">Category</Label>
@@ -139,6 +167,22 @@ export function EditInvoiceDialog({
                   {INVOICE_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-paid-by">Paid By</Label>
+              <Select value={paidByPersonId} onValueChange={setPaidByPersonId}>
+                <SelectTrigger id="edit-paid-by">
+                  <SelectValue placeholder="Our Firm" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__clear">Our Firm</SelectItem>
+                  {counsel?.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}{c.organization ? ` (${c.organization})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

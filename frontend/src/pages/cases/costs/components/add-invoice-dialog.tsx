@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createInvoice, INVOICE_CATEGORIES } from "@/services/invoices"
+import { createInvoice, INVOICE_CATEGORIES, getCaseCounsel } from "@/services/invoices"
 
 interface AddInvoiceDialogProps {
   open: boolean
@@ -35,22 +36,32 @@ export function AddInvoiceDialog({
 }: AddInvoiceDialogProps) {
   const [vendor, setVendor] = useState("")
   const [amount, setAmount] = useState("")
+  const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
+  const [paidByPersonId, setPaidByPersonId] = useState("")
   const [payableTo, setPayableTo] = useState("")
   const [paymentAddress, setPaymentAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
+  const { data: counsel } = useQuery({
+    queryKey: ["case-counsel", caseId],
+    queryFn: () => getCaseCounsel(caseId),
+    enabled: open,
+  })
+
   function reset() {
     setVendor("")
     setAmount("")
+    setCaseAmount("")
     setDate("")
     setDueDate("")
     setDescription("")
     setCategory("")
+    setPaidByPersonId("")
     setPayableTo("")
     setPaymentAddress("")
     setNotes("")
@@ -66,10 +77,12 @@ export function AddInvoiceDialog({
         case_id: caseId,
         vendor: vendor.trim(),
         amount: parseFloat(amount),
+        case_amount: caseAmount ? parseFloat(caseAmount) : undefined,
         date: date || undefined,
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
         category: category || undefined,
+        paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : undefined,
         payable_to: payableTo.trim() || undefined,
         payment_address: paymentAddress.trim() || undefined,
         notes: notes.trim() || undefined,
@@ -104,7 +117,7 @@ export function AddInvoiceDialog({
               />
             </div>
             <div>
-              <Label htmlFor="add-amount">Amount</Label>
+              <Label htmlFor="add-amount">Total Amount</Label>
               <Input
                 id="add-amount"
                 type="number"
@@ -116,6 +129,20 @@ export function AddInvoiceDialog({
               />
             </div>
             <div>
+              <Label htmlFor="add-case-amount">Case Amount</Label>
+              <Input
+                id="add-case-amount"
+                type="number"
+                step="0.01"
+                value={caseAmount}
+                onChange={(e) => setCaseAmount(e.target.value)}
+                placeholder="Full amount"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank if full amount applies
+              </p>
+            </div>
+            <div>
               <Label htmlFor="add-category">Category</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger id="add-category">
@@ -125,6 +152,22 @@ export function AddInvoiceDialog({
                   {INVOICE_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="add-paid-by">Paid By</Label>
+              <Select value={paidByPersonId} onValueChange={setPaidByPersonId}>
+                <SelectTrigger id="add-paid-by">
+                  <SelectValue placeholder="Our Firm" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__clear">Our Firm</SelectItem>
+                  {counsel?.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}{c.organization ? ` (${c.organization})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
