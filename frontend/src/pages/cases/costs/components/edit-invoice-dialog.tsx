@@ -106,7 +106,7 @@ export function EditInvoiceDialog({
 
   return (
     <Dialog open={!!invoice} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Invoice</DialogTitle>
           {invoice?.file_path && (
