@@ -8,10 +8,10 @@ from typing import Optional
 from sqlalchemy import select, func, case as sa_case
 
 from .session import SessionLocal
-from models import Invoice, Case, CaseComment
+from models import Invoice, Case, CaseComment, Person
 
 
-def _invoice_to_dict(inv: Invoice, case_name: str = None) -> dict:
+def _invoice_to_dict(inv: Invoice, case_name: str = None, paid_by_name: str = None) -> dict:
     return {
         "id": inv.id,
         "case_id": inv.case_id,
@@ -19,6 +19,7 @@ def _invoice_to_dict(inv: Invoice, case_name: str = None) -> dict:
         "status": inv.status,
         "vendor": inv.vendor,
         "amount": str(inv.amount) if inv.amount is not None else None,
+        "case_amount": str(inv.case_amount) if inv.case_amount is not None else None,
         "date": inv.date.isoformat() if inv.date else None,
         "due_date": inv.due_date.isoformat() if inv.due_date else None,
         "description": inv.description,
@@ -28,6 +29,8 @@ def _invoice_to_dict(inv: Invoice, case_name: str = None) -> dict:
         "file_path": inv.file_path,
         "file_name": inv.file_name,
         "content_type": inv.content_type,
+        "paid_by_person_id": inv.paid_by_person_id,
+        "paid_by_name": paid_by_name,
         "payable_to": inv.payable_to,
         "payment_address": inv.payment_address,
         "notes": inv.notes,
@@ -45,9 +48,11 @@ def list_invoices(
     limit: int = 100,
     offset: int = 0,
 ) -> dict:
+    paid_by = Person.__table__.alias("paid_by")
     stmt = (
-        select(Invoice, Case.case_name)
+        select(Invoice, Case.case_name, paid_by.c.name.label("paid_by_name"))
         .join(Case, Invoice.case_id == Case.id)
+        .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
     )
 
     if case_id:
@@ -95,21 +100,23 @@ def list_invoices(
     with SessionLocal() as session:
         total = session.scalar(count_stmt)
         rows = session.execute(stmt.limit(limit).offset(offset)).all()
-        invoices = [_invoice_to_dict(inv, case_name) for inv, case_name in rows]
+        invoices = [_invoice_to_dict(inv, case_name, pbn) for inv, case_name, pbn in rows]
         return {"invoices": invoices, "total": total}
 
 
 def get_invoice(invoice_id: int) -> Optional[dict]:
     with SessionLocal() as session:
+        paid_by = Person.__table__.alias("paid_by")
         row = session.execute(
-            select(Invoice, Case.case_name)
+            select(Invoice, Case.case_name, paid_by.c.name.label("paid_by_name"))
             .join(Case, Invoice.case_id == Case.id)
+            .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
             .where(Invoice.id == invoice_id)
         ).first()
         if not row:
             return None
-        inv, case_name = row
-        return _invoice_to_dict(inv, case_name)
+        inv, case_name, pbn = row
+        return _invoice_to_dict(inv, case_name, pbn)
 
 
 def create_invoice(
@@ -128,6 +135,8 @@ def create_invoice(
     content_type: str = None,
     payable_to: str = None,
     payment_address: str = None,
+    case_amount: float = None,
+    paid_by_person_id: int = None,
     notes: str = None,
 ) -> dict:
     with SessionLocal() as session:
@@ -135,12 +144,14 @@ def create_invoice(
             case_id=case_id,
             vendor=vendor,
             amount=amount,
+            case_amount=case_amount,
             status=status,
             date=date,
             due_date=due_date,
             description=description,
             category=category,
             check_number=check_number,
+            paid_by_person_id=paid_by_person_id,
             paid_date=paid_date,
             file_path=file_path,
             file_name=file_name,
@@ -184,7 +195,11 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
 
         case = session.get(Case, inv.case_id)
         case_name = case.case_name if case else None
-        result = _invoice_to_dict(inv, case_name)
+        paid_by_name = None
+        if inv.paid_by_person_id:
+            p = session.get(Person, inv.paid_by_person_id)
+            paid_by_name = p.name if p else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name)
         session.commit()
         return result
 
@@ -205,7 +220,7 @@ def mark_invoice_paid(
         comment = CaseComment(
             case_id=inv.case_id,
             content=f"Invoice paid: ${float(inv.amount):,.2f} to {inv.vendor}"
-            + (f" (Check #{check_number})" if check_number else ""),
+            + (f" (Ref: {check_number})" if check_number else ""),
             is_system=True,
         )
         session.add(comment)
@@ -215,7 +230,11 @@ def mark_invoice_paid(
 
         case = session.get(Case, inv.case_id)
         case_name = case.case_name if case else None
-        result = _invoice_to_dict(inv, case_name)
+        paid_by_name = None
+        if inv.paid_by_person_id:
+            p = session.get(Person, inv.paid_by_person_id)
+            paid_by_name = p.name if p else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name)
         session.commit()
         return result
 
@@ -236,7 +255,11 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
 
         case = session.get(Case, inv.case_id)
         case_name = case.case_name if case else None
-        result = _invoice_to_dict(inv, case_name)
+        paid_by_name = None
+        if inv.paid_by_person_id:
+            p = session.get(Person, inv.paid_by_person_id)
+            paid_by_name = p.name if p else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name)
         session.commit()
         return result
 
@@ -259,12 +282,13 @@ def delete_invoice(invoice_id: int) -> bool:
 
 
 def get_invoice_stats(case_id: int = None) -> dict:
+    effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
         base = select(
             func.count().filter(Invoice.status == "unpaid").label("unpaid_count"),
-            func.coalesce(func.sum(sa_case((Invoice.status == "unpaid", Invoice.amount), else_=0)), 0).label("unpaid_total"),
+            func.coalesce(func.sum(sa_case((Invoice.status == "unpaid", effective_amount), else_=0)), 0).label("unpaid_total"),
             func.count().filter(Invoice.status == "paid").label("paid_count"),
-            func.coalesce(func.sum(sa_case((Invoice.status == "paid", Invoice.amount), else_=0)), 0).label("paid_total"),
+            func.coalesce(func.sum(sa_case((Invoice.status == "paid", effective_amount), else_=0)), 0).label("paid_total"),
         )
         if case_id:
             base = base.where(Invoice.case_id == case_id)

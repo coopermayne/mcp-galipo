@@ -38,11 +38,14 @@ export interface Invoice {
   status: InvoiceStatus
   vendor: string
   amount: string
+  case_amount: string | null
   date: string | null
   due_date: string | null
   description: string | null
   category: InvoiceCategory | null
   check_number: string | null
+  paid_by_person_id: number | null
+  paid_by_name: string | null
   paid_date: string | null
   payable_to: string | null
   payment_address: string | null
@@ -119,6 +122,7 @@ export interface CreateInvoiceData {
   case_id: number
   vendor: string
   amount: number
+  case_amount?: number
   status?: InvoiceStatus
   date?: string
   due_date?: string
@@ -129,6 +133,7 @@ export interface CreateInvoiceData {
   file_path?: string
   file_name?: string
   content_type?: string
+  paid_by_person_id?: number
   payable_to?: string
   payment_address?: string
   notes?: string
@@ -149,10 +154,12 @@ export async function createInvoice(
 export interface UpdateInvoiceData {
   vendor?: string
   amount?: number
+  case_amount?: number | null
   date?: string
   due_date?: string
   description?: string
   category?: string
+  paid_by_person_id?: number | null
   payable_to?: string
   payment_address?: string
   notes?: string
@@ -245,4 +252,25 @@ export async function extractInvoice(
 export function getInvoiceFileUrl(invoiceId: number): string {
   const token = localStorage.getItem("token")
   return `/api/v1/invoices/${invoiceId}/file${token ? `?token=${token}` : ""}`
+}
+
+export interface CounselOption {
+  id: number
+  name: string
+  organization: string | null
+}
+
+export async function getCaseCounsel(
+  caseId: number
+): Promise<CounselOption[]> {
+  const res = await apiFetch(
+    `/api/v1/cases/${caseId}/persons?category=counsel`
+  )
+  if (!res.ok) return []
+  const data = await res.json()
+  return (data.persons ?? []).map((p: Record<string, unknown>) => ({
+    id: p.id as number,
+    name: p.name as string,
+    organization: (p.organization as string) ?? null,
+  }))
 }

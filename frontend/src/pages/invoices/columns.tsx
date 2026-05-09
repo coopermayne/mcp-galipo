@@ -120,13 +120,23 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Amount" />
       ),
-      cell: ({ row }) => (
-        <span className="tabular-nums font-semibold">
-          {formatCurrency(row.getValue("amount"))}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const inv = row.original
+        const display = inv.case_amount ?? inv.amount
+        return (
+          <span className="tabular-nums font-semibold">
+            {formatCurrency(display)}
+            {inv.case_amount && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                of {formatCurrency(inv.amount)}
+              </span>
+            )}
+          </span>
+        )
+      },
       sortingFn: (a, b) =>
-        Number(a.original.amount) - Number(b.original.amount),
+        Number(a.original.case_amount ?? a.original.amount) -
+        Number(b.original.case_amount ?? b.original.amount),
     },
     {
       accessorKey: "category",
@@ -166,12 +176,25 @@ export function getColumns(options: {
     },
     {
       accessorKey: "check_number",
-      header: "Check #",
+      header: "Ref",
       cell: ({ row }) => {
         const cn = row.getValue("check_number") as string | null
         return cn ? (
-          <span className="text-xs text-muted-foreground">#{cn}</span>
+          <span className="text-xs text-muted-foreground">{cn}</span>
         ) : null
+      },
+    },
+    {
+      accessorKey: "paid_by_name",
+      header: "Paid By",
+      cell: ({ row }) => {
+        const name = row.original.paid_by_name
+        if (!name) return null
+        return (
+          <span className="text-xs text-muted-foreground truncate max-w-[120px] block">
+            {name}
+          </span>
+        )
       },
     },
     {
