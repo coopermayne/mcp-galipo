@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { INVOICE_CATEGORIES, type ExtractedInvoice } from "@/services/invoices"
+import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
 
 interface InvoiceConfirmDialogProps {
   open: boolean
@@ -34,7 +35,7 @@ export function InvoiceConfirmDialog({
   fileName,
   onConfirm,
 }: InvoiceConfirmDialogProps) {
-  const [vendor, setVendor] = useState("")
+  const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
   const [date, setDate] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -42,35 +43,31 @@ export function InvoiceConfirmDialog({
   const [category, setCategory] = useState("")
   const [caseAmount, setCaseAmount] = useState("")
   const [checkNumber, setCheckNumber] = useState("")
-  const [payableTo, setPayableTo] = useState("")
-  const [paymentAddress, setPaymentAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (extracted) {
-      setVendor(extracted.vendor ?? "")
+      setPayeeId(null)
       setAmount(extracted.amount != null ? String(extracted.amount) : "")
       setDate(extracted.date ?? "")
       setDueDate(extracted.due_date ?? "")
       setDescription(extracted.description ?? "")
       setCategory(extracted.category ?? "")
       setCaseAmount("")
-      setCheckNumber(extracted.check_number ?? "")
-      setPayableTo(extracted.payable_to ?? "")
-      setPaymentAddress(extracted.payment_address ?? "")
+      setCheckNumber("")
       setNotes(extracted.notes ?? "")
     }
   }, [extracted])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!vendor.trim() || !amount) return
+    if (!amount) return
 
     setSaving(true)
     try {
       await onConfirm({
-        vendor: vendor.trim(),
+        payee_id: payeeId ?? undefined,
         amount: parseFloat(amount),
         case_amount: caseAmount ? parseFloat(caseAmount) : undefined,
         date: date || undefined,
@@ -78,8 +75,6 @@ export function InvoiceConfirmDialog({
         description: description.trim() || undefined,
         category: category || undefined,
         check_number: checkNumber.trim() || undefined,
-        payable_to: payableTo.trim() || undefined,
-        payment_address: paymentAddress.trim() || undefined,
         notes: notes.trim() || undefined,
       })
     } finally {
@@ -97,16 +92,13 @@ export function InvoiceConfirmDialog({
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <PayeeSearch
+            value={payeeId}
+            onChange={setPayeeId}
+            extractedName={extracted?.vendor || extracted?.payable_to}
+            extractedAddress={extracted?.payment_address}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="vendor">Vendor</Label>
-              <Input
-                id="vendor"
-                value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
-                required
-              />
-            </div>
             <div>
               <Label htmlFor="amount">Total Amount</Label>
               <Input
@@ -184,25 +176,6 @@ export function InvoiceConfirmDialog({
             />
           </div>
           <div>
-            <Label htmlFor="payable_to">Payable To</Label>
-            <Input
-              id="payable_to"
-              value={payableTo}
-              onChange={(e) => setPayableTo(e.target.value)}
-              placeholder="Name to make check out to"
-            />
-          </div>
-          <div>
-            <Label htmlFor="payment_address">Payment Address</Label>
-            <Textarea
-              id="payment_address"
-              value={paymentAddress}
-              onChange={(e) => setPaymentAddress(e.target.value)}
-              rows={3}
-              placeholder="Address to mail payment to"
-            />
-          </div>
-          <div>
             <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
@@ -220,7 +193,7 @@ export function InvoiceConfirmDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !vendor.trim() || !amount}>
+            <Button type="submit" disabled={saving || !amount}>
               {saving ? "Adding..." : "Add Invoice"}
             </Button>
           </DialogFooter>

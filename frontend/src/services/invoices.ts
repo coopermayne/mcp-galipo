@@ -36,7 +36,9 @@ export interface Invoice {
   case_id: number
   case_name: string | null
   status: InvoiceStatus
-  vendor: string
+  payee_id: number | null
+  payee_name: string | null
+  payee_address: string | null
   amount: string
   case_amount: string | null
   date: string | null
@@ -47,8 +49,6 @@ export interface Invoice {
   paid_by_person_id: number | null
   paid_by_name: string | null
   paid_date: string | null
-  payable_to: string | null
-  payment_address: string | null
   file_path: string | null
   file_name: string | null
   content_type: string | null
@@ -70,7 +70,6 @@ export interface ExtractedInvoice {
   date?: string
   due_date?: string
   description?: string
-  check_number?: string
   payable_to?: string
   payment_address?: string
   notes?: string
@@ -120,7 +119,6 @@ export async function getInvoice(id: number): Promise<Invoice> {
 
 export interface CreateInvoiceData {
   case_id: number
-  vendor: string
   amount: number
   case_amount?: number
   status?: InvoiceStatus
@@ -134,8 +132,7 @@ export interface CreateInvoiceData {
   file_name?: string
   content_type?: string
   paid_by_person_id?: number
-  payable_to?: string
-  payment_address?: string
+  payee_id?: number
   notes?: string
 }
 
@@ -152,7 +149,6 @@ export async function createInvoice(
 }
 
 export interface UpdateInvoiceData {
-  vendor?: string
   amount?: number
   case_amount?: number | null
   date?: string
@@ -160,8 +156,7 @@ export interface UpdateInvoiceData {
   description?: string
   category?: string
   paid_by_person_id?: number | null
-  payable_to?: string
-  payment_address?: string
+  payee_id?: number | null
   notes?: string
 }
 

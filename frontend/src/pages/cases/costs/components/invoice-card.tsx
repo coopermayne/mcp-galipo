@@ -74,7 +74,7 @@ export function InvoiceCard({ invoice, onMarkPaid, onClick, onChanged }: Invoice
     <div className="border px-4 py-3 flex items-start justify-between gap-4 hover:bg-muted/30 transition-colors cursor-pointer" onClick={onClick}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="font-medium text-sm truncate">{invoice.vendor}</span>
+          <span className="font-medium text-sm truncate">{invoice.payee_name ?? "No payee"}</span>
           <span className="text-sm font-semibold tabular-nums">
             {invoice.case_amount
               ? formatCurrency(invoice.case_amount)
@@ -103,11 +103,6 @@ export function InvoiceCard({ invoice, onMarkPaid, onClick, onChanged }: Invoice
           {invoice.paid_by_name && (
             <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground">
               Paid by: {invoice.paid_by_name}
-            </span>
-          )}
-          {invoice.payable_to && (
-            <span className="text-xs text-muted-foreground">
-              Pay: {invoice.payable_to}
             </span>
           )}
           {invoice.category && (

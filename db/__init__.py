@@ -300,6 +300,16 @@ from .activity import (
     get_user_page_views,
 )
 
+# Payees
+from .payees import (
+    list_payees,
+    get_payee,
+    create_payee,
+    update_payee,
+    delete_payee,
+    search_payees,
+)
+
 # Invoices
 from .invoices import (
     list_invoices,
@@ -546,6 +556,13 @@ __all__ = [
     "get_activity_summary",
     "get_page_views_paginated",
     "get_user_page_views",
+    # Payees
+    "list_payees",
+    "get_payee",
+    "create_payee",
+    "update_payee",
+    "delete_payee",
+    "search_payees",
     # Invoices
     "list_invoices",
     "get_invoice",

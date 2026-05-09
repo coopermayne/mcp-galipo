@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createInvoice, INVOICE_CATEGORIES, getCaseCounsel } from "@/services/invoices"
+import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
 
 interface AddInvoiceDialogProps {
   open: boolean
@@ -34,7 +35,7 @@ export function AddInvoiceDialog({
   caseId,
   onSuccess,
 }: AddInvoiceDialogProps) {
-  const [vendor, setVendor] = useState("")
+  const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
   const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
@@ -42,8 +43,6 @@ export function AddInvoiceDialog({
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
   const [paidByPersonId, setPaidByPersonId] = useState("")
-  const [payableTo, setPayableTo] = useState("")
-  const [paymentAddress, setPaymentAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -54,7 +53,7 @@ export function AddInvoiceDialog({
   })
 
   function reset() {
-    setVendor("")
+    setPayeeId(null)
     setAmount("")
     setCaseAmount("")
     setDate("")
@@ -62,20 +61,17 @@ export function AddInvoiceDialog({
     setDescription("")
     setCategory("")
     setPaidByPersonId("")
-    setPayableTo("")
-    setPaymentAddress("")
     setNotes("")
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!vendor.trim() || !amount) return
+    if (!amount) return
 
     setSaving(true)
     try {
       await createInvoice({
         case_id: caseId,
-        vendor: vendor.trim(),
         amount: parseFloat(amount),
         case_amount: caseAmount ? parseFloat(caseAmount) : undefined,
         date: date || undefined,
@@ -83,8 +79,7 @@ export function AddInvoiceDialog({
         description: description.trim() || undefined,
         category: category || undefined,
         paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : undefined,
-        payable_to: payableTo.trim() || undefined,
-        payment_address: paymentAddress.trim() || undefined,
+        payee_id: payeeId ?? undefined,
         notes: notes.trim() || undefined,
       })
       toast.success("Invoice added")
@@ -105,17 +100,11 @@ export function AddInvoiceDialog({
           <DialogTitle>Add Invoice</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <PayeeSearch
+            value={payeeId}
+            onChange={setPayeeId}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="add-vendor">Vendor</Label>
-              <Input
-                id="add-vendor"
-                value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
-                placeholder="Who is this invoice from?"
-                required
-              />
-            </div>
             <div>
               <Label htmlFor="add-amount">Total Amount</Label>
               <Input
@@ -203,25 +192,6 @@ export function AddInvoiceDialog({
             />
           </div>
           <div>
-            <Label htmlFor="add-payable-to">Payable To</Label>
-            <Input
-              id="add-payable-to"
-              value={payableTo}
-              onChange={(e) => setPayableTo(e.target.value)}
-              placeholder="Name to make check out to"
-            />
-          </div>
-          <div>
-            <Label htmlFor="add-payment-address">Payment Address</Label>
-            <Textarea
-              id="add-payment-address"
-              value={paymentAddress}
-              onChange={(e) => setPaymentAddress(e.target.value)}
-              rows={3}
-              placeholder="Address to mail payment to"
-            />
-          </div>
-          <div>
             <Label htmlFor="add-notes">Notes</Label>
             <Textarea
               id="add-notes"
@@ -239,7 +209,7 @@ export function AddInvoiceDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !vendor.trim() || !amount}>
+            <Button type="submit" disabled={saving || !amount}>
               {saving ? "Adding..." : "Add Invoice"}
             </Button>
           </DialogFooter>
