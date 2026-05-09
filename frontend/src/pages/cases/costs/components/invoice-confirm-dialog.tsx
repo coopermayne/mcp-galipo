@@ -89,11 +89,11 @@ export function InvoiceConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Confirm Invoice Details</DialogTitle>
           {fileName && (
-            <p className="text-sm text-muted-foreground truncate">{fileName}</p>
+            <p className="text-sm text-muted-foreground break-all">{fileName}</p>
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
