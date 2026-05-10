@@ -73,7 +73,8 @@ export default function PayeesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left px-4 py-2 font-medium">Name</th>
+              <th className="text-left px-4 py-2 font-medium">DBA Name</th>
+              <th className="text-left px-4 py-2 font-medium">Check Name</th>
               <th className="text-left px-4 py-2 font-medium">Address</th>
               <th className="text-left px-4 py-2 font-medium">W-9</th>
               <th className="text-left px-4 py-2 font-medium">Notes</th>
@@ -84,6 +85,7 @@ export default function PayeesPage() {
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b">
                   <td className="px-4 py-3"><Skeleton className="h-4 w-[120px]" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-[120px]" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-[160px]" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-[60px]" /></td>
                   <td className="px-4 py-3"><Skeleton className="h-4 w-[100px]" /></td>
@@ -91,7 +93,7 @@ export default function PayeesPage() {
               ))
             ) : payees.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   {search ? "No payees match your search." : "No payees yet."}
                 </td>
               </tr>
@@ -103,6 +105,9 @@ export default function PayeesPage() {
                   onClick={() => setEditingPayee(p)}
                 >
                   <td className="px-4 py-3 font-medium">{p.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {p.check_name || "—"}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground max-w-[250px] truncate">
                     {p.address?.split("\n")[0] || "—"}
                   </td>
@@ -116,7 +121,7 @@ export default function PayeesPage() {
                         className="inline-flex items-center gap-1 text-primary hover:underline"
                       >
                         <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
-                        {p.w9_file_name ?? "View"}
+                        {p.w9_year ? `W-9 (${p.w9_year})` : (p.w9_file_name ?? "View")}
                       </a>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -157,6 +162,7 @@ function CreatePayeeDialog({
   onSuccess: () => void
 }) {
   const [name, setName] = useState("")
+  const [checkName, setCheckName] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
@@ -169,11 +175,13 @@ function CreatePayeeDialog({
     try {
       await createPayee({
         name: name.trim(),
+        check_name: checkName.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
       })
       toast.success("Payee created")
       setName("")
+      setCheckName("")
       setAddress("")
       setNotes("")
       onOpenChange(false)
@@ -193,13 +201,22 @@ function CreatePayeeDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="new-name">Name</Label>
+            <Label htmlFor="new-name">DBA / Business Name</Label>
             <Input
               id="new-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
               autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="new-check-name">Check Name</Label>
+            <Input
+              id="new-check-name"
+              value={checkName}
+              onChange={(e) => setCheckName(e.target.value)}
+              placeholder="Legal name for checks"
             />
           </div>
           <div>

@@ -14,9 +14,11 @@ def _payee_to_dict(p: Payee) -> dict:
     return {
         "id": p.id,
         "name": p.name,
+        "check_name": p.check_name,
         "address": p.address,
         "w9_file_path": p.w9_file_path,
         "w9_file_name": p.w9_file_name,
+        "w9_year": p.w9_year,
         "notes": p.notes,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
@@ -68,17 +70,21 @@ def get_payee(payee_id: int) -> Optional[dict]:
 
 def create_payee(
     name: str,
+    check_name: str = None,
     address: str = None,
     w9_file_path: str = None,
     w9_file_name: str = None,
+    w9_year: int = None,
     notes: str = None,
 ) -> dict:
     with SessionLocal() as session:
         p = Payee(
             name=name,
+            check_name=check_name,
             address=address,
             w9_file_path=w9_file_path,
             w9_file_name=w9_file_name,
+            w9_year=w9_year,
             notes=notes,
         )
         session.add(p)

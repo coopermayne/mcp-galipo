@@ -199,12 +199,14 @@ class UpdateFinancialInput(BaseModel):
 
 class CreatePayeeInput(BaseModel):
     name: str
+    check_name: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
 
 
 class UpdatePayeeInput(BaseModel):
     name: Optional[str] = None
+    check_name: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
 

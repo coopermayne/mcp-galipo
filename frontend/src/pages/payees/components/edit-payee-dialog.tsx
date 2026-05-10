@@ -33,18 +33,24 @@ export function EditPayeeDialog({
   onSuccess,
 }: EditPayeeDialogProps) {
   const [name, setName] = useState("")
+  const [checkName, setCheckName] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [w9Year, setW9Year] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (payee) {
       setName(payee.name)
+      setCheckName(payee.check_name ?? "")
       setAddress(payee.address ?? "")
       setNotes(payee.notes ?? "")
+      setPendingFile(null)
+      setW9Year("")
     }
   }, [payee])
 
@@ -56,6 +62,7 @@ export function EditPayeeDialog({
     try {
       await updatePayee(payee.id, {
         name: name.trim(),
+        check_name: checkName.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
       })
@@ -69,20 +76,33 @@ export function EditPayeeDialog({
     }
   }
 
-  async function handleW9Upload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !payee) return
+    if (!file) return
+    setPendingFile(file)
+    setW9Year(String(new Date().getFullYear()))
+    if (fileRef.current) fileRef.current.value = ""
+  }
+
+  async function handleW9Upload() {
+    if (!pendingFile || !payee || !w9Year) return
+    const year = parseInt(w9Year, 10)
+    if (isNaN(year) || year < 1900 || year > 2100) {
+      toast.error("Please enter a valid year")
+      return
+    }
 
     setUploading(true)
     try {
-      await uploadW9(payee.id, file)
-      toast.success("W9 uploaded")
+      await uploadW9(payee.id, pendingFile, year)
+      toast.success("W-9 uploaded")
+      setPendingFile(null)
+      setW9Year("")
       onSuccess()
     } catch {
-      toast.error("Failed to upload W9")
+      toast.error("Failed to upload W-9")
     } finally {
       setUploading(false)
-      if (fileRef.current) fileRef.current.value = ""
     }
   }
 
@@ -109,12 +129,21 @@ export function EditPayeeDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="payee-name">Name</Label>
+            <Label htmlFor="payee-name">DBA / Business Name</Label>
             <Input
               id="payee-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+            />
+          </div>
+          <div>
+            <Label htmlFor="payee-check-name">Check Name</Label>
+            <Input
+              id="payee-check-name"
+              value={checkName}
+              onChange={(e) => setCheckName(e.target.value)}
+              placeholder="Legal name for checks"
             />
           </div>
           <div>
@@ -138,7 +167,7 @@ export function EditPayeeDialog({
           </div>
           <div className="border-t pt-4">
             <Label className="text-xs">W-9</Label>
-            {payee?.w9_file_path ? (
+            {payee?.w9_file_path && !pendingFile ? (
               <div className="flex items-center gap-2 mt-1">
                 <a
                   href={getW9Url(payee.id)}
@@ -147,7 +176,8 @@ export function EditPayeeDialog({
                   className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                 >
                   <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
-                  {payee.w9_file_name ?? "View W9"}
+                  {payee.w9_file_name ?? "View W-9"}
+                  {payee.w9_year ? ` (${payee.w9_year})` : ""}
                 </a>
                 <span className="text-muted-foreground">·</span>
                 <button
@@ -158,6 +188,42 @@ export function EditPayeeDialog({
                   Replace
                 </button>
               </div>
+            ) : pendingFile ? (
+              <div className="mt-1 flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">{pendingFile.name}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="w9-year" className="text-xs">Year</Label>
+                    <Input
+                      id="w9-year"
+                      type="number"
+                      value={w9Year}
+                      onChange={(e) => setW9Year(e.target.value)}
+                      placeholder="e.g. 2026"
+                      min={1900}
+                      max={2100}
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-4">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleW9Upload}
+                      disabled={uploading || !w9Year}
+                    >
+                      {uploading ? "Uploading..." : "Upload"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPendingFile(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <Button
                 type="button"
@@ -165,10 +231,9 @@ export function EditPayeeDialog({
                 size="sm"
                 className="mt-1 gap-1.5"
                 onClick={() => fileRef.current?.click()}
-                disabled={uploading}
               >
                 <HugeiconsIcon icon={Upload04Icon} className="size-3.5" />
-                {uploading ? "Uploading..." : "Upload W9"}
+                Upload W-9
               </Button>
             )}
             <input
@@ -176,7 +241,7 @@ export function EditPayeeDialog({
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
               className="hidden"
-              onChange={handleW9Upload}
+              onChange={handleFileSelect}
             />
           </div>
           <DialogFooter className="flex justify-between sm:justify-between">

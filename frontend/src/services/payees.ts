@@ -7,9 +7,11 @@ import { apiFetch } from "@/lib/api"
 export interface Payee {
   id: number
   name: string
+  check_name: string | null
   address: string | null
   w9_file_path: string | null
   w9_file_name: string | null
+  w9_year: number | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -54,7 +56,7 @@ export async function getPayee(id: number): Promise<Payee> {
 }
 
 export async function createPayee(
-  data: { name: string; address?: string; notes?: string }
+  data: { name: string; check_name?: string; address?: string; notes?: string }
 ): Promise<{ success: boolean; payee: Payee }> {
   const res = await apiFetch("/api/v1/payees", {
     method: "POST",
@@ -67,7 +69,7 @@ export async function createPayee(
 
 export async function updatePayee(
   id: number,
-  data: { name?: string; address?: string; notes?: string }
+  data: { name?: string; check_name?: string; address?: string; notes?: string }
 ): Promise<{ success: boolean; payee: Payee }> {
   const res = await apiFetch(`/api/v1/payees/${id}`, {
     method: "PUT",
@@ -88,10 +90,12 @@ export async function deletePayee(
 
 export async function uploadW9(
   payeeId: number,
-  file: File
-): Promise<{ w9_file_path: string; w9_file_name: string }> {
+  file: File,
+  year: number
+): Promise<{ success: boolean; payee: Payee }> {
   const formData = new FormData()
   formData.append("file", file)
+  formData.append("w9_year", String(year))
   const res = await apiFetch(`/api/v1/payees/${payeeId}/w9`, {
     method: "POST",
     body: formData,
