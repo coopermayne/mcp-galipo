@@ -30,6 +30,7 @@ interface CaseSummarySectionProps {
   caseData: CaseDetail
   onAddPerson: (category: string, roleId: number) => void
   onAiProceedings?: () => void
+  onAiPeople?: () => void
   onNest: (assignmentId: number, groupedUnderId: number | null) => void
 }
 
@@ -109,6 +110,7 @@ export function CaseSummarySection({
   caseData,
   onAddPerson,
   onAiProceedings,
+  onAiPeople,
   onNest,
 }: CaseSummarySectionProps) {
   const queryClient = useQueryClient()
@@ -236,22 +238,35 @@ export function CaseSummarySection({
         </div>
 
         {/* People — category buttons */}
-        <div className="flex flex-wrap gap-1.5">
-          {PERSON_BUTTONS.map(({ category, label, hideCount }) => {
-            const count = counts[category] || 0
-            const isActive = peopleCategory === category
-            return (
-              <Button
-                key={category}
-                variant={isActive ? "default" : "outline"}
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={() => toggleCategory(category)}
-              >
-                {label}{hideCount ? "" : ` (${count})`}
-              </Button>
-            )
-          })}
+        <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
+            {PERSON_BUTTONS.map(({ category, label, hideCount }) => {
+              const count = counts[category] || 0
+              const isActive = peopleCategory === category
+              return (
+                <Button
+                  key={category}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => toggleCategory(category)}
+                >
+                  {label}{hideCount ? "" : ` (${count})`}
+                </Button>
+              )
+            })}
+          </div>
+          {onAiPeople && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-xs ml-auto"
+              onClick={onAiPeople}
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="mr-1 size-3" />
+              People
+            </Button>
+          )}
         </div>
 
         {/* Inline people drawer */}

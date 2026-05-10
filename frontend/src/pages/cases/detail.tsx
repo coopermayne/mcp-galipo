@@ -1,14 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
-import { useParams, useSearchParams } from "react-router"
+import { useParams, useSearchParams, Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { SparklesIcon } from "@hugeicons/core-free-icons"
 import { getCase } from "@/services/cases"
 import { updateCaseAssignment } from "@/services/persons"
+import { getInvoiceStats } from "@/services/invoices"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 import { FeatureGate } from "@/components/common/feature-gate"
 import { CaseDetailHeader } from "@/pages/cases/components/case-detail-header"
@@ -43,7 +41,6 @@ function CaseDetailContent() {
   const [addPersonRoleId, setAddPersonRoleId] = useState<number | null>(null)
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   const [addEventOpen, setAddEventOpen] = useState(false)
-  const [aiTasksEventsOpen, setAiTasksEventsOpen] = useState(false)
   const [aiTasksOpen, setAiTasksOpen] = useState(false)
   const [aiEventsOpen, setAiEventsOpen] = useState(false)
   const [aiPeopleOpen, setAiPeopleOpen] = useState(false)
@@ -66,6 +63,12 @@ function CaseDetailContent() {
   } = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => getCase(caseId),
+    enabled: !isNaN(caseId),
+  })
+
+  const { data: invoiceStats } = useQuery({
+    queryKey: ["invoices", "stats", caseId],
+    queryFn: () => getInvoiceStats(caseId),
     enabled: !isNaN(caseId),
   })
 
@@ -94,19 +97,6 @@ function CaseDetailContent() {
     setAddPersonRoleId(roleId)
     setAddPersonOpen(true)
   }
-
-  const aiTasksEventsRules: ToolCompletionRule[] = useMemo(() => [
-    {
-      toolNames: ["manage_task"],
-      queryKeys: [["tasks", "case", caseId], ["tasks"], ["case", caseId]],
-      toastMessage: "Task created via AI",
-    },
-    {
-      toolNames: ["manage_event"],
-      queryKeys: [["events", "case", caseId], ["events"], ["case", caseId]],
-      toastMessage: "Event created via AI",
-    },
-  ], [caseId])
 
   const aiTasksOnlyRules: ToolCompletionRule[] = useMemo(() => [
     {
@@ -182,24 +172,22 @@ function CaseDetailContent() {
         <ListNav basePath="/cases" currentId={caseId} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <CaseDetailHeader caseData={caseData} />
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAiTasksEventsOpen(true)}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="mr-1.5 size-3.5" />
-              Tasks & Events
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAiPeopleOpen(true)}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="mr-1.5 size-3.5" />
-              People
-            </Button>
-          </div>
+          <Link
+            to={`/cases/${caseId}/costs`}
+            className="flex items-center gap-3 text-xs shrink-0 border bg-muted/40 px-3 py-1.5"
+          >
+            <span className="text-muted-foreground">Costs</span>
+            {invoiceStats && (
+              <>
+                <span className="text-success tabular-nums">
+                  ${Number(invoiceStats.paid_total).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-destructive tabular-nums">
+                  ${Number(invoiceStats.unpaid_total).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </span>
+              </>
+            )}
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -209,6 +197,7 @@ function CaseDetailContent() {
               caseData={caseData}
               onAddPerson={openAddPerson}
               onAiProceedings={() => setAiProceedingsOpen(true)}
+              onAiPeople={() => setAiPeopleOpen(true)}
               onNest={handleNest}
             />
             <CaseTasksCard
@@ -251,17 +240,6 @@ function CaseDetailContent() {
           open={addEventOpen}
           onOpenChange={setAddEventOpen}
           caseId={caseData.id}
-        />
-        <AiChatSheet
-          open={aiTasksEventsOpen}
-          onOpenChange={setAiTasksEventsOpen}
-          title="AI Tasks & Events"
-          description="Describe tasks or events and Claude will create them for this case. Events have dates/times; tasks are action items."
-          placeholder="e.g. Follow up with client by Friday, schedule depo for March 20 at 10am..."
-          emptyStateText="Describe tasks or calendar events to add to this case. Claude will figure out which is which and create them."
-          mode="tasks_events"
-          caseContext={caseData.id}
-          toolCompletionRules={aiTasksEventsRules}
         />
         <AiChatSheet
           open={aiTasksOpen}
