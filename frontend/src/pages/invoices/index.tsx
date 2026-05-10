@@ -133,9 +133,7 @@ export default function InvoicesPage() {
         <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>
         {stats && (
           <p className="text-muted-foreground text-sm">
-            Unpaid: {stats.unpaid_count} ({formatTotal(stats.unpaid_total)})
-            {" · "}
-            Paid: {stats.paid_count} ({formatTotal(stats.paid_total)})
+            {stats.unpaid_count} unpaid ({formatTotal(stats.unpaid_total)})
           </p>
         )}
       </div>
