@@ -74,6 +74,7 @@ def register_payee_routes(mcp):
         result = await asyncio.to_thread(
             db.create_payee,
             data.name,
+            check_name=data.check_name,
             address=data.address,
             notes=data.notes,
         )
@@ -149,11 +150,15 @@ def register_payee_routes(mcp):
         with open(stored_path, "wb") as f:
             f.write(file_bytes)
 
+        w9_year = form.get("w9_year")
+        w9_year_int = int(w9_year) if w9_year else None
+
         result = await asyncio.to_thread(
             db.update_payee,
             payee_id,
             w9_file_path=str(stored_path),
             w9_file_name=filename,
+            w9_year=w9_year_int,
         )
         return JSONResponse({"success": True, "payee": result})
 
