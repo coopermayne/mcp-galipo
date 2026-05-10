@@ -10,6 +10,7 @@ Automatically disabled in production (Railway, cloud DBs, etc).
 import json
 import time
 from datetime import datetime
+from lib.tz import LA
 from pathlib import Path
 from typing import Any
 
@@ -81,7 +82,7 @@ def log_request(
     total_tokens = system_tokens + message_tokens + tools_tokens
 
     entry = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(LA).isoformat(),
         "type": "request",
         "conversation_id": conversation_id,
         "case_context": case_context,
@@ -120,7 +121,7 @@ def log_response(
         response_tokens += _estimate_tokens(json.dumps(tool_calls))
 
     entry = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(LA).isoformat(),
         "type": "response",
         "conversation_id": conversation_id,
         "token_estimates": {
@@ -152,7 +153,7 @@ def log_tool_execution(
     _ensure_log_dir()
 
     entry = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(LA).isoformat(),
         "type": "tool_execution",
         "conversation_id": conversation_id,
         "tool_name": tool_name,
@@ -182,7 +183,7 @@ def log_conversation_summary(
     _ensure_log_dir()
 
     entry = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(LA).isoformat(),
         "type": "conversation_summary",
         "conversation_id": conversation_id,
         "total_requests": total_requests,

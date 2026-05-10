@@ -10,6 +10,7 @@ import traceback
 import logging
 from collections import defaultdict
 from datetime import datetime, date, time
+from lib.tz import LA
 from decimal import Decimal
 from uuid import UUID
 from fastapi.responses import Response
@@ -325,7 +326,7 @@ def get_complete_export_data() -> dict:
     """Get fully denormalized export — all IDs resolved to inline data."""
     cases = get_all_cases_with_data()
     return {
-        "exported_at": datetime.now().isoformat(),
+        "exported_at": datetime.now(LA).isoformat(),
         "version": "2.1",
         "total_cases": len(cases),
         "cases": cases,
@@ -342,7 +343,7 @@ def register_export_routes(mcp):
             return err
 
         format_type = request.query_params.get("format", "json").lower()
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
 
         if format_type == "pdf":
             user = auth.get_current_user(request)
@@ -417,7 +418,7 @@ def register_export_routes(mcp):
             logger.error("Intake PDF generation failed:\n%s", traceback.format_exc())
             return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
         filename = f"galipo_intakes_{timestamp}.pdf"
         return Response(
             content=pdf_buf.getvalue(),
@@ -448,7 +449,7 @@ def register_export_routes(mcp):
             return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
 
         name_slug = (intake.get("name") or "intake").replace(" ", "_")[:30]
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
         filename = f"{name_slug}_{timestamp}.pdf"
         return Response(
             content=pdf_buf.getvalue(),
@@ -490,7 +491,7 @@ def register_export_routes(mcp):
             logger.error("Batch intake PDF failed:\n%s", traceback.format_exc())
             return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
         filename = f"galipo_intakes_batch_{timestamp}.pdf"
         return Response(
             content=pdf_buf.getvalue(),

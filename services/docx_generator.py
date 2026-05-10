@@ -9,6 +9,7 @@ styling — past items grey, urgent tasks bold, starred events highlighted.
 import re
 from io import BytesIO
 from datetime import datetime
+from lib.tz import LA
 from pathlib import Path
 
 TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "exports" / "case_report_template.docx"
@@ -71,7 +72,7 @@ def _build_context(cases: list, attorney_name: str) -> dict:
     """Transform case data into the template context dict, grouped by phase."""
     from docxtpl import RichText
 
-    now = datetime.now()
+    now = datetime.now(LA)
     today = now.strftime("%Y-%m-%d")
 
     # Group cases by status

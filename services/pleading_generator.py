@@ -9,6 +9,7 @@ that are conditionally included based on user selection.
 import tempfile
 from io import BytesIO
 from datetime import datetime
+from lib.tz import LA
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
@@ -141,8 +142,8 @@ class PleadingContext:
             "conclusion": self.conclusion,
 
             # Computed
-            "date_formatted": datetime.now().strftime("%B %d, %Y"),
-            "year": datetime.now().year,
+            "date_formatted": datetime.now(LA).strftime("%B %d, %Y"),
+            "year": datetime.now(LA).year,
         }
 
 

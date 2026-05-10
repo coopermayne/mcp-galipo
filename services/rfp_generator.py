@@ -6,6 +6,7 @@ Generates formatted DOCX responses to Requests for Production using docxtpl.
 
 from io import BytesIO
 from datetime import datetime
+from lib.tz import LA
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional, List
@@ -89,8 +90,8 @@ class RFPContext:
                 }
                 for req in self.requests
             ],
-            "date_formatted": datetime.now().strftime("%B %d, %Y"),
-            "year": datetime.now().year,
+            "date_formatted": datetime.now(LA).strftime("%B %d, %Y"),
+            "year": datetime.now(LA).year,
         }
 
 
