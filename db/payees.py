@@ -104,7 +104,7 @@ def update_payee(payee_id: int, **fields) -> Optional[dict]:
         for key, value in fields.items():
             if hasattr(p, key):
                 setattr(p, key, value)
-        p.updated_at = datetime.datetime.now()
+        p.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
         session.flush()
         session.refresh(p)

@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake } from "@/types/intake"
+import { formatTimestamp } from "@/lib/datetime"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -82,15 +83,7 @@ function getMatchReason(
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
-  const d = new Date(dateStr)
-  const base = d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
-  const dow = d.toLocaleDateString("en-US", { weekday: "short" })
-  return `(${dow}) ${base}`
+  return formatTimestamp(dateStr)
 }
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight, not UTC. */

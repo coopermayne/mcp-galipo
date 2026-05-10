@@ -234,7 +234,7 @@ export function ConversationList({
                     {conv.last_message_at && (
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {formatDistanceToNow(
-                          new Date(conv.last_message_at + "Z"),
+                          new Date(conv.last_message_at),
                           { addSuffix: true }
                         )}
                       </span>
