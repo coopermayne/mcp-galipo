@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { listPayees, createPayee, type Payee } from "@/services/payees"
+import { listPayees, createPayee, uploadW9, type Payee } from "@/services/payees"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -10,6 +10,7 @@ import {
   Add01Icon,
   Attachment01Icon,
   Search01Icon,
+  Upload04Icon,
 } from "@hugeicons/core-free-icons"
 import { getW9Url } from "@/services/payees"
 import { EditPayeeDialog } from "@/pages/payees/components/edit-payee-dialog"
@@ -165,25 +166,45 @@ function CreatePayeeDialog({
   const [checkName, setCheckName] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [w9Year, setW9Year] = useState("")
   const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPendingFile(file)
+    setW9Year(String(new Date().getFullYear()))
+    if (fileRef.current) fileRef.current.value = ""
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
+    if (pendingFile && !w9Year) return
 
     setSaving(true)
     try {
-      await createPayee({
+      const result = await createPayee({
         name: name.trim(),
         check_name: checkName.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
       })
+
+      if (pendingFile && w9Year) {
+        const year = parseInt(w9Year, 10)
+        await uploadW9(result.payee.id, pendingFile, year)
+      }
+
       toast.success("Payee created")
       setName("")
       setCheckName("")
       setAddress("")
       setNotes("")
+      setPendingFile(null)
+      setW9Year("")
       onOpenChange(false)
       onSuccess()
     } catch {
@@ -238,6 +259,55 @@ function CreatePayeeDialog({
               rows={2}
             />
           </div>
+          <div className="border-t pt-4">
+            <Label className="text-xs">W-9</Label>
+            {pendingFile ? (
+              <div className="mt-1 flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">{pendingFile.name}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="new-w9-year" className="text-xs">Year</Label>
+                    <Input
+                      id="new-w9-year"
+                      type="number"
+                      value={w9Year}
+                      onChange={(e) => setW9Year(e.target.value)}
+                      placeholder="e.g. 2026"
+                      min={1900}
+                      max={2100}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => setPendingFile(null)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1 gap-1.5"
+                onClick={() => fileRef.current?.click()}
+              >
+                <HugeiconsIcon icon={Upload04Icon} className="size-3.5" />
+                Upload W-9
+              </Button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
           <DialogFooter>
             <Button
               type="button"
@@ -246,7 +316,7 @@ function CreatePayeeDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
+            <Button type="submit" disabled={saving || !name.trim() || (!!pendingFile && !w9Year)}>
               {saving ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
