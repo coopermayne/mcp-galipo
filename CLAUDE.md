@@ -98,6 +98,43 @@ alembic revision --autogenerate -m "description"  # Generate migration
 - `models.py` must stay in sync with the actual DB; use `alembic check` to verify
 - All migrations use Alembic exclusively (legacy `migrations/` directory has been removed)
 
+### Timezone & Datetime Conventions
+
+All datetime handling follows a strict pattern. **Do not deviate from this.**
+
+**Database (UTC always):**
+- All `DateTime` columns use `DateTime(timezone=True)` → PostgreSQL `timestamptz`
+- All values stored are UTC. Server defaults use `CURRENT_TIMESTAMP` (UTC)
+- When setting datetimes in Python code: `datetime.now(timezone.utc)` or `func.now()`
+- **Never** use bare `datetime.now()` or `datetime.utcnow()` — both are wrong
+
+**Backend helpers (`lib/tz.py`):**
+- `UTC = timezone.utc` — use for DB storage
+- `LA = ZoneInfo("America/Los_Angeles")` — use for display/documents
+- `utc_now()` — shorthand for `datetime.now(UTC)`
+
+**When to use which timezone:**
+| Context | Timezone | Example |
+|---------|----------|---------|
+| Saving to DB | UTC | `datetime.now(timezone.utc)` |
+| SQLAlchemy updates | UTC (server) | `func.now()` |
+| Generated documents (PDFs, DOCX, pleadings) | Pacific | `datetime.now(LA)` |
+| Chat/MCP display to users | Pacific | `datetime.now(pacific)` |
+| Export filenames | Pacific | `datetime.now(LA).strftime(...)` |
+
+**Frontend (`lib/datetime.ts`):**
+- All timestamp display goes through centralized utilities in `frontend/src/lib/datetime.ts`
+- Uses explicit `timeZone: "America/Los_Angeles"` — never relies on browser timezone
+- Key functions: `formatTimestamp()`, `formatTime()`, `timeAgo()`, `formatDateHeader()`, `getDateKey()`
+- Date-only fields (DOI, due dates, event dates) don't need timezone conversion — parse with `"T00:00:00"` appended
+
+**Serialization flow:**
+1. DB stores UTC in `timestamptz` columns
+2. psycopg2 returns timezone-aware datetimes from `timestamptz`
+3. `.isoformat()` produces strings like `"2026-05-10T17:36:00+00:00"`
+4. Frontend `new Date("...+00:00")` correctly parses as UTC
+5. `Intl.DateTimeFormat` with `timeZone: "America/Los_Angeles"` displays Pacific
+
 ## Architecture
 
 ```

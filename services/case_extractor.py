@@ -294,7 +294,8 @@ Use the submit_document_name tool."""
             A short filename like "2026.02.05 Opp MSJ.docx"
         """
         from datetime import datetime
-        today = datetime.now().strftime('%Y.%m.%d')
+        from lib.tz import LA
+        today = datetime.now(LA).strftime('%Y.%m.%d')
 
         prompt = f"""Shorten this legal document name into a brief filename.
 

@@ -11,6 +11,7 @@ from io import BytesIO
 from html import escape
 from collections import defaultdict
 from datetime import datetime
+from lib.tz import LA
 
 
 def generate_case_list_pdf(cases: list) -> BytesIO:
@@ -24,7 +25,7 @@ def generate_case_list_pdf(cases: list) -> BytesIO:
 
 
 def _build_html(cases: list) -> str:
-    now = datetime.now()
+    now = datetime.now(LA)
     date_str = now.strftime('%B %d, %Y')
     count = len(cases)
 

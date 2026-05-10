@@ -9,6 +9,7 @@ import re
 from io import BytesIO
 from html import escape
 from datetime import datetime, date
+from lib.tz import LA
 from math import ceil
 
 
@@ -23,7 +24,7 @@ def generate_intake_list_pdf(intakes: list, status_filter: str | None = None) ->
 
 
 def _build_html(intakes: list, status_filter: str | None) -> str:
-    now = datetime.now()
+    now = datetime.now(LA)
     date_str = now.strftime('%B %d, %Y')
     count = len(intakes)
     subtitle = f'{count} intake{"s" if count != 1 else ""}'
@@ -296,7 +297,7 @@ def generate_intake_batch_pdf(intakes_with_comments: list[tuple[dict, list]]) ->
     """Generate a PDF with multiple intakes, each on its own page, plus an index."""
     from weasyprint import HTML
 
-    now = datetime.now()
+    now = datetime.now(LA)
     date_str = now.strftime('%B %d, %Y')
     count = len(intakes_with_comments)
     css = _get_detail_css()
@@ -388,7 +389,7 @@ def _build_detail_page(intake: dict, comments: list) -> str:
 
     Used by both single-detail and batch PDF generators.
     """
-    now = datetime.now()
+    now = datetime.now(LA)
     date_str = now.strftime('%B %d, %Y')
     name = escape(intake.get('name') or 'Unnamed Intake')
     status = intake.get('status', '')
@@ -555,7 +556,7 @@ def _format_date_header(val) -> str:
             dt = val
         else:
             return str(val)
-        today = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+        today = datetime.now(LA)
         diff = (today.date() - dt.date()).days
         if diff == 0:
             return 'Today'
