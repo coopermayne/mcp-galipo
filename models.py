@@ -54,7 +54,7 @@ class Intake(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # Sheet fields
-    submitted_on: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    submitted_on: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
     name: Mapped[Optional[str]] = mapped_column(String(255))
     email: Mapped[Optional[str]] = mapped_column(String(255))
     phone: Mapped[Optional[str]] = mapped_column(String(100))
@@ -86,10 +86,10 @@ class Intake(Base):
     google_row_number: Mapped[Optional[int]] = mapped_column(Integer, unique=True, nullable=True)
     # Timestamps
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -127,10 +127,10 @@ class IntakeComment(Base):
         JSONB(none_as_null=True)
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -159,7 +159,7 @@ class IntakeCommentRead(Base):
     intake_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
 
@@ -194,10 +194,10 @@ class CaseComment(Base):
         JSONB(none_as_null=True)
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -226,7 +226,7 @@ class CaseCommentRead(Base):
     case_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
 
@@ -248,10 +248,10 @@ class Objection(Base):
         Integer, server_default=text("0")
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
 
@@ -278,10 +278,10 @@ class Case(Base):
     claim_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     complaint_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     color: Mapped[Optional[str]] = mapped_column(String(20))
     attorney_ids: Mapped[Optional[list[int]]] = mapped_column(
@@ -315,7 +315,7 @@ class ExpertiseType(Base):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
 
@@ -332,7 +332,7 @@ class Jurisdiction(Base):
     local_rules_link: Mapped[Optional[str]] = mapped_column(Text)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -362,10 +362,10 @@ class Person(Base):
     organization: Mapped[Optional[str]] = mapped_column(String(255))
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     archived: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")
@@ -397,7 +397,7 @@ class Role(Base):
     )
     description: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -438,14 +438,14 @@ class User(Base):
         Boolean, server_default=text("true")
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     paralegal_id: Mapped[Optional[int]] = mapped_column(Integer)
     visible_features: Mapped[Optional[list]] = mapped_column(JSONB)
-    last_active_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    last_active_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
     # Relationships
     paralegal: Mapped[Optional[User]] = relationship(
@@ -488,7 +488,7 @@ class Event(Base):
     document_link: Mapped[Optional[str]] = mapped_column(Text)
     calculation_note: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     starred: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")
@@ -538,10 +538,10 @@ class Judge(Base):
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -570,10 +570,10 @@ class Note(Base):
     content: Mapped[str] = mapped_column(Text)
     case_id: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -651,7 +651,7 @@ class PersonRole(Base):
     grouped_under_id: Mapped[Optional[int]] = mapped_column(Integer)
     assigned_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -697,10 +697,10 @@ class Proceeding(Base):
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     courtlistener_docket_id: Mapped[Optional[int]] = mapped_column(BigInteger)
     pacer_case_id: Mapped[Optional[str]] = mapped_column(String(100))
@@ -753,7 +753,7 @@ class ProceedingJudge(Base):
         Integer, server_default=text("0")
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -808,7 +808,7 @@ class Task(Base):
         String(20), server_default=text("'Medium'::character varying")
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     sort_order: Mapped[Optional[int]] = mapped_column(
         Integer, server_default=text("0")
@@ -817,7 +817,7 @@ class Task(Base):
     docket_order: Mapped[Optional[int]] = mapped_column(Integer)
     assignee_id: Mapped[Optional[int]] = mapped_column(Integer)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -840,12 +840,12 @@ class SmsConversation(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     phone_number: Mapped[str] = mapped_column(String(20))
     label: Mapped[Optional[str]] = mapped_column(Text)
-    last_message_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    last_message_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
     archived: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -884,7 +884,7 @@ class SmsMessage(Base):
         String(20), server_default=text("'sent'::character varying")
     )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -916,7 +916,7 @@ class SmsMessageMedia(Base):
     local_path: Mapped[Optional[str]] = mapped_column(Text)
     file_size: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -944,7 +944,7 @@ class SmsConversationRead(Base):
     conversation_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
 
@@ -996,9 +996,9 @@ class WebhookLog(Base):
     event_id: Mapped[Optional[int]] = mapped_column(Integer)
     processing_error: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
-    processed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    processed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
     # Relationships
     event: Mapped[Optional[Event]] = relationship(back_populates="webhook_logs")
@@ -1039,10 +1039,10 @@ class CaseFinancial(Base):
     )
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -1068,10 +1068,10 @@ class Payee(Base):
     w9_year: Mapped[Optional[int]] = mapped_column(Integer)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     invoices: Mapped[list[Invoice]] = relationship(back_populates="payee")
@@ -1119,10 +1119,10 @@ class Invoice(Base):
     content_type: Mapped[Optional[str]] = mapped_column(String(100))
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -1163,7 +1163,7 @@ class CaseCounselFee(Base):
     sort_order: Mapped[Optional[int]] = mapped_column(Integer, server_default=text("0"))
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships
@@ -1190,9 +1190,9 @@ class AuthSession(Base):
     sid: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
-    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
 
 
 class PageView(Base):
@@ -1214,5 +1214,5 @@ class PageView(Base):
     user_id: Mapped[int] = mapped_column(Integer)
     path: Mapped[str] = mapped_column(String(500))
     viewed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime, server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )

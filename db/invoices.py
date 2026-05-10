@@ -216,7 +216,7 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
         for key, value in fields.items():
             if hasattr(inv, key):
                 setattr(inv, key, value)
-        inv.updated_at = datetime.datetime.now()
+        inv.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
         session.flush()
         session.refresh(inv)
@@ -250,7 +250,7 @@ def mark_invoice_paid(
         inv.status = "paid"
         inv.check_number = check_number
         inv.paid_date = paid_date or datetime.date.today().isoformat()
-        inv.updated_at = datetime.datetime.now()
+        inv.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
         payee_name = None
         payee_address = None
@@ -292,7 +292,7 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
         inv.status = "unpaid"
         inv.check_number = None
         inv.paid_date = None
-        inv.updated_at = datetime.datetime.now()
+        inv.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
         session.flush()
         session.refresh(inv)

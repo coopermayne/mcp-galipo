@@ -229,7 +229,7 @@ def create_message(
         if not conv:
             return None
 
-        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         msg = SmsMessage(
             conversation_id=conversation_id,

@@ -5,7 +5,7 @@ CRUD operations for legal objections used in RFP responses.
 """
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
@@ -78,7 +78,7 @@ def update_objection(objection_id: int, **kwargs) -> Optional[dict]:
         for key, value in kwargs.items():
             if key in allowed and value is not None:
                 setattr(obj, key, value)
-        obj.updated_at = datetime.utcnow()
+        obj.updated_at = datetime.now(timezone.utc)
 
         session.flush()
         session.refresh(obj)
@@ -105,6 +105,6 @@ def reorder_objections(ordered_ids: List[int]) -> List[dict]:
             obj = session.get(Objection, obj_id)
             if obj:
                 obj.position = position
-                obj.updated_at = datetime.utcnow()
+                obj.updated_at = datetime.now(timezone.utc)
         session.commit()
         return get_objections()

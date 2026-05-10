@@ -11,20 +11,22 @@ interface MessageThreadProps {
   isLoading?: boolean
 }
 
-function formatTime(dateStr: string | null) {
+function formatMsgTime(dateStr: string | null) {
   if (!dateStr) return ""
-  const d = new Date(dateStr + "Z")
+  const d = new Date(dateStr)
   const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-
-  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-  if (isToday) return time
+  const LA = "America/Los_Angeles"
+  const laDate = d.toLocaleDateString("en-US", { timeZone: LA })
+  const laToday = now.toLocaleDateString("en-US", { timeZone: LA })
+  const time = d.toLocaleTimeString("en-US", { timeZone: LA, hour: "numeric", minute: "2-digit" })
+  if (laDate === laToday) return time
 
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`
+  const laYesterday = yesterday.toLocaleDateString("en-US", { timeZone: LA })
+  if (laDate === laYesterday) return `Yesterday ${time}`
 
-  return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`
+  return `${d.toLocaleDateString("en-US", { timeZone: LA, month: "short", day: "numeric" })} ${time}`
 }
 
 function isImageType(contentType: string): boolean {
@@ -159,7 +161,7 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
                       : "text-muted-foreground"
                   )}
                 >
-                  {formatTime(msg.created_at)}
+                  {formatMsgTime(msg.created_at)}
                   {msg.status === "failed" && " · Failed"}
                 </p>
               </div>
