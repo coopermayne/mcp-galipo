@@ -5,7 +5,7 @@ Event/calendar management functions — SQLAlchemy ORM implementation.
 import datetime
 from typing import Optional, List
 
-from sqlalchemy import select, func, literal_column, text, Integer, cast
+from sqlalchemy import select, func, literal_column, text, Integer, cast, or_
 from sqlalchemy.dialects.postgresql import ARRAY as SA_ARRAY
 from sqlalchemy.orm import joinedload
 
@@ -43,10 +43,10 @@ def _event_with_case_dict(event: Event, case: Case, task_count: int = 0) -> dict
     return d
 
 
-def add_event(case_id: int, date: str, description: str,
+def add_event(case_id: int = None, date: str = "", description: str = "",
               document_link: str = None, calculation_note: str = None,
               time: str = None, location: str = None, starred: bool = False) -> dict:
-    """Add an event to a case (hearing, deposition, filing deadline, etc.)."""
+    """Add an event, optionally associated with a case."""
     validate_date_format(date, "date")
     validate_time_format(time, "time")
 
@@ -84,7 +84,7 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
     )
 
     # Build base query
-    stmt = select(Event, Case, task_count_sq.label("task_count")).join(Case, Event.case_id == Case.id)
+    stmt = select(Event, Case, task_count_sq.label("task_count")).outerjoin(Case, Event.case_id == Case.id)
 
     # Date conditions
     if include_past:
@@ -99,10 +99,11 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
 
     if user_id:
         uid_arr = cast([user_id], SA_ARRAY(Integer()))
-        stmt = stmt.where(
-            Case.attorney_ids.op('@>')(uid_arr)
-            | Case.paralegal_ids.op('@>')(uid_arr)
-        )
+        stmt = stmt.where(or_(
+            Event.case_id.is_(None),
+            Case.attorney_ids.op('@>')(uid_arr),
+            Case.paralegal_ids.op('@>')(uid_arr),
+        ))
 
     if attendee_id:
         aid_arr = cast([attendee_id], SA_ARRAY(Integer()))
@@ -111,12 +112,8 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
         )
 
     with SessionLocal() as session:
-        # Count query — same filters but no joins to task count
-        count_stmt = select(func.count()).select_from(
-            select(Event.id).join(Case, Event.case_id == Case.id)
-        )
-        # Re-apply filters for count
-        count_base = select(Event.id).join(Case, Event.case_id == Case.id)
+        # Count query — same filters
+        count_base = select(Event.id).outerjoin(Case, Event.case_id == Case.id)
         if include_past:
             count_base = count_base.where(Event.date >= today - past_days, Event.date < today)
         else:
@@ -125,10 +122,11 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
             count_base = count_base.where(Event.case_id == case_id)
         if user_id:
             uid_arr = cast([user_id], SA_ARRAY(Integer()))
-            count_base = count_base.where(
-                Case.attorney_ids.op('@>')(uid_arr)
-                | Case.paralegal_ids.op('@>')(uid_arr)
-            )
+            count_base = count_base.where(or_(
+                Event.case_id.is_(None),
+                Case.attorney_ids.op('@>')(uid_arr),
+                Case.paralegal_ids.op('@>')(uid_arr),
+            ))
         if attendee_id:
             aid_arr = cast([attendee_id], SA_ARRAY(Integer()))
             count_base = count_base.where(
@@ -157,7 +155,7 @@ def get_events(case_id: int = None) -> dict:
 
     stmt = (
         select(Event, Case, task_count_sq.label("task_count"))
-        .join(Case, Event.case_id == Case.id)
+        .outerjoin(Case, Event.case_id == Case.id)
         .order_by(Event.date)
     )
 
@@ -279,7 +277,7 @@ def search_events(query: str = None, case_id: int = None,
 
     stmt = (
         select(Event, Case)
-        .join(Case, Event.case_id == Case.id)
+        .outerjoin(Case, Event.case_id == Case.id)
         .order_by(Event.date)
         .limit(limit)
     )
@@ -290,10 +288,11 @@ def search_events(query: str = None, case_id: int = None,
         stmt = stmt.where(Event.case_id == case_id)
     if user_id:
         uid_arr = cast([user_id], SA_ARRAY(Integer()))
-        stmt = stmt.where(
-            Case.attorney_ids.op('@>')(uid_arr)
-            | Case.paralegal_ids.op('@>')(uid_arr)
-        )
+        stmt = stmt.where(or_(
+            Event.case_id.is_(None),
+            Case.attorney_ids.op('@>')(uid_arr),
+            Case.paralegal_ids.op('@>')(uid_arr),
+        ))
     if date_before:
         stmt = stmt.where(Event.date <= date_before)
     if date_after:
@@ -306,9 +305,9 @@ def search_events(query: str = None, case_id: int = None,
             results.append({
                 "id": event.id,
                 "case_id": event.case_id,
-                "case_name": case.case_name,
-                "short_name": case.short_name,
-                "case_color": case.color,
+                "case_name": case.case_name if case else None,
+                "short_name": case.short_name if case else None,
+                "case_color": case.color if case else None,
                 "date": _serialize_value(event.date),
                 "time": _serialize_value(event.time),
                 "location": event.location,
@@ -328,7 +327,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
         if include_events:
             stmt = (
                 select(Event, Case)
-                .join(Case, Event.case_id == Case.id)
+                .outerjoin(Case, Event.case_id == Case.id)
                 .where(Event.date >= today, Event.date <= today + days)
                 .order_by(Event.date, Event.time.asc().nulls_last())
             )
@@ -340,16 +339,16 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
                     "location": event.location,
                     "description": event.description,
                     "case_id": event.case_id,
-                    "case_name": case.case_name,
-                    "short_name": case.short_name,
-                    "case_color": case.color,
+                    "case_name": case.case_name if case else None,
+                    "short_name": case.short_name if case else None,
+                    "case_color": case.color if case else None,
                     "item_type": "event",
                 })
 
         if include_tasks:
             stmt = (
                 select(Task, Case)
-                .join(Case, Task.case_id == Case.id)
+                .outerjoin(Case, Task.case_id == Case.id)
                 .where(
                     Task.due_date.isnot(None),
                     Task.due_date >= today,
@@ -368,9 +367,9 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
                     "status": task.status,
                     "urgency": task.urgency,
                     "case_id": task.case_id,
-                    "case_name": case.case_name,
-                    "short_name": case.short_name,
-                    "case_color": case.color,
+                    "case_name": case.case_name if case else None,
+                    "short_name": case.short_name if case else None,
+                    "case_color": case.color if case else None,
                     "item_type": "task",
                 })
 
@@ -462,7 +461,7 @@ def get_event_by_id(event_id: int) -> Optional[dict]:
     with SessionLocal() as session:
         stmt = (
             select(Event, Case, task_count_sq.label("task_count"))
-            .join(Case, Event.case_id == Case.id)
+            .outerjoin(Case, Event.case_id == Case.id)
             .where(Event.id == event_id)
         )
         row = session.execute(stmt).first()

@@ -55,16 +55,19 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
+                        asChild
                         tooltip={item.title}
                         isActive={isActive(item.url, pathname)}
                       >
-                        <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-                        <span>{item.title}</span>
-                        <HugeiconsIcon
-                          icon={ArrowRight01Icon}
-                          strokeWidth={2}
-                          className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
-                        />
+                        <Link to={item.url}>
+                          <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                          <span>{item.title}</span>
+                          <HugeiconsIcon
+                            icon={ArrowRight01Icon}
+                            strokeWidth={2}
+                            className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                          />
+                        </Link>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>

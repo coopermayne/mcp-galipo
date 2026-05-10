@@ -11,10 +11,13 @@ import {
   Add01Icon,
   Cancel01Icon,
   Briefcase01Icon,
+  Message01Icon,
 } from "@hugeicons/core-free-icons"
 import type { PersonListItem } from "@/types/person"
 import type { ContactInfo } from "@/types/person"
 import { getPerson, updatePerson } from "@/services/persons"
+import { getConversationsByPerson, createConversation } from "@/services/sms"
+import { Button } from "@/components/ui/button"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -111,6 +114,86 @@ function ContactInfoRow({
         <HugeiconsIcon icon={Add01Icon} className="size-3" />
         Add {type}
       </button>
+    </div>
+  )
+}
+
+function PersonSmsSection({
+  personId,
+  phones,
+  navigate,
+  onClose,
+}: {
+  personId: number
+  phones: ContactInfo[]
+  navigate: ReturnType<typeof useNavigate>
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+
+  const { data: smsData } = useQuery({
+    queryKey: ["sms", "by-person", personId],
+    queryFn: () => getConversationsByPerson(personId),
+  })
+
+  const startSmsMutation = useMutation({
+    mutationFn: (phone: string) =>
+      createConversation(phone, undefined, undefined, personId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["sms"] })
+      onClose()
+      navigate(`/sms/${result.id}`)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  const conversations = smsData?.conversations ?? []
+  const primaryPhone = phones[0]?.value
+
+  return (
+    <div className="border-t pt-3 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <HugeiconsIcon icon={Message01Icon} className="size-3.5 text-muted-foreground" />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          SMS
+        </span>
+      </div>
+      <div className="pl-5 space-y-1">
+        {conversations.length > 0 ? (
+          conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className="flex items-center justify-between py-1 cursor-pointer hover:bg-accent/50 -mx-2 px-2 transition-colors"
+              onClick={() => {
+                onClose()
+                navigate(`/sms/${conv.id}`)
+              }}
+            >
+              <div className="min-w-0">
+                <span className="text-xs font-medium">{conv.label || conv.phone_number}</span>
+                {conv.last_message_preview && (
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {conv.last_message_preview}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))
+        ) : primaryPhone ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => startSmsMutation.mutate(primaryPhone)}
+            disabled={startSmsMutation.isPending}
+          >
+            <HugeiconsIcon icon={Message01Icon} className="size-3 mr-1" />
+            {startSmsMutation.isPending ? "Starting..." : "Start SMS Conversation"}
+          </Button>
+        ) : (
+          <span className="text-xs text-muted-foreground">No phone number to text</span>
+        )}
+      </div>
     </div>
   )
 }
@@ -268,6 +351,9 @@ export function ContactDetailDialog({
               />
             </div>
           </div>
+
+          {/* SMS */}
+          <PersonSmsSection personId={person.id} phones={phones} navigate={navigate} onClose={() => onOpenChange(false)} />
 
           {/* Case Assignments */}
           {caseRoles.size > 0 && (

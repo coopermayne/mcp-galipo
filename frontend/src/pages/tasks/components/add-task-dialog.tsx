@@ -52,7 +52,7 @@ export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
   const mutation = useMutation({
     mutationFn: () =>
       createTask({
-        case_id: Number(caseId),
+        case_id: caseId ? Number(caseId) : undefined,
         description,
         due_date: dueDate || undefined,
         urgency,
@@ -91,12 +91,13 @@ export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Case</Label>
-            <Select value={caseId} onValueChange={setCaseId}>
+            <Label className="text-xs">Case (optional)</Label>
+            <Select value={caseId} onValueChange={(v) => setCaseId(v === "__none__" ? "" : v)}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a case..." />
+                <SelectValue placeholder="No case (general)" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">No case (general)</SelectItem>
                 {(casesData?.cases ?? []).map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
                     {c.short_name || c.case_name}
@@ -155,7 +156,7 @@ export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
           </Button>
           <Button
             onClick={() => mutation.mutate()}
-            disabled={!description.trim() || !caseId || mutation.isPending}
+            disabled={!description.trim() || mutation.isPending}
             size="sm"
           >
             {mutation.isPending ? "Creating..." : "Create Task"}

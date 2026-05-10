@@ -56,12 +56,19 @@ export async function getMessages(
 
 export async function createConversation(
   phoneNumber: string,
-  label?: string
+  label?: string,
+  caseId?: number,
+  personId?: number,
 ): Promise<SmsConversation & { created: boolean }> {
   const res = await apiFetch("/api/v1/sms/conversations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone_number: phoneNumber, label }),
+    body: JSON.stringify({
+      phone_number: phoneNumber,
+      label,
+      case_id: caseId,
+      person_id: personId,
+    }),
   })
   if (!res.ok) throw new Error("Failed to create conversation")
   return res.json()
@@ -148,4 +155,25 @@ export async function getSignedMediaUrl(mediaId: number): Promise<string> {
   })
   const { token } = await res.json()
   return `/api/v1/sms/media/${mediaId}?token=${token}`
+}
+
+export async function linkConversation(
+  conversationId: number,
+  data: { case_id?: number | null; person_id?: number | null }
+): Promise<SmsConversation> {
+  const res = await apiFetch(`/api/v1/sms/conversations/${conversationId}/link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to link conversation")
+  return res.json()
+}
+
+export async function getConversationsByPerson(
+  personId: number
+): Promise<SmsConversationListResponse> {
+  const res = await apiFetch(`/api/v1/sms/by-person/${personId}`)
+  if (!res.ok) throw new Error("Failed to fetch conversations for person")
+  return res.json()
 }

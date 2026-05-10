@@ -2,6 +2,8 @@ export interface SmsConversation {
   id: number
   phone_number: string
   label: string | null
+  case_id: number | null
+  person_id: number | null
   last_message_at: string | null
   created_at: string | null
   archived: boolean

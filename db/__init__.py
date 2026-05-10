@@ -275,6 +275,8 @@ from .sms import (
     get_media_by_id as get_sms_media_by_id,
     mark_conversation_read as mark_sms_conversation_read,
     get_unread_counts as get_sms_unread_counts,
+    link_conversation,
+    get_conversations_by_person,
 )
 
 # Financials
