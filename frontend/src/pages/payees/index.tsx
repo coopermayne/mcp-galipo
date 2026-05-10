@@ -12,7 +12,7 @@ import {
   Search01Icon,
   Upload04Icon,
 } from "@hugeicons/core-free-icons"
-import { getW9Url } from "@/services/payees"
+import { openW9File } from "@/services/payees"
 import { EditPayeeDialog } from "@/pages/payees/components/edit-payee-dialog"
 import {
   Dialog,
@@ -114,16 +114,14 @@ export default function PayeesPage() {
                   </td>
                   <td className="px-4 py-3">
                     {p.w9_file_path ? (
-                      <a
-                        href={getW9Url(p.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openW9File(p.id) }}
                         className="inline-flex items-center gap-1 text-primary hover:underline"
                       >
                         <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
                         {p.w9_year ? `W-9 (${p.w9_year})` : (p.w9_file_name ?? "View")}
-                      </a>
+                      </button>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

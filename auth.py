@@ -14,10 +14,16 @@ import jwt
 from config import settings
 from db.users import authenticate_user, get_user_by_id
 from db.activity import touch_last_active
+from db.auth_sessions import (
+    create_auth_session,
+    validate_auth_session,
+    extend_auth_session,
+    delete_auth_session,
+    delete_user_sessions,
+)
 
 
-# Session expiry: 30 days (rolling — refreshed on each verify)
-SESSION_EXPIRY_HOURS = 24 * 30
+SESSION_EXPIRY_HOURS = 4
 
 # Legacy environment variables (fallback during transition)
 AUTH_USERNAME = settings.auth_username
@@ -80,10 +86,13 @@ def authenticate(email: str, password: str) -> Optional[dict]:
 
 
 def create_session(user: dict) -> str:
-    """Create a JWT token for a database user."""
+    """Create a JWT token for a database user with a server-side session."""
+    user_id = user["id"]
+    sid = create_auth_session(user_id, SESSION_EXPIRY_HOURS)
     expiry = datetime.now(timezone.utc) + timedelta(hours=SESSION_EXPIRY_HOURS)
     payload = {
-        "sub": str(user["id"]),
+        "sub": str(user_id),
+        "sid": sid,
         "email": user["email"],
         "is_admin": user["is_admin"],
         "exp": expiry,
@@ -94,9 +103,11 @@ def create_session(user: dict) -> str:
 
 def create_legacy_session(username: str) -> str:
     """Create a JWT token for legacy env var auth (transition period)."""
+    sid = create_auth_session(0, SESSION_EXPIRY_HOURS)
     expiry = datetime.now(timezone.utc) + timedelta(hours=SESSION_EXPIRY_HOURS)
     payload = {
-        "sub": "0",  # Legacy user ID
+        "sub": "0",
+        "sid": sid,
         "email": username,
         "is_admin": True,
         "exp": expiry,
@@ -106,14 +117,46 @@ def create_legacy_session(username: str) -> str:
 
 
 def validate_session(token: str) -> bool:
-    """Check if a JWT token is valid and not expired."""
+    """Check if a JWT token is valid, not expired, and not revoked."""
     try:
-        jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return True
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        sid = payload.get("sid")
+        if not sid:
+            return False
+        return validate_auth_session(sid)
     except jwt.ExpiredSignatureError:
         return False
     except jwt.InvalidTokenError:
         return False
+
+
+def refresh_session(token: str, user: dict) -> str:
+    """Extend the existing session and return a new JWT with the same sid."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        sid = payload.get("sid")
+        if sid:
+            extend_auth_session(sid, SESSION_EXPIRY_HOURS)
+            expiry = datetime.now(timezone.utc) + timedelta(hours=SESSION_EXPIRY_HOURS)
+            new_payload = {
+                "sub": payload["sub"],
+                "sid": sid,
+                "email": user.get("email", payload.get("email", "")),
+                "is_admin": user.get("isAdmin", user.get("is_admin", payload.get("is_admin", False))),
+                "exp": expiry,
+                "iat": datetime.now(timezone.utc),
+            }
+            return jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    except jwt.InvalidTokenError:
+        pass
+    # Fallback: create a new session if the old one can't be refreshed
+    if user.get("id", 0) == 0:
+        return create_legacy_session(user.get("email", ""))
+    return create_session({
+        "id": user["id"],
+        "email": user.get("email", ""),
+        "is_admin": user.get("isAdmin", user.get("is_admin", False)),
+    })
 
 
 def get_session_user(token: str) -> Optional[dict]:
@@ -160,11 +203,39 @@ def get_session_user(token: str) -> Optional[dict]:
 
 
 def invalidate_session(token: str) -> bool:
-    """
-    JWT tokens are stateless and can't be invalidated server-side.
-    Returns True for API compatibility. Client should discard the token.
-    """
-    return True
+    """Revoke a session server-side so the token can no longer be used."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM], options={"verify_exp": False})
+        sid = payload.get("sid")
+        if sid:
+            delete_auth_session(sid)
+        return True
+    except jwt.InvalidTokenError:
+        return False
+
+
+SIGNED_URL_EXPIRY_SECONDS = 60
+
+
+def create_file_token(path: str) -> str:
+    """Create a short-lived JWT scoped to a specific file path."""
+    expiry = datetime.now(timezone.utc) + timedelta(seconds=SIGNED_URL_EXPIRY_SECONDS)
+    payload = {
+        "purpose": "file",
+        "path": path,
+        "exp": expiry,
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def validate_file_token(token: str, expected_path: str) -> bool:
+    """Validate a short-lived file token matches the requested path."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload.get("purpose") == "file" and payload.get("path") == expected_path
+    except jwt.InvalidTokenError:
+        return False
 
 
 def get_token_from_request(request) -> Optional[str]:

@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getMediaProxyUrl } from "@/services/sms"
+import { getSignedMediaUrl } from "@/services/sms"
 import type { SmsMessage, SmsMediaAttachment } from "@/types/sms"
 
 interface MessageThreadProps {
@@ -32,13 +32,19 @@ function isImageType(contentType: string): boolean {
 }
 
 function MediaAttachment({ media }: { media: SmsMediaAttachment }) {
-  const proxyUrl = getMediaProxyUrl(media.id)
+  const [signedUrl, setSignedUrl] = useState<string>()
+
+  useEffect(() => {
+    getSignedMediaUrl(media.id).then(setSignedUrl)
+  }, [media.id])
+
+  if (!signedUrl) return null
 
   if (isImageType(media.content_type)) {
     return (
-      <a href={proxyUrl} target="_blank" rel="noopener noreferrer" className="block">
+      <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="block">
         <img
-          src={proxyUrl}
+          src={signedUrl}
           alt={media.filename || "Image"}
           className="max-h-48 max-w-full object-contain"
           loading="lazy"
@@ -47,10 +53,9 @@ function MediaAttachment({ media }: { media: SmsMediaAttachment }) {
     )
   }
 
-  // Non-image file — download link
   return (
     <a
-      href={proxyUrl}
+      href={signedUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="flex items-center gap-1.5 text-xs underline"

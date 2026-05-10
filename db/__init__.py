@@ -291,6 +291,16 @@ from .financials import (
     delete_counsel_fee,
 )
 
+# Auth sessions
+from .auth_sessions import (
+    create_auth_session,
+    validate_auth_session,
+    extend_auth_session,
+    delete_auth_session,
+    delete_user_sessions,
+    cleanup_expired_sessions,
+)
+
 # Activity tracking
 from .activity import (
     touch_last_active,
@@ -550,6 +560,13 @@ __all__ = [
     "create_counsel_fee",
     "update_counsel_fee",
     "delete_counsel_fee",
+    # Auth sessions
+    "create_auth_session",
+    "validate_auth_session",
+    "extend_auth_session",
+    "delete_auth_session",
+    "delete_user_sessions",
+    "cleanup_expired_sessions",
     # Activity tracking
     "touch_last_active",
     "record_page_view",

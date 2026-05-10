@@ -111,12 +111,20 @@ def register_invoice_routes(mcp):
         file_path = body.get("file_path")
         content_type = body.get("content_type", "application/pdf")
 
-        if not file_path or not os.path.isfile(file_path):
+        if not file_path:
+            return api_error("File not found", "NOT_FOUND", 404)
+
+        resolved = os.path.realpath(file_path)
+        media_root = os.path.realpath(settings.media_dir)
+        if not resolved.startswith(media_root + os.sep):
+            return api_error("Access denied", "FORBIDDEN", 403)
+
+        if not os.path.isfile(resolved):
             return api_error("File not found", "NOT_FOUND", 404)
 
         try:
             from services.invoice_extractor import extract_invoice
-            result = await asyncio.to_thread(extract_invoice, file_path, content_type)
+            result = await asyncio.to_thread(extract_invoice, resolved, content_type)
             return JSONResponse({"success": True, "extracted": result})
         except Exception as e:
             logger.error(f"Invoice extraction failed: {e}")
@@ -205,11 +213,21 @@ def register_invoice_routes(mcp):
             return JSONResponse({"success": True})
         return api_error("Invoice not found", "NOT_FOUND", 404)
 
+    @mcp.custom_route("/api/v1/invoices/{invoice_id}/file-token", methods=["POST"])
+    async def api_create_invoice_file_token(request):
+        if err := auth.require_auth(request):
+            return err
+        invoice_id = int(request.path_params["invoice_id"])
+        token = auth.create_file_token(f"/invoices/{invoice_id}/file")
+        return JSONResponse({"token": token})
+
     @mcp.custom_route("/api/v1/invoices/{invoice_id}/file", methods=["GET"])
     async def api_serve_invoice_file(request):
-        if token_param := request.query_params.get("token"):
-            if not auth.validate_session(token_param):
-                return api_error("Invalid token", "UNAUTHORIZED", 401)
+        token_param = request.query_params.get("token")
+        if token_param:
+            invoice_id = int(request.path_params["invoice_id"])
+            if not auth.validate_file_token(token_param, f"/invoices/{invoice_id}/file"):
+                return api_error("Invalid or expired download link", "UNAUTHORIZED", 401)
         elif err := auth.require_auth(request):
             return err
 
@@ -219,7 +237,10 @@ def register_invoice_routes(mcp):
         if not invoice or not invoice.get("file_path"):
             return api_error("File not found", "NOT_FOUND", 404)
 
-        local_path = invoice["file_path"]
+        local_path = os.path.realpath(invoice["file_path"])
+        media_root = os.path.realpath(settings.media_dir)
+        if not local_path.startswith(media_root + os.sep):
+            return api_error("Access denied", "FORBIDDEN", 403)
         if not os.path.isfile(local_path):
             return api_error("File not found on disk", "NOT_FOUND", 404)
 

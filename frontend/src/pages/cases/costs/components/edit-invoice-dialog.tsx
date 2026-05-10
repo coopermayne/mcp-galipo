@@ -24,7 +24,7 @@ import {
   type Invoice,
   updateInvoice,
   INVOICE_CATEGORIES,
-  getInvoiceFileUrl,
+  openInvoiceFile,
   getCaseCoCounsel,
 } from "@/services/invoices"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -111,15 +111,14 @@ export function EditInvoiceDialog({
         <DialogHeader>
           <DialogTitle>Edit Invoice</DialogTitle>
           {invoice?.file_path && (
-            <a
-              href={getInvoiceFileUrl(invoice.id)}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => openInvoiceFile(invoice.id)}
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
               <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
               {invoice.file_name ?? "View file"}
-            </a>
+            </button>
           )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

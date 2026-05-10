@@ -12,7 +12,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import type { Invoice } from "@/services/invoices"
 import {
-  getInvoiceFileUrl,
+  openInvoiceFile,
   markInvoiceUnpaid,
   deleteInvoice,
 } from "@/services/invoices"
@@ -202,18 +202,16 @@ export function getColumns(options: {
       header: "",
       cell: ({ row }) =>
         row.original.file_path ? (
-          <a
-            href={getInvoiceFileUrl(row.original.id)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openInvoiceFile(row.original.id) }}
             title="View file"
           >
             <HugeiconsIcon
               icon={Attachment01Icon}
               className="size-3.5 text-muted-foreground hover:text-foreground"
             />
-          </a>
+          </button>
         ) : null,
       enableSorting: false,
       enableHiding: false,
@@ -291,15 +289,9 @@ function InvoiceActions({
         <DropdownMenuContent align="end">
           {invoice.file_path && (
             <>
-              <DropdownMenuItem asChild>
-                <a
-                  href={getInvoiceFileUrl(invoice.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <HugeiconsIcon icon={Attachment01Icon} className="mr-2 size-4" />
-                  View File
-                </a>
+              <DropdownMenuItem onClick={() => openInvoiceFile(invoice.id)}>
+                <HugeiconsIcon icon={Attachment01Icon} className="mr-2 size-4" />
+                View File
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>

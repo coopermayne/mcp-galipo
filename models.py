@@ -1175,6 +1175,26 @@ class CaseCounselFee(Base):
 # User activity tracking
 # ---------------------------------------------------------------------------
 
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="CASCADE",
+            name="auth_sessions_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("sid", name="auth_sessions_pkey"),
+        Index("idx_auth_sessions_user_id", "user_id"),
+        Index("idx_auth_sessions_expires_at", "expires_at"),
+    )
+
+    sid: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
+    )
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime)
+
+
 class PageView(Base):
     """Tracks page views per user for activity analytics."""
 

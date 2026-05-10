@@ -4,9 +4,55 @@ Authentication routes.
 Handles login, logout, token verification, and password changes.
 """
 
+import threading
+import time
+
 from fastapi.responses import JSONResponse
 import auth
 from db.users import update_password, get_user_by_id
+
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 60
+LOGIN_LOCKOUT_SECONDS = 300
+
+
+class _LoginRateLimiter:
+    """Username-based rate limiter for login attempts."""
+
+    def __init__(self):
+        self._attempts: dict[str, list[float]] = {}
+        self._lockouts: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def check(self, username: str) -> tuple[bool, int]:
+        key = username.lower().strip()
+        now = time.time()
+        with self._lock:
+            if key in self._lockouts:
+                if now < self._lockouts[key]:
+                    return False, int(self._lockouts[key] - now) + 1
+                del self._lockouts[key]
+                self._attempts.pop(key, None)
+
+            cutoff = now - LOGIN_WINDOW_SECONDS
+            recent = [t for t in self._attempts.get(key, []) if t > cutoff]
+            self._attempts[key] = recent
+
+            if len(recent) >= LOGIN_MAX_ATTEMPTS:
+                self._lockouts[key] = now + LOGIN_LOCKOUT_SECONDS
+                return False, LOGIN_LOCKOUT_SECONDS
+
+            self._attempts[key].append(now)
+            return True, 0
+
+    def clear(self, username: str):
+        key = username.lower().strip()
+        with self._lock:
+            self._attempts.pop(key, None)
+            self._lockouts.pop(key, None)
+
+
+_login_limiter = _LoginRateLimiter()
 
 
 def register_auth_routes(mcp):
@@ -19,8 +65,17 @@ def register_auth_routes(mcp):
         email = data.get("username", "")  # Accept "username" for backwards compat
         password = data.get("password", "")
 
+        allowed, retry_after = _login_limiter.check(email)
+        if not allowed:
+            return JSONResponse(
+                {"success": False, "error": {"message": "Too many login attempts. Try again later.", "code": "RATE_LIMITED"}},
+                status_code=429,
+                headers={"Retry-After": str(retry_after)},
+            )
+
         result = auth.authenticate(email, password)
         if result:
+            _login_limiter.clear(email)
             return JSONResponse({
                 "success": True,
                 "token": result["token"],
@@ -34,8 +89,10 @@ def register_auth_routes(mcp):
 
     @mcp.custom_route("/api/v1/auth/logout", methods=["POST"])
     async def api_auth_logout(request):
-        """Logout user (invalidate token)."""
-        # Token invalidation would be handled here if we had a session store
+        """Logout user (invalidate token server-side)."""
+        token = auth.get_token_from_request(request)
+        if token:
+            auth.invalidate_session(token)
         return JSONResponse({"success": True})
 
     @mcp.custom_route("/api/v1/auth/verify", methods=["GET"])
@@ -51,16 +108,9 @@ def register_auth_routes(mcp):
                 status_code=401
             )
 
-        # Issue a fresh token to extend the session (rolling expiry)
-        # get_current_user returns camelCase keys, but create_session expects snake_case
-        if user["id"] == 0:
-            refreshed_token = auth.create_legacy_session(user["email"])
-        else:
-            refreshed_token = auth.create_session({
-                "id": user["id"],
-                "email": user["email"],
-                "is_admin": user.get("isAdmin", user.get("is_admin", False)),
-            })
+        # Extend the existing session and reissue the JWT (rolling expiry)
+        token = auth.get_token_from_request(request)
+        refreshed_token = auth.refresh_session(token, user)
 
         return JSONResponse({
             "success": True,
@@ -120,7 +170,9 @@ def register_auth_routes(mcp):
                 status_code=400
             )
 
-        # Update password
+        # Invalidate all existing sessions, then update password
+        from db.auth_sessions import delete_user_sessions
+        delete_user_sessions(user["id"])
         success = update_password(user["id"], new_password, clear_must_change=True)
         if not success:
             return JSONResponse(

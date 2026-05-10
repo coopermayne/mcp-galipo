@@ -303,10 +303,11 @@ def register_user_routes(mcp):
                 status_code=404
             )
 
-        # Reset password and set must_change_password
+        # Invalidate all sessions for this user, then reset password
+        from db.auth_sessions import delete_user_sessions
+        delete_user_sessions(user_id)
         success = update_password(user_id, DEFAULT_PASSWORD, clear_must_change=False)
         if success:
-            # Also set must_change_password flag
             update_user(user_id, must_change_password=True)
             return JSONResponse({"success": True, "defaultPassword": DEFAULT_PASSWORD})
 

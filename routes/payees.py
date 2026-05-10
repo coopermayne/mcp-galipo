@@ -162,11 +162,21 @@ def register_payee_routes(mcp):
         )
         return JSONResponse({"success": True, "payee": result})
 
+    @mcp.custom_route("/api/v1/payees/{payee_id}/w9-token", methods=["POST"])
+    async def api_create_w9_file_token(request):
+        if err := auth.require_auth(request):
+            return err
+        payee_id = int(request.path_params["payee_id"])
+        token = auth.create_file_token(f"/payees/{payee_id}/w9")
+        return JSONResponse({"token": token})
+
     @mcp.custom_route("/api/v1/payees/{payee_id}/w9", methods=["GET"])
     async def api_serve_w9(request):
-        if token_param := request.query_params.get("token"):
-            if not auth.validate_session(token_param):
-                return api_error("Invalid token", "UNAUTHORIZED", 401)
+        token_param = request.query_params.get("token")
+        if token_param:
+            payee_id = int(request.path_params["payee_id"])
+            if not auth.validate_file_token(token_param, f"/payees/{payee_id}/w9"):
+                return api_error("Invalid or expired download link", "UNAUTHORIZED", 401)
         elif err := auth.require_auth(request):
             return err
 
@@ -176,7 +186,10 @@ def register_payee_routes(mcp):
         if not payee or not payee.get("w9_file_path"):
             return api_error("File not found", "NOT_FOUND", 404)
 
-        local_path = payee["w9_file_path"]
+        local_path = os.path.realpath(payee["w9_file_path"])
+        media_root = os.path.realpath(settings.media_dir)
+        if not local_path.startswith(media_root + os.sep):
+            return api_error("Access denied", "FORBIDDEN", 403)
         if not os.path.isfile(local_path):
             return api_error("File not found on disk", "NOT_FOUND", 404)
 
