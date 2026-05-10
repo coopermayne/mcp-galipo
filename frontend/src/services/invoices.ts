@@ -255,11 +255,12 @@ export interface CounselOption {
   organization: string | null
 }
 
-export async function getCaseCounsel(
+export async function getCaseCoCounsel(
   caseId: number
 ): Promise<CounselOption[]> {
+  // role_id=5 is co_counsel (seeded role)
   const res = await apiFetch(
-    `/api/v1/cases/${caseId}/persons?category=counsel`
+    `/api/v1/cases/${caseId}/persons?role_id=5`
   )
   if (!res.ok) return []
   const data = await res.json()

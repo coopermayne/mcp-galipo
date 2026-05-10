@@ -46,6 +46,7 @@ const router = createBrowserRouter([
       { path: "cases/all", lazy: lazy(() => import("@/pages/cases/all")) },
       { path: "financials", lazy: lazy(() => import("@/pages/financials")) },
       { path: "invoices", lazy: lazy(() => import("@/pages/invoices")) },
+      { path: "payees", lazy: lazy(() => import("@/pages/payees")) },
       { path: "cases/:id", lazy: lazy(() => import("@/pages/cases/detail")) },
       { path: "cases/:id/costs", lazy: lazy(() => import("@/pages/cases/costs")) },
       { path: "tasks", lazy: lazy(() => import("@/pages/tasks")) },

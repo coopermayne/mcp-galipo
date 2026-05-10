@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -24,7 +25,7 @@ import {
   updateInvoice,
   INVOICE_CATEGORIES,
   getInvoiceFileUrl,
-  getCaseCounsel,
+  getCaseCoCounsel,
 } from "@/services/invoices"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Attachment01Icon } from "@hugeicons/core-free-icons"
@@ -43,6 +44,7 @@ export function EditInvoiceDialog({
 }: EditInvoiceDialogProps) {
   const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
+  const [isPartial, setIsPartial] = useState(false)
   const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -53,15 +55,19 @@ export function EditInvoiceDialog({
   const [saving, setSaving] = useState(false)
 
   const { data: counsel } = useQuery({
-    queryKey: ["case-counsel", invoice?.case_id],
-    queryFn: () => getCaseCounsel(invoice!.case_id),
+    queryKey: ["case-co-counsel", invoice?.case_id],
+    queryFn: () => getCaseCoCounsel(invoice!.case_id),
     enabled: !!invoice?.case_id,
   })
+
+  const isValid = !!payeeId && !!amount && !!category && !!date
 
   useEffect(() => {
     if (invoice) {
       setPayeeId(invoice.payee_id ?? null)
       setAmount(String(invoice.amount))
+      const hasPartial = !!invoice.case_amount
+      setIsPartial(hasPartial)
       setCaseAmount(invoice.case_amount ?? "")
       setDate(invoice.date ?? "")
       setDueDate(invoice.due_date ?? "")
@@ -74,13 +80,13 @@ export function EditInvoiceDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!invoice || !amount) return
+    if (!invoice || !isValid) return
 
     setSaving(true)
     try {
       await updateInvoice(invoice.id, {
         amount: parseFloat(amount),
-        case_amount: caseAmount ? parseFloat(caseAmount) : null,
+        case_amount: isPartial && caseAmount ? parseFloat(caseAmount) : null,
         date: date || undefined,
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
@@ -120,11 +126,12 @@ export function EditInvoiceDialog({
           <PayeeSearch
             value={payeeId}
             valueName={invoice?.payee_name}
+            valueAddress={invoice?.payee_address}
             onChange={setPayeeId}
           />
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="edit-amount">Total Amount</Label>
+              <Label htmlFor="edit-amount">Amount</Label>
               <Input
                 id="edit-amount"
                 type="number"
@@ -133,20 +140,6 @@ export function EditInvoiceDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
-            </div>
-            <div>
-              <Label htmlFor="edit-case-amount">Case Amount</Label>
-              <Input
-                id="edit-case-amount"
-                type="number"
-                step="0.01"
-                value={caseAmount}
-                onChange={(e) => setCaseAmount(e.target.value)}
-                placeholder="Full amount"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Leave blank if full amount applies to this case
-              </p>
             </div>
             <div>
               <Label htmlFor="edit-category">Category</Label>
@@ -164,6 +157,25 @@ export function EditInvoiceDialog({
               </Select>
             </div>
             <div>
+              <Label htmlFor="edit-date">Invoice Date</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-due-date">Due Date</Label>
+              <Input
+                id="edit-due-date"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div>
               <Label htmlFor="edit-paid-by">Paid By</Label>
               <Select value={paidByPersonId} onValueChange={setPaidByPersonId}>
                 <SelectTrigger id="edit-paid-by">
@@ -179,25 +191,33 @@ export function EditInvoiceDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="edit-date">Invoice Date</Label>
-              <Input
-                id="edit-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-due-date">Due Date</Label>
-              <Input
-                id="edit-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
           </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="edit-partial"
+              checked={isPartial}
+              onCheckedChange={(checked) => {
+                setIsPartial(!!checked)
+                if (!checked) setCaseAmount("")
+              }}
+            />
+            <Label htmlFor="edit-partial" className="text-sm font-normal cursor-pointer">
+              Only a partial amount applies to this case
+            </Label>
+          </div>
+          {isPartial && (
+            <div>
+              <Label htmlFor="edit-case-amount">Amount for this case</Label>
+              <Input
+                id="edit-case-amount"
+                type="number"
+                step="0.01"
+                value={caseAmount}
+                onChange={(e) => setCaseAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+          )}
           <div>
             <Label htmlFor="edit-description">Description</Label>
             <Textarea
@@ -237,7 +257,7 @@ export function EditInvoiceDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !amount}>
+            <Button type="submit" disabled={saving || !isValid}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
