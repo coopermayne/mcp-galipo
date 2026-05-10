@@ -59,16 +59,20 @@ interface TreeNode {
 }
 
 function buildTree(persons: CasePerson[]): TreeNode[] {
-  const map = new Map<number, TreeNode>()
+  const byAssignment = new Map<number, TreeNode>()
+  const byPersonId = new Map<number, TreeNode>()
   const roots: TreeNode[] = []
 
   for (const p of persons) {
-    map.set(p.assignment_id, { person: p, children: [] })
+    const node = { person: p, children: [] as TreeNode[] }
+    byAssignment.set(p.assignment_id, node)
+    byPersonId.set(p.id, node)
   }
   for (const p of persons) {
-    const node = map.get(p.assignment_id)!
-    if (p.grouped_under_id && map.has(p.grouped_under_id)) {
-      map.get(p.grouped_under_id)!.children.push(node)
+    const node = byAssignment.get(p.assignment_id)!
+    const parent = p.grouped_under_id ? byPersonId.get(p.grouped_under_id) : undefined
+    if (parent) {
+      parent.children.push(node)
     } else {
       roots.push(node)
     }
@@ -334,7 +338,8 @@ export function PersonTree({ persons, onNest, onPersonClick }: PersonTreeProps) 
     const dragged = persons.find((p) => p.assignment_id === draggedId)
     if (!dragged) return
     if (targetId === null && !dragged.grouped_under_id) return
-    if (targetId === dragged.grouped_under_id) return
+    const target = targetId !== null ? persons.find((p) => p.assignment_id === targetId) : null
+    if (target && target.id === dragged.grouped_under_id) return
 
     // Don't allow nesting a parent that has children (would create multi-level)
     if (targetId !== null) {

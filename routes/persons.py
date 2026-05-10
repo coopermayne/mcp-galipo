@@ -262,6 +262,10 @@ def register_person_routes(mcp):
             return JSONResponse({"success": True, "assignment": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return api_error(str(e), "INTERNAL_ERROR", 500)
 
     @mcp.custom_route("/api/v1/cases/{case_id}/persons/{person_id}/change-role", methods=["PATCH"])
     async def api_change_person_role(request):

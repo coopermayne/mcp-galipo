@@ -414,6 +414,14 @@ def update_case_assignment(assignment_id: int, **kwargs) -> Optional[dict]:
         if "attributes" in kwargs and isinstance(kwargs["attributes"], dict):
             _validate_and_ensure_expertises(session, pr.role_id, kwargs["attributes"])
 
+        # grouped_under_id: frontend sends an assignment_id, but the FK
+        # references persons.id — resolve it to the person_id.
+        if "grouped_under_id" in kwargs and kwargs["grouped_under_id"] is not None:
+            target_pr = session.get(PersonRole, kwargs["grouped_under_id"])
+            if not target_pr:
+                raise ValidationError(f"Target assignment {kwargs['grouped_under_id']} not found")
+            kwargs["grouped_under_id"] = target_pr.person_id
+
         changed = False
         for field, value in kwargs.items():
             if field not in allowed_fields:
