@@ -76,7 +76,10 @@ function CaseDetailContent() {
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       toast.success("Updated grouping")
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e, variables) => {
+      console.error("[nestMutation] FAILED", { error: e, variables })
+      toast.error(e.message)
+    },
   })
 
   const handleNest = useCallback(

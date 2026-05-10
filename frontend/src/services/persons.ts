@@ -138,7 +138,17 @@ export async function updateCaseAssignment(
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new Error(body?.error?.message ?? "Failed to update assignment")
+    console.error("[updateCaseAssignment] FAILED", {
+      status: res.status,
+      statusText: res.statusText,
+      url: res.url,
+      caseId,
+      assignmentId,
+      requestData: data,
+      responseBody: body,
+    })
+    const msg = body?.error?.message ?? body?.detail ?? body?.message ?? `Failed to update assignment (HTTP ${res.status})`
+    throw new Error(msg)
   }
   return res.json()
 }
