@@ -123,7 +123,7 @@ export function EditPayeeDialog({
 
   return (
     <Dialog open={!!payee} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Payee</DialogTitle>
         </DialogHeader>
@@ -168,16 +168,17 @@ export function EditPayeeDialog({
           <div className="border-t pt-4">
             <Label className="text-xs">W-9</Label>
             {payee?.w9_file_path && !pendingFile ? (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 min-w-0">
                 <a
                   href={getW9Url(payee.id)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline min-w-0"
                 >
-                  <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
-                  {payee.w9_file_name ?? "View W-9"}
-                  {payee.w9_year ? ` (${payee.w9_year})` : ""}
+                  <HugeiconsIcon icon={Attachment01Icon} className="size-3.5 shrink-0" />
+                  <span className="truncate">
+                    {payee.w9_year ? `W-9 (${payee.w9_year})` : (payee.w9_file_name ?? "View W-9")}
+                  </span>
                 </a>
                 <span className="text-muted-foreground">·</span>
                 <button
