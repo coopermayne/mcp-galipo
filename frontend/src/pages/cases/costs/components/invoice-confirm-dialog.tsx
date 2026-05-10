@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -37,44 +38,45 @@ export function InvoiceConfirmDialog({
 }: InvoiceConfirmDialogProps) {
   const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
+  const [isPartial, setIsPartial] = useState(false)
+  const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
-  const [caseAmount, setCaseAmount] = useState("")
-  const [checkNumber, setCheckNumber] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
+
+  const isValid = !!payeeId && !!amount && !!category && !!date
 
   useEffect(() => {
     if (extracted) {
       setPayeeId(null)
       setAmount(extracted.amount != null ? String(extracted.amount) : "")
+      setIsPartial(false)
+      setCaseAmount("")
       setDate(extracted.date ?? "")
       setDueDate(extracted.due_date ?? "")
       setDescription(extracted.description ?? "")
       setCategory(extracted.category ?? "")
-      setCaseAmount("")
-      setCheckNumber("")
       setNotes(extracted.notes ?? "")
     }
   }, [extracted])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!amount) return
+    if (!isValid) return
 
     setSaving(true)
     try {
       await onConfirm({
         payee_id: payeeId ?? undefined,
         amount: parseFloat(amount),
-        case_amount: caseAmount ? parseFloat(caseAmount) : undefined,
+        case_amount: isPartial && caseAmount ? parseFloat(caseAmount) : undefined,
         date: date || undefined,
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
         category: category || undefined,
-        check_number: checkNumber.trim() || undefined,
         notes: notes.trim() || undefined,
       })
     } finally {
@@ -100,7 +102,7 @@ export function InvoiceConfirmDialog({
           />
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="amount">Total Amount</Label>
+              <Label htmlFor="amount">Amount</Label>
               <Input
                 id="amount"
                 type="number"
@@ -109,20 +111,6 @@ export function InvoiceConfirmDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
-            </div>
-            <div>
-              <Label htmlFor="case_amount">Case Amount</Label>
-              <Input
-                id="case_amount"
-                type="number"
-                step="0.01"
-                value={caseAmount}
-                onChange={(e) => setCaseAmount(e.target.value)}
-                placeholder="Full amount"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Leave blank if full amount applies
-              </p>
             </div>
             <div>
               <Label htmlFor="category">Category</Label>
@@ -146,6 +134,7 @@ export function InvoiceConfirmDialog({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                required
               />
             </div>
             <div>
@@ -157,15 +146,33 @@ export function InvoiceConfirmDialog({
                 onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="confirm-partial"
+              checked={isPartial}
+              onCheckedChange={(checked) => {
+                setIsPartial(!!checked)
+                if (!checked) setCaseAmount("")
+              }}
+            />
+            <Label htmlFor="confirm-partial" className="text-sm font-normal cursor-pointer">
+              Only a partial amount applies to this case
+            </Label>
+          </div>
+          {isPartial && (
             <div>
-              <Label htmlFor="check_number">Check #</Label>
+              <Label htmlFor="case_amount">Amount for this case</Label>
               <Input
-                id="check_number"
-                value={checkNumber}
-                onChange={(e) => setCheckNumber(e.target.value)}
+                id="case_amount"
+                type="number"
+                step="0.01"
+                value={caseAmount}
+                onChange={(e) => setCaseAmount(e.target.value)}
+                placeholder="0.00"
               />
             </div>
-          </div>
+          )}
           <div>
             <Label htmlFor="description">Description</Label>
             <Textarea
@@ -193,7 +200,7 @@ export function InvoiceConfirmDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !amount}>
+            <Button type="submit" disabled={saving || !isValid}>
               {saving ? "Adding..." : "Add Invoice"}
             </Button>
           </DialogFooter>

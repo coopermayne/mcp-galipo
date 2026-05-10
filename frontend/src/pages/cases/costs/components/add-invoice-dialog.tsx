@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createInvoice, INVOICE_CATEGORIES, getCaseCounsel } from "@/services/invoices"
+import { createInvoice, INVOICE_CATEGORIES, getCaseCoCounsel } from "@/services/invoices"
 import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
 
 interface AddInvoiceDialogProps {
@@ -37,6 +38,7 @@ export function AddInvoiceDialog({
 }: AddInvoiceDialogProps) {
   const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
+  const [isPartial, setIsPartial] = useState(false)
   const [caseAmount, setCaseAmount] = useState("")
   const [date, setDate] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -47,14 +49,17 @@ export function AddInvoiceDialog({
   const [saving, setSaving] = useState(false)
 
   const { data: counsel } = useQuery({
-    queryKey: ["case-counsel", caseId],
-    queryFn: () => getCaseCounsel(caseId),
+    queryKey: ["case-co-counsel", caseId],
+    queryFn: () => getCaseCoCounsel(caseId),
     enabled: open,
   })
+
+  const isValid = !!payeeId && !!amount && !!category && !!date
 
   function reset() {
     setPayeeId(null)
     setAmount("")
+    setIsPartial(false)
     setCaseAmount("")
     setDate("")
     setDueDate("")
@@ -66,14 +71,14 @@ export function AddInvoiceDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!amount) return
+    if (!isValid) return
 
     setSaving(true)
     try {
       await createInvoice({
         case_id: caseId,
         amount: parseFloat(amount),
-        case_amount: caseAmount ? parseFloat(caseAmount) : undefined,
+        case_amount: isPartial && caseAmount ? parseFloat(caseAmount) : undefined,
         date: date || undefined,
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
@@ -95,7 +100,7 @@ export function AddInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Invoice</DialogTitle>
         </DialogHeader>
@@ -106,7 +111,7 @@ export function AddInvoiceDialog({
           />
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="add-amount">Total Amount</Label>
+              <Label htmlFor="add-amount">Amount</Label>
               <Input
                 id="add-amount"
                 type="number"
@@ -116,20 +121,6 @@ export function AddInvoiceDialog({
                 placeholder="0.00"
                 required
               />
-            </div>
-            <div>
-              <Label htmlFor="add-case-amount">Case Amount</Label>
-              <Input
-                id="add-case-amount"
-                type="number"
-                step="0.01"
-                value={caseAmount}
-                onChange={(e) => setCaseAmount(e.target.value)}
-                placeholder="Full amount"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Leave blank if full amount applies
-              </p>
             </div>
             <div>
               <Label htmlFor="add-category">Category</Label>
@@ -147,6 +138,25 @@ export function AddInvoiceDialog({
               </Select>
             </div>
             <div>
+              <Label htmlFor="add-date">Invoice Date</Label>
+              <Input
+                id="add-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-due-date">Due Date</Label>
+              <Input
+                id="add-due-date"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div>
               <Label htmlFor="add-paid-by">Paid By</Label>
               <Select value={paidByPersonId} onValueChange={setPaidByPersonId}>
                 <SelectTrigger id="add-paid-by">
@@ -162,25 +172,33 @@ export function AddInvoiceDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="add-date">Invoice Date</Label>
-              <Input
-                id="add-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="add-due-date">Due Date</Label>
-              <Input
-                id="add-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
           </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="add-partial"
+              checked={isPartial}
+              onCheckedChange={(checked) => {
+                setIsPartial(!!checked)
+                if (!checked) setCaseAmount("")
+              }}
+            />
+            <Label htmlFor="add-partial" className="text-sm font-normal cursor-pointer">
+              Only a partial amount applies to this case
+            </Label>
+          </div>
+          {isPartial && (
+            <div>
+              <Label htmlFor="add-case-amount">Amount for this case</Label>
+              <Input
+                id="add-case-amount"
+                type="number"
+                step="0.01"
+                value={caseAmount}
+                onChange={(e) => setCaseAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+          )}
           <div>
             <Label htmlFor="add-description">Description</Label>
             <Textarea
@@ -209,7 +227,7 @@ export function AddInvoiceDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !amount}>
+            <Button type="submit" disabled={saving || !isValid}>
               {saving ? "Adding..." : "Add Invoice"}
             </Button>
           </DialogFooter>

@@ -67,6 +67,10 @@ export const navGroups: NavGroup[] = [
         url: "/invoices",
         icon: Invoice02Icon,
         featureKey: "invoices",
+        items: [
+          { title: "All Invoices", url: "/invoices" },
+          { title: "Payees", url: "/payees" },
+        ],
       },
       {
         title: "Tasks",

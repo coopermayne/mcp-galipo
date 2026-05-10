@@ -12,6 +12,7 @@ import { SparklesIcon, Cancel01Icon } from "@hugeicons/core-free-icons"
 interface PayeeSearchProps {
   value: number | null
   valueName?: string | null
+  valueAddress?: string | null
   onChange: (payeeId: number | null) => void
   extractedName?: string
   extractedAddress?: string
@@ -20,6 +21,7 @@ interface PayeeSearchProps {
 export function PayeeSearch({
   value,
   valueName,
+  valueAddress,
   onChange,
   extractedName,
   extractedAddress,
@@ -27,6 +29,7 @@ export function PayeeSearch({
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [selectedName, setSelectedName] = useState<string | null>(valueName ?? null)
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(valueAddress ?? null)
   const [mode, setMode] = useState<"search" | "create">(value ? "search" : "search")
   const [newName, setNewName] = useState("")
   const [newAddress, setNewAddress] = useState("")
@@ -42,7 +45,8 @@ export function PayeeSearch({
 
   useEffect(() => {
     if (valueName) setSelectedName(valueName)
-  }, [valueName])
+    if (valueAddress !== undefined) setSelectedAddress(valueAddress ?? null)
+  }, [valueName, valueAddress])
 
   useEffect(() => {
     if (extractedName && !value && !search) {
@@ -56,6 +60,7 @@ export function PayeeSearch({
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["payee-search"] })
       setSelectedName(result.payee.name)
+      setSelectedAddress(result.payee.address)
       onChange(result.payee.id)
       setMode("search")
       setNewName("")
@@ -63,14 +68,16 @@ export function PayeeSearch({
     },
   })
 
-  function handleSelect(payee: { id: number; name: string }) {
+  function handleSelect(payee: { id: number; name: string; address: string | null }) {
     setSelectedName(payee.name)
+    setSelectedAddress(payee.address)
     onChange(payee.id)
     setSearch("")
   }
 
   function handleClear() {
     setSelectedName(null)
+    setSelectedAddress(null)
     onChange(null)
     setSearch("")
   }
@@ -88,19 +95,23 @@ export function PayeeSearch({
     if (extractedAddress) setNewAddress(extractedAddress)
   }
 
-  // Selected state: show the payee name with a clear button
   if (value && selectedName) {
     return (
       <div className="space-y-1.5">
         <Label className="text-xs">Payee</Label>
-        <div className="flex items-center gap-2 border px-3 py-2">
-          <span className="text-sm font-medium flex-1 truncate">
-            {selectedName}
-          </span>
+        <div className="flex items-start gap-2 border px-3 py-2">
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium">{selectedName}</span>
+            {selectedAddress && (
+              <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line">
+                {selectedAddress}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={handleClear}
-            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
           >
             <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
           </button>
