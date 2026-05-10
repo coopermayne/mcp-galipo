@@ -244,9 +244,12 @@ export async function extractInvoice(
   return res.json()
 }
 
-export function getInvoiceFileUrl(invoiceId: number): string {
-  const token = localStorage.getItem("token")
-  return `/api/v1/invoices/${invoiceId}/file${token ? `?token=${token}` : ""}`
+export async function openInvoiceFile(invoiceId: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/invoices/${invoiceId}/file-token`, {
+    method: "POST",
+  })
+  const { token } = await res.json()
+  window.open(`/api/v1/invoices/${invoiceId}/file?token=${token}`, "_blank")
 }
 
 export interface CounselOption {

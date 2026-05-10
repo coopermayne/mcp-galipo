@@ -505,22 +505,24 @@ def register_sms_routes(mcp):
         )
         return JSONResponse({"success": True})
 
+    @mcp.custom_route("/api/v1/sms/media/{media_id}/token", methods=["POST"])
+    async def api_create_media_file_token(request):
+        if err := auth.require_auth(request):
+            return err
+        media_id = int(request.path_params["media_id"])
+        token = auth.create_file_token(f"/sms/media/{media_id}")
+        return JSONResponse({"token": token})
+
     @mcp.custom_route("/api/v1/sms/media/{media_id}", methods=["GET"])
     async def api_serve_media(request):
-        """Serve a media file from local storage.
-
-        Accepts auth via Bearer header or ?token= query param (for img src).
-        """
-        # Allow token via query param for <img src> usage
+        """Serve a media file from local storage."""
         token_param = request.query_params.get("token")
+        media_id = int(request.path_params["media_id"])
         if token_param and not request.headers.get("Authorization"):
-            # Validate the query param token directly
-            if not auth.validate_session(token_param):
-                return api_error("Invalid or expired token", "UNAUTHORIZED", 401)
+            if not auth.validate_file_token(token_param, f"/sms/media/{media_id}"):
+                return api_error("Invalid or expired download link", "UNAUTHORIZED", 401)
         elif err := auth.require_auth(request):
             return err
-
-        media_id = int(request.path_params["media_id"])
 
         media = await asyncio.to_thread(db.get_sms_media_by_id, media_id)
         if not media:

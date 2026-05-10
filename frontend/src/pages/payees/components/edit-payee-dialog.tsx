@@ -18,7 +18,7 @@ import {
   updatePayee,
   deletePayee,
   uploadW9,
-  getW9Url,
+  openW9File,
 } from "@/services/payees"
 
 interface EditPayeeDialogProps {
@@ -169,17 +169,16 @@ export function EditPayeeDialog({
             <Label className="text-xs">W-9</Label>
             {payee?.w9_file_path && !pendingFile ? (
               <div className="flex items-center gap-2 mt-1 min-w-0">
-                <a
-                  href={getW9Url(payee.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openW9File(payee.id)}
                   className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline min-w-0"
                 >
                   <HugeiconsIcon icon={Attachment01Icon} className="size-3.5 shrink-0" />
                   <span className="truncate">
                     {payee.w9_year ? `W-9 (${payee.w9_year})` : (payee.w9_file_name ?? "View W-9")}
                   </span>
-                </a>
+                </button>
                 <span className="text-muted-foreground">·</span>
                 <button
                   type="button"

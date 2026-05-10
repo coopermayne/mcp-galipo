@@ -104,7 +104,10 @@ export async function uploadW9(
   return res.json()
 }
 
-export function getW9Url(payeeId: number): string {
-  const token = localStorage.getItem("token")
-  return `/api/v1/payees/${payeeId}/w9${token ? `?token=${token}` : ""}`
+export async function openW9File(payeeId: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/payees/${payeeId}/w9-token`, {
+    method: "POST",
+  })
+  const { token } = await res.json()
+  window.open(`/api/v1/payees/${payeeId}/w9?token=${token}`, "_blank")
 }

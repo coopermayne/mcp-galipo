@@ -12,7 +12,7 @@ import {
   type Invoice,
   markInvoiceUnpaid,
   deleteInvoice,
-  getInvoiceFileUrl,
+  openInvoiceFile,
 } from "@/services/invoices"
 import { Button } from "@/components/ui/button"
 import {
@@ -123,16 +123,10 @@ export function InvoiceCard({ invoice, onMarkPaid, onClick, onChanged }: Invoice
             variant="ghost"
             size="icon"
             className="size-7"
-            asChild
+            onClick={() => openInvoiceFile(invoice.id)}
+            title="View file"
           >
-            <a
-              href={getInvoiceFileUrl(invoice.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="View file"
-            >
-              <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
-            </a>
+            <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
           </Button>
         )}
         {!isPaid && onMarkPaid && (
@@ -149,15 +143,9 @@ export function InvoiceCard({ invoice, onMarkPaid, onClick, onChanged }: Invoice
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {invoice.file_path && (
-              <DropdownMenuItem asChild>
-                <a
-                  href={getInvoiceFileUrl(invoice.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <HugeiconsIcon icon={Attachment01Icon} className="mr-2 size-4" />
-                  View File
-                </a>
+              <DropdownMenuItem onClick={() => openInvoiceFile(invoice.id)}>
+                <HugeiconsIcon icon={Attachment01Icon} className="mr-2 size-4" />
+                View File
               </DropdownMenuItem>
             )}
             {isPaid && (

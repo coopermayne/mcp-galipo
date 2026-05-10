@@ -142,8 +142,10 @@ export async function markSmsConversationRead(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to mark conversation as read")
 }
 
-export function getMediaProxyUrl(mediaId: number): string {
-  const token = localStorage.getItem("token")
-  const params = token ? `?token=${encodeURIComponent(token)}` : ""
-  return `/api/v1/sms/media/${mediaId}${params}`
+export async function getSignedMediaUrl(mediaId: number): Promise<string> {
+  const res = await apiFetch(`/api/v1/sms/media/${mediaId}/token`, {
+    method: "POST",
+  })
+  const { token } = await res.json()
+  return `/api/v1/sms/media/${mediaId}?token=${token}`
 }
