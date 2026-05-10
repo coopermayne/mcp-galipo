@@ -964,8 +964,6 @@ def register_tools(mcp):
         context.info(f"manage_event: {data.action}")
         try:
             if data.action == "create":
-                if not data.case_id:
-                    return validation_error("case_id is required for create")
                 if not data.date:
                     return validation_error("date is required for create")
                 if not data.description:
@@ -1026,8 +1024,6 @@ def register_tools(mcp):
         context.info(f"manage_task: {data.action}")
         try:
             if data.action == "create":
-                if not data.case_id:
-                    return validation_error("case_id is required for create")
                 if not data.description:
                     return validation_error("description is required for create")
                 result = db.add_task(

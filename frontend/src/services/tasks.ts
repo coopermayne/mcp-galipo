@@ -19,7 +19,7 @@ export async function getTask(taskId: number): Promise<TaskDetail> {
 }
 
 export interface CreateTaskData {
-  case_id: number
+  case_id?: number
   description: string
   due_date?: string
   status?: string

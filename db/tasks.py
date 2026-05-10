@@ -5,7 +5,7 @@ Task management functions — SQLAlchemy ORM implementation.
 import datetime
 from typing import Optional, List
 
-from sqlalchemy import select, func, update, literal_column, exists, Integer, cast
+from sqlalchemy import select, func, update, literal_column, exists, Integer, cast, or_
 from sqlalchemy.dialects.postgresql import ARRAY as SA_ARRAY
 from sqlalchemy.orm import joinedload
 
@@ -42,10 +42,10 @@ def _task_with_relations(task: Task, case: Case, event: Event = None,
     return d
 
 
-def add_task(case_id: int, description: str, due_date: str = None,
+def add_task(case_id: int = None, description: str = "", due_date: str = None,
              status: str = "Pending", urgency: str = "Medium", event_id: int = None,
              assignee_id: int = None, completion_date: str = None) -> dict:
-    """Add a task to a case."""
+    """Add a task, optionally associated with a case."""
     validate_task_status(status)
     validate_urgency(urgency)
     validate_date_format(due_date, "due_date")
@@ -100,16 +100,16 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
     if due_date_to:
         validate_date_format(due_date_to, "due_date_to")
 
-    # has_events subquery
+    # has_events subquery — correlate on event_id link, not case_id (handles NULL case_id)
     has_events_sq = (
-        exists(select(Event.id).where(Event.case_id == Task.case_id))
+        exists(select(Event.id).where(Event.case_id == Task.case_id).where(Task.case_id.isnot(None)))
         .correlate(Task)
     )
 
     # Build main query with all joins
     stmt = (
         select(Task, Case, Event, User, has_events_sq.label("has_events"))
-        .join(Case, Task.case_id == Case.id)
+        .outerjoin(Case, Task.case_id == Case.id)
         .outerjoin(Event, Task.event_id == Event.id)
         .outerjoin(User, Task.assignee_id == User.id)
         .order_by(Task.sort_order.asc())
@@ -132,14 +132,16 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         stmt = stmt.where(Task.assignee_id == assignee_id)
     if user_id:
         uid_arr = cast([user_id], SA_ARRAY(Integer()))
-        stmt = stmt.where(
-            Case.attorney_ids.op('@>')(uid_arr)
-            | Case.paralegal_ids.op('@>')(uid_arr)
-        )
+        stmt = stmt.where(or_(
+            Task.case_id.is_(None),
+            Case.attorney_ids.op('@>')(uid_arr),
+            Case.paralegal_ids.op('@>')(uid_arr),
+            Task.assignee_id == user_id,
+        ))
 
     with SessionLocal() as session:
         # Count query with same filters
-        count_base = select(Task.id).join(Case, Task.case_id == Case.id)
+        count_base = select(Task.id).outerjoin(Case, Task.case_id == Case.id)
         if case_id:
             count_base = count_base.where(Task.case_id == case_id)
         if status_filter:
@@ -156,10 +158,12 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
             count_base = count_base.where(Task.assignee_id == assignee_id)
         if user_id:
             uid_arr = cast([user_id], SA_ARRAY(Integer()))
-            count_base = count_base.where(
-                Case.attorney_ids.op('@>')(uid_arr)
-                | Case.paralegal_ids.op('@>')(uid_arr)
-            )
+            count_base = count_base.where(or_(
+                Task.case_id.is_(None),
+                Case.attorney_ids.op('@>')(uid_arr),
+                Case.paralegal_ids.op('@>')(uid_arr),
+                Task.assignee_id == user_id,
+            ))
         total = session.scalar(select(func.count()).select_from(count_base.subquery()))
 
         if limit:
@@ -358,13 +362,13 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         validate_date_format(due_date_after, "due_date_after")
 
     has_events_sq = (
-        exists(select(Event.id).where(Event.case_id == Task.case_id))
+        exists(select(Event.id).where(Event.case_id == Task.case_id).where(Task.case_id.isnot(None)))
         .correlate(Task)
     )
 
     stmt = (
         select(Task, Case, Event, User, has_events_sq.label("has_events"))
-        .join(Case, Task.case_id == Case.id)
+        .outerjoin(Case, Task.case_id == Case.id)
         .outerjoin(Event, Task.event_id == Event.id)
         .outerjoin(User, Task.assignee_id == User.id)
         .order_by(Task.sort_order.asc())
@@ -383,10 +387,12 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         stmt = stmt.where(Task.assignee_id == assignee_id)
     if user_id:
         uid_arr = cast([user_id], SA_ARRAY(Integer()))
-        stmt = stmt.where(
-            Case.attorney_ids.op('@>')(uid_arr)
-            | Case.paralegal_ids.op('@>')(uid_arr)
-        )
+        stmt = stmt.where(or_(
+            Task.case_id.is_(None),
+            Case.attorney_ids.op('@>')(uid_arr),
+            Case.paralegal_ids.op('@>')(uid_arr),
+            Task.assignee_id == user_id,
+        ))
     if due_date_before:
         stmt = stmt.where(Task.due_date <= due_date_before)
     if due_date_after:
@@ -405,7 +411,7 @@ def get_task_detail(task_id: int) -> Optional[dict]:
     with SessionLocal() as session:
         stmt = (
             select(Task, Case, User)
-            .join(Case, Task.case_id == Case.id)
+            .outerjoin(Case, Task.case_id == Case.id)
             .outerjoin(User, Task.assignee_id == User.id)
             .where(Task.id == task_id)
         )
@@ -415,7 +421,8 @@ def get_task_detail(task_id: int) -> Optional[dict]:
         task, case, user = row
         return TaskDetailOut(
             id=task.id, case_id=task.case_id,
-            case_name=case.case_name, short_name=case.short_name,
+            case_name=case.case_name if case else None,
+            short_name=case.short_name if case else None,
             description=task.description,
             due_date=task.due_date, completion_date=task.completion_date,
             status=task.status, urgency=task.urgency,

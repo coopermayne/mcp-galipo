@@ -155,11 +155,15 @@ def register_sms_routes(mcp):
             return api_error("phone_number is required", "VALIDATION_ERROR", 400)
 
         label = body.get("label", "").strip() or None
+        case_id = body.get("case_id")
+        person_id = body.get("person_id")
 
         result = await asyncio.to_thread(
             db.find_or_create_sms_conversation,
             phone_number=phone_number,
             label=label,
+            case_id=case_id,
+            person_id=person_id,
         )
 
         if result.get("created"):
@@ -538,3 +542,29 @@ def register_sms_routes(mcp):
             filename=media.get("filename"),
             headers={"Cache-Control": "private, max-age=86400"},
         )
+
+    @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}/link", methods=["POST"])
+    async def api_link_conversation(request):
+        """Link an SMS conversation to a case and/or person."""
+        if err := auth.require_auth(request):
+            return err
+        conversation_id = int(request.path_params["conversation_id"])
+        data = await request.json()
+        case_id = data.get("case_id")
+        person_id = data.get("person_id")
+        result = await asyncio.to_thread(
+            db.link_conversation, conversation_id,
+            case_id=case_id, person_id=person_id,
+        )
+        if not result:
+            return api_error("Conversation not found", "NOT_FOUND", 404)
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/sms/by-person/{person_id}", methods=["GET"])
+    async def api_get_conversations_by_person(request):
+        """Get SMS conversations linked to a person."""
+        if err := auth.require_auth(request):
+            return err
+        person_id = int(request.path_params["person_id"])
+        results = await asyncio.to_thread(db.get_conversations_by_person, person_id)
+        return JSONResponse({"conversations": results})

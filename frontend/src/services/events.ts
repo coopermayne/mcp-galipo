@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api"
 import type { EventListResponse, EventDetail, GetEventsParams } from "@/types/event"
 
 export interface CreateEventData {
-  case_id: number
+  case_id?: number
   date: string
   description: string
   time?: string

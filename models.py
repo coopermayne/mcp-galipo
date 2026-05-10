@@ -830,16 +830,28 @@ class Task(Base):
 class SmsConversation(Base):
     __tablename__ = "sms_conversations"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"], ["cases.id"],
+            ondelete="SET NULL", name="sms_conversations_case_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["person_id"], ["persons.id"],
+            ondelete="SET NULL", name="sms_conversations_person_id_fkey",
+        ),
         PrimaryKeyConstraint("id", name="sms_conversations_pkey"),
         UniqueConstraint("phone_number", name="sms_conversations_phone_number_key"),
         Index("idx_sms_conversations_phone_number", "phone_number"),
         Index("idx_sms_conversations_last_message_at", "last_message_at"),
         Index("idx_sms_conversations_archived", "archived"),
+        Index("idx_sms_conversations_case_id", "case_id"),
+        Index("idx_sms_conversations_person_id", "person_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     phone_number: Mapped[str] = mapped_column(String(20))
     label: Mapped[Optional[str]] = mapped_column(Text)
+    case_id: Mapped[Optional[int]] = mapped_column(Integer)
+    person_id: Mapped[Optional[int]] = mapped_column(Integer)
     last_message_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
     archived: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")

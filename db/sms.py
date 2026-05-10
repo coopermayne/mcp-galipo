@@ -86,6 +86,8 @@ def list_conversations(
                 "id": conv.id,
                 "phone_number": conv.phone_number,
                 "label": conv.label,
+                "case_id": conv.case_id,
+                "person_id": conv.person_id,
                 "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
                 "archived": conv.archived or False,
@@ -106,6 +108,8 @@ def get_conversation(conversation_id: int) -> Optional[dict]:
             "id": conv.id,
             "phone_number": conv.phone_number,
             "label": conv.label,
+            "case_id": conv.case_id,
+            "person_id": conv.person_id,
             "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
             "created_at": conv.created_at.isoformat() if conv.created_at else None,
             "archived": conv.archived or False,
@@ -169,7 +173,8 @@ def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dic
         return {"messages": messages, "total": total}
 
 
-def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
+def find_or_create_conversation(phone_number: str, label: str = None,
+                                case_id: int = None, person_id: int = None) -> dict:
     """Find existing conversation by phone number, or create a new one."""
     phone_number = normalize_phone(phone_number)
     with SessionLocal() as session:
@@ -181,11 +186,18 @@ def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
             # Update label if provided and conversation has no label
             if label and not conv.label:
                 conv.label = label
-                session.commit()
+            if case_id and not conv.case_id:
+                conv.case_id = case_id
+            if person_id and not conv.person_id:
+                conv.person_id = person_id
+            session.commit()
+            session.refresh(conv)
             return {
                 "id": conv.id,
                 "phone_number": conv.phone_number,
                 "label": conv.label,
+                "case_id": conv.case_id,
+                "person_id": conv.person_id,
                 "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
                 "archived": conv.archived or False,
@@ -195,6 +207,8 @@ def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
         conv = SmsConversation(
             phone_number=phone_number,
             label=label,
+            case_id=case_id,
+            person_id=person_id,
         )
         session.add(conv)
         session.flush()
@@ -203,6 +217,8 @@ def find_or_create_conversation(phone_number: str, label: str = None) -> dict:
             "id": conv.id,
             "phone_number": conv.phone_number,
             "label": conv.label,
+            "case_id": conv.case_id,
+            "person_id": conv.person_id,
             "last_message_at": None,
             "created_at": conv.created_at.isoformat() if conv.created_at else None,
             "archived": False,
@@ -465,3 +481,61 @@ def get_unread_counts(user_id: int, conversation_ids: list[int]) -> dict[int, in
 
         rows = session.execute(stmt).all()
         return {conversation_id: count for conversation_id, count in rows}
+
+
+def link_conversation(conversation_id: int, case_id: int = None, person_id: int = None) -> Optional[dict]:
+    """Link an SMS conversation to a case and/or person."""
+    with SessionLocal() as session:
+        conv = session.get(SmsConversation, conversation_id)
+        if not conv:
+            return None
+        if case_id is not None:
+            conv.case_id = case_id if case_id else None
+        if person_id is not None:
+            conv.person_id = person_id if person_id else None
+        session.flush()
+        session.refresh(conv)
+        result = {
+            "id": conv.id,
+            "phone_number": conv.phone_number,
+            "label": conv.label,
+            "case_id": conv.case_id,
+            "person_id": conv.person_id,
+            "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "archived": conv.archived or False,
+        }
+        session.commit()
+        return result
+
+
+def get_conversations_by_person(person_id: int) -> list[dict]:
+    """Get all SMS conversations linked to a person."""
+    with SessionLocal() as session:
+        stmt = (
+            select(SmsConversation)
+            .where(SmsConversation.person_id == person_id)
+            .order_by(SmsConversation.last_message_at.desc().nullslast())
+        )
+        conversations = session.scalars(stmt).all()
+        results = []
+        for conv in conversations:
+            last_msg = session.scalar(
+                select(SmsMessage)
+                .where(SmsMessage.conversation_id == conv.id)
+                .order_by(SmsMessage.created_at.desc())
+                .limit(1)
+            )
+            results.append({
+                "id": conv.id,
+                "phone_number": conv.phone_number,
+                "label": conv.label,
+                "case_id": conv.case_id,
+                "person_id": conv.person_id,
+                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "archived": conv.archived or False,
+                "last_message_preview": (last_msg.body[:80] + "...") if last_msg and len(last_msg.body) > 80 else (last_msg.body if last_msg else None),
+                "last_message_direction": last_msg.direction if last_msg else None,
+            })
+        return results

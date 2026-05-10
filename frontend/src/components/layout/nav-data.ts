@@ -96,7 +96,7 @@ export const navGroups: NavGroup[] = [
           { title: "Defendants", url: "/contacts/defendants" },
           { title: "Mediators", url: "/contacts/mediators" },
           { title: "Other", url: "/contacts/other" },
-          { title: "Judges", url: "/judges", separatorBefore: true },
+          { title: "Judges", url: "/contacts/judges" },
         ],
       },
       {
