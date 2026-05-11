@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { useParams, Link } from "react-router"
+import { useParams, useNavigate } from "react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft02Icon, Add01Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon } from "@hugeicons/core-free-icons"
 import { getCase } from "@/services/cases"
 import { listInvoices, getInvoiceStats } from "@/services/invoices"
 import type { Invoice } from "@/services/invoices"
@@ -26,6 +26,7 @@ export default function CaseCostsPage() {
 function CaseCostsContent() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [addOpen, setAddOpen] = useState(false)
@@ -90,21 +91,19 @@ function CaseCostsContent() {
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-4xl">
+      {/* Back nav */}
+      <button
+        onClick={() => navigate(`/cases/${caseId}`)}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
+      >
+        &larr; Back to case
+      </button>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            to={`/cases/${caseId}`}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4" />
-          </Link>
-          <div>
-            <h1 className="text-lg font-semibold">Costs</h1>
-            <p className="text-sm text-muted-foreground">
-              {caseData?.case_name}
-            </p>
-          </div>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">{caseData?.case_name}</h1>
+          <p className="text-sm text-muted-foreground">Costs</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
           <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
