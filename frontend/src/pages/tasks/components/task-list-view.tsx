@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { updateTask, rescheduleOverdueTasks } from "@/services/tasks"
+import { getUnreadCounts } from "@/services/comments"
 import type { TaskListItem as TaskListItemType } from "@/types/task"
 import { TaskListItem } from "@/pages/tasks/components/task-list-item"
 import { TaskDetailDialog } from "@/pages/tasks/components/task-detail-dialog"
@@ -47,6 +48,14 @@ export function TaskListView({
   const [selectedTask, setSelectedTask] = useState<TaskListItemType | null>(null)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
 
+  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks])
+
+  const { data: unreadCounts } = useQuery({
+    queryKey: ["comment-unread-counts", "task", taskIds],
+    queryFn: () => getUnreadCounts("task", taskIds),
+    enabled: taskIds.length > 0,
+  })
+
   const updateFieldMutation = useMutation({
     mutationFn: ({ taskId, field, value }: { taskId: number; field: string; value: unknown }) =>
       updateTask(taskId, { [field]: value }),
@@ -54,6 +63,7 @@ export function TaskListView({
       for (const key of invalidateKeys) {
         queryClient.invalidateQueries({ queryKey: key })
       }
+      queryClient.invalidateQueries({ queryKey: ["comment-unread-counts"] })
     },
     onError: (e) => toast.error(e.message),
   })
@@ -171,6 +181,7 @@ export function TaskListView({
                     }
                     hideCaseBadge={hideCaseBadge || groupBy === "case"}
                     showDone={showDone}
+                    unreadCount={unreadCounts?.[task.id]}
                   />
                 ))}
               </CollapsibleContent>

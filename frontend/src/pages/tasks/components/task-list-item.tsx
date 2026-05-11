@@ -248,6 +248,7 @@ interface TaskListItemProps {
   onUpdateTask: (taskId: number, field: string, value: unknown) => void
   hideCaseBadge?: boolean
   showDone?: boolean
+  unreadCount?: number
 }
 
 function isOverdue(dateStr: string | null): boolean {
@@ -401,6 +402,7 @@ export function TaskListItem({
   onUpdateTask,
   hideCaseBadge,
   showDone,
+  unreadCount,
 }: TaskListItemProps) {
   const isDone = task.status === "Done"
   const status = statuses.find((s) => s.value === task.status)
@@ -456,11 +458,16 @@ export function TaskListItem({
         {/* Title */}
         <p
           className={cn(
-            "text-xs leading-snug",
+            "text-xs leading-snug inline-flex items-center gap-1.5",
             isDone && "text-muted-foreground line-through"
           )}
         >
           {task.description}
+          {!!unreadCount && unreadCount > 0 && (
+            <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+              {unreadCount}
+            </span>
+          )}
         </p>
 
         {/* Metadata row */}

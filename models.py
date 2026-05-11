@@ -1228,3 +1228,62 @@ class PageView(Base):
     viewed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
+
+
+# ---------------------------------------------------------------------------
+# Polymorphic comments (entity_type + entity_id)
+# ---------------------------------------------------------------------------
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="SET NULL",
+            name="comments_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="comments_pkey"),
+        Index("idx_comments_entity", "entity_type", "entity_id"),
+        Index("idx_comments_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(50))
+    entity_id: Mapped[int] = mapped_column(Integer)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    is_system: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
+    detail: Mapped[Optional[dict]] = mapped_column(
+        JSONB(none_as_null=True)
+    )
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    user: Mapped[Optional[User]] = relationship()
+
+
+class CommentRead(Base):
+    __tablename__ = "comment_reads"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="CASCADE",
+            name="comment_reads_user_id_fkey",
+        ),
+        PrimaryKeyConstraint(
+            "entity_type", "entity_id", "user_id",
+            name="comment_reads_pkey",
+        ),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(50), primary_key=True)
+    entity_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )

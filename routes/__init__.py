@@ -58,6 +58,7 @@ from .invoices import register_invoice_routes
 from .health import register_health_routes
 from .activity import register_activity_routes
 from .contacts import register_contact_routes
+from .comments import register_comment_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -131,6 +132,8 @@ def register_routes(mcp):
     register_activity_routes(mcp)
     _logger.debug("Registering contact routes...")
     register_contact_routes(mcp)
+    _logger.debug("Registering comment routes...")
+    register_comment_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     _logger.debug("Registering static routes...")

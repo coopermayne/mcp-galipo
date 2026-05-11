@@ -334,6 +334,15 @@ from .invoices import (
     get_invoice_stats,
 )
 
+# Polymorphic comments
+from .comments import (
+    get_comments,
+    add_comment,
+    get_last_read_at as get_comment_last_read_at,
+    mark_read as mark_comment_read,
+    get_unread_counts as get_comment_unread_counts,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -591,6 +600,12 @@ __all__ = [
     "mark_invoice_unpaid",
     "delete_invoice",
     "get_invoice_stats",
+    # Polymorphic comments
+    "get_comments",
+    "add_comment",
+    "get_comment_last_read_at",
+    "mark_comment_read",
+    "get_comment_unread_counts",
     # Bulk import
     "import_case",
 ]
