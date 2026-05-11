@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import select, func, case as sa_case
 
 from .session import SessionLocal
-from models import Invoice, Case, CaseComment, Person, Payee
+from models import Invoice, Case, CaseComment, Person, Payee, PersonRole, Role
 
 
 def _invoice_to_dict(
@@ -17,6 +17,7 @@ def _invoice_to_dict(
     paid_by_name: str = None,
     payee_name: str = None,
     payee_address: str = None,
+    transfer_to_name: str = None,
 ) -> dict:
     return {
         "id": inv.id,
@@ -39,7 +40,10 @@ def _invoice_to_dict(
         "content_type": inv.content_type,
         "paid_by_person_id": inv.paid_by_person_id,
         "paid_by_name": paid_by_name,
+        "transfer_to_person_id": inv.transfer_to_person_id,
+        "transfer_to_name": transfer_to_name,
         "notes": inv.notes,
+        "is_transfer": inv.is_transfer,
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
         "updated_at": inv.updated_at.isoformat() if inv.updated_at else None,
     }
@@ -55,6 +59,7 @@ def list_invoices(
     offset: int = 0,
 ) -> dict:
     paid_by = Person.__table__.alias("paid_by")
+    transfer_to = Person.__table__.alias("transfer_to")
     stmt = (
         select(
             Invoice,
@@ -62,10 +67,12 @@ def list_invoices(
             paid_by.c.name.label("paid_by_name"),
             Payee.name.label("payee_name"),
             Payee.address.label("payee_address"),
+            transfer_to.c.name.label("transfer_to_name"),
         )
         .join(Case, Invoice.case_id == Case.id)
         .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
         .outerjoin(Payee, Invoice.payee_id == Payee.id)
+        .outerjoin(transfer_to, Invoice.transfer_to_person_id == transfer_to.c.id)
     )
 
     if case_id:
@@ -114,8 +121,8 @@ def list_invoices(
         total = session.scalar(count_stmt)
         rows = session.execute(stmt.limit(limit).offset(offset)).all()
         invoices = [
-            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr)
-            for inv, case_name, pbn, payee_name, payee_addr in rows
+            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn)
+            for inv, case_name, pbn, payee_name, payee_addr, ttn in rows
         ]
         return {"invoices": invoices, "total": total}
 
@@ -123,6 +130,7 @@ def list_invoices(
 def get_invoice(invoice_id: int) -> Optional[dict]:
     with SessionLocal() as session:
         paid_by = Person.__table__.alias("paid_by")
+        transfer_to = Person.__table__.alias("transfer_to")
         row = session.execute(
             select(
                 Invoice,
@@ -130,16 +138,18 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
                 paid_by.c.name.label("paid_by_name"),
                 Payee.name.label("payee_name"),
                 Payee.address.label("payee_address"),
+                transfer_to.c.name.label("transfer_to_name"),
             )
             .join(Case, Invoice.case_id == Case.id)
             .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
             .outerjoin(Payee, Invoice.payee_id == Payee.id)
+            .outerjoin(transfer_to, Invoice.transfer_to_person_id == transfer_to.c.id)
             .where(Invoice.id == invoice_id)
         ).first()
         if not row:
             return None
-        inv, case_name, pbn, payee_name, payee_addr = row
-        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr)
+        inv, case_name, pbn, payee_name, payee_addr, ttn = row
+        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn)
 
 
 def create_invoice(
@@ -158,7 +168,9 @@ def create_invoice(
     content_type: str = None,
     case_amount: float = None,
     paid_by_person_id: int = None,
+    transfer_to_person_id: int = None,
     notes: str = None,
+    is_transfer: bool = False,
 ) -> dict:
     with SessionLocal() as session:
         inv = Invoice(
@@ -173,11 +185,13 @@ def create_invoice(
             category=category,
             check_number=check_number,
             paid_by_person_id=paid_by_person_id,
+            transfer_to_person_id=transfer_to_person_id,
             paid_date=paid_date,
             file_path=file_path,
             file_name=file_name,
             content_type=content_type,
             notes=notes,
+            is_transfer=is_transfer,
         )
         session.add(inv)
         session.flush()
@@ -193,16 +207,21 @@ def create_invoice(
                 payee_name = payee.name
                 payee_address = payee.address
 
-        comment_payee = payee_name or "unknown payee"
+        transfer_to_name = None
+        if transfer_to_person_id:
+            ttp = session.get(Person, transfer_to_person_id)
+            transfer_to_name = ttp.name if ttp else None
+
+        comment_payee = payee_name or transfer_to_name or "unknown payee"
         comment = CaseComment(
             case_id=case_id,
-            content=f"Invoice added: ${amount:,.2f} to {comment_payee}",
+            content=f"{'Transfer' if is_transfer else 'Invoice'} added: ${amount:,.2f} to {comment_payee}",
             is_system=True,
         )
         session.add(comment)
 
         session.refresh(inv)
-        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address)
+        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address, transfer_to_name=transfer_to_name)
         session.commit()
         return result
 
@@ -234,7 +253,11 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
             if payee:
                 payee_name = payee.name
                 payee_address = payee.address
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address)
+        transfer_to_name = None
+        if inv.transfer_to_person_id:
+            ttp = session.get(Person, inv.transfer_to_person_id)
+            transfer_to_name = ttp.name if ttp else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name)
         session.commit()
         return result
 
@@ -278,7 +301,11 @@ def mark_invoice_paid(
         if inv.paid_by_person_id:
             p = session.get(Person, inv.paid_by_person_id)
             paid_by_name = p.name if p else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address)
+        transfer_to_name = None
+        if inv.transfer_to_person_id:
+            ttp = session.get(Person, inv.transfer_to_person_id)
+            transfer_to_name = ttp.name if ttp else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name)
         session.commit()
         return result
 
@@ -310,7 +337,11 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
             if payee:
                 payee_name = payee.name
                 payee_address = payee.address
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address)
+        transfer_to_name = None
+        if inv.transfer_to_person_id:
+            ttp = session.get(Person, inv.transfer_to_person_id)
+            transfer_to_name = ttp.name if ttp else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name)
         session.commit()
         return result
 
@@ -332,6 +363,100 @@ def delete_invoice(invoice_id: int) -> bool:
         return True
 
 
+def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
+    """Calculate what transfer is needed to equalize costs between our firm and co-counsel.
+
+    our_share_pct: our firm's share as a percentage (e.g. 50.0 for 50%).
+    Uses all invoices (both pending and paid, excluding existing transfers).
+    Returns breakdown and the transfer amount needed.
+    """
+    effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(
+                Invoice.paid_by_person_id,
+                func.coalesce(func.sum(effective_amount), 0).label("total"),
+            )
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == False)  # noqa: E712
+            .group_by(Invoice.paid_by_person_id)
+        ).all()
+
+        our_total = 0.0
+        counsel_totals: dict[int, float] = {}
+        for paid_by_id, total in rows:
+            amt = float(total)
+            if paid_by_id is None:
+                our_total += amt
+            else:
+                counsel_totals[paid_by_id] = counsel_totals.get(paid_by_id, 0) + amt
+
+        grand_total = our_total + sum(counsel_totals.values())
+        our_target = grand_total * (our_share_pct / 100.0)
+        counsel_target = grand_total - our_target
+
+        counsel_paid = sum(counsel_totals.values())
+        difference = our_total - our_target
+
+        counsel_id = None
+        counsel_name = None
+        if counsel_totals:
+            counsel_id = next(iter(counsel_totals))
+            p = session.get(Person, counsel_id)
+            counsel_name = p.name if p else None
+
+        if counsel_id is None:
+            CO_COUNSEL_ROLE_ID = 5
+            partner_row = session.execute(
+                select(PersonRole, Person)
+                .join(Person, PersonRole.person_id == Person.id)
+                .where(
+                    PersonRole.case_id == case_id,
+                    PersonRole.role_id == CO_COUNSEL_ROLE_ID,
+                    PersonRole.cost_share_pct.isnot(None),
+                )
+            ).first()
+            if partner_row:
+                pr, person = partner_row
+                counsel_id = person.id
+                counsel_name = person.name
+
+        # Account for existing transfers already settling the balance.
+        # net_settled > 0 means counsel has net paid us (reduces our overpayment).
+        transfer_rows = session.execute(
+            select(
+                Invoice.paid_by_person_id,
+                Invoice.transfer_to_person_id,
+                func.coalesce(func.sum(effective_amount), 0).label("total"),
+            )
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == True)  # noqa: E712
+            .group_by(Invoice.paid_by_person_id, Invoice.transfer_to_person_id)
+        ).all()
+
+        net_settled = 0.0
+        for paid_by_id, transfer_to_id, total in transfer_rows:
+            amt = float(total)
+            if paid_by_id is not None:
+                net_settled += amt
+            elif transfer_to_id is not None:
+                net_settled -= amt
+
+        remaining = difference - net_settled
+
+        return {
+            "grand_total": round(grand_total, 2),
+            "our_total_paid": round(our_total, 2),
+            "counsel_total_paid": round(counsel_paid, 2),
+            "our_share_pct": our_share_pct,
+            "our_target": round(our_target, 2),
+            "counsel_target": round(counsel_target, 2),
+            "transfer_amount": round(abs(remaining), 2),
+            "already_transferred": round(abs(net_settled), 2),
+            "direction": "counsel_pays_us" if remaining > 0 else "we_pay_counsel" if remaining < 0 else "even",
+            "counsel_id": counsel_id,
+            "counsel_name": counsel_name,
+        }
+
+
 def get_invoice_stats(case_id: int = None) -> dict:
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
@@ -340,7 +465,7 @@ def get_invoice_stats(case_id: int = None) -> dict:
             func.coalesce(func.sum(sa_case((Invoice.status == "unpaid", effective_amount), else_=0)), 0).label("unpaid_total"),
             func.count().filter(Invoice.status == "paid").label("paid_count"),
             func.coalesce(func.sum(sa_case((Invoice.status == "paid", effective_amount), else_=0)), 0).label("paid_total"),
-        )
+        ).where(Invoice.is_transfer == False)  # noqa: E712
         if case_id:
             base = base.where(Invoice.case_id == case_id)
 
@@ -351,3 +476,144 @@ def get_invoice_stats(case_id: int = None) -> dict:
             "paid_count": row.paid_count,
             "paid_total": str(row.paid_total),
         }
+
+
+def get_cost_summary(case_id: int) -> dict:
+    """Net cost breakdown per party, accounting for transfers."""
+    effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
+    with SessionLocal() as session:
+        # Actual costs (excluding transfers)
+        cost_rows = session.execute(
+            select(
+                Invoice.paid_by_person_id,
+                func.coalesce(func.sum(effective_amount), 0).label("total"),
+            )
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == False)  # noqa: E712
+            .group_by(Invoice.paid_by_person_id)
+        ).all()
+
+        our_costs = 0.0
+        counsel_costs: dict[int, float] = {}
+        for paid_by_id, total in cost_rows:
+            amt = float(total)
+            if paid_by_id is None:
+                our_costs += amt
+            else:
+                counsel_costs[paid_by_id] = counsel_costs.get(paid_by_id, 0) + amt
+
+        # Transfers
+        transfer_rows = session.execute(
+            select(
+                Invoice.paid_by_person_id,
+                Invoice.transfer_to_person_id,
+                func.coalesce(func.sum(effective_amount), 0).label("total"),
+            )
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == True)  # noqa: E712
+            .group_by(Invoice.paid_by_person_id, Invoice.transfer_to_person_id)
+        ).all()
+
+        # net_to_us > 0 means counsel sent us money
+        net_to_us = 0.0
+        for paid_by_id, transfer_to_id, total in transfer_rows:
+            amt = float(total)
+            if paid_by_id is not None:
+                net_to_us += amt
+            elif transfer_to_id is not None:
+                net_to_us -= amt
+
+        counsel_paid_total = sum(counsel_costs.values())
+        total_costs = our_costs + counsel_paid_total
+
+        # Net = what each party has effectively spent after transfers settle
+        our_net = our_costs - net_to_us
+        counsel_net = counsel_paid_total + net_to_us
+
+        # Resolve counsel name
+        counsel_id = None
+        counsel_name = None
+        if counsel_costs:
+            counsel_id = next(iter(counsel_costs))
+        if counsel_id is None:
+            CO_COUNSEL_ROLE_ID = 5
+            partner_row = session.execute(
+                select(PersonRole, Person)
+                .join(Person, PersonRole.person_id == Person.id)
+                .where(
+                    PersonRole.case_id == case_id,
+                    PersonRole.role_id == CO_COUNSEL_ROLE_ID,
+                    PersonRole.cost_share_pct.isnot(None),
+                )
+            ).first()
+            if partner_row:
+                counsel_id = partner_row[1].id
+                counsel_name = partner_row[1].name
+        if counsel_id and not counsel_name:
+            p = session.get(Person, counsel_id)
+            counsel_name = p.name if p else None
+
+        return {
+            "total_costs": round(total_costs, 2),
+            "our_costs": round(our_costs, 2),
+            "counsel_costs": round(counsel_paid_total, 2),
+            "our_net": round(our_net, 2),
+            "counsel_net": round(counsel_net, 2),
+            "net_transferred": round(net_to_us, 2),
+            "counsel_id": counsel_id,
+            "counsel_name": counsel_name,
+        }
+
+
+def get_cost_sharing(case_id: int) -> dict:
+    """Get cost-sharing config for a case: the designated partner and split percentage."""
+    CO_COUNSEL_ROLE_ID = 5
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(PersonRole, Person)
+            .join(Person, PersonRole.person_id == Person.id)
+            .where(
+                PersonRole.case_id == case_id,
+                PersonRole.role_id == CO_COUNSEL_ROLE_ID,
+            )
+            .order_by(Person.name)
+        ).all()
+
+        co_counsel = []
+        partner = None
+        for pr, person in rows:
+            entry = {
+                "person_id": person.id,
+                "name": person.name,
+                "organization": person.organization,
+                "cost_share_pct": float(pr.cost_share_pct) if pr.cost_share_pct is not None else None,
+            }
+            co_counsel.append(entry)
+            if pr.cost_share_pct is not None:
+                partner = entry
+
+        our_pct = (100.0 - partner["cost_share_pct"]) if partner else None
+        return {
+            "co_counsel": co_counsel,
+            "partner": partner,
+            "our_pct": our_pct,
+        }
+
+
+def set_cost_sharing(case_id: int, person_id: int, cost_share_pct: float) -> dict:
+    """Designate a co-counsel as the cost-sharing partner with their share percentage."""
+    CO_COUNSEL_ROLE_ID = 5
+    with SessionLocal() as session:
+        all_pr = session.execute(
+            select(PersonRole).where(
+                PersonRole.case_id == case_id,
+                PersonRole.role_id == CO_COUNSEL_ROLE_ID,
+            )
+        ).scalars().all()
+
+        for pr in all_pr:
+            if pr.person_id == person_id:
+                pr.cost_share_pct = cost_share_pct
+            else:
+                pr.cost_share_pct = None
+
+        session.commit()
+        return get_cost_sharing(case_id)

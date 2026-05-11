@@ -48,13 +48,30 @@ export interface Invoice {
   check_number: string | null
   paid_by_person_id: number | null
   paid_by_name: string | null
+  transfer_to_person_id: number | null
+  transfer_to_name: string | null
   paid_date: string | null
   file_path: string | null
   file_name: string | null
   content_type: string | null
   notes: string | null
+  is_transfer: boolean
   created_at: string
   updated_at: string
+}
+
+export interface EqualizationResult {
+  grand_total: number
+  our_total_paid: number
+  counsel_total_paid: number
+  our_share_pct: number
+  our_target: number
+  counsel_target: number
+  transfer_amount: number
+  already_transferred: number
+  direction: "counsel_pays_us" | "we_pay_counsel" | "even"
+  counsel_id: number | null
+  counsel_name: string | null
 }
 
 export interface InvoiceStats {
@@ -132,8 +149,10 @@ export interface CreateInvoiceData {
   file_name?: string
   content_type?: string
   paid_by_person_id?: number
+  transfer_to_person_id?: number
   payee_id?: number
   notes?: string
+  is_transfer?: boolean
 }
 
 export async function createInvoice(
@@ -250,6 +269,68 @@ export async function openInvoiceFile(invoiceId: number): Promise<void> {
   })
   const { token } = await res.json()
   window.open(`/api/v1/invoices/${invoiceId}/file?token=${token}`, "_blank")
+}
+
+export async function calculateEqualization(
+  caseId: number,
+  ourSharePct: number
+): Promise<EqualizationResult> {
+  const sp = new URLSearchParams()
+  sp.set("case_id", String(caseId))
+  sp.set("our_share_pct", String(ourSharePct))
+  const res = await apiFetch(`/api/v1/invoices/equalization?${sp}`)
+  if (!res.ok) throw new Error("Failed to calculate equalization")
+  return res.json()
+}
+
+export interface CostSummary {
+  total_costs: number
+  our_costs: number
+  counsel_costs: number
+  our_net: number
+  counsel_net: number
+  net_transferred: number
+  counsel_id: number | null
+  counsel_name: string | null
+}
+
+export async function getCostSummary(caseId: number): Promise<CostSummary> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/cost-summary`)
+  if (!res.ok) throw new Error("Failed to fetch cost summary")
+  return res.json()
+}
+
+export interface CostSharingPartner {
+  person_id: number
+  name: string
+  organization: string | null
+  cost_share_pct: number | null
+}
+
+export interface CostSharingConfig {
+  co_counsel: CostSharingPartner[]
+  partner: CostSharingPartner | null
+  our_pct: number | null
+}
+
+export async function getCostSharing(caseId: number): Promise<CostSharingConfig> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing`)
+  if (!res.ok) throw new Error("Failed to fetch cost sharing config")
+  return res.json()
+}
+
+export async function setCostSharing(
+  caseId: number,
+  personId: number,
+  costSharePct: number
+): Promise<CostSharingConfig> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ person_id: personId, cost_share_pct: costSharePct }),
+  })
+  if (!res.ok) throw new Error("Failed to update cost sharing")
+  return res.json()
 }
 
 export interface CounselOption {

@@ -648,6 +648,7 @@ class PersonRole(Base):
     is_primary: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")
     )
+    cost_share_pct: Mapped[Optional[float]] = mapped_column(Numeric(5, 2))
     grouped_under_id: Mapped[Optional[int]] = mapped_column(Integer)
     assigned_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
@@ -1104,6 +1105,10 @@ class Invoice(Base):
             ["paid_by_person_id"], ["persons.id"], ondelete="SET NULL",
             name="invoices_paid_by_person_id_fkey",
         ),
+        ForeignKeyConstraint(
+            ["transfer_to_person_id"], ["persons.id"], ondelete="SET NULL",
+            name="invoices_transfer_to_person_id_fkey",
+        ),
         PrimaryKeyConstraint("id", name="invoices_pkey"),
         Index("idx_invoices_case_id", "case_id"),
         Index("idx_invoices_status", "status"),
@@ -1125,11 +1130,15 @@ class Invoice(Base):
     category: Mapped[Optional[str]] = mapped_column(String(50))
     check_number: Mapped[Optional[str]] = mapped_column(String(50))
     paid_by_person_id: Mapped[Optional[int]] = mapped_column(Integer)
+    transfer_to_person_id: Mapped[Optional[int]] = mapped_column(Integer)
     paid_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     file_path: Mapped[Optional[str]] = mapped_column(Text)
     file_name: Mapped[Optional[str]] = mapped_column(String(255))
     content_type: Mapped[Optional[str]] = mapped_column(String(100))
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    is_transfer: Mapped[bool] = mapped_column(
+        server_default=text("false")
+    )
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
@@ -1141,6 +1150,7 @@ class Invoice(Base):
     case: Mapped[Case] = relationship(back_populates="invoices")
     payee: Mapped[Optional[Payee]] = relationship(back_populates="invoices")
     paid_by_person: Mapped[Optional[Person]] = relationship(foreign_keys=[paid_by_person_id])
+    transfer_to_person: Mapped[Optional[Person]] = relationship(foreign_keys=[transfer_to_person_id])
 
 
 class CaseCounselFee(Base):

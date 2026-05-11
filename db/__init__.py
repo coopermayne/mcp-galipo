@@ -332,6 +332,10 @@ from .invoices import (
     mark_invoice_unpaid,
     delete_invoice,
     get_invoice_stats,
+    get_cost_summary,
+    calculate_equalization,
+    get_cost_sharing,
+    set_cost_sharing,
 )
 
 # Polymorphic comments
@@ -600,6 +604,10 @@ __all__ = [
     "mark_invoice_unpaid",
     "delete_invoice",
     "get_invoice_stats",
+    "get_cost_summary",
+    "calculate_equalization",
+    "get_cost_sharing",
+    "set_cost_sharing",
     # Polymorphic comments
     "get_comments",
     "add_comment",
