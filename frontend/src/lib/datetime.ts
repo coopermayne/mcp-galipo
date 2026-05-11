@@ -23,6 +23,17 @@ export function formatTimestamp(iso: string | null | undefined): string {
   })
 }
 
+export function formatTimestampRaw(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleString("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
 export function formatDateHeader(iso: string): string {
   const d = new Date(iso)
   const now = new Date()
