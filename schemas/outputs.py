@@ -388,6 +388,7 @@ class CasePersonOut(BaseModel):
     attributes: dict = {}
     role_notes: Optional[str] = None
     is_primary: Optional[bool] = None
+    cost_share_pct: Optional[float] = None
     grouped_under_id: Optional[int] = None
     assigned_date: Optional[str] = None
     assigned_at: Optional[str] = None

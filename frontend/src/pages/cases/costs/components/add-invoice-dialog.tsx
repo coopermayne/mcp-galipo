@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -20,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createInvoice, INVOICE_CATEGORIES, getCaseCoCounsel } from "@/services/invoices"
+import { createInvoice, INVOICE_CATEGORIES } from "@/services/invoices"
 import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
 
 interface AddInvoiceDialogProps {
@@ -44,15 +43,8 @@ export function AddInvoiceDialog({
   const [dueDate, setDueDate] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
-  const [paidByPersonId, setPaidByPersonId] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
-
-  const { data: counsel } = useQuery({
-    queryKey: ["case-co-counsel", caseId],
-    queryFn: () => getCaseCoCounsel(caseId),
-    enabled: open,
-  })
 
   const isValid = !!payeeId && !!amount && !!category && !!date
 
@@ -65,7 +57,6 @@ export function AddInvoiceDialog({
     setDueDate("")
     setDescription("")
     setCategory("")
-    setPaidByPersonId("")
     setNotes("")
   }
 
@@ -83,7 +74,6 @@ export function AddInvoiceDialog({
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
         category: category || undefined,
-        paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : undefined,
         payee_id: payeeId ?? undefined,
         notes: notes.trim() || undefined,
       })
@@ -155,22 +145,6 @@ export function AddInvoiceDialog({
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />
-            </div>
-            <div>
-              <Label htmlFor="add-paid-by">Paid By</Label>
-              <Select value={paidByPersonId} onValueChange={setPaidByPersonId}>
-                <SelectTrigger id="add-paid-by">
-                  <SelectValue placeholder="Our Firm" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__clear">Our Firm</SelectItem>
-                  {counsel?.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}{c.organization ? ` (${c.organization})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <div className="flex items-center gap-2">

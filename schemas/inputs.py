@@ -227,11 +227,13 @@ class CreateInvoiceInput(BaseModel):
     category: Optional[str] = None
     check_number: Optional[str] = None
     paid_by_person_id: Optional[int] = None
+    transfer_to_person_id: Optional[int] = None
     paid_date: Optional[str] = None
     file_path: Optional[str] = None
     file_name: Optional[str] = None
     content_type: Optional[str] = None
     notes: Optional[str] = None
+    is_transfer: Optional[bool] = False
 
 
 class UpdateInvoiceInput(BaseModel):

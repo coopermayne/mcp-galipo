@@ -130,6 +130,52 @@ def register_invoice_routes(mcp):
             logger.error(f"Invoice extraction failed: {e}")
             return api_error(f"Extraction failed: {str(e)}", "EXTRACTION_ERROR", 500)
 
+    @mcp.custom_route("/api/v1/cases/{case_id}/cost-sharing", methods=["GET"])
+    async def api_get_cost_sharing(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        result = await asyncio.to_thread(db.get_cost_sharing, case_id)
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/cost-sharing", methods=["PUT"])
+    async def api_set_cost_sharing(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        body = await request.json()
+        person_id = body.get("person_id")
+        cost_share_pct = body.get("cost_share_pct")
+        if person_id is None or cost_share_pct is None:
+            return api_error("person_id and cost_share_pct are required", "VALIDATION_ERROR", 400)
+        result = await asyncio.to_thread(
+            db.set_cost_sharing, case_id, int(person_id), float(cost_share_pct)
+        )
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/cost-summary", methods=["GET"])
+    async def api_get_cost_summary(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        result = await asyncio.to_thread(db.get_cost_summary, case_id)
+        return JSONResponse(result)
+
+    @mcp.custom_route("/api/v1/invoices/equalization", methods=["GET"])
+    async def api_calculate_equalization(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = request.query_params.get("case_id")
+        our_share_pct = request.query_params.get("our_share_pct", "50")
+        if not case_id:
+            return api_error("case_id is required", "VALIDATION_ERROR", 400)
+        result = await asyncio.to_thread(
+            db.calculate_equalization,
+            case_id=int(case_id),
+            our_share_pct=float(our_share_pct),
+        )
+        return JSONResponse(result)
+
     @mcp.custom_route("/api/v1/invoices/{invoice_id}", methods=["GET"])
     async def api_get_invoice(request):
         if err := auth.require_auth(request):
