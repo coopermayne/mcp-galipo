@@ -23,7 +23,7 @@ from db.auth_sessions import (
 )
 
 
-SESSION_EXPIRY_HOURS = 4
+SESSION_EXPIRY_HOURS = 24
 
 # Legacy environment variables (fallback during transition)
 AUTH_USERNAME = settings.auth_username

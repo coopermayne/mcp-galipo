@@ -52,6 +52,23 @@ export function useAuthProvider(): AuthContextValue {
       })
   }, [clearSession])
 
+  // Refresh token periodically so active sessions don't expire
+  useEffect(() => {
+    if (!user) return
+    const REFRESH_MS = 30 * 60 * 1000
+    const id = setInterval(() => {
+      authService
+        .verifyToken()
+        .then((res) => {
+          if (res.success && res.valid && res.token) {
+            localStorage.setItem("token", res.token)
+          }
+        })
+        .catch(() => {})
+    }, REFRESH_MS)
+    return () => clearInterval(id)
+  }, [user])
+
   // Listen for 401 logout events from apiFetch
   useEffect(() => {
     const handler = () => clearSession()
