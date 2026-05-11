@@ -9,6 +9,7 @@ import { getStaff } from "@/services/staff"
 import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
+import { ActivityFeed } from "@/components/common/activity-feed"
 import { getBadgeStyle } from "@/lib/badge-colors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -86,6 +87,7 @@ export function TaskDetailDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] })
       queryClient.invalidateQueries({ queryKey: ["task", task?.id] })
+      queryClient.invalidateQueries({ queryKey: ["comments", "task", task?.id] })
     },
     onError: (e) => toast.error(e.message),
   })
@@ -278,6 +280,13 @@ export function TaskDetailDialog({
             </Combobox>
           </div>
         )}
+
+        {/* Activity feed */}
+        <ActivityFeed
+          entityType="task"
+          entityId={task.id}
+          className="border-t pt-3"
+        />
       </DialogContent>
     </Dialog>
   )

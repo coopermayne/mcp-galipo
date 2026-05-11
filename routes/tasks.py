@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 import db
 import auth
+from db.comments import add_comment as add_entity_comment
 from schemas import CreateTaskInput, UpdateTaskInput
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .comments import _get_db_user_id
 
 
 def register_task_routes(mcp):
@@ -70,15 +72,23 @@ def register_task_routes(mcp):
             data.completion_date,
         )
 
-        # System comment for task creation
+        # System comments for task creation
         user = auth.get_current_user(request)
-        if user and data.case_id:
+        user_id = _get_db_user_id(user)
+        task_id = result.get("id")
+        if user:
             name = f"{user['firstName']} {user['lastName']}"
             desc = data.description[:80] + ("..." if len(data.description) > 80 else "")
-            await asyncio.to_thread(
-                db.add_case_comment, data.case_id, user["id"],
-                f'{name} added task: "{desc}"', True,
-            )
+            if task_id:
+                await asyncio.to_thread(
+                    add_entity_comment, "task", task_id, user_id,
+                    f'{name} created this task', True,
+                )
+            if data.case_id:
+                await asyncio.to_thread(
+                    db.add_case_comment, data.case_id, user_id,
+                    f'{name} added task: "{desc}"', True,
+                )
 
         return JSONResponse({"success": True, "task": result})
 
@@ -104,33 +114,60 @@ def register_task_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
-        # Capture old task for status change detection
-        old_task = None
-        if data.status is not None:
-            old_task = await asyncio.to_thread(db.get_task_detail, task_id)
+        # Capture old task for change detection
+        old_task = await asyncio.to_thread(db.get_task_detail, task_id)
+        if not old_task:
+            return api_error("Task not found", "NOT_FOUND", 404)
 
         updates = data.model_dump(exclude_unset=True)
         result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
 
-        # System comment for task status changes
-        if data.status and old_task and old_task.get("status") != data.status:
-            case_id = result.get("case_id") or (old_task.get("case_id") if old_task else None)
-            if case_id:
-                user = auth.get_current_user(request)
-                name = f"{user['firstName']} {user['lastName']}" if user else "System"
-                desc = result.get("description", "")
-                desc = desc[:80] + ("..." if len(desc) > 80 else "")
-                if data.status == "Done":
-                    msg = f'{name} completed task: "{desc}"'
-                else:
-                    msg = f'{name} changed task "{desc}" from {old_task["status"]} to {data.status}'
-                await asyncio.to_thread(
-                    db.add_case_comment, case_id,
-                    user["id"] if user else None,
-                    msg, True,
-                )
+        # System comments for field changes
+        user = auth.get_current_user(request)
+        name = f"{user['firstName']} {user['lastName']}" if user else "System"
+        user_id = _get_db_user_id(user)
+        desc = result.get("description", "")
+        desc_short = desc[:80] + ("..." if len(desc) > 80 else "")
+        case_id = result.get("case_id") or old_task.get("case_id")
+
+        # Task-level system comments
+        task_msgs = []
+        if data.status is not None and old_task.get("status") != data.status:
+            if data.status == "Done":
+                task_msgs.append(f'{name} completed this task')
+            else:
+                task_msgs.append(f'{name} changed status from {old_task["status"]} to {data.status}')
+        if data.urgency is not None and old_task.get("urgency") != data.urgency:
+            task_msgs.append(f'{name} changed urgency from {old_task.get("urgency", "None")} to {data.urgency}')
+        if data.assignee_id is not None:
+            old_name = old_task.get("assignee_first_name")
+            new_name = result.get("assignee_first_name")
+            old_label = f'{old_name} {old_task.get("assignee_last_name", "")}' if old_name else "Unassigned"
+            new_label = f'{new_name} {result.get("assignee_last_name", "")}' if new_name else "Unassigned"
+            if old_label != new_label:
+                task_msgs.append(f'{name} changed assignee from {old_label.strip()} to {new_label.strip()}')
+        if "due_date" in updates:
+            old_due = old_task.get("due_date") or "None"
+            new_due = result.get("due_date") or "None"
+            if old_due != new_due:
+                task_msgs.append(f'{name} changed due date from {old_due} to {new_due}')
+
+        for msg in task_msgs:
+            await asyncio.to_thread(
+                add_entity_comment, "task", task_id, user_id, msg, True,
+            )
+
+        # Case-level activity feed (status changes only, as before)
+        if data.status is not None and old_task.get("status") != data.status and case_id:
+            if data.status == "Done":
+                case_msg = f'{name} completed task: "{desc_short}"'
+            else:
+                case_msg = f'{name} changed task "{desc_short}" from {old_task["status"]} to {data.status}'
+            await asyncio.to_thread(
+                db.add_case_comment, case_id, user_id, case_msg, True,
+            )
 
         return JSONResponse({"success": True, "task": result})
 
