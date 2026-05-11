@@ -11,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { formatTimestampRaw } from "@/lib/datetime"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   UserIcon,
@@ -365,7 +366,7 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
             <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Submitted</h3>
             <div className="flex items-center gap-2">
               <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 text-muted-foreground" />
-              <span className="text-xs">{formatDate(intake.submitted_on)}</span>
+              <span className="text-xs">{formatTimestampRaw(intake.submitted_on)}</span>
             </div>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake } from "@/types/intake"
-import { formatTimestamp } from "@/lib/datetime"
+import { formatTimestampRaw } from "@/lib/datetime"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -83,7 +83,7 @@ function getMatchReason(
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
-  return formatTimestamp(dateStr)
+  return formatTimestampRaw(dateStr)
 }
 
 /** Parse a date-only string (YYYY-MM-DD) as local midnight, not UTC. */
@@ -257,7 +257,7 @@ export function getColumns(options: {
                   >
                     {s.name || "Unnamed"} — {s.status}
                     {s.submitted_on
-                      ? ` (${new Date(s.submitted_on).toLocaleDateString("en-US", { month: "short", day: "numeric" })})`
+                      ? ` (${new Date(s.submitted_on).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric" })})`
                       : ""}
                   </a>
                 ))}
