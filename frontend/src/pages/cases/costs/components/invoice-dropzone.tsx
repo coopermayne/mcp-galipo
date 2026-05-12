@@ -13,9 +13,10 @@ import { InvoiceConfirmDialog } from "./invoice-confirm-dialog"
 interface InvoiceDropzoneProps {
   caseId: number
   onSuccess: () => void
+  onBulkUpload: (files: File[]) => void
 }
 
-export function InvoiceDropzone({ caseId, onSuccess }: InvoiceDropzoneProps) {
+export function InvoiceDropzone({ caseId, onSuccess, onBulkUpload }: InvoiceDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingLabel, setProcessingLabel] = useState("")
@@ -69,10 +70,14 @@ export function InvoiceDropzone({ caseId, onSuccess }: InvoiceDropzoneProps) {
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
-      const file = e.dataTransfer.files[0]
-      if (file) processFile(file)
+      const files = e.dataTransfer.files
+      if (files.length > 1) {
+        onBulkUpload(Array.from(files))
+      } else if (files.length === 1) {
+        processFile(files[0])
+      }
     },
-    [processFile]
+    [processFile, onBulkUpload]
   )
 
   const handleConfirm = useCallback(
@@ -126,7 +131,7 @@ export function InvoiceDropzone({ caseId, onSuccess }: InvoiceDropzoneProps) {
           <div className="flex flex-col items-center gap-1 text-muted-foreground">
             <HugeiconsIcon icon={Upload04Icon} className="size-5" />
             <span className="text-sm">
-              Drop an invoice here to auto-extract info
+              Drop invoices here to auto-extract info
             </span>
             <span className="text-xs">PDF, PNG, or JPG</span>
           </div>
@@ -135,10 +140,15 @@ export function InvoiceDropzone({ caseId, onSuccess }: InvoiceDropzoneProps) {
           ref={fileInputRef}
           type="file"
           accept=".pdf,.png,.jpg,.jpeg"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) processFile(file)
+            const files = e.target.files
+            if (files && files.length > 1) {
+              onBulkUpload(Array.from(files))
+            } else if (files && files.length === 1) {
+              processFile(files[0])
+            }
             e.target.value = ""
           }}
         />
