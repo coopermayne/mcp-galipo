@@ -12,13 +12,20 @@ import {
   type PaginationState,
 } from "@tanstack/react-table"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Alert02Icon } from "@hugeicons/core-free-icons"
 import { getCase } from "@/services/cases"
 import {
   listInvoices,
   getCostSummary,
+  getCostSharing,
   type Invoice,
+  type CostSummary,
 } from "@/services/invoices"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -71,6 +78,12 @@ function CaseCostsContent() {
     enabled: !isNaN(caseId),
   })
 
+  const { data: costSharing } = useQuery({
+    queryKey: ["cost-sharing", caseId],
+    queryFn: () => getCostSharing(caseId),
+    enabled: !isNaN(caseId),
+  })
+
   const { data: unpaidData, isLoading: unpaidLoading } = useQuery({
     queryKey: ["invoices", "case", caseId, "unpaid"],
     queryFn: () =>
@@ -102,13 +115,6 @@ function CaseCostsContent() {
     queryClient.invalidateQueries({ queryKey: ["case-comments", caseId] })
     queryClient.invalidateQueries({ queryKey: ["equalization"] })
     queryClient.invalidateQueries({ queryKey: ["cost-summary", caseId] })
-  }
-
-  function formatTotal(amount: string) {
-    return Number(amount).toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-    })
   }
 
   if (caseLoading) {
@@ -156,51 +162,13 @@ function CaseCostsContent() {
 
       {/* Net cost summary */}
       {costSummary && (
-        <div className="flex items-center gap-6 border p-3 text-sm">
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">Total costs:</span>
-            <span className="font-semibold tabular-nums">
-              {formatTotal(String(costSummary.total_costs))}
-            </span>
-          </div>
-          {costSummary.counsel_name ? (
-            <>
-              <div className="h-4 border-l" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Our Firm net:</span>
-                <span className="font-semibold tabular-nums">
-                  {formatTotal(String(costSummary.our_net))}
-                </span>
-              </div>
-              <div className="h-4 border-l" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">
-                  {costSummary.counsel_name} net:
-                </span>
-                <span className="font-semibold tabular-nums">
-                  {formatTotal(String(costSummary.counsel_net))}
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="ml-auto h-7 text-xs"
-                onClick={() => setTransferOpen(true)}
-              >
-                Transfer
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto h-7 text-xs"
-              onClick={() => setCostSharingEditing(true)}
-            >
-              Set up split
-            </Button>
-          )}
-        </div>
+        <CostSummaryBar
+          costSummary={costSummary}
+          ourPct={costSharing?.our_pct ?? null}
+          counselPct={costSharing?.partner?.cost_share_pct ?? null}
+          onTransfer={() => setTransferOpen(true)}
+          onSetupSplit={() => setCostSharingEditing(true)}
+        />
       )}
 
       {/* Dropzone */}
@@ -247,6 +215,146 @@ function CaseCostsContent() {
         onSuccess={invalidateAll}
       />
     </div>
+  )
+}
+
+function formatMoney(n: number) {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" })
+}
+
+function CostSummaryBar({
+  costSummary,
+  ourPct,
+  counselPct,
+  onTransfer,
+  onSetupSplit,
+}: {
+  costSummary: CostSummary
+  ourPct: number | null
+  counselPct: number | null
+  onTransfer: () => void
+  onSetupSplit: () => void
+}) {
+  const { counsel_name, total_costs, our_net, counsel_net } = costSummary
+
+  const ourTarget = ourPct != null ? total_costs * (ourPct / 100) : null
+  const counselTarget = counselPct != null ? total_costs * (counselPct / 100) : null
+
+  // Positive = overpaid relative to their share
+  const ourDiff = ourTarget != null ? our_net - ourTarget : null
+  const counselDiff = counselTarget != null ? counsel_net - counselTarget : null
+
+  const threshold = 0.01
+  const isImbalanced = ourDiff != null && Math.abs(ourDiff) > threshold
+
+  return (
+    <div className="flex items-center gap-6 border p-3 text-sm">
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Total costs:</span>
+        <span className="font-semibold tabular-nums">
+          {formatMoney(total_costs)}
+        </span>
+      </div>
+      {counsel_name ? (
+        <>
+          <div className="h-4 border-l" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Our Firm net:</span>
+            <span className="font-semibold tabular-nums">
+              {formatMoney(our_net)}
+            </span>
+            {isImbalanced && ourDiff! > 0 && (
+              <ImbalanceAlert
+                who="Our Firm"
+                target={ourTarget!}
+                actual={our_net}
+                diff={ourDiff!}
+                pct={ourPct!}
+                totalCosts={total_costs}
+              />
+            )}
+          </div>
+          <div className="h-4 border-l" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">
+              {counsel_name} net:
+            </span>
+            <span className="font-semibold tabular-nums">
+              {formatMoney(counsel_net)}
+            </span>
+            {isImbalanced && counselDiff! > 0 && (
+              <ImbalanceAlert
+                who={counsel_name}
+                target={counselTarget!}
+                actual={counsel_net}
+                diff={counselDiff!}
+                pct={counselPct!}
+                totalCosts={total_costs}
+              />
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto h-7 text-xs"
+            onClick={onTransfer}
+          >
+            Transfer
+          </Button>
+        </>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-7 text-xs"
+          onClick={onSetupSplit}
+        >
+          Set up split
+        </Button>
+      )}
+    </div>
+  )
+}
+
+function ImbalanceAlert({
+  who,
+  target,
+  actual,
+  diff,
+  pct,
+  totalCosts,
+}: {
+  who: string
+  target: number
+  actual: number
+  diff: number
+  pct: number
+  totalCosts: number
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="text-destructive hover:text-destructive/80 transition-colors"
+        >
+          <HugeiconsIcon icon={Alert02Icon} className="size-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 text-xs space-y-2">
+        <p className="font-semibold text-destructive">
+          {who} has overpaid by {formatMoney(diff)}
+        </p>
+        <div className="space-y-1 text-muted-foreground">
+          <p>Total costs: {formatMoney(totalCosts)}</p>
+          <p>{who}'s share ({pct}%): {formatMoney(target)}</p>
+          <p>{who}'s actual spend: {formatMoney(actual)}</p>
+        </div>
+        <p className="pt-1 border-t font-medium">
+          Owes {who}: {formatMoney(diff)}
+        </p>
+      </PopoverContent>
+    </Popover>
   )
 }
 
