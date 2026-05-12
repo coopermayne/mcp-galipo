@@ -245,6 +245,7 @@ class UpdateInvoiceInput(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     paid_by_person_id: Optional[int] = None
+    transfer_to_person_id: Optional[int] = None
     notes: Optional[str] = None
     check_number: Optional[str] = None
     paid_date: Optional[str] = None

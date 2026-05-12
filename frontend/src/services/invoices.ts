@@ -175,6 +175,7 @@ export interface UpdateInvoiceData {
   description?: string
   category?: string
   paid_by_person_id?: number | null
+  transfer_to_person_id?: number | null
   payee_id?: number | null
   notes?: string
   check_number?: string | null

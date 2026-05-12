@@ -224,7 +224,7 @@ def register_invoice_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
-        updates = data.model_dump(exclude_none=True)
+        updates = data.model_dump(exclude_unset=True)
         result = await asyncio.to_thread(db.update_invoice, invoice_id, **updates)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)

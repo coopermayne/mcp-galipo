@@ -41,6 +41,7 @@ import { FeatureGate } from "@/components/common/feature-gate"
 import { InvoiceDropzone } from "./components/invoice-dropzone"
 import { AddInvoiceDialog } from "./components/add-invoice-dialog"
 import { EditInvoiceDialog } from "./components/edit-invoice-dialog"
+import { EditTransferDialog } from "./components/edit-transfer-dialog"
 import { MarkPaidDialog } from "./components/mark-paid-dialog"
 import { TransferDialog } from "./components/equalization-dialog"
 import { CostSharingBar } from "./components/cost-sharing-bar"
@@ -62,9 +63,18 @@ function CaseCostsContent() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
+  const [editingTransfer, setEditingTransfer] = useState<Invoice | null>(null)
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
   const [costSharingEditing, setCostSharingEditing] = useState(false)
+
+  function handleEdit(inv: Invoice) {
+    if (inv.is_transfer) {
+      setEditingTransfer(inv)
+    } else {
+      setEditingInvoice(inv)
+    }
+  }
 
   const { data: caseData, isLoading: caseLoading } = useQuery({
     queryKey: ["case", caseId],
@@ -179,7 +189,7 @@ function CaseCostsContent() {
         <UnpaidSection
           invoices={unpaidInvoices}
           isLoading={unpaidLoading}
-          onEdit={setEditingInvoice}
+          onEdit={handleEdit}
           onMarkPaid={setPayingInvoice}
         />
       )}
@@ -188,7 +198,7 @@ function CaseCostsContent() {
       <PaidSection
         invoices={paidInvoices}
         isLoading={paidLoading}
-        onEdit={setEditingInvoice}
+        onEdit={handleEdit}
       />
 
       {/* Dialogs */}
@@ -201,6 +211,11 @@ function CaseCostsContent() {
       <EditInvoiceDialog
         invoice={editingInvoice}
         onOpenChange={(open) => !open && setEditingInvoice(null)}
+        onSuccess={invalidateAll}
+      />
+      <EditTransferDialog
+        invoice={editingTransfer}
+        onOpenChange={(open) => !open && setEditingTransfer(null)}
         onSuccess={invalidateAll}
       />
       <MarkPaidDialog
