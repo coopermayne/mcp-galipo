@@ -12,12 +12,13 @@ import {
   type PaginationState,
 } from "@tanstack/react-table"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Alert02Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Alert02Icon, PrinterIcon } from "@hugeicons/core-free-icons"
 import { getCase } from "@/services/cases"
 import {
   listInvoices,
   getCostSummary,
   getCostSharing,
+  exportCostReport,
   type Invoice,
   type CostSummary,
 } from "@/services/invoices"
@@ -39,6 +40,7 @@ import {
 import { DataTablePagination } from "@/components/common/data-table-pagination"
 import { FeatureGate } from "@/components/common/feature-gate"
 import { InvoiceDropzone } from "./components/invoice-dropzone"
+import { BulkInvoiceUpload } from "./components/bulk-invoice-upload"
 import { AddInvoiceDialog } from "./components/add-invoice-dialog"
 import { EditInvoiceDialog } from "./components/edit-invoice-dialog"
 import { EditTransferDialog } from "./components/edit-transfer-dialog"
@@ -67,6 +69,7 @@ function CaseCostsContent() {
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
   const [costSharingEditing, setCostSharingEditing] = useState(false)
+  const [bulkFiles, setBulkFiles] = useState<File[] | null>(null)
 
   function handleEdit(inv: Invoice) {
     if (inv.is_transfer) {
@@ -157,10 +160,21 @@ function CaseCostsContent() {
           <h1 className="text-lg font-semibold">{caseData?.case_name}</h1>
           <p className="text-sm text-muted-foreground">Costs</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-          <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
-          Add Invoice
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            title="Print cost report"
+            onClick={() => exportCostReport(caseId)}
+          >
+            <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+            <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
+            Add Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Cost sharing config */}
@@ -182,7 +196,7 @@ function CaseCostsContent() {
       )}
 
       {/* Dropzone */}
-      <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} />
+      <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} onBulkUpload={setBulkFiles} />
 
       {/* Unpaid section */}
       {(hasUnpaid || unpaidLoading) && (
@@ -227,6 +241,12 @@ function CaseCostsContent() {
         open={transferOpen}
         onOpenChange={setTransferOpen}
         caseId={caseId}
+        onSuccess={invalidateAll}
+      />
+      <BulkInvoiceUpload
+        caseId={caseId}
+        files={bulkFiles}
+        onClose={() => setBulkFiles(null)}
         onSuccess={invalidateAll}
       />
     </div>

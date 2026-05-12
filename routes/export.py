@@ -16,10 +16,12 @@ from uuid import UUID
 from fastapi.responses import Response
 from sqlalchemy import text
 import auth
+import db
 from db.session import SessionLocal
 from services.pdf_generator import generate_case_list_pdf
 from services.intake_pdf_generator import generate_intake_list_pdf, generate_intake_detail_pdf, generate_intake_batch_pdf
 from services.docx_generator import generate_case_list_docx
+from services.cost_report_generator import generate_cost_report_pdf
 from routes.common import api_error
 
 logger = logging.getLogger(__name__)
@@ -493,6 +495,47 @@ def register_export_routes(mcp):
 
         timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
         filename = f"galipo_intakes_batch_{timestamp}.pdf"
+        return Response(
+            content=pdf_buf.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/costs/export", methods=["GET"])
+    async def api_export_case_costs(request):
+        """Export a case's cost report as PDF."""
+        if err := auth.require_auth(request):
+            return err
+
+        case_id = int(request.path_params["case_id"])
+
+        case = await asyncio.to_thread(db.get_case_summary, case_id)
+        if not case:
+            return api_error("Case not found", "NOT_FOUND", 404)
+
+        result = await asyncio.to_thread(
+            db.list_invoices, case_id=case_id, limit=5000
+        )
+        invoices = result.get("invoices", [])
+
+        cost_summary = await asyncio.to_thread(db.get_cost_summary, case_id)
+        cost_sharing = await asyncio.to_thread(db.get_cost_sharing, case_id)
+
+        try:
+            pdf_buf = await asyncio.to_thread(
+                generate_cost_report_pdf,
+                case.get("case_name", "Unknown Case"),
+                invoices,
+                cost_summary,
+                cost_sharing,
+            )
+        except Exception as e:
+            logger.error("Cost report PDF failed:\n%s", traceback.format_exc())
+            return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
+
+        name_slug = (case.get("case_name") or "case").replace(" ", "_")[:30]
+        timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
+        filename = f"{name_slug}_costs_{timestamp}.pdf"
         return Response(
             content=pdf_buf.getvalue(),
             media_type="application/pdf",

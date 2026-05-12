@@ -16,6 +16,7 @@ interface PayeeSearchProps {
   onChange: (payeeId: number | null) => void
   extractedName?: string
   extractedAddress?: string
+  onPayeeSelected?: (payeeId: number, payeeName: string, payeeAddress: string | null) => void
 }
 
 export function PayeeSearch({
@@ -25,6 +26,7 @@ export function PayeeSearch({
   onChange,
   extractedName,
   extractedAddress,
+  onPayeeSelected,
 }: PayeeSearchProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
@@ -62,6 +64,7 @@ export function PayeeSearch({
       setSelectedName(result.payee.name)
       setSelectedAddress(result.payee.address)
       onChange(result.payee.id)
+      onPayeeSelected?.(result.payee.id, result.payee.name, result.payee.address)
       setMode("search")
       setNewName("")
       setNewAddress("")
@@ -72,6 +75,7 @@ export function PayeeSearch({
     setSelectedName(payee.name)
     setSelectedAddress(payee.address)
     onChange(payee.id)
+    onPayeeSelected?.(payee.id, payee.name, payee.address)
     setSearch("")
   }
 

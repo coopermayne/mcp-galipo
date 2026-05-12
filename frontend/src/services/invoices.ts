@@ -355,6 +355,20 @@ export interface CounselOption {
   organization: string | null
 }
 
+export async function exportCostReport(caseId: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/costs/export`)
+  if (!res.ok) throw new Error("Failed to export cost report")
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  const disposition = res.headers.get("Content-Disposition")
+  const match = disposition?.match(/filename="(.+)"/)
+  a.download = match?.[1] ?? "cost_report.pdf"
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function getCaseCoCounsel(
   caseId: number
 ): Promise<CounselOption[]> {
