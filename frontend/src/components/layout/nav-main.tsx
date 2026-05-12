@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -39,11 +40,11 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
   }, [pathname, isMobile, setOpenMobile])
 
   return (
-    <SidebarGroup>
-      <SidebarMenu>
-        {groups.map((group, groupIndex) => (
-          <div key={group.label}>
-            {groupIndex > 0 && <SidebarSeparator className="my-2" />}
+    <>
+      {groups.map((group, groupIndex) => (
+        <SidebarGroup key={group.label}>
+          {groupIndex > 0 && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+          <SidebarMenu>
             {group.items.map((item) =>
               item.items ? (
                 <Collapsible
@@ -106,9 +107,9 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                 </SidebarMenuItem>
               )
             )}
-          </div>
-        ))}
-      </SidebarMenu>
-    </SidebarGroup>
+          </SidebarMenu>
+        </SidebarGroup>
+      ))}
+    </>
   )
 }

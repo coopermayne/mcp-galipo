@@ -1,5 +1,4 @@
 import {
-  DashboardBrowsingIcon,
   InboxDownloadIcon,
   Briefcase01Icon,
   Briefcase02Icon,
@@ -18,7 +17,7 @@ import {
 export type NavItem = {
   title: string
   url: string
-  icon: typeof DashboardBrowsingIcon
+  icon: typeof Briefcase01Icon
   featureKey?: string
   items?: { title: string; url: string; separatorBefore?: boolean }[]
 }
@@ -30,25 +29,36 @@ export type NavGroup = {
 
 export const navGroups: NavGroup[] = [
   {
-    label: "Main",
+    label: "Daily",
     items: [
-      {
-        title: "Dashboard",
-        url: "/",
-        icon: DashboardBrowsingIcon,
-        featureKey: "dashboard",
-      },
-      {
-        title: "Intakes",
-        url: "/intakes",
-        icon: InboxDownloadIcon,
-        featureKey: "intakes",
-      },
       {
         title: "My Cases",
         url: "/cases",
         icon: Briefcase01Icon,
         featureKey: "cases",
+      },
+      {
+        title: "Tasks",
+        url: "/tasks",
+        icon: Task01Icon,
+        featureKey: "tasks",
+      },
+      {
+        title: "Calendar",
+        url: "/events",
+        icon: Calendar03Icon,
+        featureKey: "calendar",
+      },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      {
+        title: "Intakes",
+        url: "/intakes",
+        icon: InboxDownloadIcon,
+        featureKey: "intakes",
       },
       {
         title: "All Cases",
@@ -73,18 +83,6 @@ export const navGroups: NavGroup[] = [
         ],
       },
       {
-        title: "Tasks",
-        url: "/tasks",
-        icon: Task01Icon,
-        featureKey: "tasks",
-      },
-      {
-        title: "Calendar",
-        url: "/events",
-        icon: Calendar03Icon,
-        featureKey: "calendar",
-      },
-      {
         title: "Contacts",
         url: "/contacts",
         icon: ContactBookIcon,
@@ -98,12 +96,6 @@ export const navGroups: NavGroup[] = [
           { title: "Other", url: "/contacts/other" },
           { title: "Judges", url: "/contacts/judges" },
         ],
-      },
-      {
-        title: "SMS",
-        url: "/sms",
-        icon: SmartPhone01Icon,
-        featureKey: "sms",
       },
     ],
   },
@@ -129,6 +121,12 @@ export const navGroups: NavGroup[] = [
         url: "/court-listener",
         icon: JusticeScale01Icon,
         featureKey: "court-listener",
+      },
+      {
+        title: "SMS",
+        url: "/sms",
+        icon: SmartPhone01Icon,
+        featureKey: "sms",
       },
     ],
   },
