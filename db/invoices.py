@@ -599,7 +599,10 @@ def get_cost_sharing(case_id: int) -> dict:
 
 
 def set_cost_sharing(case_id: int, person_id: int, cost_share_pct: float) -> dict:
-    """Designate a co-counsel as the cost-sharing partner with their share percentage."""
+    """Designate a co-counsel as the cost-sharing partner with their share percentage.
+
+    Auto-assigns the person as co-counsel on the case if they aren't already.
+    """
     CO_COUNSEL_ROLE_ID = 5
     with SessionLocal() as session:
         all_pr = session.execute(
@@ -609,11 +612,22 @@ def set_cost_sharing(case_id: int, person_id: int, cost_share_pct: float) -> dic
             )
         ).scalars().all()
 
+        found = False
         for pr in all_pr:
             if pr.person_id == person_id:
                 pr.cost_share_pct = cost_share_pct
+                found = True
             else:
                 pr.cost_share_pct = None
+
+        if not found:
+            pr = PersonRole(
+                person_id=person_id,
+                role_id=CO_COUNSEL_ROLE_ID,
+                case_id=case_id,
+                cost_share_pct=cost_share_pct,
+            )
+            session.add(pr)
 
         session.commit()
         return get_cost_sharing(case_id)
