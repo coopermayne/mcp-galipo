@@ -195,6 +195,7 @@ def get_session_user(token: str) -> Optional[dict]:
             "isAdmin": user["is_admin"],
             "paralegalId": user.get("paralegal_id"),
             "visibleFeatures": user.get("visible_features"),
+            "mustChangePassword": user.get("must_change_password", False),
         }
     except jwt.ExpiredSignatureError:
         return None

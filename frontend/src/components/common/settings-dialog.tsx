@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { changePassword } from "@/services/auth"
+import { useAuth } from "@/hooks/use-auth"
 import { toast } from "sonner"
 
 interface SettingsDialogProps {
@@ -19,6 +20,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { refreshUser } = useAuth()
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -57,6 +59,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       const res = await changePassword(currentPassword, newPassword)
       if (res.success) {
         localStorage.setItem("token", res.token)
+        await refreshUser()
         toast.success("Password changed successfully")
         handleOpenChange(false)
       } else {
