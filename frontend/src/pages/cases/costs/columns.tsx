@@ -16,6 +16,9 @@ import {
   openInvoiceFile,
   markInvoiceUnpaid,
   deleteInvoice,
+  updateInvoice,
+  INVOICE_CATEGORIES,
+  type InvoiceCategory,
 } from "@/services/invoices"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { Button } from "@/components/ui/button"
@@ -72,21 +75,14 @@ export function getCaseCostColumns(options: {
         <DataTableColumnHeader column={column} title="Category" />
       ),
       cell: ({ row }) => {
-        const inv = row.original
-        if (inv.is_transfer) {
+        if (row.original.is_transfer) {
           return (
             <span className="text-xs px-1.5 py-0.5 bg-purple/15 text-purple">
               Transfer
             </span>
           )
         }
-        const cat = row.getValue("category") as string | null
-        if (!cat) return <span className="text-muted-foreground">—</span>
-        return (
-          <span className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground">
-            {cat}
-          </span>
-        )
+        return <CategoryCell invoice={row.original} />
       },
     },
     {
@@ -199,6 +195,57 @@ export function getCaseCostColumns(options: {
       enableHiding: false,
     },
   ]
+}
+
+function CategoryCell({ invoice }: { invoice: Invoice }) {
+  const queryClient = useQueryClient()
+
+  async function handleSelect(category: InvoiceCategory | null) {
+    try {
+      await updateInvoice(invoice.id, { category: category ?? undefined })
+      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+    } catch {
+      toast.error("Failed to update category")
+    }
+  }
+
+  const current = invoice.category
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs px-1.5 py-0.5 bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+        >
+          {current || "—"}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+        {INVOICE_CATEGORIES.map((cat) => (
+          <DropdownMenuItem
+            key={cat}
+            className={current === cat ? "bg-accent" : ""}
+            onClick={() => handleSelect(cat)}
+          >
+            {cat}
+          </DropdownMenuItem>
+        ))}
+        {current && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-muted-foreground"
+              onClick={() => handleSelect(null)}
+            >
+              Clear
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 function CostActions({
