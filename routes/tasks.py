@@ -13,6 +13,7 @@ from db.comments import add_comment as add_entity_comment
 from schemas import CreateTaskInput, UpdateTaskInput
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 from .comments import _get_db_user_id
+from .sse import broadcast
 
 
 def register_task_routes(mcp):
@@ -84,6 +85,14 @@ def register_task_routes(mcp):
                     add_entity_comment, "task", task_id, user_id,
                     f'{name} created this task', True,
                 )
+                broadcast({
+                    "entity": "comment",
+                    "action": "created",
+                    "id": None,
+                    "entity_type": "task",
+                    "entity_id": task_id,
+                    "user_id": user_id,
+                })
             if data.case_id:
                 await asyncio.to_thread(
                     db.add_case_comment, data.case_id, user_id,
@@ -158,6 +167,15 @@ def register_task_routes(mcp):
             await asyncio.to_thread(
                 add_entity_comment, "task", task_id, user_id, msg, True,
             )
+        if task_msgs:
+            broadcast({
+                "entity": "comment",
+                "action": "created",
+                "id": None,
+                "entity_type": "task",
+                "entity_id": task_id,
+                "user_id": user_id,
+            })
 
         # Case-level activity feed (status changes only, as before)
         if data.status is not None and old_task.get("status") != data.status and case_id:

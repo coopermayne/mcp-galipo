@@ -26,6 +26,14 @@ export const INVALIDATION_MAP: Record<
     return keys
   },
 
+  comment: (event) => {
+    const keys: (string | (string | number)[])[] = ["comment-unread-counts"]
+    if (event.entity_type && event.entity_id) {
+      keys.push(["comments", event.entity_type, event.entity_id])
+    }
+    return keys
+  },
+
   intake_comment: (event) => {
     const keys: (string | (string | number)[])[] = ["unread-counts"]
     if (event.intake_id) {

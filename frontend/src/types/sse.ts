@@ -4,5 +4,7 @@ export interface SSEEvent {
   id: number | null
   intake_id?: number | null
   conversation_id?: number | null
+  entity_type?: string | null
+  entity_id?: number | null
   user_id?: number | null
 }

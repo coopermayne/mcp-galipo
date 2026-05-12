@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import auth
 from db.comments import get_comments, add_comment, get_last_read_at, mark_read, get_unread_counts
 from .common import api_error
+from .sse import broadcast
 
 
 def _get_db_user_id(user: dict | None) -> int | None:
@@ -96,6 +97,14 @@ def register_comment_routes(mcp):
         comment = await asyncio.to_thread(
             add_comment, entity_type, entity_id, user_id, data.content
         )
+        broadcast({
+            "entity": "comment",
+            "action": "created",
+            "id": comment.get("id"),
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "user_id": user_id,
+        })
         return JSONResponse({"comment": comment})
 
     @mcp.custom_route(
