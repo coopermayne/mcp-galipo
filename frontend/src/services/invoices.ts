@@ -177,6 +177,8 @@ export interface UpdateInvoiceData {
   paid_by_person_id?: number | null
   payee_id?: number | null
   notes?: string
+  check_number?: string | null
+  paid_date?: string | null
 }
 
 export async function updateInvoice(

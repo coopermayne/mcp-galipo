@@ -52,6 +52,8 @@ export function EditInvoiceDialog({
   const [category, setCategory] = useState("")
   const [paidByPersonId, setPaidByPersonId] = useState("")
   const [notes, setNotes] = useState("")
+  const [checkNumber, setCheckNumber] = useState("")
+  const [paidDate, setPaidDate] = useState("")
   const [saving, setSaving] = useState(false)
 
   const { data: counsel } = useQuery({
@@ -75,6 +77,8 @@ export function EditInvoiceDialog({
       setCategory(invoice.category ?? "")
       setPaidByPersonId(invoice.paid_by_person_id ? String(invoice.paid_by_person_id) : "")
       setNotes(invoice.notes ?? "")
+      setCheckNumber(invoice.check_number ?? "")
+      setPaidDate(invoice.paid_date ?? "")
     }
   }, [invoice])
 
@@ -94,6 +98,8 @@ export function EditInvoiceDialog({
         paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : null,
         payee_id: payeeId,
         notes: notes.trim() || undefined,
+        check_number: checkNumber.trim() || null,
+        paid_date: paidDate || null,
       })
       toast.success("Invoice updated")
       onOpenChange(false)
@@ -239,12 +245,22 @@ export function EditInvoiceDialog({
           {invoice?.status === "paid" && (
             <div className="grid grid-cols-2 gap-4 border-t pt-4">
               <div>
-                <Label className="text-muted-foreground">Payment Ref</Label>
-                <p className="text-sm">{invoice.check_number || "—"}</p>
+                <Label htmlFor="edit-check-number">Payment Ref</Label>
+                <Input
+                  id="edit-check-number"
+                  value={checkNumber}
+                  onChange={(e) => setCheckNumber(e.target.value)}
+                  placeholder="Check #, EFT, etc."
+                />
               </div>
               <div>
-                <Label className="text-muted-foreground">Paid Date</Label>
-                <p className="text-sm">{invoice.paid_date || "—"}</p>
+                <Label htmlFor="edit-paid-date">Paid Date</Label>
+                <Input
+                  id="edit-paid-date"
+                  type="date"
+                  value={paidDate}
+                  onChange={(e) => setPaidDate(e.target.value)}
+                />
               </div>
             </div>
           )}
