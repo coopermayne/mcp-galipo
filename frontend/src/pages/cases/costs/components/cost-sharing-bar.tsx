@@ -5,6 +5,7 @@ import { useDebounce } from "@/hooks/use-debounce"
 import {
   getCostSharing,
   setCostSharing,
+  removeCostSharing,
 } from "@/services/invoices"
 import {
   searchPersons,
@@ -24,6 +25,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
   const [internalEditing, setInternalEditing] = useState(false)
   const [theirPct, setTheirPct] = useState("50")
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   // Person selection state
   const [search, setSearch] = useState("")
@@ -284,6 +286,22 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
     )
   }
 
+  async function handleRemove() {
+    if (!confirm(`Remove cost sharing with ${partner?.name}?`)) return
+    setRemoving(true)
+    try {
+      await removeCostSharing(caseId)
+      queryClient.invalidateQueries({ queryKey: ["cost-sharing", caseId] })
+      queryClient.invalidateQueries({ queryKey: ["cost-summary", caseId] })
+      queryClient.invalidateQueries({ queryKey: ["case", caseId] })
+      toast.success("Cost sharing removed")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove cost sharing")
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   if (!partner) return null
 
   return (
@@ -296,12 +314,21 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
       <span className="font-medium">
         {partner.name} {partner.cost_share_pct != null ? `${partner.cost_share_pct}%` : "—"}
       </span>
-      <button
-        onClick={startEditing}
-        className="text-xs text-muted-foreground hover:text-foreground underline ml-auto"
-      >
-        Edit
-      </button>
+      <div className="flex items-center gap-2 ml-auto">
+        <button
+          onClick={startEditing}
+          className="text-xs text-muted-foreground hover:text-foreground underline"
+        >
+          Edit
+        </button>
+        <button
+          onClick={handleRemove}
+          disabled={removing}
+          className="text-xs text-muted-foreground hover:text-destructive underline disabled:opacity-50"
+        >
+          {removing ? "Removing..." : "Remove"}
+        </button>
+      </div>
     </div>
   )
 }

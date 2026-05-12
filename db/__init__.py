@@ -336,6 +336,7 @@ from .invoices import (
     calculate_equalization,
     get_cost_sharing,
     set_cost_sharing,
+    remove_cost_sharing,
 )
 
 # Polymorphic comments
@@ -608,6 +609,7 @@ __all__ = [
     "calculate_equalization",
     "get_cost_sharing",
     "set_cost_sharing",
+    "remove_cost_sharing",
     # Polymorphic comments
     "get_comments",
     "add_comment",

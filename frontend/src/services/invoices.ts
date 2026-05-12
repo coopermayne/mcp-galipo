@@ -333,6 +333,19 @@ export async function setCostSharing(
   return res.json()
 }
 
+export async function removeCostSharing(
+  caseId: number
+): Promise<{ success: boolean }> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error?.message ?? "Failed to remove cost sharing")
+  }
+  return res.json()
+}
+
 export interface CounselOption {
   id: number
   name: string
