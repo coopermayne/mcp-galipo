@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { Link } from "react-router"
 import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
 import { navGroups } from "@/components/layout/nav-data"
@@ -40,7 +41,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-              <span className="truncate text-base font-semibold group-data-[collapsible=icon]:hidden">Galipo</span>
+              <Link to="/" className="truncate text-base font-semibold group-data-[collapsible=icon]:hidden hover:opacity-70 transition-opacity">Galipo</Link>
               <SidebarTrigger className="ml-auto group-data-[collapsible=icon]:ml-0" />
             </div>
           </SidebarMenuItem>
