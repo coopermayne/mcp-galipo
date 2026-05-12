@@ -631,3 +631,46 @@ def set_cost_sharing(case_id: int, person_id: int, cost_share_pct: float) -> dic
 
         session.commit()
         return get_cost_sharing(case_id)
+
+
+def remove_cost_sharing(case_id: int) -> dict:
+    """Remove the cost-sharing partner from a case.
+
+    Only allowed if the partner has no invoices (paid_by or transfer_to) on this case.
+    Returns {"success": True} or raises ValueError.
+    """
+    config = get_cost_sharing(case_id)
+    partner = config.get("partner")
+    if not partner:
+        raise ValueError("No cost-sharing partner to remove")
+
+    person_id = partner["person_id"]
+
+    with SessionLocal() as session:
+        involved = session.execute(
+            select(func.count()).select_from(Invoice).where(
+                Invoice.case_id == case_id,
+                (Invoice.paid_by_person_id == person_id)
+                | (Invoice.transfer_to_person_id == person_id),
+            )
+        ).scalar()
+
+        if involved > 0:
+            raise ValueError(
+                f"{partner['name']} is involved in {involved} invoice(s) on this case and cannot be removed"
+            )
+
+        CO_COUNSEL_ROLE_ID = 5
+        prs = session.execute(
+            select(PersonRole).where(
+                PersonRole.case_id == case_id,
+                PersonRole.role_id == CO_COUNSEL_ROLE_ID,
+                PersonRole.person_id == person_id,
+            )
+        ).scalars().all()
+
+        for pr in prs:
+            pr.cost_share_pct = None
+
+        session.commit()
+        return {"success": True}

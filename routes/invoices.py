@@ -153,6 +153,17 @@ def register_invoice_routes(mcp):
         )
         return JSONResponse(result)
 
+    @mcp.custom_route("/api/v1/cases/{case_id}/cost-sharing", methods=["DELETE"])
+    async def api_remove_cost_sharing(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        try:
+            result = await asyncio.to_thread(db.remove_cost_sharing, case_id)
+            return JSONResponse(result)
+        except ValueError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
     @mcp.custom_route("/api/v1/cases/{case_id}/cost-summary", methods=["GET"])
     async def api_get_cost_summary(request):
         if err := auth.require_auth(request):
