@@ -7,6 +7,7 @@ type AuthContextValue = {
   isLoading: boolean
   login: (email: string, password: string) => Promise<{ error?: string }>
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -91,7 +92,15 @@ export function useAuthProvider(): AuthContextValue {
     clearSession()
   }, [clearSession])
 
-  return { user, isLoading, login, logout }
+  const refreshUser = useCallback(async () => {
+    const res = await authService.verifyToken()
+    if (res.success && res.valid) {
+      setUser(res.user)
+      if (res.token) localStorage.setItem("token", res.token)
+    }
+  }, [])
+
+  return { user, isLoading, login, logout, refreshUser }
 }
 
 export function useAuth() {
