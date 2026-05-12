@@ -5,7 +5,6 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
   flexRender,
   type SortingState,
@@ -17,10 +16,8 @@ import { Add01Icon } from "@hugeicons/core-free-icons"
 import { getCase } from "@/services/cases"
 import {
   listInvoices,
-  getInvoiceStats,
   getCostSummary,
   type Invoice,
-  type InvoiceStatus,
 } from "@/services/invoices"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -56,29 +53,15 @@ function CaseCostsContent() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [statusFilter, setStatusFilter] = useState<InvoiceStatus>("unpaid")
   const [addOpen, setAddOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
   const [costSharingEditing, setCostSharingEditing] = useState(false)
 
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 50,
-  })
-
   const { data: caseData, isLoading: caseLoading } = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => getCase(caseId),
-    enabled: !isNaN(caseId),
-  })
-
-  const { data: stats } = useQuery({
-    queryKey: ["invoices", "stats", caseId],
-    queryFn: () => getInvoiceStats(caseId),
     enabled: !isNaN(caseId),
   })
 
@@ -88,51 +71,30 @@ function CaseCostsContent() {
     enabled: !isNaN(caseId),
   })
 
-  const { data, isLoading: invoicesLoading } = useQuery({
-    queryKey: ["invoices", "case", caseId, statusFilter],
+  const { data: unpaidData, isLoading: unpaidLoading } = useQuery({
+    queryKey: ["invoices", "case", caseId, "unpaid"],
     queryFn: () =>
       listInvoices({
         case_id: caseId,
-        status: statusFilter,
-        sort_by: statusFilter === "unpaid" ? "due_date" : "paid_date",
-        sort_dir: statusFilter === "unpaid" ? "asc" : "desc",
+        status: "unpaid",
+        sort_by: "due_date",
+        sort_dir: "asc",
         limit: 500,
       }),
     enabled: !isNaN(caseId),
   })
 
-  const columns = useMemo(
-    () =>
-      getCaseCostColumns({
-        onMarkPaid: (inv) => setPayingInvoice(inv),
-        onEdit: (inv) => setEditingInvoice(inv),
+  const { data: paidData, isLoading: paidLoading } = useQuery({
+    queryKey: ["invoices", "case", caseId, "paid"],
+    queryFn: () =>
+      listInvoices({
+        case_id: caseId,
+        status: "paid",
+        sort_by: "paid_date",
+        sort_dir: "desc",
+        limit: 500,
       }),
-    []
-  )
-
-  const visibleColumns = useMemo(() => {
-    const hidden: VisibilityState = { ...columnVisibility }
-    if (statusFilter === "paid") {
-      hidden.due_date = false
-    }
-    return hidden
-  }, [statusFilter, columnVisibility])
-
-  const table = useReactTable({
-    data: data?.invoices ?? [],
-    columns,
-    state: {
-      sorting,
-      columnVisibility: visibleColumns,
-      pagination,
-    },
-    onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    enabled: !isNaN(caseId),
   })
 
   function invalidateAll() {
@@ -159,8 +121,9 @@ function CaseCostsContent() {
     )
   }
 
-  const unpaidCount = stats?.unpaid_count ?? 0
-  const paidCount = stats?.paid_count ?? 0
+  const unpaidInvoices = unpaidData?.invoices ?? []
+  const paidInvoices = paidData?.invoices ?? []
+  const hasUnpaid = unpaidInvoices.length > 0
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -243,107 +206,22 @@ function CaseCostsContent() {
       {/* Dropzone */}
       <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} />
 
-      {/* Status tabs + stats */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant={statusFilter === "unpaid" ? "default" : "outline"}
-          size="sm"
-          onClick={() => {
-            setStatusFilter("unpaid")
-            setPagination((p) => ({ ...p, pageIndex: 0 }))
-          }}
-        >
-          Unpaid
-          {stats && (
-            <span className="ml-1.5 text-xs opacity-70">
-              {unpaidCount} &middot; {formatTotal(stats.unpaid_total)}
-            </span>
-          )}
-        </Button>
-        <Button
-          variant={statusFilter === "paid" ? "default" : "outline"}
-          size="sm"
-          onClick={() => {
-            setStatusFilter("paid")
-            setPagination((p) => ({ ...p, pageIndex: 0 }))
-          }}
-        >
-          Paid
-          {stats && (
-            <span className="ml-1.5 text-xs opacity-70">
-              {paidCount} &middot; {formatTotal(stats.paid_total)}
-            </span>
-          )}
-        </Button>
-      </div>
-
-      {/* Table */}
-      <div className="border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {invoicesLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-[80px]" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={`cursor-pointer ${
-                    row.original.is_transfer
-                      ? "bg-purple/5 hover:bg-purple/10"
-                      : ""
-                  }`}
-                  onClick={() => setEditingInvoice(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No {statusFilter} invoices.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {(data?.total ?? 0) > 20 && (
-        <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
+      {/* Unpaid section */}
+      {(hasUnpaid || unpaidLoading) && (
+        <UnpaidSection
+          invoices={unpaidInvoices}
+          isLoading={unpaidLoading}
+          onEdit={setEditingInvoice}
+          onMarkPaid={setPayingInvoice}
+        />
       )}
+
+      {/* Paid section */}
+      <PaidSection
+        invoices={paidInvoices}
+        isLoading={paidLoading}
+        onEdit={setEditingInvoice}
+      />
 
       {/* Dialogs */}
       <AddInvoiceDialog
@@ -368,6 +246,181 @@ function CaseCostsContent() {
         caseId={caseId}
         onSuccess={invalidateAll}
       />
+    </div>
+  )
+}
+
+const UNPAID_HIDDEN: VisibilityState = {
+  paid_by_name: false,
+}
+
+function UnpaidSection({
+  invoices,
+  isLoading,
+  onEdit,
+  onMarkPaid,
+}: {
+  invoices: Invoice[]
+  isLoading: boolean
+  onEdit: (inv: Invoice) => void
+  onMarkPaid: (inv: Invoice) => void
+}) {
+  const [sorting, setSorting] = useState<SortingState>([])
+
+  const columns = useMemo(
+    () =>
+      getCaseCostColumns({
+        onMarkPaid: (inv) => onMarkPaid(inv),
+        onEdit: (inv) => onEdit(inv),
+      }),
+    [onMarkPaid, onEdit]
+  )
+
+  const table = useReactTable({
+    data: invoices,
+    columns,
+    state: { sorting, columnVisibility: UNPAID_HIDDEN },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+        Unpaid ({invoices.length})
+      </h2>
+      <CostTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage="No unpaid invoices." />
+    </div>
+  )
+}
+
+const PAID_HIDDEN: VisibilityState = {
+  due_date: false,
+}
+
+function PaidSection({
+  invoices,
+  isLoading,
+  onEdit,
+}: {
+  invoices: Invoice[]
+  isLoading: boolean
+  onEdit: (inv: Invoice) => void
+}) {
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 50,
+  })
+
+  const columns = useMemo(
+    () => getCaseCostColumns({ onEdit: (inv) => onEdit(inv) }),
+    [onEdit]
+  )
+
+  const table = useReactTable({
+    data: invoices,
+    columns,
+    state: { sorting, columnVisibility: PAID_HIDDEN, pagination },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  })
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+        Paid ({invoices.length})
+      </h2>
+      <CostTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage="No paid invoices." />
+      {invoices.length > 20 && (
+        <div className="mt-2">
+          <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CostTable({
+  table,
+  isLoading,
+  onEdit,
+  emptyMessage,
+}: {
+  table: ReturnType<typeof useReactTable<Invoice>>
+  isLoading: boolean
+  onEdit: (inv: Invoice) => void
+  emptyMessage: string
+}) {
+  const columns = table.getAllColumns()
+
+  return (
+    <div className="border">
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <TableRow key={i}>
+                {Array.from({ length: 8 }).map((_, j) => (
+                  <TableCell key={j}>
+                    <Skeleton className="h-4 w-[80px]" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                className={`cursor-pointer ${
+                  row.original.is_transfer
+                    ? "bg-purple/5 hover:bg-purple/10"
+                    : ""
+                }`}
+                onClick={() => onEdit(row.original)}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={columns.length}
+                className="h-16 text-center"
+              >
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   )
 }
