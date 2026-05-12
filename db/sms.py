@@ -116,7 +116,7 @@ def get_conversation(conversation_id: int) -> Optional[dict]:
         }
 
 
-def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dict:
+def get_messages(conversation_id: int, limit: int = 1000, offset: int = 0) -> dict:
     """Get messages for a conversation, oldest first. Includes media attachments."""
     with SessionLocal() as session:
         conv = session.get(SmsConversation, conversation_id)
@@ -132,11 +132,11 @@ def get_messages(conversation_id: int, limit: int = 100, offset: int = 0) -> dic
             select(SmsMessage, User)
             .outerjoin(User, SmsMessage.sent_by_user_id == User.id)
             .where(SmsMessage.conversation_id == conversation_id)
-            .order_by(SmsMessage.created_at.asc())
+            .order_by(SmsMessage.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
-        rows = session.execute(stmt).all()
+        rows = list(reversed(session.execute(stmt).all()))
 
         # Batch-load media for all messages in this page
         msg_ids = [msg.id for msg, _ in rows]
