@@ -19,6 +19,20 @@ import {
   INVOICE_CATEGORIES,
   type InvoiceCategory,
 } from "@/services/invoices"
+
+export type RowKind = "invoice" | "advance" | "transfer"
+
+export function getRowKind(inv: Invoice): RowKind {
+  if (inv.is_transfer) return "transfer"
+  if (inv.type === "advance") return "advance"
+  return "invoice"
+}
+
+export const ROW_KIND_BORDER: Record<RowKind, string> = {
+  invoice: "",
+  advance: "border-l-2 border-l-[var(--warning)]",
+  transfer: "border-l-2 border-l-[var(--purple)]",
+}
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { Button } from "@/components/ui/button"
 import {
@@ -230,6 +244,25 @@ export function getColumns(options: {
 
 function CategoryCell({ invoice }: { invoice: Invoice }) {
   const queryClient = useQueryClient()
+  const kind = getRowKind(invoice)
+
+  if (kind === "transfer") {
+    const target = invoice.transfer_to_name ?? "Co-counsel"
+    return (
+      <span className="text-xs px-1.5 py-0.5 bg-[color-mix(in_oklch,var(--purple)_15%,transparent)] text-[var(--purple)]">
+        Transfer → {target}
+      </span>
+    )
+  }
+
+  if (kind === "advance") {
+    const target = invoice.advanced_to_name
+    return (
+      <span className="text-xs px-1.5 py-0.5 bg-[color-mix(in_oklch,var(--warning)_15%,transparent)] text-[var(--warning)]">
+        Advance{target ? ` → ${target}` : ""}
+      </span>
+    )
+  }
 
   async function handleSelect(category: InvoiceCategory | null) {
     try {
