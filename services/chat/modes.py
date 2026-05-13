@@ -124,6 +124,7 @@ This is a read-only mode - do not create, update, or delete data.""",
             "manage_proceeding",
             "manage_judge",
             "list_jurisdictions",
+            "create_jurisdiction",
         ],
         "system_prompt_addition": """You are in PROCEEDINGS mode - help the user manage court proceedings, judges, and jurisdictions.
 
@@ -142,8 +143,8 @@ WORKFLOW for adding a judge to an EXISTING proceeding (most common case-page req
 5. Confirm briefly what was linked.
 
 WORKFLOW for adding a NEW proceeding:
-1. Use list_jurisdictions to find the right jurisdiction_id. If no match, tell the user and create the proceeding without one.
-2. Create the proceeding with manage_proceeding(action="create", case_id=..., case_number=...).
+1. Use list_jurisdictions to find the right jurisdiction_id. If no match, create the jurisdiction with create_jurisdiction(name="...") to get a jurisdiction_id.
+2. Create the proceeding with manage_proceeding(action="create", case_id=..., case_number=..., jurisdiction_id=...).
 3. Then follow the "adding a judge to an existing proceeding" workflow above using the new proceeding_id returned.
 
 WORKFLOW for editing/deleting a proceeding:
@@ -240,6 +241,7 @@ Every person mentioned in the document must be added. This includes:
 ### Step 4: Set up proceedings
 For court case numbers, jurisdictions, judges:
 - Use list_jurisdictions to find the right jurisdiction_id
+- If the jurisdiction doesn't exist → create it with create_jurisdiction(name="...") to get a jurisdiction_id
 - Create the proceeding with manage_proceeding(action="create", case_id=..., case_number=..., jurisdiction_id=...)
 - search(entity="judges", query="name") to find existing judges
 - If found → manage_proceeding(action="add_judge", proceeding_id=..., judge_id=...)

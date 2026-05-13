@@ -1331,6 +1331,35 @@ def register_tools(mcp):
             return error_response(f"Failed to list jurisdictions: {str(e)}", "QUERY_ERROR")
 
     # =========================================================================
+    # CREATE JURISDICTION (proceedings mode)
+    # =========================================================================
+
+    @mcp.tool()
+    def create_jurisdiction(context: Context, name: str, local_rules_link: Optional[str] = None, notes: Optional[str] = None) -> dict:
+        """Create a new jurisdiction (court) that doesn't exist yet.
+
+        Use list_jurisdictions first to check if the jurisdiction already exists.
+        Only create a new one if no match is found.
+
+        Common formats: "C.D. Cal.", "Los Angeles Superior", "9th Cir.",
+        "San Bernardino Superior", "U.S. Bankruptcy Court, C.D. Cal."
+
+        Args:
+            name: Court name (e.g. "Ventura County Superior")
+            local_rules_link: Optional URL to the court's local rules
+            notes: Optional notes about the jurisdiction
+        """
+        context.info(f"Creating jurisdiction: {name}")
+        try:
+            existing = db.get_jurisdiction_by_name(name)
+            if existing:
+                return {"success": True, "jurisdiction": existing, "note": "Jurisdiction already exists"}
+            jurisdiction = db.create_jurisdiction(name=name, local_rules_link=local_rules_link, notes=notes)
+            return {"success": True, "jurisdiction": jurisdiction}
+        except Exception as e:
+            return error_response(f"Failed to create jurisdiction: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
     # MANAGE INTAKE
     # =========================================================================
 
