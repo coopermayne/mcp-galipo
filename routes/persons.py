@@ -98,6 +98,18 @@ def register_person_routes(mcp):
             return api_error(result["error"], "NOT_FOUND", 404)
         return JSONResponse(result)
 
+    @mcp.custom_route("/api/v1/persons/dismiss-duplicate", methods=["POST"])
+    async def api_dismiss_duplicate(request):
+        """Dismiss a group of persons as not duplicates."""
+        if err := auth.require_auth(request):
+            return err
+        data = await request.json()
+        person_ids = data.get("person_ids")
+        if not person_ids or len(person_ids) < 2:
+            return api_error("person_ids must contain at least 2 IDs", "VALIDATION_ERROR", 400)
+        result = await asyncio.to_thread(db.dismiss_duplicate, person_ids=person_ids)
+        return JSONResponse(result)
+
     @mcp.custom_route("/api/v1/persons/merge", methods=["POST"])
     async def api_merge_persons(request):
         """Merge secondary person into primary person."""

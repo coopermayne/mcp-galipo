@@ -126,6 +126,80 @@ export interface UpdateCaseAssignmentData {
   assigned_date?: string
 }
 
+export interface DuplicateGroup {
+  persons: {
+    id: number
+    name: string
+    phones: { value: string; type?: string }[]
+    emails: { value: string; type?: string }[]
+    organization: string | null
+    notes: string | null
+  }[]
+  match_reasons: string[]
+  has_conflicts: boolean
+}
+
+export interface MergePreview {
+  primary: PersonDetail
+  secondary: PersonDetail
+  conflicts: {
+    field_conflicts: {
+      field: string
+      primary_value: string | null
+      secondary_value: string | null
+    }[]
+    assignment_conflicts: {
+      case_id: number
+      role_id: number
+      role_name: string
+      case_name: string
+      short_name: string | null
+    }[]
+  }
+  auto_mergeable: boolean
+}
+
+export async function findDuplicates(): Promise<{ groups: DuplicateGroup[]; total: number }> {
+  const res = await apiFetch("/api/v1/persons/duplicates")
+  if (!res.ok) throw new Error("Failed to find duplicates")
+  return res.json()
+}
+
+export async function previewMerge(primaryId: number, secondaryId: number): Promise<MergePreview> {
+  const res = await apiFetch(`/api/v1/persons/merge-preview?primary_id=${primaryId}&secondary_id=${secondaryId}`)
+  if (!res.ok) throw new Error("Failed to preview merge")
+  return res.json()
+}
+
+export async function dismissDuplicate(personIds: number[]) {
+  const res = await apiFetch("/api/v1/persons/dismiss-duplicate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ person_ids: personIds }),
+  })
+  if (!res.ok) throw new Error("Failed to dismiss duplicate")
+  return res.json()
+}
+
+export async function mergePersons(
+  primaryId: number,
+  secondaryId: number,
+  fieldResolutions: Record<string, string> = {}
+): Promise<PersonDetail> {
+  const res = await apiFetch("/api/v1/persons/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      primary_id: primaryId,
+      secondary_id: secondaryId,
+      field_resolutions: fieldResolutions,
+    }),
+  })
+  if (!res.ok) throw new Error("Failed to merge persons")
+  const data = await res.json()
+  return data.person
+}
+
 export async function updateCaseAssignment(
   caseId: number,
   assignmentId: number,

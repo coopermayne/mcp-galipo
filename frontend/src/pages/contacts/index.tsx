@@ -2,10 +2,16 @@ import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useParams } from "react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon } from "@hugeicons/core-free-icons"
+import { Search01Icon, MoreHorizontalIcon, UserMultipleIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useDebounce } from "@/hooks/use-debounce"
 import { searchContacts } from "@/services/contacts"
 import { searchPersons } from "@/services/persons"
@@ -13,6 +19,7 @@ import { SearchResultItem } from "@/pages/contacts/components/search-result-item
 import { ContactsListView } from "@/pages/contacts/components/contacts-list-view"
 import { ContactDetailDialog } from "@/components/common/contact-detail-dialog"
 import { JudgeDetailDialog } from "@/pages/judges/components/judge-detail-dialog"
+import { MergeContactsDialog } from "@/pages/contacts/components/merge-contacts-dialog"
 import type { JudgeListItem } from "@/services/judges"
 import type { PersonListItem } from "@/types/person"
 import type { UnifiedSearchResult } from "@/services/contacts"
@@ -45,6 +52,7 @@ export default function ContactsPage() {
 
   const [selectedPerson, setSelectedPerson] = useState<PersonListItem | null>(null)
   const [selectedJudge, setSelectedJudge] = useState<JudgeListItem | null>(null)
+  const [mergeOpen, setMergeOpen] = useState(false)
 
   // Unified search (when typing)
   const { data: searchData, isLoading: searchLoading } = useQuery({
@@ -127,17 +135,33 @@ export default function ContactsPage() {
       </div>
 
       {/* Search bar */}
-      <div className="relative">
-        <HugeiconsIcon
-          icon={Search01Icon}
-          className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2"
-        />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, phone, email, or firm..."
-          className="h-10 pl-9 text-sm"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2"
+          />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, phone, email, or firm..."
+            className="h-10 pl-9 text-sm"
+          />
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 border border-border">
+              <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+              <span className="sr-only">Actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setMergeOpen(true)}>
+              <HugeiconsIcon icon={UserMultipleIcon} className="mr-2 size-4" />
+              Find Duplicates
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Category tabs (only when not searching) */}
@@ -264,6 +288,8 @@ export default function ContactsPage() {
           if (!open) setSelectedJudge(null)
         }}
       />
+
+      <MergeContactsDialog open={mergeOpen} onOpenChange={setMergeOpen} />
     </div>
   )
 }
