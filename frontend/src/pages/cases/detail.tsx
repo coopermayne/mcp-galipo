@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
-import { useParams, useSearchParams, Link } from "react-router"
+import { useParams, useSearchParams, Link, useLocation } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getCase } from "@/services/cases"
@@ -33,6 +33,7 @@ export default function CaseDetailPage() {
 function CaseDetailContent() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Dialog state
@@ -174,6 +175,7 @@ function CaseDetailContent() {
           <CaseDetailHeader caseData={caseData} />
           <Link
             to={`/cases/${caseId}/costs`}
+            state={location.state}
             className="flex items-center gap-3 text-xs shrink-0 border bg-muted/40 px-3 py-1.5"
           >
             <span className="text-muted-foreground">Costs</span>

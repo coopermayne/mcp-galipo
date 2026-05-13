@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router"
+import { Link, useLocation } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -74,6 +74,7 @@ interface CaseFinancialsCardProps {
 }
 
 export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardProps) {
+  const location = useLocation()
   const queryClient = useQueryClient()
   const queryKey = ["financial", "case", caseId]
 
@@ -175,6 +176,7 @@ export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardPr
         <div className="border-t px-3 py-2">
           <Link
             to={`/cases/${caseId}/costs`}
+            state={location.state}
             className="flex items-center justify-between group"
           >
             <div>
@@ -383,6 +385,7 @@ export function CaseFinancialsCard({ caseId, casePersons }: CaseFinancialsCardPr
         <div className="border-t pt-3">
           <Link
             to={`/cases/${caseId}/costs`}
+            state={location.state}
             className="flex items-center justify-between group hover:bg-muted/50 -mx-3 px-3 py-2 transition-colors"
           >
             <div>
