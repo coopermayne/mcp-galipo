@@ -15,13 +15,14 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon } from "@hugeicons/core-free-icons"
 import {
   listInvoices,
-  getInvoiceStats,
   type Invoice,
 } from "@/services/invoices"
 import {
   getColumns,
   invoiceGlobalFilterFn,
   getSearchRank,
+  getRowKind,
+  ROW_KIND_BORDER,
 } from "@/pages/invoices/columns"
 import { EditInvoiceDialog } from "@/pages/cases/costs/components/edit-invoice-dialog"
 import { MarkPaidDialog } from "@/pages/cases/costs/components/mark-paid-dialog"
@@ -42,11 +43,6 @@ export default function InvoicesPage() {
   const [globalFilter, setGlobalFilter] = useState("")
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null)
-
-  const { data: stats } = useQuery({
-    queryKey: ["invoices", "stats"],
-    queryFn: () => getInvoiceStats(),
-  })
 
   const { data: unpaidData, isLoading: unpaidLoading } = useQuery({
     queryKey: ["invoices", "all", "unpaid"],
@@ -81,8 +77,11 @@ export default function InvoicesPage() {
     })
   }
 
+  const isOutgoing = (inv: Invoice) =>
+    !inv.is_transfer || inv.transfer_to_person_id != null
+
   const unpaidInvoices = useMemo(() => {
-    const invoices = unpaidData?.invoices ?? []
+    const invoices = (unpaidData?.invoices ?? []).filter(isOutgoing)
     if (!globalFilter) return invoices
     return [...invoices]
       .filter((inv) => getSearchRank(inv, globalFilter) > 0)
@@ -90,12 +89,15 @@ export default function InvoicesPage() {
   }, [unpaidData, globalFilter])
 
   const paidInvoices = useMemo(() => {
-    const invoices = paidData?.invoices ?? []
+    const invoices = (paidData?.invoices ?? []).filter(isOutgoing)
     if (!globalFilter) return invoices
     return [...invoices]
       .filter((inv) => getSearchRank(inv, globalFilter) > 0)
       .sort((a, b) => getSearchRank(b, globalFilter) - getSearchRank(a, globalFilter))
   }, [paidData, globalFilter])
+
+  const sumAmount = (list: Invoice[]) =>
+    list.reduce((s, inv) => s + Number(inv.case_amount ?? inv.amount), 0)
 
   const hasUnpaid = unpaidInvoices.length > 0
 
@@ -103,26 +105,40 @@ export default function InvoicesPage() {
     <div className="flex flex-col gap-6 p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>
-        {stats && (
-          <p className="text-muted-foreground text-sm">
-            {stats.unpaid_count} unpaid ({formatTotal(stats.unpaid_total)})
-            {" · "}
-            {stats.paid_count} paid ({formatTotal(stats.paid_total)})
-          </p>
-        )}
+        <p className="text-muted-foreground text-sm">
+          {unpaidInvoices.length} unpaid ({formatTotal(String(sumAmount(unpaidInvoices)))})
+          {" · "}
+          {paidInvoices.length} paid ({formatTotal(String(sumAmount(paidInvoices)))})
+        </p>
       </div>
 
-      <div className="relative min-w-0 max-w-sm">
-        <HugeiconsIcon
-          icon={Search01Icon}
-          className="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2"
-        />
-        <Input
-          placeholder="Search invoices..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="h-8 pl-8"
-        />
+      <div className="flex items-center gap-4">
+        <div className="relative min-w-0 max-w-sm flex-1">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            className="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2"
+          />
+          <Input
+            placeholder="Search invoices..."
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="h-8 pl-8"
+          />
+        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-0.5 bg-[var(--foreground)]" />
+            Invoice
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-0.5 bg-[var(--warning)]" />
+            Advance
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-0.5 bg-[var(--purple)]" />
+            Transfer
+          </span>
+        </div>
       </div>
 
       {(hasUnpaid || unpaidLoading) && (
@@ -303,22 +319,25 @@ function InvoiceTable({
               </TableRow>
             ))
           ) : table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="cursor-pointer"
-                onClick={() => onEdit(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            table.getRowModel().rows.map((row) => {
+              const kind = getRowKind(row.original)
+              return (
+                <TableRow
+                  key={row.id}
+                  className={`cursor-pointer ${ROW_KIND_BORDER[kind]}`}
+                  onClick={() => onEdit(row.original)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              )
+            })
           ) : (
             <TableRow>
               <TableCell
