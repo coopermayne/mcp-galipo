@@ -12,7 +12,7 @@ import {
   type PaginationState,
 } from "@tanstack/react-table"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Alert02Icon, PrinterIcon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Alert02Icon, PrinterIcon, Search01Icon } from "@hugeicons/core-free-icons"
 import { getCase } from "@/services/cases"
 import {
   listInvoices,
@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -71,6 +72,7 @@ function CaseCostsContent() {
   const [transferOpen, setTransferOpen] = useState(false)
   const [costSharingEditing, setCostSharingEditing] = useState(false)
   const [bulkFiles, setBulkFiles] = useState<File[] | null>(null)
+  const [search, setSearch] = useState("")
 
   function handleEdit(inv: Invoice) {
     if (inv.is_transfer) {
@@ -124,6 +126,31 @@ function CaseCostsContent() {
     enabled: !isNaN(caseId),
   })
 
+  const allUnpaid = unpaidData?.invoices ?? []
+  const allPaid = paidData?.invoices ?? []
+
+  const filterInvoices = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return (invoices: Invoice[]) => invoices
+    return (invoices: Invoice[]) =>
+      invoices.filter((inv) => {
+        const amount = parseFloat(inv.amount || "0").toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+        })
+        return (
+          inv.category?.toLowerCase().includes(q) ||
+          inv.payee_name?.toLowerCase().includes(q) ||
+          inv.description?.toLowerCase().includes(q) ||
+          amount.includes(q) ||
+          inv.amount?.includes(q)
+        )
+      })
+  }, [search])
+
+  const unpaidInvoices = filterInvoices(allUnpaid)
+  const paidInvoices = filterInvoices(allPaid)
+  const hasUnpaid = allUnpaid.length > 0
+
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["invoices"] })
     queryClient.invalidateQueries({ queryKey: ["case-comments", caseId] })
@@ -140,10 +167,6 @@ function CaseCostsContent() {
       </div>
     )
   }
-
-  const unpaidInvoices = unpaidData?.invoices ?? []
-  const paidInvoices = paidData?.invoices ?? []
-  const hasUnpaid = unpaidInvoices.length > 0
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -199,6 +222,22 @@ function CaseCostsContent() {
       {/* Dropzone */}
       <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} onBulkUpload={setBulkFiles} />
 
+      {/* Search filter */}
+      {(allUnpaid.length > 0 || allPaid.length > 0) && (
+        <div className="relative max-w-xs">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"
+          />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by category, payee, amount..."
+            className="pl-9 h-9"
+          />
+        </div>
+      )}
+
       {/* Unpaid section */}
       {(hasUnpaid || unpaidLoading) && (
         <UnpaidSection
@@ -206,6 +245,7 @@ function CaseCostsContent() {
           isLoading={unpaidLoading}
           onEdit={handleEdit}
           onMarkPaid={setPayingInvoice}
+          total={allUnpaid.length}
         />
       )}
 
@@ -214,6 +254,7 @@ function CaseCostsContent() {
         invoices={paidInvoices}
         isLoading={paidLoading}
         onEdit={handleEdit}
+        total={allPaid.length}
       />
 
       {/* Dialogs */}
@@ -403,11 +444,13 @@ function UnpaidSection({
   isLoading,
   onEdit,
   onMarkPaid,
+  total,
 }: {
   invoices: Invoice[]
   isLoading: boolean
   onEdit: (inv: Invoice) => void
   onMarkPaid: (inv: Invoice) => void
+  total: number
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -432,7 +475,7 @@ function UnpaidSection({
   return (
     <div>
       <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-        Unpaid ({invoices.length})
+        Unpaid ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
       </h2>
       <CostTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage="No unpaid invoices." />
     </div>
@@ -447,10 +490,12 @@ function PaidSection({
   invoices,
   isLoading,
   onEdit,
+  total,
 }: {
   invoices: Invoice[]
   isLoading: boolean
   onEdit: (inv: Invoice) => void
+  total: number
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
@@ -477,7 +522,7 @@ function PaidSection({
   return (
     <div>
       <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-        Paid ({invoices.length})
+        Paid ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
       </h2>
       <CostTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage="No paid invoices." />
       {invoices.length > 20 && (
