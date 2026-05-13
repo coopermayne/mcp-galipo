@@ -16,7 +16,6 @@ export default function MyCasesPage() {
     attorneys: !isMobile,
     date_of_injury: false,
     trial_date: !isMobile,
-    trial_likelihood: !isMobile,
     claim_deadline: false,
     complaint_deadline: false,
   }))
@@ -30,7 +29,6 @@ export default function MyCasesPage() {
         attorneys: !e.matches,
         date_of_injury: false,
         trial_date: !e.matches,
-        trial_likelihood: !e.matches,
         claim_deadline: false,
         complaint_deadline: false,
       })

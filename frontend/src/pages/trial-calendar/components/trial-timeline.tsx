@@ -31,6 +31,17 @@ function mondayIdx(date: Date): number {
   return (getDay(date) + 6) % 7
 }
 
+function addWeekdays(start: Date, weekdays: number): Date {
+  let remaining = weekdays - 1
+  let current = start
+  while (remaining > 0) {
+    current = addDays(current, 1)
+    const dow = getDay(current)
+    if (dow !== 0 && dow !== 6) remaining--
+  }
+  return current
+}
+
 function getMonthWeeks(month: Date): (Date | null)[][] {
   const first = startOfMonth(month)
   const last = endOfMonth(month)
@@ -100,7 +111,7 @@ function buildWeekSegments(
 
   for (const trial of trials) {
     const trialStart = parseDate(trial.trial_date)
-    const trialEnd = addDays(trialStart, Math.max((trial.trial_estimated_days ?? 1) - 1, 0))
+    const trialEnd = addWeekdays(trialStart, Math.max(trial.trial_estimated_days ?? 1, 1))
 
     const clipStart = trialStart < monthStart ? monthStart : trialStart
     const clipEnd = trialEnd > monthEnd ? monthEnd : trialEnd
@@ -128,7 +139,7 @@ function buildWeekSegments(
           <div className="text-muted-foreground text-xs">
             <div>
               Trial: {format(trialStart, "MMM d, yyyy")}
-              {trial.trial_estimated_days ? ` · ${trial.trial_estimated_days}d` : ""}
+              {trial.trial_estimated_days ? ` · ${trial.trial_estimated_days} weekdays` : ""}
             </div>
             {trial.jurisdiction_name && <div>{trial.jurisdiction_name}</div>}
             {attyNames && <div>Atty: {attyNames}</div>}

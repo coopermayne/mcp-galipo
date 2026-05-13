@@ -125,19 +125,27 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Trial" />
       ),
-      cell: ({ row }) => <DateCell value={row.original.trial_date} warnDays={90} />,
-    },
-    {
-      id: "trial_likelihood",
-      header: "Trial %",
-      cell: ({ row }) => (
-        <TrialLikelihood
-          caseId={row.original.id}
-          likelihood={row.original.trial_likelihood}
-          note={row.original.trial_likelihood_note}
-          compact
-        />
-      ),
+      cell: ({ row }) => {
+        const { trial_date, trial_likelihood, trial_likelihood_note, trial_estimated_days, id } = row.original
+        if (!trial_date) return <span className="text-muted-foreground">—</span>
+        return (
+          <div className="flex flex-col gap-0.5">
+            <DateCell value={trial_date} warnDays={90} />
+            <div className="flex items-center gap-1.5">
+              <TrialLikelihood
+                caseId={id}
+                likelihood={trial_likelihood}
+                note={trial_likelihood_note}
+                compact
+              />
+              <span className="text-muted-foreground text-[10px]">·</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {trial_estimated_days ?? 7}d
+              </span>
+            </div>
+          </div>
+        )
+      },
     },
     {
       accessorKey: "claim_deadline",
