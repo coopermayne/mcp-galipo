@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useParams, useNavigate } from "react-router"
+import { useParams, useNavigate, useLocation } from "react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   useReactTable,
@@ -61,6 +61,7 @@ function CaseCostsContent() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
 
   const [addOpen, setAddOpen] = useState(false)
@@ -148,7 +149,7 @@ function CaseCostsContent() {
     <div className="flex flex-col gap-4 p-6">
       {/* Back nav */}
       <button
-        onClick={() => navigate(`/cases/${caseId}`)}
+        onClick={() => navigate(`/cases/${caseId}`, { state: location.state })}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
       >
         &larr; Back to case
