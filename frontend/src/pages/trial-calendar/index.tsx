@@ -1,25 +1,80 @@
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { addMonths, startOfMonth, format } from "date-fns"
+import { ArrowLeftIcon, ArrowRightIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { getTrialCalendar } from "@/services/trial-calendar"
+import type { BlockingEvent } from "@/services/trial-calendar"
 import { createEvent, type CreateEventData } from "@/services/events"
-import { TrialTimeline } from "@/pages/trial-calendar/components/trial-timeline"
+import { getStaff, type StaffMember } from "@/services/staff"
+import { MonthCalendarGrid } from "@/pages/trial-calendar/components/trial-timeline"
 import { AddVacationDialog } from "@/pages/trial-calendar/components/add-vacation-dialog"
 import { AddBlockingEventDialog } from "@/pages/trial-calendar/components/add-blocking-event-dialog"
+import { EventDetailDialog } from "@/pages/events/components/event-detail-dialog"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import type { EventListItem } from "@/types/event"
 
-type RangeOption = "3" | "6" | "12"
+type ViewCount = "1" | "3" | "6" | "12"
+
+function blockingToEventListItem(evt: BlockingEvent): EventListItem {
+  return {
+    id: evt.id,
+    case_id: evt.case_id,
+    date: evt.date,
+    end_date: evt.end_date,
+    event_type: evt.event_type,
+    description: evt.description,
+    time: null,
+    location: null,
+    document_link: null,
+    calculation_note: null,
+    starred: null,
+    created_at: null,
+    case_name: null,
+    short_name: null,
+    case_color: null,
+    task_count: 0,
+    attendee_ids: [],
+  }
+}
 
 export default function TrialCalendarPage() {
-  const [monthsAhead, setMonthsAhead] = useState<RangeOption>("6")
+  const [viewCount, setViewCount] = useState<ViewCount>("6")
+  const [offset, setOffset] = useState(0)
   const [vacationOpen, setVacationOpen] = useState(false)
   const [blockingOpen, setBlockingOpen] = useState(false)
+  const [editEvent, setEditEvent] = useState<EventListItem | null>(null)
   const queryClient = useQueryClient()
 
+  const count = Number(viewCount)
+
+  const months = useMemo(() => {
+    const today = new Date()
+    return Array.from({ length: count }, (_, i) =>
+      startOfMonth(addMonths(today, 1 + offset + i)),
+    )
+  }, [count, offset])
+
+  const monthsAhead = Math.max(offset + count + 1, 1)
+  const monthsBehind = Math.max(-offset + 1, 1)
+
   const { data, isLoading } = useQuery({
-    queryKey: ["trial-calendar", monthsAhead],
-    queryFn: () => getTrialCalendar(Number(monthsAhead), 1),
+    queryKey: ["trial-calendar", monthsAhead, monthsBehind],
+    queryFn: () => getTrialCalendar(monthsAhead, monthsBehind),
   })
+
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: getStaff,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const staffMap = useMemo(() => {
+    const map = new Map<number, StaffMember>()
+    for (const s of staffData?.data ?? []) map.set(s.id, s)
+    return map
+  }, [staffData])
 
   const createEventMutation = useMutation({
     mutationFn: (eventData: CreateEventData) => createEvent(eventData),
@@ -28,31 +83,53 @@ export default function TrialCalendarPage() {
     },
   })
 
+  const handleEditEvent = useCallback(
+    (eventId: number) => {
+      const evt = data?.blocking_events.find((e) => e.id === eventId)
+      if (evt) setEditEvent(blockingToEventListItem(evt))
+    },
+    [data],
+  )
+
+  const rangeLabel =
+    months.length === 1
+      ? format(months[0], "MMMM yyyy")
+      : `${format(months[0], "MMM yyyy")} – ${format(months[months.length - 1], "MMM yyyy")}`
+
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
-          <p className="text-muted-foreground text-sm">
-            Upcoming trials, vacations, and blocking events
-          </p>
+          <p className="text-muted-foreground text-sm">{rangeLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset((o) => o - count)}>
+              <HugeiconsIcon icon={ArrowLeftIcon} strokeWidth={2} className="size-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setOffset(0)}>
+              Reset
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset((o) => o + count)}>
+              <HugeiconsIcon icon={ArrowRightIcon} strokeWidth={2} className="size-4" />
+            </Button>
+          </div>
           <ToggleGroup
             type="single"
-            value={monthsAhead}
-            onValueChange={(v) => v && setMonthsAhead(v as RangeOption)}
+            value={viewCount}
+            onValueChange={(v) => {
+              if (v) {
+                setViewCount(v as ViewCount)
+                setOffset(0)
+              }
+            }}
             className="border"
           >
-            <ToggleGroupItem value="3" className="px-3 text-xs">
-              3mo
-            </ToggleGroupItem>
-            <ToggleGroupItem value="6" className="px-3 text-xs">
-              6mo
-            </ToggleGroupItem>
-            <ToggleGroupItem value="12" className="px-3 text-xs">
-              12mo
-            </ToggleGroupItem>
+            <ToggleGroupItem value="1" className="px-3 text-xs">1mo</ToggleGroupItem>
+            <ToggleGroupItem value="3" className="px-3 text-xs">3mo</ToggleGroupItem>
+            <ToggleGroupItem value="6" className="px-3 text-xs">6mo</ToggleGroupItem>
+            <ToggleGroupItem value="12" className="px-3 text-xs">12mo</ToggleGroupItem>
           </ToggleGroup>
           <Button variant="outline" size="sm" onClick={() => setVacationOpen(true)}>
             Add Vacation
@@ -64,9 +141,9 @@ export default function TrialCalendarPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-muted-foreground py-12 text-center text-sm">Loading trial calendar...</div>
+        <div className="text-muted-foreground py-12 text-center text-sm">Loading...</div>
       ) : data ? (
-        <TrialTimeline data={data} />
+        <MonthCalendarGrid data={data} months={months} staffMap={staffMap} onEditEvent={handleEditEvent} />
       ) : null}
 
       <AddVacationDialog
@@ -84,6 +161,12 @@ export default function TrialCalendarPage() {
           createEventMutation.mutate(eventData)
           setBlockingOpen(false)
         }}
+      />
+      <EventDetailDialog
+        event={editEvent}
+        open={!!editEvent}
+        onOpenChange={(open) => { if (!open) setEditEvent(null) }}
+        invalidateKeys={[["trial-calendar"]]}
       />
     </div>
   )
