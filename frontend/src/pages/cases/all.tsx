@@ -31,7 +31,7 @@ const TABS: TabDef[] = [
     label: "All Active",
     filter: (c) => c.status !== "Closed",
     defaultSort: [],
-    visibleDateCols: [],
+    visibleDateCols: ["trial_date"],
   },
   {
     id: "filing-deadlines",
