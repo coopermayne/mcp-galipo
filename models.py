@@ -297,15 +297,15 @@ class Case(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
     # Relationships
-    comments: Mapped[list[CaseComment]] = relationship(back_populates="case")
-    events: Mapped[list[Event]] = relationship(back_populates="case")
-    financial: Mapped[Optional[CaseFinancial]] = relationship(back_populates="case", uselist=False)
-    note_records: Mapped[list[Note]] = relationship(back_populates="case")
-    person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case")
-    proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case")
-    tasks: Mapped[list[Task]] = relationship(back_populates="case")
-    invoices: Mapped[list[Invoice]] = relationship(back_populates="case")
-    liens: Mapped[list[Lien]] = relationship(back_populates="case")
+    comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
+    events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)
+    financial: Mapped[Optional[CaseFinancial]] = relationship(back_populates="case", uselist=False, passive_deletes=True)
+    note_records: Mapped[list[Note]] = relationship(back_populates="case", passive_deletes=True)
+    person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case", passive_deletes=True)
+    proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case", passive_deletes=True)
+    tasks: Mapped[list[Task]] = relationship(back_populates="case", passive_deletes=True)
+    invoices: Mapped[list[Invoice]] = relationship(back_populates="case", passive_deletes=True)
+    liens: Mapped[list[Lien]] = relationship(back_populates="case", passive_deletes=True)
 
 
 class ExpertiseType(Base):
