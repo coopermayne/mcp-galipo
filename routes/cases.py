@@ -128,7 +128,7 @@ def register_case_routes(mcp):
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["DELETE"])
     async def api_delete_case(request):
         """Delete a case."""
-        if err := auth.require_auth(request):
+        if err := auth.require_admin(request):
             return err
         case_id = int(request.path_params["case_id"])
         deleted = await asyncio.to_thread(db.delete_case, case_id)
