@@ -76,9 +76,16 @@ export function getCaseCostColumns(options: {
       ),
       cell: ({ row }) => {
         if (row.original.is_transfer) {
+          const isPaid = row.original.status === "paid"
           return (
-            <span className="text-xs px-1.5 py-0.5 bg-purple/15 text-purple">
-              Transfer
+            <span
+              className={`text-xs px-1.5 py-0.5 ${
+                isPaid
+                  ? "bg-purple/15 text-purple"
+                  : "border border-purple/40 text-purple"
+              }`}
+            >
+              Transfer{isPaid ? "" : " (pending)"}
             </span>
           )
         }
