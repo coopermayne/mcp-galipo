@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
@@ -12,10 +13,12 @@ import {
   Cancel01Icon,
   Briefcase01Icon,
   Message01Icon,
+  MoreHorizontalIcon,
+  Delete01Icon,
 } from "@hugeicons/core-free-icons"
 import type { PersonListItem } from "@/types/person"
 import type { ContactInfo } from "@/types/person"
-import { getPerson, updatePerson } from "@/services/persons"
+import { getPerson, updatePerson, removePersonFromCase, deletePerson } from "@/services/persons"
 import { getConversationsByPerson, createConversation } from "@/services/sms"
 import { Button } from "@/components/ui/button"
 import { InlineEditField } from "@/components/common/inline-edit-field"
@@ -27,6 +30,22 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
 import { formatRoleName } from "@/pages/contacts/contact-data"
 import { cn } from "@/lib/utils"
@@ -43,6 +62,8 @@ interface ContactDetailDialogProps {
   person: PersonListItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** When set, shows "Remove from case" in the actions menu */
+  caseId?: number
   /** Additional query keys to invalidate on mutation success */
   extraInvalidateKeys?: unknown[][]
 }
@@ -202,10 +223,12 @@ export function ContactDetailDialog({
   person,
   open,
   onOpenChange,
+  caseId,
   extraInvalidateKeys,
 }: ContactDetailDialogProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [confirmAction, setConfirmAction] = useState<"remove" | "delete" | null>(null)
 
   const { data: detail } = useQuery({
     queryKey: ["person", person?.id],
@@ -228,12 +251,46 @@ export function ContactDetailDialog({
     onError: (e) => toast.error(e.message),
   })
 
+  function invalidateAll() {
+    queryClient.invalidateQueries({ queryKey: ["persons"] })
+    queryClient.invalidateQueries({ queryKey: ["person", person?.id] })
+    if (extraInvalidateKeys) {
+      for (const key of extraInvalidateKeys) {
+        queryClient.invalidateQueries({ queryKey: key })
+      }
+    }
+  }
+
+  const removeFromCaseMutation = useMutation({
+    mutationFn: () => removePersonFromCase(caseId!, person!.id),
+    onSuccess: () => {
+      toast.success("Person removed from case")
+      invalidateAll()
+      onOpenChange(false)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  const deletePersonMutation = useMutation({
+    mutationFn: () => deletePerson(person!.id),
+    onSuccess: () => {
+      toast.success("Person deleted")
+      invalidateAll()
+      onOpenChange(false)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   if (!person) return null
 
   const d = detail ?? null
   const phones = (d?.phones ?? person.phones ?? []) as ContactInfo[]
   const emails = (d?.emails ?? person.emails ?? []) as ContactInfo[]
   const roles = d?.roles ?? []
+
+  const hasCaseAssignments = roles.some((r) => r.case_id != null)
+  const canDelete = !hasCaseAssignments
+  const showActionsMenu = caseId != null || canDelete
 
   // Group roles by case
   const caseRoles = new Map<
@@ -256,6 +313,83 @@ export function ContactDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
+        {showActionsMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2 right-10"
+              >
+                <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {caseId != null && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setConfirmAction("remove")}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="mr-2 size-4" />
+                  Remove from case
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setConfirmAction("delete")}
+                >
+                  <HugeiconsIcon icon={Delete01Icon} className="mr-2 size-4" />
+                  Delete person
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <AlertDialog open={confirmAction === "remove"} onOpenChange={(o) => { if (!o) setConfirmAction(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove from case?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove {d?.name ?? person.name} from this case. The person will still exist in the system and can be re-added later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => removeFromCaseMutation.mutate()}
+                disabled={removeFromCaseMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {removeFromCaseMutation.isPending ? "Removing..." : "Remove"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={confirmAction === "delete"} onOpenChange={(o) => { if (!o) setConfirmAction(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete person?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete {d?.name ?? person.name}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deletePersonMutation.mutate()}
+                disabled={deletePersonMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletePersonMutation.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <DialogHeader>
           <div className="flex items-center gap-3">
             <span
@@ -365,17 +499,17 @@ export function ContactDetailDialog({
                 </span>
               </div>
               <div className="space-y-2 pl-5">
-                {Array.from(caseRoles.entries()).map(([caseId, group]) => (
+                {Array.from(caseRoles.entries()).map(([roleCaseId, group]) => (
                   <div
-                    key={caseId ?? "standalone"}
+                    key={roleCaseId ?? "standalone"}
                     className={cn(
                       "flex items-center justify-between gap-2 py-1",
-                      caseId != null && "cursor-pointer hover:bg-accent/50 -mx-2 px-2 transition-colors"
+                      roleCaseId != null && "cursor-pointer hover:bg-accent/50 -mx-2 px-2 transition-colors"
                     )}
                     onClick={() => {
-                      if (caseId != null) {
+                      if (roleCaseId != null) {
                         onOpenChange(false)
-                        navigate(`/cases/${caseId}`)
+                        navigate(`/cases/${roleCaseId}`)
                       }
                     }}
                   >

@@ -320,6 +320,7 @@ export function CaseSummarySection({
         onOpenChange={(open) => {
           if (!open) setSelectedPerson(null)
         }}
+        caseId={caseData.id}
         extraInvalidateKeys={[["case", caseData.id]]}
       />
 
