@@ -38,6 +38,7 @@ class UpdateCaseInput(BaseModel):
     trial_date: Optional[str] = None
     trial_likelihood: Optional[int] = None
     trial_likelihood_note: Optional[str] = None
+    trial_estimated_days: Optional[int] = None
     claim_deadline: Optional[str] = None
     complaint_deadline: Optional[str] = None
     notes: Optional[str] = None
@@ -81,6 +82,8 @@ class CreateEventInput(BaseModel):
     document_link: Optional[str] = None
     calculation_note: Optional[str] = None
     starred: Optional[bool] = False
+    event_type: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 class UpdateEventInput(BaseModel):
@@ -91,6 +94,8 @@ class UpdateEventInput(BaseModel):
     document_link: Optional[str] = None
     calculation_note: Optional[str] = None
     starred: Optional[bool] = None
+    event_type: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 # =============================================================================

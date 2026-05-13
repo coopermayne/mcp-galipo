@@ -45,10 +45,13 @@ def _event_with_case_dict(event: Event, case: Case, task_count: int = 0) -> dict
 
 def add_event(case_id: int = None, date: str = "", description: str = "",
               document_link: str = None, calculation_note: str = None,
-              time: str = None, location: str = None, starred: bool = False) -> dict:
+              time: str = None, location: str = None, starred: bool = False,
+              event_type: str = None, end_date: str = None) -> dict:
     """Add an event, optionally associated with a case."""
     validate_date_format(date, "date")
     validate_time_format(time, "time")
+    if end_date:
+        validate_date_format(end_date, "end_date")
 
     with SessionLocal() as session:
         event = Event(
@@ -60,6 +63,8 @@ def add_event(case_id: int = None, date: str = "", description: str = "",
             document_link=document_link,
             calculation_note=calculation_note,
             starred=starred,
+            event_type=event_type,
+            end_date=end_date,
         )
         session.add(event)
         session.flush()
@@ -198,10 +203,10 @@ def update_event(event_id: int, starred: bool = None) -> Optional[dict]:
 def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str = _NOT_PROVIDED,
                       document_link: str = _NOT_PROVIDED, calculation_note: str = _NOT_PROVIDED,
                       time: str = _NOT_PROVIDED, location: str = _NOT_PROVIDED,
-                      starred: bool = _NOT_PROVIDED) -> Optional[dict]:
+                      starred: bool = _NOT_PROVIDED, event_type: str = _NOT_PROVIDED,
+                      end_date: str = _NOT_PROVIDED) -> Optional[dict]:
     """Update all event fields."""
-    # Check if anything to update
-    fields = [date, description, document_link, calculation_note, time, location, starred]
+    fields = [date, description, document_link, calculation_note, time, location, starred, event_type, end_date]
     if all(f is _NOT_PROVIDED for f in fields):
         return None
 
@@ -234,6 +239,14 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
 
         if starred is not _NOT_PROVIDED:
             event.starred = starred
+
+        if event_type is not _NOT_PROVIDED:
+            event.event_type = event_type if event_type else None
+
+        if end_date is not _NOT_PROVIDED:
+            if end_date is not None and end_date != "":
+                validate_date_format(end_date, "end_date")
+            event.end_date = end_date if end_date else None
 
         session.flush()
         session.refresh(event)

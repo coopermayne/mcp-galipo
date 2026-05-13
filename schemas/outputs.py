@@ -262,6 +262,8 @@ class EventOut(BaseModel):
     calculation_note: Optional[str] = None
     starred: Optional[bool] = None
     created_at: Optional[datetime.datetime] = None
+    event_type: Optional[str] = None
+    end_date: Optional[datetime.date] = None
 
     @field_serializer('time')
     def serialize_time(self, val: Optional[datetime.time], _info) -> Optional[str]:
@@ -452,6 +454,7 @@ class CaseListOut(BaseModel):
     upcoming_event_count: Optional[int] = None
     trial_likelihood: Optional[int] = None
     trial_likelihood_note: Optional[str] = None
+    trial_estimated_days: Optional[int] = None
 
 
 class CaseDetailOut(BaseModel):
@@ -466,6 +469,7 @@ class CaseDetailOut(BaseModel):
     date_of_injury: Optional[str] = None
     trial_likelihood: Optional[int] = None
     trial_likelihood_note: Optional[str] = None
+    trial_estimated_days: Optional[int] = None
     color: Optional[str] = None
     attorney_ids: Optional[list[int]] = None
     paralegal_ids: Optional[list[int]] = None

@@ -277,6 +277,7 @@ class Case(Base):
     trial_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     trial_likelihood: Mapped[Optional[int]] = mapped_column(Integer)
     trial_likelihood_note: Mapped[Optional[str]] = mapped_column(Text)
+    trial_estimated_days: Mapped[Optional[int]] = mapped_column(Integer)
     claim_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     complaint_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
@@ -499,6 +500,8 @@ class Event(Base):
     attendee_ids: Mapped[Optional[list[int]]] = mapped_column(
         ARRAY(Integer()), server_default=text("'{}'::integer[]")
     )
+    event_type: Mapped[Optional[str]] = mapped_column(String(50))
+    end_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
 
     # Relationships
     case: Mapped[Optional[Case]] = relationship(back_populates="events")

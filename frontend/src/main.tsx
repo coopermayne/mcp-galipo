@@ -51,6 +51,7 @@ const router = createBrowserRouter([
       { path: "cases/:id/costs", lazy: lazy(() => import("@/pages/cases/costs")) },
       { path: "tasks", lazy: lazy(() => import("@/pages/tasks")) },
       { path: "events", lazy: lazy(() => import("@/pages/events")) },
+      { path: "trial-calendar", lazy: lazy(() => import("@/pages/trial-calendar")) },
       { path: "contacts/*", lazy: lazy(() => import("@/pages/contacts")) },
       { path: "judges", lazy: lazy(() => import("@/pages/judges")) },
       { path: "templates/*", lazy: lazy(() => import("@/pages/templates")) },

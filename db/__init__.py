@@ -359,6 +359,11 @@ from .comments import (
     get_unread_counts as get_comment_unread_counts,
 )
 
+# Trial calendar
+from .trial_calendar import (
+    get_trial_calendar,
+)
+
 # Bulk import
 from .import_case import (
     import_case,
@@ -635,6 +640,8 @@ __all__ = [
     "get_comment_last_read_at",
     "mark_comment_read",
     "get_comment_unread_counts",
+    # Trial calendar
+    "get_trial_calendar",
     # Bulk import
     "import_case",
 ]

@@ -129,6 +129,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                 Case.print_code, Case.attorney_ids, Case.paralegal_ids,
                 Case.date_of_injury, Case.trial_date,
                 Case.trial_likelihood, Case.trial_likelihood_note,
+                Case.trial_estimated_days,
                 Case.claim_deadline, Case.complaint_deadline, Case.color,
                 judge_sq, case_number_sq, jurisdiction_sq,
                 client_count_sq, defendant_count_sq,
@@ -178,6 +179,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "trial_date": _sv(case.trial_date),
             "trial_likelihood": case.trial_likelihood,
             "trial_likelihood_note": case.trial_likelihood_note,
+            "trial_estimated_days": case.trial_estimated_days,
             "claim_deadline": _sv(case.claim_deadline),
             "complaint_deadline": _sv(case.complaint_deadline),
             "color": case.color,
@@ -390,7 +392,7 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         "case_name", "short_name", "status", "print_code",
         "case_summary", "result", "date_of_injury", "notes",
         "trial_date", "trial_likelihood", "trial_likelihood_note",
-        "claim_deadline", "complaint_deadline",
+        "trial_estimated_days", "claim_deadline", "complaint_deadline",
     ]
 
     with SessionLocal() as session:
