@@ -19,8 +19,10 @@ from .fuzzy_match import (
     resolve_person as _resolve_person,
     fuzzy_search_persons as _fuzzy_search_persons,
     PersonMatchResult,
+    normalize_name,
+    score_name_match,
 )
-from models import Person, PersonRole, Role, Case, ExpertiseType
+from models import Person, PersonRole, Role, Case, ExpertiseType, DuplicateDismissal
 from schemas import PersonOut, CasePersonOut, RoleBriefOut, RoleAssignmentOut
 
 
@@ -569,50 +571,125 @@ def get_case_persons(case_id: int, role_id: int = None, category: str = None) ->
 # ===== DUPLICATE DETECTION & MERGE =====
 
 def find_duplicate_persons() -> dict:
-    """Find groups of potential duplicate persons."""
+    """Find groups of potential duplicate persons using exact + fuzzy matching.
+
+    Uses rapidfuzz.process.extract for fast batch fuzzy comparison rather than
+    O(n^2) pairwise score_name_match calls.
+    """
+    from rapidfuzz import fuzz as _fuzz
+    from .fuzzy_match import extract_last_name, soundex
+
+    FUZZY_THRESHOLD = 93
+    PREFILTER_THRESHOLD = 50
+
     with SessionLocal() as session:
-        # Use raw SQL for the CTE-based duplicate detection — it's complex aggregate logic
-        # that's cleaner as raw SQL than as SQLAlchemy constructs
-        result = session.execute(text("""
-            WITH name_groups AS (
-                SELECT LOWER(TRIM(name)) as norm_name, array_agg(id ORDER BY id) as person_ids
-                FROM persons
-                WHERE archived = false
-                GROUP BY LOWER(TRIM(name))
-                HAVING COUNT(*) > 1
-            )
-            SELECT ng.norm_name, ng.person_ids,
-                   json_agg(json_build_object(
-                       'id', p.id,
-                       'name', p.name,
-                       'phones', p.phones,
-                       'emails', p.emails,
-                       'organization', p.organization,
-                       'notes', p.notes
-                   ) ORDER BY p.id) as persons
-            FROM name_groups ng
-            JOIN persons p ON p.id = ANY(ng.person_ids)
-            GROUP BY ng.norm_name, ng.person_ids
-            ORDER BY array_length(ng.person_ids, 1) DESC, ng.norm_name
-        """))
+        all_persons = session.scalars(
+            select(Person).where(Person.archived == False)  # noqa: E712
+        ).all()
+
+        person_dicts = {}
+        for p in all_persons:
+            person_dicts[p.id] = {
+                "id": p.id,
+                "name": p.name,
+                "phones": p.phones or [],
+                "emails": p.emails or [],
+                "organization": p.organization,
+                "notes": p.notes,
+            }
+
+        dismissed_rows = session.scalars(select(DuplicateDismissal)).all()
+        dismissed_pairs = {(r.person_id_a, r.person_id_b) for r in dismissed_rows}
+
+        def is_dismissed(id_a: int, id_b: int) -> bool:
+            a, b = min(id_a, id_b), max(id_a, id_b)
+            return (a, b) in dismissed_pairs
+
+        parent = {p.id: p.id for p in all_persons}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        match_info = {}
+
+        # Exact name groups
+        name_map: dict[str, list[int]] = {}
+        for p in all_persons:
+            norm = normalize_name(p.name, "person")
+            name_map.setdefault(norm, []).append(p.id)
+
+        for norm, ids in name_map.items():
+            if len(ids) > 1:
+                for i in range(1, len(ids)):
+                    if is_dismissed(ids[0], ids[i]):
+                        continue
+                    union(ids[0], ids[i])
+                    key = (min(ids[0], ids[i]), max(ids[0], ids[i]))
+                    match_info[key] = ["exact_name"]
+
+        # Fuzzy matching — batch via last-name soundex buckets for speed
+        unique_names = [(norm, ids[0]) for norm, ids in name_map.items()]
+
+        # Group by soundex of last name — only compare within same bucket
+        soundex_buckets: dict[str, list[tuple[str, int]]] = {}
+        for norm, pid in unique_names:
+            last = extract_last_name(norm)
+            sx = soundex(last) if last else ""
+            soundex_buckets.setdefault(sx, []).append((norm, pid))
+
+        for sx, bucket in soundex_buckets.items():
+            if len(bucket) < 2:
+                continue
+            for i in range(len(bucket)):
+                for j in range(i + 1, len(bucket)):
+                    norm_a, id_a = bucket[i]
+                    norm_b, id_b = bucket[j]
+                    # Fast pre-filter, then full scorer for candidates
+                    quick = _fuzz.token_sort_ratio(norm_a, norm_b)
+                    if quick < PREFILTER_THRESHOLD:
+                        continue
+                    score = score_name_match(norm_a, norm_b, entity="person")
+                    char_ratio = _fuzz.ratio(norm_a, norm_b)
+                    if score >= FUZZY_THRESHOLD and char_ratio >= 91 and not is_dismissed(id_a, id_b):
+                        union(id_a, id_b)
+                        key = (min(id_a, id_b), max(id_a, id_b))
+                        if key not in match_info:
+                            match_info[key] = [f"fuzzy_name ({score:.0f}%)"]
+
+        # Collect groups
+        clusters: dict[int, list[int]] = {}
+        for pid in parent:
+            root = find(pid)
+            clusters.setdefault(root, []).append(pid)
 
         groups = []
-        seen_pairs = set()
-
-        for row in result.mappings():
-            person_ids = row["person_ids"]
-            pair_key = tuple(sorted(person_ids))
-            if pair_key in seen_pairs:
+        for root, ids in sorted(clusters.items(), key=lambda x: -len(x[1])):
+            if len(ids) < 2:
                 continue
-            seen_pairs.add(pair_key)
+            ids.sort()
+            persons = [person_dicts[pid] for pid in ids]
 
-            persons = row["persons"] if isinstance(row["persons"], list) else json.loads(row["persons"])
+            reasons = set()
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    key = (ids[i], ids[j])
+                    if key in match_info:
+                        reasons.update(match_info[key])
+            if not reasons:
+                reasons = {"fuzzy_name"}
 
-            has_conflicts = _check_merge_conflicts(session, person_ids)
-
+            has_conflicts = _check_merge_conflicts(session, ids)
             groups.append({
                 "persons": persons,
-                "match_reasons": ["exact_name"],
+                "match_reasons": sorted(reasons),
                 "has_conflicts": has_conflicts,
             })
 
@@ -652,6 +729,26 @@ def _check_merge_conflicts(session, person_ids: list) -> bool:
                 return True
 
     return False
+
+
+def dismiss_duplicate(person_ids: list[int]) -> dict:
+    """Dismiss a group of persons as not duplicates."""
+    with SessionLocal() as session:
+        pairs_added = 0
+        for i in range(len(person_ids)):
+            for j in range(i + 1, len(person_ids)):
+                a, b = min(person_ids[i], person_ids[j]), max(person_ids[i], person_ids[j])
+                existing = session.scalars(
+                    select(DuplicateDismissal).where(
+                        DuplicateDismissal.person_id_a == a,
+                        DuplicateDismissal.person_id_b == b,
+                    )
+                ).first()
+                if not existing:
+                    session.add(DuplicateDismissal(person_id_a=a, person_id_b=b))
+                    pairs_added += 1
+        session.commit()
+        return {"success": True, "pairs_dismissed": pairs_added}
 
 
 def preview_merge(primary_id: int, secondary_id: int) -> dict:

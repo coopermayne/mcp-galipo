@@ -97,6 +97,7 @@ from .persons import (
     find_duplicate_persons,
     preview_merge,
     merge_persons,
+    dismiss_duplicate,
     check_person_duplicates,
     fuzzy_search_persons_db,
 )
@@ -447,6 +448,7 @@ __all__ = [
     "find_duplicate_persons",
     "preview_merge",
     "merge_persons",
+    "dismiss_duplicate",
     "check_person_duplicates",
     "fuzzy_search_persons_db",
     # Judges

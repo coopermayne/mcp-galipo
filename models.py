@@ -1338,6 +1338,29 @@ class Comment(Base):
     user: Mapped[Optional[User]] = relationship()
 
 
+class DuplicateDismissal(Base):
+    __tablename__ = "duplicate_dismissals"
+    __table_args__ = (
+        UniqueConstraint("person_id_a", "person_id_b", name="uq_duplicate_dismissals_pair"),
+        ForeignKeyConstraint(
+            ["person_id_a"], ["persons.id"], ondelete="CASCADE",
+            name="duplicate_dismissals_person_id_a_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["person_id_b"], ["persons.id"], ondelete="CASCADE",
+            name="duplicate_dismissals_person_id_b_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="duplicate_dismissals_pkey"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True)
+    person_id_a: Mapped[int] = mapped_column(Integer)
+    person_id_b: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class CommentRead(Base):
     __tablename__ = "comment_reads"
     __table_args__ = (
