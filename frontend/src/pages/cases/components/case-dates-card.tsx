@@ -18,7 +18,7 @@ export function CaseDatesCard({ caseData }: CaseDatesCardProps) {
   const queryClient = useQueryClient()
 
   const updateMutation = useMutation({
-    mutationFn: (data: { date_of_injury?: string }) =>
+    mutationFn: (data: { date_of_injury?: string; trial_date?: string }) =>
       updateCase(caseData.id, data),
     onSuccess: (data) => {
       queryClient.setQueryData(["case", caseData.id], data.case)
@@ -41,6 +41,17 @@ export function CaseDatesCard({ caseData }: CaseDatesCardProps) {
           <InlineEditField
             value={caseData.date_of_injury ?? ""}
             onSave={(v) => updateMutation.mutate({ date_of_injury: v })}
+            type="date"
+            displayClassName="text-xs justify-end"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground shrink-0">
+            Trial Date
+          </span>
+          <InlineEditField
+            value={caseData.trial_date ?? ""}
+            onSave={(v) => updateMutation.mutate({ trial_date: v })}
             type="date"
             displayClassName="text-xs justify-end"
           />

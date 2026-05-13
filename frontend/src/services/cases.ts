@@ -59,6 +59,7 @@ export interface CreateCaseData {
   short_name?: string
   print_code?: string
   date_of_injury?: string
+  trial_date?: string
   case_summary?: string
 }
 
