@@ -68,8 +68,8 @@ function CaseDetailContent() {
   })
 
   const { data: invoiceStats } = useQuery({
-    queryKey: ["invoices", "stats", caseId],
-    queryFn: () => getInvoiceStats(caseId),
+    queryKey: ["invoices", "stats", caseId, "cost"],
+    queryFn: () => getInvoiceStats(caseId, "cost"),
     enabled: !isNaN(caseId),
   })
 

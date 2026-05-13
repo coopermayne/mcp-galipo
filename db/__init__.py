@@ -337,6 +337,17 @@ from .invoices import (
     get_cost_sharing,
     set_cost_sharing,
     remove_cost_sharing,
+    get_advance_stats,
+)
+
+# Liens
+from .liens import (
+    list_liens,
+    get_lien,
+    create_lien,
+    update_lien,
+    delete_lien,
+    get_lien_stats,
 )
 
 # Polymorphic comments
@@ -610,6 +621,14 @@ __all__ = [
     "get_cost_sharing",
     "set_cost_sharing",
     "remove_cost_sharing",
+    "get_advance_stats",
+    # Liens
+    "list_liens",
+    "get_lien",
+    "create_lien",
+    "update_lien",
+    "delete_lien",
+    "get_lien_stats",
     # Polymorphic comments
     "get_comments",
     "add_comment",

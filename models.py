@@ -302,6 +302,7 @@ class Case(Base):
     proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case")
     tasks: Mapped[list[Task]] = relationship(back_populates="case")
     invoices: Mapped[list[Invoice]] = relationship(back_populates="case")
+    liens: Mapped[list[Lien]] = relationship(back_populates="case")
 
 
 class ExpertiseType(Base):
@@ -1109,16 +1110,24 @@ class Invoice(Base):
             ["transfer_to_person_id"], ["persons.id"], ondelete="SET NULL",
             name="invoices_transfer_to_person_id_fkey",
         ),
+        ForeignKeyConstraint(
+            ["advanced_to_person_id"], ["persons.id"], ondelete="SET NULL",
+            name="invoices_advanced_to_person_id_fkey",
+        ),
         PrimaryKeyConstraint("id", name="invoices_pkey"),
         Index("idx_invoices_case_id", "case_id"),
         Index("idx_invoices_status", "status"),
         Index("idx_invoices_due_date", "due_date"),
         Index("idx_invoices_date", "date"),
+        Index("idx_invoices_type", "type"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     case_id: Mapped[int] = mapped_column(Integer)
     payee_id: Mapped[Optional[int]] = mapped_column(Integer)
+    type: Mapped[str] = mapped_column(
+        String(20), server_default=text("'cost'::character varying")
+    )
     status: Mapped[str] = mapped_column(
         String(20), server_default=text("'unpaid'::character varying")
     )
@@ -1131,6 +1140,7 @@ class Invoice(Base):
     check_number: Mapped[Optional[str]] = mapped_column(String(50))
     paid_by_person_id: Mapped[Optional[int]] = mapped_column(Integer)
     transfer_to_person_id: Mapped[Optional[int]] = mapped_column(Integer)
+    advanced_to_person_id: Mapped[Optional[int]] = mapped_column(Integer)
     paid_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     file_path: Mapped[Optional[str]] = mapped_column(Text)
     file_name: Mapped[Optional[str]] = mapped_column(String(255))
@@ -1151,6 +1161,51 @@ class Invoice(Base):
     payee: Mapped[Optional[Payee]] = relationship(back_populates="invoices")
     paid_by_person: Mapped[Optional[Person]] = relationship(foreign_keys=[paid_by_person_id])
     transfer_to_person: Mapped[Optional[Person]] = relationship(foreign_keys=[transfer_to_person_id])
+    advanced_to_person: Mapped[Optional[Person]] = relationship(foreign_keys=[advanced_to_person_id])
+
+
+class Lien(Base):
+    __tablename__ = "liens"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"], ["cases.id"], ondelete="CASCADE",
+            name="liens_case_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["payee_id"], ["payees.id"], ondelete="SET NULL",
+            name="liens_payee_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="liens_pkey"),
+        Index("idx_liens_case_id", "case_id"),
+        Index("idx_liens_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(Integer)
+    payee_id: Mapped[Optional[int]] = mapped_column(Integer)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    claimed_amount: Mapped[float] = mapped_column(Numeric(14, 2))
+    negotiated_amount: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
+    status: Mapped[str] = mapped_column(
+        String(20), server_default=text("'pending'::character varying")
+    )
+    date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    paid_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    check_number: Mapped[Optional[str]] = mapped_column(String(50))
+    file_path: Mapped[Optional[str]] = mapped_column(Text)
+    file_name: Mapped[Optional[str]] = mapped_column(String(255))
+    content_type: Mapped[Optional[str]] = mapped_column(String(100))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    case: Mapped[Case] = relationship(back_populates="liens")
+    payee: Mapped[Optional[Payee]] = relationship()
 
 
 class CaseCounselFee(Base):
