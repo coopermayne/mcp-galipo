@@ -1074,7 +1074,7 @@ class Payee(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
-    check_name: Mapped[Optional[str]] = mapped_column(String(255))
+    pay_to: Mapped[Optional[str]] = mapped_column(String(255))
     address: Mapped[Optional[str]] = mapped_column(Text)
     w9_file_path: Mapped[Optional[str]] = mapped_column(Text)
     w9_file_name: Mapped[Optional[str]] = mapped_column(String(255))

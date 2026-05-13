@@ -74,7 +74,7 @@ def register_payee_routes(mcp):
         result = await asyncio.to_thread(
             db.create_payee,
             data.name,
-            check_name=data.check_name,
+            pay_to=data.pay_to,
             address=data.address,
             notes=data.notes,
         )

@@ -33,7 +33,7 @@ export function EditPayeeDialog({
   onSuccess,
 }: EditPayeeDialogProps) {
   const [name, setName] = useState("")
-  const [checkName, setCheckName] = useState("")
+  const [payTo, setPayTo] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
@@ -46,7 +46,7 @@ export function EditPayeeDialog({
   useEffect(() => {
     if (payee) {
       setName(payee.name)
-      setCheckName(payee.check_name ?? "")
+      setPayTo(payee.pay_to ?? "")
       setAddress(payee.address ?? "")
       setNotes(payee.notes ?? "")
       setPendingFile(null)
@@ -62,7 +62,7 @@ export function EditPayeeDialog({
     try {
       await updatePayee(payee.id, {
         name: name.trim(),
-        check_name: checkName.trim() || undefined,
+        pay_to: payTo.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
       })
@@ -129,7 +129,7 @@ export function EditPayeeDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="payee-name">DBA / Business Name</Label>
+            <Label htmlFor="payee-name">Name</Label>
             <Input
               id="payee-name"
               value={name}
@@ -138,12 +138,12 @@ export function EditPayeeDialog({
             />
           </div>
           <div>
-            <Label htmlFor="payee-check-name">Check Name</Label>
+            <Label htmlFor="payee-pay-to">Pay To</Label>
             <Input
-              id="payee-check-name"
-              value={checkName}
-              onChange={(e) => setCheckName(e.target.value)}
-              placeholder="Legal name for checks"
+              id="payee-pay-to"
+              value={payTo}
+              onChange={(e) => setPayTo(e.target.value)}
+              placeholder="Only if different from name above"
             />
           </div>
           <div>

@@ -74,8 +74,8 @@ export default function PayeesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left px-4 py-2 font-medium">DBA Name</th>
-              <th className="text-left px-4 py-2 font-medium">Check Name</th>
+              <th className="text-left px-4 py-2 font-medium">Name</th>
+              <th className="text-left px-4 py-2 font-medium">Pay To</th>
               <th className="text-left px-4 py-2 font-medium">Address</th>
               <th className="text-left px-4 py-2 font-medium">W-9</th>
               <th className="text-left px-4 py-2 font-medium">Notes</th>
@@ -107,7 +107,7 @@ export default function PayeesPage() {
                 >
                   <td className="px-4 py-3 font-medium">{p.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {p.check_name || "—"}
+                    {p.pay_to || "—"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground max-w-[250px] truncate">
                     {p.address?.split("\n")[0] || "—"}
@@ -161,7 +161,7 @@ function CreatePayeeDialog({
   onSuccess: () => void
 }) {
   const [name, setName] = useState("")
-  const [checkName, setCheckName] = useState("")
+  const [payTo, setPayTo] = useState("")
   const [address, setAddress] = useState("")
   const [notes, setNotes] = useState("")
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -186,7 +186,7 @@ function CreatePayeeDialog({
     try {
       const result = await createPayee({
         name: name.trim(),
-        check_name: checkName.trim() || undefined,
+        pay_to: payTo.trim() || undefined,
         address: address.trim() || undefined,
         notes: notes.trim() || undefined,
       })
@@ -198,7 +198,7 @@ function CreatePayeeDialog({
 
       toast.success("Payee created")
       setName("")
-      setCheckName("")
+      setPayTo("")
       setAddress("")
       setNotes("")
       setPendingFile(null)
@@ -220,7 +220,7 @@ function CreatePayeeDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="new-name">DBA / Business Name</Label>
+            <Label htmlFor="new-name">Name</Label>
             <Input
               id="new-name"
               value={name}
@@ -230,12 +230,12 @@ function CreatePayeeDialog({
             />
           </div>
           <div>
-            <Label htmlFor="new-check-name">Check Name</Label>
+            <Label htmlFor="new-pay-to">Pay To</Label>
             <Input
-              id="new-check-name"
-              value={checkName}
-              onChange={(e) => setCheckName(e.target.value)}
-              placeholder="Legal name for checks"
+              id="new-pay-to"
+              value={payTo}
+              onChange={(e) => setPayTo(e.target.value)}
+              placeholder="Only if different from name above"
             />
           </div>
           <div>
