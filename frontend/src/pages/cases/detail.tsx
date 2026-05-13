@@ -1,10 +1,23 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
-import { useParams, useSearchParams, Link, useLocation } from "react-router"
+import { useParams, useSearchParams, Link, useLocation, useNavigate } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { getCase } from "@/services/cases"
+import { getCase, deleteCase } from "@/services/cases"
 import { updateCaseAssignment } from "@/services/persons"
 import { getInvoiceStats } from "@/services/invoices"
+import { useAuth } from "@/hooks/use-auth"
+import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
@@ -34,6 +47,8 @@ function CaseDetailContent() {
   const { id } = useParams<{ id: string }>()
   const caseId = Number(id)
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Dialog state
@@ -71,6 +86,16 @@ function CaseDetailContent() {
     queryKey: ["invoices", "stats", caseId, "cost"],
     queryFn: () => getInvoiceStats(caseId, "cost"),
     enabled: !isNaN(caseId),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCase(caseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cases"] })
+      toast.success("Case deleted")
+      navigate("/cases")
+    },
+    onError: () => toast.error("Failed to delete case"),
   })
 
   const nestMutation = useMutation({
@@ -214,6 +239,36 @@ function CaseDetailContent() {
             />
             <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
             <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
+
+            {user?.isAdmin && (
+              <div className="flex justify-end pt-4 border-t border-border/40">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive">
+                      Delete case
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this case?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the case and all associated data including tasks, events, notes, proceedings, financials, and invoices. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteMutation.mutate()}
+                        disabled={deleteMutation.isPending}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
           </div>
 
           {/* Right column — activity feed + summary/dates */}
