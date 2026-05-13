@@ -219,6 +219,7 @@ class CreateInvoiceInput(BaseModel):
     case_id: int
     amount: float
     payee_id: Optional[int] = None
+    type: Optional[Literal["cost", "advance"]] = "cost"
     case_amount: Optional[float] = None
     status: Optional[Literal["unpaid", "paid"]] = "unpaid"
     date: Optional[str] = None
@@ -228,6 +229,7 @@ class CreateInvoiceInput(BaseModel):
     check_number: Optional[str] = None
     paid_by_person_id: Optional[int] = None
     transfer_to_person_id: Optional[int] = None
+    advanced_to_person_id: Optional[int] = None
     paid_date: Optional[str] = None
     file_path: Optional[str] = None
     file_name: Optional[str] = None
@@ -246,6 +248,7 @@ class UpdateInvoiceInput(BaseModel):
     category: Optional[str] = None
     paid_by_person_id: Optional[int] = None
     transfer_to_person_id: Optional[int] = None
+    advanced_to_person_id: Optional[int] = None
     notes: Optional[str] = None
     check_number: Optional[str] = None
     paid_date: Optional[str] = None
@@ -254,3 +257,35 @@ class UpdateInvoiceInput(BaseModel):
 class MarkInvoicePaidInput(BaseModel):
     check_number: Optional[str] = None
     paid_date: Optional[str] = None
+
+
+# =============================================================================
+# Route Input Models — Liens
+# =============================================================================
+
+class CreateLienInput(BaseModel):
+    case_id: int
+    claimed_amount: float
+    payee_id: Optional[int] = None
+    negotiated_amount: Optional[float] = None
+    status: Optional[Literal["pending", "negotiated", "paid"]] = "pending"
+    date: Optional[str] = None
+    paid_date: Optional[str] = None
+    check_number: Optional[str] = None
+    description: Optional[str] = None
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    content_type: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class UpdateLienInput(BaseModel):
+    claimed_amount: Optional[float] = None
+    negotiated_amount: Optional[float] = None
+    payee_id: Optional[int] = None
+    status: Optional[Literal["pending", "negotiated", "paid"]] = None
+    date: Optional[str] = None
+    paid_date: Optional[str] = None
+    check_number: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None

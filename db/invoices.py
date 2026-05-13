@@ -18,11 +18,13 @@ def _invoice_to_dict(
     payee_name: str = None,
     payee_address: str = None,
     transfer_to_name: str = None,
+    advanced_to_name: str = None,
 ) -> dict:
     return {
         "id": inv.id,
         "case_id": inv.case_id,
         "case_name": case_name,
+        "type": inv.type,
         "status": inv.status,
         "payee_id": inv.payee_id,
         "payee_name": payee_name,
@@ -42,6 +44,8 @@ def _invoice_to_dict(
         "paid_by_name": paid_by_name,
         "transfer_to_person_id": inv.transfer_to_person_id,
         "transfer_to_name": transfer_to_name,
+        "advanced_to_person_id": inv.advanced_to_person_id,
+        "advanced_to_name": advanced_to_name,
         "notes": inv.notes,
         "is_transfer": inv.is_transfer,
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
@@ -52,6 +56,7 @@ def _invoice_to_dict(
 def list_invoices(
     case_id: int = None,
     status: str = None,
+    type: str = None,
     search: str = None,
     sort_by: str = "due_date",
     sort_dir: str = "asc",
@@ -60,6 +65,7 @@ def list_invoices(
 ) -> dict:
     paid_by = Person.__table__.alias("paid_by")
     transfer_to = Person.__table__.alias("transfer_to")
+    advanced_to = Person.__table__.alias("advanced_to")
     stmt = (
         select(
             Invoice,
@@ -68,17 +74,21 @@ def list_invoices(
             Payee.name.label("payee_name"),
             Payee.address.label("payee_address"),
             transfer_to.c.name.label("transfer_to_name"),
+            advanced_to.c.name.label("advanced_to_name"),
         )
         .join(Case, Invoice.case_id == Case.id)
         .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
         .outerjoin(Payee, Invoice.payee_id == Payee.id)
         .outerjoin(transfer_to, Invoice.transfer_to_person_id == transfer_to.c.id)
+        .outerjoin(advanced_to, Invoice.advanced_to_person_id == advanced_to.c.id)
     )
 
     if case_id:
         stmt = stmt.where(Invoice.case_id == case_id)
     if status:
         stmt = stmt.where(Invoice.status == status)
+    if type:
+        stmt = stmt.where(Invoice.type == type)
     if search:
         pattern = f"%{search}%"
         stmt = stmt.where(
@@ -101,28 +111,21 @@ def list_invoices(
     else:
         stmt = stmt.order_by(sort_col.asc().nullslast(), Invoice.created_at.asc())
 
-    count_stmt = select(func.count()).select_from(
-        select(Invoice.id).join(Case, Invoice.case_id == Case.id)
-    )
+    count_sub = select(Invoice.id)
     if case_id:
-        count_stmt = select(func.count()).select_from(
-            select(Invoice.id).where(Invoice.case_id == case_id)
-        )
-        if status:
-            count_stmt = select(func.count()).select_from(
-                select(Invoice.id).where(Invoice.case_id == case_id, Invoice.status == status)
-            )
-    elif status:
-        count_stmt = select(func.count()).select_from(
-            select(Invoice.id).where(Invoice.status == status)
-        )
+        count_sub = count_sub.where(Invoice.case_id == case_id)
+    if status:
+        count_sub = count_sub.where(Invoice.status == status)
+    if type:
+        count_sub = count_sub.where(Invoice.type == type)
+    count_stmt = select(func.count()).select_from(count_sub)
 
     with SessionLocal() as session:
         total = session.scalar(count_stmt)
         rows = session.execute(stmt.limit(limit).offset(offset)).all()
         invoices = [
-            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn)
-            for inv, case_name, pbn, payee_name, payee_addr, ttn in rows
+            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn)
+            for inv, case_name, pbn, payee_name, payee_addr, ttn, atn in rows
         ]
         return {"invoices": invoices, "total": total}
 
@@ -131,6 +134,7 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
     with SessionLocal() as session:
         paid_by = Person.__table__.alias("paid_by")
         transfer_to = Person.__table__.alias("transfer_to")
+        advanced_to = Person.__table__.alias("advanced_to")
         row = session.execute(
             select(
                 Invoice,
@@ -139,23 +143,26 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
                 Payee.name.label("payee_name"),
                 Payee.address.label("payee_address"),
                 transfer_to.c.name.label("transfer_to_name"),
+                advanced_to.c.name.label("advanced_to_name"),
             )
             .join(Case, Invoice.case_id == Case.id)
             .outerjoin(paid_by, Invoice.paid_by_person_id == paid_by.c.id)
             .outerjoin(Payee, Invoice.payee_id == Payee.id)
             .outerjoin(transfer_to, Invoice.transfer_to_person_id == transfer_to.c.id)
+            .outerjoin(advanced_to, Invoice.advanced_to_person_id == advanced_to.c.id)
             .where(Invoice.id == invoice_id)
         ).first()
         if not row:
             return None
-        inv, case_name, pbn, payee_name, payee_addr, ttn = row
-        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn)
+        inv, case_name, pbn, payee_name, payee_addr, ttn, atn = row
+        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn)
 
 
 def create_invoice(
     case_id: int,
     amount: float,
     payee_id: int = None,
+    type: str = "cost",
     status: str = "unpaid",
     date: str = None,
     due_date: str = None,
@@ -169,6 +176,7 @@ def create_invoice(
     case_amount: float = None,
     paid_by_person_id: int = None,
     transfer_to_person_id: int = None,
+    advanced_to_person_id: int = None,
     notes: str = None,
     is_transfer: bool = False,
 ) -> dict:
@@ -176,6 +184,7 @@ def create_invoice(
         inv = Invoice(
             case_id=case_id,
             payee_id=payee_id,
+            type=type,
             amount=amount,
             case_amount=case_amount,
             status=status,
@@ -186,6 +195,7 @@ def create_invoice(
             check_number=check_number,
             paid_by_person_id=paid_by_person_id,
             transfer_to_person_id=transfer_to_person_id,
+            advanced_to_person_id=advanced_to_person_id,
             paid_date=paid_date,
             file_path=file_path,
             file_name=file_name,
@@ -212,16 +222,27 @@ def create_invoice(
             ttp = session.get(Person, transfer_to_person_id)
             transfer_to_name = ttp.name if ttp else None
 
+        advanced_to_name = None
+        if advanced_to_person_id:
+            atp = session.get(Person, advanced_to_person_id)
+            advanced_to_name = atp.name if atp else None
+
         comment_payee = payee_name or transfer_to_name or "unknown payee"
+        if is_transfer:
+            label = "Transfer"
+        elif type == "advance":
+            label = "Advance"
+        else:
+            label = "Invoice"
         comment = CaseComment(
             case_id=case_id,
-            content=f"{'Transfer' if is_transfer else 'Invoice'} added: ${amount:,.2f} to {comment_payee}",
+            content=f"{label} added: ${amount:,.2f} to {comment_payee}",
             is_system=True,
         )
         session.add(comment)
 
         session.refresh(inv)
-        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address, transfer_to_name=transfer_to_name)
+        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address, transfer_to_name=transfer_to_name, advanced_to_name=advanced_to_name)
         session.commit()
         return result
 
@@ -257,7 +278,11 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
         if inv.transfer_to_person_id:
             ttp = session.get(Person, inv.transfer_to_person_id)
             transfer_to_name = ttp.name if ttp else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name)
+        advanced_to_name = None
+        if inv.advanced_to_person_id:
+            atp = session.get(Person, inv.advanced_to_person_id)
+            advanced_to_name = atp.name if atp else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name)
         session.commit()
         return result
 
@@ -284,9 +309,10 @@ def mark_invoice_paid(
                 payee_address = payee.address
 
         comment_payee = payee_name or "unknown payee"
+        label = "Advance" if inv.type == "advance" else "Invoice"
         comment = CaseComment(
             case_id=inv.case_id,
-            content=f"Invoice paid: ${float(inv.amount):,.2f} to {comment_payee}"
+            content=f"{label} paid: ${float(inv.amount):,.2f} to {comment_payee}"
             + (f" (Ref: {check_number})" if check_number else ""),
             is_system=True,
         )
@@ -305,7 +331,11 @@ def mark_invoice_paid(
         if inv.transfer_to_person_id:
             ttp = session.get(Person, inv.transfer_to_person_id)
             transfer_to_name = ttp.name if ttp else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name)
+        advanced_to_name = None
+        if inv.advanced_to_person_id:
+            atp = session.get(Person, inv.advanced_to_person_id)
+            advanced_to_name = atp.name if atp else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name)
         session.commit()
         return result
 
@@ -341,7 +371,11 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
         if inv.transfer_to_person_id:
             ttp = session.get(Person, inv.transfer_to_person_id)
             transfer_to_name = ttp.name if ttp else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name)
+        advanced_to_name = None
+        if inv.advanced_to_person_id:
+            atp = session.get(Person, inv.advanced_to_person_id)
+            advanced_to_name = atp.name if atp else None
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name)
         session.commit()
         return result
 
@@ -377,7 +411,7 @@ def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
                 Invoice.paid_by_person_id,
                 func.coalesce(func.sum(effective_amount), 0).label("total"),
             )
-            .where(Invoice.case_id == case_id, Invoice.is_transfer == False)  # noqa: E712
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == False, Invoice.type == "cost")  # noqa: E712
             .group_by(Invoice.paid_by_person_id)
         ).all()
 
@@ -457,7 +491,7 @@ def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
         }
 
 
-def get_invoice_stats(case_id: int = None) -> dict:
+def get_invoice_stats(case_id: int = None, type: str = None) -> dict:
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
         base = select(
@@ -466,6 +500,8 @@ def get_invoice_stats(case_id: int = None) -> dict:
             func.count().filter(Invoice.status == "paid").label("paid_count"),
             func.coalesce(func.sum(sa_case((Invoice.status == "paid", effective_amount), else_=0)), 0).label("paid_total"),
         ).where(Invoice.is_transfer == False)  # noqa: E712
+        if type:
+            base = base.where(Invoice.type == type)
         if case_id:
             base = base.where(Invoice.case_id == case_id)
 
@@ -482,13 +518,13 @@ def get_cost_summary(case_id: int) -> dict:
     """Net cost breakdown per party, accounting for transfers."""
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
-        # Actual costs (excluding transfers)
+        # Actual costs (excluding transfers and advances)
         cost_rows = session.execute(
             select(
                 Invoice.paid_by_person_id,
                 func.coalesce(func.sum(effective_amount), 0).label("total"),
             )
-            .where(Invoice.case_id == case_id, Invoice.is_transfer == False)  # noqa: E712
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == False, Invoice.type == "cost")  # noqa: E712
             .group_by(Invoice.paid_by_person_id)
         ).all()
 
@@ -674,3 +710,52 @@ def remove_cost_sharing(case_id: int) -> dict:
 
         session.commit()
         return {"success": True}
+
+
+def get_advance_stats(case_id: int) -> dict:
+    effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
+    with SessionLocal() as session:
+        row = session.execute(
+            select(
+                func.coalesce(func.sum(effective_amount), 0).label("total"),
+                func.count().filter(Invoice.status == "unpaid").label("unpaid_count"),
+                func.count().filter(Invoice.status == "paid").label("paid_count"),
+            )
+            .where(
+                Invoice.case_id == case_id,
+                Invoice.type == "advance",
+                Invoice.is_transfer == False,  # noqa: E712
+            )
+        ).first()
+
+        advanced_to = Person.__table__.alias("advanced_to")
+        recipient_rows = session.execute(
+            select(
+                Invoice.advanced_to_person_id,
+                advanced_to.c.name.label("person_name"),
+                func.coalesce(func.sum(effective_amount), 0).label("total"),
+            )
+            .outerjoin(advanced_to, Invoice.advanced_to_person_id == advanced_to.c.id)
+            .where(
+                Invoice.case_id == case_id,
+                Invoice.type == "advance",
+                Invoice.is_transfer == False,  # noqa: E712
+            )
+            .group_by(Invoice.advanced_to_person_id, advanced_to.c.name)
+        ).all()
+
+        by_recipient = [
+            {
+                "person_id": pid,
+                "person_name": pname or "Unspecified",
+                "total": round(float(total), 2),
+            }
+            for pid, pname, total in recipient_rows
+        ]
+
+        return {
+            "total_advances": round(float(row.total), 2),
+            "unpaid_count": row.unpaid_count,
+            "paid_count": row.paid_count,
+            "by_recipient": by_recipient,
+        }

@@ -31,10 +31,13 @@ export const INVOICE_CATEGORIES: InvoiceCategory[] = [
   "Miscellaneous",
 ]
 
+export type InvoiceType = "cost" | "advance"
+
 export interface Invoice {
   id: number
   case_id: number
   case_name: string | null
+  type: InvoiceType
   status: InvoiceStatus
   payee_id: number | null
   payee_name: string | null
@@ -50,6 +53,8 @@ export interface Invoice {
   paid_by_name: string | null
   transfer_to_person_id: number | null
   transfer_to_name: string | null
+  advanced_to_person_id: number | null
+  advanced_to_name: string | null
   paid_date: string | null
   file_path: string | null
   file_name: string | null
@@ -105,6 +110,7 @@ export interface InvoiceListResponse {
 interface ListInvoicesParams {
   case_id?: number
   status?: InvoiceStatus
+  type?: InvoiceType
   search?: string
   sort_by?: string
   sort_dir?: "asc" | "desc"
@@ -118,6 +124,7 @@ export async function listInvoices(
   const sp = new URLSearchParams()
   if (params.case_id != null) sp.set("case_id", String(params.case_id))
   if (params.status) sp.set("status", params.status)
+  if (params.type) sp.set("type", params.type)
   if (params.search) sp.set("search", params.search)
   if (params.sort_by) sp.set("sort_by", params.sort_by)
   if (params.sort_dir) sp.set("sort_dir", params.sort_dir)
@@ -137,6 +144,7 @@ export async function getInvoice(id: number): Promise<Invoice> {
 export interface CreateInvoiceData {
   case_id: number
   amount: number
+  type?: InvoiceType
   case_amount?: number
   status?: InvoiceStatus
   date?: string
@@ -150,6 +158,7 @@ export interface CreateInvoiceData {
   content_type?: string
   paid_by_person_id?: number
   transfer_to_person_id?: number
+  advanced_to_person_id?: number
   payee_id?: number
   notes?: string
   is_transfer?: boolean
@@ -176,6 +185,7 @@ export interface UpdateInvoiceData {
   category?: string
   paid_by_person_id?: number | null
   transfer_to_person_id?: number | null
+  advanced_to_person_id?: number | null
   payee_id?: number | null
   notes?: string
   check_number?: string | null
@@ -229,12 +239,27 @@ export async function deleteInvoice(
 }
 
 export async function getInvoiceStats(
-  caseId?: number
+  caseId?: number,
+  type?: InvoiceType
 ): Promise<InvoiceStats> {
   const sp = new URLSearchParams()
   if (caseId != null) sp.set("case_id", String(caseId))
+  if (type) sp.set("type", type)
   const res = await apiFetch(`/api/v1/invoices/stats?${sp}`)
   if (!res.ok) throw new Error("Failed to fetch invoice stats")
+  return res.json()
+}
+
+export interface AdvanceStats {
+  total_advances: number
+  unpaid_count: number
+  paid_count: number
+  by_recipient: { person_id: number | null; person_name: string; total: number }[]
+}
+
+export async function getAdvanceStats(caseId: number): Promise<AdvanceStats> {
+  const res = await apiFetch(`/api/v1/invoices/advance-stats?case_id=${caseId}`)
+  if (!res.ok) throw new Error("Failed to fetch advance stats")
   return res.json()
 }
 

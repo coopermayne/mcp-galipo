@@ -39,10 +39,13 @@ def register_invoice_routes(mcp):
         limit = int(request.query_params.get("limit", str(DEFAULT_PAGE_SIZE)))
         offset = int(request.query_params.get("offset", "0"))
 
+        inv_type = request.query_params.get("type")
+
         result = await asyncio.to_thread(
             db.list_invoices,
             case_id=int(case_id) if case_id else None,
             status=status,
+            type=inv_type,
             search=search,
             sort_by=sort_by,
             sort_dir=sort_dir,
@@ -56,9 +59,24 @@ def register_invoice_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = request.query_params.get("case_id")
+        inv_type = request.query_params.get("type")
         stats = await asyncio.to_thread(
             db.get_invoice_stats,
             case_id=int(case_id) if case_id else None,
+            type=inv_type,
+        )
+        return JSONResponse(stats)
+
+    @mcp.custom_route("/api/v1/invoices/advance-stats", methods=["GET"])
+    async def api_advance_stats(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = request.query_params.get("case_id")
+        if not case_id:
+            return api_error("case_id is required", "VALIDATION_ERROR", 400)
+        stats = await asyncio.to_thread(
+            db.get_advance_stats,
+            case_id=int(case_id),
         )
         return JSONResponse(stats)
 

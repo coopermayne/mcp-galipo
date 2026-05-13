@@ -19,9 +19,17 @@ import {
   getCostSummary,
   getCostSharing,
   exportCostReport,
+  getAdvanceStats,
   type Invoice,
   type CostSummary,
+  type AdvanceStats,
 } from "@/services/invoices"
+import {
+  listLiens,
+  getLienStats,
+  type Lien,
+  type LienStats,
+} from "@/services/liens"
 import {
   Popover,
   PopoverContent,
@@ -30,6 +38,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -48,7 +62,11 @@ import { EditTransferDialog } from "./components/edit-transfer-dialog"
 import { MarkPaidDialog } from "./components/mark-paid-dialog"
 import { TransferDialog } from "./components/equalization-dialog"
 import { CostSharingBar } from "./components/cost-sharing-bar"
+import { AddAdvanceDialog } from "./components/add-advance-dialog"
+import { AddLienDialog } from "./components/add-lien-dialog"
+import { EditLienDialog } from "./components/edit-lien-dialog"
 import { getCaseCostColumns } from "./columns"
+import { getLienColumns } from "./lien-columns"
 
 export default function CaseCostsPage() {
   return (
@@ -65,6 +83,7 @@ function CaseCostsContent() {
   const location = useLocation()
   const queryClient = useQueryClient()
 
+  // Costs state
   const [addOpen, setAddOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [editingTransfer, setEditingTransfer] = useState<Invoice | null>(null)
@@ -74,6 +93,17 @@ function CaseCostsContent() {
   const [bulkFiles, setBulkFiles] = useState<File[] | null>(null)
   const [search, setSearch] = useState("")
 
+  // Advances state
+  const [addAdvanceOpen, setAddAdvanceOpen] = useState(false)
+  const [editingAdvance, setEditingAdvance] = useState<Invoice | null>(null)
+  const [payingAdvance, setPayingAdvance] = useState<Invoice | null>(null)
+  const [advanceSearch, setAdvanceSearch] = useState("")
+
+  // Liens state
+  const [addLienOpen, setAddLienOpen] = useState(false)
+  const [editingLien, setEditingLien] = useState<Lien | null>(null)
+  const [lienSearch, setLienSearch] = useState("")
+
   function handleEdit(inv: Invoice) {
     if (inv.is_transfer) {
       setEditingTransfer(inv)
@@ -82,12 +112,17 @@ function CaseCostsContent() {
     }
   }
 
+  function handleAdvanceEdit(inv: Invoice) {
+    setEditingAdvance(inv)
+  }
+
   const { data: caseData, isLoading: caseLoading } = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => getCase(caseId),
     enabled: !isNaN(caseId),
   })
 
+  // --- Costs queries ---
   const { data: costSummary } = useQuery({
     queryKey: ["cost-summary", caseId],
     queryFn: () => getCostSummary(caseId),
@@ -101,11 +136,12 @@ function CaseCostsContent() {
   })
 
   const { data: unpaidData, isLoading: unpaidLoading } = useQuery({
-    queryKey: ["invoices", "case", caseId, "unpaid"],
+    queryKey: ["invoices", "case", caseId, "unpaid", "cost"],
     queryFn: () =>
       listInvoices({
         case_id: caseId,
         status: "unpaid",
+        type: "cost",
         sort_by: "due_date",
         sort_dir: "asc",
         limit: 500,
@@ -114,11 +150,12 @@ function CaseCostsContent() {
   })
 
   const { data: paidData, isLoading: paidLoading } = useQuery({
-    queryKey: ["invoices", "case", caseId, "paid"],
+    queryKey: ["invoices", "case", caseId, "paid", "cost"],
     queryFn: () =>
       listInvoices({
         case_id: caseId,
         status: "paid",
+        type: "cost",
         sort_by: "paid_date",
         sort_dir: "desc",
         limit: 500,
@@ -126,6 +163,61 @@ function CaseCostsContent() {
     enabled: !isNaN(caseId),
   })
 
+  // --- Advances queries ---
+  const { data: advanceStats } = useQuery({
+    queryKey: ["advance-stats", caseId],
+    queryFn: () => getAdvanceStats(caseId),
+    enabled: !isNaN(caseId),
+  })
+
+  const { data: advUnpaidData, isLoading: advUnpaidLoading } = useQuery({
+    queryKey: ["invoices", "case", caseId, "unpaid", "advance"],
+    queryFn: () =>
+      listInvoices({
+        case_id: caseId,
+        status: "unpaid",
+        type: "advance",
+        sort_by: "due_date",
+        sort_dir: "asc",
+        limit: 500,
+      }),
+    enabled: !isNaN(caseId),
+  })
+
+  const { data: advPaidData, isLoading: advPaidLoading } = useQuery({
+    queryKey: ["invoices", "case", caseId, "paid", "advance"],
+    queryFn: () =>
+      listInvoices({
+        case_id: caseId,
+        status: "paid",
+        type: "advance",
+        sort_by: "paid_date",
+        sort_dir: "desc",
+        limit: 500,
+      }),
+    enabled: !isNaN(caseId),
+  })
+
+  // --- Liens queries ---
+  const { data: lienData, isLoading: liensLoading } = useQuery({
+    queryKey: ["liens", caseId],
+    queryFn: () =>
+      listLiens({
+        case_id: caseId,
+        sort_by: "date",
+        sort_dir: "desc",
+        limit: 500,
+      }),
+    enabled: !isNaN(caseId),
+  })
+
+  const { data: lienStats } = useQuery({
+    queryKey: ["lien-stats", caseId],
+    queryFn: () => getLienStats(caseId),
+    enabled: !isNaN(caseId),
+  })
+
+  // --- Costs filtering ---
   const allUnpaid = unpaidData?.invoices ?? []
   const allPaid = paidData?.invoices ?? []
 
@@ -151,11 +243,46 @@ function CaseCostsContent() {
   const paidInvoices = filterInvoices(allPaid)
   const hasUnpaid = allUnpaid.length > 0
 
+  // --- Advances filtering ---
+  const allAdvUnpaid = advUnpaidData?.invoices ?? []
+  const allAdvPaid = advPaidData?.invoices ?? []
+
+  const filterAdvances = useMemo(() => {
+    const q = advanceSearch.trim().toLowerCase()
+    if (!q) return (invoices: Invoice[]) => invoices
+    return (invoices: Invoice[]) =>
+      invoices.filter((inv) =>
+        inv.payee_name?.toLowerCase().includes(q) ||
+        inv.description?.toLowerCase().includes(q) ||
+        inv.advanced_to_name?.toLowerCase().includes(q) ||
+        inv.amount?.includes(q)
+      )
+  }, [advanceSearch])
+
+  const advUnpaid = filterAdvances(allAdvUnpaid)
+  const advPaid = filterAdvances(allAdvPaid)
+
+  // --- Liens filtering ---
+  const allLiens = lienData?.liens ?? []
+
+  const filteredLiens = useMemo(() => {
+    const q = lienSearch.trim().toLowerCase()
+    if (!q) return allLiens
+    return allLiens.filter((l) =>
+      l.payee_name?.toLowerCase().includes(q) ||
+      l.description?.toLowerCase().includes(q) ||
+      l.claimed_amount?.includes(q)
+    )
+  }, [lienSearch, allLiens])
+
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["invoices"] })
     queryClient.invalidateQueries({ queryKey: ["case-comments", caseId] })
     queryClient.invalidateQueries({ queryKey: ["equalization"] })
     queryClient.invalidateQueries({ queryKey: ["cost-summary", caseId] })
+    queryClient.invalidateQueries({ queryKey: ["advance-stats", caseId] })
+    queryClient.invalidateQueries({ queryKey: ["liens"] })
+    queryClient.invalidateQueries({ queryKey: ["lien-stats", caseId] })
   }
 
   if (caseLoading) {
@@ -182,82 +309,196 @@ function CaseCostsContent() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-lg font-semibold">{caseData?.case_name}</h1>
-          <p className="text-sm text-muted-foreground">Costs</p>
+          <p className="text-sm text-muted-foreground">Costs & Finances</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            title="Print cost report"
-            onClick={() => exportCostReport(caseId)}
-          >
-            <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-            <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
-            Add Invoice
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          title="Print cost report"
+          onClick={() => exportCostReport(caseId)}
+        >
+          <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
+        </Button>
       </div>
 
-      {/* Cost sharing config */}
-      <CostSharingBar
-        caseId={caseId}
-        editing={costSharingEditing}
-        onEditingChange={setCostSharingEditing}
-      />
+      {/* Tabs */}
+      <Tabs defaultValue="costs">
+        <TabsList>
+          <TabsTrigger value="costs">
+            Costs
+            {(allUnpaid.length > 0 || allPaid.length > 0) && (
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({allUnpaid.length + allPaid.length})
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="advances" className="data-[state=active]:text-info">
+            Advances
+            {(allAdvUnpaid.length > 0 || allAdvPaid.length > 0) && (
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({allAdvUnpaid.length + allAdvPaid.length})
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="liens" className="data-[state=active]:text-warning">
+            Liens
+            {allLiens.length > 0 && (
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({allLiens.length})
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Net cost summary */}
-      {costSummary && (
-        <CostSummaryBar
-          costSummary={costSummary}
-          ourPct={costSharing?.our_pct ?? null}
-          counselPct={costSharing?.partner?.cost_share_pct ?? null}
-          onTransfer={() => setTransferOpen(true)}
-          onSetupSplit={() => setCostSharingEditing(true)}
-        />
-      )}
+        {/* ====== COSTS TAB ====== */}
+        <TabsContent value="costs" className="flex flex-col gap-4 mt-4">
+          <div className="flex items-center justify-end">
+            <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+              <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
+              Add Invoice
+            </Button>
+          </div>
 
-      {/* Dropzone */}
-      <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} onBulkUpload={setBulkFiles} />
-
-      {/* Search filter */}
-      {(allUnpaid.length > 0 || allPaid.length > 0) && (
-        <div className="relative max-w-xs">
-          <HugeiconsIcon
-            icon={Search01Icon}
-            className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"
+          <CostSharingBar
+            caseId={caseId}
+            editing={costSharingEditing}
+            onEditingChange={setCostSharingEditing}
           />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by category, payee, amount..."
-            className="pl-9 h-9"
+
+          {costSummary && (
+            <CostSummaryBar
+              costSummary={costSummary}
+              ourPct={costSharing?.our_pct ?? null}
+              counselPct={costSharing?.partner?.cost_share_pct ?? null}
+              onTransfer={() => setTransferOpen(true)}
+              onSetupSplit={() => setCostSharingEditing(true)}
+            />
+          )}
+
+          <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} onBulkUpload={setBulkFiles} />
+
+          {(allUnpaid.length > 0 || allPaid.length > 0) && (
+            <div className="relative max-w-xs">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"
+              />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filter by category, payee, amount..."
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
+
+          {(hasUnpaid || unpaidLoading) && (
+            <UnpaidSection
+              invoices={unpaidInvoices}
+              isLoading={unpaidLoading}
+              onEdit={handleEdit}
+              onMarkPaid={setPayingInvoice}
+              total={allUnpaid.length}
+            />
+          )}
+
+          <PaidSection
+            invoices={paidInvoices}
+            isLoading={paidLoading}
+            onEdit={handleEdit}
+            total={allPaid.length}
           />
-        </div>
-      )}
+        </TabsContent>
 
-      {/* Unpaid section */}
-      {(hasUnpaid || unpaidLoading) && (
-        <UnpaidSection
-          invoices={unpaidInvoices}
-          isLoading={unpaidLoading}
-          onEdit={handleEdit}
-          onMarkPaid={setPayingInvoice}
-          total={allUnpaid.length}
-        />
-      )}
+        {/* ====== ADVANCES TAB ====== */}
+        <TabsContent value="advances" className="flex flex-col gap-4 mt-4">
+          <div className="flex items-center justify-end">
+            <Button variant="outline" size="sm" onClick={() => setAddAdvanceOpen(true)}>
+              <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
+              Add Advance
+            </Button>
+          </div>
 
-      {/* Paid section */}
-      <PaidSection
-        invoices={paidInvoices}
-        isLoading={paidLoading}
-        onEdit={handleEdit}
-        total={allPaid.length}
-      />
+          {advanceStats && advanceStats.total_advances > 0 && (
+            <AdvanceSummaryBar stats={advanceStats} />
+          )}
 
-      {/* Dialogs */}
+          {(allAdvUnpaid.length > 0 || allAdvPaid.length > 0) && (
+            <div className="relative max-w-xs">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"
+              />
+              <Input
+                value={advanceSearch}
+                onChange={(e) => setAdvanceSearch(e.target.value)}
+                placeholder="Filter advances..."
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
+
+          {(allAdvUnpaid.length > 0 || advUnpaidLoading) && (
+            <UnpaidSection
+              invoices={advUnpaid}
+              isLoading={advUnpaidLoading}
+              onEdit={handleAdvanceEdit}
+              onMarkPaid={setPayingAdvance}
+              total={allAdvUnpaid.length}
+              rowClassName="bg-info/5 hover:bg-info/10"
+              label="Unpaid Advances"
+            />
+          )}
+
+          <PaidSection
+            invoices={advPaid}
+            isLoading={advPaidLoading}
+            onEdit={handleAdvanceEdit}
+            total={allAdvPaid.length}
+            rowClassName="bg-info/5 hover:bg-info/10"
+            label="Paid Advances"
+          />
+        </TabsContent>
+
+        {/* ====== LIENS TAB ====== */}
+        <TabsContent value="liens" className="flex flex-col gap-4 mt-4">
+          <div className="flex items-center justify-end">
+            <Button variant="outline" size="sm" onClick={() => setAddLienOpen(true)}>
+              <HugeiconsIcon icon={Add01Icon} className="mr-1.5 size-3.5" />
+              Add Lien
+            </Button>
+          </div>
+
+          {lienStats && lienStats.count > 0 && (
+            <LienSummaryBar stats={lienStats} />
+          )}
+
+          {allLiens.length > 0 && (
+            <div className="relative max-w-xs">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"
+              />
+              <Input
+                value={lienSearch}
+                onChange={(e) => setLienSearch(e.target.value)}
+                placeholder="Filter liens..."
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
+
+          <LiensSection
+            liens={filteredLiens}
+            isLoading={liensLoading}
+            onEdit={setEditingLien}
+            total={allLiens.length}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* All dialogs */}
       <AddInvoiceDialog
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -269,6 +510,11 @@ function CaseCostsContent() {
         onOpenChange={(open) => !open && setEditingInvoice(null)}
         onSuccess={invalidateAll}
       />
+      <EditInvoiceDialog
+        invoice={editingAdvance}
+        onOpenChange={(open) => !open && setEditingAdvance(null)}
+        onSuccess={invalidateAll}
+      />
       <EditTransferDialog
         invoice={editingTransfer}
         onOpenChange={(open) => !open && setEditingTransfer(null)}
@@ -277,6 +523,11 @@ function CaseCostsContent() {
       <MarkPaidDialog
         invoice={payingInvoice}
         onOpenChange={(open) => !open && setPayingInvoice(null)}
+        onSuccess={invalidateAll}
+      />
+      <MarkPaidDialog
+        invoice={payingAdvance}
+        onOpenChange={(open) => !open && setPayingAdvance(null)}
         onSuccess={invalidateAll}
       />
       <TransferDialog
@@ -291,6 +542,23 @@ function CaseCostsContent() {
         onClose={() => setBulkFiles(null)}
         onSuccess={invalidateAll}
       />
+      <AddAdvanceDialog
+        open={addAdvanceOpen}
+        onOpenChange={setAddAdvanceOpen}
+        caseId={caseId}
+        onSuccess={invalidateAll}
+      />
+      <AddLienDialog
+        open={addLienOpen}
+        onOpenChange={setAddLienOpen}
+        caseId={caseId}
+        onSuccess={invalidateAll}
+      />
+      <EditLienDialog
+        lien={editingLien}
+        onOpenChange={(open) => !open && setEditingLien(null)}
+        onSuccess={invalidateAll}
+      />
     </div>
   )
 }
@@ -298,6 +566,8 @@ function CaseCostsContent() {
 function formatMoney(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" })
 }
+
+// --- Summary Bars ---
 
 function CostSummaryBar({
   costSummary,
@@ -317,7 +587,6 @@ function CostSummaryBar({
   const ourTarget = ourPct != null ? total_costs * (ourPct / 100) : null
   const counselTarget = counselPct != null ? total_costs * (counselPct / 100) : null
 
-  // Positive = overpaid relative to their share
   const ourDiff = ourTarget != null ? our_net - ourTarget : null
   const counselDiff = counselTarget != null ? counsel_net - counselTarget : null
 
@@ -393,6 +662,85 @@ function CostSummaryBar({
   )
 }
 
+function AdvanceSummaryBar({ stats }: { stats: AdvanceStats }) {
+  return (
+    <div className="flex items-center gap-6 border border-info/30 bg-info/5 p-3 text-sm">
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Total advances:</span>
+        <span className="font-semibold tabular-nums text-info">
+          {formatMoney(stats.total_advances)}
+        </span>
+      </div>
+      <div className="h-4 border-l" />
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Unpaid:</span>
+        <span className="tabular-nums">{stats.unpaid_count}</span>
+      </div>
+      <div className="h-4 border-l" />
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Paid:</span>
+        <span className="tabular-nums">{stats.paid_count}</span>
+      </div>
+      {stats.by_recipient.length > 0 && (
+        <>
+          <div className="h-4 border-l" />
+          <div className="flex items-center gap-3 flex-wrap">
+            {stats.by_recipient.map((r) => (
+              <span key={r.person_id ?? "none"} className="text-xs">
+                <span className="text-muted-foreground">{r.person_name}:</span>{" "}
+                <span className="font-semibold tabular-nums">{formatMoney(r.total)}</span>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function LienSummaryBar({ stats }: { stats: LienStats }) {
+  return (
+    <div className="flex items-center gap-6 border border-warning/30 bg-warning/5 p-3 text-sm">
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Total claimed:</span>
+        <span className="font-semibold tabular-nums text-warning">
+          {formatMoney(stats.total_claimed)}
+        </span>
+      </div>
+      {stats.total_negotiated > 0 && (
+        <>
+          <div className="h-4 border-l" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Negotiated:</span>
+            <span className="font-semibold tabular-nums text-success">
+              {formatMoney(stats.total_negotiated)}
+            </span>
+          </div>
+          <div className="h-4 border-l" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Savings:</span>
+            <span className="font-semibold tabular-nums text-success">
+              {formatMoney(stats.savings)} ({stats.savings_pct}%)
+            </span>
+          </div>
+        </>
+      )}
+      <div className="h-4 border-l" />
+      <div className="flex items-center gap-3 text-xs">
+        <span>
+          <span className="text-muted-foreground">Pending:</span> {stats.pending_count}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Negotiated:</span> {stats.negotiated_count}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Paid:</span> {stats.paid_count}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function ImbalanceAlert({
   who,
   target,
@@ -424,8 +772,8 @@ function ImbalanceAlert({
         </p>
         <div className="space-y-1 text-muted-foreground">
           <p>Total costs: {formatMoney(totalCosts)}</p>
-          <p>{who}'s share ({pct}%): {formatMoney(target)}</p>
-          <p>{who}'s actual spend: {formatMoney(actual)}</p>
+          <p>{who}&apos;s share ({pct}%): {formatMoney(target)}</p>
+          <p>{who}&apos;s actual spend: {formatMoney(actual)}</p>
         </div>
         <p className="pt-1 border-t font-medium">
           Owes {who}: {formatMoney(diff)}
@@ -434,6 +782,8 @@ function ImbalanceAlert({
     </Popover>
   )
 }
+
+// --- Table Sections ---
 
 const UNPAID_HIDDEN: VisibilityState = {
   paid_by_name: false,
@@ -445,12 +795,16 @@ function UnpaidSection({
   onEdit,
   onMarkPaid,
   total,
+  rowClassName,
+  label,
 }: {
   invoices: Invoice[]
   isLoading: boolean
   onEdit: (inv: Invoice) => void
   onMarkPaid: (inv: Invoice) => void
   total: number
+  rowClassName?: string
+  label?: string
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -475,9 +829,9 @@ function UnpaidSection({
   return (
     <div>
       <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-        Unpaid ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
+        {label ?? "Unpaid"} ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
       </h2>
-      <CostTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage="No unpaid invoices." />
+      <InvoiceTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage={`No ${label?.toLowerCase() ?? "unpaid invoices"}.`} rowClassName={rowClassName} />
     </div>
   )
 }
@@ -491,11 +845,15 @@ function PaidSection({
   isLoading,
   onEdit,
   total,
+  rowClassName,
+  label,
 }: {
   invoices: Invoice[]
   isLoading: boolean
   onEdit: (inv: Invoice) => void
   total: number
+  rowClassName?: string
+  label?: string
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
@@ -522,9 +880,9 @@ function PaidSection({
   return (
     <div>
       <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-        Paid ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
+        {label ?? "Paid"} ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
       </h2>
-      <CostTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage="No paid invoices." />
+      <InvoiceTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage={`No ${label?.toLowerCase() ?? "paid invoices"}.`} rowClassName={rowClassName} />
       {invoices.length > 20 && (
         <div className="mt-2">
           <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
@@ -534,16 +892,117 @@ function PaidSection({
   )
 }
 
-function CostTable({
+function LiensSection({
+  liens,
+  isLoading,
+  onEdit,
+  total,
+}: {
+  liens: Lien[]
+  isLoading: boolean
+  onEdit: (lien: Lien) => void
+  total: number
+}) {
+  const [sorting, setSorting] = useState<SortingState>([])
+
+  const columns = useMemo(
+    () => getLienColumns({ onEdit }),
+    [onEdit]
+  )
+
+  const table = useReactTable({
+    data: liens,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
+
+  const allCols = table.getAllColumns()
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-muted-foreground mb-2">
+        Liens ({liens.length !== total ? `${liens.length} of ${total}` : total})
+      </h2>
+      <div className="border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 9 }).map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-4 w-[80px]" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer bg-warning/5 hover:bg-warning/10"
+                  onClick={() => onEdit(row.original)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={allCols.length}
+                  className="h-16 text-center"
+                >
+                  No liens.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
+// --- Generic Invoice Table ---
+
+function InvoiceTable({
   table,
   isLoading,
   onEdit,
   emptyMessage,
+  rowClassName,
 }: {
   table: ReturnType<typeof useReactTable<Invoice>>
   isLoading: boolean
   onEdit: (inv: Invoice) => void
   emptyMessage: string
+  rowClassName?: string
 }) {
   const columns = table.getAllColumns()
 
@@ -584,7 +1043,7 @@ function CostTable({
                 className={`cursor-pointer ${
                   row.original.is_transfer
                     ? "bg-purple/5 hover:bg-purple/10"
-                    : ""
+                    : rowClassName ?? ""
                 }`}
                 onClick={() => onEdit(row.original)}
               >
