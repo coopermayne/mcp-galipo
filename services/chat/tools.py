@@ -25,6 +25,7 @@ BLACKLIST: set[str] = {
 # Tools only available in "proceedings" mode (excluded from full/freeform chat)
 PROCEEDINGS_ONLY: set[str] = {
     "list_jurisdictions",
+    "create_jurisdiction",
     "manage_judge",
 }
 
@@ -47,6 +48,7 @@ EAGER_TOOLS: dict[str, set[str]] = {
         "manage_proceeding",
         "manage_judge",
         "list_jurisdictions",
+        "create_jurisdiction",
     },
 }
 
