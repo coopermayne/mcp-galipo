@@ -40,8 +40,6 @@ export function EditTransferDialog({
   const [amount, setAmount] = useState("")
   const [date, setDate] = useState("")
   const [description, setDescription] = useState("")
-  const [checkNumber, setCheckNumber] = useState("")
-  const [paidDate, setPaidDate] = useState("")
   const [saving, setSaving] = useState(false)
 
   const { data: costSharing } = useQuery({
@@ -58,8 +56,6 @@ export function EditTransferDialog({
       setAmount(String(invoice.amount))
       setDate(invoice.date ?? "")
       setDescription(invoice.description ?? "")
-      setCheckNumber(invoice.check_number ?? "")
-      setPaidDate(invoice.paid_date ?? "")
 
       if (invoice.transfer_to_person_id) {
         setDirection("we_pay_counsel")
@@ -84,8 +80,6 @@ export function EditTransferDialog({
         description: description.trim() || `Transfer ${isWePayThem ? "to" : "from"} ${partnerName}`,
         paid_by_person_id: isWePayThem ? null : counselId,
         transfer_to_person_id: isWePayThem ? counselId : null,
-        check_number: checkNumber.trim() || null,
-        paid_date: paidDate || null,
       })
       toast.success("Transfer updated")
       onOpenChange(false)
@@ -159,29 +153,6 @@ export function EditTransferDialog({
               rows={2}
             />
           </div>
-
-          {invoice?.status === "paid" && (
-            <div className="grid grid-cols-2 gap-4 border-t pt-4">
-              <div>
-                <Label htmlFor="transfer-check-number">Payment Ref</Label>
-                <Input
-                  id="transfer-check-number"
-                  value={checkNumber}
-                  onChange={(e) => setCheckNumber(e.target.value)}
-                  placeholder="Check #, EFT, etc."
-                />
-              </div>
-              <div>
-                <Label htmlFor="transfer-paid-date">Paid Date</Label>
-                <Input
-                  id="transfer-paid-date"
-                  type="date"
-                  value={paidDate}
-                  onChange={(e) => setPaidDate(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
 
           <DialogFooter>
             <Button
