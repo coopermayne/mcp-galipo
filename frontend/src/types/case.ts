@@ -25,6 +25,7 @@ export interface CaseListItem {
   trial_date: string | null
   trial_likelihood: number | null
   trial_likelihood_note: string | null
+  trial_estimated_days: number | null
   claim_deadline: string | null
   complaint_deadline: string | null
   color: string | null
@@ -49,6 +50,7 @@ export interface CaseDetail {
   trial_date: string | null
   trial_likelihood: number | null
   trial_likelihood_note: string | null
+  trial_estimated_days: number | null
   claim_deadline: string | null
   complaint_deadline: string | null
   color: string | null

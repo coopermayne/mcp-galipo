@@ -8,6 +8,8 @@ export interface EventListItem {
   document_link: string | null
   calculation_note: string | null
   starred: boolean | null
+  event_type: string | null
+  end_date: string | null
   created_at: string | null
   case_name: string | null
   short_name: string | null

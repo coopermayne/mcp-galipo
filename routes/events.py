@@ -67,6 +67,8 @@ def register_event_routes(mcp):
             data.time,
             data.location,
             data.starred,
+            data.event_type,
+            data.end_date,
         )
 
         # System comment for event creation
