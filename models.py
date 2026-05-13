@@ -275,6 +275,8 @@ class Case(Base):
     result: Mapped[Optional[str]] = mapped_column(Text)
     date_of_injury: Mapped[Optional[datetime.date]] = mapped_column(Date)
     trial_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    trial_likelihood: Mapped[Optional[int]] = mapped_column(Integer)
+    trial_likelihood_note: Mapped[Optional[str]] = mapped_column(Text)
     claim_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     complaint_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(

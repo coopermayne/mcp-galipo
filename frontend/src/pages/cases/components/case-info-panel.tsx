@@ -7,6 +7,7 @@ import type { CaseDetail } from "@/types/case"
 import { updateCase } from "@/services/cases"
 import { getEvents } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
+import { TrialLikelihood } from "@/pages/cases/components/trial-likelihood"
 
 interface CaseInfoPanelProps {
   caseData: CaseDetail
@@ -89,12 +90,19 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground shrink-0">Trial Date</span>
-          <InlineEditField
-            value={caseData.trial_date ?? ""}
-            onSave={(v) => updateMutation.mutate({ trial_date: v })}
-            type="date"
-            displayClassName="text-xs justify-end"
-          />
+          <div className="flex items-center gap-1.5">
+            <InlineEditField
+              value={caseData.trial_date ?? ""}
+              onSave={(v) => updateMutation.mutate({ trial_date: v })}
+              type="date"
+              displayClassName="text-xs justify-end"
+            />
+            <TrialLikelihood
+              caseId={caseData.id}
+              likelihood={caseData.trial_likelihood}
+              note={caseData.trial_likelihood_note}
+            />
+          </div>
         </div>
         {createdDate && (
           <div className="flex items-center justify-between gap-2">

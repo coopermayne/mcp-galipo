@@ -75,7 +75,11 @@ export async function createCase(
   return res.json()
 }
 
-export type UpdateCaseData = Partial<CreateCaseData> & { notes?: string }
+export type UpdateCaseData = Partial<CreateCaseData> & {
+  notes?: string
+  trial_likelihood?: number | null
+  trial_likelihood_note?: string | null
+}
 
 export async function updateCase(
   id: number,

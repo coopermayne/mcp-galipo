@@ -23,6 +23,8 @@ export interface CaseListItem {
   paralegal_ids: number[] | null
   date_of_injury: string | null
   trial_date: string | null
+  trial_likelihood: number | null
+  trial_likelihood_note: string | null
   claim_deadline: string | null
   complaint_deadline: string | null
   color: string | null
@@ -45,6 +47,8 @@ export interface CaseDetail {
   result: string | null
   date_of_injury: string | null
   trial_date: string | null
+  trial_likelihood: number | null
+  trial_likelihood_note: string | null
   claim_deadline: string | null
   complaint_deadline: string | null
   color: string | null

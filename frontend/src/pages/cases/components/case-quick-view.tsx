@@ -1,4 +1,5 @@
 import type { CaseDetail } from "@/types/case"
+import { TrialLikelihood } from "@/pages/cases/components/trial-likelihood"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
@@ -88,7 +89,20 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
                 </span>
                 {caseNumber && <InfoRow label="Case #" value={caseNumber} />}
                 <InfoRow label="Date of Injury" value={formatDate(caseData.date_of_injury)} />
-                <InfoRow label="Trial Date" value={formatDate(caseData.trial_date)} />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground shrink-0">Trial Date</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-right truncate">{formatDate(caseData.trial_date)}</span>
+                    {caseData.trial_likelihood != null && (
+                      <TrialLikelihood
+                        caseId={caseData.id}
+                        likelihood={caseData.trial_likelihood}
+                        note={caseData.trial_likelihood_note}
+                        compact
+                      />
+                    )}
+                  </div>
+                </div>
                 <InfoRow label="Claim Deadline" value={formatDate(caseData.claim_deadline)} />
                 <InfoRow label="Complaint Deadline" value={formatDate(caseData.complaint_deadline)} />
                 {jurisdiction && <InfoRow label="Jurisdiction" value={jurisdiction} />}
