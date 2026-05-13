@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import Markdown from "react-markdown"
+import { AiMarkdown } from "@/components/common/ai-markdown"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake } from "@/types/intake"
@@ -48,7 +48,7 @@ function RatingDisplay({
               <DialogTitle>Rating Reasoning</DialogTitle>
             </DialogHeader>
             <div className="prose prose-sm dark:prose-invert max-w-none">
-              <Markdown>{reasoning}</Markdown>
+              <AiMarkdown>{reasoning}</AiMarkdown>
             </div>
           </DialogContent>
         </Dialog>
@@ -157,7 +157,7 @@ export function IntakeAiAnalysis({ intake }: IntakeAiAnalysisProps) {
 
       {intake.ai_summary && (
         <div className="prose prose-sm dark:prose-invert max-w-none">
-          <Markdown>{intake.ai_summary}</Markdown>
+          <AiMarkdown>{intake.ai_summary}</AiMarkdown>
         </div>
       )}
     </div>
