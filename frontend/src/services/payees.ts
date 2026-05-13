@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api"
 export interface Payee {
   id: number
   name: string
-  check_name: string | null
+  pay_to: string | null
   address: string | null
   w9_file_path: string | null
   w9_file_name: string | null
@@ -56,7 +56,7 @@ export async function getPayee(id: number): Promise<Payee> {
 }
 
 export async function createPayee(
-  data: { name: string; check_name?: string; address?: string; notes?: string }
+  data: { name: string; pay_to?: string; address?: string; notes?: string }
 ): Promise<{ success: boolean; payee: Payee }> {
   const res = await apiFetch("/api/v1/payees", {
     method: "POST",
@@ -69,7 +69,7 @@ export async function createPayee(
 
 export async function updatePayee(
   id: number,
-  data: { name?: string; check_name?: string; address?: string; notes?: string }
+  data: { name?: string; pay_to?: string; address?: string; notes?: string }
 ): Promise<{ success: boolean; payee: Payee }> {
   const res = await apiFetch(`/api/v1/payees/${id}`, {
     method: "PUT",

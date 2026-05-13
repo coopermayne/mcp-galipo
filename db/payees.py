@@ -14,7 +14,7 @@ def _payee_to_dict(p: Payee) -> dict:
     return {
         "id": p.id,
         "name": p.name,
-        "check_name": p.check_name,
+        "pay_to": p.pay_to,
         "address": p.address,
         "w9_file_path": p.w9_file_path,
         "w9_file_name": p.w9_file_name,
@@ -36,6 +36,7 @@ def list_payees(
         pattern = f"%{search}%"
         stmt = stmt.where(
             Payee.name.ilike(pattern)
+            | Payee.pay_to.ilike(pattern)
             | Payee.address.ilike(pattern)
             | Payee.notes.ilike(pattern)
         )
@@ -48,6 +49,7 @@ def list_payees(
         count_stmt = select(func.count()).select_from(
             select(Payee.id).where(
                 Payee.name.ilike(pattern)
+                | Payee.pay_to.ilike(pattern)
                 | Payee.address.ilike(pattern)
                 | Payee.notes.ilike(pattern)
             )
@@ -70,7 +72,7 @@ def get_payee(payee_id: int) -> Optional[dict]:
 
 def create_payee(
     name: str,
-    check_name: str = None,
+    pay_to: str = None,
     address: str = None,
     w9_file_path: str = None,
     w9_file_name: str = None,
@@ -80,7 +82,7 @@ def create_payee(
     with SessionLocal() as session:
         p = Payee(
             name=name,
-            check_name=check_name,
+            pay_to=pay_to,
             address=address,
             w9_file_path=w9_file_path,
             w9_file_name=w9_file_name,
@@ -134,7 +136,7 @@ def search_payees(name: str, limit: int = 10) -> list[dict]:
     pattern = f"%{name}%"
     stmt = (
         select(Payee)
-        .where(Payee.name.ilike(pattern))
+        .where(Payee.name.ilike(pattern) | Payee.pay_to.ilike(pattern))
         .order_by(Payee.name.asc())
         .limit(limit)
     )
