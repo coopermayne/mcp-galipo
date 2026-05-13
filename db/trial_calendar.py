@@ -30,6 +30,19 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
             WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
         )""").label("jurisdiction_name")
 
+        case_number_sq = literal_column("""(
+            SELECT p.case_number FROM proceedings p
+            WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
+        )""").label("case_number")
+
+        judge_names_sq = literal_column("""(
+            SELECT string_agg(jg.name, ', ' ORDER BY pj.sort_order)
+            FROM proceedings p
+            JOIN proceeding_judges pj ON pj.proceeding_id = p.id
+            JOIN judges jg ON jg.id = pj.judge_id
+            WHERE p.case_id = cases.id AND p.is_primary = true
+        )""").label("judge_names")
+
         trial_stmt = (
             select(
                 Case.id.label("case_id"),
@@ -42,6 +55,8 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 Case.trial_likelihood,
                 Case.attorney_ids,
                 jurisdiction_sq,
+                case_number_sq,
+                judge_names_sq,
             )
             .where(
                 Case.trial_date.isnot(None),
@@ -66,6 +81,8 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 "trial_likelihood": r.trial_likelihood,
                 "attorney_ids": r.attorney_ids or [],
                 "jurisdiction_name": r.jurisdiction_name,
+                "case_number": r.case_number,
+                "judge_names": r.judge_names,
             })
 
         event_stmt = (
