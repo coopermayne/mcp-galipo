@@ -4,6 +4,7 @@ import { EyeIcon } from "@hugeicons/core-free-icons"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
+import { TrialLikelihood } from "@/pages/cases/components/trial-likelihood"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 
 interface UserInfo {
@@ -125,6 +126,18 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Trial" />
       ),
       cell: ({ row }) => <DateCell value={row.original.trial_date} warnDays={90} />,
+    },
+    {
+      id: "trial_likelihood",
+      header: "Trial %",
+      cell: ({ row }) => (
+        <TrialLikelihood
+          caseId={row.original.id}
+          likelihood={row.original.trial_likelihood}
+          note={row.original.trial_likelihood_note}
+          compact
+        />
+      ),
     },
     {
       accessorKey: "claim_deadline",

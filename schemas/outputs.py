@@ -450,6 +450,8 @@ class CaseListOut(BaseModel):
     defendant_count: Optional[int] = None
     pending_task_count: Optional[int] = None
     upcoming_event_count: Optional[int] = None
+    trial_likelihood: Optional[int] = None
+    trial_likelihood_note: Optional[str] = None
 
 
 class CaseDetailOut(BaseModel):
@@ -462,6 +464,8 @@ class CaseDetailOut(BaseModel):
     case_summary: Optional[str] = None
     result: Optional[str] = None
     date_of_injury: Optional[str] = None
+    trial_likelihood: Optional[int] = None
+    trial_likelihood_note: Optional[str] = None
     color: Optional[str] = None
     attorney_ids: Optional[list[int]] = None
     paralegal_ids: Optional[list[int]] = None
