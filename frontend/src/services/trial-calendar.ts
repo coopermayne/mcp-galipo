@@ -11,6 +11,8 @@ export interface TrialItem {
   trial_likelihood: number | null
   attorney_ids: number[]
   jurisdiction_name: string | null
+  case_number: string | null
+  judge_names: string | null
 }
 
 export interface BlockingEvent {
@@ -38,4 +40,17 @@ export async function getTrialCalendar(
   })
   const res = await apiFetch(`/api/v1/trial-calendar?${params}`)
   return res.json()
+}
+
+export async function downloadTrialCalendarPdf(
+  monthsAhead = 12,
+  monthsBehind = 0
+): Promise<Blob> {
+  const params = new URLSearchParams({
+    months_ahead: String(monthsAhead),
+    months_behind: String(monthsBehind),
+  })
+  const res = await apiFetch(`/api/v1/trial-calendar/pdf?${params}`)
+  if (!res.ok) throw new Error("Failed to generate PDF")
+  return res.blob()
 }

@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { addMonths, startOfMonth, format } from "date-fns"
-import { ArrowLeftIcon, ArrowRightIcon } from "@hugeicons/core-free-icons"
+import { ArrowLeftIcon, ArrowRightIcon, PrinterIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { getTrialCalendar } from "@/services/trial-calendar"
+import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-calendar"
 import type { BlockingEvent } from "@/services/trial-calendar"
 import { createEvent, type CreateEventData } from "@/services/events"
+import { downloadBlob } from "@/lib/download"
 import { getStaff, type StaffMember } from "@/services/staff"
 import { MonthCalendarGrid } from "@/pages/trial-calendar/components/trial-timeline"
 import { AddVacationDialog } from "@/pages/trial-calendar/components/add-vacation-dialog"
@@ -45,6 +46,7 @@ export default function TrialCalendarPage() {
   const [vacationOpen, setVacationOpen] = useState(false)
   const [blockingOpen, setBlockingOpen] = useState(false)
   const [editEvent, setEditEvent] = useState<EventListItem | null>(null)
+  const [printing, setPrinting] = useState(false)
   const queryClient = useQueryClient()
 
   const count = Number(viewCount)
@@ -82,6 +84,16 @@ export default function TrialCalendarPage() {
       queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
     },
   })
+
+  const handlePrint = useCallback(async () => {
+    setPrinting(true)
+    try {
+      const blob = await downloadTrialCalendarPdf(monthsAhead, monthsBehind)
+      downloadBlob(blob, "trial-calendar.pdf")
+    } finally {
+      setPrinting(false)
+    }
+  }, [monthsAhead, monthsBehind])
 
   const handleEditEvent = useCallback(
     (eventId: number) => {
@@ -131,6 +143,10 @@ export default function TrialCalendarPage() {
             <ToggleGroupItem value="6" className="px-3 text-xs">6mo</ToggleGroupItem>
             <ToggleGroupItem value="12" className="px-3 text-xs">12mo</ToggleGroupItem>
           </ToggleGroup>
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={printing}>
+            <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
+            {printing ? "Generating..." : "Print"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setVacationOpen(true)}>
             Add Vacation
           </Button>
