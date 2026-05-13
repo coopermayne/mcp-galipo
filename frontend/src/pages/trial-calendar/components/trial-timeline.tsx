@@ -1,348 +1,388 @@
-import { useMemo, useRef } from "react"
+import { useMemo } from "react"
 import { useNavigate } from "react-router"
 import {
-  differenceInCalendarDays,
-  eachMonthOfInterval,
+  startOfMonth,
   endOfMonth,
-  format,
-  isWeekend,
   addDays,
-  eachWeekOfInterval,
+  getDay,
+  format,
+  isToday,
+  isAfter,
 } from "date-fns"
 import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover"
-import { Button } from "@/components/ui/button"
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip"
 import type { TrialCalendarData, TrialItem, BlockingEvent } from "@/services/trial-calendar"
+import type { StaffMember } from "@/services/staff"
 
-const DAY_WIDTH = 5
-const ROW_HEIGHT = 28
-const HEADER_HEIGHT = 48
-const MIN_BAR_WIDTH = 8
+const LANE_HEIGHT = 15
+const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"]
+const LIGHT_TIP = "bg-popover text-popover-foreground border shadow-md [&>svg]:hidden"
 
 function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number)
   return new Date(y, m - 1, d)
 }
 
-function barStyle(startDay: number, days: number, opacity: number) {
-  const width = Math.max(days * DAY_WIDTH, MIN_BAR_WIDTH)
-  return {
-    left: startDay * DAY_WIDTH,
-    width,
-    opacity: Math.max(opacity, 0.15),
-  }
+function mondayIdx(date: Date): number {
+  return (getDay(date) + 6) % 7
 }
 
-export function TrialTimeline({ data }: { data: TrialCalendarData }) {
-  const navigate = useNavigate()
-  const containerRef = useRef<HTMLDivElement>(null)
+function getMonthWeeks(month: Date): (Date | null)[][] {
+  const first = startOfMonth(month)
+  const last = endOfMonth(month)
+  const weeks: (Date | null)[][] = []
+  let cursor = addDays(first, -mondayIdx(first))
 
-  const rangeStart = parseDate(data.range.start)
-  const rangeEnd = parseDate(data.range.end)
-  const totalDays = differenceInCalendarDays(rangeEnd, rangeStart)
-  const totalWidth = totalDays * DAY_WIDTH
-
-  const months = useMemo(
-    () => eachMonthOfInterval({ start: rangeStart, end: rangeEnd }),
-    [data.range.start, data.range.end]
-  )
-
-  const weeks = useMemo(
-    () => eachWeekOfInterval({ start: rangeStart, end: rangeEnd }, { weekStartsOn: 1 }),
-    [data.range.start, data.range.end]
-  )
-
-  const today = new Date()
-  const todayOffset = differenceInCalendarDays(today, rangeStart)
-  const showToday = todayOffset >= 0 && todayOffset <= totalDays
-
-  const trialRows = data.trials.length
-  const blockingRows = data.blocking_events.length
-  const totalRows = trialRows + blockingRows
-  const gridHeight = HEADER_HEIGHT + totalRows * ROW_HEIGHT + (blockingRows > 0 ? 1 : 0)
-
-  function dayOffset(dateStr: string): number {
-    return differenceInCalendarDays(parseDate(dateStr), rangeStart)
+  while (true) {
+    const week: (Date | null)[] = []
+    for (let i = 0; i < 7; i++) {
+      if (cursor.getMonth() === month.getMonth() && cursor.getFullYear() === month.getFullYear()) {
+        week.push(new Date(cursor))
+      } else {
+        week.push(null)
+      }
+      cursor = addDays(cursor, 1)
+    }
+    weeks.push(week)
+    if (isAfter(cursor, last)) break
   }
 
-  return (
-    <div className="border bg-card overflow-x-auto" ref={containerRef}>
-      <div className="relative" style={{ width: totalWidth, height: gridHeight }}>
-        {/* Month backgrounds (alternating) */}
-        {months.map((month, i) => {
-          const mStart = month < rangeStart ? rangeStart : month
-          const mEnd = endOfMonth(month) > rangeEnd ? rangeEnd : endOfMonth(month)
-          const left = differenceInCalendarDays(mStart, rangeStart) * DAY_WIDTH
-          const width = (differenceInCalendarDays(mEnd, mStart) + 1) * DAY_WIDTH
-          return (
-            <div
-              key={i}
-              className="absolute top-0"
-              style={{
-                left,
-                width,
-                height: gridHeight,
-                backgroundColor: i % 2 === 0 ? "transparent" : "var(--muted)",
-                opacity: 0.3,
-              }}
-            />
-          )
-        })}
+  return weeks
+}
 
-        {/* Weekend shading */}
-        {Array.from({ length: totalDays }, (_, i) => {
-          const day = addDays(rangeStart, i)
-          if (!isWeekend(day)) return null
-          return (
-            <div
-              key={`we-${i}`}
-              className="absolute top-0"
-              style={{
-                left: i * DAY_WIDTH,
-                width: DAY_WIDTH,
-                height: gridHeight,
-                backgroundColor: "var(--foreground)",
-                opacity: 0.03,
-              }}
-            />
-          )
-        })}
+function attyLabel(ids: number[], staffMap: Map<number, StaffMember>): string {
+  if (!ids.length) return ""
+  const s = staffMap.get(ids[0])
+  return s ? s.initials : ""
+}
 
-        {/* Month labels + week numbers header */}
-        {months.map((month, i) => {
-          const mStart = month < rangeStart ? rangeStart : month
-          const left = differenceInCalendarDays(mStart, rangeStart) * DAY_WIDTH
-          return (
-            <div
-              key={`mh-${i}`}
-              className="text-muted-foreground absolute text-[10px] font-medium"
-              style={{ left: left + 4, top: 4 }}
-            >
-              {format(month, "MMM yyyy")}
+function attyFullNames(ids: number[], staffMap: Map<number, StaffMember>): string {
+  return ids
+    .map((id) => {
+      const s = staffMap.get(id)
+      return s ? `${s.firstName} ${s.lastName}` : null
+    })
+    .filter(Boolean)
+    .join(", ")
+}
+
+interface EventSegment {
+  id: string
+  type: "trial" | "vacation" | "dot"
+  label: string
+  startCol: number
+  endCol: number
+  opacity: number
+  caseId?: number
+  eventId?: number
+  tooltipContent: React.ReactNode
+  lane: number
+}
+
+function buildWeekSegments(
+  week: (Date | null)[],
+  monthStart: Date,
+  monthEnd: Date,
+  trials: TrialItem[],
+  blockingEvents: BlockingEvent[],
+  staffMap: Map<number, StaffMember>,
+): { segments: EventSegment[]; laneCount: number } {
+  const dates = week.filter((d): d is Date => d !== null)
+  if (dates.length === 0) return { segments: [], laneCount: 0 }
+
+  const weekStart = dates[0]
+  const weekEnd = dates[dates.length - 1]
+  const segments: EventSegment[] = []
+
+  for (const trial of trials) {
+    const trialStart = parseDate(trial.trial_date)
+    const trialEnd = addDays(trialStart, Math.max((trial.trial_estimated_days ?? 1) - 1, 0))
+
+    const clipStart = trialStart < monthStart ? monthStart : trialStart
+    const clipEnd = trialEnd > monthEnd ? monthEnd : trialEnd
+    if (clipStart > weekEnd || clipEnd < weekStart) continue
+
+    const segStart = clipStart < weekStart ? weekStart : clipStart
+    const segEnd = clipEnd > weekEnd ? weekEnd : clipEnd
+
+    const shortName = trial.short_name || trial.case_name.split(" ")[0]
+    const initials = attyLabel(trial.attorney_ids, staffMap)
+    const label = initials ? `${shortName} (${initials})` : shortName
+    const attyNames = attyFullNames(trial.attorney_ids, staffMap)
+
+    segments.push({
+      id: `trial-${trial.case_id}-w${weekStart.getDate()}`,
+      type: "trial",
+      label,
+      startCol: mondayIdx(segStart),
+      endCol: mondayIdx(segEnd),
+      opacity: Math.max((trial.trial_likelihood ?? 50) / 100, 0.2),
+      caseId: trial.case_id,
+      tooltipContent: (
+        <div className="space-y-1">
+          <div className="font-semibold">{trial.case_name}</div>
+          <div className="text-muted-foreground text-xs">
+            <div>
+              Trial: {format(trialStart, "MMM d, yyyy")}
+              {trial.trial_estimated_days ? ` · ${trial.trial_estimated_days}d` : ""}
             </div>
-          )
-        })}
-        {weeks.map((week, i) => {
-          const left = differenceInCalendarDays(
-            week < rangeStart ? rangeStart : week,
-            rangeStart
-          ) * DAY_WIDTH
-          if (left < 0 || left > totalWidth) return null
-          return (
-            <div
-              key={`wk-${i}`}
-              className="text-muted-foreground/50 absolute text-[9px]"
-              style={{ left: left + 1, top: 20 }}
-            >
-              {format(week < rangeStart ? rangeStart : week, "d")}
-            </div>
-          )
-        })}
-
-        {/* Header bottom border */}
-        <div
-          className="border-border absolute w-full border-b"
-          style={{ top: HEADER_HEIGHT - 1 }}
-        />
-
-        {/* Today marker */}
-        {showToday && (
-          <div
-            className="absolute z-20"
-            style={{
-              left: todayOffset * DAY_WIDTH,
-              top: 0,
-              width: 1,
-              height: gridHeight,
-              borderLeft: "1.5px dashed var(--destructive)",
-            }}
-          >
-            <span
-              className="bg-destructive text-destructive-foreground absolute -top-0 -left-3 px-1 text-[8px] font-bold"
-              style={{ lineHeight: "14px" }}
-            >
-              today
-            </span>
+            {trial.jurisdiction_name && <div>{trial.jurisdiction_name}</div>}
+            {attyNames && <div>Atty: {attyNames}</div>}
+            <div>Status: {trial.status}</div>
+            <div>Likelihood: {trial.trial_likelihood ?? "?"}%</div>
           </div>
-        )}
+        </div>
+      ),
+      lane: 0,
+    })
+  }
 
-        {/* Trial bars */}
-        {data.trials.map((trial, i) => (
-          <TrialBar
-            key={`t-${trial.case_id}`}
-            trial={trial}
-            top={HEADER_HEIGHT + i * ROW_HEIGHT}
-            startDay={dayOffset(trial.trial_date)}
-            days={trial.trial_estimated_days ?? 1}
-            onNavigate={() => navigate(`/cases/${trial.case_id}`)}
-          />
-        ))}
+  for (const evt of blockingEvents) {
+    const evtStart = parseDate(evt.date)
+    const evtEnd = evt.end_date ? parseDate(evt.end_date) : evtStart
+    const isVacation = evt.event_type === "vacation"
 
-        {/* Separator between trials and blocking events */}
-        {blockingRows > 0 && (
-          <div
-            className="border-border absolute w-full border-b"
-            style={{ top: HEADER_HEIGHT + trialRows * ROW_HEIGHT }}
-          />
-        )}
+    const clipStart = evtStart < monthStart ? monthStart : evtStart
+    const clipEnd = evtEnd > monthEnd ? monthEnd : evtEnd
+    if (clipStart > weekEnd || clipEnd < weekStart) continue
 
-        {/* Blocking event bars */}
-        {data.blocking_events.map((event, i) => (
-          <BlockingBar
-            key={`b-${event.id}`}
-            event={event}
-            top={HEADER_HEIGHT + (trialRows + i) * ROW_HEIGHT + (blockingRows > 0 ? 1 : 0)}
-            startDay={dayOffset(event.date)}
-            days={
-              event.end_date
-                ? differenceInCalendarDays(parseDate(event.end_date), parseDate(event.date)) + 1
-                : 1
-            }
-          />
+    const segStart = clipStart < weekStart ? weekStart : clipStart
+    const segEnd = clipEnd > weekEnd ? weekEnd : clipEnd
+
+    if (isVacation) {
+      segments.push({
+        id: `vac-${evt.id}-w${weekStart.getDate()}`,
+        type: "vacation",
+        label: evt.description,
+        startCol: mondayIdx(segStart),
+        endCol: mondayIdx(segEnd),
+        opacity: 0.7,
+        eventId: evt.id,
+        tooltipContent: (
+          <div className="space-y-1">
+            <div className="font-semibold">{evt.description}</div>
+            <div className="text-muted-foreground text-xs">
+              {format(evtStart, "MMM d")}
+              {evt.end_date && ` – ${format(parseDate(evt.end_date), "MMM d, yyyy")}`}
+            </div>
+          </div>
+        ),
+        lane: 0,
+      })
+    } else {
+      segments.push({
+        id: `dot-${evt.id}`,
+        type: "dot",
+        label: "",
+        startCol: mondayIdx(segStart),
+        endCol: mondayIdx(segStart),
+        opacity: 1,
+        eventId: evt.id,
+        tooltipContent: (
+          <div className="space-y-1">
+            <div className="font-semibold">{evt.description}</div>
+            <div className="text-muted-foreground text-xs">
+              <div>{evt.event_type.replace(/_/g, " ")}</div>
+              <div>{format(evtStart, "MMM d, yyyy")}</div>
+            </div>
+          </div>
+        ),
+        lane: 0,
+      })
+    }
+  }
+
+  segments.sort((a, b) => {
+    if (a.type === "dot" && b.type !== "dot") return 1
+    if (a.type !== "dot" && b.type === "dot") return -1
+    return a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol)
+  })
+
+  const laneEnds: number[] = []
+  for (const seg of segments) {
+    let lane = -1
+    for (let i = 0; i < laneEnds.length; i++) {
+      if (laneEnds[i] < seg.startCol) {
+        lane = i
+        break
+      }
+    }
+    if (lane === -1) {
+      lane = laneEnds.length
+      laneEnds.push(-1)
+    }
+    seg.lane = lane
+    laneEnds[lane] = seg.endCol
+  }
+
+  return { segments, laneCount: laneEnds.length }
+}
+
+function MonthCard({
+  month,
+  trials,
+  blockingEvents,
+  staffMap,
+  onNavigateToCase,
+  onEditEvent,
+}: {
+  month: Date
+  trials: TrialItem[]
+  blockingEvents: BlockingEvent[]
+  staffMap: Map<number, StaffMember>
+  onNavigateToCase: (caseId: number) => void
+  onEditEvent: (eventId: number) => void
+}) {
+  const weeks = useMemo(() => getMonthWeeks(month), [month.getTime()])
+  const monthStart = startOfMonth(month)
+  const monthEnd = endOfMonth(month)
+
+  const weekData = useMemo(
+    () => weeks.map((week) => buildWeekSegments(week, monthStart, monthEnd, trials, blockingEvents, staffMap)),
+    [weeks, trials, blockingEvents, staffMap, monthStart.getTime(), monthEnd.getTime()],
+  )
+
+  return (
+    <div className="border bg-card p-2">
+      <div className="mb-1 text-[11px] font-semibold">{format(month, "MMMM yyyy")}</div>
+      <div className="grid grid-cols-7 text-center">
+        {DAY_HEADERS.map((d, i) => (
+          <div key={i} className="text-muted-foreground/60 text-[9px] font-medium leading-[14px]">
+            {d}
+          </div>
         ))}
       </div>
+      {weeks.map((week, wi) => (
+        <div key={wi}>
+          <div className="grid grid-cols-7 text-center">
+            {week.map((date, di) => (
+              <div
+                key={di}
+                className={`text-[10px] leading-[18px] ${
+                  date && isToday(date)
+                    ? "bg-destructive text-destructive-foreground font-bold"
+                    : di >= 5
+                      ? "text-muted-foreground/40"
+                      : "text-foreground"
+                } ${!date ? "text-transparent" : ""}`}
+              >
+                {date ? date.getDate() : ""}
+              </div>
+            ))}
+          </div>
+          <div
+            className="relative"
+            style={{ height: Math.max(weekData[wi].laneCount, 1) * LANE_HEIGHT }}
+          >
+            {weekData[wi].segments.map((seg) => {
+              if (seg.type === "dot") {
+                return (
+                  <Tooltip key={seg.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="absolute flex cursor-pointer items-center justify-center"
+                        style={{
+                          left: `${(seg.startCol / 7) * 100}%`,
+                          width: `${(1 / 7) * 100}%`,
+                          top: seg.lane * LANE_HEIGHT + 1,
+                          height: LANE_HEIGHT - 3,
+                        }}
+                        onClick={() => seg.eventId && onEditEvent(seg.eventId)}
+                      >
+                        <div
+                          style={{
+                            width: LANE_HEIGHT - 3,
+                            height: LANE_HEIGHT - 3,
+                            backgroundColor: "var(--destructive)",
+                          }}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className={`max-w-64 ${LIGHT_TIP}`}>
+                      {seg.tooltipContent}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              const span = seg.endCol - seg.startCol + 1
+              const color = seg.type === "trial" ? "var(--destructive)" : "var(--info)"
+
+              return (
+                <Tooltip key={seg.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="absolute flex cursor-pointer items-center overflow-hidden px-0.5 text-[8px] font-medium text-white"
+                      style={{
+                        left: `${(seg.startCol / 7) * 100}%`,
+                        width: `${(span / 7) * 100}%`,
+                        top: seg.lane * LANE_HEIGHT + 1,
+                        height: LANE_HEIGHT - 3,
+                        backgroundColor: color,
+                        opacity: seg.opacity,
+                      }}
+                      onClick={() => {
+                        if (seg.type === "trial" && seg.caseId) onNavigateToCase(seg.caseId)
+                        else if (seg.eventId) onEditEvent(seg.eventId)
+                      }}
+                    >
+                      <span className="truncate">{seg.label}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className={`max-w-64 ${LIGHT_TIP}`}>
+                    {seg.tooltipContent}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-function TrialBar({
-  trial,
-  top,
-  startDay,
-  days,
-  onNavigate,
+export function MonthCalendarGrid({
+  data,
+  months,
+  staffMap,
+  onEditEvent,
 }: {
-  trial: TrialItem
-  top: number
-  startDay: number
-  days: number
-  onNavigate: () => void
+  data: TrialCalendarData
+  months: Date[]
+  staffMap: Map<number, StaffMember>
+  onEditEvent: (eventId: number) => void
 }) {
-  const likelihood = trial.trial_likelihood ?? 50
-  const { left, width, opacity } = barStyle(startDay, days, likelihood / 100)
-  const label = [trial.short_name || trial.case_name.split(" ")[0], trial.jurisdiction_name]
-    .filter(Boolean)
-    .join(" · ")
-  const showLabelOutside = width < 60
+  const navigate = useNavigate()
+
+  const gridCols =
+    months.length <= 1
+      ? "grid-cols-1 max-w-sm mx-auto w-full"
+      : months.length <= 3
+        ? "grid-cols-3"
+        : months.length <= 6
+          ? "grid-cols-3"
+          : "grid-cols-4"
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className="absolute flex cursor-pointer items-center text-[10px] font-medium transition-shadow hover:z-10"
-          style={{
-            left,
-            top: top + 2,
-            height: ROW_HEIGHT - 4,
-          }}
-        >
-          <div
-            className="flex h-full items-center overflow-hidden px-1 text-white"
-            style={{
-              width,
-              backgroundColor: "var(--primary)",
-              opacity,
-              minWidth: MIN_BAR_WIDTH,
-            }}
-          >
-            {!showLabelOutside && <span className="truncate">{label}</span>}
-          </div>
-          {showLabelOutside && (
-            <span
-              className="text-muted-foreground ml-1 whitespace-nowrap"
-              style={{ opacity: Math.max(opacity, 0.4) }}
-            >
-              {label}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 space-y-2 p-3 text-sm" align="start">
-        <div className="font-semibold">{trial.case_name}</div>
-        <div className="text-muted-foreground space-y-1 text-xs">
-          <div>
-            Trial: {format(parseDate(trial.trial_date), "MMM d, yyyy")}
-            {trial.trial_estimated_days && ` · ${trial.trial_estimated_days}d`}
-          </div>
-          {trial.jurisdiction_name && <div>{trial.jurisdiction_name}</div>}
-          <div>Status: {trial.status}</div>
-          <div>Likelihood: {trial.trial_likelihood ?? "?"}%</div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full text-xs"
-          onClick={onNavigate}
-        >
-          View Case
-        </Button>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-function BlockingBar({
-  event,
-  top,
-  startDay,
-  days,
-}: {
-  event: BlockingEvent
-  top: number
-  startDay: number
-  days: number
-}) {
-  const { left, width } = barStyle(startDay, days, 1)
-  const isVacation = event.event_type === "vacation"
-  const showLabelOutside = width < 60
-
-  const bgStyle = isVacation
-    ? `repeating-linear-gradient(-45deg, var(--destructive), var(--destructive) 3px, transparent 3px, transparent 6px)`
-    : "var(--warning)"
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className="absolute flex cursor-pointer items-center text-[10px] font-medium transition-shadow hover:z-10"
-          style={{
-            left,
-            top: top + 2,
-            height: ROW_HEIGHT - 4,
-          }}
-        >
-          <div
-            className="flex h-full items-center overflow-hidden px-1"
-            style={{
-              width,
-              minWidth: MIN_BAR_WIDTH,
-              color: isVacation ? "var(--destructive-foreground)" : "var(--warning-foreground)",
-              background: bgStyle,
-              opacity: 0.7,
-            }}
-          >
-            {!showLabelOutside && <span className="truncate">{event.description}</span>}
-          </div>
-          {showLabelOutside && (
-            <span className="text-muted-foreground ml-1 whitespace-nowrap opacity-70">
-              {event.description}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56 space-y-1 p-3 text-sm" align="start">
-        <div className="font-semibold">{event.description}</div>
-        <div className="text-muted-foreground text-xs">
-          <div>Type: {event.event_type}</div>
-          <div>
-            {format(parseDate(event.date), "MMM d, yyyy")}
-            {event.end_date && ` – ${format(parseDate(event.end_date), "MMM d, yyyy")}`}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+    <TooltipProvider delayDuration={200}>
+      <div className={`grid gap-3 ${gridCols}`}>
+        {months.map((month) => (
+          <MonthCard
+            key={format(month, "yyyy-MM")}
+            month={month}
+            trials={data.trials}
+            blockingEvents={data.blocking_events}
+            staffMap={staffMap}
+            onNavigateToCase={(id) => navigate(`/cases/${id}`)}
+            onEditEvent={onEditEvent}
+          />
+        ))}
+      </div>
+    </TooltipProvider>
   )
 }
