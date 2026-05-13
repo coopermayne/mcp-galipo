@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import Markdown from "react-markdown"
+import { AiMarkdown } from "@/components/common/ai-markdown"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { SentIcon, Loading03Icon } from "@hugeicons/core-free-icons"
 import {
@@ -131,6 +131,7 @@ export function AiChatSheet({
             <MessageBubble
               key={i}
               message={msg}
+              isStreaming={isStreaming && i === messages.length - 1 && msg.role === "assistant"}
               renderToolIndicator={renderToolIndicator}
             />
           ))}
@@ -180,9 +181,11 @@ export function AiChatSheet({
 
 function MessageBubble({
   message,
+  isStreaming,
   renderToolIndicator,
 }: {
   message: ChatMessage
+  isStreaming?: boolean
   renderToolIndicator?: (tool: ToolActivity) => React.ReactNode
 }) {
   const isUser = message.role === "user"
@@ -214,7 +217,7 @@ function MessageBubble({
             </div>
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none break-words">
-              <Markdown>{message.content}</Markdown>
+              <AiMarkdown isStreaming={isStreaming}>{message.content}</AiMarkdown>
             </div>
           )
         )}
