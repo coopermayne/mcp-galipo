@@ -79,6 +79,7 @@ export type UpdateCaseData = Partial<CreateCaseData> & {
   notes?: string
   trial_likelihood?: number | null
   trial_likelihood_note?: string | null
+  trial_estimated_days?: number | null
 }
 
 export async function updateCase(

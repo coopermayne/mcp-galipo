@@ -90,16 +90,22 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
                 {caseNumber && <InfoRow label="Case #" value={caseNumber} />}
                 <InfoRow label="Date of Injury" value={formatDate(caseData.date_of_injury)} />
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-muted-foreground shrink-0">Trial Date</span>
+                  <span className="text-xs text-muted-foreground shrink-0">Trial</span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-right truncate">{formatDate(caseData.trial_date)}</span>
-                    {caseData.trial_likelihood != null && (
-                      <TrialLikelihood
-                        caseId={caseData.id}
-                        likelihood={caseData.trial_likelihood}
-                        note={caseData.trial_likelihood_note}
-                        compact
-                      />
+                    {caseData.trial_date && (
+                      <>
+                        <TrialLikelihood
+                          caseId={caseData.id}
+                          likelihood={caseData.trial_likelihood}
+                          note={caseData.trial_likelihood_note}
+                          compact
+                        />
+                        <span className="text-muted-foreground text-[10px]">·</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {caseData.trial_estimated_days ?? 7}d
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
