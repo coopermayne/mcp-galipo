@@ -136,6 +136,24 @@ def register_case_routes(mcp):
             return JSONResponse({"success": True})
         return api_error("Case not found", "NOT_FOUND", 404)
 
+    @mcp.custom_route("/api/v1/cases/{case_id}/confirm-trial-date", methods=["POST"])
+    async def api_confirm_trial_date(request):
+        """Confirm a proposed trial date — sets trial_date and clears proposed list."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        body = await request.json()
+        confirmed_date = body.get("confirmed_date")
+        if not confirmed_date:
+            return api_error("confirmed_date is required", "VALIDATION_ERROR", 400)
+        try:
+            result = await asyncio.to_thread(db.confirm_trial_date, case_id, confirmed_date)
+        except Exception as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+        if not result:
+            return api_error("Case not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True, "case": result})
+
     # =========================================================================
     # Case Staff Assignments (Attorneys & Paralegals)
     # =========================================================================

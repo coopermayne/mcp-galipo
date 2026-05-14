@@ -23,6 +23,7 @@ export interface CaseListItem {
   paralegal_ids: number[] | null
   date_of_injury: string | null
   trial_date: string | null
+  proposed_trial_dates: string[] | null
   trial_likelihood: number | null
   trial_likelihood_note: string | null
   trial_estimated_days: number | null
@@ -48,6 +49,7 @@ export interface CaseDetail {
   result: string | null
   date_of_injury: string | null
   trial_date: string | null
+  proposed_trial_dates: string[] | null
   trial_likelihood: number | null
   trial_likelihood_note: string | null
   trial_estimated_days: number | null

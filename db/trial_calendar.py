@@ -83,7 +83,51 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 "jurisdiction_name": r.jurisdiction_name,
                 "case_number": r.case_number,
                 "judge_names": r.judge_names,
+                "proposed": False,
             })
+
+        proposed_stmt = (
+            select(
+                Case.id.label("case_id"),
+                Case.case_name,
+                Case.short_name,
+                Case.color,
+                Case.status,
+                Case.trial_estimated_days,
+                Case.trial_likelihood,
+                Case.attorney_ids,
+                Case.proposed_trial_dates,
+                jurisdiction_sq,
+                case_number_sq,
+                judge_names_sq,
+            )
+            .where(
+                Case.proposed_trial_dates.isnot(None),
+                Case.status != "Closed",
+            )
+        )
+        proposed_rows = session.execute(proposed_stmt).fetchall()
+
+        for r in proposed_rows:
+            for d in (r.proposed_trial_dates or []):
+                if range_start <= d <= range_end:
+                    trials.append({
+                        "case_id": r.case_id,
+                        "case_name": r.case_name,
+                        "short_name": r.short_name,
+                        "color": r.color,
+                        "status": r.status,
+                        "trial_date": d.isoformat(),
+                        "trial_estimated_days": r.trial_estimated_days,
+                        "trial_likelihood": r.trial_likelihood,
+                        "attorney_ids": r.attorney_ids or [],
+                        "jurisdiction_name": r.jurisdiction_name,
+                        "case_number": r.case_number,
+                        "judge_names": r.judge_names,
+                        "proposed": True,
+                    })
+
+        trials.sort(key=lambda t: t["trial_date"] or "")
 
         event_stmt = (
             select(Event)
