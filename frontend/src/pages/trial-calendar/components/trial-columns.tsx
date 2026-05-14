@@ -9,6 +9,7 @@ import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { getAvatarStyleById } from "@/lib/badge-colors"
+import { getEventTypeLabel, getEventTypeColor } from "@/lib/event-types"
 import { updateCase } from "@/services/cases"
 import {
   Popover,
@@ -37,14 +38,6 @@ function getLikelihoodColor(value: number): string {
   if (value <= 30) return "text-success"
   if (value <= 60) return "text-warning-foreground"
   return "text-destructive"
-}
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  vacation: "Vacation",
-  hearing: "Hearing",
-  oral_argument: "Oral Argument",
-  conference: "Conference",
-  other: "Event",
 }
 
 function DurationEditCell({ caseId, days }: { caseId: number; days: number | null }) {
@@ -280,14 +273,14 @@ export function getTrialColumns(options: {
           )
         }
         const evt = row.original.event
-        const typeLabel = EVENT_TYPE_LABELS[evt.event_type] ?? evt.event_type
         return (
           <div className="flex items-center gap-2">
             <Badge
-              variant={evt.event_type === "vacation" ? "secondary" : "outline"}
-              className="text-[10px] px-1.5 py-0 font-normal"
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 font-normal border-transparent text-white"
+              style={{ backgroundColor: getEventTypeColor(evt.event_type) }}
             >
-              {typeLabel}
+              {getEventTypeLabel(evt.event_type)}
             </Badge>
             <span className="text-muted-foreground">{evt.description}</span>
           </div>

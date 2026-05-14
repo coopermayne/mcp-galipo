@@ -31,15 +31,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { updateEvent, deleteEvent } from "@/services/events"
+import { EVENT_TYPES } from "@/lib/event-types"
 import type { BlockingEvent } from "@/services/trial-calendar"
-
-const EVENT_TYPES = [
-  { value: "vacation", label: "Vacation" },
-  { value: "oral_argument", label: "Oral Argument" },
-  { value: "hearing", label: "Hearing" },
-  { value: "conference", label: "Conference" },
-  { value: "other", label: "Other" },
-]
 
 interface Props {
   event: BlockingEvent | null

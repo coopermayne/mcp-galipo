@@ -135,7 +135,7 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
         event_stmt = (
             select(Event)
             .where(
-                Event.event_type.isnot(None),
+                Event.blocks_calendar.is_(True),
                 Event.date >= range_start,
                 Event.date <= range_end,
             )
@@ -212,8 +212,6 @@ def find_available_trial_slots(
             d += datetime.timedelta(days=1)
 
     for evt in cal_data["blocking_events"]:
-        if evt["event_type"] != "vacation":
-            continue
         e_start = datetime.date.fromisoformat(evt["date"])
         e_end = (
             datetime.date.fromisoformat(evt["end_date"])
