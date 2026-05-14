@@ -342,6 +342,19 @@ def _render_week_row(week: dict, today: datetime.date, open_days: set[str]) -> s
     )
 
 
+def _group_rows_by_month(week_rows: list[dict]) -> list[list[dict]]:
+    """Group week rows by month. A week belongs to the month of its Wednesday."""
+    groups: list[list[dict]] = []
+    current_month = -1
+    for row in week_rows:
+        mid = row["days"][2]  # Wednesday
+        if mid.month != current_month:
+            current_month = mid.month
+            groups.append([])
+        groups[-1].append(row)
+    return groups
+
+
 def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
     now = datetime.datetime.now(LA)
     today = now.date()
@@ -363,12 +376,7 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
 
     range_label = f"{range_start.strftime('%b %Y')} – {range_end.strftime('%b %Y')}"
 
-    header = (
-        f'<div class="hdr">'
-        f'<div class="title">Trial Calendar</div>'
-        f'<div class="meta">{date_str} &middot; {range_label}</div>'
-        f'</div>'
-    )
+    month_groups = _group_rows_by_month(week_rows)
 
     day_header_cells = ""
     for i, d in enumerate(DAY_HEADERS):
@@ -382,11 +390,30 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
         f'</div>'
     )
 
-    rows_html = ""
-    for week in week_rows:
-        rows_html += _render_week_row(week, today, open_days)
+    pages_html = ""
+    for page_idx in range(0, len(month_groups), 4):
+        chunk = month_groups[page_idx:page_idx + 4]
+        is_last = page_idx + 4 >= len(month_groups)
 
-    legend = _legend()
+        if page_idx == 0:
+            header = (
+                f'<div class="hdr">'
+                f'<div class="title">Trial Calendar</div>'
+                f'<div class="meta">{date_str} &middot; {range_label}</div>'
+                f'</div>'
+            )
+            pages_html += header
+            pages_html += _legend()
+
+        rows_html = ""
+        for month_rows in chunk:
+            for row in month_rows:
+                rows_html += _render_week_row(row, today, open_days)
+
+        pages_html += f'<div class="calendar">{day_header_row}{rows_html}</div>'
+
+        if not is_last:
+            pages_html += '<div class="page-break"></div>'
 
     return f"""<!DOCTYPE html>
 <html>
@@ -395,12 +422,7 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
 <style>{_get_css()}</style>
 </head>
 <body>
-{header}
-{legend}
-<div class="calendar">
-{day_header_row}
-{rows_html}
-</div>
+{pages_html}
 </body>
 </html>"""
 
@@ -417,7 +439,7 @@ def _legend() -> str:
 def _get_css() -> str:
     return f"""
 @page {{
-  size: letter landscape;
+  size: letter portrait;
   margin: 0.35in 0.35in 0.3in 0.35in;
 }}
 
@@ -598,5 +620,13 @@ body {{
   font-weight: 500;
   line-height: 1;
   color: #fff;
+}}
+
+.page-break {{
+  page-break-after: always;
+}}
+
+.calendar + .calendar {{
+  margin-top: 4pt;
 }}
 """

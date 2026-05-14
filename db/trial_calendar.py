@@ -20,7 +20,7 @@ def _add_months(d: datetime.date, months: int) -> datetime.date:
 def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
     """Get trial calendar data: trials and blocking events within a date range."""
     today = datetime.date.today()
-    range_start = _add_months(today, -months_behind)
+    range_start = _add_months(today, -months_behind) if months_behind > 0 else today
     range_end = _add_months(today, months_ahead)
 
     with SessionLocal() as session:

@@ -31,7 +31,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 type View = "calendar" | "table"
 
 const MONTHS_AHEAD = 49
-const MONTHS_BEHIND = 1
+const MONTHS_BEHIND = 0
 
 export default function TrialCalendarPage() {
   const [vacationOpen, setVacationOpen] = useState(false)
