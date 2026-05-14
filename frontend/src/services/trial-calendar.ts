@@ -9,6 +9,7 @@ export interface TrialItem {
   trial_date: string
   trial_estimated_days: number | null
   trial_likelihood: number | null
+  trial_likelihood_note: string | null
   attorney_ids: number[]
   jurisdiction_name: string | null
   case_number: string | null
@@ -40,6 +41,36 @@ export async function getTrialCalendar(
     months_behind: String(monthsBehind),
   })
   const res = await apiFetch(`/api/v1/trial-calendar?${params}`)
+  return res.json()
+}
+
+export interface TrialSlot {
+  start_date: string
+  end_date: string
+  weekdays: number
+}
+
+export interface TrialSlotsResult {
+  slots: TrialSlot[]
+  search_range: { start: string; end: string }
+  total_found: number
+}
+
+export async function findTrialSlots(params: {
+  estimated_days: number
+  months_ahead?: number
+  earliest_date?: string
+  latest_date?: string
+  max_results?: number
+}): Promise<TrialSlotsResult> {
+  const sp = new URLSearchParams({
+    estimated_days: String(params.estimated_days),
+  })
+  if (params.months_ahead) sp.set("months_ahead", String(params.months_ahead))
+  if (params.earliest_date) sp.set("earliest_date", params.earliest_date)
+  if (params.latest_date) sp.set("latest_date", params.latest_date)
+  if (params.max_results) sp.set("max_results", String(params.max_results))
+  const res = await apiFetch(`/api/v1/trial-calendar/slots?${sp}`)
   return res.json()
 }
 

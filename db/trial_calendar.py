@@ -53,6 +53,7 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 Case.trial_date,
                 Case.trial_estimated_days,
                 Case.trial_likelihood,
+                Case.trial_likelihood_note,
                 Case.attorney_ids,
                 jurisdiction_sq,
                 case_number_sq,
@@ -79,6 +80,7 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 "trial_date": r.trial_date.isoformat() if r.trial_date else None,
                 "trial_estimated_days": r.trial_estimated_days,
                 "trial_likelihood": r.trial_likelihood,
+                "trial_likelihood_note": r.trial_likelihood_note,
                 "attorney_ids": r.attorney_ids or [],
                 "jurisdiction_name": r.jurisdiction_name,
                 "case_number": r.case_number,
@@ -158,4 +160,106 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
             "start": range_start.isoformat(),
             "end": range_end.isoformat(),
         },
+    }
+
+
+def _add_weekdays(start: datetime.date, weekdays: int) -> datetime.date:
+    remaining = weekdays - 1
+    current = start
+    while remaining > 0:
+        current += datetime.timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+    return current
+
+
+def find_available_trial_slots(
+    estimated_days: int,
+    months_ahead: int = 6,
+    earliest_date: str | None = None,
+    latest_date: str | None = None,
+    max_results: int = 10,
+) -> dict:
+    """Find available weekday blocks for a trial of the given duration."""
+    today = datetime.date.today()
+    range_start = (
+        max(datetime.date.fromisoformat(earliest_date), today + datetime.timedelta(days=1))
+        if earliest_date
+        else today + datetime.timedelta(days=1)
+    )
+    range_end = (
+        datetime.date.fromisoformat(latest_date)
+        if latest_date
+        else _add_months(today, months_ahead)
+    )
+
+    cal_data = get_trial_calendar(
+        months_ahead=max(months_ahead, 12),
+        months_behind=0,
+    )
+
+    blocked: set[datetime.date] = set()
+
+    for trial in cal_data["trials"]:
+        t_start = datetime.date.fromisoformat(trial["trial_date"])
+        t_days = max(trial["trial_estimated_days"] or 1, 1)
+        t_end = _add_weekdays(t_start, t_days)
+        d = t_start
+        while d <= t_end:
+            if d.weekday() < 5:
+                blocked.add(d)
+            d += datetime.timedelta(days=1)
+
+    for evt in cal_data["blocking_events"]:
+        if evt["event_type"] != "vacation":
+            continue
+        e_start = datetime.date.fromisoformat(evt["date"])
+        e_end = (
+            datetime.date.fromisoformat(evt["end_date"])
+            if evt.get("end_date")
+            else e_start
+        )
+        d = e_start
+        while d <= e_end:
+            if d.weekday() < 5:
+                blocked.add(d)
+            d += datetime.timedelta(days=1)
+
+    slots: list[dict] = []
+    d = range_start
+    while d <= range_end and len(slots) < max_results:
+        if d.weekday() >= 5 or d in blocked:
+            d += datetime.timedelta(days=1)
+            continue
+
+        end = _add_weekdays(d, estimated_days)
+        if end > range_end:
+            break
+
+        span_blocked = False
+        check = d
+        while check <= end:
+            if check.weekday() < 5 and check in blocked:
+                span_blocked = True
+                break
+            check += datetime.timedelta(days=1)
+
+        if not span_blocked:
+            slots.append({
+                "start_date": d.isoformat(),
+                "end_date": end.isoformat(),
+                "weekdays": estimated_days,
+            })
+            d = _add_weekdays(d, 1)
+            d += datetime.timedelta(days=1)
+        else:
+            d += datetime.timedelta(days=1)
+
+    return {
+        "slots": slots,
+        "search_range": {
+            "start": range_start.isoformat(),
+            "end": range_end.isoformat(),
+        },
+        "total_found": len(slots),
     }

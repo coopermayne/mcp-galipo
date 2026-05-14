@@ -4,7 +4,7 @@ import asyncio
 from fastapi.responses import JSONResponse, Response
 
 import auth
-from db.trial_calendar import get_trial_calendar
+from db.trial_calendar import get_trial_calendar, find_available_trial_slots
 from db.users import get_all_users
 from services.trial_calendar_pdf import generate_trial_calendar_pdf
 from services.trial_calendar_visual_pdf import generate_visual_calendar_pdf
@@ -52,3 +52,25 @@ def register_trial_calendar_routes(mcp):
             media_type="application/pdf",
             headers={"Content-Disposition": 'attachment; filename="trial-calendar.pdf"'},
         )
+
+    @mcp.custom_route("/api/v1/trial-calendar/slots", methods=["GET"])
+    async def api_find_trial_slots(request):
+        """Find available trial slots."""
+        if err := auth.require_auth(request):
+            return err
+
+        estimated_days = int(request.query_params.get("estimated_days", "5"))
+        months_ahead = int(request.query_params.get("months_ahead", "6"))
+        earliest_date = request.query_params.get("earliest_date")
+        latest_date = request.query_params.get("latest_date")
+        max_results = int(request.query_params.get("max_results", "10"))
+
+        result = await asyncio.to_thread(
+            find_available_trial_slots,
+            estimated_days=estimated_days,
+            months_ahead=months_ahead,
+            earliest_date=earliest_date or None,
+            latest_date=latest_date or None,
+            max_results=max_results,
+        )
+        return JSONResponse(result)

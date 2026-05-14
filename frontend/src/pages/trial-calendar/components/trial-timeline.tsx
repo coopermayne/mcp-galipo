@@ -4,10 +4,11 @@ import {
   startOfMonth,
   endOfMonth,
   addDays,
-  getDay,
+  differenceInCalendarDays,
   format,
-  isToday,
-  isAfter,
+  isMonday,
+  isSameDay,
+  getDay,
 } from "date-fns"
 import {
   Tooltip,
@@ -18,17 +19,9 @@ import {
 import type { TrialCalendarData, TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 
-const LANE_HEIGHT = 15
-const DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"]
-const LIGHT_TIP = "bg-popover text-popover-foreground border shadow-md [&>svg]:hidden"
-
 function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number)
   return new Date(y, m - 1, d)
-}
-
-function mondayIdx(date: Date): number {
-  return (getDay(date) + 6) % 7
 }
 
 function addWeekdays(start: Date, weekdays: number): Date {
@@ -42,322 +35,19 @@ function addWeekdays(start: Date, weekdays: number): Date {
   return current
 }
 
-function getMonthWeeks(month: Date): (Date | null)[][] {
-  const first = startOfMonth(month)
-  const last = endOfMonth(month)
-  const weeks: (Date | null)[][] = []
-  let cursor = addDays(first, -mondayIdx(first))
+const LIGHT_TIP = "bg-popover text-popover-foreground border shadow-md [&>svg]:hidden"
 
-  while (true) {
-    const week: (Date | null)[] = []
-    for (let i = 0; i < 7; i++) {
-      if (cursor.getMonth() === month.getMonth() && cursor.getFullYear() === month.getFullYear()) {
-        week.push(new Date(cursor))
-      } else {
-        week.push(null)
-      }
-      cursor = addDays(cursor, 1)
-    }
-    weeks.push(week)
-    if (isAfter(cursor, last)) break
-  }
-
-  return weeks
-}
-
-function attyLabel(ids: number[], staffMap: Map<number, StaffMember>): string {
-  if (!ids.length) return ""
-  const s = staffMap.get(ids[0])
-  return s ? s.initials : ""
-}
-
-function attyFullNames(ids: number[], staffMap: Map<number, StaffMember>): string {
-  return ids
-    .map((id) => {
-      const s = staffMap.get(id)
-      return s ? `${s.firstName} ${s.lastName}` : null
-    })
-    .filter(Boolean)
-    .join(", ")
-}
-
-interface EventSegment {
+interface LaneItem {
   id: string
-  type: "trial" | "vacation" | "dot"
-  label: string
-  startCol: number
-  endCol: number
-  opacity: number
-  caseId?: number
-  eventId?: number
-  tooltipContent: React.ReactNode
+  type: "trial" | "vacation" | "event"
+  startDay: number
+  endDay: number
   lane: number
+  trial?: TrialItem
+  event?: BlockingEvent
 }
 
-function buildWeekSegments(
-  week: (Date | null)[],
-  monthStart: Date,
-  monthEnd: Date,
-  trials: TrialItem[],
-  blockingEvents: BlockingEvent[],
-  staffMap: Map<number, StaffMember>,
-): { segments: EventSegment[]; laneCount: number } {
-  const dates = week.filter((d): d is Date => d !== null)
-  if (dates.length === 0) return { segments: [], laneCount: 0 }
-
-  const weekStart = dates[0]
-  const weekEnd = dates[dates.length - 1]
-  const segments: EventSegment[] = []
-
-  for (const trial of trials) {
-    const trialStart = parseDate(trial.trial_date)
-    const trialEnd = addWeekdays(trialStart, Math.max(trial.trial_estimated_days ?? 1, 1))
-
-    const clipStart = trialStart < monthStart ? monthStart : trialStart
-    const clipEnd = trialEnd > monthEnd ? monthEnd : trialEnd
-    if (clipStart > weekEnd || clipEnd < weekStart) continue
-
-    const segStart = clipStart < weekStart ? weekStart : clipStart
-    const segEnd = clipEnd > weekEnd ? weekEnd : clipEnd
-
-    const shortName = trial.short_name || trial.case_name.split(" ")[0]
-    const initials = attyLabel(trial.attorney_ids, staffMap)
-    const label = initials ? `${shortName} (${initials})` : shortName
-    const attyNames = attyFullNames(trial.attorney_ids, staffMap)
-
-    segments.push({
-      id: `trial-${trial.case_id}-w${weekStart.getDate()}`,
-      type: "trial",
-      label,
-      startCol: mondayIdx(segStart),
-      endCol: mondayIdx(segEnd),
-      opacity: Math.max((trial.trial_likelihood ?? 50) / 100, 0.2),
-      caseId: trial.case_id,
-      tooltipContent: (
-        <div className="space-y-1">
-          <div className="font-semibold">{trial.case_name}</div>
-          <div className="text-muted-foreground text-xs">
-            <div>
-              Trial: {format(trialStart, "MMM d, yyyy")}
-              {trial.trial_estimated_days ? ` · ${trial.trial_estimated_days} weekdays` : ""}
-            </div>
-            {trial.jurisdiction_name && <div>{trial.jurisdiction_name}</div>}
-            {attyNames && <div>Atty: {attyNames}</div>}
-            <div>Status: {trial.status}</div>
-            <div>Likelihood: {trial.trial_likelihood ?? "?"}%</div>
-          </div>
-        </div>
-      ),
-      lane: 0,
-    })
-  }
-
-  for (const evt of blockingEvents) {
-    const evtStart = parseDate(evt.date)
-    const evtEnd = evt.end_date ? parseDate(evt.end_date) : evtStart
-    const isVacation = evt.event_type === "vacation"
-
-    const clipStart = evtStart < monthStart ? monthStart : evtStart
-    const clipEnd = evtEnd > monthEnd ? monthEnd : evtEnd
-    if (clipStart > weekEnd || clipEnd < weekStart) continue
-
-    const segStart = clipStart < weekStart ? weekStart : clipStart
-    const segEnd = clipEnd > weekEnd ? weekEnd : clipEnd
-
-    if (isVacation) {
-      segments.push({
-        id: `vac-${evt.id}-w${weekStart.getDate()}`,
-        type: "vacation",
-        label: evt.description,
-        startCol: mondayIdx(segStart),
-        endCol: mondayIdx(segEnd),
-        opacity: 0.7,
-        eventId: evt.id,
-        tooltipContent: (
-          <div className="space-y-1">
-            <div className="font-semibold">{evt.description}</div>
-            <div className="text-muted-foreground text-xs">
-              {format(evtStart, "MMM d")}
-              {evt.end_date && ` – ${format(parseDate(evt.end_date), "MMM d, yyyy")}`}
-            </div>
-          </div>
-        ),
-        lane: 0,
-      })
-    } else {
-      segments.push({
-        id: `dot-${evt.id}`,
-        type: "dot",
-        label: "",
-        startCol: mondayIdx(segStart),
-        endCol: mondayIdx(segStart),
-        opacity: 1,
-        eventId: evt.id,
-        tooltipContent: (
-          <div className="space-y-1">
-            <div className="font-semibold">{evt.description}</div>
-            <div className="text-muted-foreground text-xs">
-              <div>{evt.event_type.replace(/_/g, " ")}</div>
-              <div>{format(evtStart, "MMM d, yyyy")}</div>
-            </div>
-          </div>
-        ),
-        lane: 0,
-      })
-    }
-  }
-
-  segments.sort((a, b) => {
-    if (a.type === "dot" && b.type !== "dot") return 1
-    if (a.type !== "dot" && b.type === "dot") return -1
-    return a.startCol - b.startCol || (b.endCol - b.startCol) - (a.endCol - a.startCol)
-  })
-
-  const laneEnds: number[] = []
-  for (const seg of segments) {
-    let lane = -1
-    for (let i = 0; i < laneEnds.length; i++) {
-      if (laneEnds[i] < seg.startCol) {
-        lane = i
-        break
-      }
-    }
-    if (lane === -1) {
-      lane = laneEnds.length
-      laneEnds.push(-1)
-    }
-    seg.lane = lane
-    laneEnds[lane] = seg.endCol
-  }
-
-  return { segments, laneCount: laneEnds.length }
-}
-
-function MonthCard({
-  month,
-  trials,
-  blockingEvents,
-  staffMap,
-  onNavigateToCase,
-  onEditEvent,
-}: {
-  month: Date
-  trials: TrialItem[]
-  blockingEvents: BlockingEvent[]
-  staffMap: Map<number, StaffMember>
-  onNavigateToCase: (caseId: number) => void
-  onEditEvent: (eventId: number) => void
-}) {
-  const weeks = useMemo(() => getMonthWeeks(month), [month.getTime()])
-  const monthStart = startOfMonth(month)
-  const monthEnd = endOfMonth(month)
-
-  const weekData = useMemo(
-    () => weeks.map((week) => buildWeekSegments(week, monthStart, monthEnd, trials, blockingEvents, staffMap)),
-    [weeks, trials, blockingEvents, staffMap, monthStart.getTime(), monthEnd.getTime()],
-  )
-
-  return (
-    <div className="border bg-card p-2">
-      <div className="mb-1 text-[11px] font-semibold">{format(month, "MMMM yyyy")}</div>
-      <div className="grid grid-cols-7 text-center">
-        {DAY_HEADERS.map((d, i) => (
-          <div key={i} className="text-muted-foreground/60 text-[9px] font-medium leading-[14px]">
-            {d}
-          </div>
-        ))}
-      </div>
-      {weeks.map((week, wi) => (
-        <div key={wi}>
-          <div className="grid grid-cols-7 text-center">
-            {week.map((date, di) => (
-              <div
-                key={di}
-                className={`text-[10px] leading-[18px] ${
-                  date && isToday(date)
-                    ? "bg-destructive text-destructive-foreground font-bold"
-                    : di >= 5
-                      ? "text-muted-foreground/40"
-                      : "text-foreground"
-                } ${!date ? "text-transparent" : ""}`}
-              >
-                {date ? date.getDate() : ""}
-              </div>
-            ))}
-          </div>
-          <div
-            className="relative"
-            style={{ height: Math.max(weekData[wi].laneCount, 1) * LANE_HEIGHT }}
-          >
-            {weekData[wi].segments.map((seg) => {
-              if (seg.type === "dot") {
-                return (
-                  <Tooltip key={seg.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        className="absolute flex cursor-pointer items-center justify-center"
-                        style={{
-                          left: `${(seg.startCol / 7) * 100}%`,
-                          width: `${(1 / 7) * 100}%`,
-                          top: seg.lane * LANE_HEIGHT + 1,
-                          height: LANE_HEIGHT - 3,
-                        }}
-                        onClick={() => seg.eventId && onEditEvent(seg.eventId)}
-                      >
-                        <div
-                          style={{
-                            width: LANE_HEIGHT - 3,
-                            height: LANE_HEIGHT - 3,
-                            backgroundColor: "var(--destructive)",
-                          }}
-                        />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className={`max-w-64 ${LIGHT_TIP}`}>
-                      {seg.tooltipContent}
-                    </TooltipContent>
-                  </Tooltip>
-                )
-              }
-
-              const span = seg.endCol - seg.startCol + 1
-              const color = seg.type === "trial" ? "var(--destructive)" : "var(--info)"
-
-              return (
-                <Tooltip key={seg.id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      className="absolute flex cursor-pointer items-center overflow-hidden px-0.5 text-[8px] font-medium text-white"
-                      style={{
-                        left: `${(seg.startCol / 7) * 100}%`,
-                        width: `${(span / 7) * 100}%`,
-                        top: seg.lane * LANE_HEIGHT + 1,
-                        height: LANE_HEIGHT - 3,
-                        backgroundColor: color,
-                        opacity: seg.opacity,
-                      }}
-                      onClick={() => {
-                        if (seg.type === "trial" && seg.caseId) onNavigateToCase(seg.caseId)
-                        else if (seg.eventId) onEditEvent(seg.eventId)
-                      }}
-                    >
-                      <span className="truncate">{seg.label}</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className={`max-w-64 ${LIGHT_TIP}`}>
-                    {seg.tooltipContent}
-                  </TooltipContent>
-                </Tooltip>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export function MonthCalendarGrid({
+export function VerticalTimeline({
   data,
   months,
   staffMap,
@@ -370,29 +60,403 @@ export function MonthCalendarGrid({
 }) {
   const navigate = useNavigate()
 
-  const gridCols =
-    months.length <= 1
-      ? "grid-cols-1 max-w-sm mx-auto w-full"
-      : months.length <= 3
-        ? "grid-cols-3"
-        : months.length <= 6
-          ? "grid-cols-3"
-          : "grid-cols-4"
+  const rangeStart = startOfMonth(months[0])
+  const rangeEnd = endOfMonth(months[months.length - 1])
+  const totalDays = differenceInCalendarDays(rangeEnd, rangeStart) + 1
+
+  const dayHeight =
+    months.length <= 1 ? 20 : months.length <= 3 ? 8 : months.length <= 6 ? 5 : 3
+  const showDayLines = dayHeight >= 4
+  const totalHeight = totalDays * dayHeight
+
+  const { laneItems, laneCount } = useMemo(() => {
+    const rawItems: Array<{
+      id: string
+      type: "trial" | "vacation" | "event"
+      startDay: number
+      endDay: number
+      trial?: TrialItem
+      event?: BlockingEvent
+    }> = []
+
+    for (const trial of data.trials) {
+      const trialStart = parseDate(trial.trial_date)
+      const trialEnd = addWeekdays(
+        trialStart,
+        Math.max(trial.trial_estimated_days ?? 1, 1),
+      )
+      const startDay = Math.max(
+        differenceInCalendarDays(trialStart, rangeStart),
+        0,
+      )
+      const endDay = Math.min(
+        differenceInCalendarDays(trialEnd, rangeStart),
+        totalDays - 1,
+      )
+      if (startDay > totalDays - 1 || endDay < 0) continue
+      rawItems.push({
+        id: `trial-${trial.case_id}`,
+        type: "trial",
+        startDay,
+        endDay,
+        trial,
+      })
+    }
+
+    for (const evt of data.blocking_events) {
+      const evtStart = parseDate(evt.date)
+      const evtEnd = evt.end_date ? parseDate(evt.end_date) : evtStart
+      const startDay = Math.max(
+        differenceInCalendarDays(evtStart, rangeStart),
+        0,
+      )
+      const endDay = Math.min(
+        differenceInCalendarDays(evtEnd, rangeStart),
+        totalDays - 1,
+      )
+      if (startDay > totalDays - 1 || endDay < 0) continue
+      rawItems.push({
+        id: `evt-${evt.id}`,
+        type: evt.event_type === "vacation" ? "vacation" : "event",
+        startDay,
+        endDay,
+        event: evt,
+      })
+    }
+
+    rawItems.sort(
+      (a, b) =>
+        a.startDay - b.startDay ||
+        b.endDay - b.startDay - (a.endDay - a.startDay),
+    )
+
+    const laneEnds: number[] = []
+    const items: LaneItem[] = rawItems.map((item) => {
+      let lane = -1
+      for (let i = 0; i < laneEnds.length; i++) {
+        if (laneEnds[i] < item.startDay) {
+          lane = i
+          break
+        }
+      }
+      if (lane === -1) {
+        lane = laneEnds.length
+        laneEnds.push(-1)
+      }
+      laneEnds[lane] = item.endDay
+      return { ...item, lane }
+    })
+
+    return { laneItems: items, laneCount: laneEnds.length }
+  }, [data, rangeStart, totalDays])
+
+  const { weekLines, monthLabels, todayOffset } = useMemo(() => {
+    const weeks: { day: number; label: string }[] = []
+    const monthLbls: { day: number; label: string }[] = []
+    let today: number | null = null
+    const nowDate = new Date()
+    const todayDate = new Date(
+      nowDate.getFullYear(),
+      nowDate.getMonth(),
+      nowDate.getDate(),
+    )
+
+    let lastMonth = -1
+    for (let d = 0; d < totalDays; d++) {
+      const date = addDays(rangeStart, d)
+      if (isSameDay(date, todayDate)) today = d
+      if (date.getMonth() !== lastMonth) {
+        monthLbls.push({ day: d, label: format(date, "MMM yyyy") })
+        lastMonth = date.getMonth()
+      }
+      if (isMonday(date)) {
+        weeks.push({ day: d, label: format(date, "d") })
+      }
+    }
+
+    return { weekLines: weeks, monthLabels: monthLbls, todayOffset: today }
+  }, [rangeStart, totalDays])
+
+  const LANE_WIDTH =
+    months.length <= 1 ? 140 : months.length <= 3 ? 120 : 100
+  const GUTTER_WIDTH = 64
+  const timelineWidth = Math.max(laneCount * LANE_WIDTH, 300)
+
+  const attyLabel = (ids: number[]) => {
+    if (!ids.length) return ""
+    const s = staffMap.get(ids[0])
+    return s ? s.initials : ""
+  }
+
+  const attyFullNames = (ids: number[]) =>
+    ids
+      .map((id) => staffMap.get(id))
+      .filter(Boolean)
+      .map((s) => `${s!.firstName} ${s!.lastName}`)
+      .join(", ")
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className={`grid gap-3 ${gridCols}`}>
-        {months.map((month) => (
-          <MonthCard
-            key={format(month, "yyyy-MM")}
-            month={month}
-            trials={data.trials}
-            blockingEvents={data.blocking_events}
-            staffMap={staffMap}
-            onNavigateToCase={(id) => navigate(`/cases/${id}`)}
-            onEditEvent={onEditEvent}
-          />
-        ))}
+      <div
+        className="overflow-auto border"
+        style={{ maxHeight: "calc(100vh - 160px)" }}
+      >
+        <div className="relative flex" style={{ minHeight: totalHeight }}>
+          {/* Left gutter — date axis */}
+          <div
+            className="bg-card sticky left-0 z-20 flex-none border-r"
+            style={{ width: GUTTER_WIDTH, height: totalHeight }}
+          >
+            <div className="relative" style={{ height: totalHeight }}>
+              {monthLabels.map((ml, i) => (
+                <div
+                  key={`ml-${i}`}
+                  className="bg-muted/60 absolute left-0 right-0 border-b px-1.5 text-[10px] font-semibold"
+                  style={{
+                    top: ml.day * dayHeight,
+                    lineHeight: `${Math.max(dayHeight * 3, 18)}px`,
+                    height: Math.max(dayHeight * 3, 18),
+                    zIndex: 2,
+                  }}
+                >
+                  {ml.label}
+                </div>
+              ))}
+              {weekLines.map((wl, i) => (
+                <div
+                  key={`wl-${i}`}
+                  className="text-muted-foreground absolute right-1.5 text-[9px] leading-none"
+                  style={{ top: wl.day * dayHeight + 1 }}
+                >
+                  {wl.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline area */}
+          <div
+            className="relative flex-none"
+            style={{ width: timelineWidth, height: totalHeight }}
+          >
+            {/* Weekend shading */}
+            {dayHeight >= 5 &&
+              Array.from({ length: totalDays }, (_, d) => {
+                const date = addDays(rangeStart, d)
+                const dow = getDay(date)
+                if (dow !== 0 && dow !== 6) return null
+                return (
+                  <div
+                    key={`we-${d}`}
+                    className="absolute left-0 right-0 bg-muted/30"
+                    style={{ top: d * dayHeight, height: dayHeight }}
+                  />
+                )
+              })}
+
+            {/* Day gridlines */}
+            {showDayLines &&
+              Array.from({ length: totalDays }, (_, d) => (
+                <div
+                  key={`dl-${d}`}
+                  className="absolute left-0 right-0 border-b border-border/15"
+                  style={{ top: d * dayHeight }}
+                />
+              ))}
+
+            {/* Week gridlines */}
+            {weekLines.map((wl, i) => (
+              <div
+                key={`wg-${i}`}
+                className="absolute left-0 right-0 border-b border-border/50"
+                style={{ top: wl.day * dayHeight }}
+              />
+            ))}
+
+            {/* Month gridlines */}
+            {monthLabels.map((ml, i) => (
+              <div
+                key={`mg-${i}`}
+                className="absolute left-0 right-0 border-b border-border"
+                style={{ top: ml.day * dayHeight }}
+              />
+            ))}
+
+            {/* Today marker */}
+            {todayOffset !== null && (
+              <div
+                className="absolute left-0 right-0 z-30"
+                style={{ top: todayOffset * dayHeight }}
+              >
+                <div className="border-t-2 border-destructive" />
+                <span className="bg-destructive absolute -top-[10px] right-0 px-1 text-[8px] font-bold text-white">
+                  TODAY
+                </span>
+              </div>
+            )}
+
+            {/* Lane items */}
+            {laneItems.map((item) => {
+              const top = item.startDay * dayHeight
+              const height = Math.max(
+                (item.endDay - item.startDay + 1) * dayHeight,
+                dayHeight,
+              )
+              const left = item.lane * LANE_WIDTH + 4
+              const width = LANE_WIDTH - 8
+
+              if (item.type === "trial" && item.trial) {
+                const t = item.trial
+                const opacity = Math.max(
+                  (t.trial_likelihood ?? 50) / 100,
+                  0.25,
+                )
+                const color = t.color || "var(--destructive)"
+                const shortName =
+                  t.short_name || t.case_name.split(" ")[0]
+                const initials = attyLabel(t.attorney_ids)
+                const label = initials
+                  ? `${shortName} (${initials})`
+                  : shortName
+                const names = attyFullNames(t.attorney_ids)
+                const trialStart = parseDate(t.trial_date)
+
+                return (
+                  <Tooltip key={item.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="absolute z-10 cursor-pointer overflow-hidden border border-white/20 px-1 pt-0.5 text-left text-[9px] font-medium leading-tight text-white"
+                        style={{
+                          top,
+                          left,
+                          width,
+                          height,
+                          backgroundColor: color,
+                          opacity,
+                        }}
+                        onClick={() => navigate(`/cases/${t.case_id}`)}
+                      >
+                        <span className="line-clamp-3">{label}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      className={`max-w-64 ${LIGHT_TIP}`}
+                    >
+                      <div className="space-y-1">
+                        <div className="font-semibold">{t.case_name}</div>
+                        <div className="text-muted-foreground text-xs">
+                          <div>
+                            Trial: {format(trialStart, "MMM d, yyyy")}
+                            {t.trial_estimated_days
+                              ? ` · ${t.trial_estimated_days} weekdays`
+                              : ""}
+                          </div>
+                          {t.jurisdiction_name && (
+                            <div>{t.jurisdiction_name}</div>
+                          )}
+                          {names && <div>Atty: {names}</div>}
+                          <div>Status: {t.status}</div>
+                          <div>
+                            Likelihood: {t.trial_likelihood ?? "?"}%
+                          </div>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              if (item.type === "vacation" && item.event) {
+                const evt = item.event
+                const evtStart = parseDate(evt.date)
+                return (
+                  <Tooltip key={item.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="absolute z-10 cursor-pointer overflow-hidden border border-white/20 px-1 pt-0.5 text-left text-[9px] font-medium leading-tight text-white"
+                        style={{
+                          top,
+                          left,
+                          width,
+                          height,
+                          backgroundColor: "var(--info)",
+                          opacity: 0.7,
+                        }}
+                        onClick={() => onEditEvent(evt.id)}
+                      >
+                        <span className="line-clamp-3">
+                          {evt.description}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      className={`max-w-64 ${LIGHT_TIP}`}
+                    >
+                      <div className="space-y-1">
+                        <div className="font-semibold">
+                          {evt.description}
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          {format(evtStart, "MMM d")}
+                          {evt.end_date &&
+                            ` – ${format(parseDate(evt.end_date), "MMM d, yyyy")}`}
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              if (item.type === "event" && item.event) {
+                const evt = item.event
+                const evtStart = parseDate(evt.date)
+                const size = Math.max(dayHeight * 2, 12)
+                return (
+                  <Tooltip key={item.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="absolute z-10 flex cursor-pointer items-center justify-center"
+                        style={{
+                          top: top + dayHeight / 2 - size / 2,
+                          left: left + width / 2 - size / 2,
+                          width: size,
+                          height: size,
+                        }}
+                        onClick={() => onEditEvent(evt.id)}
+                      >
+                        <div
+                          style={{
+                            width: size,
+                            height: size,
+                            backgroundColor: "var(--destructive)",
+                          }}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      className={`max-w-64 ${LIGHT_TIP}`}
+                    >
+                      <div className="space-y-1">
+                        <div className="font-semibold">
+                          {evt.description}
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          <div>{evt.event_type.replace(/_/g, " ")}</div>
+                          <div>{format(evtStart, "MMM d, yyyy")}</div>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              return null
+            })}
+          </div>
+        </div>
       </div>
     </TooltipProvider>
   )
