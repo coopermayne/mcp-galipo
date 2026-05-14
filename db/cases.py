@@ -11,7 +11,7 @@ from sqlalchemy import select, func, literal_column, or_, cast, Integer, ARRAY a
 from sqlalchemy.orm import aliased
 
 from .session import SessionLocal
-from .validation import validate_case_status, validate_date_format
+from .validation import validate_case_status, validate_date_format, ValidationError
 from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
@@ -30,6 +30,8 @@ def _sv(val):
     """Serialize a single value to JSON-safe format."""
     if val is None:
         return None
+    if isinstance(val, list):
+        return [_sv(v) for v in val]
     if isinstance(val, (datetime.datetime, datetime.date, datetime.time)):
         return val.isoformat()
     if isinstance(val, UUID):
@@ -128,6 +130,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
                 Case.id, Case.case_name, Case.short_name, Case.status,
                 Case.print_code, Case.attorney_ids, Case.paralegal_ids,
                 Case.date_of_injury, Case.trial_date,
+                Case.proposed_trial_dates,
                 Case.trial_likelihood, Case.trial_likelihood_note,
                 Case.trial_estimated_days,
                 Case.claim_deadline, Case.complaint_deadline, Case.color,
@@ -177,6 +180,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "result": case.result,
             "date_of_injury": _sv(case.date_of_injury),
             "trial_date": _sv(case.trial_date),
+            "proposed_trial_dates": _sv(case.proposed_trial_dates),
             "trial_likelihood": case.trial_likelihood,
             "trial_likelihood_note": case.trial_likelihood_note,
             "trial_estimated_days": case.trial_estimated_days,
@@ -391,7 +395,8 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
     allowed_fields = [
         "case_name", "short_name", "status", "print_code",
         "case_summary", "result", "date_of_injury", "notes",
-        "trial_date", "trial_likelihood", "trial_likelihood_note",
+        "trial_date", "proposed_trial_dates",
+        "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "claim_deadline", "complaint_deadline",
     ]
 
@@ -409,6 +414,10 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
 
             if field == "status":
                 validate_case_status(value)
+            elif field == "proposed_trial_dates":
+                if isinstance(value, list):
+                    for d in value:
+                        validate_date_format(d, "proposed_trial_dates")
             elif field in ("date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"):
                 validate_date_format(value, field)
 
@@ -431,6 +440,27 @@ def delete_case(case_id: int) -> bool:
         session.delete(case)
         session.commit()
         return True
+
+
+def confirm_trial_date(case_id: int, confirmed_date: str) -> Optional[dict]:
+    """Move a proposed date to trial_date and clear proposed list."""
+    validate_date_format(confirmed_date, "confirmed_date")
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
+            return None
+        proposed = case.proposed_trial_dates or []
+        parsed = datetime.date.fromisoformat(confirmed_date)
+        if parsed not in proposed:
+            raise ValidationError(
+                f"Date {confirmed_date} is not in proposed dates: "
+                f"{[d.isoformat() for d in proposed]}"
+            )
+        case.trial_date = parsed
+        case.proposed_trial_dates = None
+        case.updated_at = func.now()
+        session.commit()
+    return get_case_by_id(case_id)
 
 
 def search_cases(query: str = None, case_number: str = None, person_name: str = None,
