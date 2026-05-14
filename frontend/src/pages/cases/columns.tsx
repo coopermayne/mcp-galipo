@@ -4,7 +4,7 @@ import { EyeIcon } from "@hugeicons/core-free-icons"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
-import { TrialLikelihood } from "@/pages/cases/components/trial-likelihood"
+import { TrialEditCell } from "@/pages/cases/components/trial-edit-cell"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 
 interface UserInfo {
@@ -127,23 +127,14 @@ export function getColumns(options: {
       ),
       cell: ({ row }) => {
         const { trial_date, trial_likelihood, trial_likelihood_note, trial_estimated_days, id } = row.original
-        if (!trial_date) return <span className="text-muted-foreground">—</span>
         return (
-          <div className="flex flex-col gap-0.5">
-            <DateCell value={trial_date} warnDays={90} />
-            <div className="flex items-center gap-1.5">
-              <TrialLikelihood
-                caseId={id}
-                likelihood={trial_likelihood}
-                note={trial_likelihood_note}
-                compact
-              />
-              <span className="text-muted-foreground text-[10px]">·</span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {trial_estimated_days ?? 7}d
-              </span>
-            </div>
-          </div>
+          <TrialEditCell
+            caseId={id}
+            trialDate={trial_date}
+            likelihood={trial_likelihood}
+            likelihoodNote={trial_likelihood_note}
+            estimatedDays={trial_estimated_days}
+          />
         )
       },
     },
