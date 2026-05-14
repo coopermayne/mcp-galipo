@@ -1,4 +1,4 @@
-"""Trial calendar PDF generator — portrait table with likelihood bars."""
+"""Trial calendar PDF generator — portrait table listing trials and events."""
 
 from io import BytesIO
 from html import escape
@@ -13,9 +13,9 @@ PALETTE = [
 ]
 
 
-def generate_trial_calendar_pdf(trials: list, staff_map: dict) -> BytesIO:
+def generate_trial_calendar_pdf(trials: list, staff_map: dict, blocking_events: list | None = None) -> BytesIO:
     from weasyprint import HTML
-    html = _build_html(trials, staff_map)
+    html = _build_html(trials, staff_map, blocking_events or [])
     buf = BytesIO()
     HTML(string=html).write_pdf(buf)
     buf.seek(0)
@@ -26,59 +26,99 @@ def _avatar_color(uid: int) -> str:
     return PALETTE[uid % len(PALETTE)]
 
 
-def _build_html(trials: list, staff_map: dict) -> str:
+def _build_html(trials: list, staff_map: dict, blocking_events: list) -> str:
+    from datetime import date as _date
+
     now = datetime.now(LA)
     date_str = now.strftime("%B %d, %Y")
 
-    rows = ""
-    for i, t in enumerate(trials):
-        case_name = escape(t.get("case_name", ""))
-
-        chips = []
-        for aid in t.get("attorney_ids") or []:
-            s = staff_map.get(aid)
-            if s:
-                initials = escape(s.get("initials") or "")
-                bg = _avatar_color(aid)
-                chips.append(
-                    f'<span class="avatar" style="background:{bg}">{initials}</span>'
-                )
-        attorneys_html = " ".join(chips) if chips else em()
-
-        jurisdiction = escape(t.get("jurisdiction_name") or "")
-        judge_names = t.get("judge_names") or ""
-        case_number = escape(t.get("case_number") or "")
-        if jurisdiction and judge_names:
-            jur_line = f"{jurisdiction} ({escape(judge_names)})"
-        elif jurisdiction:
-            jur_line = jurisdiction
-        else:
-            jur_line = em()
-        if case_number:
-            jur_line += f'<br><span class="case-num">{case_number}</span>'
-
+    items = []
+    for t in trials:
         trial_date = t.get("trial_date", "")
-        if trial_date:
-            from datetime import date as _date
-            d = _date.fromisoformat(trial_date)
-            date_display = f"{d.strftime('%b')} {d.day}, {d.year}"
+        sort_date = trial_date or "9999-12-31"
+        items.append({"kind": "trial", "sort_date": sort_date, "data": t})
+
+    for evt in blocking_events:
+        if not evt.get("date"):
+            continue
+        items.append({"kind": evt.get("event_type", "event"), "sort_date": evt["date"], "data": evt})
+
+    items.sort(key=lambda x: x["sort_date"])
+
+    rows = ""
+    row_idx = 0
+    for item in items:
+        row_cls = "alt" if row_idx % 2 == 0 else ""
+        row_idx += 1
+
+        if item["kind"] == "trial":
+            t = item["data"]
+            case_name = escape(t.get("case_name", ""))
+
+            chips = []
+            for aid in t.get("attorney_ids") or []:
+                s = staff_map.get(aid)
+                if s:
+                    initials = escape(s.get("initials") or "")
+                    bg = _avatar_color(aid)
+                    chips.append(
+                        f'<span class="avatar" style="background:{bg}">{initials}</span>'
+                    )
+            attorneys_html = " ".join(chips) if chips else em()
+
+            jurisdiction = escape(t.get("jurisdiction_name") or "")
+            judge_names = t.get("judge_names") or ""
+            case_number = escape(t.get("case_number") or "")
+            if jurisdiction and judge_names:
+                jur_line = f"{jurisdiction} ({escape(judge_names)})"
+            elif jurisdiction:
+                jur_line = jurisdiction
+            else:
+                jur_line = em()
+            if case_number:
+                jur_line += f'<br><span class="case-num">{case_number}</span>'
+
+            trial_date = t.get("trial_date", "")
+            if trial_date:
+                d = _date.fromisoformat(trial_date)
+                date_display = f"{d.strftime('%b')} {d.day}, {d.year}"
+            else:
+                date_display = em()
+
+            days = t.get("trial_estimated_days")
+            days_display = f"({days}d)" if days else ""
+
+            rows += f"""<tr class="{row_cls}">
+              <td class="col-atty">{attorneys_html}</td>
+              <td class="col-case">{case_name}</td>
+              <td class="col-jur">{jur_line}</td>
+              <td class="col-trial">{date_display} <span class="days">{days_display}</span></td>
+            </tr>\n"""
+
         else:
-            date_display = em()
+            evt = item["data"]
+            is_vacation = item["kind"] == "vacation"
+            label = escape(evt.get("description") or ("Vacation" if is_vacation else "Event"))
+            d_start = _date.fromisoformat(evt["date"])
+            d_end = _date.fromisoformat(evt["end_date"]) if evt.get("end_date") else d_start
+            if d_start == d_end:
+                date_range = f"{d_start.strftime('%b')} {d_start.day}, {d_start.year}"
+            else:
+                if d_start.year == d_end.year and d_start.month == d_end.month:
+                    date_range = f"{d_start.strftime('%b')} {d_start.day}–{d_end.day}, {d_start.year}"
+                elif d_start.year == d_end.year:
+                    date_range = f"{d_start.strftime('%b')} {d_start.day} – {d_end.strftime('%b')} {d_end.day}, {d_start.year}"
+                else:
+                    date_range = f"{d_start.strftime('%b')} {d_start.day}, {d_start.year} – {d_end.strftime('%b')} {d_end.day}, {d_end.year}"
 
-        days = t.get("trial_estimated_days")
-        days_display = f"({days}d)" if days else ""
+            tag = "VACATION" if is_vacation else item["kind"].upper().replace("_", " ")
+            rows += f"""<tr class="{row_cls} event-row">
+              <td class="col-atty"><span class="event-tag {'tag-vacation' if is_vacation else 'tag-event'}">{tag}</span></td>
+              <td class="col-case event-label" colspan="2">{label}</td>
+              <td class="col-trial">{date_range}</td>
+            </tr>\n"""
 
-        likelihood = t.get("trial_likelihood") or 0
-        bar_html = _render_bar(likelihood)
-
-        row_cls = "alt" if i % 2 == 0 else ""
-        rows += f"""<tr class="{row_cls}">
-          <td class="col-atty">{attorneys_html}</td>
-          <td class="col-case">{case_name}</td>
-          <td class="col-jur">{jur_line}</td>
-          <td class="col-trial">{bar_html} {date_display} <span class="days">{days_display}</span></td>
-        </tr>\n"""
-
+    trial_count = sum(1 for i in items if i["kind"] == "trial")
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -88,7 +128,7 @@ def _build_html(trials: list, staff_map: dict) -> str:
 <body>
 <div class="header">
   <div class="title">Trial Calendar</div>
-  <div class="meta">{date_str} &middot; {len(trials)} trial{"s" if len(trials) != 1 else ""}</div>
+  <div class="meta">{date_str} &middot; {trial_count} trial{"s" if trial_count != 1 else ""}</div>
 </div>
 <table>
   <thead>
@@ -96,7 +136,7 @@ def _build_html(trials: list, staff_map: dict) -> str:
       <th class="col-atty">Assigned</th>
       <th class="col-case">Case</th>
       <th class="col-jur">Jurisdiction</th>
-      <th class="col-trial">Trial</th>
+      <th class="col-trial">Date</th>
     </tr>
   </thead>
   <tbody>
@@ -105,15 +145,6 @@ def _build_html(trials: list, staff_map: dict) -> str:
 </table>
 </body>
 </html>"""
-
-
-def _render_bar(pct: int) -> str:
-    filled = round(pct / 10)
-    segments = ""
-    for i in range(10):
-        cls = "on" if i < filled else "off"
-        segments += f'<span class="seg {cls}"></span>'
-    return f'<span class="bar">{segments}</span>'
 
 
 def em():
@@ -190,22 +221,19 @@ tr.alt { background: #f8f8f8; }
   color: #666;
 }
 
-.bar {
+.event-tag {
   display: inline-block;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1.5pt 4pt;
   vertical-align: middle;
-  margin-right: 4pt;
-  line-height: 0;
 }
 
-.seg {
-  display: inline-block;
-  width: 3pt;
-  height: 9pt;
-  margin-right: 0.5pt;
-}
+.tag-vacation { background: #fef3c7; color: #92400e; }
+.tag-event { background: #dbeafe; color: #1e40af; }
 
-.seg.on { background: #999; }
-.seg.off { background: #ddd; }
+.event-label { font-style: normal; font-weight: 500; }
 
 .days {
   font-size: 7.5pt;

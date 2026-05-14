@@ -41,6 +41,7 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
             JOIN proceeding_judges pj ON pj.proceeding_id = p.id
             JOIN judges jg ON jg.id = pj.judge_id
             WHERE p.case_id = cases.id AND p.is_primary = true
+              AND COALESCE(pj.role, 'Judge') != 'Magistrate Judge'
         )""").label("judge_names")
 
         trial_stmt = (

@@ -44,7 +44,7 @@ def register_trial_calendar_routes(mcp):
                 return generate_visual_calendar_pdf(
                     data["trials"], data["blocking_events"], staff_map,
                 )
-            return generate_trial_calendar_pdf(data["trials"], staff_map)
+            return generate_trial_calendar_pdf(data["trials"], staff_map, data["blocking_events"])
 
         buf = await asyncio.to_thread(_generate)
         return Response(
