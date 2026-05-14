@@ -189,6 +189,9 @@ class ManageEventInput(BaseModel):
     document_link: Optional[str] = Field(None, description="Link to related document")
     calculation_note: Optional[str] = Field(None, description="How the date was calculated (e.g. CCP 2030.260(a), 35 days from service)")
     starred: Optional[bool] = Field(None, description="Star/highlight this event")
+    event_type: Optional[str] = Field(None, description="Event type: vacation, holiday, trial, oral_argument, hearing, mediation, deposition, conference, other")
+    end_date: Optional[str] = Field(None, description="End date YYYY-MM-DD for multi-day events")
+    blocks_calendar: Optional[bool] = Field(None, description="Show on trial calendar (set true for blocking events)")
 
 
 class ManageTaskInput(BaseModel):
@@ -999,6 +1002,9 @@ def register_tools(mcp):
                     time=data.time,
                     location=data.location,
                     starred=data.starred or False,
+                    event_type=data.event_type,
+                    end_date=data.end_date,
+                    blocks_calendar=data.blocks_calendar,
                 )
                 return {"success": True, "message": f"Event created: {data.description}", "event_id": result["id"]}
 
@@ -1006,7 +1012,7 @@ def register_tools(mcp):
                 if not data.event_id:
                     return validation_error("event_id is required for update")
                 kwargs = {}
-                for field in ["date", "description", "time", "location", "document_link", "calculation_note", "starred"]:
+                for field in ["date", "description", "time", "location", "document_link", "calculation_note", "starred", "event_type", "end_date", "blocks_calendar"]:
                     val = getattr(data, field)
                     if val is not None:
                         kwargs[field] = val

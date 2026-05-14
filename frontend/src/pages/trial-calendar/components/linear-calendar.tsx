@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { TrialCalendarData, BlockingEvent } from "@/services/trial-calendar"
+import { getEventTypeColor, getEventTypeLabel } from "@/lib/event-types"
 import type { StaffMember } from "@/services/staff"
 import {
   normalizeItems,
@@ -56,8 +57,9 @@ function rh(laneCount: number): number {
 }
 
 function getItemStyle(item: CalendarItem): React.CSSProperties {
-  if (item.kind === "vacation") return { backgroundColor: "var(--info)" }
-  if (item.kind === "event") return { backgroundColor: "var(--destructive)" }
+  if (item.kind !== "trial" && item.eventRaw) {
+    return { backgroundColor: getEventTypeColor(item.eventRaw.event_type) }
+  }
   const likelihood = item.trialRaw?.trial_likelihood ?? 50
   const opacity = Math.max(likelihood / 100, 0.3)
   return { backgroundColor: "var(--destructive)", opacity }
@@ -427,12 +429,9 @@ export function LinearCalendar({
                               {ci.item.label}
                             </div>
                             <div className="text-muted-foreground text-xs">
-                              {ci.item.kind === "vacation"
-                                ? "Vacation"
-                                : ci.item.eventRaw?.event_type?.replace(
-                                    /_/g,
-                                    " ",
-                                  )}
+                              {ci.item.eventRaw
+                                ? getEventTypeLabel(ci.item.eventRaw.event_type)
+                                : ci.item.kind}
                               {" · "}
                               {format(ci.item.start, "MMM d")}
                               {dateKey(ci.item.start) !==

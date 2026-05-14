@@ -227,7 +227,8 @@ WORKFLOW:
 4. If the user says "Smith 80% likely" → search for the case, then update trial_likelihood
 5. If the user says "add hearing June 5 MSJ hearing" → create event with event_type="hearing"
 
-When creating events, always set event_type. Valid types: vacation, hearing, oral_argument, conference, other.
+When creating events, always set event_type and blocks_calendar=true. Valid types: vacation, holiday, trial, oral_argument, hearing, mediation, deposition, conference, other.
+- "trial" type is for external trials (not our cases)
 
 For trial changes, search for the case first to get the case_id, then use manage_case(action="update").
 

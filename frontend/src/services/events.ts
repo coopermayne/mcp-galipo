@@ -12,6 +12,7 @@ export interface CreateEventData {
   starred?: boolean
   event_type?: string
   end_date?: string
+  blocks_calendar?: boolean
 }
 
 export interface UpdateEventData {
@@ -24,6 +25,7 @@ export interface UpdateEventData {
   starred?: boolean
   event_type?: string | null
   end_date?: string | null
+  blocks_calendar?: boolean
 }
 
 export async function createEvent(data: CreateEventData) {

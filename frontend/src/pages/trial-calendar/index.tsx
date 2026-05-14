@@ -16,7 +16,7 @@ import { TrialTable } from "@/pages/trial-calendar/components/trial-table"
 import { SlotFinder } from "@/pages/trial-calendar/components/slot-finder"
 import { AddBlockingEventDialog } from "@/pages/trial-calendar/components/add-blocking-event-dialog"
 import { EditEventDialog } from "@/pages/trial-calendar/components/edit-event-dialog"
-import { AiCommandInput } from "@/pages/trial-calendar/components/ai-command-input"
+import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 import { LinearCalendar } from "@/pages/trial-calendar/components/linear-calendar"
 import { Button } from "@/components/ui/button"
 import {
@@ -34,9 +34,23 @@ type View = "calendar" | "table"
 const MONTHS_AHEAD = 49
 const MONTHS_BEHIND = 0
 
+const AI_RULES: ToolCompletionRule[] = [
+  {
+    toolNames: ["manage_event"],
+    queryKeys: [["trial-calendar"], ["events"]],
+    toastMessage: "Calendar updated",
+  },
+  {
+    toolNames: ["manage_case"],
+    queryKeys: [["trial-calendar"], ["cases"]],
+    toastMessage: "Trial updated",
+  },
+]
+
 export default function TrialCalendarPage() {
   const [blockingOpen, setBlockingOpen] = useState(false)
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<BlockingEvent | null>(null)
   const [view, setView] = useState<View>("calendar")
   const [printing, setPrinting] = useState(false)
@@ -79,10 +93,13 @@ export default function TrialCalendarPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          <AiCommandInput />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setAiOpen(true)}>
+            <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+            AI
+          </Button>
 
           <ToggleGroup
             type="single"
@@ -173,7 +190,7 @@ export default function TrialCalendarPage() {
         open={blockingOpen}
         onOpenChange={setBlockingOpen}
         onSubmit={(eventData) => {
-          createEventMutation.mutate(eventData)
+          createEventMutation.mutate({ ...eventData, blocks_calendar: true })
           setBlockingOpen(false)
         }}
       />
@@ -184,6 +201,16 @@ export default function TrialCalendarPage() {
           queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
           setEditingEvent(null)
         }}
+      />
+      <AiChatSheet
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        title="Trial Calendar AI"
+        description="Create events, schedule trials, update duration & likelihood"
+        placeholder='e.g., "add vacation Dec 20-31" or "move Smith trial to March 15"'
+        emptyStateText="Ask me to create events, schedule or reschedule trials, or update trial details."
+        mode="trial_calendar"
+        toolCompletionRules={AI_RULES}
       />
     </div>
   )

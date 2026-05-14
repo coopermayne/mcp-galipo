@@ -505,6 +505,9 @@ class Event(Base):
     )
     event_type: Mapped[Optional[str]] = mapped_column(String(50))
     end_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    blocks_calendar: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
 
     # Relationships
     case: Mapped[Optional[Case]] = relationship(back_populates="events")

@@ -85,6 +85,7 @@ class CreateEventInput(BaseModel):
     starred: Optional[bool] = False
     event_type: Optional[str] = None
     end_date: Optional[str] = None
+    blocks_calendar: Optional[bool] = None
 
 
 class UpdateEventInput(BaseModel):
@@ -97,6 +98,7 @@ class UpdateEventInput(BaseModel):
     starred: Optional[bool] = None
     event_type: Optional[str] = None
     end_date: Optional[str] = None
+    blocks_calendar: Optional[bool] = None
 
 
 # =============================================================================

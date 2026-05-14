@@ -264,6 +264,7 @@ class EventOut(BaseModel):
     created_at: Optional[datetime.datetime] = None
     event_type: Optional[str] = None
     end_date: Optional[datetime.date] = None
+    blocks_calendar: Optional[bool] = None
 
     @field_serializer('time')
     def serialize_time(self, val: Optional[datetime.time], _info) -> Optional[str]:

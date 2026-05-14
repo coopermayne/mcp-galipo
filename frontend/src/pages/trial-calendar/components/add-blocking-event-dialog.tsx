@@ -18,14 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { CreateEventData } from "@/services/events"
-
-const EVENT_TYPES = [
-  { value: "vacation", label: "Vacation" },
-  { value: "oral_argument", label: "Oral Argument" },
-  { value: "hearing", label: "Hearing" },
-  { value: "conference", label: "Conference" },
-  { value: "other", label: "Other" },
-]
+import { EVENT_TYPES } from "@/lib/event-types"
 
 interface Props {
   open: boolean
