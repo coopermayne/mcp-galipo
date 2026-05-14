@@ -13,6 +13,7 @@ export interface TrialItem {
   jurisdiction_name: string | null
   case_number: string | null
   judge_names: string | null
+  proposed: boolean
 }
 
 export interface BlockingEvent {

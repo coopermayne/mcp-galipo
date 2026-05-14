@@ -36,6 +36,7 @@ class UpdateCaseInput(BaseModel):
     result: Optional[str] = None
     date_of_injury: Optional[str] = None
     trial_date: Optional[str] = None
+    proposed_trial_dates: Optional[list[str]] = None
     trial_likelihood: Optional[int] = None
     trial_likelihood_note: Optional[str] = None
     trial_estimated_days: Optional[int] = None
