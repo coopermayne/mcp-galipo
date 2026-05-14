@@ -67,7 +67,7 @@ function getColumnVisibility(tab: TabDef, mobile: boolean): VisibilityState {
   return {
     details: !mobile,
     attorneys: !mobile,
-    date_of_injury: !mobile && tab.id === "filing-deadlines",
+    date_of_injury: !mobile,
     trial_date: !mobile && tab.visibleDateCols.includes("trial_date"),
     claim_deadline: !mobile && tab.visibleDateCols.includes("claim_deadline"),
     complaint_deadline: !mobile && tab.visibleDateCols.includes("complaint_deadline"),
