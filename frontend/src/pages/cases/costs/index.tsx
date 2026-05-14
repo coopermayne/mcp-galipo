@@ -448,6 +448,7 @@ function CaseCostsContent() {
               total={allAdvUnpaid.length}
               rowClassName="bg-info/5 hover:bg-info/10"
               label="Unpaid Advances"
+              isAdvance
             />
           )}
 
@@ -458,6 +459,7 @@ function CaseCostsContent() {
             total={allAdvPaid.length}
             rowClassName="bg-info/5 hover:bg-info/10"
             label="Paid Advances"
+            isAdvance
           />
         </TabsContent>
 
@@ -797,6 +799,7 @@ function UnpaidSection({
   total,
   rowClassName,
   label,
+  isAdvance,
 }: {
   invoices: Invoice[]
   isLoading: boolean
@@ -805,6 +808,7 @@ function UnpaidSection({
   total: number
   rowClassName?: string
   label?: string
+  isAdvance?: boolean
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -813,8 +817,9 @@ function UnpaidSection({
       getCaseCostColumns({
         onMarkPaid: (inv) => onMarkPaid(inv),
         onEdit: (inv) => onEdit(inv),
+        isAdvance,
       }),
-    [onMarkPaid, onEdit]
+    [onMarkPaid, onEdit, isAdvance]
   )
 
   const table = useReactTable({
@@ -847,6 +852,7 @@ function PaidSection({
   total,
   rowClassName,
   label,
+  isAdvance,
 }: {
   invoices: Invoice[]
   isLoading: boolean
@@ -854,6 +860,7 @@ function PaidSection({
   total: number
   rowClassName?: string
   label?: string
+  isAdvance?: boolean
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
@@ -862,8 +869,8 @@ function PaidSection({
   })
 
   const columns = useMemo(
-    () => getCaseCostColumns({ onEdit: (inv) => onEdit(inv) }),
-    [onEdit]
+    () => getCaseCostColumns({ onEdit: (inv) => onEdit(inv), isAdvance }),
+    [onEdit, isAdvance]
   )
 
   const table = useReactTable({

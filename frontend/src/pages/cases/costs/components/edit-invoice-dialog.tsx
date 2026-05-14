@@ -30,6 +30,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Attachment01Icon } from "@hugeicons/core-free-icons"
 import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
+import { apiFetch } from "@/lib/api"
 
 interface EditInvoiceDialogProps {
   invoice: Invoice | null
@@ -42,6 +43,8 @@ export function EditInvoiceDialog({
   onOpenChange,
   onSuccess,
 }: EditInvoiceDialogProps) {
+  const isAdvance = invoice?.type === "advance"
+
   const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
   const [isPartial, setIsPartial] = useState(false)
@@ -51,6 +54,7 @@ export function EditInvoiceDialog({
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
   const [paidByPersonId, setPaidByPersonId] = useState("")
+  const [advancedToPersonId, setAdvancedToPersonId] = useState("")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -60,7 +64,20 @@ export function EditInvoiceDialog({
     enabled: !!invoice?.case_id,
   })
 
-  const isValid = !!payeeId && !!amount && !!category && !!date
+  const { data: casePersons } = useQuery({
+    queryKey: ["case-persons", invoice?.case_id],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/v1/cases/${invoice!.case_id}/persons`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data.persons ?? []) as { id: number; name: string }[]
+    },
+    enabled: !!invoice?.case_id && isAdvance,
+  })
+
+  const isValid = isAdvance
+    ? !!payeeId && !!amount && !!date
+    : !!payeeId && !!amount && !!category && !!date
 
   useEffect(() => {
     if (invoice) {
@@ -74,6 +91,7 @@ export function EditInvoiceDialog({
       setDescription(invoice.description ?? "")
       setCategory(invoice.category ?? "")
       setPaidByPersonId(invoice.paid_by_person_id ? String(invoice.paid_by_person_id) : "")
+      setAdvancedToPersonId(invoice.advanced_to_person_id ? String(invoice.advanced_to_person_id) : "")
       setNotes(invoice.notes ?? "")
     }
   }, [invoice])
@@ -86,20 +104,21 @@ export function EditInvoiceDialog({
     try {
       await updateInvoice(invoice.id, {
         amount: parseFloat(amount),
-        case_amount: isPartial && caseAmount ? parseFloat(caseAmount) : null,
+        case_amount: !isAdvance && isPartial && caseAmount ? parseFloat(caseAmount) : null,
         date: date || undefined,
-        due_date: dueDate || undefined,
+        due_date: !isAdvance ? (dueDate || undefined) : undefined,
         description: description.trim() || undefined,
-        category: category || undefined,
+        category: !isAdvance ? (category || undefined) : undefined,
         paid_by_person_id: paidByPersonId && paidByPersonId !== "__clear" ? parseInt(paidByPersonId) : null,
+        advanced_to_person_id: isAdvance && advancedToPersonId ? parseInt(advancedToPersonId) : null,
         payee_id: payeeId,
         notes: notes.trim() || undefined,
       })
-      toast.success("Invoice updated")
+      toast.success(isAdvance ? "Advance updated" : "Invoice updated")
       onOpenChange(false)
       onSuccess()
     } catch {
-      toast.error("Failed to update invoice")
+      toast.error(isAdvance ? "Failed to update advance" : "Failed to update invoice")
     } finally {
       setSaving(false)
     }
@@ -109,7 +128,7 @@ export function EditInvoiceDialog({
     <Dialog open={!!invoice} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Invoice</DialogTitle>
+          <DialogTitle>{isAdvance ? "Edit Advance" : "Edit Invoice"}</DialogTitle>
           {invoice?.file_path && (
             <button
               type="button"
@@ -140,23 +159,25 @@ export function EditInvoiceDialog({
                 required
               />
             </div>
+            {!isAdvance && (
+              <div>
+                <Label htmlFor="edit-category">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger id="edit-category">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INVOICE_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
-              <Label htmlFor="edit-category">Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger id="edit-category">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {INVOICE_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-date">Invoice Date</Label>
+              <Label htmlFor="edit-date">{isAdvance ? "Agreement Date" : "Invoice Date"}</Label>
               <Input
                 id="edit-date"
                 type="date"
@@ -165,15 +186,17 @@ export function EditInvoiceDialog({
                 required
               />
             </div>
-            <div>
-              <Label htmlFor="edit-due-date">Due Date</Label>
-              <Input
-                id="edit-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
+            {!isAdvance && (
+              <div>
+                <Label htmlFor="edit-due-date">Due Date</Label>
+                <Input
+                  id="edit-due-date"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="edit-paid-by">Paid By</Label>
               <Select value={paidByPersonId} onValueChange={setPaidByPersonId}>
@@ -191,31 +214,52 @@ export function EditInvoiceDialog({
               </Select>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="edit-partial"
-              checked={isPartial}
-              onCheckedChange={(checked) => {
-                setIsPartial(!!checked)
-                if (!checked) setCaseAmount("")
-              }}
-            />
-            <Label htmlFor="edit-partial" className="text-sm font-normal cursor-pointer">
-              Only a partial amount applies to this case
-            </Label>
-          </div>
-          {isPartial && (
+          {isAdvance && (
             <div>
-              <Label htmlFor="edit-case-amount">Amount for this case</Label>
-              <Input
-                id="edit-case-amount"
-                type="number"
-                step="0.01"
-                value={caseAmount}
-                onChange={(e) => setCaseAmount(e.target.value)}
-                placeholder="0.00"
-              />
+              <Label htmlFor="edit-advanced-to">Advanced To</Label>
+              <Select value={advancedToPersonId} onValueChange={setAdvancedToPersonId}>
+                <SelectTrigger id="edit-advanced-to">
+                  <SelectValue placeholder="Select person..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(casePersons ?? []).map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          )}
+          {!isAdvance && (
+            <>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="edit-partial"
+                  checked={isPartial}
+                  onCheckedChange={(checked) => {
+                    setIsPartial(!!checked)
+                    if (!checked) setCaseAmount("")
+                  }}
+                />
+                <Label htmlFor="edit-partial" className="text-sm font-normal cursor-pointer">
+                  Only a partial amount applies to this case
+                </Label>
+              </div>
+              {isPartial && (
+                <div>
+                  <Label htmlFor="edit-case-amount">Amount for this case</Label>
+                  <Input
+                    id="edit-case-amount"
+                    type="number"
+                    step="0.01"
+                    value={caseAmount}
+                    onChange={(e) => setCaseAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
+            </>
           )}
           <div>
             <Label htmlFor="edit-description">Description</Label>

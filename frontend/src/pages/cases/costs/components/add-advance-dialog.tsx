@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createInvoice, INVOICE_CATEGORIES } from "@/services/invoices"
+import { createInvoice } from "@/services/invoices"
+
 import { PayeeSearch } from "@/pages/cases/costs/components/payee-search"
 import { apiFetch } from "@/lib/api"
 
@@ -39,7 +40,6 @@ export function AddAdvanceDialog({
   const [payeeId, setPayeeId] = useState<number | null>(null)
   const [amount, setAmount] = useState("")
   const [date, setDate] = useState("")
-  const [category, setCategory] = useState("")
   const [checkNumber, setCheckNumber] = useState("")
   const [advancedToPersonId, setAdvancedToPersonId] = useState("")
   const [description, setDescription] = useState("")
@@ -63,7 +63,6 @@ export function AddAdvanceDialog({
     setPayeeId(null)
     setAmount("")
     setDate("")
-    setCategory("")
     setCheckNumber("")
     setAdvancedToPersonId("")
     setDescription("")
@@ -81,7 +80,6 @@ export function AddAdvanceDialog({
         type: "advance",
         amount: parseFloat(amount),
         date: date || undefined,
-        category: category || undefined,
         check_number: checkNumber.trim() || undefined,
         payee_id: payeeId ?? undefined,
         advanced_to_person_id: advancedToPersonId
@@ -123,22 +121,7 @@ export function AddAdvanceDialog({
               />
             </div>
             <div>
-              <Label htmlFor="adv-category">Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger id="adv-category">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {INVOICE_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="adv-date">Date</Label>
+              <Label htmlFor="adv-date">Agreement Date</Label>
               <Input
                 id="adv-date"
                 type="date"
