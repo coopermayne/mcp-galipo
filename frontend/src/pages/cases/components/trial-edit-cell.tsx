@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { DatePicker } from "@/components/ui/date-picker"
 import {
   Tooltip,
   TooltipContent,
@@ -162,11 +163,9 @@ export function TrialEditCell({
         <div className="space-y-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Trial Date</label>
-            <input
-              type="date"
-              value={draftDate}
-              onChange={(e) => setDraftDate(e.target.value)}
-              className="w-full bg-transparent border border-input px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
+            <DatePicker
+              value={draftDate || null}
+              onChange={(d) => setDraftDate(d ?? "")}
             />
           </div>
 

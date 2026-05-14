@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import {
@@ -102,18 +103,16 @@ export function BulkInvoiceEditRow({
             </div>
             <div>
               <Label className="text-xs">Invoice Date</Label>
-              <Input
-                type="date"
-                value={item.date}
-                onChange={(e) => onUpdate({ date: e.target.value })}
+              <DatePicker
+                value={item.date || null}
+                onChange={(d) => onUpdate({ date: d ?? "" })}
               />
             </div>
             <div>
               <Label className="text-xs">Due Date</Label>
-              <Input
-                type="date"
-                value={item.dueDate}
-                onChange={(e) => onUpdate({ dueDate: e.target.value })}
+              <DatePicker
+                value={item.dueDate || null}
+                onChange={(d) => onUpdate({ dueDate: d ?? "" })}
               />
             </div>
           </div>

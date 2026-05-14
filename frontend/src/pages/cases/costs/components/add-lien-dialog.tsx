@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -130,12 +131,10 @@ export function AddLienDialog({
               </Select>
             </div>
             <div>
-              <Label htmlFor="lien-date">Date Received</Label>
-              <Input
-                id="lien-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+              <Label>Date Received</Label>
+              <DatePicker
+                value={date || null}
+                onChange={(d) => setDate(d ?? "")}
               />
             </div>
           </div>

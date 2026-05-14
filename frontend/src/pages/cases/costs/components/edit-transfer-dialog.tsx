@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -133,13 +134,10 @@ export function EditTransferDialog({
               </div>
             </div>
             <div>
-              <Label htmlFor="transfer-date">Date</Label>
-              <Input
-                id="transfer-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
+              <Label>Date</Label>
+              <DatePicker
+                value={date || null}
+                onChange={(d) => setDate(d ?? "")}
               />
             </div>
           </div>
