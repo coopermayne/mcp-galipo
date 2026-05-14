@@ -493,23 +493,25 @@ export function TaskListItem({
                 />
               </div>
 
-              {/* Linked event — inline combobox */}
+              {/* Linked event — inline combobox (hidden on mobile) */}
               {(task.has_events || task.case_id) && (
-                <InlineEventLinker
-                  task={task}
-                  onLink={(eventId) => onUpdateTask(task.id, "event_id", eventId)}
-                />
+                <span className="hidden sm:inline-flex">
+                  <InlineEventLinker
+                    task={task}
+                    onLink={(eventId) => onUpdateTask(task.id, "event_id", eventId)}
+                  />
+                </span>
               )}
             </>
           )}
 
-          {/* Urgency — flag icon with dropdown */}
+          {/* Urgency — flag icon with dropdown (hidden on mobile) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 className={cn(
-                  "shrink-0 inline-flex items-center h-4",
+                  "shrink-0 hidden sm:inline-flex items-center h-4",
                   urgency ? urgency.iconColor : "text-muted-foreground/60"
                 )}
                 onClick={(e) => e.stopPropagation()}
