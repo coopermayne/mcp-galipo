@@ -12,6 +12,7 @@ import {
   UserAdd01Icon,
   CourtLawIcon,
   Task01Icon,
+  ArrowExpand01Icon,
 } from "@hugeicons/core-free-icons"
 import type { CaseComment, CaseStatus } from "@/types/case"
 import {
@@ -25,6 +26,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { CaseStatusBadge } from "./status-badge"
 
 // --- Helpers ---
@@ -174,6 +181,98 @@ function groupByDate(comments: CaseComment[]): DateGroup[] {
   return groups
 }
 
+// --- Shared Feed Content ---
+
+function FeedContent({
+  groups,
+  isLoading,
+  isEmpty,
+  scrollRef,
+}: {
+  groups: DateGroup[]
+  isLoading: boolean
+  isEmpty: boolean
+  scrollRef: React.RefObject<HTMLDivElement | null>
+}) {
+  return (
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-3">
+      {isLoading ? (
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex gap-3">
+              <Skeleton className="size-6 rounded-full" />
+              <div className="flex-1">
+                <Skeleton className="mb-1 h-3 w-24" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : isEmpty ? (
+        <p className="text-muted-foreground py-8 text-center text-sm">
+          No activity yet.
+        </p>
+      ) : (
+        <div className="relative">
+          <div className="absolute left-[11px] top-0 bottom-0 w-px bg-border" />
+          {groups.map((group) => (
+            <div key={group.dateKey}>
+              <div className="relative z-10 mb-1 mt-3 first:mt-0">
+                <span className="bg-background pr-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {group.label}
+                </span>
+              </div>
+              {group.comments.map((comment) => (
+                <TimelineEntry key={comment.id} comment={comment} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CommentForm({
+  input,
+  setInput,
+  onSubmit,
+  isPending,
+}: {
+  input: string
+  setInput: (v: string) => void
+  onSubmit: (e: React.FormEvent) => void
+  isPending: boolean
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      onSubmit(e)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex gap-2 border-t p-3">
+      <Textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Add a comment..."
+        className="min-h-9 flex-1 resize-none"
+        disabled={isPending}
+      />
+      <Button
+        type="submit"
+        size="sm"
+        className="self-end"
+        disabled={!input.trim() || isPending}
+      >
+        Send
+      </Button>
+    </form>
+  )
+}
+
 // --- Main Component ---
 
 interface CaseActivityFeedProps {
@@ -183,24 +282,30 @@ interface CaseActivityFeedProps {
 export function CaseActivityFeed({ caseId }: CaseActivityFeedProps) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState("")
+  const [panelOpen, setPanelOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const panelScrollRef = useRef<HTMLDivElement>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ["case-comments", caseId],
     queryFn: () => getCaseComments(caseId),
   })
 
-  // Mark as read on mount
   useEffect(() => {
     markCaseRead(caseId).catch(() => {})
   }, [caseId])
 
-  // Auto-scroll to bottom when comments change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [data?.comments])
+
+  useEffect(() => {
+    if (panelOpen && panelScrollRef.current) {
+      panelScrollRef.current.scrollTop = panelScrollRef.current.scrollHeight
+    }
+  }, [data?.comments, panelOpen])
 
   const addComment = useMutation({
     mutationFn: (content: string) => createCaseComment(caseId, content),
@@ -221,85 +326,60 @@ export function CaseActivityFeed({ caseId }: CaseActivityFeedProps) {
     addComment.mutate(trimmed)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e)
-    }
-  }
-
   const groups = useMemo(
     () => groupByDate(data?.comments ?? []),
     [data?.comments]
   )
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col border">
-      <div className="shrink-0 border-b bg-muted/40 p-3">
-        <h3 className="text-sm font-semibold">Activity</h3>
-      </div>
+    <>
+      <div className="flex min-h-0 flex-1 flex-col border">
+        <div className="flex shrink-0 items-center justify-between border-b bg-muted/40 p-3">
+          <h3 className="text-sm font-semibold">Activity</h3>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setPanelOpen(true)}
+            title="Expand activity"
+          >
+            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+          </Button>
+        </div>
 
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto p-3"
-      >
-        {isLoading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex gap-3">
-                <Skeleton className="size-6 rounded-full" />
-                <div className="flex-1">
-                  <Skeleton className="mb-1 h-3 w-24" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : data?.comments.length === 0 ? (
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            No activity yet.
-          </p>
-        ) : (
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-[11px] top-0 bottom-0 w-px bg-border" />
-
-            {groups.map((group) => (
-              <div key={group.dateKey}>
-                {/* Date header */}
-                <div className="relative z-10 mb-1 mt-3 first:mt-0">
-                  <span className="bg-background pr-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    {group.label}
-                  </span>
-                </div>
-                {/* Entries */}
-                {group.comments.map((comment) => (
-                  <TimelineEntry key={comment.id} comment={comment} />
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Add a comment..."
-          className="min-h-9 flex-1 resize-none"
-          disabled={addComment.isPending}
+        <FeedContent
+          groups={groups}
+          isLoading={isLoading}
+          isEmpty={data?.comments.length === 0}
+          scrollRef={scrollRef}
         />
-        <Button
-          type="submit"
-          size="sm"
-          className="self-end"
-          disabled={!input.trim() || addComment.isPending}
-        >
-          Send
-        </Button>
-      </form>
-    </div>
+
+        <CommentForm
+          input={input}
+          setInput={setInput}
+          onSubmit={handleSubmit}
+          isPending={addComment.isPending}
+        />
+      </div>
+
+      <Sheet open={panelOpen} onOpenChange={setPanelOpen}>
+        <SheetContent side="right" className="flex w-full flex-col data-[side=right]:sm:max-w-[50vw]">
+          <SheetHeader className="shrink-0 border-b">
+            <SheetTitle>Activity</SheetTitle>
+          </SheetHeader>
+          <FeedContent
+            groups={groups}
+            isLoading={isLoading}
+            isEmpty={data?.comments.length === 0}
+            scrollRef={panelScrollRef}
+          />
+          <CommentForm
+            input={input}
+            setInput={setInput}
+            onSubmit={handleSubmit}
+            isPending={addComment.isPending}
+          />
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
