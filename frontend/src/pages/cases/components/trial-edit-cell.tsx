@@ -231,21 +231,38 @@ export function TrialEditCell({
           )}
 
           <div className="flex items-center justify-between gap-2 pt-1">
-            {hasLikelihood && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7 px-2 text-muted-foreground"
-                onClick={() => setHasLikelihood(false)}
-              >
-                Clear likelihood
-              </Button>
-            )}
-            <div className="ml-auto">
-              <Button size="sm" className="text-xs h-7 px-3" onClick={handleSave}>
-                Save
-              </Button>
+            <div className="flex items-center gap-1">
+              {draftDate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 px-2 text-destructive hover:text-destructive"
+                  onClick={() => {
+                    mutation.mutate({
+                      trial_date: null,
+                      trial_likelihood: null,
+                      trial_likelihood_note: null,
+                    })
+                    setOpen(false)
+                  }}
+                >
+                  Clear trial
+                </Button>
+              )}
+              {hasLikelihood && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 px-2 text-muted-foreground"
+                  onClick={() => setHasLikelihood(false)}
+                >
+                  Clear likelihood
+                </Button>
+              )}
             </div>
+            <Button size="sm" className="text-xs h-7 px-3" onClick={handleSave}>
+              Save
+            </Button>
           </div>
         </div>
       </PopoverContent>
