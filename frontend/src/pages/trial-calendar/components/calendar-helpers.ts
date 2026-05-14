@@ -299,9 +299,7 @@ export function buildWeekRows(
       laneCount,
       conflictColumns,
       monthLabel: isFirst ? format(mid, "MMMM") : null,
-      weekLabel: isFirst
-        ? `wk of ${format(monday, "MMM d")}`
-        : format(monday, "MMM d"),
+      weekLabel: isFirst ? format(mid, "yyyy") : format(monday, "MMM d"),
     }
   })
 }
