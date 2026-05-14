@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PencilEdit01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons"
 import type { ColumnDef } from "@tanstack/react-table"
-import type { TrialItem } from "@/services/trial-calendar"
+import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { getAvatarStyleById } from "@/lib/badge-colors"
@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/tooltip"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+
+export type CalendarTableRow =
+  | { kind: "trial"; date: string; trial: TrialItem }
+  | { kind: "event"; date: string; event: BlockingEvent }
 
 function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number)
@@ -32,6 +37,14 @@ function getLikelihoodColor(value: number): string {
   if (value <= 30) return "text-success"
   if (value <= 60) return "text-warning-foreground"
   return "text-destructive"
+}
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  vacation: "Vacation",
+  hearing: "Hearing",
+  oral_argument: "Oral Argument",
+  conference: "Conference",
+  other: "Event",
 }
 
 function DurationEditCell({ caseId, days }: { caseId: number; days: number | null }) {
@@ -227,69 +240,110 @@ function LikelihoodEditCell({
 
 export function getTrialColumns(options: {
   staffMap: Map<number, StaffMember>
-}): ColumnDef<TrialItem>[] {
+}): ColumnDef<CalendarTableRow>[] {
   return [
     {
-      accessorKey: "case_name",
+      id: "name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Case" />
+        <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => {
-        const color = row.original.color
+        if (row.original.kind === "trial") {
+          const { color, case_name } = row.original.trial
+          return (
+            <div className="flex items-center gap-2">
+              {color && (
+                <span
+                  className="inline-block size-2.5 shrink-0"
+                  style={{ backgroundColor: `var(--palette-${color})` }}
+                />
+              )}
+              <span className="font-medium">{case_name}</span>
+            </div>
+          )
+        }
+        const evt = row.original.event
+        const typeLabel = EVENT_TYPE_LABELS[evt.event_type] ?? evt.event_type
         return (
           <div className="flex items-center gap-2">
-            {color && (
-              <span
-                className="inline-block size-2.5 shrink-0"
-                style={{ backgroundColor: `var(--palette-${color})` }}
-              />
-            )}
-            <span className="font-medium">{row.original.case_name}</span>
+            <Badge
+              variant={evt.event_type === "vacation" ? "secondary" : "outline"}
+              className="text-[10px] px-1.5 py-0 font-normal"
+            >
+              {typeLabel}
+            </Badge>
+            <span className="text-muted-foreground">{evt.description}</span>
           </div>
         )
       },
     },
     {
-      accessorKey: "trial_date",
+      id: "date",
+      accessorFn: (row) => row.date,
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Trial Date" />
+        <DataTableColumnHeader column={column} title="Date" />
       ),
-      cell: ({ row }) => (
-        <span>{format(parseDate(row.original.trial_date), "MMM d, yyyy")}</span>
-      ),
-      sortingFn: (a, b) =>
-        a.original.trial_date.localeCompare(b.original.trial_date),
+      cell: ({ row }) => {
+        const dateStr = row.original.date
+        if (row.original.kind === "event" && row.original.event.end_date) {
+          return (
+            <span>
+              {format(parseDate(dateStr), "MMM d, yyyy")}
+              {" – "}
+              {format(parseDate(row.original.event.end_date), "MMM d, yyyy")}
+            </span>
+          )
+        }
+        return <span>{format(parseDate(dateStr), "MMM d, yyyy")}</span>
+      },
+      sortingFn: (a, b) => a.original.date.localeCompare(b.original.date),
     },
     {
-      accessorKey: "trial_estimated_days",
+      id: "duration",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Duration" />
       ),
-      cell: ({ row }) => (
-        <DurationEditCell
-          caseId={row.original.case_id}
-          days={row.original.trial_estimated_days}
-        />
-      ),
+      cell: ({ row }) => {
+        if (row.original.kind !== "trial") {
+          const evt = row.original.event
+          if (evt.end_date) {
+            const start = parseDate(evt.date)
+            const end = parseDate(evt.end_date)
+            const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+            return <span className="text-muted-foreground">{days}d</span>
+          }
+          return <span className="text-muted-foreground">1d</span>
+        }
+        return (
+          <DurationEditCell
+            caseId={row.original.trial.case_id}
+            days={row.original.trial.trial_estimated_days}
+          />
+        )
+      },
     },
     {
-      accessorKey: "trial_likelihood",
+      id: "likelihood",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Likelihood" />
       ),
-      cell: ({ row }) => (
-        <LikelihoodEditCell
-          caseId={row.original.case_id}
-          likelihood={row.original.trial_likelihood}
-          likelihoodNote={row.original.trial_likelihood_note}
-        />
-      ),
+      cell: ({ row }) => {
+        if (row.original.kind !== "trial") return null
+        return (
+          <LikelihoodEditCell
+            caseId={row.original.trial.case_id}
+            likelihood={row.original.trial.trial_likelihood}
+            likelihoodNote={row.original.trial.trial_likelihood_note}
+          />
+        )
+      },
     },
     {
       id: "details",
       header: "Details",
       cell: ({ row }) => {
-        const { case_number, jurisdiction_name, judge_names } = row.original
+        if (row.original.kind !== "trial") return null
+        const { case_number, jurisdiction_name, judge_names } = row.original.trial
         if (!case_number && !jurisdiction_name && !judge_names) {
           return <span className="text-muted-foreground">—</span>
         }
@@ -314,7 +368,8 @@ export function getTrialColumns(options: {
       id: "team",
       header: "Team",
       cell: ({ row }) => {
-        const ids = row.original.attorney_ids
+        if (row.original.kind !== "trial") return null
+        const ids = row.original.trial.attorney_ids
         if (!ids.length) return <span className="text-muted-foreground">—</span>
         return (
           <div className="flex gap-1">
