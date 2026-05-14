@@ -74,13 +74,11 @@ def _normalize_items(trials: list, blocking_events: list, staff_map: dict) -> li
             if s:
                 initials = s.get("initials", "")
         label = f"{short} ({initials})" if initials else short
-        likelihood = t.get("trial_likelihood") or 50
         items.append({
             "kind": "trial",
             "start": start,
             "end": end,
             "label": label,
-            "opacity": max(likelihood / 100, 0.3),
         })
     for evt in blocking_events:
         if not evt.get("date"):
@@ -93,7 +91,6 @@ def _normalize_items(trials: list, blocking_events: list, staff_map: dict) -> li
             "start": start,
             "end": end,
             "label": evt.get("description", "Event"),
-            "opacity": 1.0,
         })
     return items
 
@@ -218,7 +215,7 @@ def _build_week_rows(
             last_month = m_num
 
         month_label = mid.strftime("%B") if is_first else None
-        week_label = f"wk of {monday.strftime('%b')} {monday.day}" if is_first else f"{monday.strftime('%b')} {monday.day}"
+        week_label = str(mid.year) if is_first else f"{monday.strftime('%b')} {monday.day}"
 
         rows.append({
             "monday": monday,
@@ -323,7 +320,7 @@ def _render_week_row(week: dict, today: datetime.date, open_days: set[str]) -> s
             opacity = 1.0
         else:
             bg = CLR_DESTRUCTIVE
-            opacity = item["opacity"]
+            opacity = 1.0
 
         bars += (
             f'<div class="bar" style="left:{left};width:{width};top:{top}pt;'
@@ -432,7 +429,6 @@ def _legend() -> str:
 <span class="leg-item"><span class="leg-swatch" style="background:{CLR_DESTRUCTIVE}"></span> Trial</span>
 <span class="leg-item"><span class="leg-swatch" style="background:{CLR_INFO}"></span> Vacation</span>
 <span class="leg-item"><span class="leg-swatch" style="background:{CLR_SUCCESS};opacity:0.4"></span> Open day</span>
-<span class="leg-item leg-note">Trial bar opacity = likelihood %</span>
 </div>"""
 
 
