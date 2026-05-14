@@ -23,10 +23,12 @@ export function TrialTable({
   trials,
   blockingEvents,
   staffMap,
+  onEditEvent,
 }: {
   trials: TrialItem[]
   blockingEvents: BlockingEvent[]
   staffMap: Map<number, StaffMember>
+  onEditEvent?: (event: BlockingEvent) => void
 }) {
   const navigate = useNavigate()
   const [sorting, setSorting] = useState<SortingState>([
@@ -82,14 +84,12 @@ export function TrialTable({
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className={
-                  row.original.kind === "trial"
-                    ? "cursor-pointer group/row"
-                    : "group/row"
-                }
+                className="cursor-pointer group/row"
                 onClick={() => {
                   if (row.original.kind === "trial") {
                     navigate(`/cases/${row.original.trial.case_id}`)
+                  } else if (row.original.kind === "event" && onEditEvent) {
+                    onEditEvent(row.original.event)
                   }
                 }}
               >
