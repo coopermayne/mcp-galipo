@@ -401,6 +401,12 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         "trial_estimated_days", "claim_deadline", "complaint_deadline",
     ]
 
+    nullable_fields = {
+        "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline",
+        "proposed_trial_dates", "trial_likelihood", "trial_likelihood_note",
+        "trial_estimated_days", "notes", "result", "case_summary",
+    }
+
     with SessionLocal() as session:
         case = session.get(Case, case_id)
         if not case:
@@ -410,17 +416,20 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         for field, value in kwargs.items():
             if field not in allowed_fields:
                 continue
-            if value is None:
+            if field in nullable_fields and value == "":
+                value = None
+            if value is None and field not in nullable_fields:
                 continue
 
-            if field == "status":
-                validate_case_status(value)
-            elif field == "proposed_trial_dates":
-                if isinstance(value, list):
-                    for d in value:
-                        validate_date_format(d, "proposed_trial_dates")
-            elif field in ("date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"):
-                validate_date_format(value, field)
+            if value is not None:
+                if field == "status":
+                    validate_case_status(value)
+                elif field == "proposed_trial_dates":
+                    if isinstance(value, list):
+                        for d in value:
+                            validate_date_format(d, "proposed_trial_dates")
+                elif field in ("date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"):
+                    validate_date_format(value, field)
 
             setattr(case, field, value)
             changed = True
