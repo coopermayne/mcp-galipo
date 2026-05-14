@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -132,12 +133,10 @@ export function CaseFormDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="date_of_injury">Date of Injury</Label>
-              <Input
-                id="date_of_injury"
-                type="date"
-                value={form.date_of_injury}
-                onChange={set("date_of_injury")}
+              <Label>Date of Injury</Label>
+              <DatePicker
+                value={form.date_of_injury || null}
+                onChange={(d) => setForm((f) => ({ ...f, date_of_injury: d ?? "" }))}
               />
             </div>
           </div>

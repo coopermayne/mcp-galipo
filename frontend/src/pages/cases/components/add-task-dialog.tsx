@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -88,10 +89,9 @@ export function AddTaskDialog({ open, onOpenChange, caseId }: AddTaskDialogProps
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Due Date</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+              <DatePicker
+                value={dueDate || null}
+                onChange={(d) => setDueDate(d ?? "")}
               />
             </div>
             <div className="space-y-1.5">

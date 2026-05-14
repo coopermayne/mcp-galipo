@@ -5,6 +5,7 @@ import type { Intake } from "@/types/intake"
 import { formatPhone } from "@/lib/utils"
 import { updateIntake } from "@/services/intakes"
 import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Button } from "@/components/ui/button"
 import { SmsLaunchButton } from "@/components/common/sms-launch-button"
 import {
@@ -312,7 +313,10 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 shrink-0 text-muted-foreground" />
-                  <Input type="date" {...inputProps("incident_date")} />
+                  <DatePicker
+                    value={draft.incident_date || null}
+                    onChange={(d) => setDraft((prev) => ({ ...prev, incident_date: d ?? "" }))}
+                  />
                   <Input placeholder="Time" {...inputProps("incident_time")} className="h-6 w-20 text-xs px-1.5" />
                 </div>
                 <div className="flex items-center gap-2">

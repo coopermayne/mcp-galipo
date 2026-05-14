@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { type Invoice, markInvoicePaid } from "@/services/invoices"
 
 interface MarkPaidDialogProps {
@@ -82,12 +83,10 @@ export function MarkPaidDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="paid-date">Date Paid</Label>
-            <Input
-              id="paid-date"
-              type="date"
-              value={paidDate}
-              onChange={(e) => setPaidDate(e.target.value)}
+            <Label>Date Paid</Label>
+            <DatePicker
+              value={paidDate || null}
+              onChange={(d) => setPaidDate(d ?? "")}
             />
           </div>
         </div>

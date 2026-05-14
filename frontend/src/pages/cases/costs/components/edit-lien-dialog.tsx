@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -134,12 +135,10 @@ export function EditLienDialog({
               </Select>
             </div>
             <div>
-              <Label htmlFor="edit-lien-date">Date Received</Label>
-              <Input
-                id="edit-lien-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+              <Label>Date Received</Label>
+              <DatePicker
+                value={date || null}
+                onChange={(d) => setDate(d ?? "")}
               />
             </div>
           </div>
@@ -155,12 +154,10 @@ export function EditLienDialog({
                 />
               </div>
               <div>
-                <Label htmlFor="edit-lien-paid-date">Paid Date</Label>
-                <Input
-                  id="edit-lien-paid-date"
-                  type="date"
-                  value={paidDate}
-                  onChange={(e) => setPaidDate(e.target.value)}
+                <Label>Paid Date</Label>
+                <DatePicker
+                  value={paidDate || null}
+                  onChange={(d) => setPaidDate(d ?? "")}
                 />
               </div>
             </div>

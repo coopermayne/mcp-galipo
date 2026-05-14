@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { findTrialSlots } from "@/services/trial-calendar"
 
 function parseDate(s: string): Date {
@@ -81,10 +82,9 @@ export function SlotFinder({ open, onOpenChange }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Earliest date</Label>
-              <Input
-                type="date"
-                value={earliestDate}
-                onChange={(e) => setEarliestDate(e.target.value)}
+              <DatePicker
+                value={earliestDate || null}
+                onChange={(d) => setEarliestDate(d ?? "")}
               />
             </div>
           </div>

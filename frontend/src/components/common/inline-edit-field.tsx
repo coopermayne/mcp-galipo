@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import { DatePicker } from "@/components/ui/date-picker"
 
 interface InlineEditFieldProps {
   value: string
@@ -12,7 +13,23 @@ interface InlineEditFieldProps {
   displayClassName?: string
 }
 
-export function InlineEditField({
+export function InlineEditField(props: InlineEditFieldProps) {
+  if (props.type === "date") {
+    return (
+      <DatePicker
+        value={props.value || null}
+        onChange={(date) => props.onSave(date ?? "")}
+        variant="inline"
+        placeholder={props.placeholder ?? "—"}
+        className={props.displayClassName}
+      />
+    )
+  }
+
+  return <InlineEditFieldInner {...props} />
+}
+
+function InlineEditFieldInner({
   value,
   onSave,
   type = "text",
@@ -82,17 +99,7 @@ export function InlineEditField({
         displayClassName
       )}
     >
-      <span className="break-words">
-        {value
-          ? type === "date"
-            ? new Date(value + "T00:00:00").toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : value
-          : placeholder}
-      </span>
+      <span className="break-words">{value || placeholder}</span>
       <HugeiconsIcon
         icon={PencilEdit01Icon}
         className="size-3 shrink-0 opacity-0 group-hover/edit:opacity-50 transition-opacity"

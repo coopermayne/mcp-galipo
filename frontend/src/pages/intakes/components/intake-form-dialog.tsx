@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { extractIntakeFields, type CreateIntakeData } from "@/services/intakes"
@@ -251,12 +252,10 @@ export function IntakeFormDialog({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="incident_date">Date</Label>
-                <Input
-                  id="incident_date"
-                  type="date"
-                  value={form.incident_date}
-                  onChange={set("incident_date")}
+                <Label>Date</Label>
+                <DatePicker
+                  value={form.incident_date || null}
+                  onChange={(d) => setForm((f) => ({ ...f, incident_date: d ?? "" }))}
                 />
               </div>
               <div className="grid gap-1.5">

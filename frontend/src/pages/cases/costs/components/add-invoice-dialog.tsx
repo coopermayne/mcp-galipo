@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -128,22 +129,17 @@ export function AddInvoiceDialog({
               </Select>
             </div>
             <div>
-              <Label htmlFor="add-date">Invoice Date</Label>
-              <Input
-                id="add-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
+              <Label>Invoice Date</Label>
+              <DatePicker
+                value={date || null}
+                onChange={(d) => setDate(d ?? "")}
               />
             </div>
             <div>
-              <Label htmlFor="add-due-date">Due Date</Label>
-              <Input
-                id="add-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+              <Label>Due Date</Label>
+              <DatePicker
+                value={dueDate || null}
+                onChange={(d) => setDueDate(d ?? "")}
               />
             </div>
           </div>
