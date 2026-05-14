@@ -135,6 +135,21 @@ export async function exportCaseReport(): Promise<void> {
   downloadBlob(blob, `Case Report ${date}.docx`)
 }
 
+export type CaseListGroupBy = "attorney" | "status" | "alphabetical"
+
+export async function exportCaseListPdf(groupBy: CaseListGroupBy): Promise<void> {
+  const res = await apiFetch(`/api/v1/cases/export/list-pdf?group_by=${groupBy}`)
+  if (!res.ok) throw new Error("Failed to export case list PDF")
+  const blob = await res.blob()
+  const date = new Date().toISOString().slice(0, 10)
+  const labels: Record<CaseListGroupBy, string> = {
+    attorney: "by Attorney",
+    status: "by Status",
+    alphabetical: "Alphabetical",
+  }
+  downloadBlob(blob, `Case List ${labels[groupBy]} ${date}.pdf`)
+}
+
 export async function markCaseRead(
   caseId: number
 ): Promise<{ success: boolean }> {

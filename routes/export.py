@@ -22,6 +22,7 @@ from services.pdf_generator import generate_case_list_pdf
 from services.intake_pdf_generator import generate_intake_list_pdf, generate_intake_detail_pdf, generate_intake_batch_pdf
 from services.docx_generator import generate_case_list_docx
 from services.cost_report_generator import generate_cost_report_pdf
+from services.case_list_report import generate_case_list_report
 from routes.common import api_error
 
 logger = logging.getLogger(__name__)
@@ -397,6 +398,50 @@ def register_export_routes(mcp):
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"'
             }
+        )
+
+    @mcp.custom_route("/api/v1/cases/export/list-pdf", methods=["GET"])
+    async def api_export_case_list_pdf(request):
+        """Export active case list as a grouped PDF."""
+        if err := auth.require_auth(request):
+            return err
+
+        group_by = request.query_params.get("group_by", "alphabetical")
+        if group_by not in ("attorney", "status", "alphabetical"):
+            return api_error("group_by must be attorney, status, or alphabetical", "INVALID_INPUT", 400)
+
+        from db.cases import get_all_cases
+
+        result = await asyncio.to_thread(get_all_cases, limit=5000)
+        all_cases = result.get("cases", [])
+        active_cases = [c for c in all_cases if c.get("status") != "Closed"]
+
+        # Resolve attorney/paralegal user IDs to names
+        user_ids = set()
+        for c in active_cases:
+            user_ids.update(c.get("attorney_ids") or [])
+
+        users_map = {}
+        if user_ids:
+            with SessionLocal() as session:
+                rows = session.execute(text(
+                    "SELECT id, first_name, last_name, initials FROM users WHERE id = ANY(:ids)"
+                ), {"ids": list(user_ids)}).mappings().all()
+                for row in rows:
+                    users_map[row["id"]] = dict(row)
+
+        try:
+            pdf_buf = await asyncio.to_thread(generate_case_list_report, active_cases, users_map, group_by)
+        except Exception as e:
+            logger.error("Case list PDF failed:\n%s", traceback.format_exc())
+            return api_error(f"PDF generation failed: {e}", "EXPORT_ERROR", 500)
+
+        timestamp = datetime.now(LA).strftime("%Y%m%d_%H%M%S")
+        filename = f"case_list_{group_by}_{timestamp}.pdf"
+        return Response(
+            content=pdf_buf.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     @mcp.custom_route("/api/v1/intakes/export", methods=["GET"])
