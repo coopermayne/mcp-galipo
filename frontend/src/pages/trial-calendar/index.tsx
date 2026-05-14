@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { addMonths, startOfMonth, format } from "date-fns"
-import { ArrowLeftIcon, ArrowRightIcon, PrinterIcon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
+import { PrinterIcon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-calendar"
 import { createEvent, type CreateEventData } from "@/services/events"
@@ -21,33 +20,21 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-type ViewCount = "3" | "6" | "12"
 type View = "calendar" | "table"
 
+const MONTHS_AHEAD = 49
+const MONTHS_BEHIND = 1
+
 export default function TrialCalendarPage() {
-  const [viewCount, setViewCount] = useState<ViewCount>("6")
-  const [offset, setOffset] = useState(0)
   const [vacationOpen, setVacationOpen] = useState(false)
   const [blockingOpen, setBlockingOpen] = useState(false)
   const [view, setView] = useState<View>("calendar")
   const [printing, setPrinting] = useState(false)
   const queryClient = useQueryClient()
 
-  const count = Number(viewCount)
-
-  const months = useMemo(() => {
-    const today = new Date()
-    return Array.from({ length: count }, (_, i) =>
-      startOfMonth(addMonths(today, 1 + offset + i)),
-    )
-  }, [count, offset])
-
-  const monthsAhead = Math.max(offset + count + 1, 1)
-  const monthsBehind = Math.max(-offset + 1, 1)
-
   const { data, isLoading } = useQuery({
-    queryKey: ["trial-calendar", monthsAhead, monthsBehind],
-    queryFn: () => getTrialCalendar(monthsAhead, monthsBehind),
+    queryKey: ["trial-calendar", MONTHS_AHEAD, MONTHS_BEHIND],
+    queryFn: () => getTrialCalendar(MONTHS_AHEAD, MONTHS_BEHIND),
   })
 
   const { data: staffData } = useQuery({
@@ -72,53 +59,19 @@ export default function TrialCalendarPage() {
   const handlePrint = useCallback(async (style: "list" | "visual") => {
     setPrinting(true)
     try {
-      const blob = await downloadTrialCalendarPdf(monthsAhead, monthsBehind, style)
+      const blob = await downloadTrialCalendarPdf(MONTHS_AHEAD, MONTHS_BEHIND, style)
       downloadBlob(blob, `trial-calendar-${style}.pdf`)
     } finally {
       setPrinting(false)
     }
-  }, [monthsAhead, monthsBehind])
-
-  const rangeLabel =
-    months.length === 1
-      ? format(months[0], "MMMM yyyy")
-      : `${format(months[0], "MMM yyyy")} – ${format(months[months.length - 1], "MMM yyyy")}`
+  }, [])
 
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
-          <p className="text-muted-foreground text-sm">{rangeLabel}</p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
         <div className="flex items-center gap-2">
-          <div className="flex items-center">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset((o) => o - count)}>
-              <HugeiconsIcon icon={ArrowLeftIcon} strokeWidth={2} className="size-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setOffset(0)}>
-              Reset
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset((o) => o + count)}>
-              <HugeiconsIcon icon={ArrowRightIcon} strokeWidth={2} className="size-4" />
-            </Button>
-          </div>
-          <ToggleGroup
-            type="single"
-            value={viewCount}
-            onValueChange={(v) => {
-              if (v) {
-                setViewCount(v as ViewCount)
-                setOffset(0)
-              }
-            }}
-            className="border"
-          >
-            <ToggleGroupItem value="3" className="px-3 text-xs">3mo</ToggleGroupItem>
-            <ToggleGroupItem value="6" className="px-3 text-xs">6mo</ToggleGroupItem>
-            <ToggleGroupItem value="12" className="px-3 text-xs">12mo</ToggleGroupItem>
-          </ToggleGroup>
           <ToggleGroup
             type="single"
             value={view}

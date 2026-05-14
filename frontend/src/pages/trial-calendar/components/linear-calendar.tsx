@@ -1,12 +1,26 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router"
-import { format } from "date-fns"
+import { format, addDays } from "date-fns"
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { TrialCalendarData } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
@@ -20,6 +34,7 @@ import {
   computeWindowPills,
   parseDate,
   dateKey,
+  isWeekend,
   type CalendarItem,
   type OpenWindow,
   type WindowPill,
@@ -48,36 +63,65 @@ function getItemStyle(item: CalendarItem): React.CSSProperties {
   return { backgroundColor: "var(--destructive)", opacity }
 }
 
-function OpenWindowsStrip({ windows }: { windows: OpenWindow[] }) {
-  if (!windows.length) return null
-  const maxBd = Math.max(...windows.map((w) => w.businessDays))
+function OpenWindowsDropdown({
+  windows,
+  selectedKey,
+  onSelect,
+}: {
+  windows: OpenWindow[]
+  selectedKey: string | null
+  onSelect: (key: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2">
-      {windows.map((w, i) => {
-        const isMax = w.businessDays === maxBd && windows.length > 1
-        return (
-          <div
-            key={i}
-            className={cn(
-              "shrink-0 border px-3 py-2",
-              isMax ? "border-success/60 bg-success/5" : "border-border",
-            )}
-          >
-            <div className="text-[11px] text-muted-foreground whitespace-nowrap">
-              {format(w.start, "MMM d")} – {format(w.end, "MMM d")}
-            </div>
-            <div
-              className={cn(
-                "text-sm font-semibold tabular-nums",
-                isMax ? "text-success" : "text-foreground",
-              )}
-            >
-              {w.businessDays} trial days
-            </div>
-          </div>
-        )
-      })}
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <span className="text-success font-semibold tabular-nums">
+            {windows.length}
+          </span>
+          <span>Open Slots</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search month or year..." />
+          <CommandList className="max-h-72">
+            <CommandEmpty>No matching slots.</CommandEmpty>
+            <CommandGroup>
+              {windows.map((w) => {
+                const key = dateKey(w.start)
+                const isSelected = key === selectedKey
+                const sameYear =
+                  w.start.getFullYear() === w.end.getFullYear()
+                const label = sameYear
+                  ? `${format(w.start, "MMM d")} – ${format(w.end, "MMM d, yyyy")}`
+                  : `${format(w.start, "MMM d, yyyy")} – ${format(w.end, "MMM d, yyyy")}`
+                return (
+                  <CommandItem
+                    key={key}
+                    value={`${format(w.start, "MMMM yyyy")} ${format(w.end, "MMMM yyyy")} ${label}`}
+                    onSelect={() => {
+                      onSelect(key)
+                      setOpen(false)
+                    }}
+                    className={cn(isSelected && "bg-success/10")}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs">{label}</div>
+                      <div className="text-[10px] text-success tabular-nums">
+                        {w.businessDays} trial days open
+                      </div>
+                    </div>
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -119,6 +163,50 @@ export function LinearCalendar({
     return m
   }, [windowPills])
 
+  const [selectedWindowKey, setSelectedWindowKey] = useState<string | null>(
+    null,
+  )
+
+  const selectedWindow = useMemo(() => {
+    if (!selectedWindowKey) return null
+    return (
+      openWindows.find((w) => dateKey(w.start) === selectedWindowKey) ?? null
+    )
+  }, [openWindows, selectedWindowKey])
+
+  const selectedDays = useMemo(() => {
+    if (!selectedWindow) return new Set<string>()
+    const days = new Set<string>()
+    let d = new Date(selectedWindow.start)
+    while (d <= selectedWindow.end) {
+      if (!isWeekend(d)) days.add(dateKey(d))
+      d = addDays(d, 1)
+    }
+    return days
+  }, [selectedWindow])
+
+  const handleWindowSelect = useCallback((key: string) => {
+    setSelectedWindowKey((prev) => (prev === key ? null : key))
+  }, [])
+
+  useEffect(() => {
+    if (!selectedWindowKey) return
+    const timer = setTimeout(() => {
+      const win = openWindows.find(
+        (w) => dateKey(w.start) === selectedWindowKey,
+      )
+      if (!win) return
+      const targetIdx = weekRows.findIndex((week) =>
+        week.days.some((d) => d >= win.start && d <= win.end),
+      )
+      if (targetIdx >= 0) {
+        const el = document.querySelector(`[data-week-idx="${targetIdx}"]`)
+        el?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [selectedWindowKey, openWindows, weekRows])
+
   const attyNames = (ids: number[]) =>
     ids
       .map((id) => staffMap.get(id))
@@ -129,23 +217,25 @@ export function LinearCalendar({
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex flex-col gap-3">
-        <OpenWindowsStrip windows={openWindows} />
-
-        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none text-muted-foreground w-fit">
-          <input
-            type="checkbox"
-            checked={highlightOpen}
-            onChange={(e) => setHighlightOpen(e.target.checked)}
-            className="accent-[var(--success)]"
+        <div className="flex items-center gap-3">
+          <OpenWindowsDropdown
+            windows={openWindows}
+            selectedKey={selectedWindowKey}
+            onSelect={handleWindowSelect}
           />
-          Highlight open windows
-        </label>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={highlightOpen}
+              onChange={(e) => setHighlightOpen(e.target.checked)}
+              className="accent-[var(--success)]"
+            />
+            Highlight open windows
+          </label>
+        </div>
 
-        <div
-          className="overflow-auto border bg-card"
-          style={{ maxHeight: "calc(100vh - 340px)" }}
-        >
-          {/* Sticky weekday header */}
+        <div className="border bg-card">
+          {/* Weekday header */}
           <div className="sticky top-0 z-30 flex border-b bg-card">
             <div
               className="shrink-0 border-r bg-card"
@@ -179,6 +269,7 @@ export function LinearCalendar({
             return (
               <div
                 key={wi}
+                data-week-idx={wi}
                 className={cn(
                   "flex",
                   week.monthLabel &&
@@ -220,13 +311,18 @@ export function LinearCalendar({
                       const isToday = dk === todayKey
                       const isConflict = week.conflictColumns.has(col)
                       const isOpen = highlightOpen && openDays.has(dk)
+                      const isHighlighted = selectedDays.has(dk)
 
                       return (
                         <div
                           key={col}
                           className={cn(
                             "relative border-r border-b border-border/20",
-                            !isConflict && !isOpen && isWe && "bg-muted/30",
+                            !isConflict &&
+                              !isOpen &&
+                              !isHighlighted &&
+                              isWe &&
+                              "bg-muted/30",
                             isToday && "ring-2 ring-inset ring-primary",
                           )}
                           style={{ height: h }}
@@ -246,6 +342,15 @@ export function LinearCalendar({
                               style={{
                                 backgroundColor: "var(--success)",
                                 opacity: 0.07,
+                              }}
+                            />
+                          )}
+                          {isHighlighted && (
+                            <div
+                              className="absolute inset-0 z-[1]"
+                              style={{
+                                backgroundColor: "var(--success)",
+                                opacity: 0.18,
                               }}
                             />
                           )}
@@ -337,9 +442,7 @@ export function LinearCalendar({
                       }
 
                       return (
-                        <Tooltip
-                          key={`${ci.item.id}-${wi}-${idx}`}
-                        >
+                        <Tooltip key={`${ci.item.id}-${wi}-${idx}`}>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
