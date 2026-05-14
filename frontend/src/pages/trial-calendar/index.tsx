@@ -168,7 +168,7 @@ export default function TrialCalendarPage() {
         view === "calendar" ? (
           <LinearCalendar data={data} staffMap={staffMap} />
         ) : (
-          <TrialTable trials={data.trials} staffMap={staffMap} />
+          <TrialTable trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} />
         )
       ) : null}
 

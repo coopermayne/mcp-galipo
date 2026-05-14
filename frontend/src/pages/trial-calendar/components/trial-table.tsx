@@ -15,26 +15,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { TrialItem } from "@/services/trial-calendar"
+import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
-import { getTrialColumns } from "@/pages/trial-calendar/components/trial-columns"
+import { getTrialColumns, type CalendarTableRow } from "@/pages/trial-calendar/components/trial-columns"
 
 export function TrialTable({
   trials,
+  blockingEvents,
   staffMap,
 }: {
   trials: TrialItem[]
+  blockingEvents: BlockingEvent[]
   staffMap: Map<number, StaffMember>
 }) {
   const navigate = useNavigate()
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "trial_date", desc: false },
+    { id: "date", desc: false },
   ])
+
+  const rows = useMemo<CalendarTableRow[]>(() => {
+    const trialRows: CalendarTableRow[] = trials.map((t) => ({
+      kind: "trial" as const,
+      date: t.trial_date,
+      trial: t,
+    }))
+    const eventRows: CalendarTableRow[] = blockingEvents.map((e) => ({
+      kind: "event" as const,
+      date: e.date,
+      event: e,
+    }))
+    return [...trialRows, ...eventRows]
+  }, [trials, blockingEvents])
 
   const columns = useMemo(() => getTrialColumns({ staffMap }), [staffMap])
 
   const table = useReactTable({
-    data: trials,
+    data: rows,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -66,8 +82,16 @@ export function TrialTable({
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="cursor-pointer group/row"
-                onClick={() => navigate(`/cases/${row.original.case_id}`)}
+                className={
+                  row.original.kind === "trial"
+                    ? "cursor-pointer group/row"
+                    : "group/row"
+                }
+                onClick={() => {
+                  if (row.original.kind === "trial") {
+                    navigate(`/cases/${row.original.trial.case_id}`)
+                  }
+                }}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
@@ -85,7 +109,7 @@ export function TrialTable({
                 colSpan={columns.length}
                 className="h-24 text-center text-muted-foreground"
               >
-                No upcoming trials.
+                No upcoming items.
               </TableCell>
             </TableRow>
           )}
