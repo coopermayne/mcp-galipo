@@ -46,12 +46,13 @@ function formatCurrency(amount: string): string {
 export function getCaseCostColumns(options: {
   onMarkPaid?: (invoice: Invoice) => void
   onEdit?: (invoice: Invoice) => void
+  isAdvance?: boolean
 }): ColumnDef<Invoice>[] {
   return [
     {
       accessorKey: "date",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Date" />
+        <DataTableColumnHeader column={column} title={options.isAdvance ? "Agreement Date" : "Date"} />
       ),
       cell: ({ row }) => {
         const inv = row.original
@@ -70,11 +71,19 @@ export function getCaseCostColumns(options: {
       },
     },
     {
-      accessorKey: "category",
+      accessorKey: options.isAdvance ? "advanced_to_name" : "category",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Category" />
+        <DataTableColumnHeader column={column} title={options.isAdvance ? "Advanced To" : "Category"} />
       ),
       cell: ({ row }) => {
+        if (options.isAdvance) {
+          const name = row.original.advanced_to_name
+          return (
+            <span className="text-sm truncate max-w-[180px] block">
+              {name ?? <span className="text-muted-foreground">—</span>}
+            </span>
+          )
+        }
         if (row.original.is_transfer) {
           const isPaid = row.original.status === "paid"
           return (

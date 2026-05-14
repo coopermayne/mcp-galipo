@@ -181,6 +181,8 @@ def create_invoice(
     is_transfer: bool = False,
 ) -> dict:
     with SessionLocal() as session:
+        if type == "advance":
+            category = "Advance"
         inv = Invoice(
             case_id=case_id,
             payee_id=payee_id,
