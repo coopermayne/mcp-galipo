@@ -6,6 +6,7 @@ import { formatPhone } from "@/lib/utils"
 import { updateIntake } from "@/services/intakes"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { SmsLaunchButton } from "@/components/common/sms-launch-button"
 import {
   Tooltip,
   TooltipContent,
@@ -217,6 +218,10 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
                   <div className="flex items-center gap-2">
                     <HugeiconsIcon icon={CallIcon} className="size-3.5 text-muted-foreground" />
                     <span className="text-xs">{formatPhone(intake.phone)}</span>
+                    <SmsLaunchButton
+                      phone={intake.phone}
+                      label={intake.name ?? undefined}
+                    />
                   </div>
                 )}
                 {intake.contact_relationship && (
@@ -276,6 +281,16 @@ export function IntakeMetadata({ intake }: IntakeMetadataProps) {
                       <div className="flex items-center gap-2">
                         <HugeiconsIcon icon={CallIcon} className="size-3.5 text-muted-foreground" />
                         <span className="text-xs">{formatPhone(intake.referral_phone)}</span>
+                        <SmsLaunchButton
+                          phone={intake.referral_phone}
+                          label={
+                            intake.referral_name
+                              ? `${intake.referral_name} (referral)`
+                              : intake.referral_org
+                                ? `${intake.referral_org} (referral)`
+                                : undefined
+                          }
+                        />
                       </div>
                     )}
                   </>
