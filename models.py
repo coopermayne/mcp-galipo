@@ -275,6 +275,9 @@ class Case(Base):
     result: Mapped[Optional[str]] = mapped_column(Text)
     date_of_injury: Mapped[Optional[datetime.date]] = mapped_column(Date)
     trial_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    proposed_trial_dates: Mapped[Optional[list[datetime.date]]] = mapped_column(
+        ARRAY(Date), nullable=True
+    )
     trial_likelihood: Mapped[Optional[int]] = mapped_column(Integer)
     trial_likelihood_note: Mapped[Optional[str]] = mapped_column(Text)
     trial_estimated_days: Mapped[Optional[int]] = mapped_column(Integer)

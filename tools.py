@@ -128,8 +128,8 @@ class SearchInput(BaseModel):
 
 class ManageCaseInput(BaseModel):
     """Create, update, or delete a case."""
-    action: Literal["create", "update", "delete"] = Field(..., description="Action to perform")
-    case_id: Optional[int] = Field(None, description="Required for update/delete")
+    action: Literal["create", "update", "delete", "confirm_trial_date"] = Field(..., description="Action to perform")
+    case_id: Optional[int] = Field(None, description="Required for update/delete/confirm_trial_date")
     case_name: Optional[str] = Field(None, description="Case name (required for create)")
     short_name: Optional[str] = Field(None, description="Short display name")
     status: Optional[CaseStatus] = Field(None, description="Case status")
@@ -137,7 +137,8 @@ class ManageCaseInput(BaseModel):
     case_summary: Optional[str] = Field(None, description="Case summary text")
     result: Optional[str] = Field(None, description="Case result/outcome")
     date_of_injury: Optional[str] = Field(None, description="Date of injury (YYYY-MM-DD)")
-    trial_date: Optional[str] = Field(None, description="Trial date (YYYY-MM-DD)")
+    trial_date: Optional[str] = Field(None, description="Trial date (YYYY-MM-DD). For confirm_trial_date: the proposed date to confirm.")
+    proposed_trial_dates: Optional[list[str]] = Field(None, description="Proposed trial dates submitted to court (list of YYYY-MM-DD)")
     trial_likelihood: Optional[int] = Field(None, description="Trial likelihood percentage (0-100)")
     trial_estimated_days: Optional[int] = Field(None, description="Estimated trial duration in days")
     claim_deadline: Optional[str] = Field(None, description="Government claim filing deadline (YYYY-MM-DD)")
@@ -700,7 +701,7 @@ def register_tools(mcp):
                 if not data.case_id:
                     return validation_error("case_id is required for update")
                 kwargs = {}
-                for field in ["case_name", "short_name", "status", "print_code", "case_summary", "result", "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"]:
+                for field in ["case_name", "short_name", "status", "print_code", "case_summary", "result", "date_of_injury", "trial_date", "proposed_trial_dates", "claim_deadline", "complaint_deadline"]:
                     val = getattr(data, field)
                     if val is not None:
                         kwargs[field] = val
@@ -708,6 +709,16 @@ def register_tools(mcp):
                 if not result:
                     return not_found_error("Case")
                 return {"success": True, "message": f"Case #{data.case_id} updated", "case_id": data.case_id}
+
+            elif data.action == "confirm_trial_date":
+                if not data.case_id:
+                    return validation_error("case_id is required for confirm_trial_date")
+                if not data.trial_date:
+                    return validation_error("trial_date is required (the proposed date to confirm)")
+                result = db.confirm_trial_date(data.case_id, data.trial_date)
+                if not result:
+                    return not_found_error("Case")
+                return {"success": True, "message": f"Trial date {data.trial_date} confirmed for case #{data.case_id}", "case_id": data.case_id}
 
             elif data.action == "delete":
                 if not data.case_id:

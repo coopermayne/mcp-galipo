@@ -58,6 +58,7 @@ from .cases import (
     create_case,
     update_case,
     delete_case,
+    confirm_trial_date,
     search_cases,
     get_dashboard_stats,
     # Staff assignments
