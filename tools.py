@@ -288,6 +288,15 @@ class RescheduleOverdueInput(BaseModel):
     case_id: Optional[int] = Field(None, description="Only reschedule overdue tasks for this case")
 
 
+class RecommendTrialSlotsInput(BaseModel):
+    """Find available trial slots on the calendar."""
+    estimated_days: int = Field(..., description="Trial duration in weekdays (e.g. 5 for a one-week trial)")
+    months_ahead: int = Field(6, description="How many months ahead to search (1-12)")
+    earliest_date: Optional[str] = Field(None, description="Earliest start date to consider (YYYY-MM-DD)")
+    latest_date: Optional[str] = Field(None, description="Latest start date to consider (YYYY-MM-DD)")
+    max_results: int = Field(10, description="Maximum number of slots to return (1-20)")
+
+
 # =============================================================================
 # Tool Registration
 # =============================================================================
@@ -1525,3 +1534,43 @@ def register_tools(mcp):
             return validation_error(str(e))
         except Exception as e:
             return error_response(f"reschedule_overdue failed: {str(e)}", "MUTATION_ERROR")
+
+    # =========================================================================
+    # RECOMMEND TRIAL SLOTS
+    # =========================================================================
+
+    @mcp.tool()
+    def recommend_trial_slots(context: Context, data: RecommendTrialSlotsInput) -> dict:
+        """Find available weeks for scheduling a trial based on the trial calendar.
+
+        Scans existing trials and vacations to find free weekday blocks.
+        Returns a ranked list of available date ranges.
+
+        Examples:
+        - recommend_trial_slots(estimated_days=5) — find 1-week slots in next 6 months
+        - recommend_trial_slots(estimated_days=10, months_ahead=12) — find 2-week slots in next year
+        - recommend_trial_slots(estimated_days=3, earliest_date="2026-09-01")
+        """
+        context.info(f"recommend_trial_slots: {data.estimated_days} days, {data.months_ahead} months ahead")
+        try:
+            from db.trial_calendar import find_available_trial_slots
+            result = find_available_trial_slots(
+                estimated_days=data.estimated_days,
+                months_ahead=data.months_ahead,
+                earliest_date=data.earliest_date,
+                latest_date=data.latest_date,
+                max_results=data.max_results,
+            )
+            if not result["slots"]:
+                return {
+                    "success": True,
+                    "message": f"No available {data.estimated_days}-day slots found in the search range",
+                    **result,
+                }
+            return {
+                "success": True,
+                "message": f"Found {result['total_found']} available {data.estimated_days}-day slot(s)",
+                **result,
+            }
+        except Exception as e:
+            return error_response(f"recommend_trial_slots failed: {str(e)}", "QUERY_ERROR")
