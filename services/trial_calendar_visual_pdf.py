@@ -352,6 +352,49 @@ def _group_rows_by_month(week_rows: list[dict]) -> list[list[dict]]:
     return groups
 
 
+# ---------------------------------------------------------------------------
+# Greedy page packing — fit as many months per page as possible
+# ---------------------------------------------------------------------------
+
+# Letter portrait: 11in = 792pt, margins 0.35in top + 0.3in bottom = 46.8pt
+_PAGE_USABLE = 740       # pt available (slightly conservative)
+_HEADER_LEGEND_H = 40    # header + legend on first page
+_CAL_OVERHEAD = 14       # day-header row + calendar border per page
+
+def _month_group_height(rows: list[dict]) -> float:
+    h = 0.0
+    for i, row in enumerate(rows):
+        h += _row_height(row["lane_count"])
+        h += 0.5  # border-bottom
+        if i == 0:
+            h += 1.5  # month-start border-top
+    return h
+
+
+def _pack_pages(month_groups: list[list[dict]]) -> list[list[list[dict]]]:
+    """Greedily pack month groups into pages based on computed heights."""
+    pages: list[list[list[dict]]] = []
+    current_page: list[list[dict]] = []
+    is_first = True
+    budget = _PAGE_USABLE - _HEADER_LEGEND_H - _CAL_OVERHEAD
+    used = 0.0
+
+    for group in month_groups:
+        gh = _month_group_height(group)
+        if current_page and used + gh > budget:
+            pages.append(current_page)
+            current_page = []
+            is_first = False
+            budget = _PAGE_USABLE - _CAL_OVERHEAD
+            used = 0.0
+        current_page.append(group)
+        used += gh
+
+    if current_page:
+        pages.append(current_page)
+    return pages
+
+
 def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
     now = datetime.datetime.now(LA)
     today = now.date()
@@ -387,12 +430,11 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
         f'</div>'
     )
 
-    pages_html = ""
-    for page_idx in range(0, len(month_groups), 4):
-        chunk = month_groups[page_idx:page_idx + 4]
-        is_last = page_idx + 4 >= len(month_groups)
+    pages = _pack_pages(month_groups)
 
-        if page_idx == 0:
+    pages_html = ""
+    for pi, page_groups in enumerate(pages):
+        if pi == 0:
             header = (
                 f'<div class="hdr">'
                 f'<div class="title">Trial Calendar</div>'
@@ -403,13 +445,13 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
             pages_html += _legend()
 
         rows_html = ""
-        for month_rows in chunk:
+        for month_rows in page_groups:
             for row in month_rows:
                 rows_html += _render_week_row(row, today, open_days)
 
         pages_html += f'<div class="calendar">{day_header_row}{rows_html}</div>'
 
-        if not is_last:
+        if pi < len(pages) - 1:
             pages_html += '<div class="page-break"></div>'
 
     return f"""<!DOCTYPE html>
