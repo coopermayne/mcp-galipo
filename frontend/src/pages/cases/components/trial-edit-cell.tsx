@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PencilEdit01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { PencilEdit01Icon, InformationCircleIcon, Add01Icon } from "@hugeicons/core-free-icons"
 import { updateCase } from "@/services/cases"
 import {
   Popover,
@@ -149,11 +149,10 @@ export function TrialEditCell({
               </div>
             </>
           ) : (
-            <span className="text-muted-foreground group-hover/trial:text-foreground transition-colors text-sm flex items-center gap-1">
-              Set trial
+            <span className="text-muted-foreground group-hover/trial:text-foreground transition-colors">
               <HugeiconsIcon
-                icon={PencilEdit01Icon}
-                className="size-3 shrink-0 opacity-0 group-hover/trial:opacity-50 transition-opacity"
+                icon={Add01Icon}
+                className="size-3.5 shrink-0"
               />
             </span>
           )}
