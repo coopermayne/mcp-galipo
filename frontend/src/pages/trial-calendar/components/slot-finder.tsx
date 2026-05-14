@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,8 +19,12 @@ function parseDate(s: string): Date {
   return new Date(y, m - 1, d)
 }
 
-export function SlotFinder() {
-  const [open, setOpen] = useState(false)
+interface Props {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+export function SlotFinder({ open, onOpenChange }: Props) {
   const [estimatedDays, setEstimatedDays] = useState(5)
   const [monthsAhead, setMonthsAhead] = useState(6)
   const [earliestDate, setEarliestDate] = useState("")
@@ -47,13 +50,7 @@ export function SlotFinder() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
-          Find Open Slots
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Find Available Trial Slots</DialogTitle>
