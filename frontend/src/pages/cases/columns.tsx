@@ -90,6 +90,7 @@ export function getColumns(options: {
     },
     {
       id: "attorneys",
+      accessorFn: (row) => row.attorney_ids ?? [],
       header: "Team",
       cell: ({ row }) => {
         const ids = row.original.attorney_ids ?? []
@@ -111,6 +112,11 @@ export function getColumns(options: {
             ))}
           </div>
         )
+      },
+      filterFn: (row, id, value: string[]) => {
+        const ids = (row.getValue(id) as number[]) ?? []
+        if (!value?.length) return true
+        return ids.some((aid) => value.includes(String(aid)))
       },
     },
     {
@@ -158,6 +164,10 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Status" />
       ),
       cell: ({ row }) => <CaseStatusBadge status={row.original.status} />,
+      filterFn: (row, id, value: string[]) => {
+        if (!value?.length) return true
+        return value.includes(row.getValue(id) as string)
+      },
     },
     {
       id: "preview",
