@@ -53,7 +53,11 @@ def _build_html(trials: list, staff_map: dict, blocking_events: list) -> str:
 
         if item["kind"] == "trial":
             t = item["data"]
+            status = t.get("status", "")
+            stale = status in ("Settl. Pend.", "Closed")
             case_name = escape(t.get("case_name", ""))
+            if stale:
+                case_name += f' <span class="stale-tag">{escape(status)}</span>'
 
             chips = []
             for aid in t.get("attorney_ids") or []:
@@ -242,4 +246,16 @@ tr.alt { background: #f8f8f8; }
 }
 
 .em { color: #bbb; }
+
+.stale-tag {
+  display: inline-block;
+  font-style: normal;
+  font-size: 6.5pt;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 1pt 3pt;
+  margin-left: 3pt;
+  vertical-align: middle;
+}
 """

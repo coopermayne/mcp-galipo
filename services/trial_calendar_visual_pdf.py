@@ -79,6 +79,7 @@ def _normalize_items(trials: list, blocking_events: list, staff_map: dict) -> li
             "start": start,
             "end": end,
             "label": label,
+            "status": t.get("status", ""),
         })
     for evt in blocking_events:
         if not evt.get("date"):
@@ -322,10 +323,13 @@ def _render_week_row(week: dict, today: datetime.date, open_days: set[str]) -> s
             bg = CLR_DESTRUCTIVE
             opacity = 1.0
 
+        stale = item.get("status", "") in ("Settl. Pend.", "Closed")
+        stale_html = f' <span class="bar-stale">{escape(item["status"])}</span>' if stale else ""
+
         bars += (
             f'<div class="bar" style="left:{left};width:{width};top:{top}pt;'
             f'background:{bg};opacity:{opacity:.2f}">'
-            f'<span class="bar-label">{escape(item["label"])}</span></div>'
+            f'<span class="bar-label">{escape(item["label"])}{stale_html}</span></div>'
         )
 
     return (
@@ -658,6 +662,14 @@ body {{
   font-weight: 500;
   line-height: 1;
   color: #fff;
+}}
+.bar-stale {{
+  font-size: 4.5pt;
+  font-weight: 700;
+  background: rgba(255,255,255,0.85);
+  color: #92400e;
+  padding: 0.5pt 1.5pt;
+  margin-left: 1pt;
 }}
 
 .page-break {{
