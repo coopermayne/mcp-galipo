@@ -306,7 +306,7 @@ def register_chat_routes(mcp):
         if preset_data:
             selected_model = None  # Default (haiku) — just summarizing pre-loaded data
         elif mode == "case_setup":
-            selected_model = client.model_max  # Opus — complex multi-tool case creation
+            selected_model = client.model_full  # Sonnet — structured multi-tool case creation
         elif mode == "intakes":
             selected_model = client.model_full  # Sonnet — intake parsing needs smarter model
         elif mode and mode != "full":
