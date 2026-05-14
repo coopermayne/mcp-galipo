@@ -2,6 +2,7 @@
 Case CRUD operations — SQLAlchemy ORM implementation.
 """
 
+import calendar
 import datetime
 from decimal import Decimal
 from typing import Optional, List
@@ -16,6 +17,30 @@ from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
 )
+
+
+def _add_months(d: datetime.date, months: int) -> datetime.date:
+    """Add months to a date, clamping to the last day of the target month."""
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return datetime.date(year, month, day)
+
+
+def _apply_sol_defaults(doi_str: str, claim_deadline: str = None, complaint_deadline: str = None):
+    """Calculate default SOL deadlines from date of injury.
+
+    Returns (claim_deadline, complaint_deadline) — only fills in values that are None.
+    """
+    if not doi_str:
+        return claim_deadline, complaint_deadline
+    doi = datetime.date.fromisoformat(doi_str)
+    if claim_deadline is None:
+        claim_deadline = _add_months(doi, 6).isoformat()
+    if complaint_deadline is None:
+        complaint_deadline = _add_months(doi, 24).isoformat()
+    return claim_deadline, complaint_deadline
 
 
 # Color palette for case badges (16 visually distinct colors, synced with frontend lib/case-colors.ts)
@@ -363,6 +388,10 @@ def create_case(case_name: str, status: str = "Signing Up",
     validate_date_format(claim_deadline, "claim_deadline")
     validate_date_format(complaint_deadline, "complaint_deadline")
 
+    claim_deadline, complaint_deadline = _apply_sol_defaults(
+        date_of_injury, claim_deadline, complaint_deadline
+    )
+
     if short_name is None:
         short_name = case_name.split()[0] if case_name else None
 
@@ -411,6 +440,20 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         case = session.get(Case, case_id)
         if not case:
             return None
+
+        # Auto-default SOL deadlines when DOI is set/changed
+        if "date_of_injury" in kwargs:
+            doi_val = kwargs["date_of_injury"]
+            if doi_val and doi_val != "":
+                existing_claim = kwargs.get("claim_deadline") or _sv(case.claim_deadline)
+                existing_complaint = kwargs.get("complaint_deadline") or _sv(case.complaint_deadline)
+                auto_claim, auto_complaint = _apply_sol_defaults(
+                    doi_val, existing_claim, existing_complaint
+                )
+                if "claim_deadline" not in kwargs and auto_claim:
+                    kwargs["claim_deadline"] = auto_claim
+                if "complaint_deadline" not in kwargs and auto_complaint:
+                    kwargs["complaint_deadline"] = auto_complaint
 
         changed = False
         for field, value in kwargs.items():
