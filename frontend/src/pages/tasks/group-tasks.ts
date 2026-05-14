@@ -69,14 +69,26 @@ export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
     }
   }
 
-  // Sort tasks within each bucket by due_date
-  const sortByDate = (a: TaskListItem, b: TaskListItem) => {
+  // Sort tasks within each bucket by due_date, then by urgency (Urgent first)
+  const urgencyRank: Record<string, number> = {
+    Urgent: 0,
+    High: 1,
+    Medium: 2,
+    Low: 3,
+  }
+  const rankUrgency = (u: string | null) =>
+    u && urgencyRank[u] !== undefined ? urgencyRank[u] : 99
+
+  const sortByDateThenUrgency = (a: TaskListItem, b: TaskListItem) => {
+    if (!a.due_date && !b.due_date) return rankUrgency(a.urgency) - rankUrgency(b.urgency)
     if (!a.due_date) return 1
     if (!b.due_date) return -1
-    return a.due_date.localeCompare(b.due_date)
+    const dateCmp = a.due_date.localeCompare(b.due_date)
+    if (dateCmp !== 0) return dateCmp
+    return rankUrgency(a.urgency) - rankUrgency(b.urgency)
   }
   for (const key of Object.keys(buckets)) {
-    buckets[key].sort(sortByDate)
+    buckets[key].sort(sortByDateThenUrgency)
   }
 
   const config: { key: string; label: string; sortOrder: number }[] = [

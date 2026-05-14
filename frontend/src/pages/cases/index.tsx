@@ -1,13 +1,31 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import type { SortingState, VisibilityState } from "@tanstack/react-table"
+import { useSearchParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
 import { getCases } from "@/services/cases"
 import { getUsers } from "@/services/users"
-import { CaseTable } from "@/pages/cases/components/case-table"
+import { CaseTable, type CaseGroupBy } from "@/pages/cases/components/case-table"
 
 export default function MyCasesPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const groupBy = (searchParams.get("group") as CaseGroupBy) || "none"
+  const setGroupBy = useCallback(
+    (g: CaseGroupBy) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (g === "none") {
+          next.delete("group")
+        } else {
+          next.set("group", g)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams]
+  )
 
   const [sorting, setSorting] = useState<SortingState>([])
   const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 639px)").matches)
@@ -93,6 +111,8 @@ export default function MyCasesPage() {
         onSortingChange={setSorting}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
       />
     </div>
   )

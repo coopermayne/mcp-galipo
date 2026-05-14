@@ -29,11 +29,21 @@ function endOfWeek(date: Date): Date {
   return d
 }
 
-const sortByDateAsc = (a: EventListItem, b: EventListItem) =>
-  a.date.localeCompare(b.date)
+// "HH:MM" or "HH:MM:SS"; null sorts after timed events for asc, before for desc
+const timeRankAsc = (t: string | null) => t ?? "99:99"
+const timeRankDesc = (t: string | null) => t ?? ""
 
-const sortByDateDesc = (a: EventListItem, b: EventListItem) =>
-  b.date.localeCompare(a.date)
+const sortByDateAsc = (a: EventListItem, b: EventListItem) => {
+  const dateCmp = a.date.localeCompare(b.date)
+  if (dateCmp !== 0) return dateCmp
+  return timeRankAsc(a.time).localeCompare(timeRankAsc(b.time))
+}
+
+const sortByDateDesc = (a: EventListItem, b: EventListItem) => {
+  const dateCmp = b.date.localeCompare(a.date)
+  if (dateCmp !== 0) return dateCmp
+  return timeRankDesc(b.time).localeCompare(timeRankDesc(a.time))
+}
 
 export function groupEventsByDate(events: EventListItem[]): EventGroup[] {
   const today = todayMidnight()

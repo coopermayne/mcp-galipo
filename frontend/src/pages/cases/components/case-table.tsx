@@ -4,6 +4,8 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   type SortingState,
   type ColumnFiltersState,
   type VisibilityState,
@@ -18,6 +20,8 @@ import {
   NoteEditIcon,
   MoreHorizontalIcon,
   Download04Icon,
+  TableIcon,
+  LayersLogoIcon,
 } from "@hugeicons/core-free-icons"
 import { useNavigate } from "react-router"
 import { getCase, createCase, type CreateCaseData, exportCaseReport } from "@/services/cases"
@@ -26,6 +30,8 @@ import { getColumns } from "@/pages/cases/columns"
 import { CaseQuickView } from "@/pages/cases/components/case-quick-view"
 import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
 import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
+import { CaseGroupedView } from "@/pages/cases/components/case-grouped-view"
+import { DataTableFacetedFilter } from "@/components/common/data-table-faceted-filter"
 import {
   Table,
   TableBody,
@@ -43,7 +49,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { CaseListItem } from "@/types/case"
+import { cn } from "@/lib/utils"
+import type { CaseListItem, CaseStatus } from "@/types/case"
+
+const ALL_STATUSES: CaseStatus[] = [
+  "Signing Up",
+  "Prospective",
+  "Pre-Filing",
+  "Pleadings",
+  "Discovery",
+  "Expert Discovery",
+  "Pre-trial",
+  "Trial",
+  "Post-Trial",
+  "Appeal",
+  "Settl. Pend.",
+  "Stayed",
+  "Closed",
+]
+
+export type CaseGroupBy = "none" | "status"
 
 export type UsersMap = Map<number, { id: number; first_name: string; last_name: string; initials: string }>
 
@@ -56,6 +81,9 @@ interface CaseTableProps {
   onSortingChange: (s: SortingState) => void
   columnVisibility: VisibilityState
   onColumnVisibilityChange: (v: VisibilityState) => void
+  showFilters?: boolean
+  groupBy?: CaseGroupBy
+  onGroupByChange?: (g: CaseGroupBy) => void
 }
 
 export function CaseTable({
@@ -67,6 +95,9 @@ export function CaseTable({
   onSortingChange,
   columnVisibility,
   onColumnVisibilityChange,
+  showFilters,
+  groupBy = "none",
+  onGroupByChange,
 }: CaseTableProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -109,10 +140,36 @@ export function CaseTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
     meta: { onPreview },
   })
 
   const nameColumn = table.getColumn("case_name")
+  const statusColumn = table.getColumn("status")
+  const attorneysColumn = table.getColumn("attorneys")
+
+  const statusOptions = useMemo(
+    () => ALL_STATUSES.map((s) => ({ label: s, value: s })),
+    []
+  )
+
+  const attorneyOptions = useMemo(() => {
+    const users = Array.from(usersMap.values())
+    users.sort((a, b) =>
+      `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+    )
+    return users.map((u) => ({
+      label: `${u.first_name} ${u.last_name}`.trim() || u.initials,
+      value: String(u.id),
+    }))
+  }, [usersMap])
+
+  const filteredCases = useMemo(
+    () => table.getFilteredRowModel().rows.map((r) => r.original),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [table.getFilteredRowModel().rows]
+  )
 
   const { data: selectedCase } = useQuery({
     queryKey: ["case", selectedCaseId],
@@ -122,8 +179,8 @@ export function CaseTable({
 
   return (
     <>
-      {/* Search + actions */}
-      <div className="flex items-center gap-2">
+      {/* Search + filters + actions */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 max-w-sm">
           <HugeiconsIcon
             icon={Search01Icon}
@@ -136,6 +193,62 @@ export function CaseTable({
             className="h-8 pl-8"
           />
         </div>
+        {showFilters && statusColumn && (
+          <DataTableFacetedFilter
+            column={statusColumn}
+            title="Status"
+            options={statusOptions}
+          />
+        )}
+        {showFilters && attorneysColumn && (
+          <DataTableFacetedFilter
+            column={attorneysColumn}
+            title="Attorney"
+            options={attorneyOptions}
+          />
+        )}
+        {showFilters && columnFilters.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setColumnFilters([])}
+            className="h-8 px-2 text-xs"
+          >
+            Clear
+          </Button>
+        )}
+        {onGroupByChange && (
+          <div className="flex items-center border h-8">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onGroupByChange("none")}
+              className={cn(
+                "h-full px-2.5 border-0",
+                groupBy === "none"
+                  ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                  : "text-muted-foreground"
+              )}
+              title="Table view"
+            >
+              <HugeiconsIcon icon={TableIcon} className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onGroupByChange("status")}
+              className={cn(
+                "h-full px-2.5 border-0",
+                groupBy === "status"
+                  ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                  : "text-muted-foreground"
+              )}
+              title="Group by status"
+            >
+              <HugeiconsIcon icon={LayersLogoIcon} className="size-3.5" />
+            </Button>
+          </div>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon-sm" className="h-8 w-8">
@@ -159,7 +272,14 @@ export function CaseTable({
         </DropdownMenu>
       </div>
 
-      {/* Table */}
+      {/* Table or grouped view */}
+      {groupBy === "status" ? (
+        <CaseGroupedView
+          cases={filteredCases}
+          isLoading={isLoading}
+          usersMap={usersMap}
+        />
+      ) : (
       <div className="border">
         <Table>
           <TableHeader>
@@ -218,6 +338,7 @@ export function CaseTable({
           </TableBody>
         </Table>
       </div>
+      )}
 
       {/* Dialogs */}
       <CaseQuickView
