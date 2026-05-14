@@ -138,6 +138,8 @@ class ManageCaseInput(BaseModel):
     result: Optional[str] = Field(None, description="Case result/outcome")
     date_of_injury: Optional[str] = Field(None, description="Date of injury (YYYY-MM-DD)")
     trial_date: Optional[str] = Field(None, description="Trial date (YYYY-MM-DD)")
+    trial_likelihood: Optional[int] = Field(None, description="Trial likelihood percentage (0-100)")
+    trial_estimated_days: Optional[int] = Field(None, description="Estimated trial duration in days")
     claim_deadline: Optional[str] = Field(None, description="Government claim filing deadline (YYYY-MM-DD)")
     complaint_deadline: Optional[str] = Field(None, description="Complaint filing deadline (YYYY-MM-DD)")
 
