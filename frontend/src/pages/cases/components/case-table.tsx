@@ -20,11 +20,12 @@ import {
   NoteEditIcon,
   MoreHorizontalIcon,
   Download04Icon,
+  PrinterIcon,
   TableIcon,
   LayersLogoIcon,
 } from "@hugeicons/core-free-icons"
 import { useNavigate } from "react-router"
-import { getCase, createCase, type CreateCaseData, exportCaseReport } from "@/services/cases"
+import { getCase, createCase, type CreateCaseData, exportCaseReport, exportCaseListPdf, type CaseListGroupBy } from "@/services/cases"
 import type { ListNavState } from "@/components/common/list-nav"
 import { getColumns } from "@/pages/cases/columns"
 import { CaseQuickView } from "@/pages/cases/components/case-quick-view"
@@ -46,6 +47,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -105,6 +110,16 @@ export function CaseTable({
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null)
+  const [printing, setPrinting] = useState(false)
+
+  const handlePrint = useCallback(async (groupBy: CaseListGroupBy) => {
+    setPrinting(true)
+    try {
+      await exportCaseListPdf(groupBy)
+    } finally {
+      setPrinting(false)
+    }
+  }, [])
 
   const onPreview = useCallback((id: number) => {
     setSelectedCaseId(id)
@@ -260,6 +275,24 @@ export function CaseTable({
               <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
               Download Report
             </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={printing}>
+                <HugeiconsIcon icon={PrinterIcon} className="mr-2 size-4" />
+                {printing ? "Generating..." : "Print Case List"}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => handlePrint("attorney")}>
+                  By Attorney
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handlePrint("status")}>
+                  By Status
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handlePrint("alphabetical")}>
+                  Alphabetical
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setChatOpen(true)}>
               <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
               New Case (AI)
