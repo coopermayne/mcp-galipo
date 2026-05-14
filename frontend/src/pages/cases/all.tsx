@@ -191,6 +191,7 @@ export default function AllCasesPage() {
         onSortingChange={setSorting}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
+        showFilters
       />
     </div>
   )
