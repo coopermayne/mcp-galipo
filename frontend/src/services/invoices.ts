@@ -274,7 +274,10 @@ export async function uploadInvoiceFile(
     method: "POST",
     body: formData,
   })
-  if (!res.ok) throw new Error("Failed to upload file")
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error?.message ?? "Failed to upload file")
+  }
   return res.json()
 }
 
@@ -287,7 +290,10 @@ export async function extractInvoice(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file_path: filePath, content_type: contentType }),
   })
-  if (!res.ok) throw new Error("Failed to extract invoice")
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error?.message ?? "Failed to extract invoice")
+  }
   return res.json()
 }
 
