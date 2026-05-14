@@ -25,7 +25,7 @@ import {
   updateInvoice,
   INVOICE_CATEGORIES,
   openInvoiceFile,
-  getCaseCoCounsel,
+  getCostSharing,
 } from "@/services/invoices"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Attachment01Icon } from "@hugeicons/core-free-icons"
@@ -58,11 +58,12 @@ export function EditInvoiceDialog({
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
-  const { data: counsel } = useQuery({
-    queryKey: ["case-co-counsel", invoice?.case_id],
-    queryFn: () => getCaseCoCounsel(invoice!.case_id),
+  const { data: costSharing } = useQuery({
+    queryKey: ["cost-sharing", invoice?.case_id],
+    queryFn: () => getCostSharing(invoice!.case_id),
     enabled: !!invoice?.case_id,
   })
+  const costShareCounsel = costSharing?.co_counsel.filter((c) => c.cost_share_pct != null) ?? []
 
   const { data: casePersons } = useQuery({
     queryKey: ["case-persons", invoice?.case_id],
@@ -205,8 +206,8 @@ export function EditInvoiceDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__clear">Our Firm</SelectItem>
-                  {counsel?.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
+                  {costShareCounsel.map((c) => (
+                    <SelectItem key={c.person_id} value={String(c.person_id)}>
                       {c.name}{c.organization ? ` (${c.organization})` : ""}
                     </SelectItem>
                   ))}
