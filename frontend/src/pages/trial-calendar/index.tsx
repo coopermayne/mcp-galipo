@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { addMonths, startOfMonth, format } from "date-fns"
-import { ArrowLeftIcon, ArrowRightIcon, PrinterIcon } from "@hugeicons/core-free-icons"
+import { ArrowLeftIcon, ArrowRightIcon, PrinterIcon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-calendar"
 import type { BlockingEvent } from "@/services/trial-calendar"
@@ -13,6 +13,12 @@ import { AddVacationDialog } from "@/pages/trial-calendar/components/add-vacatio
 import { AddBlockingEventDialog } from "@/pages/trial-calendar/components/add-blocking-event-dialog"
 import { EventDetailDialog } from "@/pages/events/components/event-detail-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { EventListItem } from "@/types/event"
 
@@ -85,11 +91,11 @@ export default function TrialCalendarPage() {
     },
   })
 
-  const handlePrint = useCallback(async () => {
+  const handlePrint = useCallback(async (style: "list" | "visual") => {
     setPrinting(true)
     try {
-      const blob = await downloadTrialCalendarPdf(monthsAhead, monthsBehind)
-      downloadBlob(blob, "trial-calendar.pdf")
+      const blob = await downloadTrialCalendarPdf(monthsAhead, monthsBehind, style)
+      downloadBlob(blob, `trial-calendar-${style}.pdf`)
     } finally {
       setPrinting(false)
     }
@@ -143,10 +149,23 @@ export default function TrialCalendarPage() {
             <ToggleGroupItem value="6" className="px-3 text-xs">6mo</ToggleGroupItem>
             <ToggleGroupItem value="12" className="px-3 text-xs">12mo</ToggleGroupItem>
           </ToggleGroup>
-          <Button variant="outline" size="sm" onClick={handlePrint} disabled={printing}>
-            <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
-            {printing ? "Generating..." : "Print"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={printing}>
+                <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
+                {printing ? "Generating..." : "Print"}
+                <HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handlePrint("list")}>
+                Print List
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("visual")}>
+                Print Visual
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" onClick={() => setVacationOpen(true)}>
             Add Vacation
           </Button>

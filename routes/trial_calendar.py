@@ -7,6 +7,7 @@ import auth
 from db.trial_calendar import get_trial_calendar
 from db.users import get_all_users
 from services.trial_calendar_pdf import generate_trial_calendar_pdf
+from services.trial_calendar_visual_pdf import generate_visual_calendar_pdf
 
 
 def register_trial_calendar_routes(mcp):
@@ -24,12 +25,13 @@ def register_trial_calendar_routes(mcp):
 
     @mcp.custom_route("/api/v1/trial-calendar/pdf", methods=["GET"])
     async def api_trial_calendar_pdf(request):
-        """Export trial calendar as landscape PDF."""
+        """Export trial calendar as PDF (style=list or style=visual)."""
         if err := auth.require_auth(request):
             return err
 
         months_ahead = int(request.query_params.get("months_ahead", "12"))
         months_behind = int(request.query_params.get("months_behind", "0"))
+        style = request.query_params.get("style", "list")
 
         def _generate():
             data = get_trial_calendar(months_ahead, months_behind)
@@ -38,6 +40,10 @@ def register_trial_calendar_routes(mcp):
                 u["id"]: u for u in users
                 if u.get("position") in ("attorney", "paralegal")
             }
+            if style == "visual":
+                return generate_visual_calendar_pdf(
+                    data["trials"], data["blocking_events"], staff_map,
+                )
             return generate_trial_calendar_pdf(data["trials"], staff_map)
 
         buf = await asyncio.to_thread(_generate)

@@ -44,11 +44,13 @@ export async function getTrialCalendar(
 
 export async function downloadTrialCalendarPdf(
   monthsAhead = 12,
-  monthsBehind = 0
+  monthsBehind = 0,
+  style: "list" | "visual" = "list",
 ): Promise<Blob> {
   const params = new URLSearchParams({
     months_ahead: String(monthsAhead),
     months_behind: String(monthsBehind),
+    style,
   })
   const res = await apiFetch(`/api/v1/trial-calendar/pdf?${params}`)
   if (!res.ok) throw new Error("Failed to generate PDF")
