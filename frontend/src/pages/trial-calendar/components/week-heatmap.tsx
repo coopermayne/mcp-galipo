@@ -376,7 +376,7 @@ export function WeekHeatmap({
                       ? `var(--palette-${bar.trial.color})`
                       : "var(--destructive)"
                     const opacity = Math.max(
-                      (bar.trial.trial_likelihood ?? 50) / 100,
+                      (bar.trial.trial_likelihood ?? 100) / 100,
                       0.3,
                     )
                     const left = bar.startCol * TOTAL + PAD
@@ -414,34 +414,51 @@ export function WeekHeatmap({
                           side="right"
                           className="bg-popover text-popover-foreground border shadow-md max-w-64"
                         >
-                          <div className="space-y-1">
-                            <div className="font-semibold">
-                              {bar.trial.case_name}
-                            </div>
-                            <div className="text-muted-foreground text-xs space-y-0.5">
-                              <div>
-                                Trial:{" "}
-                                {format(
-                                  parseDate(bar.trial.trial_date),
-                                  "MMM d, yyyy",
-                                )}
-                                {bar.trial.trial_estimated_days
-                                  ? ` · ${bar.trial.trial_estimated_days} days`
-                                  : ""}
-                              </div>
-                              {bar.trial.jurisdiction_name && (
-                                <div>{bar.trial.jurisdiction_name}</div>
-                              )}
-                              {bar.trial.attorney_ids.length > 0 && (
-                                <div>
-                                  Atty: {attyNames(bar.trial.attorney_ids)}
+                          {(() => {
+                            const isStale = bar.trial.status === "Settl. Pend." || bar.trial.status === "Closed"
+                            return (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold">
+                                    {bar.trial.case_name}
+                                  </span>
+                                  {isStale && (
+                                    <span className="text-[10px] font-medium px-1 py-px bg-warning/15 text-warning-foreground border border-warning/30">
+                                      {bar.trial.status}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
-                              <div>
-                                Likelihood: {bar.trial.trial_likelihood ?? "?"}%
+                                <div className="text-muted-foreground text-xs space-y-0.5">
+                                  <div>
+                                    Trial:{" "}
+                                    {format(
+                                      parseDate(bar.trial.trial_date),
+                                      "MMM d, yyyy",
+                                    )}
+                                    {bar.trial.trial_estimated_days
+                                      ? ` · ${bar.trial.trial_estimated_days} days`
+                                      : ""}
+                                  </div>
+                                  {bar.trial.jurisdiction_name && (
+                                    <div>{bar.trial.jurisdiction_name}</div>
+                                  )}
+                                  {bar.trial.attorney_ids.length > 0 && (
+                                    <div>
+                                      Atty: {attyNames(bar.trial.attorney_ids)}
+                                    </div>
+                                  )}
+                                  <div>
+                                    Likelihood: {bar.trial.trial_likelihood ?? "?"}%
+                                  </div>
+                                </div>
+                                {isStale && (
+                                  <div className="text-[11px] text-warning-foreground font-medium pt-0.5 border-t border-warning/20">
+                                    Consider updating likelihood or removing trial date
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          </div>
+                            )
+                          })()}
                         </TooltipContent>
                       </Tooltip>
                     )

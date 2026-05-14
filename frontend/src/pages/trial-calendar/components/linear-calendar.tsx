@@ -41,6 +41,7 @@ import {
   type WindowPill,
 } from "./calendar-helpers"
 
+const STALE_STATUSES = new Set(["Settl. Pend.", "Closed"])
 const DAYNUM_H = 20
 const LANE_H = 22
 const LANE_GAP = 2
@@ -60,7 +61,7 @@ function getItemStyle(item: CalendarItem): React.CSSProperties {
   if (item.kind !== "trial" && item.eventRaw) {
     return { backgroundColor: getEventTypeColor(item.eventRaw.event_type) }
   }
-  const likelihood = item.trialRaw?.trial_likelihood ?? 50
+  const likelihood = item.trialRaw?.trial_likelihood ?? 100
   const opacity = Math.max(likelihood / 100, 0.3)
   return { backgroundColor: "var(--destructive)", opacity }
 }
@@ -386,10 +387,18 @@ export function LinearCalendar({
                       let tooltipBody: React.ReactNode
                       if (ci.item.kind === "trial" && ci.item.trialRaw) {
                         const t = ci.item.trialRaw
+                        const isStale = STALE_STATUSES.has(t.status)
                         tooltipBody = (
                           <div className="space-y-1 max-w-64">
-                            <div className="font-semibold">
-                              {t.case_name}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold">
+                                {t.case_name}
+                              </span>
+                              {isStale && (
+                                <span className="text-[10px] font-medium px-1 py-px bg-warning/15 text-warning-foreground border border-warning/30">
+                                  {t.status}
+                                </span>
+                              )}
                             </div>
                             <div className="text-muted-foreground text-xs space-y-0.5">
                               <div>
@@ -420,6 +429,11 @@ export function LinearCalendar({
                                 <div>#{t.case_number}</div>
                               )}
                             </div>
+                            {isStale && (
+                              <div className="text-[11px] text-warning-foreground font-medium pt-0.5 border-t border-warning/20">
+                                Consider updating likelihood or removing trial date
+                              </div>
+                            )}
                           </div>
                         )
                       } else {

@@ -308,7 +308,7 @@ export function VerticalTimeline({
               if (item.type === "trial" && item.trial) {
                 const t = item.trial
                 const opacity = Math.max(
-                  (t.trial_likelihood ?? 50) / 100,
+                  (t.trial_likelihood ?? 100) / 100,
                   0.25,
                 )
                 const color = t.color || "var(--destructive)"
@@ -343,25 +343,42 @@ export function VerticalTimeline({
                       side="right"
                       className={`max-w-64 ${LIGHT_TIP}`}
                     >
-                      <div className="space-y-1">
-                        <div className="font-semibold">{t.case_name}</div>
-                        <div className="text-muted-foreground text-xs">
-                          <div>
-                            Trial: {format(trialStart, "MMM d, yyyy")}
-                            {t.trial_estimated_days
-                              ? ` · ${t.trial_estimated_days} weekdays`
-                              : ""}
+                      {(() => {
+                        const isStale = t.status === "Settl. Pend." || t.status === "Closed"
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold">{t.case_name}</span>
+                              {isStale && (
+                                <span className="text-[10px] font-medium px-1 py-px bg-warning/15 text-warning-foreground border border-warning/30">
+                                  {t.status}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-muted-foreground text-xs">
+                              <div>
+                                Trial: {format(trialStart, "MMM d, yyyy")}
+                                {t.trial_estimated_days
+                                  ? ` · ${t.trial_estimated_days} weekdays`
+                                  : ""}
+                              </div>
+                              {t.jurisdiction_name && (
+                                <div>{t.jurisdiction_name}</div>
+                              )}
+                              {names && <div>Atty: {names}</div>}
+                              <div>Status: {t.status}</div>
+                              <div>
+                                Likelihood: {t.trial_likelihood ?? "?"}%
+                              </div>
+                            </div>
+                            {isStale && (
+                              <div className="text-[11px] text-warning-foreground font-medium pt-0.5 border-t border-warning/20">
+                                Consider updating likelihood or removing trial date
+                              </div>
+                            )}
                           </div>
-                          {t.jurisdiction_name && (
-                            <div>{t.jurisdiction_name}</div>
-                          )}
-                          {names && <div>Atty: {names}</div>}
-                          <div>Status: {t.status}</div>
-                          <div>
-                            Likelihood: {t.trial_likelihood ?? "?"}%
-                          </div>
-                        </div>
-                      </div>
+                        )
+                      })()}
                     </TooltipContent>
                   </Tooltip>
                 )

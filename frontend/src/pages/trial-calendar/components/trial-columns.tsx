@@ -40,6 +40,8 @@ function getLikelihoodColor(value: number): string {
   return "text-destructive"
 }
 
+const STALE_STATUSES = new Set(["Settl. Pend.", "Closed"])
+
 function DurationEditCell({ caseId, days }: { caseId: number; days: number | null }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -259,7 +261,8 @@ export function getTrialColumns(options: {
       ),
       cell: ({ row }) => {
         if (row.original.kind === "trial") {
-          const { color, case_name } = row.original.trial
+          const { color, case_name, status } = row.original.trial
+          const isStale = STALE_STATUSES.has(status)
           return (
             <div className="flex items-center gap-2">
               {color && (
@@ -269,6 +272,18 @@ export function getTrialColumns(options: {
                 />
               )}
               <span className="font-medium">{case_name}</span>
+              {isStale && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 bg-warning/15 text-warning-foreground border border-warning/30">
+                      {status}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs">
+                    Case is {status.toLowerCase()} — consider updating trial likelihood or removing trial date
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           )
         }
