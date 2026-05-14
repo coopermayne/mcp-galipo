@@ -1,4 +1,4 @@
-"""Visual trial calendar PDF — month-card grid mirroring the web UI."""
+"""Visual trial calendar PDF — linear week-row layout mirroring the web UI."""
 
 import calendar
 import datetime
@@ -25,20 +25,16 @@ def generate_visual_calendar_pdf(
 # Date helpers
 # ---------------------------------------------------------------------------
 
+def _parse(s: str) -> datetime.date:
+    return datetime.date.fromisoformat(s)
+
+
 def _add_months(d: datetime.date, n: int) -> datetime.date:
     month = d.month - 1 + n
     year = d.year + month // 12
     month = month % 12 + 1
     day = min(d.day, calendar.monthrange(year, month)[1])
     return datetime.date(year, month, day)
-
-
-def _parse(s: str) -> datetime.date:
-    return datetime.date.fromisoformat(s)
-
-
-def _monday_idx(d: datetime.date) -> int:
-    return (d.weekday()) % 7  # Monday=0
 
 
 def _add_weekdays(start: datetime.date, count: int) -> datetime.date:
@@ -51,197 +47,299 @@ def _add_weekdays(start: datetime.date, count: int) -> datetime.date:
     return cur
 
 
-def _get_month_weeks(year: int, month: int) -> list[list[datetime.date | None]]:
-    first = datetime.date(year, month, 1)
-    last = datetime.date(year, month, calendar.monthrange(year, month)[1])
-    cursor = first - datetime.timedelta(days=_monday_idx(first))
-    weeks = []
-    while True:
-        week = []
-        for _ in range(7):
-            if cursor.month == month and cursor.year == year:
-                week.append(cursor)
-            else:
-                week.append(None)
-            cursor += datetime.timedelta(days=1)
-        weeks.append(week)
-        if cursor > last:
-            break
-    return weeks
+def _is_weekend(d: datetime.date) -> bool:
+    return d.weekday() >= 5
+
+
+def _date_key(d: datetime.date) -> str:
+    return d.isoformat()
 
 
 # ---------------------------------------------------------------------------
-# Lane stacking (port of buildWeekSegments)
+# Normalize items (port of calendar-helpers.ts normalizeItems)
 # ---------------------------------------------------------------------------
 
-def _build_week_segments(
-    week: list[datetime.date | None],
-    month_start: datetime.date,
-    month_end: datetime.date,
-    trials: list,
-    blocking_events: list,
-    staff_map: dict,
-) -> list[dict]:
-    dates = [d for d in week if d is not None]
-    if not dates:
-        return []
-
-    week_start = dates[0]
-    week_end = dates[-1]
-    segments = []
-
-    for trial in trials:
-        if not trial.get("trial_date"):
+def _normalize_items(trials: list, blocking_events: list, staff_map: dict) -> list[dict]:
+    items = []
+    for t in trials:
+        if not t.get("trial_date"):
             continue
-        t_start = _parse(trial["trial_date"])
-        t_end = _add_weekdays(t_start, max(trial.get("trial_estimated_days") or 1, 1))
-
-        clip_start = max(t_start, month_start)
-        clip_end = min(t_end, month_end)
-        if clip_start > week_end or clip_end < week_start:
-            continue
-
-        seg_start = max(clip_start, week_start)
-        seg_end = min(clip_end, week_end)
-
-        short = trial.get("short_name") or (trial.get("case_name", "").split(" ")[0])
-        aids = trial.get("attorney_ids") or []
+        start = _parse(t["trial_date"])
+        end = _add_weekdays(start, max(t.get("trial_estimated_days") or 1, 1))
+        short = t.get("short_name") or t.get("case_name", "").split(" ")[0]
+        aids = t.get("attorney_ids") or []
         initials = ""
         if aids:
             s = staff_map.get(aids[0])
             if s:
                 initials = s.get("initials", "")
         label = f"{short} ({initials})" if initials else short
-        likelihood = trial.get("trial_likelihood") or 50
-
-        segments.append({
-            "type": "trial",
+        likelihood = t.get("trial_likelihood") or 50
+        items.append({
+            "kind": "trial",
+            "start": start,
+            "end": end,
             "label": label,
-            "start_col": _monday_idx(seg_start),
-            "end_col": _monday_idx(seg_end),
-            "opacity": max(likelihood / 100, 0.2),
-            "lane": 0,
+            "opacity": max(likelihood / 100, 0.3),
         })
-
     for evt in blocking_events:
         if not evt.get("date"):
             continue
-        e_start = _parse(evt["date"])
-        e_end = _parse(evt["end_date"]) if evt.get("end_date") else e_start
+        start = _parse(evt["date"])
+        end = _parse(evt["end_date"]) if evt.get("end_date") else start
         is_vacation = evt.get("event_type") == "vacation"
+        items.append({
+            "kind": "vacation" if is_vacation else "event",
+            "start": start,
+            "end": end,
+            "label": evt.get("description", "Event"),
+            "opacity": 1.0,
+        })
+    return items
 
-        clip_start = max(e_start, month_start)
-        clip_end = min(e_end, month_end)
-        if clip_start > week_end or clip_end < week_start:
+
+# ---------------------------------------------------------------------------
+# Open days: weekdays not covered by any item (port of computeOpenDays)
+# ---------------------------------------------------------------------------
+
+def _compute_open_days(
+    items: list[dict],
+    range_start: datetime.date,
+    range_end: datetime.date,
+) -> set[str]:
+    covered: set[str] = set()
+    for item in items:
+        d = max(item["start"], range_start)
+        end = min(item["end"], range_end)
+        while d <= end:
+            covered.add(_date_key(d))
+            d += datetime.timedelta(days=1)
+    open_days: set[str] = set()
+    d = range_start
+    while d <= range_end:
+        if not _is_weekend(d) and _date_key(d) not in covered:
+            open_days.add(_date_key(d))
+        d += datetime.timedelta(days=1)
+    return open_days
+
+
+# ---------------------------------------------------------------------------
+# Generate Monday-aligned weeks (port of generateWeeks)
+# ---------------------------------------------------------------------------
+
+def _generate_weeks(
+    range_start: datetime.date,
+    range_end: datetime.date,
+) -> list[list[datetime.date]]:
+    monday = range_start - datetime.timedelta(days=range_start.weekday())
+    weeks = []
+    while monday <= range_end:
+        week = [monday + datetime.timedelta(days=i) for i in range(7)]
+        weeks.append(week)
+        monday += datetime.timedelta(days=7)
+    return weeks
+
+
+# ---------------------------------------------------------------------------
+# Process week: clip items, assign lanes, detect conflicts
+# (port of processWeek from calendar-helpers.ts)
+# ---------------------------------------------------------------------------
+
+def _process_week(
+    week_days: list[datetime.date],
+    all_items: list[dict],
+) -> dict:
+    week_start = week_days[0]
+    week_end = week_days[6]
+
+    clipped = []
+    for item in all_items:
+        if item["start"] > week_end or item["end"] < week_start:
             continue
+        cs = -1
+        ce = -1
+        for i in range(7):
+            if week_days[i] >= item["start"] and week_days[i] <= item["end"]:
+                if cs == -1:
+                    cs = i
+                ce = i
+        if cs >= 0:
+            clipped.append({"item": item, "col_start": cs, "col_end": ce})
 
-        seg_start = max(clip_start, week_start)
-        seg_end = min(clip_end, week_end)
-
-        if is_vacation:
-            segments.append({
-                "type": "vacation",
-                "label": evt.get("description", "Vacation"),
-                "start_col": _monday_idx(seg_start),
-                "end_col": _monday_idx(seg_end),
-                "opacity": 0.7,
-                "lane": 0,
-            })
-        else:
-            segments.append({
-                "type": "dot",
-                "label": "",
-                "start_col": _monday_idx(seg_start),
-                "end_col": _monday_idx(seg_start),
-                "opacity": 1,
-                "lane": 0,
-            })
-
-    segments.sort(key=lambda s: (
-        1 if s["type"] == "dot" else 0,
-        s["start_col"],
-        -(s["end_col"] - s["start_col"]),
+    clipped.sort(key=lambda c: (
+        c["col_start"],
+        -(c["col_end"] - c["col_start"]),
     ))
 
     lane_ends: list[int] = []
-    for seg in segments:
+    result_items = []
+    for c in clipped:
         lane = -1
         for i, end in enumerate(lane_ends):
-            if end < seg["start_col"]:
+            if end < c["col_start"]:
                 lane = i
                 break
         if lane == -1:
             lane = len(lane_ends)
             lane_ends.append(-1)
-        seg["lane"] = lane
-        lane_ends[lane] = seg["end_col"]
+        lane_ends[lane] = c["col_end"]
+        result_items.append({**c, "lane": lane})
 
-    return segments
+    conflict_columns: set[int] = set()
+    for col in range(7):
+        count = sum(1 for ci in result_items if col >= ci["col_start"] and col <= ci["col_end"])
+        if count >= 2:
+            conflict_columns.add(col)
+
+    return {
+        "items": result_items,
+        "lane_count": max(len(lane_ends), 1),
+        "conflict_columns": conflict_columns,
+    }
 
 
 # ---------------------------------------------------------------------------
-# HTML rendering
+# Build all week rows with labels (port of buildWeekRows)
 # ---------------------------------------------------------------------------
 
-LANE_H = 12  # px per lane
-DAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"]
+def _build_week_rows(
+    weeks: list[list[datetime.date]],
+    all_items: list[dict],
+) -> list[dict]:
+    last_month = -1
+    rows = []
+    for days in weeks:
+        result = _process_week(days, all_items)
+        monday = days[0]
+        mid = days[2]
+        m_num = mid.month
+        is_first = m_num != last_month
+        if is_first:
+            last_month = m_num
+
+        month_label = mid.strftime("%B") if is_first else None
+        week_label = f"wk of {monday.strftime('%b')} {monday.day}" if is_first else f"{monday.strftime('%b')} {monday.day}"
+
+        rows.append({
+            "monday": monday,
+            "days": days,
+            "items": result["items"],
+            "lane_count": result["lane_count"],
+            "conflict_columns": result["conflict_columns"],
+            "month_label": month_label,
+            "week_label": week_label,
+        })
+    return rows
 
 
-def _render_month(year: int, month: int, trials: list, blocking_events: list, staff_map: dict, today: datetime.date) -> str:
-    weeks = _get_month_weeks(year, month)
-    month_start = datetime.date(year, month, 1)
-    month_end = datetime.date(year, month, calendar.monthrange(year, month)[1])
+# ---------------------------------------------------------------------------
+# HTML rendering — linear week rows matching the web UI
+# ---------------------------------------------------------------------------
 
-    header = f'<div class="mh">{datetime.date(year, month, 1).strftime("%B %Y")}</div>'
+DAYNUM_H = 14   # pt for day number row
+LANE_H = 14     # pt per lane
+LANE_GAP = 1    # pt between lanes
+BOTTOM_PAD = 2  # pt padding at bottom of week
+GUTTER_W = 58   # pt for left gutter
 
-    day_headers = "".join(f'<div class="dh">{d}</div>' for d in DAY_HEADERS)
+# Theme colors (oklch → hex approximations from index.css)
+CLR_FG = "#1a1a1a"
+CLR_MUTED_FG = "#808080"
+CLR_BORDER = "#e5e5e5"
+CLR_MUTED_BG = "#f5f5f5"
+CLR_DESTRUCTIVE = "#d93636"
+CLR_INFO = "#2563eb"
+CLR_SUCCESS = "#16a34a"
+CLR_PRIMARY = "#2563eb"
 
-    weeks_html = ""
-    for week in weeks:
-        day_cells = ""
-        for i, d in enumerate(week):
-            cls = "dn"
-            if d is None:
-                cls += " empty"
-            elif d == today:
-                cls += " today"
-            elif i >= 5:
-                cls += " wknd"
-            day_cells += f'<div class="{cls}">{d.day if d else ""}</div>'
+DAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-        segs = _build_week_segments(week, month_start, month_end, trials, blocking_events, staff_map)
-        lane_count = max((s["lane"] for s in segs), default=-1) + 1
-        lane_h = max(lane_count, 0) * LANE_H
 
-        seg_html = ""
-        for s in segs:
-            left = f"{(s['start_col'] / 7) * 100:.2f}%"
-            span = s["end_col"] - s["start_col"] + 1
-            width = f"{(span / 7) * 100:.2f}%"
-            top = s["lane"] * LANE_H
+def _row_height(lane_count: int) -> int:
+    return (
+        DAYNUM_H
+        + lane_count * LANE_H
+        + max(lane_count - 1, 0) * LANE_GAP
+        + BOTTOM_PAD
+    )
 
-            if s["type"] == "dot":
-                seg_html += (
-                    f'<div class="seg dot" style="left:{left};top:{top}px">'
-                    f'<div class="dot-box"></div></div>'
-                )
-            elif s["type"] == "vacation":
-                seg_html += (
-                    f'<div class="seg vac" style="left:{left};width:{width};top:{top}px;opacity:{s["opacity"]}">'
-                    f'<span class="sl">{escape(s["label"])}</span></div>'
-                )
-            else:
-                seg_html += (
-                    f'<div class="seg trial" style="left:{left};width:{width};top:{top}px;opacity:{s["opacity"]}">'
-                    f'<span class="sl">{escape(s["label"])}</span></div>'
-                )
 
-        weeks_html += f'<div class="wk"><div class="grid7">{day_cells}</div>'
-        if lane_h > 0:
-            weeks_html += f'<div class="lanes" style="height:{lane_h}px">{seg_html}</div>'
-        weeks_html += "</div>"
+def _render_week_row(week: dict, today: datetime.date, open_days: set[str]) -> str:
+    h = _row_height(week["lane_count"])
+    has_conflict = len(week["conflict_columns"]) > 0
+    border_cls = ' month-start' if week["month_label"] else ''
 
-    return f'<div class="mc"><div class="grid7 dhr">{day_headers}</div>{header}{weeks_html}</div>'
+    # Gutter
+    gutter = '<div class="gutter">'
+    if week["month_label"]:
+        gutter += f'<span class="month-lbl">{escape(week["month_label"])}</span>'
+    gutter += f'<span class="week-lbl">{escape(week["week_label"])}</span>'
+    if has_conflict:
+        gutter += '<span class="conflict-badge">CONFLICT</span>'
+    gutter += '</div>'
+
+    # Day cells (background grid)
+    cells = ""
+    for col, day in enumerate(week["days"]):
+        dk = _date_key(day)
+        is_we = col >= 5
+        is_today = day == today
+        is_conflict = col in week["conflict_columns"]
+        is_open = dk in open_days
+
+        cls = "day-cell"
+        if is_we:
+            cls += " weekend"
+        if is_today:
+            cls += " today"
+
+        overlay = ""
+        if is_conflict:
+            overlay = f'<div class="cell-overlay" style="background:{CLR_DESTRUCTIVE};opacity:0.07"></div>'
+        elif is_open and not is_we:
+            overlay = f'<div class="cell-overlay" style="background:{CLR_SUCCESS};opacity:0.07"></div>'
+
+        num_cls = "day-num"
+        if is_today:
+            num_cls += " today-num"
+        elif is_we:
+            num_cls += " weekend-num"
+
+        cells += f'<div class="{cls}">{overlay}<span class="{num_cls}">{day.day}</span></div>'
+
+    # Lane bars (overlay)
+    bars = ""
+    for ci in week["items"]:
+        item = ci["item"]
+        left = f"{(ci['col_start'] / 7) * 100:.3f}%"
+        width = f"{((ci['col_end'] - ci['col_start'] + 1) / 7) * 100:.3f}%"
+        top = DAYNUM_H + ci["lane"] * (LANE_H + LANE_GAP)
+
+        if item["kind"] == "vacation":
+            bg = CLR_INFO
+            opacity = 1.0
+        elif item["kind"] == "event":
+            bg = CLR_DESTRUCTIVE
+            opacity = 1.0
+        else:
+            bg = CLR_DESTRUCTIVE
+            opacity = item["opacity"]
+
+        bars += (
+            f'<div class="bar" style="left:{left};width:{width};top:{top}pt;'
+            f'background:{bg};opacity:{opacity:.2f}">'
+            f'<span class="bar-label">{escape(item["label"])}</span></div>'
+        )
+
+    return (
+        f'<div class="week-row{border_cls}" style="height:{h}pt">'
+        f'{gutter}'
+        f'<div class="day-area">'
+        f'<div class="day-grid" style="height:{h}pt">{cells}</div>'
+        f'<div class="bar-layer" style="height:{h}pt">{bars}</div>'
+        f'</div>'
+        f'</div>'
+    )
 
 
 def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
@@ -249,28 +347,46 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
     today = now.date()
     date_str = now.strftime("%B %d, %Y")
 
-    start_month = _add_months(today.replace(day=1), 1)
-    pages = []
-    for page_idx in range(4):
-        month_cards = ""
-        for i in range(6):
-            m = _add_months(start_month, page_idx * 6 + i)
-            month_cards += _render_month(m.year, m.month, trials, blocking_events, staff_map, today)
+    items = _normalize_items(trials, blocking_events, staff_map)
 
-        first_m = _add_months(start_month, page_idx * 6)
-        last_m = _add_months(start_month, page_idx * 6 + 5)
-        range_label = f"{first_m.strftime('%b %Y')} – {last_m.strftime('%b %Y')}"
+    range_start = today.replace(day=1)
+    range_end = _add_months(range_start, 24)
+    range_end = datetime.date(
+        range_end.year,
+        range_end.month,
+        calendar.monthrange(range_end.year, range_end.month)[1],
+    )
 
-        page_break = ' style="page-break-before:always"' if page_idx > 0 else ""
-        pages += f'<div class="page"{page_break}>'
-        pages += f'<div class="hdr"><div class="title">Trial Calendar</div>'
-        pages += f'<div class="meta">{date_str} &middot; {range_label}</div></div>'
-        pages += f'<div class="grid6">{month_cards}</div>'
+    open_days = _compute_open_days(items, range_start, range_end)
+    weeks = _generate_weeks(range_start, range_end)
+    week_rows = _build_week_rows(weeks, items)
 
-        if page_idx == 0:
-            pages += _legend()
+    range_label = f"{range_start.strftime('%b %Y')} – {range_end.strftime('%b %Y')}"
 
-        pages += "</div>"
+    header = (
+        f'<div class="hdr">'
+        f'<div class="title">Trial Calendar</div>'
+        f'<div class="meta">{date_str} &middot; {range_label}</div>'
+        f'</div>'
+    )
+
+    day_header_cells = ""
+    for i, d in enumerate(DAY_HEADERS):
+        cls = "dh weekend-dh" if i >= 5 else "dh"
+        day_header_cells += f'<div class="{cls}">{d}</div>'
+
+    day_header_row = (
+        f'<div class="day-header-row">'
+        f'<div class="gutter"></div>'
+        f'<div class="day-area"><div class="day-grid">{day_header_cells}</div></div>'
+        f'</div>'
+    )
+
+    rows_html = ""
+    for week in week_rows:
+        rows_html += _render_week_row(week, today, open_days)
+
+    legend = _legend()
 
     return f"""<!DOCTYPE html>
 <html>
@@ -278,155 +394,209 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
 <meta charset="utf-8">
 <style>{_get_css()}</style>
 </head>
-<body>{"".join(pages) if isinstance(pages, list) else pages}</body>
+<body>
+{header}
+{legend}
+<div class="calendar">
+{day_header_row}
+{rows_html}
+</div>
+</body>
 </html>"""
 
 
 def _legend() -> str:
-    return """<div class="legend">
-<span class="leg-item"><span class="leg-swatch trial-sw"></span> Trial</span>
-<span class="leg-item"><span class="leg-swatch vac-sw"></span> Vacation</span>
-<span class="leg-item"><span class="leg-swatch dot-sw"></span> Event</span>
-<span class="leg-item leg-note">Opacity = trial likelihood</span>
+    return f"""<div class="legend">
+<span class="leg-item"><span class="leg-swatch" style="background:{CLR_DESTRUCTIVE}"></span> Trial</span>
+<span class="leg-item"><span class="leg-swatch" style="background:{CLR_INFO}"></span> Vacation</span>
+<span class="leg-item"><span class="leg-swatch" style="background:{CLR_SUCCESS};opacity:0.4"></span> Open day</span>
+<span class="leg-item leg-note">Trial bar opacity = likelihood %</span>
 </div>"""
 
 
 def _get_css() -> str:
-    return """
-@page {
-  size: letter portrait;
-  margin: 0.4in 0.4in 0.35in 0.4in;
-}
+    return f"""
+@page {{
+  size: letter landscape;
+  margin: 0.35in 0.35in 0.3in 0.35in;
+}}
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
-body {
-  font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 8pt;
-  color: #1a1a1a;
-  line-height: 1.2;
-}
-
-.page { width: 100%; }
-
-.hdr { margin-bottom: 6pt; }
-.title { font-size: 12pt; font-weight: 700; letter-spacing: -0.02em; }
-.meta { font-size: 7pt; color: #666; margin-top: 1pt; }
-
-.grid6 {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6pt;
-}
-
-.mc {
-  width: calc(50% - 3pt);
-  border: 0.5pt solid #d0d0d0;
-  padding: 4pt;
-  background: #fff;
-  overflow: hidden;
-}
-
-.mh {
-  font-size: 7.5pt;
-  font-weight: 700;
-  margin-bottom: 2pt;
-}
-
-.grid7 {
-  display: flex;
-}
-.grid7 > div { width: 14.2857%; text-align: center; }
-
-.dhr { margin-bottom: 1pt; }
-.dh {
-  font-size: 6pt;
-  font-weight: 600;
-  color: #999;
-}
-
-.dn {
+body {{
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
   font-size: 7pt;
-  line-height: 13pt;
-  color: #333;
-}
-.dn.empty { color: transparent; }
-.dn.today {
-  background: #dc2626;
-  color: #fff;
-  font-weight: 700;
-}
-.dn.wknd { color: #bbb; }
+  color: {CLR_FG};
+  line-height: 1.2;
+}}
 
-.wk { margin-bottom: 0; }
+.hdr {{ margin-bottom: 4pt; }}
+.title {{ font-size: 11pt; font-weight: 700; letter-spacing: -0.02em; }}
+.meta {{ font-size: 6.5pt; color: {CLR_MUTED_FG}; margin-top: 1pt; }}
 
-.lanes {
-  position: relative;
-  width: 100%;
-}
-
-.seg {
-  position: absolute;
-  height: 9pt;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.seg.trial {
-  background: #dc2626;
-  color: #fff;
-  padding: 0 2pt;
-}
-
-.seg.vac {
-  background: #3b82f6;
-  color: #fff;
-  padding: 0 2pt;
-}
-
-.sl {
-  font-size: 5.5pt;
-  font-weight: 500;
-  line-height: 9pt;
-}
-
-.seg.dot {
-  width: 14.2857%;
+.legend {{
+  display: flex;
+  gap: 10pt;
+  align-items: center;
+  margin-bottom: 4pt;
+}}
+.leg-item {{
+  font-size: 6pt;
+  color: {CLR_MUTED_FG};
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 9pt;
-}
-
-.dot-box {
-  width: 7pt;
-  height: 7pt;
-  background: #dc2626;
-}
-
-.legend {
-  margin-top: 6pt;
-  display: flex;
-  gap: 12pt;
-  align-items: center;
-}
-
-.leg-item {
-  font-size: 6.5pt;
-  color: #666;
-  display: flex;
-  align-items: center;
-  gap: 3pt;
-}
-
-.leg-swatch {
+  gap: 2pt;
+}}
+.leg-swatch {{
   display: inline-block;
   width: 10pt;
-  height: 6pt;
-}
-.trial-sw { background: #dc2626; }
-.vac-sw { background: #3b82f6; }
-.dot-sw { background: #dc2626; width: 6pt; height: 6pt; }
+  height: 5pt;
+}}
+.leg-note {{ font-style: italic; color: #aaa; }}
 
-.leg-note { font-style: italic; color: #999; }
+.calendar {{
+  border: 0.5pt solid {CLR_BORDER};
+}}
+
+/* Day header row */
+.day-header-row {{
+  display: flex;
+  border-bottom: 0.5pt solid {CLR_BORDER};
+}}
+.day-header-row .gutter {{
+  width: {GUTTER_W}pt;
+  min-width: {GUTTER_W}pt;
+  border-right: 0.5pt solid {CLR_BORDER};
+}}
+.day-header-row .day-area {{
+  flex: 1;
+}}
+.day-header-row .day-grid {{
+  display: flex;
+}}
+.dh {{
+  width: 14.2857%;
+  text-align: center;
+  font-size: 6pt;
+  font-weight: 600;
+  color: {CLR_MUTED_FG};
+  padding: 2pt 0;
+}}
+.dh.weekend-dh {{
+  color: #bbb;
+}}
+
+/* Week rows */
+.week-row {{
+  display: flex;
+  page-break-inside: avoid;
+  border-bottom: 0.5pt solid {CLR_BORDER};
+}}
+.week-row.month-start {{
+  border-top: 1.5pt solid {CLR_FG};
+}}
+
+/* Gutter */
+.gutter {{
+  width: {GUTTER_W}pt;
+  min-width: {GUTTER_W}pt;
+  border-right: 0.5pt solid {CLR_BORDER};
+  padding: 2pt 4pt;
+  display: flex;
+  flex-direction: column;
+}}
+.month-lbl {{
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: {CLR_FG};
+  line-height: 1.1;
+}}
+.week-lbl {{
+  font-size: 6pt;
+  color: {CLR_MUTED_FG};
+  line-height: 1.1;
+}}
+.conflict-badge {{
+  display: inline-block;
+  background: {CLR_DESTRUCTIVE};
+  color: #fff;
+  font-size: 5pt;
+  font-weight: 700;
+  padding: 0.5pt 2pt;
+  margin-top: 1pt;
+  align-self: flex-start;
+}}
+
+/* Day area */
+.day-area {{
+  flex: 1;
+  position: relative;
+}}
+
+.day-grid {{
+  display: flex;
+  position: relative;
+}}
+.day-grid > .day-cell {{
+  width: 14.2857%;
+  position: relative;
+  border-right: 0.25pt solid rgba(0,0,0,0.06);
+}}
+.day-grid > .day-cell:last-child {{
+  border-right: none;
+}}
+.day-cell.weekend {{
+  background: {CLR_MUTED_BG};
+}}
+.day-cell.today {{
+  box-shadow: inset 0 0 0 1pt {CLR_PRIMARY};
+}}
+
+.cell-overlay {{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}}
+
+.day-num {{
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 1pt 0 0 2pt;
+  font-size: 6pt;
+  line-height: 1;
+  color: rgba(0,0,0,0.35);
+}}
+.day-num.today-num {{
+  font-weight: 700;
+  color: {CLR_PRIMARY};
+}}
+.day-num.weekend-num {{
+  color: rgba(0,0,0,0.18);
+}}
+
+/* Bar layer */
+.bar-layer {{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}}
+.bar {{
+  position: absolute;
+  height: {LANE_H}pt;
+  overflow: hidden;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  padding: 0 2pt;
+}}
+.bar-label {{
+  font-size: 5.5pt;
+  font-weight: 500;
+  line-height: 1;
+  color: #fff;
+}}
 """
