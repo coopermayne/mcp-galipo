@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/command"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { TrialCalendarData } from "@/services/trial-calendar"
+import type { TrialCalendarData, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import {
   normalizeItems,
@@ -128,9 +128,11 @@ function OpenWindowsDropdown({
 export function LinearCalendar({
   data,
   staffMap,
+  onEditEvent,
 }: {
   data: TrialCalendarData
   staffMap: Map<number, StaffMember>
+  onEditEvent?: (event: BlockingEvent) => void
 }) {
   const navigate = useNavigate()
   const [highlightOpen, setHighlightOpen] = useState(true)
@@ -446,10 +448,7 @@ export function LinearCalendar({
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className={cn(
-                                "absolute flex items-center overflow-hidden px-1.5",
-                                ci.item.caseId && "cursor-pointer",
-                              )}
+                              className="absolute flex items-center overflow-hidden px-1.5 cursor-pointer"
                               style={{
                                 left,
                                 width,
@@ -457,14 +456,13 @@ export function LinearCalendar({
                                 height: LANE_H,
                                 ...getItemStyle(ci.item),
                               }}
-                              onClick={
-                                ci.item.caseId
-                                  ? () =>
-                                      navigate(
-                                        `/cases/${ci.item.caseId}`,
-                                      )
-                                  : undefined
-                              }
+                              onClick={() => {
+                                if (ci.item.caseId) {
+                                  navigate(`/cases/${ci.item.caseId}`)
+                                } else if (ci.item.eventRaw && onEditEvent) {
+                                  onEditEvent(ci.item.eventRaw)
+                                }
+                              }}
                             >
                               <span className="text-[10px] font-medium leading-none text-white truncate">
                                 {ci.item.label}

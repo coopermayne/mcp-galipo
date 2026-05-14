@@ -20,6 +20,7 @@ import {
 import type { CreateEventData } from "@/services/events"
 
 const EVENT_TYPES = [
+  { value: "vacation", label: "Vacation" },
   { value: "oral_argument", label: "Oral Argument" },
   { value: "hearing", label: "Hearing" },
   { value: "conference", label: "Conference" },
@@ -55,7 +56,7 @@ export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Blocking Event</DialogTitle>
+          <DialogTitle>Add Event</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">

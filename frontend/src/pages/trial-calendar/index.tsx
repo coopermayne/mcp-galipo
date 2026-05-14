@@ -5,7 +5,6 @@ import {
   ArrowDown01Icon,
   MoreHorizontalIcon,
   SparklesIcon,
-  Sun01Icon,
   Calendar01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -15,8 +14,9 @@ import { downloadBlob } from "@/lib/download"
 import { getStaff, type StaffMember } from "@/services/staff"
 import { TrialTable } from "@/pages/trial-calendar/components/trial-table"
 import { SlotFinder } from "@/pages/trial-calendar/components/slot-finder"
-import { AddVacationDialog } from "@/pages/trial-calendar/components/add-vacation-dialog"
 import { AddBlockingEventDialog } from "@/pages/trial-calendar/components/add-blocking-event-dialog"
+import { EditEventDialog } from "@/pages/trial-calendar/components/edit-event-dialog"
+import { AiCommandInput } from "@/pages/trial-calendar/components/ai-command-input"
 import { LinearCalendar } from "@/pages/trial-calendar/components/linear-calendar"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import type { BlockingEvent } from "@/services/trial-calendar"
 
 type View = "calendar" | "table"
 
@@ -34,9 +35,9 @@ const MONTHS_AHEAD = 49
 const MONTHS_BEHIND = 0
 
 export default function TrialCalendarPage() {
-  const [vacationOpen, setVacationOpen] = useState(false)
   const [blockingOpen, setBlockingOpen] = useState(false)
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<BlockingEvent | null>(null)
   const [view, setView] = useState<View>("calendar")
   const [printing, setPrinting] = useState(false)
   const queryClient = useQueryClient()
@@ -78,9 +79,11 @@ export default function TrialCalendarPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <AiCommandInput />
+
           <ToggleGroup
             type="single"
             value={view}
@@ -111,11 +114,7 @@ export default function TrialCalendarPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="sm" onClick={() => setSlotFinderOpen(true)}>
-              <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
               Find Open Slots
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setVacationOpen(true)}>
-              Add Vacation
             </Button>
             <Button variant="outline" size="sm" onClick={() => setBlockingOpen(true)}>
               Add Event
@@ -140,10 +139,6 @@ export default function TrialCalendarPage() {
                 <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
                 Find Open Slots
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setVacationOpen(true)}>
-                <HugeiconsIcon icon={Sun01Icon} className="mr-2 size-4" />
-                Add Vacation
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setBlockingOpen(true)}>
                 <HugeiconsIcon icon={Calendar01Icon} className="mr-2 size-4" />
                 Add Event
@@ -166,28 +161,28 @@ export default function TrialCalendarPage() {
         <div className="text-muted-foreground py-12 text-center text-sm">Loading...</div>
       ) : data ? (
         view === "calendar" ? (
-          <LinearCalendar data={data} staffMap={staffMap} />
+          <LinearCalendar data={data} staffMap={staffMap} onEditEvent={setEditingEvent} />
         ) : (
-          <TrialTable trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} />
+          <TrialTable trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
         )
       ) : null}
 
       {/* Dialogs */}
       <SlotFinder open={slotFinderOpen} onOpenChange={setSlotFinderOpen} />
-      <AddVacationDialog
-        open={vacationOpen}
-        onOpenChange={setVacationOpen}
-        onSubmit={(eventData) => {
-          createEventMutation.mutate(eventData)
-          setVacationOpen(false)
-        }}
-      />
       <AddBlockingEventDialog
         open={blockingOpen}
         onOpenChange={setBlockingOpen}
         onSubmit={(eventData) => {
           createEventMutation.mutate(eventData)
           setBlockingOpen(false)
+        }}
+      />
+      <EditEventDialog
+        event={editingEvent}
+        onOpenChange={(open) => { if (!open) setEditingEvent(null) }}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
+          setEditingEvent(null)
         }}
       />
     </div>
