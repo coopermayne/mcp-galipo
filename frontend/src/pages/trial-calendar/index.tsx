@@ -4,14 +4,14 @@ import { addMonths, startOfMonth, format } from "date-fns"
 import { ArrowLeftIcon, ArrowRightIcon, PrinterIcon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-calendar"
-import type { BlockingEvent } from "@/services/trial-calendar"
 import { createEvent, type CreateEventData } from "@/services/events"
 import { downloadBlob } from "@/lib/download"
 import { getStaff, type StaffMember } from "@/services/staff"
-import { MonthCalendarGrid } from "@/pages/trial-calendar/components/trial-timeline"
+import { TrialTable } from "@/pages/trial-calendar/components/trial-table"
+import { SlotFinder } from "@/pages/trial-calendar/components/slot-finder"
 import { AddVacationDialog } from "@/pages/trial-calendar/components/add-vacation-dialog"
 import { AddBlockingEventDialog } from "@/pages/trial-calendar/components/add-blocking-event-dialog"
-import { EventDetailDialog } from "@/pages/events/components/event-detail-dialog"
+import { LinearCalendar } from "@/pages/trial-calendar/components/linear-calendar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -20,38 +20,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import type { EventListItem } from "@/types/event"
 
-type ViewCount = "1" | "3" | "6" | "12"
-
-function blockingToEventListItem(evt: BlockingEvent): EventListItem {
-  return {
-    id: evt.id,
-    case_id: evt.case_id,
-    date: evt.date,
-    end_date: evt.end_date,
-    event_type: evt.event_type,
-    description: evt.description,
-    time: null,
-    location: null,
-    document_link: null,
-    calculation_note: null,
-    starred: null,
-    created_at: null,
-    case_name: null,
-    short_name: null,
-    case_color: null,
-    task_count: 0,
-    attendee_ids: [],
-  }
-}
+type ViewCount = "3" | "6" | "12"
+type View = "calendar" | "table"
 
 export default function TrialCalendarPage() {
   const [viewCount, setViewCount] = useState<ViewCount>("6")
   const [offset, setOffset] = useState(0)
   const [vacationOpen, setVacationOpen] = useState(false)
   const [blockingOpen, setBlockingOpen] = useState(false)
-  const [editEvent, setEditEvent] = useState<EventListItem | null>(null)
+  const [view, setView] = useState<View>("calendar")
   const [printing, setPrinting] = useState(false)
   const queryClient = useQueryClient()
 
@@ -101,21 +79,14 @@ export default function TrialCalendarPage() {
     }
   }, [monthsAhead, monthsBehind])
 
-  const handleEditEvent = useCallback(
-    (eventId: number) => {
-      const evt = data?.blocking_events.find((e) => e.id === eventId)
-      if (evt) setEditEvent(blockingToEventListItem(evt))
-    },
-    [data],
-  )
-
   const rangeLabel =
     months.length === 1
       ? format(months[0], "MMMM yyyy")
       : `${format(months[0], "MMM yyyy")} – ${format(months[months.length - 1], "MMM yyyy")}`
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="flex flex-col gap-6 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
@@ -144,10 +115,18 @@ export default function TrialCalendarPage() {
             }}
             className="border"
           >
-            <ToggleGroupItem value="1" className="px-3 text-xs">1mo</ToggleGroupItem>
             <ToggleGroupItem value="3" className="px-3 text-xs">3mo</ToggleGroupItem>
             <ToggleGroupItem value="6" className="px-3 text-xs">6mo</ToggleGroupItem>
             <ToggleGroupItem value="12" className="px-3 text-xs">12mo</ToggleGroupItem>
+          </ToggleGroup>
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(v) => { if (v) setView(v as View) }}
+            className="border"
+          >
+            <ToggleGroupItem value="calendar" className="px-3 text-xs">Calendar</ToggleGroupItem>
+            <ToggleGroupItem value="table" className="px-3 text-xs">Table</ToggleGroupItem>
           </ToggleGroup>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -166,6 +145,7 @@ export default function TrialCalendarPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <SlotFinder />
           <Button variant="outline" size="sm" onClick={() => setVacationOpen(true)}>
             Add Vacation
           </Button>
@@ -178,9 +158,14 @@ export default function TrialCalendarPage() {
       {isLoading ? (
         <div className="text-muted-foreground py-12 text-center text-sm">Loading...</div>
       ) : data ? (
-        <MonthCalendarGrid data={data} months={months} staffMap={staffMap} onEditEvent={handleEditEvent} />
+        view === "calendar" ? (
+          <LinearCalendar data={data} staffMap={staffMap} />
+        ) : (
+          <TrialTable trials={data.trials} staffMap={staffMap} />
+        )
       ) : null}
 
+      {/* Dialogs */}
       <AddVacationDialog
         open={vacationOpen}
         onOpenChange={setVacationOpen}
@@ -196,12 +181,6 @@ export default function TrialCalendarPage() {
           createEventMutation.mutate(eventData)
           setBlockingOpen(false)
         }}
-      />
-      <EventDetailDialog
-        event={editEvent}
-        open={!!editEvent}
-        onOpenChange={(open) => { if (!open) setEditEvent(null) }}
-        invalidateKeys={[["trial-calendar"]]}
       />
     </div>
   )
