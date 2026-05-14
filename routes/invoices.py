@@ -12,7 +12,12 @@ from pydantic import ValidationError
 import auth
 import db
 from config import settings
-from schemas import CreateInvoiceInput, UpdateInvoiceInput, MarkInvoicePaidInput
+from schemas import (
+    CreateInvoiceInput,
+    UpdateInvoiceInput,
+    MarkInvoicePaidInput,
+    CostSharingConfigInput,
+)
 from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
 
 logger = logging.getLogger(__name__)
@@ -178,6 +183,45 @@ def register_invoice_routes(mcp):
         case_id = int(request.path_params["case_id"])
         try:
             result = await asyncio.to_thread(db.remove_cost_sharing, case_id)
+            return JSONResponse(result)
+        except ValueError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/cost-sharing-config", methods=["PUT"])
+    async def api_set_cost_sharing_config(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        try:
+            data = CostSharingConfigInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+        try:
+            result = await asyncio.to_thread(
+                db.set_cost_sharing_config, case_id, data.model_dump()
+            )
+            return JSONResponse(result)
+        except ValueError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/cost-sharing-config", methods=["DELETE"])
+    async def api_remove_cost_sharing_config(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        try:
+            result = await asyncio.to_thread(db.remove_cost_sharing_config, case_id)
+            return JSONResponse(result)
+        except ValueError as e:
+            return api_error(str(e), "VALIDATION_ERROR", 400)
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/settlement", methods=["GET"])
+    async def api_get_settlement(request):
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        try:
+            result = await asyncio.to_thread(db.get_settlement, case_id)
             return JSONResponse(result)
         except ValueError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)

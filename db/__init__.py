@@ -339,6 +339,9 @@ from .invoices import (
     get_cost_sharing,
     set_cost_sharing,
     remove_cost_sharing,
+    set_cost_sharing_config,
+    remove_cost_sharing_config,
+    get_settlement,
     get_advance_stats,
 )
 
@@ -629,6 +632,9 @@ __all__ = [
     "get_cost_sharing",
     "set_cost_sharing",
     "remove_cost_sharing",
+    "set_cost_sharing_config",
+    "remove_cost_sharing_config",
+    "get_settlement",
     "get_advance_stats",
     # Liens
     "list_liens",
