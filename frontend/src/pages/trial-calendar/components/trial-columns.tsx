@@ -219,19 +219,36 @@ function LikelihoodEditCell({
               className="w-full bg-transparent border border-input px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring resize-none"
             />
           </div>
-          <Button
-            size="sm"
-            className="w-full text-xs h-7"
-            onClick={() => {
-              mutation.mutate({
-                trial_likelihood: draft,
-                trial_likelihood_note: draftNote.trim() || null,
-              })
-              setOpen(false)
-            }}
-          >
-            Save
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="flex-1 text-xs h-7"
+              onClick={() => {
+                mutation.mutate({
+                  trial_likelihood: draft,
+                  trial_likelihood_note: draftNote.trim() || null,
+                })
+                setOpen(false)
+              }}
+            >
+              Save
+            </Button>
+            {likelihood != null && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                onClick={() => {
+                  mutation.mutate({
+                    trial_likelihood: null,
+                    trial_likelihood_note: null,
+                  })
+                  setOpen(false)
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </PopoverContent>
     </Popover>
