@@ -66,6 +66,7 @@ import { CostSharingBar } from "./components/cost-sharing-bar"
 import { AddAdvanceDialog } from "./components/add-advance-dialog"
 import { AddLienDialog } from "./components/add-lien-dialog"
 import { EditLienDialog } from "./components/edit-lien-dialog"
+import { ReportedCostsSection } from "./components/reported-costs"
 import { getCaseCostColumns } from "./columns"
 import { getLienColumns } from "./lien-columns"
 
@@ -375,6 +376,8 @@ function CaseCostsContent() {
               onSetupSplit={() => setCostSharingEditing(true)}
             />
           )}
+
+          <ReportedCostsSection caseId={caseId} onChanged={invalidateAll} />
 
           <InvoiceDropzone caseId={caseId} onSuccess={invalidateAll} onBulkUpload={setBulkFiles} />
 
