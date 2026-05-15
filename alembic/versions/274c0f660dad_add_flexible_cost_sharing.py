@@ -65,6 +65,11 @@ def upgrade() -> None:
     conn.execute(text(
         "UPDATE person_roles SET cost_share_pct = NULL WHERE role_id = 5 AND cost_share_pct IS NOT NULL"
     ))
+    conn.execute(text(
+        "UPDATE invoices SET phase_id = 'phase-1'"
+        " WHERE case_id IN (SELECT id FROM cases WHERE cost_sharing_config IS NOT NULL)"
+        " AND phase_id IS NULL"
+    ))
 
 
 def downgrade() -> None:
