@@ -36,8 +36,8 @@ const TABS: TabDef[] = [
   {
     id: "filing-deadlines",
     label: "Filing Deadlines",
-    filter: (c) => (!!c.claim_deadline || !!c.complaint_deadline) && c.status !== "Closed",
-    defaultSort: [{ id: "claim_deadline", desc: false }],
+    filter: (c) => c.status === "Pre-Claim" || c.status === "Pre-Filing",
+    defaultSort: [{ id: "effective_deadline", desc: false }],
     visibleDateCols: ["claim_deadline", "complaint_deadline"],
   },
   {
@@ -71,6 +71,7 @@ function getColumnVisibility(tab: TabDef, mobile: boolean): VisibilityState {
     trial_date: !mobile && tab.visibleDateCols.includes("trial_date"),
     claim_deadline: !mobile && tab.visibleDateCols.includes("claim_deadline"),
     complaint_deadline: !mobile && tab.visibleDateCols.includes("complaint_deadline"),
+    effective_deadline: false,
   }
 }
 

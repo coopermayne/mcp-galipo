@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 # =============================================================================
 
 CaseStatus = Literal[
-    "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
+    "Signing Up", "Prospective", "Pre-Claim", "Pre-Filing", "Pleadings", "Discovery",
     "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
     "Settl. Pend.", "Stayed", "Closed"
 ]

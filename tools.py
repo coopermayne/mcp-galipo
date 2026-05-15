@@ -362,9 +362,9 @@ def register_tools(mcp):
         VALID VALUES:
 
         case.status (default "Signing Up"):
-            "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery",
-            "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",
-            "Settl. Pend.", "Stayed", "Closed"
+            "Signing Up", "Prospective", "Pre-Claim", "Pre-Filing", "Pleadings",
+            "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial",
+            "Appeal", "Settl. Pend.", "Stayed", "Closed"
 
         persons[].role (determines case assignment - looked up from roles table):
             client: plaintiff, contact, guardian_ad_litem, decedent

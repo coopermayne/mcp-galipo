@@ -25,6 +25,7 @@ import {
 const CASE_STATUSES: CaseStatus[] = [
   "Signing Up",
   "Prospective",
+  "Pre-Claim",
   "Pre-Filing",
   "Pleadings",
   "Discovery",

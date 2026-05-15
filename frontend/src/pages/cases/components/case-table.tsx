@@ -60,6 +60,7 @@ import type { CaseListItem, CaseStatus } from "@/types/case"
 const ALL_STATUSES: CaseStatus[] = [
   "Signing Up",
   "Prospective",
+  "Pre-Claim",
   "Pre-Filing",
   "Pleadings",
   "Discovery",

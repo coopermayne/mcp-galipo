@@ -156,6 +156,7 @@ PIE_COLORS = [
 STATUS_BAR_COLORS = {
     "Signing Up": "#60a5fa",
     "Prospective": "#818cf8",
+    "Pre-Claim": "#a78bfa",
     "Pre-Filing": "#fbbf24",
     "Pleadings": "#fb923c",
     "Discovery": "#34d399",
@@ -249,7 +250,7 @@ def _render_alphabetical(cases: list, users_map: dict) -> str:
 
 def _render_by_status(cases: list, users_map: dict) -> str:
     status_order = [
-        "Signing Up", "Prospective", "Pre-Filing", "Pleadings",
+        "Signing Up", "Prospective", "Pre-Claim", "Pre-Filing", "Pleadings",
         "Discovery", "Expert Discovery", "Pre-trial", "Trial",
         "Post-Trial", "Appeal", "Settl. Pend.", "Stayed",
     ]
@@ -331,6 +332,7 @@ def _status_class(status: str) -> str:
     mapping = {
         "Signing Up": "s-signup",
         "Prospective": "s-prospect",
+        "Pre-Claim": "s-preclaim",
         "Pre-Filing": "s-prefiling",
         "Pleadings": "s-pleadings",
         "Discovery": "s-discovery",
@@ -508,6 +510,7 @@ def _get_css() -> str:
     }
     .s-signup    { background: #dbeafe; color: #1e40af; }
     .s-prospect  { background: #e0e7ff; color: #3730a3; }
+    .s-preclaim  { background: #ede9fe; color: #5b21b6; }
     .s-prefiling { background: #fef3c7; color: #92400e; }
     .s-pleadings { background: #fed7aa; color: #9a3412; }
     .s-discovery { background: #d1fae5; color: #065f46; }
