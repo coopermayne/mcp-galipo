@@ -9,6 +9,7 @@ import {
   setCostSharingConfig,
   type AdvancedConfig,
   type AdvancedParty,
+  type AdvancedCap,
 } from "@/services/invoices"
 import {
   searchPersons,
@@ -35,6 +36,7 @@ interface CostSharingBarProps {
 
 type AdvancedPartyDraft = AdvancedParty & {
   pct: number
+  maxCost?: number | null
 }
 
 const OURS = "ours"
@@ -86,6 +88,8 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
     const parties = data.parties_with_pct
     if (parties.length > 2) {
       setAdvancedMode(true)
+      const caps = data.config?.phases?.[0]?.caps ?? []
+      const capMap = new Map(caps.map((c) => [c.party, c.max_cumulative]))
       setAdvancedParties(
         parties.map((p) => ({
           id: p.party_id,
@@ -93,6 +97,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
           person_id: p.person_id,
           organization: p.organization,
           pct: p.pct,
+          maxCost: capMap.get(p.party_id) ?? null,
         }))
       )
     } else {
@@ -151,6 +156,8 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
     const parties = data.parties_with_pct
     if (parties.length > 2) {
       setAdvancedMode(true)
+      const caps = data.config?.phases?.[0]?.caps ?? []
+      const capMap = new Map(caps.map((c) => [c.party, c.max_cumulative]))
       setAdvancedParties(
         parties.map((p) => ({
           id: p.party_id,
@@ -158,6 +165,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
           person_id: p.person_id,
           organization: p.organization,
           pct: p.pct,
+          maxCost: capMap.get(p.party_id) ?? null,
         }))
       )
     } else {
@@ -195,16 +203,20 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
   // Switch from simple editor to advanced — seed the advanced editor with
   // whatever's currently in the simple form.
   function enterAdvancedMode() {
+    const caps = data?.config?.phases?.[0]?.caps ?? []
+    const capMap = new Map(caps.map((c) => [c.party, c.max_cumulative]))
     const parties: AdvancedPartyDraft[] = [
-      { id: OURS, label: "Our Firm", person_id: null, pct: 100 - (parseFloat(theirPct) || 50) },
+      { id: OURS, label: "Our Firm", person_id: null, pct: 100 - (parseFloat(theirPct) || 50), maxCost: capMap.get(OURS) ?? null },
     ]
     if (selectedPerson) {
+      const pid = partyIdForPerson(selectedPerson.id)
       parties.push({
-        id: partyIdForPerson(selectedPerson.id),
+        id: pid,
         label: selectedPerson.name,
         person_id: selectedPerson.id,
         organization: selectedPerson.organization ?? null,
         pct: parseFloat(theirPct) || 50,
+        maxCost: capMap.get(pid) ?? null,
       })
     }
     setAdvancedParties(parties)
@@ -225,6 +237,9 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
         onSave={async (parties) => {
           setSaving(true)
           try {
+            const caps: AdvancedCap[] = parties
+              .filter((p) => p.maxCost != null && p.maxCost > 0)
+              .map((p) => ({ party: p.id, max_cumulative: p.maxCost! }))
             const config: AdvancedConfig = {
               version: 1,
               parties: parties.map((p) => ({
@@ -240,7 +255,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
                   boundary_kind: "open_start",
                   boundary_date: null,
                   shares: parties.map((p) => ({ party: p.id, pct: p.pct })),
-                  caps: [],
+                  caps,
                 },
               ],
               absorber_party: OURS,
@@ -524,6 +539,13 @@ function AdvancedEditor({
     onPartiesChange(next)
   }
 
+  function updatePartyCap(idx: number, value: string) {
+    const next = [...parties]
+    const parsed = parseFloat(value)
+    next[idx] = { ...next[idx], maxCost: value === "" ? null : (Number.isFinite(parsed) ? parsed : null) }
+    onPartiesChange(next)
+  }
+
   function removeParty(idx: number) {
     if (parties[idx].id === OURS) return
     const next = parties.filter((_, i) => i !== idx)
@@ -630,13 +652,28 @@ function AdvancedEditor({
             />
             <span className="text-muted-foreground shrink-0">%</span>
             {p.id !== OURS && (
-              <button
-                type="button"
-                onClick={() => removeParty(idx)}
-                className="text-xs text-muted-foreground hover:text-destructive underline ml-1"
-              >
-                remove
-              </button>
+              <>
+                <span className="text-muted-foreground shrink-0 ml-2">max</span>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={p.maxCost ?? ""}
+                    onChange={(e) => updatePartyCap(idx, e.target.value)}
+                    placeholder="no limit"
+                    className="w-[120px] h-8 text-sm pl-5"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeParty(idx)}
+                  className="text-xs text-muted-foreground hover:text-destructive underline ml-1"
+                >
+                  remove
+                </button>
+              </>
             )}
           </div>
         ))}
