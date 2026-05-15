@@ -149,7 +149,18 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Claim DL" />
       ),
-      cell: ({ row }) => <DateCell value={row.original.claim_deadline} warnDays={30} />,
+      cell: ({ row }) => {
+        const done = row.original.status === "Pre-Filing" && row.original.claim_deadline
+        if (done) {
+          return (
+            <span className="flex items-center gap-1">
+              <span className="text-success-foreground">✓</span>
+              <span className="text-muted-foreground line-through">{formatDate(row.original.claim_deadline)}</span>
+            </span>
+          )
+        }
+        return <DateCell value={row.original.claim_deadline} warnDays={30} />
+      },
     },
     {
       accessorKey: "complaint_deadline",
@@ -157,6 +168,14 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Complaint DL" />
       ),
       cell: ({ row }) => <DateCell value={row.original.complaint_deadline} warnDays={30} />,
+    },
+    {
+      id: "effective_deadline",
+      accessorFn: (row) =>
+        row.status === "Pre-Claim" ? row.claim_deadline : row.complaint_deadline,
+      header: () => null,
+      cell: () => null,
+      enableHiding: true,
     },
     {
       accessorKey: "status",

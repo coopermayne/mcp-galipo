@@ -6,6 +6,7 @@ const statusColors: Record<CaseStatus, string> = {
   // Pre-lit — muted
   "Signing Up": "bg-muted text-muted-foreground",
   "Prospective": "bg-muted text-muted-foreground",
+  "Pre-Claim": "bg-muted text-muted-foreground",
   "Pre-Filing": "bg-muted text-muted-foreground",
   // Litigation — info/blue
   "Pleadings": "bg-info text-info-foreground",

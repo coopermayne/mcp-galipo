@@ -1,6 +1,7 @@
 export type CaseStatus =
   | "Signing Up"
   | "Prospective"
+  | "Pre-Claim"
   | "Pre-Filing"
   | "Pleadings"
   | "Discovery"

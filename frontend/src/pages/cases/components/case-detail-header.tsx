@@ -23,7 +23,7 @@ const STATUS_GROUPS: StatusGroup[] = [
   {
     label: "PRE-LIT",
     labelClass: "text-muted-foreground",
-    statuses: ["Signing Up", "Prospective", "Pre-Filing"],
+    statuses: ["Signing Up", "Prospective", "Pre-Claim", "Pre-Filing"],
   },
   {
     label: "LITIGATION",
