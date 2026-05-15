@@ -485,6 +485,7 @@ class CaseDetailOut(BaseModel):
     tasks: list[dict] = []
     notes: list[dict] = []
     proceedings: list[dict] = []
+    feature_toggles: Optional[dict] = None
 
 
 class CaseSearchOut(BaseModel):
