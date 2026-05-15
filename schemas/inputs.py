@@ -229,7 +229,7 @@ class CreateInvoiceInput(BaseModel):
     case_id: int
     amount: float
     payee_id: Optional[int] = None
-    type: Optional[Literal["cost", "advance"]] = "cost"
+    type: Optional[Literal["cost", "advance", "reported"]] = "cost"
     case_amount: Optional[float] = None
     status: Optional[Literal["unpaid", "paid"]] = "unpaid"
     date: Optional[str] = None

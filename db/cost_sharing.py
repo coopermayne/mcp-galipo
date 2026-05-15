@@ -90,7 +90,7 @@ def _phase_total(phase: dict, invoices: list[dict]) -> float:
             continue
         if inv.get("is_transfer"):
             continue
-        if inv.get("type") and inv["type"] != "cost":
+        if inv.get("type") and inv["type"] not in ("cost", "reported"):
             continue
         amt = inv.get("case_amount")
         if amt is None:
@@ -170,7 +170,7 @@ def compute_paid_by_party(invoices: list[dict], parties: list[str]) -> dict[str,
     for inv in invoices:
         if inv.get("is_transfer"):
             continue
-        if inv.get("type") and inv["type"] != "cost":
+        if inv.get("type") and inv["type"] not in ("cost", "reported"):
             continue
         amt = inv.get("case_amount")
         if amt is None:

@@ -453,7 +453,7 @@ def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
                 Invoice.paid_by_person_id,
                 func.coalesce(func.sum(effective_amount), 0).label("total"),
             )
-            .where(Invoice.case_id == case_id, Invoice.is_transfer == False, Invoice.type == "cost")  # noqa: E712
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == False, Invoice.type.in_(("cost", "reported")))  # noqa: E712
             .group_by(Invoice.paid_by_person_id)
         ).all()
 
@@ -568,7 +568,7 @@ def get_cost_summary(case_id: int) -> dict:
                 Invoice.paid_by_person_id,
                 func.coalesce(func.sum(effective_amount), 0).label("total"),
             )
-            .where(Invoice.case_id == case_id, Invoice.is_transfer == False, Invoice.type == "cost")  # noqa: E712
+            .where(Invoice.case_id == case_id, Invoice.is_transfer == False, Invoice.type.in_(("cost", "reported")))  # noqa: E712
             .group_by(Invoice.paid_by_person_id)
         ).all()
 

@@ -31,7 +31,7 @@ export const INVOICE_CATEGORIES: InvoiceCategory[] = [
   "Miscellaneous",
 ]
 
-export type InvoiceType = "cost" | "advance"
+export type InvoiceType = "cost" | "advance" | "reported"
 
 export interface Invoice {
   id: number

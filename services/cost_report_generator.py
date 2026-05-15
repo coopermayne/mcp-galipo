@@ -35,7 +35,8 @@ def _build_html(
     now = datetime.now(LA)
     date_str = now.strftime('%B %d, %Y')
 
-    real_invoices = [inv for inv in invoices if not inv.get('is_transfer')]
+    real_invoices = [inv for inv in invoices if not inv.get('is_transfer') and inv.get('type') != 'reported']
+    reported_invoices = [inv for inv in invoices if inv.get('type') == 'reported']
     transfers = [inv for inv in invoices if inv.get('is_transfer')]
 
     unpaid = [inv for inv in real_invoices if inv.get('status') == 'unpaid']
@@ -115,6 +116,26 @@ def _build_html(
               <th>Check #</th>
             </tr></thead>
             <tbody>{transfer_rows}</tbody>
+          </table>
+        </div>""")
+
+    if reported_invoices:
+        reported_rows = '\n'.join(_render_reported_row(inv, idx) for idx, inv in enumerate(reported_invoices))
+        reported_total = sum(_effective_amount(inv) for inv in reported_invoices)
+        sections.append(f"""
+        <div class="section">
+          <div class="section-header">
+            <h2 class="section-title">Reported Co-Counsel Costs ({len(reported_invoices)})</h2>
+            <span class="section-total">{_fmt_money(reported_total)}</span>
+          </div>
+          <table class="cost-table">
+            <thead><tr>
+              <th>Date</th>
+              <th>Party</th>
+              <th>Description</th>
+              <th class="amt-header">Amount</th>
+            </tr></thead>
+            <tbody>{reported_rows}</tbody>
           </table>
         </div>""")
 
@@ -286,6 +307,21 @@ def _render_transfer_row(inv: dict, idx: int) -> str:
       <td class="desc-col">{desc}</td>
       <td class="amt-col">{_fmt_money(amount)}</td>
       <td class="check-col">{check}</td>
+    </tr>"""
+
+
+def _render_reported_row(inv: dict, idx: int) -> str:
+    row_class = 'alt-row' if idx % 2 == 0 else ''
+    date_str = _format_date(inv.get('date'))
+    party = escape(inv.get('paid_by_name') or 'Co-counsel')
+    desc = escape(inv.get('description') or '—')
+    amount = _effective_amount(inv)
+
+    return f"""<tr class="{row_class}">
+      <td class="date-col">{date_str}</td>
+      <td>{party}</td>
+      <td class="desc-col">{desc}</td>
+      <td class="amt-col">{_fmt_money(amount)}</td>
     </tr>"""
 
 
