@@ -304,6 +304,11 @@ class Case(Base):
     # N parties, phases, and caps. See db/cost_sharing.py.
     cost_sharing_config: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
+    # Per-case visibility toggles for optional page sections (tasks, events,
+    # financials, costs, etc.). When NULL or a key is missing, the section is
+    # OFF. Shared across the team — turning a section on shows it for everyone.
+    feature_toggles: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
     events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)

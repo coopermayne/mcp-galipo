@@ -217,6 +217,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "created_at": _sv(case.created_at),
             "notes": case.notes,
             "updated_at": _sv(case.updated_at),
+            "feature_toggles": case.feature_toggles,
         }
 
         # Expand attorney_ids to user objects
@@ -428,12 +429,14 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         "trial_date", "proposed_trial_dates",
         "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "claim_deadline", "complaint_deadline",
+        "feature_toggles",
     ]
 
     nullable_fields = {
         "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline",
         "proposed_trial_dates", "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "notes", "result", "case_summary",
+        "feature_toggles",
     }
 
     with SessionLocal() as session:
