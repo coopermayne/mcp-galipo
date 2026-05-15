@@ -5,7 +5,7 @@ Used by both MCP tools and REST routes.
 """
 
 from typing import Literal, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus, ResolutionType
 
@@ -267,6 +267,95 @@ class UpdateInvoiceInput(BaseModel):
 class MarkInvoicePaidInput(BaseModel):
     check_number: Optional[str] = None
     paid_date: Optional[str] = None
+
+
+# =============================================================================
+# Route Input Models — Cost-Sharing Config (advanced)
+# =============================================================================
+
+class CostShareInput(BaseModel):
+    party: str
+    pct: float = Field(ge=0, le=100)
+
+
+class CostCapInput(BaseModel):
+    party: str
+    max_cumulative: float = Field(ge=0)
+    absorber: Optional[str] = None  # party_id; defaults to config.absorber_party
+
+
+class CostPhaseInput(BaseModel):
+    id: str
+    label: Optional[str] = None
+    boundary_kind: Literal["open_start", "date"]
+    boundary_date: Optional[str] = None  # YYYY-MM-DD
+    shares: list[CostShareInput]
+    caps: list[CostCapInput] = []
+
+    @model_validator(mode="after")
+    def _check_shares(self):
+        total = sum(s.pct for s in self.shares)
+        if abs(total - 100) > 0.01:
+            raise ValueError(
+                f"Phase '{self.id}' shares must sum to 100, got {total:.2f}"
+            )
+        if self.boundary_kind == "date" and not self.boundary_date:
+            raise ValueError(f"Phase '{self.id}' has boundary_kind=date but no boundary_date")
+        return self
+
+
+class CostPartyInput(BaseModel):
+    id: str
+    label: str
+    person_id: Optional[int] = None  # None for our firm
+    organization: Optional[str] = None
+
+
+class CostSharingConfigInput(BaseModel):
+    version: int = 1
+    parties: list[CostPartyInput]
+    phases: list[CostPhaseInput]
+    absorber_party: str = "ours"
+
+    @model_validator(mode="after")
+    def _validate_config(self):
+        party_ids = [p.id for p in self.parties]
+        if len(party_ids) != len(set(party_ids)):
+            raise ValueError("Party IDs must be unique")
+        if "ours" not in party_ids:
+            raise ValueError("Config must include a party with id='ours'")
+        if self.absorber_party not in party_ids:
+            raise ValueError(
+                f"absorber_party '{self.absorber_party}' is not a known party"
+            )
+        if not self.phases:
+            raise ValueError("Config must have at least one phase")
+        if self.phases[0].boundary_kind != "open_start":
+            raise ValueError("First phase must have boundary_kind='open_start'")
+        for phase in self.phases[1:]:
+            if phase.boundary_kind != "date":
+                raise ValueError("Non-first phases must have boundary_kind='date'")
+        # Check phase ordinals are monotonic by date.
+        dates = [p.boundary_date for p in self.phases[1:] if p.boundary_date]
+        if dates != sorted(dates):
+            raise ValueError("Phase boundary_dates must be in chronological order")
+
+        for phase in self.phases:
+            for share in phase.shares:
+                if share.party not in party_ids:
+                    raise ValueError(
+                        f"Phase '{phase.id}' references unknown party '{share.party}'"
+                    )
+            for cap in phase.caps:
+                if cap.party not in party_ids:
+                    raise ValueError(
+                        f"Phase '{phase.id}' cap references unknown party '{cap.party}'"
+                    )
+                if cap.absorber and cap.absorber not in party_ids:
+                    raise ValueError(
+                        f"Phase '{phase.id}' cap absorber '{cap.absorber}' is not a known party"
+                    )
+        return self
 
 
 # =============================================================================

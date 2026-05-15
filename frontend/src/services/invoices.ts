@@ -317,7 +317,17 @@ export async function calculateEqualization(
   return res.json()
 }
 
+export interface CostSummaryParty {
+  party_id: string
+  label: string | null
+  person_id: number | null
+  paid: number
+  net_paid: number
+  target: number
+}
+
 export interface CostSummary {
+  kind: "simple" | "advanced"
   total_costs: number
   our_costs: number
   counsel_costs: number
@@ -326,6 +336,9 @@ export interface CostSummary {
   net_transferred: number
   counsel_id: number | null
   counsel_name: string | null
+  // Only present in advanced mode:
+  parties?: CostSummaryParty[]
+  targets_by_party?: Record<string, number>
 }
 
 export async function getCostSummary(caseId: number): Promise<CostSummary> {
@@ -341,11 +354,66 @@ export interface CostSharingPartner {
   cost_share_pct: number | null
 }
 
-export interface CostSharingConfig {
+// Advanced config types — mirror the backend Pydantic shape.
+export interface AdvancedShare {
+  party: string
+  pct: number
+}
+
+export interface AdvancedCap {
+  party: string
+  max_cumulative: number
+  absorber?: string | null
+}
+
+export interface AdvancedPhase {
+  id: string
+  label?: string | null
+  boundary_kind: "open_start" | "date"
+  boundary_date?: string | null
+  shares: AdvancedShare[]
+  caps: AdvancedCap[]
+}
+
+export interface AdvancedParty {
+  id: string
+  label: string
+  person_id?: number | null
+  organization?: string | null
+}
+
+export interface AdvancedConfig {
+  version: number
+  parties: AdvancedParty[]
+  phases: AdvancedPhase[]
+  absorber_party: string
+}
+
+export interface AdvancedPartyWithPct {
+  party_id: string
+  label: string
+  person_id: number | null
+  organization: string | null
+  pct: number
+}
+
+// Discriminated union returned by GET /cost-sharing.
+export interface SimpleCostSharing {
+  kind: "simple"
   co_counsel: CostSharingPartner[]
   partner: CostSharingPartner | null
   our_pct: number | null
 }
+
+export interface AdvancedCostSharing {
+  kind: "advanced"
+  co_counsel: CostSharingPartner[]
+  config: AdvancedConfig
+  parties_with_pct: AdvancedPartyWithPct[]
+  absorber_party: string
+}
+
+export type CostSharingConfig = SimpleCostSharing | AdvancedCostSharing
 
 export async function getCostSharing(caseId: number): Promise<CostSharingConfig> {
   const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing`)
@@ -377,6 +445,70 @@ export async function removeCostSharing(
     const data = await res.json().catch(() => null)
     throw new Error(data?.error?.message ?? "Failed to remove cost sharing")
   }
+  return res.json()
+}
+
+export async function setCostSharingConfig(
+  caseId: number,
+  config: AdvancedConfig
+): Promise<CostSharingConfig> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error?.message ?? "Failed to update cost sharing config")
+  }
+  return res.json()
+}
+
+export async function removeCostSharingConfig(
+  caseId: number
+): Promise<CostSharingConfig> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing-config`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error?.message ?? "Failed to reset cost sharing")
+  }
+  return res.json()
+}
+
+export interface SettlementTransfer {
+  from_party: string
+  to_party: string
+  amount: number
+  from_label: string | null
+  to_label: string | null
+  from_person_id: number | null
+  to_person_id: number | null
+}
+
+export interface SettlementPartyMeta {
+  party_id: string
+  label: string | null
+  person_id: number | null
+  organization: string | null
+}
+
+export interface Settlement {
+  kind: "simple" | "advanced"
+  config: AdvancedConfig
+  parties: string[]
+  parties_meta: SettlementPartyMeta[]
+  targets: Record<string, number>
+  paid: Record<string, number>
+  net_paid: Record<string, number>
+  deltas: Record<string, number>
+  transfers: SettlementTransfer[]
+}
+
+export async function getSettlement(caseId: number): Promise<Settlement> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/settlement`)
+  if (!res.ok) throw new Error("Failed to fetch settlement")
   return res.json()
 }
 
