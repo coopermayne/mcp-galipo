@@ -36,6 +36,16 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   { path: "login", element: <LoginPage /> },
+  { path: "dale/auth/:token", lazy: lazy(() => import("@/pages/dale/auth")) },
+  {
+    path: "dale",
+    lazy: lazy(() => import("@/pages/dale/layout")),
+    children: [
+      { index: true, lazy: lazy(() => import("@/pages/dale/cases-list")) },
+      { path: "cases/:caseId", lazy: lazy(() => import("@/pages/dale/case-detail")) },
+      { path: "calendar", lazy: lazy(() => import("@/pages/dale/calendar")) },
+    ],
+  },
   {
     element: <RootLayout />,
     children: [
