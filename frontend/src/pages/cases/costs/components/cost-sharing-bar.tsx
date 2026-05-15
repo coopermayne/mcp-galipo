@@ -9,7 +9,7 @@ import {
   setCostSharingConfig,
   type AdvancedConfig,
   type AdvancedParty,
-  type AdvancedCap,
+  type AdvancedPhase,
 } from "@/services/invoices"
 import {
   searchPersons,
@@ -17,6 +17,7 @@ import {
 } from "@/services/persons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -231,35 +232,13 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
       <AdvancedEditor
         caseId={caseId}
         parties={advancedParties}
+        existingPhases={data.config?.phases ?? null}
         onPartiesChange={setAdvancedParties}
         coCounselSuggestions={data.co_counsel}
         saving={saving}
-        onSave={async (parties) => {
+        onSave={async (config) => {
           setSaving(true)
           try {
-            const caps: AdvancedCap[] = parties
-              .filter((p) => p.maxCost != null && p.maxCost > 0)
-              .map((p) => ({ party: p.id, max_cumulative: p.maxCost! }))
-            const config: AdvancedConfig = {
-              version: 1,
-              parties: parties.map((p) => ({
-                id: p.id,
-                label: p.label,
-                person_id: p.person_id ?? null,
-                organization: p.organization ?? null,
-              })),
-              phases: [
-                {
-                  id: "phase-1",
-                  label: "Default",
-                  boundary_kind: "open_start",
-                  boundary_date: null,
-                  shares: parties.map((p) => ({ party: p.id, pct: p.pct })),
-                  caps,
-                },
-              ],
-              absorber_party: OURS,
-            }
             await setCostSharingConfig(caseId, config)
             invalidateAfterChange()
             toast.success("Cost sharing updated")
@@ -496,12 +475,53 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
 }
 
 // ---------------------------------------------------------------------------
-// Advanced editor — N parties + per-party percent rows.
-// Slice 1: parties only. Phases / caps come in later slices.
+// Advanced editor — N parties, per-party shares/caps, multi-phase support.
 // ---------------------------------------------------------------------------
+
+interface PhaseDraft {
+  id: string
+  label: string
+  boundary_kind: "open_start" | "date"
+  boundary_date: string | null
+  shares: Record<string, number>
+  caps: Record<string, number | null>
+}
+
+function initPhasesFromConfig(
+  existingPhases: AdvancedPhase[] | null,
+  parties: AdvancedPartyDraft[],
+): PhaseDraft[] {
+  if (existingPhases && existingPhases.length > 0) {
+    return existingPhases.map((ph) => ({
+      id: ph.id,
+      label: ph.label ?? "",
+      boundary_kind: ph.boundary_kind,
+      boundary_date: ph.boundary_date ?? null,
+      shares: Object.fromEntries(ph.shares.map((s) => [s.party, s.pct])),
+      caps: Object.fromEntries(
+        (ph.caps ?? []).map((c) => [c.party, c.max_cumulative])
+      ),
+    }))
+  }
+  const shares: Record<string, number> = {}
+  for (const p of parties) shares[p.id] = p.pct
+  const caps: Record<string, number | null> = {}
+  for (const p of parties) {
+    if (p.maxCost != null) caps[p.id] = p.maxCost
+  }
+  return [{
+    id: "phase-1",
+    label: "Default",
+    boundary_kind: "open_start",
+    boundary_date: null,
+    shares,
+    caps,
+  }]
+}
 
 function AdvancedEditor({
   parties,
+  existingPhases,
   onPartiesChange,
   coCounselSuggestions,
   saving,
@@ -510,10 +530,11 @@ function AdvancedEditor({
 }: {
   caseId: number
   parties: AdvancedPartyDraft[]
+  existingPhases: AdvancedPhase[] | null
   onPartiesChange: (parties: AdvancedPartyDraft[]) => void
   coCounselSuggestions: { person_id: number; name: string; organization: string | null }[]
   saving: boolean
-  onSave: (parties: AdvancedPartyDraft[]) => Promise<void>
+  onSave: (config: AdvancedConfig) => Promise<void>
   onCancel: () => void
 }) {
   const [search, setSearch] = useState("")
@@ -521,6 +542,9 @@ function AdvancedEditor({
   const [createMode, setCreateMode] = useState(false)
   const [newName, setNewName] = useState("")
   const [creating, setCreating] = useState(false)
+  const [phases, setPhases] = useState<PhaseDraft[]>(() =>
+    initPhasesFromConfig(existingPhases, parties)
+  )
 
   const debouncedSearch = useDebounce(search, 300)
   const { data: searchResults } = useQuery({
@@ -529,27 +553,84 @@ function AdvancedEditor({
     enabled: pickerOpenForRow != null && !createMode && debouncedSearch.length >= 2,
   })
 
-  const total = parties.reduce((sum, p) => sum + (Number.isFinite(p.pct) ? p.pct : 0), 0)
-  const totalOk = Math.abs(total - 100) < 0.01
   const personPartyIds = new Set(parties.map((p) => p.id))
 
-  function updatePartyPct(idx: number, pct: number) {
-    const next = [...parties]
-    next[idx] = { ...next[idx], pct }
-    onPartiesChange(next)
+  const allPhaseTotalsOk = phases.every((ph) => {
+    const total = Object.values(ph.shares).reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0)
+    return Math.abs(total - 100) < 0.01
+  })
+
+  function updatePhaseShare(phaseIdx: number, partyId: string, pct: number) {
+    setPhases((prev) => {
+      const next = [...prev]
+      next[phaseIdx] = { ...next[phaseIdx], shares: { ...next[phaseIdx].shares, [partyId]: pct } }
+      return next
+    })
   }
 
-  function updatePartyCap(idx: number, value: string) {
-    const next = [...parties]
-    const parsed = parseFloat(value)
-    next[idx] = { ...next[idx], maxCost: value === "" ? null : (Number.isFinite(parsed) ? parsed : null) }
-    onPartiesChange(next)
+  function updatePhaseCap(phaseIdx: number, partyId: string, value: string) {
+    setPhases((prev) => {
+      const next = [...prev]
+      const parsed = parseFloat(value)
+      next[phaseIdx] = {
+        ...next[phaseIdx],
+        caps: { ...next[phaseIdx].caps, [partyId]: value === "" ? null : (Number.isFinite(parsed) ? parsed : null) },
+      }
+      return next
+    })
+  }
+
+  function updatePhaseLabel(phaseIdx: number, label: string) {
+    setPhases((prev) => {
+      const next = [...prev]
+      next[phaseIdx] = { ...next[phaseIdx], label }
+      return next
+    })
+  }
+
+  function updatePhaseDate(phaseIdx: number, date: string | null) {
+    setPhases((prev) => {
+      const next = [...prev]
+      next[phaseIdx] = { ...next[phaseIdx], boundary_date: date }
+      return next
+    })
+  }
+
+  function addPhase() {
+    const lastPhase = phases[phases.length - 1]
+    const newId = `phase-${phases.length + 1}`
+    setPhases((prev) => [
+      ...prev,
+      {
+        id: newId,
+        label: "",
+        boundary_kind: "date",
+        boundary_date: null,
+        shares: { ...lastPhase.shares },
+        caps: {},
+      },
+    ])
+  }
+
+  function removePhase(phaseIdx: number) {
+    if (phaseIdx === 0) return
+    setPhases((prev) => prev.filter((_, i) => i !== phaseIdx))
   }
 
   function removeParty(idx: number) {
     if (parties[idx].id === OURS) return
+    const removedId = parties[idx].id
     const next = parties.filter((_, i) => i !== idx)
     onPartiesChange(next)
+    setPhases((prev) =>
+      prev.map((ph) => {
+        const shares = { ...ph.shares }
+        delete shares[removedId]
+        const caps = { ...ph.caps }
+        delete caps[removedId]
+        return { ...ph, shares, caps }
+      })
+    )
   }
 
   function addEmptyPartySlot() {
@@ -585,6 +666,12 @@ function AdvancedEditor({
       }
     }
     onPartiesChange(next)
+    setPhases((prev) =>
+      prev.map((ph) => ({
+        ...ph,
+        shares: { ...ph.shares, [partyId]: ph.shares[partyId] ?? 0 },
+      }))
+    )
     setPickerOpenForRow(null)
   }
 
@@ -603,6 +690,29 @@ function AdvancedEditor({
     }
   }
 
+  function buildConfig(): AdvancedConfig {
+    return {
+      version: 1,
+      parties: parties.map((p) => ({
+        id: p.id,
+        label: p.label,
+        person_id: p.person_id ?? null,
+        organization: p.organization ?? null,
+      })),
+      phases: phases.map((ph) => ({
+        id: ph.id,
+        label: ph.label || null,
+        boundary_kind: ph.boundary_kind,
+        boundary_date: ph.boundary_date,
+        shares: parties.map((p) => ({ party: p.id, pct: ph.shares[p.id] ?? 0 })),
+        caps: Object.entries(ph.caps)
+          .filter(([, v]) => v != null && v > 0)
+          .map(([party, max]) => ({ party, max_cumulative: max! })),
+      })),
+      absorber_party: OURS,
+    }
+  }
+
   const filteredSuggestions = coCounselSuggestions.filter(
     (c) => !personPartyIds.has(partyIdForPerson(c.person_id))
   ).filter(
@@ -612,6 +722,8 @@ function AdvancedEditor({
     (p) => !personPartyIds.has(partyIdForPerson(p.id))
       && !filteredSuggestions.some((c) => c.person_id === p.id)
   )
+
+  const multiPhase = phases.length > 1
 
   return (
     <div className="flex flex-col gap-3 border border-dashed p-3 text-sm">
@@ -629,77 +741,213 @@ function AdvancedEditor({
           <Button
             size="sm"
             className="h-7 text-xs"
-            onClick={() => onSave(parties)}
-            disabled={saving || !totalOk || parties.length < 2}
+            onClick={() => onSave(buildConfig())}
+            disabled={saving || !allPhaseTotalsOk || parties.length < 2}
           >
             {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {parties.map((p, idx) => (
-          <div key={`${p.id}-${idx}`} className="flex items-center gap-2">
-            <span className="font-medium w-[200px] truncate">{p.label}</span>
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={p.pct}
-              onChange={(e) => updatePartyPct(idx, parseFloat(e.target.value) || 0)}
-              className="w-[80px] h-8 text-sm text-center"
-            />
-            <span className="text-muted-foreground shrink-0">%</span>
-            {p.id !== OURS && (
-              <>
-                <span className="text-muted-foreground shrink-0 ml-2">max</span>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+      {/* Party list (identity only when multi-phase, shares inline when single-phase) */}
+      {!multiPhase ? (
+        <>
+          <div className="flex flex-col gap-2">
+            {parties.map((p, idx) => {
+              const ph = phases[0]
+              return (
+                <div key={`${p.id}-${idx}`} className="flex items-center gap-2">
+                  <span className="font-medium w-[200px] truncate">{p.label}</span>
                   <Input
                     type="number"
                     min="0"
+                    max="100"
                     step="0.01"
-                    value={p.maxCost ?? ""}
-                    onChange={(e) => updatePartyCap(idx, e.target.value)}
-                    placeholder="no limit"
-                    className="w-[120px] h-8 text-sm pl-5"
+                    value={ph.shares[p.id] ?? 0}
+                    onChange={(e) => updatePhaseShare(0, p.id, parseFloat(e.target.value) || 0)}
+                    className="w-[80px] h-8 text-sm text-center"
                   />
+                  <span className="text-muted-foreground shrink-0">%</span>
+                  {p.id !== OURS && (
+                    <>
+                      <span className="text-muted-foreground shrink-0 ml-2">max</span>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={ph.caps[p.id] ?? ""}
+                          onChange={(e) => updatePhaseCap(0, p.id, e.target.value)}
+                          placeholder="no limit"
+                          className="w-[120px] h-8 text-sm pl-5"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeParty(idx)}
+                        className="text-xs text-muted-foreground hover:text-destructive underline ml-1"
+                      >
+                        remove
+                      </button>
+                    </>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeParty(idx)}
-                  className="text-xs text-muted-foreground hover:text-destructive underline ml-1"
-                >
-                  remove
-                </button>
-              </>
-            )}
+              )
+            })}
           </div>
-        ))}
-      </div>
+          {(() => {
+            const total = Object.values(phases[0].shares).reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0)
+            const ok = Math.abs(total - 100) < 0.01
+            return (
+              <div className="flex items-center justify-between border-t pt-2">
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Total:</span>{" "}
+                  <span className={ok ? "font-medium" : "font-medium text-destructive"}>
+                    {total.toFixed(2)}%
+                  </span>
+                  {!ok && <span className="ml-2 text-destructive">must equal 100%</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={addEmptyPartySlot}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    + Add co-counsel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addPhase}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    + Add phase
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
+        </>
+      ) : (
+        <>
+          {/* Multi-phase: party list without shares */}
+          <div className="flex flex-col gap-1">
+            {parties.map((p, idx) => (
+              <div key={`${p.id}-${idx}`} className="flex items-center gap-2">
+                <span className="font-medium">{p.label}</span>
+                {p.id !== OURS && (
+                  <button
+                    type="button"
+                    onClick={() => removeParty(idx)}
+                    className="text-xs text-muted-foreground hover:text-destructive underline"
+                  >
+                    remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addEmptyPartySlot}
+              className="text-xs text-muted-foreground hover:text-foreground underline w-fit"
+            >
+              + Add co-counsel
+            </button>
+          </div>
 
-      {/* Total + add button */}
-      <div className="flex items-center justify-between border-t pt-2">
-        <div className="text-xs">
-          <span className="text-muted-foreground">Total:</span>{" "}
-          <span className={totalOk ? "font-medium" : "font-medium text-destructive"}>
-            {total.toFixed(2)}%
-          </span>
-          {!totalOk && (
-            <span className="ml-2 text-destructive">must equal 100%</span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={addEmptyPartySlot}
-          className="text-xs text-muted-foreground hover:text-foreground underline"
-        >
-          + Add co-counsel
-        </button>
-      </div>
+          {/* Phase sections */}
+          {phases.map((ph, phIdx) => {
+            const total = Object.values(ph.shares).reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0)
+            const ok = Math.abs(total - 100) < 0.01
+            return (
+              <div key={ph.id} className="border p-2 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  {phIdx === 0 ? (
+                    <span className="text-xs text-muted-foreground">Phase 1 (start of case)</span>
+                  ) : (
+                    <>
+                      <span className="text-xs text-muted-foreground shrink-0">Phase {phIdx + 1} from</span>
+                      <DatePicker
+                        value={ph.boundary_date}
+                        onChange={(d) => updatePhaseDate(phIdx, d ?? null)}
+                      />
+                    </>
+                  )}
+                  <Input
+                    value={ph.label}
+                    onChange={(e) => updatePhaseLabel(phIdx, e.target.value)}
+                    placeholder="Label (optional)"
+                    className="w-[140px] h-7 text-xs"
+                  />
+                  {phIdx > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => removePhase(phIdx)}
+                      className="text-xs text-muted-foreground hover:text-destructive underline ml-auto"
+                    >
+                      remove phase
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {parties.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 pl-2">
+                      <span className="w-[180px] truncate text-xs">{p.label}</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={ph.shares[p.id] ?? 0}
+                        onChange={(e) => updatePhaseShare(phIdx, p.id, parseFloat(e.target.value) || 0)}
+                        className="w-[70px] h-7 text-xs text-center"
+                      />
+                      <span className="text-muted-foreground text-xs">%</span>
+                      {p.id !== OURS && (
+                        <>
+                          <span className="text-muted-foreground text-xs ml-1">max</span>
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={ph.caps[p.id] ?? ""}
+                              onChange={(e) => updatePhaseCap(phIdx, p.id, e.target.value)}
+                              placeholder="no limit"
+                              className="w-[100px] h-7 text-xs pl-5"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs pl-2">
+                    <span className="text-muted-foreground">Total:</span>{" "}
+                    <span className={ok ? "font-medium" : "font-medium text-destructive"}>
+                      {total.toFixed(2)}%
+                    </span>
+                    {!ok && <span className="ml-2 text-destructive">must equal 100%</span>}
+                  </div>
+                  {phIdx === phases.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={addPhase}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      + Add phase
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
 
-      {/* Picker for the new row */}
+      {/* Person picker */}
       {pickerOpenForRow != null && (
         <div className="flex flex-col gap-2 border p-2">
           <div className="flex items-center gap-2">
