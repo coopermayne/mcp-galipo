@@ -64,9 +64,7 @@ export function EditInvoiceDialog({
     queryFn: () => getCostSharing(invoice!.case_id),
     enabled: !!invoice?.case_id,
   })
-  // Who can be selected as "Paid by"? In simple mode, the active cost-share
-  // partner. In advanced mode, every non-ours party.
-  const costShareCounsel = costSharing?.kind === "advanced"
+  const costShareCounsel = costSharing?.config
     ? costSharing.parties_with_pct
         .filter((p) => p.person_id != null)
         .map((p) => ({ person_id: p.person_id as number, name: p.label, organization: p.organization, cost_share_pct: p.pct }))

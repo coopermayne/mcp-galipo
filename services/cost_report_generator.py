@@ -44,10 +44,7 @@ def _build_html(
     total_count = len(real_invoices)
     subtitle = f'{total_count} invoice{"s" if total_count != 1 else ""}'
 
-    is_advanced = cost_sharing.get('kind') == 'advanced'
-    partner = cost_sharing.get('partner')
-    our_pct = cost_sharing.get('our_pct')
-    has_sharing = is_advanced or (partner is not None and our_pct is not None)
+    has_sharing = cost_sharing.get('config') is not None
 
     summary_html = _render_summary(cost_summary, cost_sharing)
 
@@ -156,8 +153,7 @@ def _build_html(
 def _render_summary(cost_summary: dict, cost_sharing: dict) -> str:
     total = cost_summary.get('total_costs', 0)
 
-    # Advanced (N parties): render per-party rows from cost_summary['parties'].
-    if cost_summary.get('kind') == 'advanced' and cost_summary.get('parties'):
+    if cost_summary.get('parties'):
         parties = cost_summary['parties']
         items = [f"""
         <div class="summary-item">
@@ -186,12 +182,11 @@ def _render_summary(cost_summary: dict, cost_sharing: dict) -> str:
     </div>
     {''.join(owes_lines)}"""
 
-    # Simple (legacy 2-party).
-    partner = cost_sharing.get('partner')
-    our_pct = cost_sharing.get('our_pct')
-    has_sharing = partner is not None and our_pct is not None
+    parties_with_pct = cost_sharing.get('parties_with_pct') or []
+    non_ours = [p for p in parties_with_pct if p.get('party_id') != 'ours']
+    ours_entry = next((p for p in parties_with_pct if p.get('party_id') == 'ours'), None)
 
-    if not has_sharing:
+    if not non_ours or not ours_entry:
         return f"""
         <div class="summary-bar">
           <div class="summary-item">
@@ -200,8 +195,10 @@ def _render_summary(cost_summary: dict, cost_sharing: dict) -> str:
           </div>
         </div>"""
 
-    counsel_name = partner.get('name', 'Co-Counsel')
-    counsel_pct = partner.get('cost_share_pct', 0)
+    partner = non_ours[0]
+    our_pct = ours_entry.get('pct', 0)
+    counsel_name = partner.get('label', 'Co-Counsel')
+    counsel_pct = partner.get('pct', 0)
     our_net = cost_summary.get('our_net', 0)
     counsel_net = cost_summary.get('counsel_net', 0)
     net_transferred = cost_summary.get('net_transferred', 0)

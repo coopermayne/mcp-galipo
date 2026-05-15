@@ -275,11 +275,17 @@ function CostActions({
   const [deleting, setDeleting] = useState(false)
   const isPaid = invoice.status === "paid"
 
+  function invalidateCosts() {
+    queryClient.invalidateQueries({ queryKey: ["invoices"] })
+    queryClient.invalidateQueries({ queryKey: ["cost-summary", invoice.case_id] })
+    queryClient.invalidateQueries({ queryKey: ["equalization"] })
+  }
+
   async function handleUnpay() {
     try {
       await markInvoiceUnpaid(invoice.id)
       toast.success("Invoice marked unpaid")
-      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      invalidateCosts()
     } catch {
       toast.error("Failed to update invoice")
     }
@@ -290,7 +296,7 @@ function CostActions({
     try {
       await deleteInvoice(invoice.id)
       toast.success("Invoice deleted")
-      queryClient.invalidateQueries({ queryKey: ["invoices"] })
+      invalidateCosts()
     } catch {
       toast.error("Failed to delete invoice")
     } finally {

@@ -7,7 +7,6 @@ import {
   setCostSharing,
   removeCostSharing,
   setCostSharingConfig,
-  removeCostSharingConfig,
   type AdvancedConfig,
   type AdvancedParty,
 } from "@/services/invoices"
@@ -17,6 +16,16 @@ import {
 } from "@/services/persons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface CostSharingBarProps {
   caseId: number
@@ -40,6 +49,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
   const [theirPct, setTheirPct] = useState("50")
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false)
 
   // Person selection state (simple editor)
   const [search, setSearch] = useState("")
@@ -73,10 +83,11 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
   // Initialize state when entering edit mode.
   useEffect(() => {
     if (!editing || !data) return
-    if (data.kind === "advanced") {
+    const parties = data.parties_with_pct
+    if (parties.length > 2) {
       setAdvancedMode(true)
       setAdvancedParties(
-        data.parties_with_pct.map((p) => ({
+        parties.map((p) => ({
           id: p.party_id,
           label: p.label,
           person_id: p.person_id,
@@ -86,10 +97,10 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
       )
     } else {
       setAdvancedMode(false)
-      const partner = data.partner
+      const partner = parties.find((p) => p.party_id !== OURS)
       if (partner) {
-        setSelectedPerson({ id: partner.person_id, name: partner.name, organization: partner.organization })
-        setTheirPct(partner.cost_share_pct != null ? String(partner.cost_share_pct) : "50")
+        setSelectedPerson({ id: partner.person_id!, name: partner.label, organization: partner.organization })
+        setTheirPct(String(partner.pct))
       } else {
         setSelectedPerson(null)
         setTheirPct("50")
@@ -137,10 +148,11 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
 
   function startEditing() {
     if (!data) return
-    if (data.kind === "advanced") {
+    const parties = data.parties_with_pct
+    if (parties.length > 2) {
       setAdvancedMode(true)
       setAdvancedParties(
-        data.parties_with_pct.map((p) => ({
+        parties.map((p) => ({
           id: p.party_id,
           label: p.label,
           person_id: p.person_id,
@@ -150,10 +162,10 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
       )
     } else {
       setAdvancedMode(false)
-      const partner = data.partner
+      const partner = parties.find((p) => p.party_id !== OURS)
       if (partner) {
-        setSelectedPerson({ id: partner.person_id, name: partner.name, organization: partner.organization })
-        setTheirPct(partner.cost_share_pct != null ? String(partner.cost_share_pct) : "50")
+        setSelectedPerson({ id: partner.person_id!, name: partner.label, organization: partner.organization })
+        setTheirPct(String(partner.pct))
       } else {
         setSelectedPerson(null)
         setTheirPct("50")
@@ -166,23 +178,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
   }
 
   async function handleRemove() {
-    if (!data) return
-    if (data.kind === "advanced") {
-      if (!confirm("Reset cost sharing to simple? This will clear the advanced configuration.")) return
-      setRemoving(true)
-      try {
-        await removeCostSharingConfig(caseId)
-        invalidateAfterChange()
-        toast.success("Cost sharing reset")
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to reset cost sharing")
-      } finally {
-        setRemoving(false)
-      }
-      return
-    }
-    const partnerName = data.partner?.name ?? ""
-    if (!confirm(`Remove cost sharing with ${partnerName}?`)) return
+    if (!data?.config) return
     setRemoving(true)
     try {
       await removeCostSharing(caseId)
@@ -192,6 +188,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
       toast.error(e instanceof Error ? e.message : "Failed to remove cost sharing")
     } finally {
       setRemoving(false)
+      setConfirmRemoveOpen(false)
     }
   }
 
@@ -266,7 +263,7 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
   // ---------- Edit mode (simple) ----------
   if (editing) {
     const searchPersons_ = searchResults?.persons ?? []
-    const coCounsel = data.kind === "simple" ? data.co_counsel : []
+    const coCounsel = data.co_counsel
     const coCounselIds = new Set(coCounsel.map((c) => c.person_id))
     const coCounselResults = coCounsel.filter(
       (c) => !search || c.name.toLowerCase().includes(search.toLowerCase())
@@ -436,51 +433,18 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
     )
   }
 
-  // ---------- View mode (advanced) ----------
-  if (data.kind === "advanced") {
-    return (
-      <div className="flex items-center gap-3 border p-3 text-sm flex-wrap">
-        <span className="text-muted-foreground">Cost split:</span>
-        {data.parties_with_pct.map((p, idx) => (
-          <span key={p.party_id} className="flex items-center gap-1">
-            {idx > 0 && <span className="text-muted-foreground mr-2">/</span>}
-            <span className="font-medium">{p.label} {p.pct}%</span>
-          </span>
-        ))}
-        <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={startEditing}
-            className="text-xs text-muted-foreground hover:text-foreground underline"
-          >
-            Edit
-          </button>
-          <button
-            onClick={handleRemove}
-            disabled={removing}
-            className="text-xs text-muted-foreground hover:text-destructive underline disabled:opacity-50"
-          >
-            {removing ? "Resetting..." : "Reset to simple"}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ---------- View mode (simple) ----------
-  const partner = data.partner
-  const ourPct = data.our_pct
-  if (!partner) return null
+  // ---------- View mode ----------
+  if (!data.config) return null
 
   return (
-    <div className="flex items-center gap-3 border p-3 text-sm">
+    <div className="flex items-center gap-3 border p-3 text-sm flex-wrap">
       <span className="text-muted-foreground">Cost split:</span>
-      <span className="font-medium">
-        Our Firm {ourPct != null ? `${ourPct}%` : "—"}
-      </span>
-      <span className="text-muted-foreground">/</span>
-      <span className="font-medium">
-        {partner.name} {partner.cost_share_pct != null ? `${partner.cost_share_pct}%` : "—"}
-      </span>
+      {data.parties_with_pct.map((p, idx) => (
+        <span key={p.party_id} className="flex items-center gap-1">
+          {idx > 0 && <span className="text-muted-foreground mr-2">/</span>}
+          <span className="font-medium">{p.label} {p.pct}%</span>
+        </span>
+      ))}
       <div className="flex items-center gap-2 ml-auto">
         <button
           onClick={startEditing}
@@ -489,13 +453,29 @@ export function CostSharingBar({ caseId, editing: editingProp, onEditingChange }
           Edit
         </button>
         <button
-          onClick={handleRemove}
+          onClick={() => setConfirmRemoveOpen(true)}
           disabled={removing}
           className="text-xs text-muted-foreground hover:text-destructive underline disabled:opacity-50"
         >
           {removing ? "Removing..." : "Remove"}
         </button>
       </div>
+      <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove cost sharing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the cost-sharing configuration. Existing invoices won't be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemove} disabled={removing}>
+              {removing ? "Removing..." : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -614,7 +594,7 @@ function AdvancedEditor({
   return (
     <div className="flex flex-col gap-3 border border-dashed p-3 text-sm">
       <div className="flex items-center justify-between">
-        <span className="text-muted-foreground">Cost-sharing parties (advanced)</span>
+        <span className="text-muted-foreground">Cost-sharing parties</span>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"

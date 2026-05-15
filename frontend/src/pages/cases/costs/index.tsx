@@ -584,8 +584,7 @@ function CostSummaryBar({
 }) {
   const { total_costs } = costSummary
 
-  // Advanced: render N parties using server-provided targets.
-  if (costSummary.kind === "advanced" && costSummary.parties && costSummary.parties.length > 0) {
+  if (costSummary.parties && costSummary.parties.length > 0) {
     return (
       <div className="flex items-center gap-6 border p-3 text-sm flex-wrap">
         <div className="flex items-center gap-1.5">
@@ -632,10 +631,12 @@ function CostSummaryBar({
     )
   }
 
-  // Simple (legacy 2-party) — unchanged behavior.
   const { counsel_name, our_net, counsel_net } = costSummary
-  const ourPct = costSharing?.kind === "simple" ? costSharing.our_pct : null
-  const counselPct = costSharing?.kind === "simple" ? costSharing.partner?.cost_share_pct ?? null : null
+  const parties = costSharing?.parties_with_pct ?? []
+  const oursEntry = parties.find((p) => p.party_id === "ours")
+  const partnerEntry = parties.find((p) => p.party_id !== "ours")
+  const ourPct = oursEntry?.pct ?? null
+  const counselPct = partnerEntry?.pct ?? null
 
   const ourTarget = ourPct != null ? total_costs * (ourPct / 100) : null
   const counselTarget = counselPct != null ? total_costs * (counselPct / 100) : null
@@ -654,7 +655,7 @@ function CostSummaryBar({
           {formatMoney(total_costs)}
         </span>
       </div>
-      {counsel_name ? (
+      {counsel_name && costSharing?.config ? (
         <>
           <div className="h-4 border-l" />
           <div className="flex items-center gap-1.5">

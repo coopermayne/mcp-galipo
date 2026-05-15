@@ -64,7 +64,8 @@ export function TransferDialog({
     )
   }
 
-  if (costSharing?.kind === "advanced") {
+  const partyCount = costSharing?.parties_with_pct?.length ?? 0
+  if (partyCount > 2) {
     return (
       <SettlementChecklistDialog
         open={open}
@@ -106,9 +107,12 @@ function SimpleTransferDialog({
     enabled: open,
   })
 
-  const ourPct = costSharing?.kind === "simple" ? costSharing.our_pct : null
-  const partnerName = costSharing?.kind === "simple" ? costSharing.partner?.name ?? "Co-counsel" : "Co-counsel"
-  const partnerId = costSharing?.kind === "simple" ? costSharing.partner?.person_id ?? null : null
+  const parties = costSharing?.parties_with_pct ?? []
+  const oursEntry = parties.find((p) => p.party_id === "ours")
+  const partnerEntry = parties.find((p) => p.party_id !== "ours")
+  const ourPct = oursEntry?.pct ?? null
+  const partnerName = partnerEntry?.label ?? "Co-counsel"
+  const partnerId = partnerEntry?.person_id ?? null
 
   const { data: eqData } = useQuery({
     queryKey: ["equalization", caseId, ourPct],
