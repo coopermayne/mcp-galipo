@@ -49,15 +49,9 @@ export function EditTransferDialog({
     enabled: !!invoice?.case_id,
   })
 
-  // The "other party" for a transfer. In simple mode, the configured partner.
-  // In advanced mode, derive from the existing transfer's payer/recipient if
-  // present, falling back to the first non-ours party.
   let partnerName = "Co-counsel"
   let counselId: number | null = null
-  if (costSharing?.kind === "simple") {
-    partnerName = costSharing.partner?.name ?? "Co-counsel"
-    counselId = costSharing.partner?.person_id ?? null
-  } else if (costSharing?.kind === "advanced") {
+  if (costSharing?.config) {
     const counterpartyId = invoice?.paid_by_person_id ?? invoice?.transfer_to_person_id ?? null
     const match = costSharing.parties_with_pct.find(
       (p) => p.person_id != null && (counterpartyId == null || p.person_id === counterpartyId)

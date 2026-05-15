@@ -88,6 +88,10 @@ def _phase_total(phase: dict, invoices: list[dict]) -> float:
     for inv in invoices:
         if inv.get("phase_id") != phase["id"]:
             continue
+        if inv.get("is_transfer"):
+            continue
+        if inv.get("type") and inv["type"] != "cost":
+            continue
         amt = inv.get("case_amount")
         if amt is None:
             amt = inv.get("amount", 0)
@@ -299,18 +303,14 @@ def settlement_for_case(
     }
 
 
-def materialize_simple_config(
+def build_two_party_config(
     partner_person_id: int,
     partner_label: str,
     partner_pct: float,
     partner_organization: Optional[str] = None,
     our_label: str = "Our Firm",
 ) -> dict:
-    """Build a one-phase, two-party config from the legacy simple split.
-
-    Used both when upgrading a case from simple to advanced mode and as a
-    fallback for callers that always want the rich shape.
-    """
+    """Build a one-phase, two-party JSONB config."""
     our_pct = round(100.0 - partner_pct, 2)
     return {
         "version": 1,

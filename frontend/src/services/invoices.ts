@@ -327,7 +327,6 @@ export interface CostSummaryParty {
 }
 
 export interface CostSummary {
-  kind: "simple" | "advanced"
   total_costs: number
   our_costs: number
   counsel_costs: number
@@ -336,7 +335,6 @@ export interface CostSummary {
   net_transferred: number
   counsel_id: number | null
   counsel_name: string | null
-  // Only present in advanced mode:
   parties?: CostSummaryParty[]
   targets_by_party?: Record<string, number>
 }
@@ -397,23 +395,12 @@ export interface AdvancedPartyWithPct {
   pct: number
 }
 
-// Discriminated union returned by GET /cost-sharing.
-export interface SimpleCostSharing {
-  kind: "simple"
+export interface CostSharingConfig {
+  config: AdvancedConfig | null
   co_counsel: CostSharingPartner[]
-  partner: CostSharingPartner | null
-  our_pct: number | null
-}
-
-export interface AdvancedCostSharing {
-  kind: "advanced"
-  co_counsel: CostSharingPartner[]
-  config: AdvancedConfig
   parties_with_pct: AdvancedPartyWithPct[]
   absorber_party: string
 }
-
-export type CostSharingConfig = SimpleCostSharing | AdvancedCostSharing
 
 export async function getCostSharing(caseId: number): Promise<CostSharingConfig> {
   const res = await apiFetch(`/api/v1/cases/${caseId}/cost-sharing`)
@@ -495,7 +482,6 @@ export interface SettlementPartyMeta {
 }
 
 export interface Settlement {
-  kind: "simple" | "advanced"
   config: AdvancedConfig
   parties: string[]
   parties_meta: SettlementPartyMeta[]

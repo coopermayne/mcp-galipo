@@ -23,10 +23,9 @@ def _set_phase_id(session, inv: Invoice) -> None:
     if not config:
         inv.phase_id = None
         return
+    date_str = inv.date if isinstance(inv.date, str) else (inv.date.isoformat() if inv.date else None)
     inv.phase_id = cs.bucket_invoice(
-        {
-            "date": inv.date.isoformat() if inv.date else None,
-        },
+        {"date": date_str},
         config,
     ) or None
 
@@ -41,8 +40,9 @@ def _rebucket_case_invoices(session, case_id: int, config: Optional[dict]) -> No
         if not config:
             inv.phase_id = None
             continue
+        date_str = inv.date if isinstance(inv.date, str) else (inv.date.isoformat() if inv.date else None)
         inv.phase_id = cs.bucket_invoice(
-            {"date": inv.date.isoformat() if inv.date else None},
+            {"date": date_str},
             config,
         ) or None
 
@@ -558,14 +558,11 @@ def get_invoice_stats(case_id: int = None, type: str = None) -> dict:
 def get_cost_summary(case_id: int) -> dict:
     """Net cost breakdown per party, accounting for transfers.
 
-    For simple cases (no advanced config), returns the legacy 2-party shape
-    plus `kind: "simple"`. For advanced cases, additionally returns
-    `parties: [{party_id, label, paid, net, target}]` so the UI can render
-    N parties without recomputing targets locally.
+    When a JSONB config exists, returns per-party breakdown via the allocator.
+    Always includes legacy 2-party fields for backward compat.
     """
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
-        # Actual costs (excluding transfers and advances)
         cost_rows = session.execute(
             select(
                 Invoice.paid_by_person_id,
@@ -584,7 +581,6 @@ def get_cost_summary(case_id: int) -> dict:
             else:
                 counsel_costs[paid_by_id] = counsel_costs.get(paid_by_id, 0) + amt
 
-        # Transfers
         transfer_rows = session.execute(
             select(
                 Invoice.paid_by_person_id,
@@ -595,7 +591,6 @@ def get_cost_summary(case_id: int) -> dict:
             .group_by(Invoice.paid_by_person_id, Invoice.transfer_to_person_id)
         ).all()
 
-        # net_to_us > 0 means counsel sent us money
         net_to_us = 0.0
         for paid_by_id, transfer_to_id, total in transfer_rows:
             amt = float(total)
@@ -606,35 +601,16 @@ def get_cost_summary(case_id: int) -> dict:
 
         counsel_paid_total = sum(counsel_costs.values())
         total_costs = our_costs + counsel_paid_total
-
-        # Net = what each party has effectively spent after transfers settle
         our_net = our_costs - net_to_us
         counsel_net = counsel_paid_total + net_to_us
 
-        # Resolve counsel name (legacy shape)
-        counsel_id = None
+        counsel_id = next(iter(counsel_costs), None)
         counsel_name = None
-        if counsel_costs:
-            counsel_id = next(iter(counsel_costs))
-        if counsel_id is None:
-            partner_row = session.execute(
-                select(PersonRole, Person)
-                .join(Person, PersonRole.person_id == Person.id)
-                .where(
-                    PersonRole.case_id == case_id,
-                    PersonRole.role_id == CO_COUNSEL_ROLE_ID,
-                    PersonRole.cost_share_pct.isnot(None),
-                )
-            ).first()
-            if partner_row:
-                counsel_id = partner_row[1].id
-                counsel_name = partner_row[1].name
-        if counsel_id and not counsel_name:
+        if counsel_id:
             p = session.get(Person, counsel_id)
             counsel_name = p.name if p else None
 
         result = {
-            "kind": "simple",
             "total_costs": round(total_costs, 2),
             "our_costs": round(our_costs, 2),
             "counsel_costs": round(counsel_paid_total, 2),
@@ -645,15 +621,12 @@ def get_cost_summary(case_id: int) -> dict:
             "counsel_name": counsel_name,
         }
 
-        # Advanced mode: enrich with per-party breakdown.
         case = session.get(Case, case_id)
         config = case.cost_sharing_config if case else None
         if config:
             invoices = _load_case_invoices_for_allocation(session, case_id)
-            settlement = cs.settlement_for_case(
-                config, invoices, _parties_meta_from_config(config)
-            )
             parties_meta = _parties_meta_from_config(config)
+            settlement = cs.settlement_for_case(config, invoices, parties_meta)
             party_breakdown = []
             for pid in settlement["parties"]:
                 meta = parties_meta.get(pid, {})
@@ -665,7 +638,6 @@ def get_cost_summary(case_id: int) -> dict:
                     "net_paid": settlement["net_paid"].get(pid, 0),
                     "target": settlement["targets"].get(pid, 0),
                 })
-            result["kind"] = "advanced"
             result["parties"] = party_breakdown
             result["targets_by_party"] = settlement["targets"]
         return result
@@ -707,10 +679,8 @@ def _load_case_invoices_for_allocation(session, case_id: int) -> list[dict]:
 def get_cost_sharing(case_id: int) -> dict:
     """Get cost-sharing config for a case.
 
-    Returns a discriminated shape:
-    - {kind: "simple", co_counsel, partner, our_pct} — legacy, when no JSONB config.
-    - {kind: "advanced", config, parties_with_pct: [{party_id, label, person_id, pct}],
-       absorber_party} — when the case has been upgraded.
+    Always returns the JSONB-based shape. `config` is None when no cost sharing
+    is configured.
     """
     with SessionLocal() as session:
         rows = session.execute(
@@ -724,28 +694,22 @@ def get_cost_sharing(case_id: int) -> dict:
         ).all()
 
         co_counsel = []
-        partner = None
         for pr, person in rows:
-            entry = {
+            co_counsel.append({
                 "person_id": person.id,
                 "name": person.name,
                 "organization": person.organization,
                 "cost_share_pct": float(pr.cost_share_pct) if pr.cost_share_pct is not None else None,
-            }
-            co_counsel.append(entry)
-            if pr.cost_share_pct is not None:
-                partner = entry
+            })
 
         case = session.get(Case, case_id)
         config = case.cost_sharing_config if case else None
 
+        parties_with_pct = []
         if config:
-            # Advanced mode. Derive a flat parties_with_pct from the first
-            # phase (Slice 1 only supports one phase).
             phases = config.get("phases") or []
             first_phase = phases[0] if phases else {}
             shares_by_party = {s["party"]: float(s["pct"]) for s in first_phase.get("shares") or []}
-            parties_with_pct = []
             for p in config.get("parties") or []:
                 parties_with_pct.append({
                     "party_id": p["id"],
@@ -754,110 +718,40 @@ def get_cost_sharing(case_id: int) -> dict:
                     "organization": p.get("organization"),
                     "pct": shares_by_party.get(p["id"], 0),
                 })
-            return {
-                "kind": "advanced",
-                "co_counsel": co_counsel,  # included so the picker still works
-                "config": config,
-                "parties_with_pct": parties_with_pct,
-                "absorber_party": config.get("absorber_party") or cs.OURS,
-            }
 
-        our_pct = (100.0 - partner["cost_share_pct"]) if partner else None
         return {
-            "kind": "simple",
+            "config": config,
             "co_counsel": co_counsel,
-            "partner": partner,
-            "our_pct": our_pct,
+            "parties_with_pct": parties_with_pct,
+            "absorber_party": config.get("absorber_party") if config else cs.OURS,
         }
 
 
 def set_cost_sharing(case_id: int, person_id: int, cost_share_pct: float) -> dict:
-    """Designate a co-counsel as the cost-sharing partner with their share percentage.
+    """Set up a 2-party cost split by building a JSONB config.
 
     Auto-assigns the person as co-counsel on the case if they aren't already.
-    If the case is in advanced mode, this raises — callers must use
-    `set_cost_sharing_config` instead.
     """
     with SessionLocal() as session:
-        case = session.get(Case, case_id)
-        if case and case.cost_sharing_config:
-            raise ValueError(
-                "Case is in advanced cost-sharing mode. "
-                "Use the advanced config endpoint or reset to simple first."
-            )
-
-        all_pr = session.execute(
-            select(PersonRole).where(
-                PersonRole.case_id == case_id,
-                PersonRole.role_id == CO_COUNSEL_ROLE_ID,
-            )
-        ).scalars().all()
-
-        found = False
-        for pr in all_pr:
-            if pr.person_id == person_id:
-                pr.cost_share_pct = cost_share_pct
-                found = True
-            else:
-                pr.cost_share_pct = None
-
-        if not found:
-            pr = PersonRole(
-                person_id=person_id,
-                role_id=CO_COUNSEL_ROLE_ID,
-                case_id=case_id,
-                cost_share_pct=cost_share_pct,
-            )
-            session.add(pr)
-
-        session.commit()
-        return get_cost_sharing(case_id)
+        person = session.get(Person, person_id)
+        if not person:
+            raise ValueError(f"Person {person_id} not found")
+        config = cs.build_two_party_config(
+            partner_person_id=person.id,
+            partner_label=person.name,
+            partner_pct=cost_share_pct,
+            partner_organization=person.organization,
+        )
+    return set_cost_sharing_config(case_id, config)
 
 
 def remove_cost_sharing(case_id: int) -> dict:
-    """Remove the cost-sharing partner from a case.
+    """Remove cost sharing from a case.
 
-    Only allowed if the partner has no invoices (paid_by or transfer_to) on this case.
-    Returns {"success": True} or raises ValueError.
+    Clears the JSONB config and all phase_ids. Validates that no co-counsel
+    party has invoices on the case before removing.
     """
-    config = get_cost_sharing(case_id)
-    if config.get("kind") == "advanced":
-        raise ValueError(
-            "Case is in advanced cost-sharing mode. Reset to simple first."
-        )
-    partner = config.get("partner")
-    if not partner:
-        raise ValueError("No cost-sharing partner to remove")
-
-    person_id = partner["person_id"]
-
-    with SessionLocal() as session:
-        involved = session.execute(
-            select(func.count()).select_from(Invoice).where(
-                Invoice.case_id == case_id,
-                (Invoice.paid_by_person_id == person_id)
-                | (Invoice.transfer_to_person_id == person_id),
-            )
-        ).scalar()
-
-        if involved > 0:
-            raise ValueError(
-                f"{partner['name']} is involved in {involved} invoice(s) on this case and cannot be removed"
-            )
-
-        prs = session.execute(
-            select(PersonRole).where(
-                PersonRole.case_id == case_id,
-                PersonRole.role_id == CO_COUNSEL_ROLE_ID,
-                PersonRole.person_id == person_id,
-            )
-        ).scalars().all()
-
-        for pr in prs:
-            pr.cost_share_pct = None
-
-        session.commit()
-        return {"success": True}
+    return remove_cost_sharing_config(case_id)
 
 
 def set_cost_sharing_config(case_id: int, config: dict) -> dict:
@@ -909,47 +803,14 @@ def set_cost_sharing_config(case_id: int, config: dict) -> dict:
 
 
 def remove_cost_sharing_config(case_id: int) -> dict:
-    """Reset a case from advanced mode back to simple.
-
-    If the config has exactly one non-ours party, restore that party's
-    PersonRole.cost_share_pct so the simple UI continues showing the same
-    split. Otherwise just clear the config (the simple UI will show
-    "Set up split").
-    """
+    """Clear the JSONB cost-sharing config and all phase_ids."""
     with SessionLocal() as session:
         case = session.get(Case, case_id)
         if not case:
             raise ValueError(f"Case {case_id} not found")
 
-        config = case.cost_sharing_config
-        if not config:
+        if not case.cost_sharing_config:
             return get_cost_sharing(case_id)
-
-        # Try to restore a simple split if the config is representable as one.
-        non_ours = [p for p in config.get("parties") or [] if p.get("person_id")]
-        if len(non_ours) == 1:
-            party = non_ours[0]
-            phases = config.get("phases") or []
-            if phases:
-                shares = {s["party"]: float(s["pct"]) for s in phases[0].get("shares") or []}
-                pct = shares.get(party["id"])
-                if pct is not None:
-                    pr = session.execute(
-                        select(PersonRole).where(
-                            PersonRole.case_id == case_id,
-                            PersonRole.role_id == CO_COUNSEL_ROLE_ID,
-                            PersonRole.person_id == party["person_id"],
-                        )
-                    ).scalar_one_or_none()
-                    if pr:
-                        pr.cost_share_pct = pct
-                    else:
-                        session.add(PersonRole(
-                            person_id=party["person_id"],
-                            role_id=CO_COUNSEL_ROLE_ID,
-                            case_id=case_id,
-                            cost_share_pct=pct,
-                        ))
 
         case.cost_sharing_config = None
         session.flush()
@@ -962,9 +823,7 @@ def remove_cost_sharing_config(case_id: int) -> dict:
 def get_settlement(case_id: int) -> dict:
     """Return the proposed settlement transfers for a case.
 
-    Works for both simple and advanced configs. For simple cases, builds an
-    in-memory advanced config from the legacy partner+pct so the same
-    allocator/settlement logic can run.
+    Requires a JSONB config on the case. Returns empty result if none exists.
     """
     with SessionLocal() as session:
         case = session.get(Case, case_id)
@@ -973,49 +832,23 @@ def get_settlement(case_id: int) -> dict:
 
         config = case.cost_sharing_config
         if not config:
-            # Build a one-phase config from the legacy partner.
-            partner_row = session.execute(
-                select(PersonRole, Person)
-                .join(Person, PersonRole.person_id == Person.id)
-                .where(
-                    PersonRole.case_id == case_id,
-                    PersonRole.role_id == CO_COUNSEL_ROLE_ID,
-                    PersonRole.cost_share_pct.isnot(None),
-                )
-            ).first()
-            if not partner_row:
-                return {
-                    "kind": "simple",
-                    "parties": [],
-                    "targets": {},
-                    "paid": {},
-                    "net_paid": {},
-                    "deltas": {},
-                    "transfers": [],
-                }
-            pr, person = partner_row
-            config = cs.materialize_simple_config(
-                partner_person_id=person.id,
-                partner_label=person.name,
-                partner_pct=float(pr.cost_share_pct),
-                partner_organization=person.organization,
-            )
-            kind = "simple"
-        else:
-            kind = "advanced"
+            return {
+                "parties": [],
+                "targets": {},
+                "paid": {},
+                "net_paid": {},
+                "deltas": {},
+                "transfers": [],
+            }
 
         invoices = _load_case_invoices_for_allocation(session, case_id)
-        # If a simple case never had phase_id set, the bucket lookup will
-        # naturally fall back to phase-1, but be explicit:
         for inv in invoices:
             if not inv.get("phase_id"):
                 inv["phase_id"] = cs.bucket_invoice(inv, config)
 
         parties_meta = _parties_meta_from_config(config)
         result = cs.settlement_for_case(config, invoices, parties_meta)
-        result["kind"] = kind
         result["config"] = config
-        # Enrich parties array with metadata for UI.
         result["parties_meta"] = [
             {
                 "party_id": pid,
