@@ -10,7 +10,7 @@ from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateEventInput, UpdateEventInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, feature_disabled_error, DEFAULT_PAGE_SIZE
 
 
 def register_event_routes(mcp):
@@ -57,20 +57,23 @@ def register_event_routes(mcp):
             data = CreateEventInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
-        result = await asyncio.to_thread(
-            db.add_event,
-            data.case_id,
-            data.date,
-            data.description,
-            data.document_link,
-            data.calculation_note,
-            data.time,
-            data.location,
-            data.starred,
-            data.event_type,
-            data.end_date,
-            data.blocks_calendar,
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.add_event,
+                data.case_id,
+                data.date,
+                data.description,
+                data.document_link,
+                data.calculation_note,
+                data.time,
+                data.location,
+                data.starred,
+                data.event_type,
+                data.end_date,
+                data.blocks_calendar,
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
 
         # System comment for event creation
         user = auth.get_current_user(request)
@@ -126,7 +129,10 @@ def register_event_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
         updates = data.model_dump(exclude_none=True)
-        result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Event not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "event": result})
@@ -146,7 +152,10 @@ def register_event_routes(mcp):
         if err := auth.require_auth(request):
             return err
         event_id = int(request.path_params["event_id"])
-        deleted = await asyncio.to_thread(db.delete_event, event_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_event, event_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if deleted:
             return JSONResponse({"success": True})
         return api_error("Event not found", "NOT_FOUND", 404)
@@ -171,7 +180,10 @@ def register_event_routes(mcp):
             return err
         event_id = int(request.path_params["event_id"])
         user_id = int(request.path_params["user_id"])
-        result = await asyncio.to_thread(db.add_event_attendee, event_id, user_id)
+        try:
+            result = await asyncio.to_thread(db.add_event_attendee, event_id, user_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result.get("success"):
             return api_error(result.get("error", "Failed to add attendee"), "ADD_FAILED", 400)
         return JSONResponse({"success": True, "data": result})
@@ -183,7 +195,10 @@ def register_event_routes(mcp):
             return err
         event_id = int(request.path_params["event_id"])
         user_id = int(request.path_params["user_id"])
-        result = await asyncio.to_thread(db.remove_event_attendee, event_id, user_id)
+        try:
+            result = await asyncio.to_thread(db.remove_event_attendee, event_id, user_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result.get("success"):
             return api_error(result.get("error", "Failed to remove attendee"), "REMOVE_FAILED", 400)
         return JSONResponse({"success": True, "data": result})
