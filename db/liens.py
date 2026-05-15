@@ -7,6 +7,10 @@ from typing import Optional
 from sqlalchemy import select, func
 
 from .session import SessionLocal
+from .feature_gates import (
+    FEATURE_COSTS, feature_enabled_filter, require_feature_for_case,
+    is_feature_enabled,
+)
 from models import Lien, Case, CaseComment, Payee
 
 
@@ -59,6 +63,7 @@ def list_liens(
         .outerjoin(Payee, Lien.payee_id == Payee.id)
     )
 
+    stmt = stmt.where(feature_enabled_filter(FEATURE_COSTS, Lien.case_id))
     if case_id:
         stmt = stmt.where(Lien.case_id == case_id)
     if status:
@@ -84,19 +89,13 @@ def list_liens(
     else:
         stmt = stmt.order_by(sort_col.asc().nullslast(), Lien.created_at.asc())
 
-    count_stmt = select(func.count()).select_from(select(Lien.id))
+    feature_clause = feature_enabled_filter(FEATURE_COSTS, Lien.case_id)
+    count_inner = select(Lien.id).where(feature_clause)
     if case_id:
-        count_stmt = select(func.count()).select_from(
-            select(Lien.id).where(Lien.case_id == case_id)
-        )
-        if status:
-            count_stmt = select(func.count()).select_from(
-                select(Lien.id).where(Lien.case_id == case_id, Lien.status == status)
-            )
-    elif status:
-        count_stmt = select(func.count()).select_from(
-            select(Lien.id).where(Lien.status == status)
-        )
+        count_inner = count_inner.where(Lien.case_id == case_id)
+    if status:
+        count_inner = count_inner.where(Lien.status == status)
+    count_stmt = select(func.count()).select_from(count_inner.subquery())
 
     with SessionLocal() as session:
         total = session.scalar(count_stmt)
@@ -124,6 +123,8 @@ def get_lien(lien_id: int) -> Optional[dict]:
         if not row:
             return None
         lien, case_name, payee_name, payee_addr = row
+        if not is_feature_enabled(session, lien.case_id, FEATURE_COSTS):
+            return None
         return _lien_to_dict(lien, case_name, payee_name, payee_addr)
 
 
@@ -143,6 +144,7 @@ def create_lien(
     notes: str = None,
 ) -> dict:
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_COSTS)
         lien = Lien(
             case_id=case_id,
             payee_id=payee_id,
@@ -191,6 +193,7 @@ def update_lien(lien_id: int, **fields) -> Optional[dict]:
         lien = session.get(Lien, lien_id)
         if not lien:
             return None
+        require_feature_for_case(session, lien.case_id, FEATURE_COSTS)
 
         for key, value in fields.items():
             if hasattr(lien, key):
@@ -219,6 +222,7 @@ def delete_lien(lien_id: int) -> bool:
         lien = session.get(Lien, lien_id)
         if not lien:
             return False
+        require_feature_for_case(session, lien.case_id, FEATURE_COSTS)
 
         if lien.file_path and os.path.isfile(lien.file_path):
             try:
@@ -233,6 +237,12 @@ def delete_lien(lien_id: int) -> bool:
 
 def get_lien_stats(case_id: int) -> dict:
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return {
+                "count": 0, "pending_count": 0, "negotiated_count": 0,
+                "paid_count": 0, "total_claimed": 0, "total_negotiated": 0,
+                "total_paid": 0, "savings": 0, "savings_pct": 0,
+            }
         row = session.execute(
             select(
                 func.count().label("count"),
