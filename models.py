@@ -299,6 +299,11 @@ class Case(Base):
 
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
+    # When NULL, simple cost-sharing applies via PersonRole.cost_share_pct.
+    # When populated, the JSONB document is the source of truth and supports
+    # N parties, phases, and caps. See db/cost_sharing.py.
+    cost_sharing_config: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
     events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)
@@ -1131,6 +1136,7 @@ class Invoice(Base):
         Index("idx_invoices_due_date", "due_date"),
         Index("idx_invoices_date", "date"),
         Index("idx_invoices_type", "type"),
+        Index("idx_invoices_phase_id", "phase_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -1160,6 +1166,9 @@ class Invoice(Base):
     is_transfer: Mapped[bool] = mapped_column(
         server_default=text("false")
     )
+    # Phase membership for advanced cost-sharing. NULL when the case is in
+    # simple mode, or when a phased config has not yet been bucketed.
+    phase_id: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )

@@ -22,6 +22,7 @@ import {
   getAdvanceStats,
   type Invoice,
   type CostSummary,
+  type CostSharingConfig,
   type AdvanceStats,
 } from "@/services/invoices"
 import {
@@ -369,8 +370,7 @@ function CaseCostsContent() {
           {costSummary && (
             <CostSummaryBar
               costSummary={costSummary}
-              ourPct={costSharing?.our_pct ?? null}
-              counselPct={costSharing?.partner?.cost_share_pct ?? null}
+              costSharing={costSharing}
               onTransfer={() => setTransferOpen(true)}
               onSetupSplit={() => setCostSharingEditing(true)}
             />
@@ -573,18 +573,69 @@ function formatMoney(n: number) {
 
 function CostSummaryBar({
   costSummary,
-  ourPct,
-  counselPct,
+  costSharing,
   onTransfer,
   onSetupSplit,
 }: {
   costSummary: CostSummary
-  ourPct: number | null
-  counselPct: number | null
+  costSharing: CostSharingConfig | undefined
   onTransfer: () => void
   onSetupSplit: () => void
 }) {
-  const { counsel_name, total_costs, our_net, counsel_net } = costSummary
+  const { total_costs } = costSummary
+
+  // Advanced: render N parties using server-provided targets.
+  if (costSummary.kind === "advanced" && costSummary.parties && costSummary.parties.length > 0) {
+    return (
+      <div className="flex items-center gap-6 border p-3 text-sm flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">Total costs:</span>
+          <span className="font-semibold tabular-nums">
+            {formatMoney(total_costs)}
+          </span>
+        </div>
+        {costSummary.parties.map((p) => {
+          const diff = p.net_paid - p.target
+          const overpaid = diff > 0.01
+          const partyPct = total_costs > 0 ? (p.target / total_costs) * 100 : 0
+          return (
+            <div key={p.party_id} className="flex items-center gap-1.5">
+              <div className="h-4 border-l" />
+              <span className="text-muted-foreground">
+                {p.label ?? p.party_id} net:
+              </span>
+              <span className="font-semibold tabular-nums">
+                {formatMoney(p.net_paid)}
+              </span>
+              {overpaid && (
+                <ImbalanceAlert
+                  who={p.label ?? p.party_id}
+                  target={p.target}
+                  actual={p.net_paid}
+                  diff={diff}
+                  pct={partyPct}
+                  totalCosts={total_costs}
+                />
+              )}
+            </div>
+          )
+        })}
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-7 text-xs"
+          onClick={onTransfer}
+        >
+          Settle
+        </Button>
+      </div>
+    )
+  }
+
+  // Simple (legacy 2-party) — unchanged behavior.
+  const { counsel_name, our_net, counsel_net } = costSummary
+  const ourPct = costSharing?.kind === "simple" ? costSharing.our_pct : null
+  const counselPct = costSharing?.kind === "simple" ? costSharing.partner?.cost_share_pct ?? null : null
 
   const ourTarget = ourPct != null ? total_costs * (ourPct / 100) : null
   const counselTarget = counselPct != null ? total_costs * (counselPct / 100) : null

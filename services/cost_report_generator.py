@@ -44,9 +44,10 @@ def _build_html(
     total_count = len(real_invoices)
     subtitle = f'{total_count} invoice{"s" if total_count != 1 else ""}'
 
+    is_advanced = cost_sharing.get('kind') == 'advanced'
     partner = cost_sharing.get('partner')
     our_pct = cost_sharing.get('our_pct')
-    has_sharing = partner is not None and our_pct is not None
+    has_sharing = is_advanced or (partner is not None and our_pct is not None)
 
     summary_html = _render_summary(cost_summary, cost_sharing)
 
@@ -154,6 +155,38 @@ def _build_html(
 
 def _render_summary(cost_summary: dict, cost_sharing: dict) -> str:
     total = cost_summary.get('total_costs', 0)
+
+    # Advanced (N parties): render per-party rows from cost_summary['parties'].
+    if cost_summary.get('kind') == 'advanced' and cost_summary.get('parties'):
+        parties = cost_summary['parties']
+        items = [f"""
+        <div class="summary-item">
+          <span class="summary-label">Total Costs</span>
+          <span class="summary-value">{_fmt_money(total)}</span>
+        </div>"""]
+        owes_lines = []
+        for p in parties:
+            label = p.get('label') or p.get('party_id', '')
+            net_paid = float(p.get('net_paid', 0))
+            target = float(p.get('target', 0))
+            pct = (target / total * 100) if total > 0 else 0
+            items.append(f"""<div class="summary-sep"></div>
+        <div class="summary-item">
+          <span class="summary-label">{escape(label)} ({pct:.0f}%)</span>
+          <span class="summary-value">{_fmt_money(net_paid)}</span>
+        </div>""")
+            diff = net_paid - target
+            if diff > 0.01:
+                owes_lines.append(
+                    f'<div class="owes-line owes-danger">{escape(label)} is owed {_fmt_money(diff)}</div>'
+                )
+        return f"""
+    <div class="summary-bar">
+      {''.join(items)}
+    </div>
+    {''.join(owes_lines)}"""
+
+    # Simple (legacy 2-party).
     partner = cost_sharing.get('partner')
     our_pct = cost_sharing.get('our_pct')
     has_sharing = partner is not None and our_pct is not None
@@ -171,14 +204,11 @@ def _render_summary(cost_summary: dict, cost_sharing: dict) -> str:
     counsel_pct = partner.get('cost_share_pct', 0)
     our_net = cost_summary.get('our_net', 0)
     counsel_net = cost_summary.get('counsel_net', 0)
-    our_costs = cost_summary.get('our_costs', 0)
-    counsel_costs = cost_summary.get('counsel_costs', 0)
     net_transferred = cost_summary.get('net_transferred', 0)
 
     our_target = total * (our_pct / 100.0)
     counsel_target = total * (counsel_pct / 100.0)
     our_diff = our_net - our_target
-    counsel_diff = counsel_net - counsel_target
 
     owes_html = ''
     if abs(our_diff) > 0.01:
