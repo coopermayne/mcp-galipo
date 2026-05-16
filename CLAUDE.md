@@ -442,11 +442,13 @@ Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_sec
 
 ## Git Practices
 
-**NEVER run `git push` unless the user explicitly says "push".** Do not push after committing, even if the user says "commit and push" — commit only, then stop and let the user push manually via lazygit or the terminal. The user always reviews commits before pushing. This is a hard rule with no exceptions.
+**A human is always the one to decide when code goes to production.** That means: only a human pushes to remote `main`. Never `git push` to `main` (or anything that fast-forwards `main`) — even if asked to "sync" or "push to main." If the user explicitly wants a push to `main`, push only the underlying topic branch instead and let them do the merge.
 
-**NEVER force push to remote main.** Do not run `git push --force`, `git push --force-with-lease`, or any force push variant that overwrites remote main. The user will always handle force pushes manually. This is a hard rule with no exceptions, even if the user asks you to "sync with remote" or "push to main" — only do a regular `git push`, and if it's rejected, stop and let the user handle it.
+**Pushing to feature/topic branches is fine.** Branches like `claude/*`, feature branches, or any non-`main` branch can be pushed freely — that's how PRs get updated. Use `git push -u origin <branch-name>` as normal. The PR review gate is what protects production, so pushing to a branch is just updating an in-flight PR.
 
-**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity and handle pushes manually. This works well with Claude Code since you can watch commits come in and review before pushing.
+**NEVER force push to remote `main`.** Do not run `git push --force`, `git push --force-with-lease`, or any force-push variant against `main`. This is a hard rule with no exceptions. Force-pushing to a topic branch you own is fine when needed (e.g., after a rebase), but prefer a new commit when possible.
+
+**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity. PRs are the merge gate — pushing more commits to a branch updates its existing PR.
 
 ## MCP Tools Usage
 
