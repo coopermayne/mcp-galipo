@@ -144,8 +144,8 @@ main.py                    # FastAPI + MCP server entry point
 ├── schemas/              # Pydantic input/output schemas (package)
 │   ├── common.py         # Literals, constants, ContactInfo
 │   ├── inputs.py         # Create/Update input models
-│   └── outputs.py        # Output models (~30 models)
-├── tools.py              # MCP tools (all 13 tools in one file)
+│   └── outputs.py        # Output models (~37 models)
+├── tools.py              # MCP tools (~20 tools, all in one file)
 ├── mcp_stdio.py          # MCP stdio transport for Claude Desktop
 ├── alembic/              # Alembic migration framework
 │   ├── env.py            # Migration environment config
@@ -157,11 +157,11 @@ main.py                    # FastAPI + MCP server entry point
 │   ├── persons.py        # Person management
 │   ├── tasks.py          # Task operations
 │   ├── events.py         # Calendar/deadlines
-│   └── ...               # Other domain modules (19 files total)
+│   └── ...               # Other domain modules (~35 files total)
 ├── routes/               # REST API endpoints (web UI interface)
 │   ├── cases.py          # Case endpoints
 │   ├── tasks.py          # Task endpoints
-│   └── ...               # Other route modules (19 files total)
+│   └── ...               # Other route modules (~32 files total)
 ├── services/             # Domain services
 │   └── chat/             # In-app chat (presets, modes, executor)
 └── frontend/src/         # React + Vite + shadcn/ui
@@ -321,7 +321,7 @@ frontend/src/
 ## Key Patterns
 
 ### Backend
-- **SQLAlchemy ORM**: `models.py` defines all 16 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
+- **SQLAlchemy ORM**: `models.py` defines all ~34 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
 - **Centralized config**: `config.py` uses Pydantic `BaseSettings` to validate all env vars at startup (replaces scattered `os.environ` calls)
 - **Modular structure**: Each domain (cases, tasks, events, persons) has separate files in `db/` and `routes/`. MCP tools are consolidated in a single `tools.py`
 - **SQLAlchemy sessions**: All `db/` modules use `SessionLocal()` context manager. Two raw-SQL holdouts (`services/chat/presets.py`, `routes/export.py`) use `session.execute(text(...))` — same SQL, SQLAlchemy transport
@@ -329,7 +329,7 @@ frontend/src/
 - **MCP tools** return dicts/lists that FastMCP serializes; **routes** return FastAPI responses
 
 ### Database
-- **Schema source of truth**: `models.py` (SQLAlchemy declarative models). 16 model classes mapping to 16 tables
+- **Schema source of truth**: `models.py` (SQLAlchemy declarative models). ~34 model classes mapping to ~34 tables
 - **Migrations**: Alembic (`alembic/versions/`). Generate with `alembic revision --autogenerate`, apply with `alembic upgrade head`
 - **JSONB columns** for flexible data (e.g., `person_roles.attributes` stores role-specific fields like hourly_rate, bar_number)
 - **Unified roles system**: `roles` table defines role types (Client, Defense Counsel, Expert Witness, etc.) with categories (client, internal_team, opposing_team, third_party). `person_roles` junction table links persons to roles, optionally scoped to a case
@@ -343,6 +343,7 @@ frontend/src/
 The Dockerfile does NOT use a wildcard — it explicitly lists every file and directory to copy:
 ```dockerfile
 COPY main.py models.py tools.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
+COPY lib/ ./lib/
 COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
@@ -358,6 +359,20 @@ COPY templates/ ./templates/
 3. If it's a package (directory), ensure it has an `__init__.py`
 
 If you forget, production will crash with `ModuleNotFoundError` and the app will be down until fixed.
+
+## Production runs with a single gunicorn worker (`-w 1`) — do not change this
+
+The `Dockerfile` CMD runs `gunicorn` with `-w 1`. This is **deliberate**, not a performance oversight. MCP OAuth state (registered clients, auth codes, access/refresh tokens) lives in-memory in [`mcp_auth.py`](mcp_auth.py) — there is no shared store. Raising the worker count silently breaks Claude Desktop / claude.ai sign-ins, because the worker that handed out an auth code is usually not the worker that receives the `/token` exchange.
+
+If you need horizontal scale, the prerequisite is moving OAuth state to a shared backend (database or Redis). Until then, `-w 1` stays.
+
+## MCP_INSTRUCTIONS must be updated when MCP tools change
+
+[`main.py`](main.py) defines a long `MCP_INSTRUCTIONS` string that Claude reads on connect. It documents every MCP tool, valid status/role/enum values, and data-entry guidance. **This string is not auto-generated** — it's hand-maintained. When you add, rename, or remove an MCP tool in [`tools.py`](tools.py), or when you add a new value to an enum in [`schemas/common.py`](schemas/common.py), update `MCP_INSTRUCTIONS` in the same change. Otherwise Claude won't know about the new capability (or will keep using a value you removed).
+
+## Route registration order matters — static routes register last
+
+[`routes/__init__.py`](routes/__init__.py) registers route modules in a specific order, and **static routes must go last**. The static route module includes a catch-all that serves `index.html` for SPA client-side routing — if it registers before any API route, it shadows the entire `/api/v1/*` namespace and every API call returns the React app's HTML. If you add a new route module, add its `register_*_routes(mcp)` call before the static registration block, not after.
 
 ## Local Development
 
