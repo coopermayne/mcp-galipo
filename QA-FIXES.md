@@ -194,21 +194,7 @@ Or if using Starlette routes directly, register both `/cases` and `/cases/`.
 
 ---
 
-### 8. Intakes API search param ignored
-
-**Symptom:** `GET /api/v1/intakes?search=Walker` returns all 1809 results. The `search` param has no effect.
-
-**Affected files:**
-- `routes/intakes.py` — the GET handler reads `search` param but doesn't pass it to the DB query
-- `db/intakes.py` — the query function may not support search filtering
-
-**Fix:** In `routes/intakes.py`, pass the search param to the DB query. In `db/intakes.py`, add a WHERE clause that searches across name, email, phone, referral fields using `ILIKE '%search%'` or PostgreSQL full-text search.
-
-**Verification:** `curl /api/v1/intakes?search=Walker` → returns only intakes matching "Walker".
-
----
-
-### 9. No limit cap on intakes API
+### 8. No limit cap on intakes API
 
 **Symptom:** `GET /api/v1/intakes?limit=999999` returns all 1809 records in one response.
 
@@ -221,7 +207,7 @@ Or if using Starlette routes directly, register both `/cases` and `/cases/`.
 
 ---
 
-### 10. Sidebar links to Coming Soon templates navigate to blank pages
+### 9. Sidebar links to Coming Soon templates navigate to blank pages
 
 **Symptom:** Sidebar shows Case List, Retainer, Disbursement as clickable links. Clicking them navigates to `/templates/case-list` etc. which render blank (no route defined, no 404 fallback).
 
@@ -237,7 +223,7 @@ Or if using Starlette routes directly, register both `/cases` and `/cases/`.
 
 ---
 
-### 11. SSE broadcasts "analyzing" with no error event on failure
+### 10. SSE broadcasts "analyzing" with no error event on failure
 
 **Symptom:** Intake creation broadcasts `"analyzing"` SSE event immediately. If AI analysis then fails (500), no `"analysis_failed"` event is sent. Client may show perpetual "analyzing" spinner.
 
@@ -252,7 +238,7 @@ Or if using Starlette routes directly, register both `/cases` and `/cases/`.
 
 ## LOW
 
-### 12. Tiptap duplicate extension warning
+### 11. Tiptap duplicate extension warning
 
 **Symptom:** Console warning: `[tiptap warn]: Duplicate extension names found: ['link', 'underline']`
 
@@ -263,7 +249,7 @@ Or if using Starlette routes directly, register both `/cases` and `/cases/`.
 
 ---
 
-### 13. Trial Calendar dashboard card missing description
+### 12. Trial Calendar dashboard card missing description
 
 **Symptom:** All dashboard cards have a subtitle description except Trial Calendar.
 
@@ -274,7 +260,7 @@ Or if using Starlette routes directly, register both `/cases` and `/cases/`.
 
 ---
 
-### 14. React Router HydrateFallback warning on every page
+### 13. React Router HydrateFallback warning on every page
 
 **Symptom:** "No HydrateFallback element provided to render during initial hydration" on every page load.
 
@@ -290,7 +276,7 @@ const router = createBrowserRouter(routes, {
 
 ---
 
-### 15. No 404 fallback in templates sub-router
+### 14. No 404 fallback in templates sub-router
 
 **Symptom:** `/templates/retainer` shows blank page.
 
@@ -304,7 +290,7 @@ const router = createBrowserRouter(routes, {
 
 ---
 
-### 17. No CORS headers
+### 15. No CORS headers
 
 **Symptom:** `OPTIONS /api/v1/cases` returns 405. No CORS middleware.
 
@@ -321,13 +307,13 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], ...)
 
 ## INFORMATIONAL (no fix needed, just awareness)
 
-### 18. API response format inconsistency
+### 16. API response format inconsistency
 - `/api/v1/users` → `{success: true, data: [...]}`
 - Other endpoints → `{cases: [...]}`, `{tasks: [...]}`, etc.
 - Auth endpoints → `{success: true/false, token: ...}`
 - Consider standardizing if building external API consumers.
 
-### 19. "New Intake" button is AI-only
+### 17. "New Intake" button is AI-only
 - Opens AI intake dialog, no manual form option
 - Consider renaming button to "AI Intake" or adding a separate "Manual Intake" option.
 
