@@ -316,20 +316,41 @@ def register_chat_routes(mcp):
         _logger.info(f"Selected model: {selected_model or client.model}")
 
         # Build system prompt with current date and optional case context
-        from datetime import datetime
+        from datetime import datetime, timedelta
         from zoneinfo import ZoneInfo
         pacific = ZoneInfo("America/Los_Angeles")
         now_pacific = datetime.now(pacific)
         current_date = now_pacific.strftime("%A, %B %d, %Y")
         iso_date = now_pacific.strftime("%Y-%m-%d")
         current_time = now_pacific.strftime("%I:%M %p")
-        weekday_num = now_pacific.weekday()  # 0=Mon ... 6=Sun
+
+        # Pre-compute the next 14 days so the model never has to do date arithmetic.
+        today_date = now_pacific.date()
+        upcoming_lines = []
+        for i in range(15):
+            d = today_date + timedelta(days=i)
+            iso = d.isoformat()
+            weekday = d.strftime("%A")
+            if i == 0:
+                label = f"  Today ({weekday}): {iso}"
+            elif i == 1:
+                label = f"  Tomorrow ({weekday}): {iso}"
+            elif i < 7:
+                label = f"  {weekday}: {iso}"
+            elif i == 7:
+                label = f"  Next {weekday} (one week out, same weekday as today): {iso}"
+            else:
+                label = f"  Next {weekday}: {iso}"
+            upcoming_lines.append(label)
+        upcoming_table = "\n".join(upcoming_lines)
 
         system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
 Current date: {current_date} ({iso_date})
 Current time: {current_time} (Pacific Time)
-Today's weekday number: {weekday_num} (0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday)
+
+Upcoming dates (use these — do not do date arithmetic yourself):
+{upcoming_table}
 
 You can help users:
 - Query case information, tasks, deadlines, events, contacts
@@ -337,10 +358,10 @@ You can help users:
 - Search for persons and contacts
 
 Resolving relative day names to ISO dates:
-- A bare weekday name like "Wednesday" or "this Wednesday" means the NEXT upcoming occurrence of that weekday, including today if today is that weekday.
-- Formula: target_date = today + ((target_weekday - today_weekday) mod 7) days
-- "next <weekday>" usually means the same as the above unless the user clearly means the week after — when ambiguous, prefer the nearest upcoming occurrence and confirm if needed.
-- Always start from the ISO date above and double-check your arithmetic before submitting.
+- "Wednesday" or "this Wednesday" → look up the row labeled Wednesday above (the nearest upcoming Wednesday).
+- "next Wednesday" → if today is Wed, use the row labeled "Next Wednesday" (one week out). Otherwise it's the same as "this Wednesday" — when ambiguous, prefer the nearest upcoming occurrence.
+- "tomorrow" → the row labeled Tomorrow.
+- Always copy the ISO date directly from the table above. Never compute it yourself.
 
 When dates are mentioned without a year, infer the year from context.
 
