@@ -27,6 +27,7 @@ COPY routes/ ./routes/
 COPY services/ ./services/
 COPY static/ ./static/
 COPY templates/ ./templates/
+COPY scripts/ ./scripts/
 
 # Copy built React frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
