@@ -351,7 +351,7 @@ export function CaseTable({
                     const listIds = rows.map((r) => r.original.id)
                     const listIndex = rows.findIndex((r) => r.id === row.id)
                     navigate(`/cases/${row.original.id}`, {
-                      state: { listIds, listIndex, listPath: `/cases${window.location.search}` } satisfies ListNavState,
+                      state: { listIds, listIndex, listPath: `${window.location.pathname}${window.location.search}` } satisfies ListNavState,
                     })
                   }}
                 >

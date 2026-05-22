@@ -13,7 +13,6 @@ import type { CaseListItem } from "@/types/case"
 type TabId =
   | "active"
   | "filing-deadlines"
-  | "trial-calendar"
   | "unassigned"
   | "closed"
 
@@ -39,13 +38,6 @@ const TABS: TabDef[] = [
     filter: (c) => c.status === "Pre-Claim" || c.status === "Pre-Filing",
     defaultSort: [{ id: "effective_deadline", desc: false }],
     visibleDateCols: ["claim_deadline", "complaint_deadline"],
-  },
-  {
-    id: "trial-calendar",
-    label: "Trial Calendar",
-    filter: (c) => !!c.trial_date && c.status !== "Closed",
-    defaultSort: [{ id: "trial_date", desc: false }],
-    visibleDateCols: ["trial_date"],
   },
   {
     id: "unassigned",
@@ -126,7 +118,6 @@ export default function AllCasesPage() {
     const counts: Record<TabId, number> = {
       "active": 0,
       "filing-deadlines": 0,
-      "trial-calendar": 0,
       "unassigned": 0,
       "closed": 0,
     }

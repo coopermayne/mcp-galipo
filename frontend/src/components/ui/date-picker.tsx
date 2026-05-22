@@ -42,6 +42,7 @@ function DatePicker({
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
   const [parsedPreview, setParsedPreview] = React.useState<Date | null>(null)
+  const [displayMonth, setDisplayMonth] = React.useState<Date | undefined>(undefined)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const valueBeforeOpen = React.useRef<string | null>(null)
 
@@ -108,6 +109,12 @@ function DatePicker({
 
   // The date to highlight on the calendar: parsed preview takes priority, then committed value
   const calendarHighlight = parsedPreview ?? selectedDate
+
+  // Sync displayed month to the highlighted date when it changes (new selection, parsed preview),
+  // but allow the user to navigate freely via the calendar arrows.
+  React.useEffect(() => {
+    if (calendarHighlight) setDisplayMonth(calendarHighlight)
+  }, [calendarHighlight?.getTime()])
 
   const displayText = value
     ? (formatValue ? formatValue(value) : format(toLocalDate(value), "MMM d, yyyy"))
@@ -200,8 +207,8 @@ function DatePicker({
           mode="single"
           selected={calendarHighlight}
           onSelect={handleCalendarSelect}
-          month={calendarHighlight}
-          onMonthChange={() => {}}
+          month={displayMonth ?? calendarHighlight ?? new Date()}
+          onMonthChange={setDisplayMonth}
           defaultMonth={calendarHighlight ?? new Date()}
           className="p-2.5"
         />
