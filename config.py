@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # Server
     port: int = 8000
     reset_db: bool = False
+    seed_dev_data: bool = False
 
     # Chat / Anthropic
     anthropic_api_key: str | None = None
