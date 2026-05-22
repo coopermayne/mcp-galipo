@@ -31,7 +31,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip"
 import type { SmsConversation } from "@/types/sms"
+
+function getInitials(label: string | null, phone: string): string {
+  if (label) {
+    const parts = label.trim().split(/\s+/)
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    return label.slice(0, 2).toUpperCase()
+  }
+  const digits = phone.replace(/\D/g, "")
+  return digits.slice(-2) || "?"
+}
 
 interface ConversationListProps {
   conversations: SmsConversation[]
@@ -203,6 +219,7 @@ export function ConversationList({
         </div>
       </div>
       <ScrollArea className="flex-1">
+        <TooltipProvider delayDuration={300}>
         <div className="flex flex-col">
           {conversations.length === 0 ? (
             <p className="p-4 text-center text-sm text-muted-foreground">
@@ -220,37 +237,54 @@ export function ConversationList({
               >
                 <Link
                   to={`/sms/${conv.id}`}
-                  className="flex flex-1 flex-col gap-0.5 px-3 py-2.5 text-left"
+                  className="flex flex-1 items-start gap-2.5 px-3 py-2.5 text-left"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 truncate text-sm font-medium">
-                      {conv.label || conv.phone_number}
-                      {(unreadCounts?.[conv.id] ?? 0) > 0 && (
-                        <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
-                          {unreadCounts![conv.id]}
-                        </span>
-                      )}
-                    </span>
-                    {conv.last_message_at && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatDistanceToNow(
-                          new Date(conv.last_message_at),
-                          { addSuffix: true }
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center bg-muted text-muted-foreground text-xs font-medium">
+                        {getInitials(conv.label, conv.phone_number)}
+                      </span>
+                    </TooltipTrigger>
+                    {conv.label && (
+                      <TooltipContent side="right">
+                        <div className="text-xs">
+                          <div className="font-medium">{conv.label}</div>
+                          <div className="text-muted-foreground">{conv.phone_number}</div>
+                        </div>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                  <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 truncate text-sm font-medium">
+                        {conv.label || conv.phone_number}
+                        {(unreadCounts?.[conv.id] ?? 0) > 0 && (
+                          <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+                            {unreadCounts![conv.id]}
+                          </span>
                         )}
                       </span>
+                      {conv.last_message_at && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {formatDistanceToNow(
+                            new Date(conv.last_message_at),
+                            { addSuffix: true }
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {conv.label && (
+                      <span className="text-xs text-muted-foreground">
+                        {conv.phone_number}
+                      </span>
+                    )}
+                    {conv.last_message_preview && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {conv.last_message_direction === "outbound" && "You: "}
+                        {conv.last_message_preview}
+                      </p>
                     )}
                   </div>
-                  {conv.label && (
-                    <span className="text-xs text-muted-foreground">
-                      {conv.phone_number}
-                    </span>
-                  )}
-                  {conv.last_message_preview && (
-                    <p className="truncate text-xs text-muted-foreground">
-                      {conv.last_message_direction === "outbound" && "You: "}
-                      {conv.last_message_preview}
-                    </p>
-                  )}
                 </Link>
                 <ConversationActions
                   conv={conv}
@@ -262,6 +296,7 @@ export function ConversationList({
             ))
           )}
         </div>
+        </TooltipProvider>
       </ScrollArea>
     </div>
   )

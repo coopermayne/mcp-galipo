@@ -219,6 +219,13 @@ export function LinearCalendar({
       .map((s) => `${s!.firstName} ${s!.lastName}`)
       .join(", ")
 
+  const attyInitials = (ids: number[]) =>
+    ids
+      .map((id) => staffMap.get(id))
+      .filter(Boolean)
+      .map((s) => s!.initials)
+      .join("/")
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex flex-col gap-3">
@@ -425,6 +432,11 @@ export function LinearCalendar({
                               <div>
                                 Likelihood: {t.trial_likelihood ?? "?"}%
                               </div>
+                              {t.trial_likelihood_note && (
+                                <div className="italic">
+                                  "{t.trial_likelihood_note}"
+                                </div>
+                              )}
                               {t.case_number && (
                                 <div>#{t.case_number}</div>
                               )}
@@ -461,7 +473,7 @@ export function LinearCalendar({
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="absolute flex items-center overflow-hidden px-1.5 cursor-pointer"
+                              className="absolute flex items-center overflow-hidden px-1.5 cursor-pointer gap-1"
                               style={{
                                 left,
                                 width,
@@ -480,6 +492,20 @@ export function LinearCalendar({
                               <span className="text-[10px] font-medium leading-none text-white truncate">
                                 {ci.item.label}
                               </span>
+                              {ci.item.kind === "trial" && ci.item.trialRaw && (
+                                <>
+                                  {ci.item.trialRaw.jurisdiction_name && (
+                                    <span className="text-[9px] leading-none text-white/70 truncate shrink-0">
+                                      {ci.item.trialRaw.jurisdiction_name}
+                                    </span>
+                                  )}
+                                  {ci.item.trialRaw.attorney_ids.length > 0 && (
+                                    <span className="text-[9px] leading-none text-white/70 shrink-0">
+                                      {attyInitials(ci.item.trialRaw.attorney_ids)}
+                                    </span>
+                                  )}
+                                </>
+                              )}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent

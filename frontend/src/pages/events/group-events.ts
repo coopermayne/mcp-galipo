@@ -45,10 +45,14 @@ const sortByDateDesc = (a: EventListItem, b: EventListItem) => {
   return timeRankDesc(b.time).localeCompare(timeRankDesc(a.time))
 }
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
 export function groupEventsByDate(events: EventListItem[]): EventGroup[] {
   const today = todayMidnight()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
+  const dayAfterTomorrow = new Date(tomorrow)
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1)
   const thisWeekEnd = endOfWeek(today)
   const nextWeekEnd = new Date(thisWeekEnd)
   nextWeekEnd.setDate(nextWeekEnd.getDate() + 7)
@@ -56,10 +60,11 @@ export function groupEventsByDate(events: EventListItem[]): EventGroup[] {
   const buckets: Record<string, EventListItem[]> = {
     today: [],
     tomorrow: [],
-    this_week: [],
     next_week: [],
     later: [],
   }
+
+  const dayBuckets = new Map<string, { label: string; events: EventListItem[]; sortOrder: number }>()
 
   for (const event of events) {
     const d = parseLocalDate(event.date)
@@ -67,8 +72,16 @@ export function groupEventsByDate(events: EventListItem[]): EventGroup[] {
       buckets.today.push(event)
     } else if (d.getTime() === tomorrow.getTime()) {
       buckets.tomorrow.push(event)
-    } else if (d <= thisWeekEnd) {
-      buckets.this_week.push(event)
+    } else if (d >= dayAfterTomorrow && d <= thisWeekEnd) {
+      const dayKey = `day_${event.date}`
+      if (!dayBuckets.has(dayKey)) {
+        dayBuckets.set(dayKey, {
+          label: DAY_NAMES[d.getDay()],
+          events: [],
+          sortOrder: d.getTime(),
+        })
+      }
+      dayBuckets.get(dayKey)!.events.push(event)
     } else if (d <= nextWeekEnd) {
       buckets.next_week.push(event)
     } else {
@@ -79,23 +92,35 @@ export function groupEventsByDate(events: EventListItem[]): EventGroup[] {
   for (const key of Object.keys(buckets)) {
     buckets[key].sort(sortByDateAsc)
   }
+  for (const bucket of dayBuckets.values()) {
+    bucket.events.sort(sortByDateAsc)
+  }
 
-  const config: { key: string; label: string; sortOrder: number }[] = [
-    { key: "today", label: "Today", sortOrder: 0 },
-    { key: "tomorrow", label: "Tomorrow", sortOrder: 1 },
-    { key: "this_week", label: "This Week", sortOrder: 2 },
-    { key: "next_week", label: "Next Week", sortOrder: 3 },
-    { key: "later", label: "Later", sortOrder: 4 },
-  ]
+  const groups: EventGroup[] = []
+  let order = 0
 
-  return config
-    .filter((c) => buckets[c.key].length > 0)
-    .map((c) => ({
-      key: c.key,
-      label: c.label,
-      events: buckets[c.key],
-      sortOrder: c.sortOrder,
-    }))
+  if (buckets.today.length > 0) {
+    groups.push({ key: "today", label: "Today", events: buckets.today, sortOrder: order++ })
+  }
+  if (buckets.tomorrow.length > 0) {
+    groups.push({ key: "tomorrow", label: "Tomorrow", events: buckets.tomorrow, sortOrder: order++ })
+  }
+
+  const sortedDayBuckets = Array.from(dayBuckets.entries()).sort(
+    (a, b) => a[1].sortOrder - b[1].sortOrder
+  )
+  for (const [key, bucket] of sortedDayBuckets) {
+    groups.push({ key, label: bucket.label, events: bucket.events, sortOrder: order++ })
+  }
+
+  if (buckets.next_week.length > 0) {
+    groups.push({ key: "next_week", label: "Next Week", events: buckets.next_week, sortOrder: order++ })
+  }
+  if (buckets.later.length > 0) {
+    groups.push({ key: "later", label: "Later", events: buckets.later, sortOrder: order++ })
+  }
+
+  return groups
 }
 
 export function groupEventsByCase(events: EventListItem[]): EventGroup[] {
