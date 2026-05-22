@@ -321,17 +321,26 @@ def register_chat_routes(mcp):
         pacific = ZoneInfo("America/Los_Angeles")
         now_pacific = datetime.now(pacific)
         current_date = now_pacific.strftime("%A, %B %d, %Y")
+        iso_date = now_pacific.strftime("%Y-%m-%d")
         current_time = now_pacific.strftime("%I:%M %p")
+        weekday_num = now_pacific.weekday()  # 0=Mon ... 6=Sun
 
         system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
-Current date: {current_date}
+Current date: {current_date} ({iso_date})
 Current time: {current_time} (Pacific Time)
+Today's weekday number: {weekday_num} (0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday)
 
 You can help users:
 - Query case information, tasks, deadlines, events, contacts
 - Create and update notes, tasks, and events
 - Search for persons and contacts
+
+Resolving relative day names to ISO dates:
+- A bare weekday name like "Wednesday" or "this Wednesday" means the NEXT upcoming occurrence of that weekday, including today if today is that weekday.
+- Formula: target_date = today + ((target_weekday - today_weekday) mod 7) days
+- "next <weekday>" usually means the same as the above unless the user clearly means the week after — when ambiguous, prefer the nearest upcoming occurrence and confirm if needed.
+- Always start from the ISO date above and double-check your arithmetic before submitting.
 
 When dates are mentioned without a year, infer the year from context.
 
