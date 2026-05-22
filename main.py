@@ -186,5 +186,46 @@ register_routes(mcp)
 # which works reliably through proxies and CDNs without timeout/disconnect issues.
 app = mcp.http_app(transport="streamable-http")
 
+# Global exception handlers for clean JSON error responses
+from starlette.requests import Request
+from starlette.responses import JSONResponse as StarletteJSONResponse
+from db.validation import ValidationError
+
+
+async def _validation_error_handler(request: Request, exc: ValidationError):
+    return StarletteJSONResponse(
+        {"success": False, "error": {"message": str(exc), "code": "VALIDATION_ERROR"}},
+        status_code=422,
+    )
+
+
+async def _value_error_handler(request: Request, exc: ValueError):
+    return StarletteJSONResponse(
+        {"success": False, "error": {"message": str(exc), "code": "INVALID_PARAM"}},
+        status_code=422,
+    )
+
+
+app.add_exception_handler(ValidationError, _validation_error_handler)
+app.add_exception_handler(ValueError, _value_error_handler)
+
+# Redirect trailing slashes (e.g., /api/v1/cases/ → /api/v1/cases)
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import RedirectResponse
+
+
+class TrailingSlashMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        path = request.scope["path"]
+        if path != "/" and path.endswith("/"):
+            new_path = path.rstrip("/")
+            if request.scope["query_string"]:
+                new_path += "?" + request.scope["query_string"].decode()
+            return RedirectResponse(url=new_path, status_code=307)
+        return await call_next(request)
+
+
+app.add_middleware(TrailingSlashMiddleware)
+
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=settings.port)

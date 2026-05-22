@@ -12,6 +12,7 @@ const descriptions: Record<string, string> = {
   "All Cases": "Browse every case in the firm",
   Tasks: "Track to-dos and assignments",
   Calendar: "Deadlines, hearings, and events",
+  "Trial Calendar": "View upcoming trials and find open dates",
   Financials: "Case costs, liens, and settlements",
   Invoices: "Manage invoices and payees",
   Contacts: "Clients, counsel, experts, and more",

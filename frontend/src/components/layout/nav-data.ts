@@ -20,7 +20,7 @@ export type NavItem = {
   url: string
   icon: typeof Briefcase01Icon
   featureKey?: string
-  items?: { title: string; url: string; separatorBefore?: boolean }[]
+  items?: { title: string; url: string; separatorBefore?: boolean; disabled?: boolean }[]
 }
 
 export type NavGroup = {
@@ -118,9 +118,9 @@ export const navGroups: NavGroup[] = [
           { title: "Pleadings", url: "/templates/pleadings" },
           { title: "TOA Generator", url: "/templates/toa" },
           { title: "RFP", url: "/templates/rfp" },
-          { title: "Case List", url: "/templates/case-list" },
-          { title: "Retainer", url: "/templates/retainer" },
-          { title: "Disbursement", url: "/templates/disbursement" },
+          { title: "Case List", url: "/templates/case-list", disabled: true },
+          { title: "Retainer", url: "/templates/retainer", disabled: true },
+          { title: "Disbursement", url: "/templates/disbursement", disabled: true },
         ],
       },
       {

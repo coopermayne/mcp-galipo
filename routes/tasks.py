@@ -11,7 +11,7 @@ import db
 import auth
 from db.comments import add_comment as add_entity_comment
 from schemas import CreateTaskInput, UpdateTaskInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination
 from .comments import _get_db_user_id
 from .sse import broadcast
 
@@ -32,10 +32,7 @@ def register_task_routes(mcp):
         due_date_to = request.query_params.get("due_date_to")
         user_id = request.query_params.get("user_id")
         assignee_id = request.query_params.get("assignee_id")
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
 
         result = await asyncio.to_thread(
             db.get_tasks,
@@ -99,6 +96,7 @@ def register_task_routes(mcp):
                     f'{name} added task: "{desc}"', True,
                 )
 
+        broadcast({"entity": "task", "action": "created", "id": task_id, "case_id": data.case_id})
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
@@ -187,6 +185,7 @@ def register_task_routes(mcp):
                 db.add_case_comment, case_id, user_id, case_msg, True,
             )
 
+        broadcast({"entity": "task", "action": "updated", "id": task_id, "case_id": case_id})
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
@@ -197,6 +196,7 @@ def register_task_routes(mcp):
         task_id = int(request.path_params["task_id"])
         deleted = await asyncio.to_thread(db.delete_task, task_id)
         if deleted:
+            broadcast({"entity": "task", "action": "deleted", "id": task_id})
             return JSONResponse({"success": True})
         return api_error("Task not found", "NOT_FOUND", 404)
 

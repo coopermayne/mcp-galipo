@@ -10,7 +10,9 @@ from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateEventInput, UpdateEventInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination
+from .comments import _get_db_user_id
+from .sse import broadcast
 
 
 def register_event_routes(mcp):
@@ -21,16 +23,13 @@ def register_event_routes(mcp):
         """List events with optional filtering and pagination."""
         if err := auth.require_auth(request):
             return err
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
         include_past = request.query_params.get("include_past", "false").lower() == "true"
         past_days = request.query_params.get("past_days")
         case_id = request.query_params.get("case_id")
         user_id = request.query_params.get("user_id")
         attendee_id = request.query_params.get("attendee_id")
 
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
         past_days = int(past_days) if past_days else 14
         case_id = int(case_id) if case_id else None
         user_id = int(user_id) if user_id else None
@@ -78,10 +77,11 @@ def register_event_routes(mcp):
             name = f"{user['firstName']} {user['lastName']}"
             desc = data.description[:80] + ("..." if len(data.description) > 80 else "")
             await asyncio.to_thread(
-                db.add_case_comment, data.case_id, user["id"],
+                db.add_case_comment, data.case_id, _get_db_user_id(user),
                 f'{name} added event: "{desc}"', True,
             )
 
+        broadcast({"entity": "event", "action": "created", "id": result.get("id"), "case_id": data.case_id})
         return JSONResponse({"success": True, "event": result})
 
     @mcp.custom_route("/api/v1/events/search", methods=["GET"])
@@ -129,6 +129,7 @@ def register_event_routes(mcp):
         result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
         if not result:
             return api_error("Event not found", "NOT_FOUND", 404)
+        broadcast({"entity": "event", "action": "updated", "id": event_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "event": result})
 
     @mcp.custom_route("/api/v1/events/{event_id}/tasks", methods=["GET"])
@@ -148,6 +149,7 @@ def register_event_routes(mcp):
         event_id = int(request.path_params["event_id"])
         deleted = await asyncio.to_thread(db.delete_event, event_id)
         if deleted:
+            broadcast({"entity": "event", "action": "deleted", "id": event_id})
             return JSONResponse({"success": True})
         return api_error("Event not found", "NOT_FOUND", 404)
 

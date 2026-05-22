@@ -14,6 +14,20 @@ REACT_DIST_DIR = Path(__file__).parent.parent / "frontend" / "dist"  # React bui
 REACT_ASSETS_DIR = REACT_DIST_DIR / "assets"
 
 DEFAULT_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 200
+
+
+def clamp_pagination(request, default_limit=DEFAULT_PAGE_SIZE) -> tuple[int, int]:
+    """Extract and clamp limit/offset from query params."""
+    try:
+        limit = int(request.query_params.get("limit", str(default_limit)))
+    except (ValueError, TypeError):
+        limit = default_limit
+    try:
+        offset = int(request.query_params.get("offset", "0"))
+    except (ValueError, TypeError):
+        offset = 0
+    return max(1, min(limit, MAX_PAGE_SIZE)), max(0, offset)
 
 
 def api_error(message: str, code: str, status_code: int = 400):

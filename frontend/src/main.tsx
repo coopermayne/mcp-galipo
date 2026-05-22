@@ -38,6 +38,7 @@ const router = createBrowserRouter([
   { path: "login", element: <LoginPage /> },
   {
     element: <RootLayout />,
+    hydrateFallbackElement: <div />,
     children: [
       { index: true, lazy: lazy(() => import("@/pages/dashboard")) },
       { path: "intakes", lazy: lazy(() => import("@/pages/intakes")) },
