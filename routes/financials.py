@@ -10,7 +10,8 @@ from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateFinancialInput, UpdateFinancialInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination
+from .sse import broadcast
 
 
 def register_financial_routes(mcp):
@@ -27,10 +28,7 @@ def register_financial_routes(mcp):
         if is_finalized_param is not None:
             is_finalized = is_finalized_param.lower() == "true"
         search = request.query_params.get("search")
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
 
         attorney_ids_param = request.query_params.get("attorney_ids")
         attorney_ids = (
@@ -103,6 +101,7 @@ def register_financial_routes(mcp):
             data.case_id,
             **data.model_dump(exclude={"case_id"}, exclude_none=True),
         )
+        broadcast({"entity": "financial", "action": "created", "id": result.get("id"), "case_id": data.case_id})
         return JSONResponse({"success": True, "financial": result})
 
     @mcp.custom_route("/api/v1/financials/{financial_id}", methods=["PUT"])
@@ -119,6 +118,7 @@ def register_financial_routes(mcp):
         result = await asyncio.to_thread(db.update_financial, financial_id, **updates)
         if not result:
             return api_error("Financial record not found", "NOT_FOUND", 404)
+        broadcast({"entity": "financial", "action": "updated", "id": financial_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "financial": result})
 
     @mcp.custom_route("/api/v1/financials/{financial_id}", methods=["DELETE"])
@@ -129,6 +129,7 @@ def register_financial_routes(mcp):
         financial_id = int(request.path_params["financial_id"])
         deleted = await asyncio.to_thread(db.delete_financial, financial_id)
         if deleted:
+            broadcast({"entity": "financial", "action": "deleted", "id": financial_id})
             return JSONResponse({"success": True})
         return api_error("Financial record not found", "NOT_FOUND", 404)
 
@@ -146,6 +147,7 @@ def register_financial_routes(mcp):
         result = await asyncio.to_thread(
             db.create_counsel_fee, financial_id, **body
         )
+        broadcast({"entity": "financial", "action": "updated", "id": financial_id})
         return JSONResponse({"success": True, "financial": result})
 
     @mcp.custom_route("/api/v1/counsel-fees/{fee_id}", methods=["PUT"])

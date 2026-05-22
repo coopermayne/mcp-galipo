@@ -85,6 +85,8 @@ def get_last_read_at(case_id: int, user_id: int) -> Optional[str]:
 
 def mark_case_read(case_id: int, user_id: int) -> None:
     """Mark all comments as read for this user on this case (upsert)."""
+    if user_id == 0:
+        return
     with SessionLocal() as session:
         existing = session.get(CaseCommentRead, (case_id, user_id))
         if existing:

@@ -18,7 +18,8 @@ from schemas import (
     MarkInvoicePaidInput,
     CostSharingConfigInput,
 )
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination
+from .sse import broadcast
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,7 @@ def register_invoice_routes(mcp):
         search = request.query_params.get("search")
         sort_by = request.query_params.get("sort_by", "due_date")
         sort_dir = request.query_params.get("sort_dir", "asc")
-        limit = int(request.query_params.get("limit", str(DEFAULT_PAGE_SIZE)))
-        offset = int(request.query_params.get("offset", "0"))
+        limit, offset = clamp_pagination(request)
 
         inv_type = request.query_params.get("type")
 
@@ -274,6 +274,7 @@ def register_invoice_routes(mcp):
             data.amount,
             **data.model_dump(exclude={"case_id", "amount"}, exclude_none=True),
         )
+        broadcast({"entity": "invoice", "action": "created", "id": result.get("id"), "case_id": data.case_id})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}", methods=["PUT"])
@@ -290,6 +291,7 @@ def register_invoice_routes(mcp):
         result = await asyncio.to_thread(db.update_invoice, invoice_id, **updates)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}/pay", methods=["POST"])
@@ -310,6 +312,7 @@ def register_invoice_routes(mcp):
         )
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}/unpay", methods=["POST"])
@@ -320,6 +323,7 @@ def register_invoice_routes(mcp):
         result = await asyncio.to_thread(db.mark_invoice_unpaid, invoice_id)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}", methods=["DELETE"])
@@ -329,6 +333,7 @@ def register_invoice_routes(mcp):
         invoice_id = int(request.path_params["invoice_id"])
         deleted = await asyncio.to_thread(db.delete_invoice, invoice_id)
         if deleted:
+            broadcast({"entity": "invoice", "action": "deleted", "id": invoice_id})
             return JSONResponse({"success": True})
         return api_error("Invoice not found", "NOT_FOUND", 404)
 

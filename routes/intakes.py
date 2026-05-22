@@ -15,7 +15,8 @@ import db
 import auth
 from schemas import UpdateIntakeInput, CreateIntakeInput, CreateIntakeCommentInput, CreateInteractionInput, SaveInteractionInput
 from schemas.common import INTAKE_TRANSITIONS
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination
+from .comments import _get_db_user_id
 from .sse import broadcast
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,7 @@ def register_intake_routes(mcp):
         if err := auth.require_auth(request):
             return err
         status = request.query_params.get("status")
-        limit = int(request.query_params.get("limit", str(DEFAULT_PAGE_SIZE)))
-        offset = int(request.query_params.get("offset", "0"))
+        limit, offset = clamp_pagination(request)
         exclude_archived = request.query_params.get("exclude_archived", "").lower() == "true"
 
         result = await asyncio.to_thread(
@@ -47,6 +47,7 @@ def register_intake_routes(mcp):
             return err
         user = auth.get_current_user(request)
         user_id = user["id"] if user else 0
+        db_user_id = _get_db_user_id(user)
 
         try:
             data = CreateIntakeInput(**(await request.json()))
@@ -60,7 +61,7 @@ def register_intake_routes(mcp):
         # Log creation event
         await asyncio.to_thread(
             db.add_intake_comment,
-            result["id"], user_id,
+            result["id"], db_user_id,
             "Intake created via web form",
             True,  # is_system
         )
@@ -190,7 +191,7 @@ def register_intake_routes(mcp):
                     await asyncio.to_thread(
                         db.add_intake_comment,
                         intake_id,
-                        user["id"],
+                        _get_db_user_id(user),
                         msg,
                         True,  # is_system
                     )
@@ -235,7 +236,7 @@ def register_intake_routes(mcp):
             msg = f"{name} changed status from {status} to Archived"
             for intake_id in archived_ids:
                 await asyncio.to_thread(
-                    db.add_intake_comment, intake_id, user["id"], msg, True
+                    db.add_intake_comment, intake_id, _get_db_user_id(user), msg, True
                 )
 
         if archived_ids:
@@ -292,13 +293,14 @@ def register_intake_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
+        db_user_id = _get_db_user_id(user)
         comment = await asyncio.to_thread(
-            db.add_intake_comment, intake_id, user["id"], data.content
+            db.add_intake_comment, intake_id, db_user_id, data.content
         )
 
         broadcast({
             "entity": "intake_comment", "action": "created",
-            "id": comment.get("id"), "intake_id": intake_id, "user_id": user["id"],
+            "id": comment.get("id"), "intake_id": intake_id, "user_id": db_user_id,
         })
         return JSONResponse(comment, status_code=201)
 
