@@ -100,10 +100,9 @@ export default function TrialCalendarPage() {
           <Button
             variant="outline"
             size="icon-sm"
-            className="h-8 w-8"
             onClick={() => setAiOpen(true)}
           >
-            <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+            <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
           </Button>
 
           <ToggleGroup
@@ -112,11 +111,11 @@ export default function TrialCalendarPage() {
             onValueChange={(v) => { if (v) setView(v as View) }}
             className="border"
           >
-            <ToggleGroupItem value="table" className="h-8 px-2.5 gap-1.5 text-xs">
+            <ToggleGroupItem value="table" className="h-7 px-2.5 gap-1.5 text-xs">
               <HugeiconsIcon icon={TableIcon} className="size-3.5" />
               Table
             </ToggleGroupItem>
-            <ToggleGroupItem value="calendar" className="h-8 px-2.5 gap-1.5 text-xs">
+            <ToggleGroupItem value="calendar" className="h-7 px-2.5 gap-1.5 text-xs">
               <HugeiconsIcon icon={Calendar01Icon} className="size-3.5" />
               Calendar
             </ToggleGroupItem>
