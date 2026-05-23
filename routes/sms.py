@@ -209,11 +209,16 @@ def register_sms_routes(mcp):
         client = _get_twilio_client()
         if client and settings.twilio_phone:
             try:
-                twilio_msg = client.messages.create(
+                create_kwargs = dict(
                     body=message_body,
                     from_=settings.twilio_phone,
                     to=conv["phone_number"],
                 )
+                if settings.mcp_base_url:
+                    create_kwargs["status_callback"] = (
+                        f"{settings.mcp_base_url.rstrip('/')}/api/v1/sms/status-callback"
+                    )
+                twilio_msg = client.messages.create(**create_kwargs)
                 twilio_sid = twilio_msg.sid
             except Exception as e:
                 logger.error("Twilio send failed: %s", e)
@@ -379,6 +384,32 @@ def register_sms_routes(mcp):
             '<?xml version="1.0" encoding="UTF-8"?><Response/>',
             media_type="text/xml",
         )
+
+    @mcp.custom_route("/api/v1/sms/status-callback", methods=["POST"])
+    async def api_twilio_status_callback(request):
+        """Receive message status updates from Twilio.
+
+        No auth — validated via Twilio request signature.
+        Twilio sends: MessageSid, MessageStatus, To, From, etc.
+        """
+        form = await request.form()
+        body_params = dict(form)
+
+        if settings.twilio_token:
+            if not _validate_twilio_signature(request, body_params):
+                logger.warning("Invalid Twilio signature on status callback")
+                return PlainTextResponse("Forbidden", status_code=403)
+
+        twilio_sid = body_params.get("MessageSid", "")
+        message_status = body_params.get("MessageStatus", "")
+
+        if twilio_sid and message_status:
+            await asyncio.to_thread(
+                db.update_sms_message_status, twilio_sid, message_status,
+            )
+            logger.info("SMS status update: %s -> %s", twilio_sid, message_status)
+
+        return PlainTextResponse("OK", status_code=200)
 
     @mcp.custom_route("/api/v1/sms/conversations/{conversation_id}", methods=["PATCH"])
     async def api_update_conversation(request):
@@ -550,11 +581,16 @@ def register_sms_routes(mcp):
             return err
         conversation_id = int(request.path_params["conversation_id"])
         data = await request.json()
-        case_id = data.get("case_id")
-        person_id = data.get("person_id")
+        _UNSET = object()
+        case_id = data.get("case_id", _UNSET)
+        person_id = data.get("person_id", _UNSET)
+        kwargs = {}
+        if case_id is not _UNSET:
+            kwargs["case_id"] = case_id
+        if person_id is not _UNSET:
+            kwargs["person_id"] = person_id
         result = await asyncio.to_thread(
-            db.link_conversation, conversation_id,
-            case_id=case_id, person_id=person_id,
+            db.link_conversation, conversation_id, **kwargs,
         )
         if not result:
             return api_error("Conversation not found", "NOT_FOUND", 404)

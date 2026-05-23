@@ -9,6 +9,10 @@ export interface SmsConversation {
   archived: boolean
   last_message_preview?: string | null
   last_message_direction?: string | null
+  case_name: string | null
+  short_name: string | null
+  case_color: string | null
+  person_name: string | null
 }
 
 export interface SmsMediaAttachment {

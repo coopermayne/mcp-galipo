@@ -8,6 +8,7 @@ import { IntakeSubmission } from "@/pages/intakes/components/intake-submission"
 import { IntakeAiAnalysis } from "@/pages/intakes/components/intake-ai-analysis"
 import { IntakeComments } from "@/pages/intakes/components/intake-comments"
 import { IntakeNotes } from "@/pages/intakes/components/intake-notes"
+import { IntakeTasksCard } from "@/pages/intakes/components/intake-tasks-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { ListNav } from "@/components/common/list-nav"
@@ -78,6 +79,7 @@ export default function IntakeDetailPage() {
         <div className="flex flex-col gap-6 lg:col-span-3">
           <IntakeMetadata intake={intake} />
           <IntakeAiAnalysis intake={intake} />
+          <IntakeTasksCard intakeId={intake.id} />
           <IntakeNotes intake={intake} />
           <IntakeSubmission intake={intake} />
         </div>

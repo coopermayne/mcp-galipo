@@ -279,6 +279,7 @@ from .sms import (
     get_unread_counts as get_sms_unread_counts,
     link_conversation,
     get_conversations_by_person,
+    update_message_status as update_sms_message_status,
 )
 
 # Financials

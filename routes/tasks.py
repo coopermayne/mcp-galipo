@@ -25,6 +25,7 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = request.query_params.get("case_id")
+        intake_id = request.query_params.get("intake_id")
         status = request.query_params.get("status")
         exclude_status = request.query_params.get("exclude_status")
         urgency = request.query_params.get("urgency")
@@ -45,7 +46,8 @@ def register_task_routes(mcp):
             limit=limit,
             offset=offset,
             user_id=int(user_id) if user_id else None,
-            assignee_id=int(assignee_id) if assignee_id else None
+            assignee_id=int(assignee_id) if assignee_id else None,
+            intake_id=int(intake_id) if intake_id else None,
         )
         return JSONResponse(result)
 
@@ -68,6 +70,7 @@ def register_task_routes(mcp):
             data.event_id,
             data.assignee_id,
             data.completion_date,
+            data.intake_id,
         )
 
         # System comments for task creation

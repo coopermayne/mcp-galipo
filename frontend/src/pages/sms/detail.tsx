@@ -3,18 +3,33 @@ import { useParams, useNavigate, Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowLeft01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowLeft01Icon,
+  PencilEdit01Icon,
+  Link04Icon,
+  Cancel01Icon,
+} from "@hugeicons/core-free-icons"
 import {
   getConversation,
   getMessages,
   sendMessage,
   markSmsConversationRead,
   updateConversationLabel,
+  linkConversation,
 } from "@/services/sms"
+import { getCases } from "@/services/cases"
+import { searchPersons } from "@/services/persons"
 import { MessageThread } from "@/pages/sms/components/message-thread"
 import { ComposeInput } from "@/pages/sms/components/compose-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { getBadgeStyle } from "@/lib/badge-colors"
 import { formatPhone } from "@/lib/utils"
 
 export default function SmsDetailPage() {
@@ -81,6 +96,18 @@ export default function SmsDetailPage() {
     },
     onError: () => {
       toast.error("Failed to update label")
+    },
+  })
+
+  const linkMutation = useMutation({
+    mutationFn: (data: { case_id?: number | null; person_id?: number | null }) =>
+      linkConversation(conversationId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sms-conversation", conversationId] })
+      queryClient.invalidateQueries({ queryKey: ["sms-conversations"] })
+    },
+    onError: () => {
+      toast.error("Failed to link conversation")
     },
   })
 
@@ -161,6 +188,28 @@ export default function SmsDetailPage() {
             {formatPhone(conversation.phone_number)}
           </span>
         )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {conversation?.case_id && conversation.short_name && (
+            <Link to={`/cases/${conversation.case_id}`}>
+              <Badge
+                className="hover:opacity-80 transition-opacity cursor-pointer"
+                style={getBadgeStyle(conversation.case_color)}
+              >
+                {conversation.short_name}
+              </Badge>
+            </Link>
+          )}
+          {conversation?.person_id && conversation.person_name && (
+            <Badge variant="secondary">{conversation.person_name}</Badge>
+          )}
+          <LinkPopover
+            conversationId={conversationId}
+            caseId={conversation?.case_id ?? null}
+            personId={conversation?.person_id ?? null}
+            onLink={(data) => linkMutation.mutate(data)}
+          />
+        </div>
       </div>
 
       {/* Messages */}
@@ -172,5 +221,154 @@ export default function SmsDetailPage() {
         isSending={sendMutation.isPending}
       />
     </div>
+  )
+}
+
+function LinkPopover({
+  caseId,
+  personId,
+  onLink,
+}: {
+  conversationId: number
+  caseId: number | null
+  personId: number | null
+  onLink: (data: { case_id?: number | null; person_id?: number | null }) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [caseSearch, setCaseSearch] = useState("")
+  const [personSearch, setPersonSearch] = useState("")
+
+  const { data: casesData } = useQuery({
+    queryKey: ["cases-for-link", caseSearch],
+    queryFn: () => getCases({ limit: 10 }),
+    enabled: open,
+    staleTime: 30_000,
+  })
+
+  const { data: personsData } = useQuery({
+    queryKey: ["persons-for-link", personSearch],
+    queryFn: () => searchPersons({ name: personSearch || undefined, limit: 10 }),
+    enabled: open,
+    staleTime: 30_000,
+  })
+
+  const cases = casesData?.cases ?? []
+  const persons = personsData?.persons ?? []
+
+  const filteredCases = caseSearch
+    ? cases.filter(
+        (c) =>
+          c.case_name.toLowerCase().includes(caseSearch.toLowerCase()) ||
+          (c.short_name?.toLowerCase().includes(caseSearch.toLowerCase()) ?? false)
+      )
+    : cases
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+          <HugeiconsIcon icon={Link04Icon} size={14} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-0">
+        <div className="p-3 space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Case
+              </span>
+              {caseId && (
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    onLink({ case_id: null })
+                    setOpen(false)
+                  }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={10} className="inline mr-0.5" />
+                  Unlink
+                </button>
+              )}
+            </div>
+            <Input
+              placeholder="Search cases..."
+              value={caseSearch}
+              onChange={(e) => setCaseSearch(e.target.value)}
+              className="h-7 text-xs"
+            />
+            <div className="max-h-28 overflow-y-auto space-y-0.5">
+              {filteredCases.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    onLink({ case_id: c.id })
+                    setOpen(false)
+                  }}
+                  className="flex items-center gap-1.5 w-full px-2 py-1 text-xs hover:bg-accent text-left"
+                >
+                  <Badge
+                    className="text-[10px] px-1 py-0 shrink-0"
+                    style={getBadgeStyle(c.color)}
+                  >
+                    {c.short_name}
+                  </Badge>
+                  <span className="truncate">{c.case_name}</span>
+                </button>
+              ))}
+              {filteredCases.length === 0 && (
+                <p className="text-xs text-muted-foreground px-2 py-1">No cases found</p>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t pt-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Person
+              </span>
+              {personId && (
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    onLink({ person_id: null })
+                    setOpen(false)
+                  }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={10} className="inline mr-0.5" />
+                  Unlink
+                </button>
+              )}
+            </div>
+            <Input
+              placeholder="Search contacts..."
+              value={personSearch}
+              onChange={(e) => setPersonSearch(e.target.value)}
+              className="h-7 text-xs"
+            />
+            <div className="max-h-28 overflow-y-auto space-y-0.5">
+              {persons.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onLink({ person_id: p.id })
+                    setOpen(false)
+                  }}
+                  className="w-full px-2 py-1 text-xs hover:bg-accent text-left truncate"
+                >
+                  {p.name}
+                </button>
+              ))}
+              {persons.length === 0 && (
+                <p className="text-xs text-muted-foreground px-2 py-1">No contacts found</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
