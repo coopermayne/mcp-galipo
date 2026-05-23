@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Settings02Icon } from "@hugeicons/core-free-icons"
+import { Settings02Icon, SquareLock02Icon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -75,17 +75,40 @@ export function CaseFeaturesMenu({ caseData }: CaseFeaturesMenuProps) {
             <DropdownMenuCheckboxItem
               key={def.key}
               checked={isOn}
-              disabled={lockedOn}
-              onCheckedChange={(checked) => handleToggle(def.key, !!checked)}
+              onCheckedChange={(checked) => {
+                if (lockedOn) return
+                handleToggle(def.key, !!checked)
+              }}
               onSelect={(e) => e.preventDefault()}
+              className={lockedOn ? "cursor-not-allowed" : ""}
             >
-              <div className="flex flex-col">
-                <span>{def.label}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {lockedOn
-                    ? `${count} record${count === 1 ? "" : "s"} — delete to hide`
-                    : def.description}
-                </span>
+              <div className="flex w-full items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span>{def.label}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {def.description}
+                  </span>
+                </div>
+                {lockedOn && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="flex shrink-0 items-center gap-1 text-muted-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <HugeiconsIcon
+                          icon={SquareLock02Icon}
+                          className="size-3.5"
+                        />
+                        <span className="text-[10px]">{count}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-[220px]">
+                      Can't hide while this case has {count} {def.label.toLowerCase()}.
+                      Delete them first.
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </DropdownMenuCheckboxItem>
           )
