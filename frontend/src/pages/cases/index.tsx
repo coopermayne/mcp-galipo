@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
 import { getCases } from "@/services/cases"
-import { getUsers } from "@/services/users"
+import { getStaff } from "@/services/staff"
 import { CaseTable, type CaseGroupBy } from "@/pages/cases/components/case-table"
 
 export default function MyCasesPage() {
@@ -70,9 +70,9 @@ export default function MyCasesPage() {
     enabled: !!user,
   })
 
-  const { data: usersData } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => getUsers(),
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: getStaff,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -82,8 +82,8 @@ export default function MyCasesPage() {
 
   const usersMap = useMemo(() => {
     const map = new Map<number, { id: number; first_name: string; last_name: string; initials: string }>()
-    if (usersData?.data) {
-      for (const u of usersData.data) {
+    if (staffData?.data) {
+      for (const u of staffData.data) {
         map.set(u.id, {
           id: u.id,
           first_name: u.firstName ?? "",
@@ -93,7 +93,7 @@ export default function MyCasesPage() {
       }
     }
     return map
-  }, [usersData])
+  }, [staffData])
 
   return (
     <div className="flex flex-col gap-4 p-6">

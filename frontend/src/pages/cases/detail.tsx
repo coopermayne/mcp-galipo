@@ -78,10 +78,16 @@ function CaseDetailContent() {
     data: caseData,
     isLoading,
     isError,
+    error,
   } = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => getCase(caseId),
     enabled: !isNaN(caseId),
+    retry: (failureCount, err) => {
+      const status = (err as { status?: number })?.status
+      if (status === 404) return false
+      return failureCount < 3
+    },
   })
 
   const { data: invoiceStats } = useQuery({
@@ -107,10 +113,7 @@ function CaseDetailContent() {
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       toast.success("Updated grouping")
     },
-    onError: (e, variables) => {
-      console.error("[nestMutation] FAILED", { error: e, variables })
-      toast.error(e.message)
-    },
+    onError: (e) => toast.error(e.message),
   })
 
   const handleNest = useCallback(
@@ -187,9 +190,18 @@ function CaseDetailContent() {
   }
 
   if (isError || !caseData) {
+    const status = (error as { status?: number } | null)?.status
+    const isNotFound = status === 404
     return (
       <div className="flex flex-col items-center justify-center gap-2 p-12">
-        <p className="text-muted-foreground">Case not found.</p>
+        <p className="text-muted-foreground">
+          {isNotFound ? "Case not found." : "Something went wrong loading this case."}
+        </p>
+        {!isNotFound && (
+          <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["case", caseId] })}>
+            Try again
+          </Button>
+        )}
       </div>
     )
   }
@@ -198,7 +210,9 @@ function CaseDetailContent() {
   const showTasks = isCaseFeatureEnabled(toggles, "tasks")
   const showEvents = isCaseFeatureEnabled(toggles, "events")
   const showFinancials = isCaseFeatureEnabled(toggles, "financials")
-  const showCosts = isCaseFeatureEnabled(toggles, "costs")
+  const userHasInvoicesFeature =
+    user?.visibleFeatures == null || user.visibleFeatures.includes("invoices")
+  const showCosts = isCaseFeatureEnabled(toggles, "costs") && userHasInvoicesFeature
 
   return (
     <TooltipProvider>

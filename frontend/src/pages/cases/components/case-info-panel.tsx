@@ -13,15 +13,14 @@ interface CaseInfoPanelProps {
   caseData: CaseDetail
 }
 
-function parseLocalDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  return new Date(y, m - 1, d)
-}
+const PACIFIC_TZ = "America/Los_Angeles"
 
 function formatEventDate(dateStr: string): string {
-  const d = parseLocalDate(dateStr)
-  const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-  const dow = d.toLocaleDateString("en-US", { weekday: "short" })
+  const d = new Date(`${dateStr}T12:00:00Z`)
+  const base = d.toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: PACIFIC_TZ,
+  })
+  const dow = d.toLocaleDateString("en-US", { weekday: "short", timeZone: PACIFIC_TZ })
   return `${base} (${dow})`
 }
 
@@ -120,6 +119,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
             month: "short",
             day: "numeric",
             year: "numeric",
+            timeZone: PACIFIC_TZ,
           })
         : null,
     [caseData.created_at]

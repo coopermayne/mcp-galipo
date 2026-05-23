@@ -21,6 +21,7 @@ export type NavItem = {
   url: string
   icon: typeof Briefcase01Icon
   featureKey?: string
+  positions?: string[]
   items?: { title: string; url: string; separatorBefore?: boolean; disabled?: boolean }[]
 }
 
@@ -38,6 +39,7 @@ export const navGroups: NavGroup[] = [
         url: "/cases",
         icon: Briefcase01Icon,
         featureKey: "cases",
+        positions: ["attorney", "paralegal"],
       },
       {
         title: "Tasks",

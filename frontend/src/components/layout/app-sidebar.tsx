@@ -24,12 +24,15 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         if (group.label === "Admin") {
           return user?.isAdmin ? group : null
         }
-        if (user?.visibleFeatures === null || user?.visibleFeatures === undefined) {
-          return group
-        }
-        const filtered = group.items.filter(
-          (item) => !item.featureKey || user.visibleFeatures!.includes(item.featureKey)
-        )
+        const filtered = group.items.filter((item) => {
+          if (item.positions && !(user?.position && item.positions.includes(user.position))) {
+            return false
+          }
+          if (user?.visibleFeatures === null || user?.visibleFeatures === undefined) {
+            return true
+          }
+          return !item.featureKey || user.visibleFeatures.includes(item.featureKey)
+        })
         return filtered.length > 0 ? { ...group, items: filtered } : null
       })
       .filter(Boolean) as typeof navGroups
