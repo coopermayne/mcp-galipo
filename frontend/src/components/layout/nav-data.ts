@@ -53,12 +53,6 @@ export const navGroups: NavGroup[] = [
         icon: Calendar03Icon,
         featureKey: "calendar",
       },
-      {
-        title: "Trial Calendar",
-        url: "/trial-calendar",
-        icon: BarChartHorizontalIcon,
-        featureKey: "trial-calendar",
-      },
     ],
   },
   {
@@ -75,6 +69,12 @@ export const navGroups: NavGroup[] = [
         url: "/cases/all",
         icon: Briefcase02Icon,
         featureKey: "cases",
+      },
+      {
+        title: "Trial Calendar",
+        url: "/trial-calendar",
+        icon: BarChartHorizontalIcon,
+        featureKey: "trial-calendar",
       },
       {
         title: "Financials",

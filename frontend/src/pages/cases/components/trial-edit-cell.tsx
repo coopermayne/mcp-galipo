@@ -66,6 +66,7 @@ export function TrialEditCell({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cases"] })
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
+      queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
       toast.success("Trial info updated")
     },
     onError: (e) => toast.error(e.message),

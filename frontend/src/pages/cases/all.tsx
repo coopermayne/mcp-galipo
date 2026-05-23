@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import type { SortingState, VisibilityState } from "@tanstack/react-table"
+import type { SortingState, VisibilityState, ColumnOrderState } from "@tanstack/react-table"
 import { useSearchParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { getCases } from "@/services/cases"
@@ -22,6 +22,9 @@ interface TabDef {
   filter: (c: CaseListItem) => boolean
   defaultSort: SortingState
   visibleDateCols: string[]
+  hideDetails?: boolean
+  hideAttorneys?: boolean
+  columnOrder?: ColumnOrderState
 }
 
 const TABS: TabDef[] = [
@@ -38,6 +41,19 @@ const TABS: TabDef[] = [
     filter: (c) => c.status === "Pre-Claim" || c.status === "Pre-Filing",
     defaultSort: [{ id: "effective_deadline", desc: false }],
     visibleDateCols: ["claim_deadline", "complaint_deadline"],
+    hideDetails: true,
+    columnOrder: [
+      "attorneys",
+      "case_name",
+      "details",
+      "date_of_injury",
+      "trial_date",
+      "claim_deadline",
+      "complaint_deadline",
+      "effective_deadline",
+      "status",
+      "preview",
+    ],
   },
   {
     id: "unassigned",
@@ -45,6 +61,8 @@ const TABS: TabDef[] = [
     filter: (c) => (!c.attorney_ids || c.attorney_ids.length === 0) && c.status !== "Closed",
     defaultSort: [],
     visibleDateCols: [],
+    hideDetails: true,
+    hideAttorneys: true,
   },
   {
     id: "closed",
@@ -57,8 +75,8 @@ const TABS: TabDef[] = [
 
 function getColumnVisibility(tab: TabDef, mobile: boolean): VisibilityState {
   return {
-    details: !mobile,
-    attorneys: !mobile,
+    details: !mobile && !tab.hideDetails,
+    attorneys: !mobile && !tab.hideAttorneys,
     date_of_injury: !mobile,
     trial_date: !mobile && tab.visibleDateCols.includes("trial_date"),
     claim_deadline: !mobile && tab.visibleDateCols.includes("claim_deadline"),
@@ -183,6 +201,7 @@ export default function AllCasesPage() {
         onSortingChange={setSorting}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
+        columnOrder={currentTab.columnOrder}
         showFilters
       />
     </div>

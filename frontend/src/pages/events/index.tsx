@@ -115,7 +115,10 @@ export default function EventsPage() {
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
-  const filteredEvents = table.getRowModel().rows.map((row) => row.original)
+  const filteredEvents = table
+    .getRowModel()
+    .rows.map((row) => row.original)
+    .filter((event) => event.case_id != null)
 
   return (
     <div className="flex flex-col gap-4 p-6">
