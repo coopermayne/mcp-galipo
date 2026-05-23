@@ -1,21 +1,46 @@
+import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { updateCase } from "@/services/cases"
 import type { CaseStatus } from "@/types/case"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-const STATUS_GROUPS: { label: string; statuses: CaseStatus[] }[] = [
-  { label: "Pre-Litigation", statuses: ["Signing Up", "Prospective", "Pre-Claim", "Pre-Filing"] },
-  { label: "Litigation", statuses: ["Pleadings", "Discovery", "Expert Discovery", "Pre-trial"] },
-  { label: "Trial & Appeal", statuses: ["Trial", "Post-Trial", "Appeal"] },
-  { label: "Resolution", statuses: ["Settl. Pend.", "Stayed", "Closed"] },
+interface StatusGroup {
+  label: string
+  labelClass: string
+  statuses: CaseStatus[]
+}
+
+const STATUS_GROUPS: StatusGroup[] = [
+  {
+    label: "PRE-LIT",
+    labelClass: "text-muted-foreground",
+    statuses: ["Signing Up", "Prospective", "Pre-Claim", "Pre-Filing"],
+  },
+  {
+    label: "LITIGATION",
+    labelClass: "text-info",
+    statuses: [
+      "Pleadings",
+      "Discovery",
+      "Expert Discovery",
+      "Pre-trial",
+      "Trial",
+      "Post-Trial",
+      "Appeal",
+    ],
+  },
+  {
+    label: "RESOLUTION",
+    labelClass: "text-success",
+    statuses: ["Settl. Pend.", "Stayed", "Closed"],
+  },
 ]
 
 interface StatusSelectCellProps {
@@ -25,6 +50,7 @@ interface StatusSelectCellProps {
 
 export function StatusSelectCell({ caseId, status }: StatusSelectCellProps) {
   const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
 
   const mutation = useMutation({
     mutationFn: (newStatus: CaseStatus) => updateCase(caseId, { status: newStatus }),
@@ -36,9 +62,14 @@ export function StatusSelectCell({ caseId, status }: StatusSelectCellProps) {
     onError: (e) => toast.error(e.message),
   })
 
+  function handleStatusChange(newStatus: CaseStatus) {
+    if (newStatus !== status) mutation.mutate(newStatus)
+    setOpen(false)
+  }
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <button
           type="button"
           className="cursor-pointer"
@@ -52,34 +83,55 @@ export function StatusSelectCell({ caseId, status }: StatusSelectCellProps) {
             )}
           />
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+      </PopoverTrigger>
+      <PopoverContent
         align="end"
-        className="w-44"
+        className="w-80 p-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {STATUS_GROUPS.map((group) => (
-          <div key={group.label}>
-            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {group.label}
-            </div>
-            {group.statuses.map((s) => (
-              <DropdownMenuItem
-                key={s}
+        <div className="space-y-3">
+          {STATUS_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p
                 className={cn(
-                  "gap-2 text-xs",
-                  s === status && "bg-accent font-medium"
+                  "text-[10px] font-bold tracking-widest uppercase mb-1.5",
+                  group.labelClass
                 )}
-                onClick={() => {
-                  if (s !== status) mutation.mutate(s)
-                }}
               >
-                <CaseStatusBadge status={s} className="text-[10px] px-1.5 py-0 h-4" />
-              </DropdownMenuItem>
-            ))}
-          </div>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                {group.label}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {group.statuses.map((s) => {
+                  const isActive = status === s
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleStatusChange(s)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2 py-1 text-xs transition-colors",
+                        isActive
+                          ? "bg-accent text-accent-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block size-1.5 shrink-0 border",
+                          isActive
+                            ? "border-foreground bg-foreground"
+                            : "border-muted-foreground/50 bg-transparent"
+                        )}
+                      />
+                      {s}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
