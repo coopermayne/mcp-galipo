@@ -9,6 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
   type VisibilityState,
+  type ColumnOrderState,
   flexRender,
 } from "@tanstack/react-table"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -87,6 +88,7 @@ interface CaseTableProps {
   onSortingChange: (s: SortingState) => void
   columnVisibility: VisibilityState
   onColumnVisibilityChange: (v: VisibilityState) => void
+  columnOrder?: ColumnOrderState
   showFilters?: boolean
   groupBy?: CaseGroupBy
   onGroupByChange?: (g: CaseGroupBy) => void
@@ -101,6 +103,7 @@ export function CaseTable({
   onSortingChange,
   columnVisibility,
   onColumnVisibilityChange,
+  columnOrder,
   showFilters,
   groupBy = "none",
   onGroupByChange,
@@ -143,7 +146,7 @@ export function CaseTable({
   const table = useReactTable({
     data: cases,
     columns,
-    state: { sorting, columnFilters, columnVisibility },
+    state: { sorting, columnFilters, columnVisibility, columnOrder },
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater
       onSortingChange(next)

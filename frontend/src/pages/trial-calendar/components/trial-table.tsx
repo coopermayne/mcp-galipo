@@ -32,7 +32,7 @@ export function TrialTable({
 }) {
   const navigate = useNavigate()
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "date", desc: false },
+    { id: "trial", desc: false },
   ])
 
   const rows = useMemo<CalendarTableRow[]>(() => {
