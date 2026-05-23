@@ -70,6 +70,17 @@ from .cases import (
     get_cases_for_user,
 )
 
+from .feature_gates import (
+    FeatureDisabled,
+    FEATURE_TASKS,
+    FEATURE_EVENTS,
+    FEATURE_FINANCIALS,
+    FEATURE_COSTS,
+    is_feature_enabled,
+    require_feature_for_case,
+    feature_enabled_filter,
+)
+
 # Role operations (replaces person_types)
 from .roles import (
     get_roles,

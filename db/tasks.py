@@ -14,6 +14,10 @@ from .connection import _NOT_PROVIDED
 from .validation import (
     validate_task_status, validate_urgency, validate_date_format
 )
+from .feature_gates import (
+    FEATURE_TASKS, feature_enabled_filter, require_feature_for_case,
+    is_feature_enabled,
+)
 from models import Task, Case, Event, User, Intake
 from schemas import TaskOut, UserBriefOut, TaskDetailOut
 
@@ -55,6 +59,8 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
     validate_date_format(completion_date, "completion_date")
 
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_TASKS)
+
         # Get max sort_order and add 1000 for new task
         max_order = session.scalar(
             select(func.coalesce(func.max(Task.sort_order), 0))
@@ -121,10 +127,12 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
     )
 
     # Apply filters
+    feature_clause = feature_enabled_filter(FEATURE_TASKS, Task.case_id)
     if case_id:
         stmt = stmt.where(Task.case_id == case_id)
     if intake_id:
         stmt = stmt.where(Task.intake_id == intake_id)
+    stmt = stmt.where(feature_clause)
     if status_filter:
         stmt = stmt.where(Task.status == status_filter)
     if exclude_status:
@@ -153,6 +161,7 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
             count_base = count_base.where(Task.case_id == case_id)
         if intake_id:
             count_base = count_base.where(Task.intake_id == intake_id)
+        count_base = count_base.where(feature_clause)
         if status_filter:
             count_base = count_base.where(Task.status == status_filter)
         if exclude_status:
@@ -202,6 +211,7 @@ def update_task(task_id: int, status: str = None, urgency: str = None) -> Option
         task = session.get(Task, task_id)
         if not task:
             return None
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
 
         if status:
             task.status = status
@@ -231,6 +241,7 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         task = session.get(Task, task_id)
         if not task:
             return None
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
 
         if description is not _NOT_PROVIDED:
             task.description = description
@@ -291,13 +302,19 @@ def delete_task(task_id: int) -> bool:
         task = session.get(Task, task_id)
         if not task:
             return False
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
         session.delete(task)
         session.commit()
         return True
 
 
 def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
-    """Update status for multiple tasks."""
+    """Update status for multiple tasks.
+
+    Tasks belonging to cases with the tasks feature disabled are silently
+    skipped — they're not visible to the user, so they're treated as
+    non-existent for this operation.
+    """
     validate_task_status(status)
     with SessionLocal() as session:
         values = {"status": status}
@@ -306,7 +323,12 @@ def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
         else:
             values["completion_date"] = None
 
-        stmt = update(Task).where(Task.id.in_(task_ids)).values(**values)
+        stmt = (
+            update(Task)
+            .where(Task.id.in_(task_ids))
+            .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
+            .values(**values)
+        )
         result = session.execute(stmt)
         session.commit()
         return {"updated": result.rowcount}
@@ -319,6 +341,7 @@ def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = 
         validate_task_status(current_status)
 
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_TASKS)
         values = {"status": status}
         if status == "Done":
             values["completion_date"] = datetime.date.today()
@@ -340,6 +363,7 @@ def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
 
     If task_ids is provided, only those tasks are updated (scoped to the user's
     current view).  Otherwise all overdue incomplete tasks are updated.
+    Tasks on cases with the tasks feature disabled are skipped.
     """
     validate_date_format(new_date, "new_date")
 
@@ -347,6 +371,7 @@ def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
         stmt = (
             update(Task)
             .where(Task.due_date < func.current_date(), Task.status != "Done")
+            .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
             .values(due_date=new_date)
         )
         if task_ids:
@@ -385,6 +410,7 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         .limit(limit)
     )
 
+    stmt = stmt.where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
     if query:
         stmt = stmt.where(Task.description.ilike(f"%{query}%"))
     if case_id:
@@ -430,6 +456,8 @@ def get_task_detail(task_id: int) -> Optional[dict]:
         if not row:
             return None
         task, case, user, intake = row
+        if task.case_id is not None and not is_feature_enabled(session, task.case_id, FEATURE_TASKS):
+            return None
         return TaskDetailOut(
             id=task.id, case_id=task.case_id, intake_id=task.intake_id,
             case_name=case.case_name if case else None,
@@ -455,6 +483,7 @@ def reorder_task(task_id: int, new_sort_order: int, new_urgency: str = None) -> 
         task = session.get(Task, task_id)
         if not task:
             return None
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
 
         task.sort_order = new_sort_order
         if new_urgency is not None:

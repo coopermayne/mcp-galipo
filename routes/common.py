@@ -57,3 +57,19 @@ def pydantic_error(exc) -> JSONResponse:
         {"success": False, "error": {"message": summary, "code": "VALIDATION_ERROR", "details": details}},
         status_code=422,
     )
+
+
+def feature_disabled_error(exc) -> JSONResponse:
+    """Convert a db.FeatureDisabled exception to a 403 JSON response."""
+    return JSONResponse(
+        {
+            "success": False,
+            "error": {
+                "message": str(exc),
+                "code": "FEATURE_DISABLED",
+                "feature": exc.feature,
+                "case_id": exc.case_id,
+            },
+        },
+        status_code=403,
+    )
