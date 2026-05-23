@@ -36,6 +36,7 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   { path: "login", element: <LoginPage /> },
+  { path: "admin/dale-link", lazy: lazy(() => import("@/pages/dale-link")) },
   { path: "dale/auth/:token", lazy: lazy(() => import("@/pages/dale/auth")) },
   {
     path: "dale",
