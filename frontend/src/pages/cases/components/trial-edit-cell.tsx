@@ -95,7 +95,6 @@ export function TrialEditCell({
 
   const days = daysUntil(trialDate)
   const isPast = days != null && days < 0
-  const isUrgent = days != null && days >= 0 && days <= 90
 
   return (
     <Popover open={open} onOpenChange={handleOpen}>
@@ -110,11 +109,7 @@ export function TrialEditCell({
               <div className="flex items-center gap-1.5">
                 <span
                   className={
-                    isPast
-                      ? "text-destructive font-medium text-sm"
-                      : isUrgent
-                        ? "text-warning-foreground font-medium text-sm"
-                        : "text-sm"
+                    isPast ? "text-destructive font-medium text-sm" : "text-sm"
                   }
                 >
                   {formatDate(trialDate)}
