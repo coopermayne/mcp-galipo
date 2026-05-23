@@ -144,8 +144,8 @@ main.py                    # FastAPI + MCP server entry point
 ├── schemas/              # Pydantic input/output schemas (package)
 │   ├── common.py         # Literals, constants, ContactInfo
 │   ├── inputs.py         # Create/Update input models
-│   └── outputs.py        # Output models (~30 models)
-├── tools.py              # MCP tools (all 13 tools in one file)
+│   └── outputs.py        # Output models (~37 models)
+├── tools.py              # MCP tools (~20 tools, all in one file)
 ├── mcp_stdio.py          # MCP stdio transport for Claude Desktop
 ├── alembic/              # Alembic migration framework
 │   ├── env.py            # Migration environment config
@@ -157,11 +157,11 @@ main.py                    # FastAPI + MCP server entry point
 │   ├── persons.py        # Person management
 │   ├── tasks.py          # Task operations
 │   ├── events.py         # Calendar/deadlines
-│   └── ...               # Other domain modules (19 files total)
+│   └── ...               # Other domain modules (~35 files total)
 ├── routes/               # REST API endpoints (web UI interface)
 │   ├── cases.py          # Case endpoints
 │   ├── tasks.py          # Task endpoints
-│   └── ...               # Other route modules (19 files total)
+│   └── ...               # Other route modules (~32 files total)
 ├── services/             # Domain services
 │   └── chat/             # In-app chat (presets, modes, executor)
 └── frontend/src/         # React + Vite + shadcn/ui
@@ -321,7 +321,7 @@ frontend/src/
 ## Key Patterns
 
 ### Backend
-- **SQLAlchemy ORM**: `models.py` defines all 16 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
+- **SQLAlchemy ORM**: `models.py` defines all ~34 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
 - **Centralized config**: `config.py` uses Pydantic `BaseSettings` to validate all env vars at startup (replaces scattered `os.environ` calls)
 - **Modular structure**: Each domain (cases, tasks, events, persons) has separate files in `db/` and `routes/`. MCP tools are consolidated in a single `tools.py`
 - **SQLAlchemy sessions**: All `db/` modules use `SessionLocal()` context manager. Two raw-SQL holdouts (`services/chat/presets.py`, `routes/export.py`) use `session.execute(text(...))` — same SQL, SQLAlchemy transport
@@ -329,7 +329,7 @@ frontend/src/
 - **MCP tools** return dicts/lists that FastMCP serializes; **routes** return FastAPI responses
 
 ### Database
-- **Schema source of truth**: `models.py` (SQLAlchemy declarative models). 16 model classes mapping to 16 tables
+- **Schema source of truth**: `models.py` (SQLAlchemy declarative models). ~34 model classes mapping to ~34 tables
 - **Migrations**: Alembic (`alembic/versions/`). Generate with `alembic revision --autogenerate`, apply with `alembic upgrade head`
 - **JSONB columns** for flexible data (e.g., `person_roles.attributes` stores role-specific fields like hourly_rate, bar_number)
 - **Unified roles system**: `roles` table defines role types (Client, Defense Counsel, Expert Witness, etc.) with categories (client, internal_team, opposing_team, third_party). `person_roles` junction table links persons to roles, optionally scoped to a case
@@ -343,6 +343,7 @@ frontend/src/
 The Dockerfile does NOT use a wildcard — it explicitly lists every file and directory to copy:
 ```dockerfile
 COPY main.py models.py tools.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
+COPY lib/ ./lib/
 COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
@@ -358,6 +359,20 @@ COPY templates/ ./templates/
 3. If it's a package (directory), ensure it has an `__init__.py`
 
 If you forget, production will crash with `ModuleNotFoundError` and the app will be down until fixed.
+
+## Production runs with a single gunicorn worker (`-w 1`) — do not change this
+
+The `Dockerfile` CMD runs `gunicorn` with `-w 1`. This is **deliberate**, not a performance oversight. MCP OAuth state (registered clients, auth codes, access/refresh tokens) lives in-memory in [`mcp_auth.py`](mcp_auth.py) — there is no shared store. Raising the worker count silently breaks Claude Desktop / claude.ai sign-ins, because the worker that handed out an auth code is usually not the worker that receives the `/token` exchange.
+
+If you need horizontal scale, the prerequisite is moving OAuth state to a shared backend (database or Redis). Until then, `-w 1` stays.
+
+## MCP_INSTRUCTIONS must be updated when MCP tools change
+
+[`main.py`](main.py) defines a long `MCP_INSTRUCTIONS` string that Claude reads on connect. It documents every MCP tool, valid status/role/enum values, and data-entry guidance. **This string is not auto-generated** — it's hand-maintained. When you add, rename, or remove an MCP tool in [`tools.py`](tools.py), or when you add a new value to an enum in [`schemas/common.py`](schemas/common.py), update `MCP_INSTRUCTIONS` in the same change. Otherwise Claude won't know about the new capability (or will keep using a value you removed).
+
+## Route registration order matters — static routes register last
+
+[`routes/__init__.py`](routes/__init__.py) registers route modules in a specific order, and **static routes must go last**. The static route module includes a catch-all that serves `index.html` for SPA client-side routing — if it registers before any API route, it shadows the entire `/api/v1/*` namespace and every API call returns the React app's HTML. If you add a new route module, add its `register_*_routes(mcp)` call before the static registration block, not after.
 
 ## Local Development
 
@@ -427,11 +442,13 @@ Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_sec
 
 ## Git Practices
 
-**NEVER run `git push` unless the user explicitly says "push".** Do not push after committing, even if the user says "commit and push" — commit only, then stop and let the user push manually via lazygit or the terminal. The user always reviews commits before pushing. This is a hard rule with no exceptions.
+**A human is always the one to decide when code goes to production.** That means: only a human pushes to remote `main`. Never `git push` to `main` (or anything that fast-forwards `main`) — even if asked to "sync" or "push to main." If the user explicitly wants a push to `main`, push only the underlying topic branch instead and let them do the merge.
 
-**NEVER force push to remote main.** Do not run `git push --force`, `git push --force-with-lease`, or any force push variant that overwrites remote main. The user will always handle force pushes manually. This is a hard rule with no exceptions, even if the user asks you to "sync with remote" or "push to main" — only do a regular `git push`, and if it's rejected, stop and let the user handle it.
+**Pushing to feature/topic branches is fine.** Branches like `claude/*`, feature branches, or any non-`main` branch can be pushed freely — that's how PRs get updated. Use `git push -u origin <branch-name>` as normal. The PR review gate is what protects production, so pushing to a branch is just updating an in-flight PR.
 
-**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity and handle pushes manually. This works well with Claude Code since you can watch commits come in and review before pushing.
+**NEVER force push to remote `main`.** Do not run `git push --force`, `git push --force-with-lease`, or any force-push variant against `main`. This is a hard rule with no exceptions. Force-pushing to a topic branch you own is fine when needed (e.g., after a rebase), but prefer a new commit when possible.
+
+**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity. PRs are the merge gate — pushing more commits to a branch updates its existing PR.
 
 ## MCP Tools Usage
 
