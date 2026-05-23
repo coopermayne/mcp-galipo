@@ -119,6 +119,96 @@ def register_auth_routes(mcp):
             "token": refreshed_token,
         })
 
+    @mcp.custom_route("/api/v1/auth/dale-bootstrap", methods=["POST"])
+    async def api_auth_dale_bootstrap(request):
+        """Exchange a long-lived bootstrap token for a normal session JWT.
+
+        Called by the Dale PWA on first load (or whenever the device's
+        localStorage has been wiped). The home-screen icon's URL contains
+        the bootstrap token; this endpoint validates it and mints a session.
+        """
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        bootstrap_token = data.get("token", "")
+
+        user_id = auth.verify_dale_bootstrap_token(bootstrap_token)
+        if not user_id:
+            return JSONResponse(
+                {"success": False, "error": {"message": "Invalid or expired link. Ask the admin for a new one.", "code": "INVALID_BOOTSTRAP"}},
+                status_code=401,
+            )
+
+        user = get_user_by_id(user_id)
+        if not user or not user.get("is_active", True):
+            return JSONResponse(
+                {"success": False, "error": {"message": "User no longer active", "code": "INACTIVE_USER"}},
+                status_code=401,
+            )
+
+        session_token = auth.create_session(user)
+        return JSONResponse({
+            "success": True,
+            "token": session_token,
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "firstName": user["first_name"],
+                "lastName": user["last_name"],
+                "initials": user["initials"],
+                "position": user["position"],
+                "isAdmin": user["is_admin"],
+                "paralegalId": user.get("paralegal_id"),
+                "visibleFeatures": user.get("visible_features"),
+            },
+        })
+
+    @mcp.custom_route("/api/v1/auth/dale-bootstrap-token", methods=["POST"])
+    async def api_auth_dale_bootstrap_token_create(request):
+        """Mint a fresh Dale bootstrap URL for a given user (admin only).
+
+        Body: {"user_id": int}
+        Returns: {"token": str, "url": str}
+        """
+        if err := auth.require_admin(request):
+            return err
+
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        try:
+            target_user_id = int(data.get("user_id", 0))
+        except (TypeError, ValueError):
+            target_user_id = 0
+        if target_user_id <= 0:
+            return JSONResponse(
+                {"success": False, "error": {"message": "user_id is required", "code": "VALIDATION_ERROR"}},
+                status_code=400,
+            )
+
+        target = get_user_by_id(target_user_id)
+        if not target:
+            return JSONResponse(
+                {"success": False, "error": {"message": "User not found", "code": "NOT_FOUND"}},
+                status_code=404,
+            )
+
+        token = auth.create_dale_bootstrap_token(target_user_id)
+        # Build a relative path; the caller's frontend already knows its origin.
+        return JSONResponse({
+            "success": True,
+            "token": token,
+            "path": f"/dale/auth/{token}",
+            "user": {
+                "id": target["id"],
+                "email": target["email"],
+                "firstName": target["first_name"],
+                "lastName": target["last_name"],
+            },
+        })
+
     @mcp.custom_route("/api/v1/auth/change-password", methods=["POST"])
     async def api_auth_change_password(request):
         """Change the current user's password."""

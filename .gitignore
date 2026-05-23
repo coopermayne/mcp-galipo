@@ -23,6 +23,7 @@ courtlistener_samples.json
 .playwright-mcp/
 test-results/
 *.png
+!frontend/public/pwa-*.png
 media/
 .claude/worktrees/
 test-screenshots/
