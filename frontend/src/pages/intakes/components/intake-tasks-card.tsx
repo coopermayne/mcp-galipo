@@ -6,6 +6,7 @@ import {
   Add01Icon,
   Search01Icon,
   CheckmarkSquare01Icon,
+  SparklesIcon,
 } from "@hugeicons/core-free-icons"
 import { getTasks, createTask } from "@/services/tasks"
 import { getStaff } from "@/services/staff"
@@ -41,9 +42,10 @@ const URGENCIES = ["Low", "Medium", "High", "Urgent"]
 
 interface IntakeTasksCardProps {
   intakeId: number
+  onAiAdd?: () => void
 }
 
-export function IntakeTasksCard({ intakeId }: IntakeTasksCardProps) {
+export function IntakeTasksCard({ intakeId, onAiAdd }: IntakeTasksCardProps) {
   const [search, setSearch] = useState("")
   const [showDone, setShowDone] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
@@ -85,6 +87,16 @@ export function IntakeTasksCard({ intakeId }: IntakeTasksCardProps) {
             )}
           </CardTitle>
           <CardAction>
+            {onAiAdd && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={onAiAdd}
+              >
+                <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

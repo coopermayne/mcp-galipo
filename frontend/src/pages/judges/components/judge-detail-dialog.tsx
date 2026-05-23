@@ -15,9 +15,17 @@ import {
 } from "@hugeicons/core-free-icons"
 import type { JudgeListItem, ContactInfo } from "@/services/judges"
 import { getJudge, updateJudge, deleteJudge } from "@/services/judges"
+import { getJurisdictions } from "@/services/jurisdictions"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -181,6 +189,15 @@ export function JudgeDetailDialog({
     onError: (e) => toast.error(e.message),
   })
 
+  const { data: jurisdictionsData } = useQuery({
+    queryKey: ["jurisdictions"],
+    queryFn: async () => {
+      const res = await getJurisdictions()
+      return res.jurisdictions
+    },
+    enabled: open,
+  })
+
   if (!judge) return null
 
   const d = detail ?? null
@@ -226,13 +243,36 @@ export function JudgeDetailDialog({
           />
 
           {/* Jurisdiction */}
-          <FieldRow
-            icon={Location01Icon}
-            label="Jurisdiction"
-            value={d?.jurisdiction_name ?? judge.jurisdiction_name ?? ""}
-            onSave={() => {}}
-            placeholder="No jurisdiction"
-          />
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <HugeiconsIcon icon={Location01Icon} className="size-3.5 text-muted-foreground" />
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Jurisdiction
+              </span>
+            </div>
+            <div className="pl-5">
+              <Select
+                value={String(d?.jurisdiction_id ?? judge.jurisdiction_id ?? "")}
+                onValueChange={(v) =>
+                  mutation.mutate({ jurisdiction_id: v === "__none__" ? null : Number(v) })
+                }
+              >
+                <SelectTrigger className="h-8 text-xs w-full">
+                  <SelectValue placeholder="No jurisdiction" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                    None
+                  </SelectItem>
+                  {(jurisdictionsData ?? []).map((j) => (
+                    <SelectItem key={j.id} value={String(j.id)} className="text-xs">
+                      {j.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           {/* Chambers */}
           <FieldRow

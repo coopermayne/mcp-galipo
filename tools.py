@@ -251,7 +251,8 @@ class ManageTaskInput(BaseModel):
     """Create, update, delete, or bulk-update tasks."""
     action: Literal["create", "update", "delete", "bulk_update"] = Field(..., description="Action to perform")
     task_id: Optional[int] = Field(None, description="Required for update/delete")
-    case_id: Optional[int] = Field(None, description="Required for create; for bulk_update, updates all tasks on this case")
+    case_id: Optional[int] = Field(None, description="Required for create (case or intake); for bulk_update, updates all tasks on this case")
+    intake_id: Optional[int] = Field(None, description="Link task to an intake instead of a case")
     description: Optional[str] = Field(None, description="Task description (required for create)")
     due_date: Optional[str] = Field(None, description="Due date YYYY-MM-DD")
     completion_date: Optional[str] = Field(None, description="Completion date YYYY-MM-DD")
@@ -1216,6 +1217,7 @@ def register_tools(mcp):
                     event_id=data.event_id,
                     assignee_id=data.assignee_id,
                     completion_date=data.completion_date,
+                    intake_id=data.intake_id,
                 )
                 return {"success": True, "message": f"Task created: {data.description}", "task_id": result["id"]}
 

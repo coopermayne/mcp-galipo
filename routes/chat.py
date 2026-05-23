@@ -245,9 +245,10 @@ def register_chat_routes(mcp):
 
         conversation_id = data.get("conversation_id")
         case_context = data.get("case_context")
+        intake_context = data.get("intake_context")
         mode = data.get("mode")  # Optional: tasks, events, people, overview, full
         preset = data.get("preset")  # Optional: priorities, deadlines, overdue, activity
-        _logger.info(f"Chat request - mode: {mode}, preset: {preset}, case_context: {case_context}")
+        _logger.info(f"Chat request - mode: {mode}, preset: {preset}, case_context: {case_context}, intake_context: {intake_context}")
 
         # Generate new conversation ID if not provided
         if not conversation_id:
@@ -434,6 +435,28 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                     + str(case_context)
                     + ", case_number=...)."
                 )
+
+        if intake_context:
+            try:
+                intake_data = _db.get_intake(intake_context)
+            except Exception as e:
+                _logger.warning(f"Failed to load intake context {intake_context}: {e}")
+                intake_data = None
+
+            if intake_data:
+                system_prompt += f"""
+
+The user is currently viewing intake ID: {intake_context}. When they ask about "this intake" or "the intake", they mean intake ID {intake_context}.
+Intake details:
+  - Name: {intake_data.get('name', 'N/A')}
+  - Case type: {intake_data.get('case_type', 'N/A')}
+  - Status: {intake_data.get('status', 'N/A')}
+  - Incident date: {intake_data.get('incident_date', 'N/A')}
+  - Location: {intake_data.get('location_short') or intake_data.get('location', 'N/A')}
+  - Incident: {(intake_data.get('incident_description') or 'N/A')[:500]}
+  - Injuries: {(intake_data.get('injury_description') or 'N/A')[:300]}
+
+When creating tasks for this intake, use manage_task with intake_id={intake_context} (NOT case_id). These are pre-case intake follow-up tasks."""
 
         # Add mode-specific system prompt if a mode is active
         mode_prompt = get_mode_system_prompt(mode)
