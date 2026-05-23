@@ -51,6 +51,7 @@ class UpdateCaseInput(BaseModel):
 
 class CreateTaskInput(BaseModel):
     case_id: Optional[int] = None
+    intake_id: Optional[int] = None
     description: str
     due_date: Optional[str] = None
     completion_date: Optional[str] = None

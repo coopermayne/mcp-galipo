@@ -6,6 +6,25 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getSignedMediaUrl } from "@/services/sms"
 import type { SmsMessage, SmsMediaAttachment } from "@/types/sms"
 
+function MessageStatus({ status }: { status: string }) {
+  switch (status) {
+    case "queued":
+    case "accepted":
+      return <span> · Queued</span>
+    case "sent":
+      return <span> · Sent ✓</span>
+    case "delivered":
+      return <span> · Delivered ✓✓</span>
+    case "read":
+      return <span> · Read</span>
+    case "failed":
+    case "undelivered":
+      return <span className="text-red-300"> · Failed ✗</span>
+    default:
+      return null
+  }
+}
+
 interface MessageThreadProps {
   messages: SmsMessage[]
   isLoading?: boolean
@@ -162,7 +181,7 @@ export function MessageThread({ messages, isLoading }: MessageThreadProps) {
                   )}
                 >
                   {formatMsgTime(msg.created_at)}
-                  {msg.status === "failed" && " · Failed"}
+                  {isOutbound && <MessageStatus status={msg.status} />}
                 </p>
               </div>
             </div>

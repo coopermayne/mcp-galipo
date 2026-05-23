@@ -14,7 +14,7 @@ from .connection import _NOT_PROVIDED
 from .validation import (
     validate_task_status, validate_urgency, validate_date_format
 )
-from models import Task, Case, Event, User
+from models import Task, Case, Event, User, Intake
 from schemas import TaskOut, UserBriefOut, TaskDetailOut
 
 
@@ -29,12 +29,14 @@ def _assignee_dict(user: User) -> dict:
 
 
 def _task_with_relations(task: Task, case: Case, event: Event = None,
-                         assignee: User = None, has_events: bool = False) -> dict:
+                         assignee: User = None, has_events: bool = False,
+                         intake: Intake = None) -> dict:
     """Build a full task dict with joined relations."""
     d = _task_to_dict(task)
     d["case_name"] = case.case_name if case else None
     d["short_name"] = case.short_name if case else None
     d["case_color"] = case.color if case else None
+    d["intake_name"] = intake.name if intake else None
     d["event_description"] = event.description if event else None
     d["event_date"] = event.date.isoformat() if event and event.date else None
     d["has_events"] = has_events
@@ -44,7 +46,8 @@ def _task_with_relations(task: Task, case: Case, event: Event = None,
 
 def add_task(case_id: int = None, description: str = "", due_date: str = None,
              status: str = "Pending", urgency: str = "Medium", event_id: int = None,
-             assignee_id: int = None, completion_date: str = None) -> dict:
+             assignee_id: int = None, completion_date: str = None,
+             intake_id: int = None) -> dict:
     """Add a task, optionally associated with a case."""
     validate_task_status(status)
     validate_urgency(urgency)
@@ -60,6 +63,7 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
 
         task = Task(
             case_id=case_id,
+            intake_id=intake_id,
             description=description,
             due_date=due_date,
             status=status,
@@ -86,7 +90,7 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: str = None, due_date_from: str = None, due_date_to: str = None,
               limit: int = None, offset: int = None, assignee_id: int = None,
-              user_id: int = None) -> dict:
+              user_id: int = None, intake_id: int = None) -> dict:
     """Get tasks with optional filters."""
     # Validate filters
     if status_filter:
@@ -108,16 +112,19 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
 
     # Build main query with all joins
     stmt = (
-        select(Task, Case, Event, User, has_events_sq.label("has_events"))
+        select(Task, Case, Event, User, Intake, has_events_sq.label("has_events"))
         .outerjoin(Case, Task.case_id == Case.id)
         .outerjoin(Event, Task.event_id == Event.id)
         .outerjoin(User, Task.assignee_id == User.id)
+        .outerjoin(Intake, Task.intake_id == Intake.id)
         .order_by(Task.sort_order.asc())
     )
 
     # Apply filters
     if case_id:
         stmt = stmt.where(Task.case_id == case_id)
+    if intake_id:
+        stmt = stmt.where(Task.intake_id == intake_id)
     if status_filter:
         stmt = stmt.where(Task.status == status_filter)
     if exclude_status:
@@ -144,6 +151,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         count_base = select(Task.id).outerjoin(Case, Task.case_id == Case.id)
         if case_id:
             count_base = count_base.where(Task.case_id == case_id)
+        if intake_id:
+            count_base = count_base.where(Task.intake_id == intake_id)
         if status_filter:
             count_base = count_base.where(Task.status == status_filter)
         if exclude_status:
@@ -173,8 +182,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
 
         rows = session.execute(stmt).all()
         tasks = [
-            _task_with_relations(task, case, event, assignee, has_ev)
-            for task, case, event, assignee, has_ev in rows
+            _task_with_relations(task, case, event, assignee, has_ev, intake)
+            for task, case, event, assignee, intake, has_ev in rows
         ]
         return {"tasks": tasks, "total": total}
 
@@ -367,10 +376,11 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
     )
 
     stmt = (
-        select(Task, Case, Event, User, has_events_sq.label("has_events"))
+        select(Task, Case, Event, User, Intake, has_events_sq.label("has_events"))
         .outerjoin(Case, Task.case_id == Case.id)
         .outerjoin(Event, Task.event_id == Event.id)
         .outerjoin(User, Task.assignee_id == User.id)
+        .outerjoin(Intake, Task.intake_id == Intake.id)
         .order_by(Task.sort_order.asc())
         .limit(limit)
     )
@@ -401,8 +411,8 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
     with SessionLocal() as session:
         rows = session.execute(stmt).all()
         return [
-            _task_with_relations(task, case, event, assignee, has_ev)
-            for task, case, event, assignee, has_ev in rows
+            _task_with_relations(task, case, event, assignee, has_ev, intake)
+            for task, case, event, assignee, intake, has_ev in rows
         ]
 
 
@@ -410,19 +420,21 @@ def get_task_detail(task_id: int) -> Optional[dict]:
     """Get a single task with case and assignee info for the detail view."""
     with SessionLocal() as session:
         stmt = (
-            select(Task, Case, User)
+            select(Task, Case, User, Intake)
             .outerjoin(Case, Task.case_id == Case.id)
             .outerjoin(User, Task.assignee_id == User.id)
+            .outerjoin(Intake, Task.intake_id == Intake.id)
             .where(Task.id == task_id)
         )
         row = session.execute(stmt).first()
         if not row:
             return None
-        task, case, user = row
+        task, case, user, intake = row
         return TaskDetailOut(
-            id=task.id, case_id=task.case_id,
+            id=task.id, case_id=task.case_id, intake_id=task.intake_id,
             case_name=case.case_name if case else None,
             short_name=case.short_name if case else None,
+            intake_name=intake.name if intake else None,
             description=task.description,
             due_date=task.due_date, completion_date=task.completion_date,
             status=task.status, urgency=task.urgency,

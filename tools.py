@@ -69,6 +69,59 @@ def judge_role_error() -> dict:
 
 
 # =============================================================================
+# Federal Holiday Calendar (for calculate_deadline)
+# =============================================================================
+
+def _federal_holidays_for_year_range(start_year: int, end_year: int) -> set:
+    """Return the set of US federal holiday dates for [start_year, end_year].
+
+    Used by calculate_deadline to identify non-court days. Holiday observation
+    follows the standard rule: holidays falling on Saturday observe Friday,
+    holidays falling on Sunday observe Monday.
+    """
+    from datetime import date as _date, timedelta as _td
+
+    def _nth_weekday(year: int, month: int, weekday: int, n: int) -> _date:
+        # weekday: Mon=0..Sun=6; n=1..5 for nth occurrence
+        d = _date(year, month, 1)
+        offset = (weekday - d.weekday()) % 7
+        return d + _td(days=offset + (n - 1) * 7)
+
+    def _last_weekday(year: int, month: int, weekday: int) -> _date:
+        # last given weekday of month
+        if month == 12:
+            next_month = _date(year + 1, 1, 1)
+        else:
+            next_month = _date(year, month + 1, 1)
+        d = next_month - _td(days=1)
+        while d.weekday() != weekday:
+            d -= _td(days=1)
+        return d
+
+    def _observed(d: _date) -> _date:
+        if d.weekday() == 5:  # Saturday → Friday
+            return d - _td(days=1)
+        if d.weekday() == 6:  # Sunday → Monday
+            return d + _td(days=1)
+        return d
+
+    holidays: set = set()
+    for year in range(start_year, end_year + 1):
+        holidays.add(_observed(_date(year, 1, 1)))                # New Year's Day
+        holidays.add(_nth_weekday(year, 1, 0, 3))                  # MLK Day (3rd Mon Jan)
+        holidays.add(_nth_weekday(year, 2, 0, 3))                  # Presidents' Day (3rd Mon Feb)
+        holidays.add(_last_weekday(year, 5, 0))                    # Memorial Day (last Mon May)
+        holidays.add(_observed(_date(year, 6, 19)))                # Juneteenth
+        holidays.add(_observed(_date(year, 7, 4)))                 # Independence Day
+        holidays.add(_nth_weekday(year, 9, 0, 1))                  # Labor Day (1st Mon Sep)
+        holidays.add(_nth_weekday(year, 10, 0, 2))                 # Columbus Day (2nd Mon Oct)
+        holidays.add(_observed(_date(year, 11, 11)))               # Veterans Day
+        holidays.add(_nth_weekday(year, 11, 3, 4))                 # Thanksgiving (4th Thu Nov)
+        holidays.add(_observed(_date(year, 12, 25)))               # Christmas Day
+    return holidays
+
+
+# =============================================================================
 # Role Name Resolution
 # =============================================================================
 
@@ -300,6 +353,25 @@ class RecommendTrialSlotsInput(BaseModel):
     max_results: int = Field(10, description="Maximum number of slots to return (1-20)")
 
 
+class CalculateDeadlineInput(BaseModel):
+    """Calculate a future or past date for a legal deadline.
+
+    Supports calendar days, court days (M-F, skipping federal holidays), and
+    CA CCP §12c roll-forward (if the computed date lands on a weekend or
+    holiday, advance to the next court day).
+    """
+    start_date: str = Field(..., description="Anchor date (YYYY-MM-DD)")
+    days: int = Field(..., description="Number of days to add (positive) or subtract (negative)")
+    unit: Literal["calendar", "court"] = Field(
+        "calendar",
+        description="'calendar' = all days; 'court' = weekdays excluding federal holidays",
+    )
+    roll_forward: bool = Field(
+        False,
+        description="If True and the computed date falls on a weekend/holiday, roll forward to the next court day (CCP §12c)",
+    )
+
+
 # =============================================================================
 # Tool Registration
 # =============================================================================
@@ -324,6 +396,87 @@ def register_tools(mcp):
             "year": now.year,
             "iso_date": now.strftime("%Y-%m-%d"),
             "timezone": "Pacific Time"
+        }
+
+    # =========================================================================
+    # DATE CALCULATOR
+    # =========================================================================
+
+    @mcp.tool()
+    def calculate_deadline(context: Context, data: CalculateDeadlineInput) -> dict:
+        """Calculate a deadline date by adding/subtracting calendar or court days.
+
+        Use this for any legal deadline calculation — e.g. "30 days to respond to
+        a complaint", "15 court days notice for a motion under CCP §1005(b)",
+        "discovery cut-off 30 days before trial".
+
+        - unit="calendar": every day counts (default).
+        - unit="court": skip Saturdays, Sundays, and federal holidays (CCP §12).
+        - roll_forward=True: if the computed date lands on a weekend or holiday,
+          advance to the next court day (CCP §12c).
+
+        Returns the computed date with the day-of-week and a reasoning trail.
+
+        Examples:
+        - calculate_deadline(start_date="2026-06-01", days=30) → 2026-07-01
+        - calculate_deadline(start_date="2026-06-01", days=15, unit="court") → 2026-06-22
+        - calculate_deadline(start_date="2026-12-22", days=10, roll_forward=True)
+        """
+        from datetime import date as _date, timedelta as _td
+
+        try:
+            anchor = _date.fromisoformat(data.start_date)
+        except ValueError:
+            return validation_error(
+                f"Invalid start_date '{data.start_date}'",
+                hint="Use ISO format YYYY-MM-DD (e.g. 2026-06-01)",
+            )
+
+        context.info(
+            f"calculate_deadline: {data.start_date} {data.days:+d} {data.unit}"
+            f"{' (roll forward)' if data.roll_forward else ''}"
+        )
+
+        holidays = _federal_holidays_for_year_range(anchor.year - 1, anchor.year + 2)
+
+        def is_court_day(d: _date) -> bool:
+            return d.weekday() < 5 and d not in holidays
+
+        skipped: list[str] = []
+
+        if data.unit == "court":
+            step = 1 if data.days >= 0 else -1
+            remaining = abs(data.days)
+            cur = anchor
+            while remaining > 0:
+                cur = cur + _td(days=step)
+                if is_court_day(cur):
+                    remaining -= 1
+                else:
+                    skipped.append(cur.isoformat())
+            computed = cur
+        else:
+            computed = anchor + _td(days=data.days)
+
+        rolled = False
+        original = computed
+        if data.roll_forward:
+            while not is_court_day(computed):
+                computed = computed + _td(days=1)
+                rolled = True
+
+        return {
+            "success": True,
+            "start_date": anchor.isoformat(),
+            "days": data.days,
+            "unit": data.unit,
+            "roll_forward": data.roll_forward,
+            "result_date": computed.isoformat(),
+            "result_weekday": computed.strftime("%A"),
+            "is_court_day": is_court_day(computed),
+            "rolled_forward": rolled,
+            "pre_roll_date": original.isoformat() if rolled else None,
+            "skipped_non_court_days": skipped if data.unit == "court" else [],
         }
 
     # =========================================================================

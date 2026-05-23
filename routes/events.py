@@ -5,11 +5,12 @@ Handles event (calendar items: hearings, depositions, filing deadlines) CRUD ope
 """
 
 import asyncio
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateEventInput, UpdateEventInput
+from services.ical_export import build_ics_from_events
 from .common import api_error, pydantic_error, clamp_pagination
 from .comments import _get_db_user_id
 from .sse import broadcast
@@ -103,6 +104,49 @@ def register_event_routes(mcp):
             limit=limit
         )
         return JSONResponse({"events": events})
+
+    @mcp.custom_route("/api/v1/events/export.ics", methods=["POST"])
+    async def api_export_events_ics(request):
+        """Export selected events as an iCalendar (.ics) file.
+
+        Body: {"event_ids": [int, ...]} — events to include. If omitted/empty,
+        falls back to the next 365 days for the authenticated user's cases.
+        """
+        if err := auth.require_auth(request):
+            return err
+        body = {}
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+        event_ids = body.get("event_ids") or []
+
+        if event_ids:
+            events = await asyncio.to_thread(
+                lambda: [db.get_event_by_id(int(eid)) for eid in event_ids]
+            )
+            events = [e for e in events if e]
+        else:
+            # Fallback: this user's events, ±365 days
+            user = auth.get_current_user(request)
+            user_id = _get_db_user_id(user) if user else None
+            result = await asyncio.to_thread(
+                db.get_upcoming_events,
+                limit=1000,
+                include_past=True,
+                past_days=365,
+                user_id=user_id,
+            )
+            events = result.get("events", [])
+
+        ics_text = build_ics_from_events(events)
+        return Response(
+            content=ics_text,
+            media_type="text/calendar",
+            headers={
+                "Content-Disposition": 'attachment; filename="galipo-events.ics"'
+            },
+        )
 
     @mcp.custom_route("/api/v1/events/{event_id}", methods=["GET"])
     async def api_get_event(request):

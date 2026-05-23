@@ -11,6 +11,8 @@ import {
   PencilEdit01Icon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { getBadgeStyle } from "@/lib/badge-colors"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -277,6 +279,23 @@ export function ConversationList({
                       <span className="text-xs text-muted-foreground">
                         {conv.phone_number}
                       </span>
+                    )}
+                    {(conv.short_name || conv.person_name) && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {conv.short_name && (
+                          <Badge
+                            className="text-[9px] px-1 py-0 h-4"
+                            style={getBadgeStyle(conv.case_color)}
+                          >
+                            {conv.short_name}
+                          </Badge>
+                        )}
+                        {conv.person_name && (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">
+                            {conv.person_name}
+                          </Badge>
+                        )}
+                      </div>
                     )}
                     {conv.last_message_preview && (
                       <p className="truncate text-xs text-muted-foreground">

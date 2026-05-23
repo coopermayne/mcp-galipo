@@ -10,7 +10,28 @@ from typing import Optional
 from sqlalchemy import select, func, or_, and_
 
 from .session import SessionLocal
-from models import SmsConversation, SmsConversationRead, SmsMessage, SmsMessageMedia, User
+from models import SmsConversation, SmsConversationRead, SmsMessage, SmsMessageMedia, User, Case, Person
+
+
+def _conv_dict(conv, case=None, person=None, last_msg=None) -> dict:
+    d = {
+        "id": conv.id,
+        "phone_number": conv.phone_number,
+        "label": conv.label,
+        "case_id": conv.case_id,
+        "person_id": conv.person_id,
+        "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+        "created_at": conv.created_at.isoformat() if conv.created_at else None,
+        "archived": conv.archived or False,
+        "case_name": case.case_name if case else None,
+        "short_name": case.short_name if case else None,
+        "case_color": case.color if case else None,
+        "person_name": person.name if person else None,
+    }
+    if last_msg is not None:
+        d["last_message_preview"] = (last_msg.body[:80] + "...") if len(last_msg.body) > 80 else last_msg.body
+        d["last_message_direction"] = last_msg.direction
+    return d
 
 
 def normalize_phone(phone: str) -> str:
@@ -65,35 +86,29 @@ def list_conversations(
         )
 
         stmt = (
-            select(SmsConversation)
+            select(SmsConversation, Case, Person)
+            .outerjoin(Case, SmsConversation.case_id == Case.id)
+            .outerjoin(Person, SmsConversation.person_id == Person.id)
             .where(combined_filter)
             .order_by(SmsConversation.last_message_at.desc().nullslast())
             .limit(limit)
             .offset(offset)
         )
-        conversations = session.scalars(stmt).all()
+        rows = session.execute(stmt).all()
 
-        # For each conversation, get the last message preview
         results = []
-        for conv in conversations:
+        for conv, case, person in rows:
             last_msg = session.scalar(
                 select(SmsMessage)
                 .where(SmsMessage.conversation_id == conv.id)
                 .order_by(SmsMessage.created_at.desc())
                 .limit(1)
             )
-            results.append({
-                "id": conv.id,
-                "phone_number": conv.phone_number,
-                "label": conv.label,
-                "case_id": conv.case_id,
-                "person_id": conv.person_id,
-                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "archived": conv.archived or False,
-                "last_message_preview": (last_msg.body[:80] + "...") if last_msg and len(last_msg.body) > 80 else (last_msg.body if last_msg else None),
-                "last_message_direction": last_msg.direction if last_msg else None,
-            })
+            d = _conv_dict(conv, case, person, last_msg)
+            if last_msg is None:
+                d["last_message_preview"] = None
+                d["last_message_direction"] = None
+            results.append(d)
 
         return {"conversations": results, "total": total}
 
@@ -101,19 +116,16 @@ def list_conversations(
 def get_conversation(conversation_id: int) -> Optional[dict]:
     """Get a single conversation by ID."""
     with SessionLocal() as session:
-        conv = session.get(SmsConversation, conversation_id)
-        if not conv:
+        row = session.execute(
+            select(SmsConversation, Case, Person)
+            .outerjoin(Case, SmsConversation.case_id == Case.id)
+            .outerjoin(Person, SmsConversation.person_id == Person.id)
+            .where(SmsConversation.id == conversation_id)
+        ).first()
+        if not row:
             return None
-        return {
-            "id": conv.id,
-            "phone_number": conv.phone_number,
-            "label": conv.label,
-            "case_id": conv.case_id,
-            "person_id": conv.person_id,
-            "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
-            "created_at": conv.created_at.isoformat() if conv.created_at else None,
-            "archived": conv.archived or False,
-        }
+        conv, case, person = row
+        return _conv_dict(conv, case, person)
 
 
 def get_messages(conversation_id: int, limit: int = 1000, offset: int = 0) -> dict:
@@ -183,7 +195,6 @@ def find_or_create_conversation(phone_number: str, label: str = None,
             .where(SmsConversation.phone_number == phone_number)
         )
         if conv:
-            # Update label if provided and conversation has no label
             if label and not conv.label:
                 conv.label = label
             if case_id and not conv.case_id:
@@ -192,17 +203,11 @@ def find_or_create_conversation(phone_number: str, label: str = None,
                 conv.person_id = person_id
             session.commit()
             session.refresh(conv)
-            return {
-                "id": conv.id,
-                "phone_number": conv.phone_number,
-                "label": conv.label,
-                "case_id": conv.case_id,
-                "person_id": conv.person_id,
-                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "archived": conv.archived or False,
-                "created": False,
-            }
+            case = session.get(Case, conv.case_id) if conv.case_id else None
+            person = session.get(Person, conv.person_id) if conv.person_id else None
+            d = _conv_dict(conv, case, person)
+            d["created"] = False
+            return d
 
         conv = SmsConversation(
             phone_number=phone_number,
@@ -213,19 +218,12 @@ def find_or_create_conversation(phone_number: str, label: str = None,
         session.add(conv)
         session.flush()
         session.refresh(conv)
-        result = {
-            "id": conv.id,
-            "phone_number": conv.phone_number,
-            "label": conv.label,
-            "case_id": conv.case_id,
-            "person_id": conv.person_id,
-            "last_message_at": None,
-            "created_at": conv.created_at.isoformat() if conv.created_at else None,
-            "archived": False,
-            "created": True,
-        }
+        case = session.get(Case, conv.case_id) if conv.case_id else None
+        person = session.get(Person, conv.person_id) if conv.person_id else None
+        d = _conv_dict(conv, case, person)
+        d["created"] = True
         session.commit()
-        return result
+        return d
 
 
 def create_message(
@@ -483,28 +481,23 @@ def get_unread_counts(user_id: int, conversation_ids: list[int]) -> dict[int, in
         return {conversation_id: count for conversation_id, count in rows}
 
 
-def link_conversation(conversation_id: int, case_id: int = None, person_id: int = None) -> Optional[dict]:
-    """Link an SMS conversation to a case and/or person."""
+_UNSET = object()
+
+def link_conversation(conversation_id: int, case_id=_UNSET, person_id=_UNSET) -> Optional[dict]:
+    """Link an SMS conversation to a case and/or person. Pass None to unlink."""
     with SessionLocal() as session:
         conv = session.get(SmsConversation, conversation_id)
         if not conv:
             return None
-        if case_id is not None:
-            conv.case_id = case_id if case_id else None
-        if person_id is not None:
-            conv.person_id = person_id if person_id else None
+        if case_id is not _UNSET:
+            conv.case_id = case_id or None
+        if person_id is not _UNSET:
+            conv.person_id = person_id or None
         session.flush()
         session.refresh(conv)
-        result = {
-            "id": conv.id,
-            "phone_number": conv.phone_number,
-            "label": conv.label,
-            "case_id": conv.case_id,
-            "person_id": conv.person_id,
-            "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
-            "created_at": conv.created_at.isoformat() if conv.created_at else None,
-            "archived": conv.archived or False,
-        }
+        case = session.get(Case, conv.case_id) if conv.case_id else None
+        person = session.get(Person, conv.person_id) if conv.person_id else None
+        result = _conv_dict(conv, case, person)
         session.commit()
         return result
 
@@ -513,29 +506,37 @@ def get_conversations_by_person(person_id: int) -> list[dict]:
     """Get all SMS conversations linked to a person."""
     with SessionLocal() as session:
         stmt = (
-            select(SmsConversation)
+            select(SmsConversation, Case, Person)
+            .outerjoin(Case, SmsConversation.case_id == Case.id)
+            .outerjoin(Person, SmsConversation.person_id == Person.id)
             .where(SmsConversation.person_id == person_id)
             .order_by(SmsConversation.last_message_at.desc().nullslast())
         )
-        conversations = session.scalars(stmt).all()
+        rows = session.execute(stmt).all()
         results = []
-        for conv in conversations:
+        for conv, case, person in rows:
             last_msg = session.scalar(
                 select(SmsMessage)
                 .where(SmsMessage.conversation_id == conv.id)
                 .order_by(SmsMessage.created_at.desc())
                 .limit(1)
             )
-            results.append({
-                "id": conv.id,
-                "phone_number": conv.phone_number,
-                "label": conv.label,
-                "case_id": conv.case_id,
-                "person_id": conv.person_id,
-                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "archived": conv.archived or False,
-                "last_message_preview": (last_msg.body[:80] + "...") if last_msg and len(last_msg.body) > 80 else (last_msg.body if last_msg else None),
-                "last_message_direction": last_msg.direction if last_msg else None,
-            })
+            d = _conv_dict(conv, case, person, last_msg)
+            if last_msg is None:
+                d["last_message_preview"] = None
+                d["last_message_direction"] = None
+            results.append(d)
         return results
+
+
+def update_message_status(twilio_sid: str, status: str) -> bool:
+    """Update an SMS message status by its Twilio SID."""
+    with SessionLocal() as session:
+        msg = session.scalar(
+            select(SmsMessage).where(SmsMessage.twilio_sid == twilio_sid)
+        )
+        if not msg:
+            return False
+        msg.status = status
+        session.commit()
+        return True
