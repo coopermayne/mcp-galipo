@@ -1185,6 +1185,10 @@ def register_tools(mcp):
 
         except ValidationError as e:
             return validation_error(str(e))
+        except db.FeatureDisabled as e:
+            return error_response(str(e), "FEATURE_DISABLED",
+                                  hint=f"Events are disabled for case {e.case_id}.",
+                                  suggestion="Ask the user to enable Events from the gear menu on the case page.")
         except Exception as e:
             return error_response(f"manage_event failed: {str(e)}", "MUTATION_ERROR")
 
@@ -1255,6 +1259,10 @@ def register_tools(mcp):
 
         except ValidationError as e:
             return validation_error(str(e))
+        except db.FeatureDisabled as e:
+            return error_response(str(e), "FEATURE_DISABLED",
+                                  hint=f"Tasks are disabled for case {e.case_id}.",
+                                  suggestion="Ask the user to enable Tasks from the gear menu on the case page.")
         except Exception as e:
             return error_response(f"manage_task failed: {str(e)}", "MUTATION_ERROR")
 

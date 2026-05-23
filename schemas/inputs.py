@@ -4,7 +4,7 @@ Pydantic input models for create/update operations.
 Used by both MCP tools and REST routes.
 """
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus, ResolutionType
@@ -43,6 +43,7 @@ class UpdateCaseInput(BaseModel):
     claim_deadline: Optional[str] = None
     complaint_deadline: Optional[str] = None
     notes: Optional[str] = None
+    feature_toggles: Optional[dict[str, Any]] = None
 
 
 # =============================================================================

@@ -13,7 +13,7 @@ import auth
 import db
 from config import settings
 from schemas import CreateLienInput, UpdateLienInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, feature_disabled_error, DEFAULT_PAGE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -123,12 +123,15 @@ def register_lien_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
-        result = await asyncio.to_thread(
-            db.create_lien,
-            data.case_id,
-            data.claimed_amount,
-            **data.model_dump(exclude={"case_id", "claimed_amount"}, exclude_none=True),
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.create_lien,
+                data.case_id,
+                data.claimed_amount,
+                **data.model_dump(exclude={"case_id", "claimed_amount"}, exclude_none=True),
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         return JSONResponse({"success": True, "lien": result})
 
     @mcp.custom_route("/api/v1/liens/{lien_id}", methods=["PUT"])
@@ -142,7 +145,10 @@ def register_lien_routes(mcp):
             return pydantic_error(e)
 
         updates = data.model_dump(exclude_unset=True)
-        result = await asyncio.to_thread(db.update_lien, lien_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_lien, lien_id, **updates)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Lien not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "lien": result})
@@ -152,7 +158,10 @@ def register_lien_routes(mcp):
         if err := auth.require_auth(request):
             return err
         lien_id = int(request.path_params["lien_id"])
-        deleted = await asyncio.to_thread(db.delete_lien, lien_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_lien, lien_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if deleted:
             return JSONResponse({"success": True})
         return api_error("Lien not found", "NOT_FOUND", 404)

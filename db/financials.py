@@ -10,6 +10,10 @@ from uuid import UUID
 from sqlalchemy import select, func, literal_column
 
 from .session import SessionLocal
+from .feature_gates import (
+    FEATURE_FINANCIALS, feature_enabled_filter, require_feature_for_case,
+    is_feature_enabled,
+)
 from models import Case, CaseFinancial, CaseCounselFee, User
 
 
@@ -41,7 +45,7 @@ def get_all_financials(
 ) -> dict:
     """Get all case financials joined with case info."""
     with SessionLocal() as session:
-        filters = []
+        filters = [feature_enabled_filter(FEATURE_FINANCIALS, CaseFinancial.case_id)]
         if resolution_type:
             filters.append(CaseFinancial.resolution_type == resolution_type)
         if is_finalized is not None:
@@ -122,6 +126,8 @@ def get_financial_by_id(financial_id: int) -> Optional[dict]:
         fin = session.get(CaseFinancial, financial_id)
         if not fin:
             return None
+        if not is_feature_enabled(session, fin.case_id, FEATURE_FINANCIALS):
+            return None
 
         result = {
             "id": fin.id,
@@ -171,6 +177,7 @@ def get_financial_by_id(financial_id: int) -> Optional[dict]:
 def create_financial(case_id: int, **kwargs) -> dict:
     """Create a financial record for a case. Auto-creates an 'our firm' counsel fee."""
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_FINANCIALS)
         fin = CaseFinancial(case_id=case_id, **kwargs)
         session.add(fin)
         session.flush()
@@ -198,6 +205,7 @@ def update_financial(financial_id: int, **kwargs) -> Optional[dict]:
         fin = session.get(CaseFinancial, financial_id)
         if not fin:
             return None
+        require_feature_for_case(session, fin.case_id, FEATURE_FINANCIALS)
         changed = False
         for field, value in kwargs.items():
             if field not in allowed:
@@ -216,6 +224,7 @@ def delete_financial(financial_id: int) -> bool:
         fin = session.get(CaseFinancial, financial_id)
         if not fin:
             return False
+        require_feature_for_case(session, fin.case_id, FEATURE_FINANCIALS)
         session.delete(fin)
         session.commit()
         return True
@@ -224,6 +233,8 @@ def delete_financial(financial_id: int) -> bool:
 def get_financial_by_case(case_id: int) -> Optional[dict]:
     """Get the financial record for a case (one-to-one)."""
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_FINANCIALS):
+            return None
         fin_id = session.scalar(
             select(CaseFinancial.id).where(CaseFinancial.case_id == case_id)
         )
@@ -236,9 +247,21 @@ def get_financial_by_case(case_id: int) -> Optional[dict]:
 # Counsel Fee CRUD
 # =============================================================================
 
+def _counsel_fee_case_id(session, fee_id: int) -> Optional[int]:
+    """Look up the case_id for a counsel fee (via its parent financial)."""
+    return session.scalar(
+        select(CaseFinancial.case_id)
+        .join(CaseCounselFee, CaseCounselFee.financial_id == CaseFinancial.id)
+        .where(CaseCounselFee.id == fee_id)
+    )
+
+
 def create_counsel_fee(financial_id: int, **kwargs) -> dict:
     """Create a counsel fee record."""
     with SessionLocal() as session:
+        fin = session.get(CaseFinancial, financial_id)
+        if fin is not None:
+            require_feature_for_case(session, fin.case_id, FEATURE_FINANCIALS)
         fee = CaseCounselFee(financial_id=financial_id, **kwargs)
         session.add(fee)
         session.flush()
@@ -257,6 +280,8 @@ def update_counsel_fee(fee_id: int, **kwargs) -> Optional[dict]:
         fee = session.get(CaseCounselFee, fee_id)
         if not fee:
             return None
+        case_id = _counsel_fee_case_id(session, fee_id)
+        require_feature_for_case(session, case_id, FEATURE_FINANCIALS)
         for field, value in kwargs.items():
             if field not in allowed:
                 continue
@@ -272,6 +297,8 @@ def delete_counsel_fee(fee_id: int) -> Optional[dict]:
         fee = session.get(CaseCounselFee, fee_id)
         if not fee:
             return None
+        case_id = _counsel_fee_case_id(session, fee_id)
+        require_feature_for_case(session, case_id, FEATURE_FINANCIALS)
         fid = fee.financial_id
         session.delete(fee)
         session.commit()
@@ -284,6 +311,7 @@ def get_resolution_type_counts(attorney_ids: Optional[List[int]] = None) -> dict
         stmt = (
             select(CaseFinancial.resolution_type, func.count(CaseFinancial.id))
             .join(Case, Case.id == CaseFinancial.case_id)
+            .where(feature_enabled_filter(FEATURE_FINANCIALS, CaseFinancial.case_id))
             .group_by(CaseFinancial.resolution_type)
         )
         if attorney_ids:
