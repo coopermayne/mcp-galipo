@@ -403,8 +403,11 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
             try:
                 proceedings = _db.get_proceedings(case_context)
-            except Exception as e:
-                _logger.warning(f"Failed to pre-load proceedings for case {case_context}: {e}")
+            except Exception:
+                _logger.error(
+                    f"Failed to pre-load proceedings for case {case_context}",
+                    exc_info=True,
+                )
                 proceedings = []
 
             if proceedings:
@@ -437,16 +440,25 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                 )
 
         if intake_context:
+            # Always inject the base instruction so Claude knows it's on an
+            # intake, even if the detail load below fails — otherwise Claude
+            # falls back to asking the user which case they mean.
+            system_prompt += f"""
+
+The user is currently viewing intake ID: {intake_context}. When they ask about "this intake" or "the intake", they mean intake ID {intake_context}.
+When creating tasks for this intake, use manage_task with intake_id={intake_context} (NOT case_id). These are pre-case intake follow-up tasks."""
+
             try:
-                intake_data = _db.get_intake(intake_context)
-            except Exception as e:
-                _logger.warning(f"Failed to load intake context {intake_context}: {e}")
+                intake_data = _db.get_intake_by_id(intake_context)
+            except Exception:
+                _logger.error(
+                    f"Failed to load intake context {intake_context}",
+                    exc_info=True,
+                )
                 intake_data = None
 
             if intake_data:
                 system_prompt += f"""
-
-The user is currently viewing intake ID: {intake_context}. When they ask about "this intake" or "the intake", they mean intake ID {intake_context}.
 Intake details:
   - Name: {intake_data.get('name', 'N/A')}
   - Case type: {intake_data.get('case_type', 'N/A')}
@@ -454,9 +466,7 @@ Intake details:
   - Incident date: {intake_data.get('incident_date', 'N/A')}
   - Location: {intake_data.get('location_short') or intake_data.get('location', 'N/A')}
   - Incident: {(intake_data.get('incident_description') or 'N/A')[:500]}
-  - Injuries: {(intake_data.get('injury_description') or 'N/A')[:300]}
-
-When creating tasks for this intake, use manage_task with intake_id={intake_context} (NOT case_id). These are pre-case intake follow-up tasks."""
+  - Injuries: {(intake_data.get('injury_description') or 'N/A')[:300]}"""
 
         # Add mode-specific system prompt if a mode is active
         mode_prompt = get_mode_system_prompt(mode)
