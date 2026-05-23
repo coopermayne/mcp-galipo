@@ -13,6 +13,7 @@ import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-cal
 import { createEvent, type CreateEventData } from "@/services/events"
 import { downloadBlob } from "@/lib/download"
 import { getStaff, type StaffMember } from "@/services/staff"
+import { getDateKey } from "@/lib/datetime"
 import { TrialTable } from "@/pages/trial-calendar/components/trial-table"
 import { TrialListMobile } from "@/pages/trial-calendar/components/trial-list-mobile"
 import { SlotFinder } from "@/pages/trial-calendar/components/slot-finder"
@@ -74,6 +75,13 @@ export default function TrialCalendarPage() {
     for (const s of staffData?.data ?? []) map.set(s.id, s)
     return map
   }, [staffData])
+
+  // Trial calendar is forward-looking — drop trials whose date is in the past.
+  const upcomingTrials = useMemo(() => {
+    if (!data) return []
+    const todayKey = getDateKey(new Date().toISOString())
+    return data.trials.filter((t) => t.trial_date >= todayKey)
+  }, [data])
 
   const createEventMutation = useMutation({
     mutationFn: (eventData: CreateEventData) => createEvent(eventData),
@@ -185,10 +193,10 @@ export default function TrialCalendarPage() {
         ) : (
           <>
             <div className="hidden md:block">
-              <TrialTable trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+              <TrialTable trials={upcomingTrials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
             </div>
             <div className="md:hidden">
-              <TrialListMobile trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+              <TrialListMobile trials={upcomingTrials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
             </div>
           </>
         )

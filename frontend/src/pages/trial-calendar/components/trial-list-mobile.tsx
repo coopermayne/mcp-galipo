@@ -16,12 +16,6 @@ function parseDate(s: string): Date {
   return new Date(y, m - 1, d)
 }
 
-function daysUntil(dateStr: string): number {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  return Math.ceil((parseDate(dateStr).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-}
-
 export function TrialListMobile({
   trials,
   blockingEvents,
@@ -54,9 +48,6 @@ export function TrialListMobile({
       {rows.map((row) => {
         if (row.kind === "trial") {
           const t = row.trial
-          const days = daysUntil(t.trial_date)
-          const dateColor =
-            days < 0 ? "text-destructive" : days <= 90 ? "text-warning-foreground" : "text-foreground"
           return (
             <button
               key={`trial-${t.case_id}`}
@@ -83,7 +74,7 @@ export function TrialListMobile({
                 </div>
               )}
               <span className="min-w-0 flex-1 truncate font-medium">{t.case_name}</span>
-              <span className={`shrink-0 text-sm tabular-nums ${dateColor}`}>
+              <span className="shrink-0 text-sm tabular-nums">
                 {format(parseDate(t.trial_date), "MMM d, yyyy")}
               </span>
             </button>
