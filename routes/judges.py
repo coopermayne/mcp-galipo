@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 import db
 import auth
 from .common import api_error
+from .sse import broadcast
 
 
 def register_judge_routes(mcp):
@@ -75,6 +76,7 @@ def register_judge_routes(mcp):
                 notes=data.get("notes"),
                 title=data.get("title")
             )
+            broadcast({"entity": "judge", "action": "created", "id": result.get("id")})
             return JSONResponse({"success": True, "judge": result}, status_code=201)
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
@@ -116,6 +118,7 @@ def register_judge_routes(mcp):
             )
             if not result:
                 return api_error("Judge not found", "NOT_FOUND", 404)
+            broadcast({"entity": "judge", "action": "updated", "id": judge_id})
             return JSONResponse({"success": True, "judge": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
@@ -128,6 +131,7 @@ def register_judge_routes(mcp):
         judge_id = int(request.path_params["judge_id"])
         result = await asyncio.to_thread(db.delete_judge, judge_id)
         if result.get("success"):
+            broadcast({"entity": "judge", "action": "deleted", "id": judge_id})
             return JSONResponse({"success": True})
         return api_error(result.get("error", "Cannot delete judge"), "DELETE_ERROR", 400)
 

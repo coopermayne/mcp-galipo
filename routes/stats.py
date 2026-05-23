@@ -60,7 +60,8 @@ def register_stats_routes(mcp):
             db.create_jurisdiction,
             data["name"],
             data.get("local_rules_link"),
-            data.get("notes")
+            data.get("notes"),
+            data.get("aliases")
         )
         return JSONResponse({"success": True, "jurisdiction": result})
 
@@ -77,21 +78,40 @@ def register_stats_routes(mcp):
 
     @mcp.custom_route("/api/v1/jurisdictions/{jurisdiction_id}", methods=["PUT"])
     async def api_update_jurisdiction(request):
-        """Update a jurisdiction."""
+        """Update a jurisdiction. Only keys present in the body are touched —
+        a null/empty value for local_rules_link or notes clears the field.
+        """
         if err := auth.require_auth(request):
             return err
         jurisdiction_id = int(request.path_params["jurisdiction_id"])
         data = await request.json()
+        # Only forward keys that were explicitly provided, so the db sentinel
+        # treats absent keys as "no change" vs explicit null as "clear".
+        kwargs = {
+            k: data[k]
+            for k in ("name", "local_rules_link", "notes", "aliases")
+            if k in data
+        }
         result = await asyncio.to_thread(
-            db.update_jurisdiction,
-            jurisdiction_id,
-            name=data.get("name"),
-            local_rules_link=data.get("local_rules_link"),
-            notes=data.get("notes")
+            db.update_jurisdiction, jurisdiction_id, **kwargs
         )
         if not result:
             return api_error("Jurisdiction not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "jurisdiction": result})
+
+    @mcp.custom_route("/api/v1/jurisdictions/{jurisdiction_id}", methods=["DELETE"])
+    async def api_delete_jurisdiction(request):
+        """Delete a jurisdiction."""
+        if err := auth.require_auth(request):
+            return err
+        jurisdiction_id = int(request.path_params["jurisdiction_id"])
+        try:
+            deleted = await asyncio.to_thread(db.delete_jurisdiction, jurisdiction_id)
+        except Exception:
+            return api_error("Cannot delete jurisdiction with linked judges or proceedings", "CONFLICT", 409)
+        if not deleted:
+            return api_error("Jurisdiction not found", "NOT_FOUND", 404)
+        return JSONResponse({"success": True})
 
     @mcp.custom_route("/api/v1/expertise-types", methods=["GET"])
     async def api_list_expertise_types(request):

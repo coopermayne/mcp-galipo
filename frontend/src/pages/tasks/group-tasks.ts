@@ -30,10 +30,14 @@ function endOfWeek(date: Date): Date {
   return d
 }
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
 export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
   const today = todayMidnight()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
+  const dayAfterTomorrow = new Date(tomorrow)
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1)
   const thisWeekEnd = endOfWeek(today)
   const nextWeekEnd = new Date(thisWeekEnd)
   nextWeekEnd.setDate(nextWeekEnd.getDate() + 7)
@@ -42,11 +46,12 @@ export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
     overdue: [],
     today: [],
     tomorrow: [],
-    this_week: [],
     next_week: [],
     later: [],
     no_date: [],
   }
+
+  const dayBuckets = new Map<string, { label: string; tasks: TaskListItem[]; sortOrder: number }>()
 
   for (const task of tasks) {
     if (!task.due_date) {
@@ -60,8 +65,16 @@ export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
       buckets.today.push(task)
     } else if (d.getTime() === tomorrow.getTime()) {
       buckets.tomorrow.push(task)
-    } else if (d <= thisWeekEnd) {
-      buckets.this_week.push(task)
+    } else if (d >= dayAfterTomorrow && d <= thisWeekEnd) {
+      const dayKey = `day_${task.due_date}`
+      if (!dayBuckets.has(dayKey)) {
+        dayBuckets.set(dayKey, {
+          label: DAY_NAMES[d.getDay()],
+          tasks: [],
+          sortOrder: d.getTime(),
+        })
+      }
+      dayBuckets.get(dayKey)!.tasks.push(task)
     } else if (d <= nextWeekEnd) {
       buckets.next_week.push(task)
     } else {
@@ -69,7 +82,6 @@ export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
     }
   }
 
-  // Sort tasks within each bucket by due_date, then by urgency (Urgent first)
   const urgencyRank: Record<string, number> = {
     Urgent: 0,
     High: 1,
@@ -90,25 +102,41 @@ export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
   for (const key of Object.keys(buckets)) {
     buckets[key].sort(sortByDateThenUrgency)
   }
+  for (const bucket of dayBuckets.values()) {
+    bucket.tasks.sort(sortByDateThenUrgency)
+  }
 
-  const config: { key: string; label: string; sortOrder: number }[] = [
-    { key: "overdue", label: "Overdue", sortOrder: 0 },
-    { key: "today", label: "Today", sortOrder: 1 },
-    { key: "tomorrow", label: "Tomorrow", sortOrder: 2 },
-    { key: "this_week", label: "This Week", sortOrder: 3 },
-    { key: "next_week", label: "Next Week", sortOrder: 4 },
-    { key: "later", label: "Later", sortOrder: 5 },
-    { key: "no_date", label: "No Date", sortOrder: 6 },
-  ]
+  const groups: TaskGroup[] = []
+  let order = 0
 
-  return config
-    .filter((c) => buckets[c.key].length > 0)
-    .map((c) => ({
-      key: c.key,
-      label: c.label,
-      tasks: buckets[c.key],
-      sortOrder: c.sortOrder,
-    }))
+  if (buckets.overdue.length > 0) {
+    groups.push({ key: "overdue", label: "Overdue", tasks: buckets.overdue, sortOrder: order++ })
+  }
+  if (buckets.today.length > 0) {
+    groups.push({ key: "today", label: "Today", tasks: buckets.today, sortOrder: order++ })
+  }
+  if (buckets.tomorrow.length > 0) {
+    groups.push({ key: "tomorrow", label: "Tomorrow", tasks: buckets.tomorrow, sortOrder: order++ })
+  }
+
+  const sortedDayBuckets = Array.from(dayBuckets.entries()).sort(
+    (a, b) => a[1].sortOrder - b[1].sortOrder
+  )
+  for (const [key, bucket] of sortedDayBuckets) {
+    groups.push({ key, label: bucket.label, tasks: bucket.tasks, sortOrder: order++ })
+  }
+
+  if (buckets.next_week.length > 0) {
+    groups.push({ key: "next_week", label: "Next Week", tasks: buckets.next_week, sortOrder: order++ })
+  }
+  if (buckets.later.length > 0) {
+    groups.push({ key: "later", label: "Later", tasks: buckets.later, sortOrder: order++ })
+  }
+  if (buckets.no_date.length > 0) {
+    groups.push({ key: "no_date", label: "No Date", tasks: buckets.no_date, sortOrder: order++ })
+  }
+
+  return groups
 }
 
 export function groupTasksByCase(tasks: TaskListItem[]): TaskGroup[] {

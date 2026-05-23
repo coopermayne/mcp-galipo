@@ -8,9 +8,19 @@ import { IntakeSubmission } from "@/pages/intakes/components/intake-submission"
 import { IntakeAiAnalysis } from "@/pages/intakes/components/intake-ai-analysis"
 import { IntakeComments } from "@/pages/intakes/components/intake-comments"
 import { IntakeNotes } from "@/pages/intakes/components/intake-notes"
+import { IntakeTasksCard } from "@/pages/intakes/components/intake-tasks-card"
+import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { ListNav } from "@/components/common/list-nav"
+
+const aiTaskRules: ToolCompletionRule[] = [
+  {
+    toolNames: ["manage_task"],
+    queryKeys: [["tasks"]],
+    toastMessage: "Task created",
+  },
+]
 
 export default function IntakeDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +29,7 @@ export default function IntakeDetailPage() {
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const commentsPanelRef = useRef<HTMLDivElement>(null)
   const [highlightComments, setHighlightComments] = useState(false)
+  const [aiTasksOpen, setAiTasksOpen] = useState(false)
 
   const {
     data: intake,
@@ -78,6 +89,7 @@ export default function IntakeDetailPage() {
         <div className="flex flex-col gap-6 lg:col-span-3">
           <IntakeMetadata intake={intake} />
           <IntakeAiAnalysis intake={intake} />
+          <IntakeTasksCard intakeId={intake.id} onAiAdd={() => setAiTasksOpen(true)} />
           <IntakeNotes intake={intake} />
           <IntakeSubmission intake={intake} />
         </div>
@@ -95,6 +107,18 @@ export default function IntakeDetailPage() {
           </div>
         </div>
       </div>
+
+      <AiChatSheet
+        open={aiTasksOpen}
+        onOpenChange={setAiTasksOpen}
+        title="AI Tasks"
+        description="Describe tasks and Claude will create them for this intake."
+        placeholder="e.g. Follow up with client, request medical records, check statute of limitations..."
+        emptyStateText="Describe tasks to add to this intake. Claude will create them with the right priority and due date."
+        mode="tasks"
+        intakeContext={intake.id}
+        toolCompletionRules={aiTaskRules}
+      />
     </div>
   )
 }

@@ -27,6 +27,7 @@ COPY routes/ ./routes/
 COPY services/ ./services/
 COPY static/ ./static/
 COPY templates/ ./templates/
+COPY scripts/ ./scripts/
 
 # Copy built React frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
@@ -43,4 +44,4 @@ EXPOSE 8000
 # --timeout 120: worker timeout in seconds
 # Single worker for now - OAuth state is in-memory and not shared across workers
 # TODO: Move OAuth state to Redis/database for multi-worker support
-CMD ["sh", "-c", "alembic upgrade head && gunicorn main:app -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:8000 --timeout 120"]
+CMD ["sh", "-c", "alembic upgrade head 2>/dev/null || (python -c 'from models import Base; from db.session import engine; Base.metadata.create_all(engine)' && alembic stamp head) && gunicorn main:app -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:8000 --timeout 120"]

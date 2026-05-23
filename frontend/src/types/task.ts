@@ -10,6 +10,7 @@ export interface TaskAssignee {
 export interface TaskListItem {
   id: number
   case_id: number | null
+  intake_id: number | null
   description: string
   due_date: string | null
   completion_date: string | null
@@ -23,6 +24,7 @@ export interface TaskListItem {
   case_name: string | null
   short_name: string | null
   case_color: string | null
+  intake_name: string | null
   event_description: string | null
   event_date: string | null
   has_events: boolean
@@ -37,8 +39,10 @@ export interface TaskListResponse {
 export interface TaskDetail {
   id: number
   case_id: number | null
+  intake_id: number | null
   case_name: string | null
   short_name: string | null
+  intake_name: string | null
   description: string
   due_date: string | null
   completion_date: string | null
@@ -54,6 +58,7 @@ export interface TaskDetail {
 
 export interface GetTasksParams {
   case_id?: number
+  intake_id?: number
   status?: TaskStatus
   exclude_status?: TaskStatus
   urgency?: Urgency

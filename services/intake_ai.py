@@ -207,7 +207,7 @@ def run_background_analysis(intake_id: int) -> None:
         try:
             db.set_ai_analyzing(intake_id, False)
             broadcast({
-                "entity": "intake", "action": "updated",
+                "entity": "intake", "action": "analysis_failed",
                 "id": intake_id, "intake_id": intake_id,
             })
         except Exception:

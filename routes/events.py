@@ -5,12 +5,15 @@ Handles event (calendar items: hearings, depositions, filing deadlines) CRUD ope
 """
 
 import asyncio
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateEventInput, UpdateEventInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from services.ical_export import build_ics_from_events
+from .common import api_error, pydantic_error, clamp_pagination, feature_disabled_error
+from .comments import _get_db_user_id
+from .sse import broadcast
 
 
 def register_event_routes(mcp):
@@ -21,16 +24,13 @@ def register_event_routes(mcp):
         """List events with optional filtering and pagination."""
         if err := auth.require_auth(request):
             return err
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
         include_past = request.query_params.get("include_past", "false").lower() == "true"
         past_days = request.query_params.get("past_days")
         case_id = request.query_params.get("case_id")
         user_id = request.query_params.get("user_id")
         attendee_id = request.query_params.get("attendee_id")
 
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
         past_days = int(past_days) if past_days else 14
         case_id = int(case_id) if case_id else None
         user_id = int(user_id) if user_id else None
@@ -57,20 +57,23 @@ def register_event_routes(mcp):
             data = CreateEventInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
-        result = await asyncio.to_thread(
-            db.add_event,
-            data.case_id,
-            data.date,
-            data.description,
-            data.document_link,
-            data.calculation_note,
-            data.time,
-            data.location,
-            data.starred,
-            data.event_type,
-            data.end_date,
-            data.blocks_calendar,
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.add_event,
+                data.case_id,
+                data.date,
+                data.description,
+                data.document_link,
+                data.calculation_note,
+                data.time,
+                data.location,
+                data.starred,
+                data.event_type,
+                data.end_date,
+                data.blocks_calendar,
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
 
         # System comment for event creation
         user = auth.get_current_user(request)
@@ -78,10 +81,11 @@ def register_event_routes(mcp):
             name = f"{user['firstName']} {user['lastName']}"
             desc = data.description[:80] + ("..." if len(data.description) > 80 else "")
             await asyncio.to_thread(
-                db.add_case_comment, data.case_id, user["id"],
+                db.add_case_comment, data.case_id, _get_db_user_id(user),
                 f'{name} added event: "{desc}"', True,
             )
 
+        broadcast({"entity": "event", "action": "created", "id": result.get("id"), "case_id": data.case_id})
         return JSONResponse({"success": True, "event": result})
 
     @mcp.custom_route("/api/v1/events/search", methods=["GET"])
@@ -103,6 +107,49 @@ def register_event_routes(mcp):
             limit=limit
         )
         return JSONResponse({"events": events})
+
+    @mcp.custom_route("/api/v1/events/export.ics", methods=["POST"])
+    async def api_export_events_ics(request):
+        """Export selected events as an iCalendar (.ics) file.
+
+        Body: {"event_ids": [int, ...]} — events to include. If omitted/empty,
+        falls back to the next 365 days for the authenticated user's cases.
+        """
+        if err := auth.require_auth(request):
+            return err
+        body = {}
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+        event_ids = body.get("event_ids") or []
+
+        if event_ids:
+            events = await asyncio.to_thread(
+                lambda: [db.get_event_by_id(int(eid)) for eid in event_ids]
+            )
+            events = [e for e in events if e]
+        else:
+            # Fallback: this user's events, ±365 days
+            user = auth.get_current_user(request)
+            user_id = _get_db_user_id(user) if user else None
+            result = await asyncio.to_thread(
+                db.get_upcoming_events,
+                limit=1000,
+                include_past=True,
+                past_days=365,
+                user_id=user_id,
+            )
+            events = result.get("events", [])
+
+        ics_text = build_ics_from_events(events)
+        return Response(
+            content=ics_text,
+            media_type="text/calendar",
+            headers={
+                "Content-Disposition": 'attachment; filename="galipo-events.ics"'
+            },
+        )
 
     @mcp.custom_route("/api/v1/events/{event_id}", methods=["GET"])
     async def api_get_event(request):
@@ -126,9 +173,13 @@ def register_event_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
         updates = data.model_dump(exclude_none=True)
-        result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Event not found", "NOT_FOUND", 404)
+        broadcast({"entity": "event", "action": "updated", "id": event_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "event": result})
 
     @mcp.custom_route("/api/v1/events/{event_id}/tasks", methods=["GET"])
@@ -146,8 +197,12 @@ def register_event_routes(mcp):
         if err := auth.require_auth(request):
             return err
         event_id = int(request.path_params["event_id"])
-        deleted = await asyncio.to_thread(db.delete_event, event_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_event, event_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if deleted:
+            broadcast({"entity": "event", "action": "deleted", "id": event_id})
             return JSONResponse({"success": True})
         return api_error("Event not found", "NOT_FOUND", 404)
 
@@ -171,7 +226,10 @@ def register_event_routes(mcp):
             return err
         event_id = int(request.path_params["event_id"])
         user_id = int(request.path_params["user_id"])
-        result = await asyncio.to_thread(db.add_event_attendee, event_id, user_id)
+        try:
+            result = await asyncio.to_thread(db.add_event_attendee, event_id, user_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result.get("success"):
             return api_error(result.get("error", "Failed to add attendee"), "ADD_FAILED", 400)
         return JSONResponse({"success": True, "data": result})
@@ -183,7 +241,10 @@ def register_event_routes(mcp):
             return err
         event_id = int(request.path_params["event_id"])
         user_id = int(request.path_params["user_id"])
-        result = await asyncio.to_thread(db.remove_event_attendee, event_id, user_id)
+        try:
+            result = await asyncio.to_thread(db.remove_event_attendee, event_id, user_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result.get("success"):
             return api_error(result.get("error", "Failed to remove attendee"), "REMOVE_FAILED", 400)
         return JSONResponse({"success": True, "data": result})

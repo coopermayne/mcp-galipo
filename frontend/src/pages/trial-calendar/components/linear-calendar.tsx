@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import type { TrialCalendarData, BlockingEvent } from "@/services/trial-calendar"
 import { getEventTypeColor, getEventTypeLabel } from "@/lib/event-types"
 import type { StaffMember } from "@/services/staff"
+import { getAvatarStyleById } from "@/lib/badge-colors"
 import {
   normalizeItems,
   mergeBusySpans,
@@ -425,6 +426,11 @@ export function LinearCalendar({
                               <div>
                                 Likelihood: {t.trial_likelihood ?? "?"}%
                               </div>
+                              {t.trial_likelihood_note && (
+                                <div className="italic">
+                                  "{t.trial_likelihood_note}"
+                                </div>
+                              )}
                               {t.case_number && (
                                 <div>#{t.case_number}</div>
                               )}
@@ -461,7 +467,7 @@ export function LinearCalendar({
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="absolute flex items-center overflow-hidden px-1.5 cursor-pointer"
+                              className="absolute flex items-center overflow-hidden px-1.5 cursor-pointer gap-1"
                               style={{
                                 left,
                                 width,
@@ -480,6 +486,32 @@ export function LinearCalendar({
                               <span className="text-[10px] font-medium leading-none text-white truncate">
                                 {ci.item.label}
                               </span>
+                              {ci.item.kind === "trial" && ci.item.trialRaw && (
+                                <>
+                                  {ci.item.trialRaw.jurisdiction_name && (
+                                    <span className="text-[9px] leading-none text-white/70 truncate shrink-0">
+                                      {ci.item.trialRaw.jurisdiction_name}
+                                    </span>
+                                  )}
+                                  {ci.item.trialRaw.attorney_ids.length > 0 && (
+                                    <span className="flex gap-px shrink-0">
+                                      {ci.item.trialRaw.attorney_ids.map((id) => {
+                                        const s = staffMap.get(id)
+                                        if (!s) return null
+                                        return (
+                                          <span
+                                            key={id}
+                                            className="inline-flex size-4 items-center justify-center text-[8px] font-medium leading-none"
+                                            style={getAvatarStyleById(id)}
+                                          >
+                                            {s.initials}
+                                          </span>
+                                        )
+                                      })}
+                                    </span>
+                                  )}
+                                </>
+                              )}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent

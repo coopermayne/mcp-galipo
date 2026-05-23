@@ -49,7 +49,11 @@ export async function getCaseCounts(
 
 export async function getCase(id: number): Promise<CaseDetail> {
   const res = await apiFetch(`/api/v1/cases/${id}`)
-  if (!res.ok) throw new Error("Failed to fetch case")
+  if (!res.ok) {
+    const err = new Error("Failed to fetch case") as Error & { status: number }
+    err.status = res.status
+    throw err
+  }
   return res.json()
 }
 
@@ -81,6 +85,7 @@ export type UpdateCaseData = Partial<CreateCaseData> & {
   trial_likelihood?: number | null
   trial_likelihood_note?: string | null
   trial_estimated_days?: number | null
+  feature_toggles?: Record<string, boolean> | null
 }
 
 export async function updateCase(

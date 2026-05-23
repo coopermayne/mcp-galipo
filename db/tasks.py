@@ -14,7 +14,11 @@ from .connection import _NOT_PROVIDED
 from .validation import (
     validate_task_status, validate_urgency, validate_date_format
 )
-from models import Task, Case, Event, User
+from .feature_gates import (
+    FEATURE_TASKS, feature_enabled_filter, require_feature_for_case,
+    is_feature_enabled,
+)
+from models import Task, Case, Event, User, Intake
 from schemas import TaskOut, UserBriefOut, TaskDetailOut
 
 
@@ -29,12 +33,14 @@ def _assignee_dict(user: User) -> dict:
 
 
 def _task_with_relations(task: Task, case: Case, event: Event = None,
-                         assignee: User = None, has_events: bool = False) -> dict:
+                         assignee: User = None, has_events: bool = False,
+                         intake: Intake = None) -> dict:
     """Build a full task dict with joined relations."""
     d = _task_to_dict(task)
     d["case_name"] = case.case_name if case else None
     d["short_name"] = case.short_name if case else None
     d["case_color"] = case.color if case else None
+    d["intake_name"] = intake.name if intake else None
     d["event_description"] = event.description if event else None
     d["event_date"] = event.date.isoformat() if event and event.date else None
     d["has_events"] = has_events
@@ -44,7 +50,8 @@ def _task_with_relations(task: Task, case: Case, event: Event = None,
 
 def add_task(case_id: int = None, description: str = "", due_date: str = None,
              status: str = "Pending", urgency: str = "Medium", event_id: int = None,
-             assignee_id: int = None, completion_date: str = None) -> dict:
+             assignee_id: int = None, completion_date: str = None,
+             intake_id: int = None) -> dict:
     """Add a task, optionally associated with a case."""
     validate_task_status(status)
     validate_urgency(urgency)
@@ -52,6 +59,8 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
     validate_date_format(completion_date, "completion_date")
 
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_TASKS)
+
         # Get max sort_order and add 1000 for new task
         max_order = session.scalar(
             select(func.coalesce(func.max(Task.sort_order), 0))
@@ -60,6 +69,7 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
 
         task = Task(
             case_id=case_id,
+            intake_id=intake_id,
             description=description,
             due_date=due_date,
             status=status,
@@ -86,7 +96,7 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: str = None, due_date_from: str = None, due_date_to: str = None,
               limit: int = None, offset: int = None, assignee_id: int = None,
-              user_id: int = None) -> dict:
+              user_id: int = None, intake_id: int = None) -> dict:
     """Get tasks with optional filters."""
     # Validate filters
     if status_filter:
@@ -108,16 +118,21 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
 
     # Build main query with all joins
     stmt = (
-        select(Task, Case, Event, User, has_events_sq.label("has_events"))
+        select(Task, Case, Event, User, Intake, has_events_sq.label("has_events"))
         .outerjoin(Case, Task.case_id == Case.id)
         .outerjoin(Event, Task.event_id == Event.id)
         .outerjoin(User, Task.assignee_id == User.id)
+        .outerjoin(Intake, Task.intake_id == Intake.id)
         .order_by(Task.sort_order.asc())
     )
 
     # Apply filters
+    feature_clause = feature_enabled_filter(FEATURE_TASKS, Task.case_id)
     if case_id:
         stmt = stmt.where(Task.case_id == case_id)
+    if intake_id:
+        stmt = stmt.where(Task.intake_id == intake_id)
+    stmt = stmt.where(feature_clause)
     if status_filter:
         stmt = stmt.where(Task.status == status_filter)
     if exclude_status:
@@ -144,6 +159,9 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         count_base = select(Task.id).outerjoin(Case, Task.case_id == Case.id)
         if case_id:
             count_base = count_base.where(Task.case_id == case_id)
+        if intake_id:
+            count_base = count_base.where(Task.intake_id == intake_id)
+        count_base = count_base.where(feature_clause)
         if status_filter:
             count_base = count_base.where(Task.status == status_filter)
         if exclude_status:
@@ -173,8 +191,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
 
         rows = session.execute(stmt).all()
         tasks = [
-            _task_with_relations(task, case, event, assignee, has_ev)
-            for task, case, event, assignee, has_ev in rows
+            _task_with_relations(task, case, event, assignee, has_ev, intake)
+            for task, case, event, assignee, intake, has_ev in rows
         ]
         return {"tasks": tasks, "total": total}
 
@@ -193,6 +211,7 @@ def update_task(task_id: int, status: str = None, urgency: str = None) -> Option
         task = session.get(Task, task_id)
         if not task:
             return None
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
 
         if status:
             task.status = status
@@ -222,6 +241,7 @@ def update_task_full(task_id: int, description: str = _NOT_PROVIDED, due_date: s
         task = session.get(Task, task_id)
         if not task:
             return None
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
 
         if description is not _NOT_PROVIDED:
             task.description = description
@@ -282,13 +302,19 @@ def delete_task(task_id: int) -> bool:
         task = session.get(Task, task_id)
         if not task:
             return False
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
         session.delete(task)
         session.commit()
         return True
 
 
 def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
-    """Update status for multiple tasks."""
+    """Update status for multiple tasks.
+
+    Tasks belonging to cases with the tasks feature disabled are silently
+    skipped — they're not visible to the user, so they're treated as
+    non-existent for this operation.
+    """
     validate_task_status(status)
     with SessionLocal() as session:
         values = {"status": status}
@@ -297,7 +323,12 @@ def bulk_update_tasks(task_ids: List[int], status: str) -> dict:
         else:
             values["completion_date"] = None
 
-        stmt = update(Task).where(Task.id.in_(task_ids)).values(**values)
+        stmt = (
+            update(Task)
+            .where(Task.id.in_(task_ids))
+            .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
+            .values(**values)
+        )
         result = session.execute(stmt)
         session.commit()
         return {"updated": result.rowcount}
@@ -310,6 +341,7 @@ def bulk_update_tasks_for_case(case_id: int, status: str, current_status: str = 
         validate_task_status(current_status)
 
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_TASKS)
         values = {"status": status}
         if status == "Done":
             values["completion_date"] = datetime.date.today()
@@ -331,6 +363,7 @@ def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
 
     If task_ids is provided, only those tasks are updated (scoped to the user's
     current view).  Otherwise all overdue incomplete tasks are updated.
+    Tasks on cases with the tasks feature disabled are skipped.
     """
     validate_date_format(new_date, "new_date")
 
@@ -338,6 +371,7 @@ def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
         stmt = (
             update(Task)
             .where(Task.due_date < func.current_date(), Task.status != "Done")
+            .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
             .values(due_date=new_date)
         )
         if task_ids:
@@ -367,14 +401,16 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
     )
 
     stmt = (
-        select(Task, Case, Event, User, has_events_sq.label("has_events"))
+        select(Task, Case, Event, User, Intake, has_events_sq.label("has_events"))
         .outerjoin(Case, Task.case_id == Case.id)
         .outerjoin(Event, Task.event_id == Event.id)
         .outerjoin(User, Task.assignee_id == User.id)
+        .outerjoin(Intake, Task.intake_id == Intake.id)
         .order_by(Task.sort_order.asc())
         .limit(limit)
     )
 
+    stmt = stmt.where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
     if query:
         stmt = stmt.where(Task.description.ilike(f"%{query}%"))
     if case_id:
@@ -401,8 +437,8 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
     with SessionLocal() as session:
         rows = session.execute(stmt).all()
         return [
-            _task_with_relations(task, case, event, assignee, has_ev)
-            for task, case, event, assignee, has_ev in rows
+            _task_with_relations(task, case, event, assignee, has_ev, intake)
+            for task, case, event, assignee, intake, has_ev in rows
         ]
 
 
@@ -410,19 +446,23 @@ def get_task_detail(task_id: int) -> Optional[dict]:
     """Get a single task with case and assignee info for the detail view."""
     with SessionLocal() as session:
         stmt = (
-            select(Task, Case, User)
+            select(Task, Case, User, Intake)
             .outerjoin(Case, Task.case_id == Case.id)
             .outerjoin(User, Task.assignee_id == User.id)
+            .outerjoin(Intake, Task.intake_id == Intake.id)
             .where(Task.id == task_id)
         )
         row = session.execute(stmt).first()
         if not row:
             return None
-        task, case, user = row
+        task, case, user, intake = row
+        if task.case_id is not None and not is_feature_enabled(session, task.case_id, FEATURE_TASKS):
+            return None
         return TaskDetailOut(
-            id=task.id, case_id=task.case_id,
+            id=task.id, case_id=task.case_id, intake_id=task.intake_id,
             case_name=case.case_name if case else None,
             short_name=case.short_name if case else None,
+            intake_name=intake.name if intake else None,
             description=task.description,
             due_date=task.due_date, completion_date=task.completion_date,
             status=task.status, urgency=task.urgency,
@@ -443,6 +483,7 @@ def reorder_task(task_id: int, new_sort_order: int, new_urgency: str = None) -> 
         task = session.get(Task, task_id)
         if not task:
             return None
+        require_feature_for_case(session, task.case_id, FEATURE_TASKS)
 
         task.sort_order = new_sort_order
         if new_urgency is not None:

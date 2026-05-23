@@ -94,6 +94,7 @@ class Intake(Base):
 
     # Relationships
     comments: Mapped[list[IntakeComment]] = relationship(back_populates="intake")
+    tasks: Mapped[list[Task]] = relationship(back_populates="intake")
 
 
 class IntakeComment(Base):
@@ -303,6 +304,11 @@ class Case(Base):
     # When populated, the JSONB document is the source of truth and supports
     # N parties, phases, and caps. See db/cost_sharing.py.
     cost_sharing_config: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
+    # Per-case visibility toggles for optional page sections (tasks, events,
+    # financials, costs, etc.). When NULL or a key is missing, the section is
+    # OFF. Shared across the team — turning a section on shows it for everyone.
+    feature_toggles: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
@@ -806,9 +812,16 @@ class Task(Base):
             ondelete="SET NULL",
             name="tasks_deadline_id_fkey",
         ),
+        ForeignKeyConstraint(
+            ["intake_id"],
+            ["intakes.id"],
+            ondelete="SET NULL",
+            name="tasks_intake_id_fkey",
+        ),
         PrimaryKeyConstraint("id", name="tasks_pkey"),
         Index("idx_tasks_assignee_id", "assignee_id"),
         Index("idx_tasks_case_id", "case_id"),
+        Index("idx_tasks_intake_id", "intake_id"),
         Index("idx_tasks_sort_order", "sort_order"),
         Index("idx_tasks_status", "status"),
     )
@@ -834,6 +847,7 @@ class Task(Base):
     docket_category: Mapped[Optional[str]] = mapped_column(String(20))
     docket_order: Mapped[Optional[int]] = mapped_column(Integer)
     assignee_id: Mapped[Optional[int]] = mapped_column(Integer)
+    intake_id: Mapped[Optional[int]] = mapped_column(Integer)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
@@ -842,6 +856,7 @@ class Task(Base):
     assignee: Mapped[Optional[User]] = relationship(back_populates="tasks")
     case: Mapped[Optional[Case]] = relationship(back_populates="tasks")
     event: Mapped[Optional[Event]] = relationship(back_populates="tasks")
+    intake: Mapped[Optional[Intake]] = relationship(back_populates="tasks")
     webhook_logs: Mapped[list[WebhookLog]] = relationship(back_populates="task")
 
 
@@ -902,6 +917,7 @@ class SmsMessage(Base):
         PrimaryKeyConstraint("id", name="sms_messages_pkey"),
         Index("idx_sms_messages_conversation_id", "conversation_id"),
         Index("idx_sms_messages_created_at", "created_at"),
+        Index("idx_sms_messages_twilio_sid", "twilio_sid"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

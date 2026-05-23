@@ -12,6 +12,7 @@ const descriptions: Record<string, string> = {
   "All Cases": "Browse every case in the firm",
   Tasks: "Track to-dos and assignments",
   Calendar: "Deadlines, hearings, and events",
+  "Trial Calendar": "View upcoming trials and find open dates",
   Financials: "Case costs, liens, and settlements",
   Invoices: "Manage invoices and payees",
   Contacts: "Clients, counsel, experts, and more",
@@ -31,6 +32,9 @@ export default function DashboardPage() {
       .map((group) => {
         if (group.label === "Admin" && !user?.isAdmin) return null
         const items = group.items.filter((item) => {
+          if (item.positions && !(user?.position && item.positions.includes(user.position))) {
+            return false
+          }
           if (!item.featureKey) return group.label === "Admin" ? user?.isAdmin : true
           if (user?.visibleFeatures == null) return true
           return user.visibleFeatures.includes(item.featureKey)

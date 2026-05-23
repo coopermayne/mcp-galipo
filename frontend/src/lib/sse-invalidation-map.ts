@@ -56,6 +56,44 @@ export const INVALIDATION_MAP: Record<
   sms_conversation: () => {
     return ["sms-conversations"]
   },
+
+  case: (event) => {
+    const keys: (string | (string | number)[])[] = ["cases", "case-counts"]
+    if (event.id) keys.push(["case", event.id])
+    return keys
+  },
+
+  task: (event) => {
+    const keys: (string | (string | number)[])[] = ["tasks"]
+    if (event.id) keys.push(["task", event.id])
+    if (event.case_id) keys.push(["case", event.case_id])
+    return keys
+  },
+
+  event: (event) => {
+    const keys: (string | (string | number)[])[] = ["events", "trial-calendar"]
+    if (event.id) keys.push(["event", event.id])
+    if (event.case_id) keys.push(["case", event.case_id])
+    return keys
+  },
+
+  invoice: (event) => {
+    const keys: (string | (string | number)[])[] = ["invoices", "invoice-stats"]
+    if (event.case_id) keys.push(["case-costs", event.case_id])
+    return keys
+  },
+
+  financial: (event) => {
+    const keys: (string | (string | number)[])[] = ["financials", "financial-counts"]
+    if (event.case_id) keys.push(["case-financial", event.case_id])
+    return keys
+  },
+
+  person: () => ["persons"],
+
+  judge: () => ["judges"],
+
+  user: () => ["users"],
 }
 
 /**
@@ -64,7 +102,7 @@ export const INVALIDATION_MAP: Record<
  * async background work like AI analysis and external syncs where the
  * initiating user's mutation handler can't predict the result.
  */
-const SERVER_SIDE_ACTIONS = new Set(["analyzed", "analyzing", "synced", "received"])
+const SERVER_SIDE_ACTIONS = new Set(["analyzed", "analyzing", "analysis_failed", "synced", "received"])
 
 export function isServerSideAction(action: string): boolean {
   return SERVER_SIDE_ACTIONS.has(action)

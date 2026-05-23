@@ -68,6 +68,30 @@ export interface CaseDetail {
   tasks: CaseTask[]
   notes: string | null
   proceedings: CaseProceeding[]
+  feature_toggles: CaseFeatureToggles | null
+  feature_data_counts?: Record<CaseFeatureKey, number>
+}
+
+export type CaseFeatureKey = "tasks" | "events" | "financials" | "costs"
+
+export type CaseFeatureToggles = Partial<Record<CaseFeatureKey, boolean>>
+
+export const CASE_FEATURE_DEFINITIONS: {
+  key: CaseFeatureKey
+  label: string
+  description: string
+}[] = [
+  { key: "tasks", label: "Tasks", description: "Track to-dos on this case" },
+  { key: "events", label: "Events", description: "Calendar dates and deadlines" },
+  { key: "financials", label: "Financials", description: "Settlement & disbursement summary" },
+  { key: "costs", label: "Costs", description: "Costs/invoices link and totals" },
+]
+
+export function isCaseFeatureEnabled(
+  toggles: CaseFeatureToggles | null | undefined,
+  key: CaseFeatureKey
+): boolean {
+  return toggles?.[key] === true
 }
 
 export interface CaseStaffUser {

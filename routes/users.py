@@ -16,6 +16,7 @@ from db.users import (
     update_password,
 )
 from db.validation import ValidationError
+from .sse import broadcast
 
 
 # Valid positions for users
@@ -158,6 +159,7 @@ def register_user_routes(mcp):
                 must_change_password=data.get("mustChangePassword", True),
                 visible_features=data.get("visibleFeatures"),
             )
+            broadcast({"entity": "user", "action": "created", "id": user.get("id")})
             return JSONResponse({"success": True, "data": _user_to_camel(user)}, status_code=201)
         except Exception as e:
             return JSONResponse(
@@ -245,6 +247,7 @@ def register_user_routes(mcp):
                 update_data["visible_features"] = data["visibleFeatures"]
 
             user = update_user(user_id, **update_data)
+            broadcast({"entity": "user", "action": "updated", "id": user_id})
             return JSONResponse({"success": True, "data": _user_to_camel(user)})
         except Exception as e:
             return JSONResponse(

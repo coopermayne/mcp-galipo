@@ -10,7 +10,9 @@ from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateCaseInput, UpdateCaseInput, CreateCaseCommentInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination
+from .comments import _get_db_user_id
+from .sse import broadcast
 
 
 def register_case_routes(mcp):
@@ -22,10 +24,7 @@ def register_case_routes(mcp):
         if err := auth.require_auth(request):
             return err
         status = request.query_params.get("status")
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
 
         # Attorney/paralegal filter params
         attorney_ids_param = request.query_params.get("attorney_ids")
@@ -87,6 +86,7 @@ def register_case_routes(mcp):
             claim_deadline=data.claim_deadline,
             complaint_deadline=data.complaint_deadline,
         )
+        broadcast({"entity": "case", "action": "created", "id": result.get("id")})
         return JSONResponse({"success": True, "case": result})
 
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["PUT"])
@@ -108,7 +108,10 @@ def register_case_routes(mcp):
                 old_status = old_case.get("status")
 
         updates = data.model_dump(exclude_unset=True)
-        result = await asyncio.to_thread(db.update_case, case_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_case, case_id, **updates)
+        except db.FeatureHasData as e:
+            return api_error(str(e), "FEATURE_HAS_DATA", 400)
         if not result:
             return api_error("Case not found", "NOT_FOUND", 404)
 
@@ -118,11 +121,12 @@ def register_case_routes(mcp):
             name = f"{user['firstName']} {user['lastName']}" if user else "System"
             await asyncio.to_thread(
                 db.add_case_comment,
-                case_id, user["id"] if user else None,
+                case_id, _get_db_user_id(user),
                 f"{name} changed status from {old_status} to {data.status}",
                 True,
             )
 
+        broadcast({"entity": "case", "action": "updated", "id": case_id})
         return JSONResponse({"success": True, "case": result})
 
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["DELETE"])
@@ -133,6 +137,7 @@ def register_case_routes(mcp):
         case_id = int(request.path_params["case_id"])
         deleted = await asyncio.to_thread(db.delete_case, case_id)
         if deleted:
+            broadcast({"entity": "case", "action": "deleted", "id": case_id})
             return JSONResponse({"success": True})
         return api_error("Case not found", "NOT_FOUND", 404)
 
@@ -185,7 +190,7 @@ def register_case_routes(mcp):
         staff_name = f"{staff['first_name']} {staff['last_name']}" if staff else f"User {user_id}"
         await asyncio.to_thread(
             db.add_case_comment, case_id,
-            current_user["id"] if current_user else None,
+            _get_db_user_id(current_user),
             f"{actor} assigned {staff_name} as Attorney", True,
         )
 
@@ -211,7 +216,7 @@ def register_case_routes(mcp):
         actor = f"{current_user['firstName']} {current_user['lastName']}" if current_user else "System"
         await asyncio.to_thread(
             db.add_case_comment, case_id,
-            current_user["id"] if current_user else None,
+            _get_db_user_id(current_user),
             f"{actor} removed {staff_name} as Attorney", True,
         )
 
@@ -234,7 +239,7 @@ def register_case_routes(mcp):
         staff_name = f"{staff['first_name']} {staff['last_name']}" if staff else f"User {user_id}"
         await asyncio.to_thread(
             db.add_case_comment, case_id,
-            current_user["id"] if current_user else None,
+            _get_db_user_id(current_user),
             f"{actor} assigned {staff_name} as Paralegal", True,
         )
 
@@ -259,7 +264,7 @@ def register_case_routes(mcp):
         actor = f"{current_user['firstName']} {current_user['lastName']}" if current_user else "System"
         await asyncio.to_thread(
             db.add_case_comment, case_id,
-            current_user["id"] if current_user else None,
+            _get_db_user_id(current_user),
             f"{actor} removed {staff_name} as Paralegal", True,
         )
 

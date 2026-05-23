@@ -2,6 +2,7 @@ export interface SSEEvent {
   entity: string
   action: string
   id: number | null
+  case_id?: number | null
   intake_id?: number | null
   conversation_id?: number | null
   entity_type?: string | null

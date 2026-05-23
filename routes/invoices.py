@@ -18,7 +18,8 @@ from schemas import (
     MarkInvoicePaidInput,
     CostSharingConfigInput,
 )
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination, feature_disabled_error
+from .sse import broadcast
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,7 @@ def register_invoice_routes(mcp):
         search = request.query_params.get("search")
         sort_by = request.query_params.get("sort_by", "due_date")
         sort_dir = request.query_params.get("sort_dir", "asc")
-        limit = int(request.query_params.get("limit", str(DEFAULT_PAGE_SIZE)))
-        offset = int(request.query_params.get("offset", "0"))
+        limit, offset = clamp_pagination(request)
 
         inv_type = request.query_params.get("type")
 
@@ -171,9 +171,12 @@ def register_invoice_routes(mcp):
         cost_share_pct = body.get("cost_share_pct")
         if person_id is None or cost_share_pct is None:
             return api_error("person_id and cost_share_pct are required", "VALIDATION_ERROR", 400)
-        result = await asyncio.to_thread(
-            db.set_cost_sharing, case_id, int(person_id), float(cost_share_pct)
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.set_cost_sharing, case_id, int(person_id), float(cost_share_pct)
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         return JSONResponse(result)
 
     @mcp.custom_route("/api/v1/cases/{case_id}/cost-sharing", methods=["DELETE"])
@@ -184,6 +187,8 @@ def register_invoice_routes(mcp):
         try:
             result = await asyncio.to_thread(db.remove_cost_sharing, case_id)
             return JSONResponse(result)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         except ValueError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
@@ -201,6 +206,8 @@ def register_invoice_routes(mcp):
                 db.set_cost_sharing_config, case_id, data.model_dump()
             )
             return JSONResponse(result)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         except ValueError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
@@ -212,6 +219,8 @@ def register_invoice_routes(mcp):
         try:
             result = await asyncio.to_thread(db.remove_cost_sharing_config, case_id)
             return JSONResponse(result)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         except ValueError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
@@ -268,12 +277,16 @@ def register_invoice_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
-        result = await asyncio.to_thread(
-            db.create_invoice,
-            data.case_id,
-            data.amount,
-            **data.model_dump(exclude={"case_id", "amount"}, exclude_none=True),
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.create_invoice,
+                data.case_id,
+                data.amount,
+                **data.model_dump(exclude={"case_id", "amount"}, exclude_none=True),
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
+        broadcast({"entity": "invoice", "action": "created", "id": result.get("id"), "case_id": data.case_id})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}", methods=["PUT"])
@@ -287,9 +300,13 @@ def register_invoice_routes(mcp):
             return pydantic_error(e)
 
         updates = data.model_dump(exclude_unset=True)
-        result = await asyncio.to_thread(db.update_invoice, invoice_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_invoice, invoice_id, **updates)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}/pay", methods=["POST"])
@@ -302,14 +319,18 @@ def register_invoice_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
 
-        result = await asyncio.to_thread(
-            db.mark_invoice_paid,
-            invoice_id,
-            check_number=data.check_number,
-            paid_date=data.paid_date,
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.mark_invoice_paid,
+                invoice_id,
+                check_number=data.check_number,
+                paid_date=data.paid_date,
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}/unpay", methods=["POST"])
@@ -317,9 +338,13 @@ def register_invoice_routes(mcp):
         if err := auth.require_auth(request):
             return err
         invoice_id = int(request.path_params["invoice_id"])
-        result = await asyncio.to_thread(db.mark_invoice_unpaid, invoice_id)
+        try:
+            result = await asyncio.to_thread(db.mark_invoice_unpaid, invoice_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
     @mcp.custom_route("/api/v1/invoices/{invoice_id}", methods=["DELETE"])
@@ -327,8 +352,12 @@ def register_invoice_routes(mcp):
         if err := auth.require_auth(request):
             return err
         invoice_id = int(request.path_params["invoice_id"])
-        deleted = await asyncio.to_thread(db.delete_invoice, invoice_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_invoice, invoice_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if deleted:
+            broadcast({"entity": "invoice", "action": "deleted", "id": invoice_id})
             return JSONResponse({"success": True})
         return api_error("Invoice not found", "NOT_FOUND", 404)
 

@@ -36,8 +36,20 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   { path: "login", element: <LoginPage /> },
+  { path: "admin/dale-link", lazy: lazy(() => import("@/pages/dale-link")) },
+  { path: "dale/auth/:token", lazy: lazy(() => import("@/pages/dale/auth")) },
+  {
+    path: "dale",
+    lazy: lazy(() => import("@/pages/dale/layout")),
+    children: [
+      { index: true, lazy: lazy(() => import("@/pages/dale/cases-list")) },
+      { path: "cases/:caseId", lazy: lazy(() => import("@/pages/dale/case-detail")) },
+      { path: "calendar", lazy: lazy(() => import("@/pages/dale/calendar")) },
+    ],
+  },
   {
     element: <RootLayout />,
+    hydrateFallbackElement: <div />,
     children: [
       { index: true, lazy: lazy(() => import("@/pages/dashboard")) },
       { path: "intakes", lazy: lazy(() => import("@/pages/intakes")) },
@@ -54,6 +66,7 @@ const router = createBrowserRouter([
       { path: "trial-calendar", lazy: lazy(() => import("@/pages/trial-calendar")) },
       { path: "contacts/*", lazy: lazy(() => import("@/pages/contacts")) },
       { path: "judges", lazy: lazy(() => import("@/pages/judges")) },
+      { path: "jurisdictions", lazy: lazy(() => import("@/pages/jurisdictions")) },
       { path: "templates/*", lazy: lazy(() => import("@/pages/templates")) },
       { path: "court-listener", lazy: lazy(() => import("@/pages/court-listener")) },
       { path: "sms", lazy: lazy(() => import("@/pages/sms")) },

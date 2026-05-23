@@ -13,6 +13,9 @@ from sqlalchemy.orm import aliased
 
 from .session import SessionLocal
 from .validation import validate_case_status, validate_date_format, ValidationError
+from .feature_gates import (
+    ALL_FEATURES, FeatureHasData, get_feature_data_counts,
+)
 from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
@@ -217,6 +220,8 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "created_at": _sv(case.created_at),
             "notes": case.notes,
             "updated_at": _sv(case.updated_at),
+            "feature_toggles": case.feature_toggles,
+            "feature_data_counts": get_feature_data_counts(session, case_id),
         }
 
         # Expand attorney_ids to user objects
@@ -278,27 +283,34 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             persons.append(person)
         result["persons"] = persons
 
-        # Events
-        evt_stmt = (
-            select(Event.id, Event.date, Event.time, Event.location,
-                   Event.description, Event.document_link,
-                   Event.calculation_note, Event.starred)
-            .where(Event.case_id == case_id)
-            .order_by(Event.date)
-        )
-        result["events"] = [_row_to_dict(r) for r in session.execute(evt_stmt)]
+        # Events — only included when the feature is enabled for this case
+        toggles = case.feature_toggles or {}
+        if toggles.get("events"):
+            evt_stmt = (
+                select(Event.id, Event.date, Event.time, Event.location,
+                       Event.description, Event.document_link,
+                       Event.calculation_note, Event.starred)
+                .where(Event.case_id == case_id)
+                .order_by(Event.date)
+            )
+            result["events"] = [_row_to_dict(r) for r in session.execute(evt_stmt)]
+        else:
+            result["events"] = []
 
-        # Tasks with event description
-        task_stmt = (
-            select(Task.id, Task.due_date, Task.completion_date, Task.description,
-                   Task.status, Task.urgency, Task.event_id, Task.sort_order,
-                   Task.created_at, Task.updated_at, Task.assignee_id,
-                   Event.description.label("event_description"))
-            .outerjoin(Event, Event.id == Task.event_id)
-            .where(Task.case_id == case_id)
-            .order_by(Task.sort_order.asc())
-        )
-        result["tasks"] = [_row_to_dict(r) for r in session.execute(task_stmt)]
+        # Tasks — only included when the feature is enabled for this case
+        if toggles.get("tasks"):
+            task_stmt = (
+                select(Task.id, Task.due_date, Task.completion_date, Task.description,
+                       Task.status, Task.urgency, Task.event_id, Task.sort_order,
+                       Task.created_at, Task.updated_at, Task.assignee_id,
+                       Event.description.label("event_description"))
+                .outerjoin(Event, Event.id == Task.event_id)
+                .where(Task.case_id == case_id)
+                .order_by(Task.sort_order.asc())
+            )
+            result["tasks"] = [_row_to_dict(r) for r in session.execute(task_stmt)]
+        else:
+            result["tasks"] = []
 
         # Proceedings with jurisdiction
         proc_stmt = (
@@ -428,12 +440,14 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         "trial_date", "proposed_trial_dates",
         "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "claim_deadline", "complaint_deadline",
+        "feature_toggles",
     ]
 
     nullable_fields = {
         "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline",
         "proposed_trial_dates", "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "notes", "result", "case_summary",
+        "feature_toggles",
     }
 
     with SessionLocal() as session:
@@ -441,7 +455,19 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         if not case:
             return None
 
-        # Auto-default SOL deadlines when DOI is set/changed
+        if "feature_toggles" in kwargs and kwargs["feature_toggles"] is not None:
+            next_toggles = kwargs["feature_toggles"] or {}
+            current_toggles = case.feature_toggles or {}
+            counts = None
+            for feat in ALL_FEATURES:
+                was_on = bool(current_toggles.get(feat))
+                will_be_on = bool(next_toggles.get(feat))
+                if was_on and not will_be_on:
+                    if counts is None:
+                        counts = get_feature_data_counts(session, case_id)
+                    if counts[feat] > 0:
+                        raise FeatureHasData(case_id, feat, counts[feat])
+
         if "date_of_injury" in kwargs:
             doi_val = kwargs["date_of_injury"]
             if doi_val and doi_val != "":

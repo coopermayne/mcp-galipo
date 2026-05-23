@@ -10,8 +10,6 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { updateTask, rescheduleOverdueTasks } from "@/services/tasks"
 import { getUnreadCounts } from "@/services/comments"
@@ -46,7 +44,6 @@ export function TaskListView({
 }: TaskListViewProps) {
   const queryClient = useQueryClient()
   const [selectedTask, setSelectedTask] = useState<TaskListItemType | null>(null)
-  const [rescheduleOpen, setRescheduleOpen] = useState(false)
 
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks])
 
@@ -135,39 +132,22 @@ export function TaskListView({
                   </span>
                 </CollapsibleTrigger>
                 {group.key === "overdue" && (
-                  <Popover open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-[11px] text-muted-foreground hover:text-foreground mr-3 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Reschedule all
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0"
-                      align="end"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Calendar
-                        mode="single"
-                        defaultMonth={new Date()}
-                        disabled={{ before: new Date() }}
-                        onSelect={(date) => {
-                          if (!date) return
-                          const y = date.getFullYear()
-                          const m = String(date.getMonth() + 1).padStart(2, "0")
-                          const d = String(date.getDate()).padStart(2, "0")
-                          const iso = `${y}-${m}-${d}`
-                          const taskIds = group.tasks.map((t) => t.id)
-                          rescheduleMutation.mutate({ date: iso, taskIds })
-                          setRescheduleOpen(false)
-                        }}
-                        className="p-2.5"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <button
+                    type="button"
+                    className="text-[11px] text-muted-foreground hover:text-foreground mr-3 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const today = new Date()
+                      const y = today.getFullYear()
+                      const m = String(today.getMonth() + 1).padStart(2, "0")
+                      const d = String(today.getDate()).padStart(2, "0")
+                      const iso = `${y}-${m}-${d}`
+                      const taskIds = group.tasks.map((t) => t.id)
+                      rescheduleMutation.mutate({ date: iso, taskIds })
+                    }}
+                  >
+                    Reschedule all
+                  </button>
                 )}
               </div>
               <CollapsibleContent>

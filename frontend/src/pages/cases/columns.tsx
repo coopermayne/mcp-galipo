@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { EyeIcon } from "@hugeicons/core-free-icons"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
-import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
+import { StatusSelectCell } from "@/pages/cases/components/status-select-cell"
 import { TrialEditCell } from "@/pages/cases/components/trial-edit-cell"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 
@@ -182,7 +182,7 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Status" />
       ),
-      cell: ({ row }) => <CaseStatusBadge status={row.original.status} />,
+      cell: ({ row }) => <StatusSelectCell caseId={row.original.id} status={row.original.status} />,
       filterFn: (row, id, value: string[]) => {
         if (!value?.length) return true
         return value.includes(row.getValue(id) as string)

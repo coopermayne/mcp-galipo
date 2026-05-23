@@ -8,6 +8,5 @@ frontend/dist
 media
 _frontend_old
 docs
-scripts
 *.md
 .claude
