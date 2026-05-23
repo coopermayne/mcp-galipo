@@ -670,6 +670,9 @@ def seed_dev_data():
             kwargs["trial_date"] = c["trial_date"]
         case = db.create_case(**kwargs)
         case_id = case["id"]
+        db.update_case(case_id, feature_toggles={
+            "tasks": True, "events": True, "financials": True, "costs": True,
+        })
         created_cases.append({"id": case_id, "name": c["case_name"], "short": c["short_name"], "data": c})
 
         client = find_person(c["client"])
