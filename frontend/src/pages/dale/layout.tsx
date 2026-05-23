@@ -6,8 +6,10 @@ import {
   Calendar03Icon,
 } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
+import { usePageTracking } from "@/hooks/use-page-tracking"
 
 export default function DaleLayout() {
+  usePageTracking()
   const [hasToken, setHasToken] = useState(() => !!localStorage.getItem("token"))
 
   // If the global auth context clears the token (e.g. on a 401), bounce to a
