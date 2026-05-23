@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import type { TrialCalendarData, BlockingEvent } from "@/services/trial-calendar"
 import { getEventTypeColor, getEventTypeLabel } from "@/lib/event-types"
 import type { StaffMember } from "@/services/staff"
+import { getAvatarStyleById } from "@/lib/badge-colors"
 import {
   normalizeItems,
   mergeBusySpans,
@@ -218,13 +219,6 @@ export function LinearCalendar({
       .filter(Boolean)
       .map((s) => `${s!.firstName} ${s!.lastName}`)
       .join(", ")
-
-  const attyInitials = (ids: number[]) =>
-    ids
-      .map((id) => staffMap.get(id))
-      .filter(Boolean)
-      .map((s) => s!.initials)
-      .join("/")
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -500,8 +494,20 @@ export function LinearCalendar({
                                     </span>
                                   )}
                                   {ci.item.trialRaw.attorney_ids.length > 0 && (
-                                    <span className="text-[9px] leading-none text-white/70 shrink-0">
-                                      {attyInitials(ci.item.trialRaw.attorney_ids)}
+                                    <span className="flex gap-px shrink-0">
+                                      {ci.item.trialRaw.attorney_ids.map((id) => {
+                                        const s = staffMap.get(id)
+                                        if (!s) return null
+                                        return (
+                                          <span
+                                            key={id}
+                                            className="inline-flex size-4 items-center justify-center text-[8px] font-medium leading-none"
+                                            style={getAvatarStyleById(id)}
+                                          >
+                                            {s.initials}
+                                          </span>
+                                        )
+                                      })}
                                     </span>
                                   )}
                                 </>
