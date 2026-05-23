@@ -12,6 +12,8 @@ import logging
 from typing import Optional
 from anthropic import Anthropic
 
+from db.token_usage import record_usage_from_message
+
 _logger = logging.getLogger("services.rfp_extractor")
 
 
@@ -183,6 +185,10 @@ IMPORTANT: Also generate a response_document_title — this is the title for the
             ]
         )
         _log_usage("extract_info", message)
+        record_usage_from_message(
+            source="rfp_extractor", request_type="extract_info",
+            model=self.model, message=message,
+        )
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_rfp_info":
@@ -217,6 +223,10 @@ Extract ALL requests found in the document.""",
             ]
         )
         _log_usage("extract_requests", message)
+        record_usage_from_message(
+            source="rfp_extractor", request_type="extract_requests",
+            model=self.model, message=message,
+        )
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_rfp_requests":
@@ -263,6 +273,10 @@ Be judicious — only suggest objections that are genuinely applicable. Most req
             ]
         )
         _log_usage("analyze", message)
+        record_usage_from_message(
+            source="rfp_extractor", request_type="analyze",
+            model=self.model, message=message,
+        )
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_analysis":

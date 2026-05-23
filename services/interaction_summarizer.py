@@ -10,6 +10,8 @@ from typing import Optional
 
 from anthropic import Anthropic
 
+from db.token_usage import record_usage_from_message
+
 
 SYSTEM_PROMPT = """You are a legal assistant summarizing a logged interaction for a personal injury intake.
 
@@ -76,6 +78,10 @@ def summarize_interaction(
         max_tokens=256,
         system=system,
         messages=[{"role": "user", "content": user_msg}],
+    )
+    record_usage_from_message(
+        source="interaction_summarizer", request_type="summarize_interaction",
+        model=settings.extraction_model, message=message,
     )
 
     return message.content[0].text.strip()

@@ -8,6 +8,8 @@ import os
 from anthropic import Anthropic
 from typing import Optional
 
+from db.token_usage import record_usage_from_message
+
 
 # Tool definition for case info extraction
 EXTRACT_CASE_INFO_TOOL = {
@@ -154,6 +156,10 @@ class CaseExtractor:
                 }
             ]
         )
+        record_usage_from_message(
+            source="case_extractor", request_type="extract_case_info",
+            model=self.model, message=message,
+        )
 
         # Find the tool use block
         for block in message.content:
@@ -273,6 +279,10 @@ Use the submit_document_name tool."""
                 }
             ]
         )
+        record_usage_from_message(
+            source="case_extractor", request_type="improve_document_name",
+            model=self.model, message=message,
+        )
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_document_name":
@@ -324,6 +334,10 @@ Use the submit_filename tool."""
             messages=[
                 {"role": "user", "content": prompt}
             ]
+        )
+        record_usage_from_message(
+            source="case_extractor", request_type="generate_filename",
+            model=self.model, message=message,
         )
 
         for block in message.content:
