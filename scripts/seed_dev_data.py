@@ -33,9 +33,33 @@ import db
 
 
 def seed_dev_data():
-    """Seed the database with development mock data."""
+    """Seed the database with development mock data.
+
+    Clears all entity data first (keeps users and lookup tables),
+    so it's safe to run on every deploy without duplicating data.
+    """
 
     print("Seeding development data...")
+
+    from db.session import SessionLocal
+    from sqlalchemy import select, text
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from models import User
+
+    # Clear existing entity data first to prevent duplicates on re-deploy
+    print("  Clearing existing entity data...")
+    with SessionLocal() as session:
+        # TRUNCATE CASCADE handles FK dependencies
+        session.execute(text("""
+            TRUNCATE TABLE
+                cases, persons, judges, proceedings, proceeding_judges,
+                events, tasks, notes, person_roles, intakes, intake_comments,
+                payees, invoices, liens, case_financials, case_counsel_fees,
+                webhook_logs, case_comments, sms_conversations
+            CASCADE
+        """))
+        session.commit()
+    print("  Entity data cleared.")
 
     print("  Seeding lookup tables...")
     db.seed_db()
@@ -44,11 +68,6 @@ def seed_dev_data():
     # Seed all firm users explicitly (db.seed_db -> seed_dev_users only works on
     # localhost databases; this ensures users exist on remote staging too).
     print("  Creating users...")
-
-    from db.session import SessionLocal
-    from sqlalchemy import select
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
-    from models import User
 
     SEED_PASSWORD = "home3232"
     password_hash = db.hash_password(SEED_PASSWORD)
@@ -74,7 +93,6 @@ def seed_dev_data():
 
     user_ids = {}
     with SessionLocal() as session:
-        from sqlalchemy import text
         for user in FIRM_USERS:
             stmt = pg_insert(User).values(
                 email=user["email"].lower(),
