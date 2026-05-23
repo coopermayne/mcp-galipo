@@ -79,12 +79,19 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                               <SidebarSeparator className="my-1" />
                             )}
                             <SidebarMenuSubButton
-                              asChild
-                              isActive={isActive(subItem.url, pathname)}
+                              asChild={!subItem.disabled}
+                              isActive={!subItem.disabled && isActive(subItem.url, pathname)}
+                              className={subItem.disabled ? "opacity-50 pointer-events-none" : ""}
                             >
-                              <Link to={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </Link>
+                              {subItem.disabled ? (
+                                <span className="flex items-center gap-2">
+                                  <span>{subItem.title}</span>
+                                </span>
+                              ) : (
+                                <Link to={subItem.url}>
+                                  <span>{subItem.title}</span>
+                                </Link>
+                              )}
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}

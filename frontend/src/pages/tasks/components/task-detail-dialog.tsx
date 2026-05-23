@@ -115,7 +115,7 @@ export function TaskDetailDialog({
           isPending={deleteMutation.isPending}
         />
         <DialogHeader>
-          {/* Case badge */}
+          {/* Case or intake badge */}
           {task.short_name && (
             <Button
               variant="ghost"
@@ -131,6 +131,21 @@ export function TaskDetailDialog({
                 style={getBadgeStyle(task.case_color)}
               >
                 {task.short_name}
+              </Badge>
+            </Button>
+          )}
+          {!task.case_id && task.intake_id && task.intake_name && (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => {
+                onOpenChange(false)
+                navigate(`/intakes/${task.intake_id}`)
+              }}
+              className="w-fit h-auto p-0 border-0"
+            >
+              <Badge variant="secondary" className="hover:opacity-80 transition-opacity">
+                Intake: {task.intake_name}
               </Badge>
             </Button>
           )}

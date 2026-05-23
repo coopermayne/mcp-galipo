@@ -34,6 +34,7 @@ interface AiChatSheetProps {
   emptyStateText: string
   mode: string
   caseContext?: number
+  intakeContext?: number
   toolCompletionRules: ToolCompletionRule[]
   /** Optional custom render for tool indicators */
   renderToolIndicator?: (tool: ToolActivity) => React.ReactNode
@@ -48,11 +49,12 @@ export function AiChatSheet({
   emptyStateText,
   mode,
   caseContext,
+  intakeContext,
   toolCompletionRules,
   renderToolIndicator,
 }: AiChatSheetProps) {
   const queryClient = useQueryClient()
-  const { messages, send, isStreaming, reset } = useChatStream({ mode, caseContext })
+  const { messages, send, isStreaming, reset } = useChatStream({ mode, caseContext, intakeContext })
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)

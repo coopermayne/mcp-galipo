@@ -239,6 +239,41 @@ def validate_file_token(token: str, expected_path: str) -> bool:
         return False
 
 
+DALE_BOOTSTRAP_EXPIRY_DAYS = 3650  # 10 years
+
+
+def create_dale_bootstrap_token(user_id: int) -> str:
+    """Create a long-lived JWT used as the home-screen URL token for the "Dale view".
+
+    This token's only purpose is to bootstrap a normal session — it cannot be
+    used as a session token itself. The home-screen icon points at
+    /dale/auth/<this-token> so that even if localStorage is wiped, tapping
+    the icon re-creates a session.
+    """
+    expiry = datetime.now(timezone.utc) + timedelta(days=DALE_BOOTSTRAP_EXPIRY_DAYS)
+    payload = {
+        "purpose": "dale_bootstrap",
+        "user_id": user_id,
+        "exp": expiry,
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def verify_dale_bootstrap_token(token: str) -> Optional[int]:
+    """Return user_id if the bootstrap token is valid, else None."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("purpose") != "dale_bootstrap":
+            return None
+        user_id = payload.get("user_id")
+        if not isinstance(user_id, int) or user_id <= 0:
+            return None
+        return user_id
+    except jwt.InvalidTokenError:
+        return None
+
+
 def get_token_from_request(request) -> Optional[str]:
     """Extract Bearer token from Authorization header."""
     auth_header = request.headers.get("Authorization", "")

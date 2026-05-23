@@ -11,6 +11,8 @@ from sqlalchemy.exc import IntegrityError
 import db
 import auth
 from .common import api_error
+from .comments import _get_db_user_id
+from .sse import broadcast
 
 
 def register_person_routes(mcp):
@@ -67,6 +69,7 @@ def register_person_routes(mcp):
                 organization=data.get("organization"),
                 notes=data.get("notes")
             )
+            broadcast({"entity": "person", "action": "created", "id": result.get("id")})
             return JSONResponse({"success": True, "person": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
@@ -164,6 +167,7 @@ def register_person_routes(mcp):
             )
             if not result:
                 return api_error("Person not found", "NOT_FOUND", 404)
+            broadcast({"entity": "person", "action": "updated", "id": person_id})
             return JSONResponse({"success": True, "person": result})
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
@@ -181,6 +185,7 @@ def register_person_routes(mcp):
                 return api_error("Person is still referenced by other records", "FK_VIOLATION", 409)
             raise
         if deleted:
+            broadcast({"entity": "person", "action": "deleted", "id": person_id})
             return JSONResponse({"success": True, "action": "deleted"})
         return api_error("Person not found", "NOT_FOUND", 404)
 
@@ -243,7 +248,7 @@ def register_person_routes(mcp):
                 role = await asyncio.to_thread(db.get_role_by_id, data["role_id"])
                 role_name = role.get("name", "Unknown") if role else "Unknown"
                 await asyncio.to_thread(
-                    db.add_case_comment, case_id, user["id"],
+                    db.add_case_comment, case_id, _get_db_user_id(user),
                     f"{actor} added {person_name} as {role_name}", True,
                 )
 

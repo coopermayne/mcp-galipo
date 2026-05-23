@@ -33,7 +33,9 @@ import { CaseEventsCard } from "@/pages/cases/components/case-events-card"
 import { AddEventDialog } from "@/pages/cases/components/add-event-dialog"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { CaseFinancialsCard } from "@/pages/cases/components/case-financials-card"
+import { CaseFeaturesMenu } from "@/pages/cases/components/case-features-menu"
 import { ListNav } from "@/components/common/list-nav"
+import { isCaseFeatureEnabled } from "@/types/case"
 
 export default function CaseDetailPage() {
   return (
@@ -76,10 +78,16 @@ function CaseDetailContent() {
     data: caseData,
     isLoading,
     isError,
+    error,
   } = useQuery({
     queryKey: ["case", caseId],
     queryFn: () => getCase(caseId),
     enabled: !isNaN(caseId),
+    retry: (failureCount, err) => {
+      const status = (err as { status?: number })?.status
+      if (status === 404) return false
+      return failureCount < 3
+    },
   })
 
   const { data: invoiceStats } = useQuery({
@@ -105,10 +113,7 @@ function CaseDetailContent() {
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       toast.success("Updated grouping")
     },
-    onError: (e, variables) => {
-      console.error("[nestMutation] FAILED", { error: e, variables })
-      toast.error(e.message)
-    },
+    onError: (e) => toast.error(e.message),
   })
 
   const handleNest = useCallback(
@@ -185,12 +190,29 @@ function CaseDetailContent() {
   }
 
   if (isError || !caseData) {
+    const status = (error as { status?: number } | null)?.status
+    const isNotFound = status === 404
     return (
       <div className="flex flex-col items-center justify-center gap-2 p-12">
-        <p className="text-muted-foreground">Case not found.</p>
+        <p className="text-muted-foreground">
+          {isNotFound ? "Case not found." : "Something went wrong loading this case."}
+        </p>
+        {!isNotFound && (
+          <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["case", caseId] })}>
+            Try again
+          </Button>
+        )}
       </div>
     )
   }
+
+  const toggles = caseData.feature_toggles
+  const showTasks = isCaseFeatureEnabled(toggles, "tasks")
+  const showEvents = isCaseFeatureEnabled(toggles, "events")
+  const showFinancials = isCaseFeatureEnabled(toggles, "financials")
+  const userHasInvoicesFeature =
+    user?.visibleFeatures == null || user.visibleFeatures.includes("invoices")
+  const showCosts = isCaseFeatureEnabled(toggles, "costs") && userHasInvoicesFeature
 
   return (
     <TooltipProvider>
@@ -198,23 +220,28 @@ function CaseDetailContent() {
         <ListNav basePath="/cases" currentId={caseId} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <CaseDetailHeader caseData={caseData} />
-          <Link
-            to={`/cases/${caseId}/costs`}
-            state={location.state}
-            className="flex items-center gap-3 text-xs shrink-0 border bg-muted/40 px-3 py-1.5"
-          >
-            <span className="text-muted-foreground">Costs</span>
-            {invoiceStats && (
-              <>
-                <span className="text-success tabular-nums">
-                  ${Number(invoiceStats.paid_total).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </span>
-                <span className="text-destructive tabular-nums">
-                  ${Number(invoiceStats.unpaid_total).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </span>
-              </>
+          <div className="flex items-center gap-2 shrink-0">
+            {showCosts && (
+              <Link
+                to={`/cases/${caseId}/costs`}
+                state={location.state}
+                className="flex items-center gap-3 text-xs border bg-muted/40 px-3 py-1.5"
+              >
+                <span className="text-muted-foreground">Costs</span>
+                {invoiceStats && (
+                  <>
+                    <span className="text-success tabular-nums">
+                      ${Number(invoiceStats.paid_total).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-destructive tabular-nums">
+                      ${Number(invoiceStats.unpaid_total).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
+                  </>
+                )}
+              </Link>
             )}
-          </Link>
+            <CaseFeaturesMenu caseData={caseData} />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -227,18 +254,24 @@ function CaseDetailContent() {
               onAiPeople={() => setAiPeopleOpen(true)}
               onNest={handleNest}
             />
-            <CaseTasksCard
-              caseId={caseData.id}
-              onAdd={() => setAddTaskOpen(true)}
-              onAiAdd={() => setAiTasksOpen(true)}
-            />
-            <CaseEventsCard
-              caseId={caseData.id}
-              onAdd={() => setAddEventOpen(true)}
-              onAiAdd={() => setAiEventsOpen(true)}
-            />
+            {showTasks && (
+              <CaseTasksCard
+                caseId={caseData.id}
+                onAdd={() => setAddTaskOpen(true)}
+                onAiAdd={() => setAiTasksOpen(true)}
+              />
+            )}
+            {showEvents && (
+              <CaseEventsCard
+                caseId={caseData.id}
+                onAdd={() => setAddEventOpen(true)}
+                onAiAdd={() => setAiEventsOpen(true)}
+              />
+            )}
             <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
-            <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
+            {showFinancials && (
+              <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
+            )}
 
             {user?.isAdmin && (
               <div className="flex justify-end pt-4 border-t border-border/40">

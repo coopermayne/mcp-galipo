@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router"
+import { Routes, Route, Navigate } from "react-router"
 import { TemplatesHub } from "@/pages/templates/components/templates-hub"
 import { PleadingsPage } from "@/pages/templates/components/pleadings-page"
 import { TOAPage } from "@/pages/templates/components/toa-page"
@@ -13,6 +13,7 @@ export default function TemplatesPage() {
       <Route path="toa" element={<TOAPage />} />
       <Route path="rfp" element={<RFPPage />} />
       <Route path="rfp/objections" element={<ObjectionsPage />} />
+      <Route path="*" element={<Navigate to="/templates" replace />} />
     </Routes>
   )
 }

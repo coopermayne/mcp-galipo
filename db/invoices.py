@@ -9,6 +9,10 @@ from sqlalchemy import select, func, case as sa_case
 
 from .session import SessionLocal
 from . import cost_sharing as cs
+from .feature_gates import (
+    FEATURE_COSTS, feature_enabled_filter, require_feature_for_case,
+    is_feature_enabled,
+)
 from models import Invoice, Case, CaseComment, Person, Payee, PersonRole, Role
 
 
@@ -119,6 +123,7 @@ def list_invoices(
         .outerjoin(advanced_to, Invoice.advanced_to_person_id == advanced_to.c.id)
     )
 
+    stmt = stmt.where(feature_enabled_filter(FEATURE_COSTS, Invoice.case_id))
     if case_id:
         stmt = stmt.where(Invoice.case_id == case_id)
     if status:
@@ -147,7 +152,9 @@ def list_invoices(
     else:
         stmt = stmt.order_by(sort_col.asc().nullslast(), Invoice.created_at.asc())
 
-    count_sub = select(Invoice.id)
+    count_sub = select(Invoice.id).where(
+        feature_enabled_filter(FEATURE_COSTS, Invoice.case_id)
+    )
     if case_id:
         count_sub = count_sub.where(Invoice.case_id == case_id)
     if status:
@@ -191,6 +198,8 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
         if not row:
             return None
         inv, case_name, pbn, payee_name, payee_addr, ttn, atn = row
+        if not is_feature_enabled(session, inv.case_id, FEATURE_COSTS):
+            return None
         return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn)
 
 
@@ -217,6 +226,7 @@ def create_invoice(
     is_transfer: bool = False,
 ) -> dict:
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_COSTS)
         if type == "advance":
             category = "Advance"
         inv = Invoice(
@@ -291,6 +301,7 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
         inv = session.get(Invoice, invoice_id)
         if not inv:
             return None
+        require_feature_for_case(session, inv.case_id, FEATURE_COSTS)
 
         for key, value in fields.items():
             if hasattr(inv, key):
@@ -336,6 +347,7 @@ def mark_invoice_paid(
         inv = session.get(Invoice, invoice_id)
         if not inv:
             return None
+        require_feature_for_case(session, inv.case_id, FEATURE_COSTS)
 
         inv.status = "paid"
         inv.check_number = check_number
@@ -387,6 +399,7 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
         inv = session.get(Invoice, invoice_id)
         if not inv:
             return None
+        require_feature_for_case(session, inv.case_id, FEATURE_COSTS)
 
         inv.status = "unpaid"
         inv.check_number = None
@@ -427,6 +440,7 @@ def delete_invoice(invoice_id: int) -> bool:
         inv = session.get(Invoice, invoice_id)
         if not inv:
             return False
+        require_feature_for_case(session, inv.case_id, FEATURE_COSTS)
 
         if inv.file_path and os.path.isfile(inv.file_path):
             try:
@@ -448,6 +462,13 @@ def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
     """
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return {
+                "grand_total": 0, "our_total_paid": 0, "counsel_total_paid": 0,
+                "our_share_pct": our_share_pct, "our_target": 0, "counsel_target": 0,
+                "transfer_amount": 0, "already_transferred": 0, "direction": "even",
+                "counsel_id": None, "counsel_name": None,
+            }
         rows = session.execute(
             select(
                 Invoice.paid_by_person_id,
@@ -535,12 +556,15 @@ def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
 def get_invoice_stats(case_id: int = None, type: str = None) -> dict:
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
+        if case_id is not None and not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return {"unpaid_count": 0, "unpaid_total": "0", "paid_count": 0, "paid_total": "0"}
         base = select(
             func.count().filter(Invoice.status == "unpaid").label("unpaid_count"),
             func.coalesce(func.sum(sa_case((Invoice.status == "unpaid", effective_amount), else_=0)), 0).label("unpaid_total"),
             func.count().filter(Invoice.status == "paid").label("paid_count"),
             func.coalesce(func.sum(sa_case((Invoice.status == "paid", effective_amount), else_=0)), 0).label("paid_total"),
         ).where(Invoice.is_transfer == False)  # noqa: E712
+        base = base.where(feature_enabled_filter(FEATURE_COSTS, Invoice.case_id))
         if type:
             base = base.where(Invoice.type == type)
         if case_id:
@@ -563,6 +587,12 @@ def get_cost_summary(case_id: int) -> dict:
     """
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return {
+                "total_costs": 0, "our_costs": 0, "counsel_costs": 0,
+                "our_net": 0, "counsel_net": 0, "net_transferred": 0,
+                "counsel_id": None, "counsel_name": None,
+            }
         cost_rows = session.execute(
             select(
                 Invoice.paid_by_person_id,
@@ -683,6 +713,11 @@ def get_cost_sharing(case_id: int) -> dict:
     is configured.
     """
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return {
+                "config": None, "co_counsel": [],
+                "parties_with_pct": [], "absorber_party": cs.OURS,
+            }
         rows = session.execute(
             select(PersonRole, Person)
             .join(Person, PersonRole.person_id == Person.id)
@@ -733,6 +768,7 @@ def set_cost_sharing(case_id: int, person_id: int, cost_share_pct: float) -> dic
     Auto-assigns the person as co-counsel on the case if they aren't already.
     """
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_COSTS)
         person = session.get(Person, person_id)
         if not person:
             raise ValueError(f"Person {person_id} not found")
@@ -767,6 +803,7 @@ def set_cost_sharing_config(case_id: int, config: dict) -> dict:
     The caller is responsible for validating `config` (use Pydantic).
     """
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_COSTS)
         case = session.get(Case, case_id)
         if not case:
             raise ValueError(f"Case {case_id} not found")
@@ -805,6 +842,7 @@ def set_cost_sharing_config(case_id: int, config: dict) -> dict:
 def remove_cost_sharing_config(case_id: int) -> dict:
     """Clear the JSONB cost-sharing config and all phase_ids."""
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_COSTS)
         case = session.get(Case, case_id)
         if not case:
             raise ValueError(f"Case {case_id} not found")
@@ -825,21 +863,24 @@ def get_settlement(case_id: int) -> dict:
 
     Requires a JSONB config on the case. Returns empty result if none exists.
     """
+    empty_result = {
+        "parties": [],
+        "targets": {},
+        "paid": {},
+        "net_paid": {},
+        "deltas": {},
+        "transfers": [],
+    }
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return empty_result
         case = session.get(Case, case_id)
         if not case:
             raise ValueError(f"Case {case_id} not found")
 
         config = case.cost_sharing_config
         if not config:
-            return {
-                "parties": [],
-                "targets": {},
-                "paid": {},
-                "net_paid": {},
-                "deltas": {},
-                "transfers": [],
-            }
+            return empty_result
 
         invoices = _load_case_invoices_for_allocation(session, case_id)
         for inv in invoices:
@@ -864,6 +905,11 @@ def get_settlement(case_id: int) -> dict:
 def get_advance_stats(case_id: int) -> dict:
     effective_amount = func.coalesce(Invoice.case_amount, Invoice.amount)
     with SessionLocal() as session:
+        if not is_feature_enabled(session, case_id, FEATURE_COSTS):
+            return {
+                "total_advances": 0, "unpaid_count": 0, "paid_count": 0,
+                "by_recipient": [],
+            }
         row = session.execute(
             select(
                 func.coalesce(func.sum(effective_amount), 0).label("total"),

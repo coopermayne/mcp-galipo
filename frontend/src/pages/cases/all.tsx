@@ -3,7 +3,7 @@ import type { SortingState, VisibilityState } from "@tanstack/react-table"
 import { useSearchParams } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { getCases } from "@/services/cases"
-import { getUsers } from "@/services/users"
+import { getStaff } from "@/services/staff"
 import { Button } from "@/components/ui/button"
 import { CaseTable } from "@/pages/cases/components/case-table"
 import type { CaseListItem } from "@/types/case"
@@ -13,7 +13,6 @@ import type { CaseListItem } from "@/types/case"
 type TabId =
   | "active"
   | "filing-deadlines"
-  | "trial-calendar"
   | "unassigned"
   | "closed"
 
@@ -39,13 +38,6 @@ const TABS: TabDef[] = [
     filter: (c) => c.status === "Pre-Claim" || c.status === "Pre-Filing",
     defaultSort: [{ id: "effective_deadline", desc: false }],
     visibleDateCols: ["claim_deadline", "complaint_deadline"],
-  },
-  {
-    id: "trial-calendar",
-    label: "Trial Calendar",
-    filter: (c) => !!c.trial_date && c.status !== "Closed",
-    defaultSort: [{ id: "trial_date", desc: false }],
-    visibleDateCols: ["trial_date"],
   },
   {
     id: "unassigned",
@@ -114,9 +106,9 @@ export default function AllCasesPage() {
     queryFn: () => getCases({ limit: 2000 }),
   })
 
-  const { data: usersData } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => getUsers(),
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: getStaff,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -126,7 +118,6 @@ export default function AllCasesPage() {
     const counts: Record<TabId, number> = {
       "active": 0,
       "filing-deadlines": 0,
-      "trial-calendar": 0,
       "unassigned": 0,
       "closed": 0,
     }
@@ -144,8 +135,8 @@ export default function AllCasesPage() {
 
   const usersMap = useMemo(() => {
     const map = new Map<number, { id: number; first_name: string; last_name: string; initials: string }>()
-    if (usersData?.data) {
-      for (const u of usersData.data) {
+    if (staffData?.data) {
+      for (const u of staffData.data) {
         map.set(u.id, {
           id: u.id,
           first_name: u.firstName ?? "",
@@ -155,7 +146,7 @@ export default function AllCasesPage() {
       }
     }
     return map
-  }, [usersData])
+  }, [staffData])
 
   return (
     <div className="flex flex-col gap-4 p-6">

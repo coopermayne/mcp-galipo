@@ -70,6 +70,19 @@ from .cases import (
     get_cases_for_user,
 )
 
+from .feature_gates import (
+    FeatureDisabled,
+    FeatureHasData,
+    FEATURE_TASKS,
+    FEATURE_EVENTS,
+    FEATURE_FINANCIALS,
+    FEATURE_COSTS,
+    is_feature_enabled,
+    require_feature_for_case,
+    feature_enabled_filter,
+    get_feature_data_counts,
+)
+
 # Role operations (replaces person_types)
 from .roles import (
     get_roles,
@@ -279,6 +292,7 @@ from .sms import (
     get_unread_counts as get_sms_unread_counts,
     link_conversation,
     get_conversations_by_person,
+    update_message_status as update_sms_message_status,
 )
 
 # Financials

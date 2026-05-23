@@ -457,6 +457,7 @@ export function IntakeComments({ intakeId, textareaRef }: IntakeCommentsProps) {
           className="h-7 text-xs"
           onClick={() => setInteractionOpen(true)}
         >
+          <HugeiconsIcon icon={SparklesIcon} className="size-3 mr-1" />
           Log Interaction
         </Button>
       </div>

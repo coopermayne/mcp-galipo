@@ -297,6 +297,7 @@ class TaskOut(BaseModel):
 
     id: int
     case_id: Optional[int] = None
+    intake_id: Optional[int] = None
     description: str
     due_date: Optional[datetime.date] = None
     completion_date: Optional[datetime.date] = None
@@ -314,6 +315,7 @@ class TaskWithRelationsOut(TaskOut):
     case_name: Optional[str] = None
     short_name: Optional[str] = None
     case_color: Optional[str] = None
+    intake_name: Optional[str] = None
     event_description: Optional[str] = None
     event_date: Optional[datetime.date] = None
     has_events: bool = False
@@ -331,8 +333,10 @@ class TaskDetailOut(BaseModel):
 
     id: int
     case_id: Optional[int] = None
+    intake_id: Optional[int] = None
     case_name: Optional[str] = None
     short_name: Optional[str] = None
+    intake_name: Optional[str] = None
     description: str
     due_date: Optional[datetime.date] = None
     completion_date: Optional[datetime.date] = None
@@ -485,6 +489,7 @@ class CaseDetailOut(BaseModel):
     tasks: list[dict] = []
     notes: list[dict] = []
     proceedings: list[dict] = []
+    feature_toggles: Optional[dict] = None
 
 
 class CaseSearchOut(BaseModel):

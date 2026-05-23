@@ -12,6 +12,10 @@ from sqlalchemy.orm import joinedload
 from .session import SessionLocal
 from .connection import _NOT_PROVIDED
 from .validation import validate_date_format, validate_time_format
+from .feature_gates import (
+    FEATURE_EVENTS, FEATURE_TASKS, feature_enabled_filter,
+    require_feature_for_case, is_feature_enabled,
+)
 from models import Event, Case, Task, User
 from schemas import EventOut
 
@@ -55,6 +59,7 @@ def add_event(case_id: int = None, date: str = "", description: str = "",
         validate_date_format(end_date, "end_date")
 
     with SessionLocal() as session:
+        require_feature_for_case(session, case_id, FEATURE_EVENTS)
         event = Event(
             case_id=case_id,
             date=date,
@@ -93,6 +98,9 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
     # Build base query
     stmt = select(Event, Case, task_count_sq.label("task_count")).outerjoin(Case, Event.case_id == Case.id)
 
+    feature_clause = feature_enabled_filter(FEATURE_EVENTS, Event.case_id)
+    stmt = stmt.where(feature_clause)
+
     # Date conditions
     if include_past:
         stmt = stmt.where(Event.date >= today - past_days, Event.date < today)
@@ -121,6 +129,7 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
     with SessionLocal() as session:
         # Count query — same filters
         count_base = select(Event.id).outerjoin(Case, Event.case_id == Case.id)
+        count_base = count_base.where(feature_clause)
         if include_past:
             count_base = count_base.where(Event.date >= today - past_days, Event.date < today)
         else:
@@ -160,9 +169,11 @@ def get_events(case_id: int = None) -> dict:
         .scalar_subquery()
     )
 
+    feature_clause = feature_enabled_filter(FEATURE_EVENTS, Event.case_id)
     stmt = (
         select(Event, Case, task_count_sq.label("task_count"))
         .outerjoin(Case, Event.case_id == Case.id)
+        .where(feature_clause)
         .order_by(Event.date)
     )
 
@@ -170,7 +181,7 @@ def get_events(case_id: int = None) -> dict:
         stmt = stmt.where(Event.case_id == case_id)
 
     with SessionLocal() as session:
-        count_base = select(Event.id)
+        count_base = select(Event.id).where(feature_clause)
         if case_id:
             count_base = count_base.where(Event.case_id == case_id)
         total = session.scalar(select(func.count()).select_from(count_base.subquery()))
@@ -193,6 +204,7 @@ def update_event(event_id: int, starred: bool = None) -> Optional[dict]:
         event = session.get(Event, event_id)
         if not event:
             return None
+        require_feature_for_case(session, event.case_id, FEATURE_EVENTS)
 
         event.starred = starred
         session.flush()
@@ -216,6 +228,7 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
         event = session.get(Event, event_id)
         if not event:
             return None
+        require_feature_for_case(session, event.case_id, FEATURE_EVENTS)
 
         if date is not _NOT_PROVIDED:
             if date is not None:
@@ -261,9 +274,13 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
 
 
 def get_tasks_for_event(event_id: int) -> List[dict]:
-    """Get tasks linked to an event."""
+    """Get tasks linked to an event (only on cases where tasks are enabled)."""
     with SessionLocal() as session:
-        stmt = select(Task).where(Task.event_id == event_id)
+        stmt = (
+            select(Task)
+            .where(Task.event_id == event_id)
+            .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
+        )
         tasks = session.scalars(stmt).all()
         return [{"id": t.id, "description": t.description} for t in tasks]
 
@@ -274,6 +291,7 @@ def delete_event(event_id: int) -> bool:
         event = session.get(Event, event_id)
         if not event:
             return False
+        require_feature_for_case(session, event.case_id, FEATURE_EVENTS)
 
         # Delete linked tasks first
         session.execute(
@@ -296,6 +314,7 @@ def search_events(query: str = None, case_id: int = None,
     stmt = (
         select(Event, Case)
         .outerjoin(Case, Event.case_id == Case.id)
+        .where(feature_enabled_filter(FEATURE_EVENTS, Event.case_id))
         .order_by(Event.date)
         .limit(limit)
     )
@@ -347,6 +366,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
                 select(Event, Case)
                 .outerjoin(Case, Event.case_id == Case.id)
                 .where(Event.date >= today, Event.date <= today + days)
+                .where(feature_enabled_filter(FEATURE_EVENTS, Event.case_id))
                 .order_by(Event.date, Event.time.asc().nulls_last())
             )
             for event, case in session.execute(stmt).all():
@@ -373,6 +393,7 @@ def get_calendar(days: int = 30, include_tasks: bool = True,
                     Task.due_date <= today + days,
                     Task.status != "Done",
                 )
+                .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
                 .order_by(Task.due_date)
             )
             for task, case in session.execute(stmt).all():
@@ -436,6 +457,7 @@ def add_event_attendee(event_id: int, user_id: int) -> dict:
         event = session.get(Event, event_id)
         if not event:
             return {"success": False, "error": "Event not found"}
+        require_feature_for_case(session, event.case_id, FEATURE_EVENTS)
 
         current = list(event.attendee_ids or [])
         if user_id not in current:
@@ -455,6 +477,7 @@ def remove_event_attendee(event_id: int, user_id: int) -> dict:
         event = session.get(Event, event_id)
         if not event:
             return {"success": False, "error": "Event not found"}
+        require_feature_for_case(session, event.case_id, FEATURE_EVENTS)
 
         current = list(event.attendee_ids or [])
         if user_id in current:
@@ -487,6 +510,8 @@ def get_event_by_id(event_id: int) -> Optional[dict]:
             return None
 
         event, case, tc = row
+        if event.case_id is not None and not is_feature_enabled(session, event.case_id, FEATURE_EVENTS):
+            return None
         result = _event_with_case_dict(event, case, tc)
         result["attendee_ids"] = event.attendee_ids or []
         result["created_at"] = _serialize_value(event.created_at)

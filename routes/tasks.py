@@ -11,7 +11,7 @@ import db
 import auth
 from db.comments import add_comment as add_entity_comment
 from schemas import CreateTaskInput, UpdateTaskInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination, feature_disabled_error
 from .comments import _get_db_user_id
 from .sse import broadcast
 
@@ -25,6 +25,7 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         case_id = request.query_params.get("case_id")
+        intake_id = request.query_params.get("intake_id")
         status = request.query_params.get("status")
         exclude_status = request.query_params.get("exclude_status")
         urgency = request.query_params.get("urgency")
@@ -32,10 +33,7 @@ def register_task_routes(mcp):
         due_date_to = request.query_params.get("due_date_to")
         user_id = request.query_params.get("user_id")
         assignee_id = request.query_params.get("assignee_id")
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
 
         result = await asyncio.to_thread(
             db.get_tasks,
@@ -48,7 +46,8 @@ def register_task_routes(mcp):
             limit=limit,
             offset=offset,
             user_id=int(user_id) if user_id else None,
-            assignee_id=int(assignee_id) if assignee_id else None
+            assignee_id=int(assignee_id) if assignee_id else None,
+            intake_id=int(intake_id) if intake_id else None,
         )
         return JSONResponse(result)
 
@@ -61,17 +60,21 @@ def register_task_routes(mcp):
             data = CreateTaskInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
-        result = await asyncio.to_thread(
-            db.add_task,
-            data.case_id,
-            data.description,
-            data.due_date,
-            data.status,
-            data.urgency,
-            data.event_id,
-            data.assignee_id,
-            data.completion_date,
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.add_task,
+                data.case_id,
+                data.description,
+                data.due_date,
+                data.status,
+                data.urgency,
+                data.event_id,
+                data.assignee_id,
+                data.completion_date,
+                data.intake_id,
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
 
         # System comments for task creation
         user = auth.get_current_user(request)
@@ -99,6 +102,7 @@ def register_task_routes(mcp):
                     f'{name} added task: "{desc}"', True,
                 )
 
+        broadcast({"entity": "task", "action": "created", "id": task_id, "case_id": data.case_id})
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
@@ -129,7 +133,10 @@ def register_task_routes(mcp):
             return api_error("Task not found", "NOT_FOUND", 404)
 
         updates = data.model_dump(exclude_unset=True)
-        result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_task_full, task_id, **updates)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Task not found", "NOT_FOUND", 404)
 
@@ -187,6 +194,7 @@ def register_task_routes(mcp):
                 db.add_case_comment, case_id, user_id, case_msg, True,
             )
 
+        broadcast({"entity": "task", "action": "updated", "id": task_id, "case_id": case_id})
         return JSONResponse({"success": True, "task": result})
 
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
@@ -195,8 +203,12 @@ def register_task_routes(mcp):
         if err := auth.require_auth(request):
             return err
         task_id = int(request.path_params["task_id"])
-        deleted = await asyncio.to_thread(db.delete_task, task_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_task, task_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if deleted:
+            broadcast({"entity": "task", "action": "deleted", "id": task_id})
             return JSONResponse({"success": True})
         return api_error("Task not found", "NOT_FOUND", 404)
 
@@ -223,6 +235,8 @@ def register_task_routes(mcp):
             if not result:
                 return api_error("Task not found", "NOT_FOUND", 404)
             return JSONResponse({"success": True, "task": result})
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 

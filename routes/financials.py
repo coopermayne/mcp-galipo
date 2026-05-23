@@ -10,7 +10,8 @@ from pydantic import ValidationError
 import db
 import auth
 from schemas import CreateFinancialInput, UpdateFinancialInput
-from .common import api_error, pydantic_error, DEFAULT_PAGE_SIZE
+from .common import api_error, pydantic_error, clamp_pagination, feature_disabled_error
+from .sse import broadcast
 
 
 def register_financial_routes(mcp):
@@ -27,10 +28,7 @@ def register_financial_routes(mcp):
         if is_finalized_param is not None:
             is_finalized = is_finalized_param.lower() == "true"
         search = request.query_params.get("search")
-        limit = request.query_params.get("limit")
-        offset = request.query_params.get("offset", "0")
-        limit = int(limit) if limit else DEFAULT_PAGE_SIZE
-        offset = int(offset)
+        limit, offset = clamp_pagination(request)
 
         attorney_ids_param = request.query_params.get("attorney_ids")
         attorney_ids = (
@@ -98,11 +96,15 @@ def register_financial_routes(mcp):
             data = CreateFinancialInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
-        result = await asyncio.to_thread(
-            db.create_financial,
-            data.case_id,
-            **data.model_dump(exclude={"case_id"}, exclude_none=True),
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.create_financial,
+                data.case_id,
+                **data.model_dump(exclude={"case_id"}, exclude_none=True),
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
+        broadcast({"entity": "financial", "action": "created", "id": result.get("id"), "case_id": data.case_id})
         return JSONResponse({"success": True, "financial": result})
 
     @mcp.custom_route("/api/v1/financials/{financial_id}", methods=["PUT"])
@@ -116,9 +118,13 @@ def register_financial_routes(mcp):
         except ValidationError as e:
             return pydantic_error(e)
         updates = data.model_dump(exclude_none=True)
-        result = await asyncio.to_thread(db.update_financial, financial_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_financial, financial_id, **updates)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Financial record not found", "NOT_FOUND", 404)
+        broadcast({"entity": "financial", "action": "updated", "id": financial_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "financial": result})
 
     @mcp.custom_route("/api/v1/financials/{financial_id}", methods=["DELETE"])
@@ -127,8 +133,12 @@ def register_financial_routes(mcp):
         if err := auth.require_auth(request):
             return err
         financial_id = int(request.path_params["financial_id"])
-        deleted = await asyncio.to_thread(db.delete_financial, financial_id)
+        try:
+            deleted = await asyncio.to_thread(db.delete_financial, financial_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if deleted:
+            broadcast({"entity": "financial", "action": "deleted", "id": financial_id})
             return JSONResponse({"success": True})
         return api_error("Financial record not found", "NOT_FOUND", 404)
 
@@ -143,9 +153,13 @@ def register_financial_routes(mcp):
             return err
         financial_id = int(request.path_params["financial_id"])
         body = await request.json()
-        result = await asyncio.to_thread(
-            db.create_counsel_fee, financial_id, **body
-        )
+        try:
+            result = await asyncio.to_thread(
+                db.create_counsel_fee, financial_id, **body
+            )
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
+        broadcast({"entity": "financial", "action": "updated", "id": financial_id})
         return JSONResponse({"success": True, "financial": result})
 
     @mcp.custom_route("/api/v1/counsel-fees/{fee_id}", methods=["PUT"])
@@ -155,7 +169,10 @@ def register_financial_routes(mcp):
             return err
         fee_id = int(request.path_params["fee_id"])
         body = await request.json()
-        result = await asyncio.to_thread(db.update_counsel_fee, fee_id, **body)
+        try:
+            result = await asyncio.to_thread(db.update_counsel_fee, fee_id, **body)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Counsel fee not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "financial": result})
@@ -166,7 +183,10 @@ def register_financial_routes(mcp):
         if err := auth.require_auth(request):
             return err
         fee_id = int(request.path_params["fee_id"])
-        result = await asyncio.to_thread(db.delete_counsel_fee, fee_id)
+        try:
+            result = await asyncio.to_thread(db.delete_counsel_fee, fee_id)
+        except db.FeatureDisabled as e:
+            return feature_disabled_error(e)
         if not result:
             return api_error("Counsel fee not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "financial": result})

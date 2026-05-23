@@ -13,6 +13,7 @@ import {
   JusticeScale01Icon,
   UserGroupIcon,
   Activity01Icon,
+  Building06Icon,
 } from "@hugeicons/core-free-icons"
 
 export type NavItem = {
@@ -20,7 +21,8 @@ export type NavItem = {
   url: string
   icon: typeof Briefcase01Icon
   featureKey?: string
-  items?: { title: string; url: string; separatorBefore?: boolean }[]
+  positions?: string[]
+  items?: { title: string; url: string; separatorBefore?: boolean; disabled?: boolean }[]
 }
 
 export type NavGroup = {
@@ -37,6 +39,7 @@ export const navGroups: NavGroup[] = [
         url: "/cases",
         icon: Briefcase01Icon,
         featureKey: "cases",
+        positions: ["attorney", "paralegal"],
       },
       {
         title: "Tasks",
@@ -118,9 +121,9 @@ export const navGroups: NavGroup[] = [
           { title: "Pleadings", url: "/templates/pleadings" },
           { title: "TOA Generator", url: "/templates/toa" },
           { title: "RFP", url: "/templates/rfp" },
-          { title: "Case List", url: "/templates/case-list" },
-          { title: "Retainer", url: "/templates/retainer" },
-          { title: "Disbursement", url: "/templates/disbursement" },
+          { title: "Case List", url: "/templates/case-list", disabled: true },
+          { title: "Retainer", url: "/templates/retainer", disabled: true },
+          { title: "Disbursement", url: "/templates/disbursement", disabled: true },
         ],
       },
       {
@@ -144,6 +147,11 @@ export const navGroups: NavGroup[] = [
         title: "Users",
         url: "/users",
         icon: UserGroupIcon,
+      },
+      {
+        title: "Jurisdictions",
+        url: "/jurisdictions",
+        icon: Building06Icon,
       },
       {
         title: "Activity",

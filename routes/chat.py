@@ -245,9 +245,10 @@ def register_chat_routes(mcp):
 
         conversation_id = data.get("conversation_id")
         case_context = data.get("case_context")
+        intake_context = data.get("intake_context")
         mode = data.get("mode")  # Optional: tasks, events, people, overview, full
         preset = data.get("preset")  # Optional: priorities, deadlines, overdue, activity
-        _logger.info(f"Chat request - mode: {mode}, preset: {preset}, case_context: {case_context}")
+        _logger.info(f"Chat request - mode: {mode}, preset: {preset}, case_context: {case_context}, intake_context: {intake_context}")
 
         # Generate new conversation ID if not provided
         if not conversation_id:
@@ -316,22 +317,52 @@ def register_chat_routes(mcp):
         _logger.info(f"Selected model: {selected_model or client.model}")
 
         # Build system prompt with current date and optional case context
-        from datetime import datetime
+        from datetime import datetime, timedelta
         from zoneinfo import ZoneInfo
         pacific = ZoneInfo("America/Los_Angeles")
         now_pacific = datetime.now(pacific)
         current_date = now_pacific.strftime("%A, %B %d, %Y")
+        iso_date = now_pacific.strftime("%Y-%m-%d")
         current_time = now_pacific.strftime("%I:%M %p")
+
+        # Pre-compute the next 14 days so the model never has to do date arithmetic.
+        today_date = now_pacific.date()
+        upcoming_lines = []
+        for i in range(15):
+            d = today_date + timedelta(days=i)
+            iso = d.isoformat()
+            weekday = d.strftime("%A")
+            if i == 0:
+                label = f"  Today ({weekday}): {iso}"
+            elif i == 1:
+                label = f"  Tomorrow ({weekday}): {iso}"
+            elif i < 7:
+                label = f"  {weekday}: {iso}"
+            elif i == 7:
+                label = f"  Next {weekday} (one week out, same weekday as today): {iso}"
+            else:
+                label = f"  Next {weekday}: {iso}"
+            upcoming_lines.append(label)
+        upcoming_table = "\n".join(upcoming_lines)
 
         system_prompt = f"""You are an AI assistant for Galipo, a legal case management system for personal injury law firms.
 
-Current date: {current_date}
+Current date: {current_date} ({iso_date})
 Current time: {current_time} (Pacific Time)
+
+Upcoming dates (use these — do not do date arithmetic yourself):
+{upcoming_table}
 
 You can help users:
 - Query case information, tasks, deadlines, events, contacts
 - Create and update notes, tasks, and events
 - Search for persons and contacts
+
+Resolving relative day names to ISO dates:
+- "Wednesday" or "this Wednesday" → look up the row labeled Wednesday above (the nearest upcoming Wednesday).
+- "next Wednesday" → if today is Wed, use the row labeled "Next Wednesday" (one week out). Otherwise it's the same as "this Wednesday" — when ambiguous, prefer the nearest upcoming occurrence.
+- "tomorrow" → the row labeled Tomorrow.
+- Always copy the ISO date directly from the table above. Never compute it yourself.
 
 When dates are mentioned without a year, infer the year from context.
 
@@ -372,8 +403,11 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
 
             try:
                 proceedings = _db.get_proceedings(case_context)
-            except Exception as e:
-                _logger.warning(f"Failed to pre-load proceedings for case {case_context}: {e}")
+            except Exception:
+                _logger.error(
+                    f"Failed to pre-load proceedings for case {case_context}",
+                    exc_info=True,
+                )
                 proceedings = []
 
             if proceedings:
@@ -404,6 +438,35 @@ The user is currently viewing case ID: {case_context}. When they ask about "this
                     + str(case_context)
                     + ", case_number=...)."
                 )
+
+        if intake_context:
+            # Always inject the base instruction so Claude knows it's on an
+            # intake, even if the detail load below fails — otherwise Claude
+            # falls back to asking the user which case they mean.
+            system_prompt += f"""
+
+The user is currently viewing intake ID: {intake_context}. When they ask about "this intake" or "the intake", they mean intake ID {intake_context}.
+When creating tasks for this intake, use manage_task with intake_id={intake_context} (NOT case_id). These are pre-case intake follow-up tasks."""
+
+            try:
+                intake_data = _db.get_intake_by_id(intake_context)
+            except Exception:
+                _logger.error(
+                    f"Failed to load intake context {intake_context}",
+                    exc_info=True,
+                )
+                intake_data = None
+
+            if intake_data:
+                system_prompt += f"""
+Intake details:
+  - Name: {intake_data.get('name', 'N/A')}
+  - Case type: {intake_data.get('case_type', 'N/A')}
+  - Status: {intake_data.get('status', 'N/A')}
+  - Incident date: {intake_data.get('incident_date', 'N/A')}
+  - Location: {intake_data.get('location_short') or intake_data.get('location', 'N/A')}
+  - Incident: {(intake_data.get('incident_description') or 'N/A')[:500]}
+  - Injuries: {(intake_data.get('injury_description') or 'N/A')[:300]}"""
 
         # Add mode-specific system prompt if a mode is active
         mode_prompt = get_mode_system_prompt(mode)

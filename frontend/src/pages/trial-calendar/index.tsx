@@ -6,6 +6,7 @@ import {
   MoreHorizontalIcon,
   SparklesIcon,
   Calendar01Icon,
+  TableIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-calendar"
@@ -52,7 +53,7 @@ export default function TrialCalendarPage() {
   const [slotFinderOpen, setSlotFinderOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<BlockingEvent | null>(null)
-  const [view, setView] = useState<View>("calendar")
+  const [view, setView] = useState<View>("table")
   const [printing, setPrinting] = useState(false)
   const queryClient = useQueryClient()
 
@@ -96,9 +97,12 @@ export default function TrialCalendarPage() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setAiOpen(true)}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => setAiOpen(true)}
+          >
             <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
-            AI
           </Button>
 
           <ToggleGroup
@@ -107,8 +111,14 @@ export default function TrialCalendarPage() {
             onValueChange={(v) => { if (v) setView(v as View) }}
             className="border"
           >
-            <ToggleGroupItem value="calendar" className="px-3 text-xs">Calendar</ToggleGroupItem>
-            <ToggleGroupItem value="table" className="px-3 text-xs">Table</ToggleGroupItem>
+            <ToggleGroupItem value="table" className="h-7 px-2.5 gap-1.5 text-xs">
+              <HugeiconsIcon icon={TableIcon} className="size-3.5" />
+              Table
+            </ToggleGroupItem>
+            <ToggleGroupItem value="calendar" className="h-7 px-2.5 gap-1.5 text-xs">
+              <HugeiconsIcon icon={Calendar01Icon} className="size-3.5" />
+              Calendar
+            </ToggleGroupItem>
           </ToggleGroup>
 
           {/* Desktop: full action buttons */}
@@ -117,7 +127,6 @@ export default function TrialCalendarPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={printing}>
                   <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
-                  {printing ? "Generating..." : "Print"}
                   <HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -130,10 +139,7 @@ export default function TrialCalendarPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="sm" onClick={() => setSlotFinderOpen(true)}>
-              Find Open Slots
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setBlockingOpen(true)}>
+            <Button size="sm" onClick={() => setBlockingOpen(true)}>
               Add Event
             </Button>
           </div>
@@ -152,10 +158,6 @@ export default function TrialCalendarPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[200px]">
-              <DropdownMenuItem onClick={() => setSlotFinderOpen(true)}>
-                <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
-                Find Open Slots
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setBlockingOpen(true)}>
                 <HugeiconsIcon icon={Calendar01Icon} className="mr-2 size-4" />
                 Add Event

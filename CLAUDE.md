@@ -308,6 +308,7 @@ frontend/src/
 - Use the `cn()` helper from `lib/utils.ts` for conditional class merging.
 - **Square corners everywhere.** The app theme uses sharp/square corners — no `rounded-*` on containers, cards, tables, toasts, or other UI elements. All new components must match this convention.
 - **Semantic status colors**: Use the theme tokens `--success`, `--warning`, `--info`, `--purple` (and their `-foreground` pairs) defined in `index.css` for status badges and buttons. Do not use raw Tailwind color classes (e.g., `bg-blue-500/15`) for status colors.
+- **Accessibility is not a concern.** Do not add `aria-describedby`, `sr-only` descriptions, or other a11y attributes unless explicitly asked. Ignore Radix/console warnings about missing accessibility props.
 
 ### Data Tables
 - Built on `@tanstack/react-table` + shadcn `<Table>` primitive
