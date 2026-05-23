@@ -14,6 +14,7 @@ import { createEvent, type CreateEventData } from "@/services/events"
 import { downloadBlob } from "@/lib/download"
 import { getStaff, type StaffMember } from "@/services/staff"
 import { TrialTable } from "@/pages/trial-calendar/components/trial-table"
+import { TrialListMobile } from "@/pages/trial-calendar/components/trial-list-mobile"
 import { SlotFinder } from "@/pages/trial-calendar/components/slot-finder"
 import { AddBlockingEventDialog } from "@/pages/trial-calendar/components/add-blocking-event-dialog"
 import { EditEventDialog } from "@/pages/trial-calendar/components/edit-event-dialog"
@@ -182,7 +183,14 @@ export default function TrialCalendarPage() {
         view === "calendar" ? (
           <LinearCalendar data={data} staffMap={staffMap} onEditEvent={setEditingEvent} />
         ) : (
-          <TrialTable trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+          <>
+            <div className="hidden md:block">
+              <TrialTable trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+            </div>
+            <div className="md:hidden">
+              <TrialListMobile trials={data.trials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+            </div>
+          </>
         )
       ) : null}
 
