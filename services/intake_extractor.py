@@ -9,6 +9,8 @@ import os
 from anthropic import Anthropic
 from typing import Optional
 
+from db.token_usage import record_usage_from_message
+
 
 EXTRACT_INTAKE_INFO_TOOL = {
     "name": "submit_intake_info",
@@ -136,6 +138,10 @@ class IntakeExtractor:
                     "content": f"Extract intake information from this text:\n\n{text}"
                 }
             ]
+        )
+        record_usage_from_message(
+            source="intake_extractor", request_type="extract_intake_info",
+            model=self.model, message=message,
         )
 
         for block in message.content:
