@@ -69,6 +69,7 @@ export interface CaseDetail {
   notes: string | null
   proceedings: CaseProceeding[]
   feature_toggles: CaseFeatureToggles | null
+  feature_data_counts?: Record<CaseFeatureKey, number>
 }
 
 export type CaseFeatureKey = "tasks" | "events" | "financials" | "costs"

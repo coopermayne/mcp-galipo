@@ -72,6 +72,7 @@ from .cases import (
 
 from .feature_gates import (
     FeatureDisabled,
+    FeatureHasData,
     FEATURE_TASKS,
     FEATURE_EVENTS,
     FEATURE_FINANCIALS,
@@ -79,6 +80,7 @@ from .feature_gates import (
     is_feature_enabled,
     require_feature_for_case,
     feature_enabled_filter,
+    get_feature_data_counts,
 )
 
 # Role operations (replaces person_types)
