@@ -13,6 +13,9 @@ from sqlalchemy.orm import aliased
 
 from .session import SessionLocal
 from .validation import validate_case_status, validate_date_format, ValidationError
+from .feature_gates import (
+    ALL_FEATURES, FeatureHasData, get_feature_data_counts,
+)
 from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
@@ -218,6 +221,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "notes": case.notes,
             "updated_at": _sv(case.updated_at),
             "feature_toggles": case.feature_toggles,
+            "feature_data_counts": get_feature_data_counts(session, case_id),
         }
 
         # Expand attorney_ids to user objects
@@ -451,7 +455,19 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         if not case:
             return None
 
-        # Auto-default SOL deadlines when DOI is set/changed
+        if "feature_toggles" in kwargs and kwargs["feature_toggles"] is not None:
+            next_toggles = kwargs["feature_toggles"] or {}
+            current_toggles = case.feature_toggles or {}
+            counts = None
+            for feat in ALL_FEATURES:
+                was_on = bool(current_toggles.get(feat))
+                will_be_on = bool(next_toggles.get(feat))
+                if was_on and not will_be_on:
+                    if counts is None:
+                        counts = get_feature_data_counts(session, case_id)
+                    if counts[feat] > 0:
+                        raise FeatureHasData(case_id, feat, counts[feat])
+
         if "date_of_injury" in kwargs:
             doi_val = kwargs["date_of_injury"]
             if doi_val and doi_val != "":

@@ -28,6 +28,9 @@ interface CaseFeaturesMenuProps {
 export function CaseFeaturesMenu({ caseData }: CaseFeaturesMenuProps) {
   const queryClient = useQueryClient()
   const toggles = caseData.feature_toggles ?? {}
+  const counts = caseData.feature_data_counts ?? {
+    tasks: 0, events: 0, financials: 0, costs: 0,
+  }
 
   const mutation = useMutation({
     mutationFn: (next: CaseFeatureToggles) =>
@@ -64,21 +67,29 @@ export function CaseFeaturesMenu({ caseData }: CaseFeaturesMenuProps) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Page sections</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {CASE_FEATURE_DEFINITIONS.map((def) => (
-          <DropdownMenuCheckboxItem
-            key={def.key}
-            checked={isCaseFeatureEnabled(toggles, def.key)}
-            onCheckedChange={(checked) => handleToggle(def.key, !!checked)}
-            onSelect={(e) => e.preventDefault()}
-          >
-            <div className="flex flex-col">
-              <span>{def.label}</span>
-              <span className="text-[10px] text-muted-foreground">
-                {def.description}
-              </span>
-            </div>
-          </DropdownMenuCheckboxItem>
-        ))}
+        {CASE_FEATURE_DEFINITIONS.map((def) => {
+          const isOn = isCaseFeatureEnabled(toggles, def.key)
+          const count = counts[def.key] ?? 0
+          const lockedOn = isOn && count > 0
+          return (
+            <DropdownMenuCheckboxItem
+              key={def.key}
+              checked={isOn}
+              disabled={lockedOn}
+              onCheckedChange={(checked) => handleToggle(def.key, !!checked)}
+              onSelect={(e) => e.preventDefault()}
+            >
+              <div className="flex flex-col">
+                <span>{def.label}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {lockedOn
+                    ? `${count} record${count === 1 ? "" : "s"} — delete to hide`
+                    : def.description}
+                </span>
+              </div>
+            </DropdownMenuCheckboxItem>
+          )
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   )

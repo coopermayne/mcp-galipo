@@ -108,7 +108,10 @@ def register_case_routes(mcp):
                 old_status = old_case.get("status")
 
         updates = data.model_dump(exclude_unset=True)
-        result = await asyncio.to_thread(db.update_case, case_id, **updates)
+        try:
+            result = await asyncio.to_thread(db.update_case, case_id, **updates)
+        except db.FeatureHasData as e:
+            return api_error(str(e), "FEATURE_HAS_DATA", 400)
         if not result:
             return api_error("Case not found", "NOT_FOUND", 404)
 

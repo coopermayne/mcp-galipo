@@ -24,10 +24,10 @@ because they don't belong to any case.
 
 from typing import Optional
 
-from sqlalchemy import or_, select as sa_select
+from sqlalchemy import func, or_, select as sa_select
 from sqlalchemy.orm import Session
 
-from models import Case
+from models import Case, Task, Event, CaseFinancial, Invoice, Lien
 
 
 FEATURE_TASKS = "tasks"
@@ -77,6 +77,35 @@ def require_feature_for_case(
         return
     if not is_feature_enabled(session, case_id, feature):
         raise FeatureDisabled(case_id, feature)
+
+
+class FeatureHasData(Exception):
+    """Raised when trying to disable a feature that still has rows for a case."""
+
+    def __init__(self, case_id: int, feature: str, count: int):
+        self.case_id = case_id
+        self.feature = feature
+        self.count = count
+        label = FeatureDisabled._LABELS.get(feature, feature)
+        super().__init__(
+            f"Cannot hide {label} for case {case_id}: {count} record(s) still exist. "
+            f"Delete them first if you want to hide this section."
+        )
+
+
+def get_feature_data_counts(session: Session, case_id: int) -> dict[str, int]:
+    """Return row counts per feature for the given case.
+
+    Used to (a) populate the case detail response so the UI can disable
+    toggles whose section has data, and (b) validate toggle-off requests.
+    """
+    return {
+        FEATURE_TASKS:      session.scalar(sa_select(func.count(Task.id)).where(Task.case_id == case_id)) or 0,
+        FEATURE_EVENTS:     session.scalar(sa_select(func.count(Event.id)).where(Event.case_id == case_id)) or 0,
+        FEATURE_FINANCIALS: session.scalar(sa_select(func.count(CaseFinancial.id)).where(CaseFinancial.case_id == case_id)) or 0,
+        FEATURE_COSTS:      (session.scalar(sa_select(func.count(Invoice.id)).where(Invoice.case_id == case_id)) or 0)
+                           + (session.scalar(sa_select(func.count(Lien.id)).where(Lien.case_id == case_id)) or 0),
+    }
 
 
 def feature_enabled_filter(feature: str, case_id_col):
