@@ -21,8 +21,8 @@ import {
   MoreHorizontalIcon,
   Download04Icon,
   PrinterIcon,
-  TableIcon,
   LayersLogoIcon,
+  ArrowDown01Icon,
 } from "@hugeicons/core-free-icons"
 import { useNavigate } from "react-router"
 import { getCase, createCase, type CreateCaseData, exportCaseReport, exportCaseListPdf, type CaseListGroupBy } from "@/services/cases"
@@ -233,49 +233,89 @@ export function CaseTable({
             Clear
           </Button>
         )}
+        {/* Group by status — single toggle button */}
         {onGroupByChange && (
-          <div className="flex items-center border h-8">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onGroupByChange("none")}
-              className={cn(
-                "h-full px-2.5 border-0",
-                groupBy === "none"
-                  ? "bg-foreground text-background hover:bg-foreground hover:text-background"
-                  : "text-muted-foreground"
-              )}
-              title="Table view"
-            >
-              <HugeiconsIcon icon={TableIcon} className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onGroupByChange("status")}
-              className={cn(
-                "h-full px-2.5 border-0",
-                groupBy === "status"
-                  ? "bg-foreground text-background hover:bg-foreground hover:text-background"
-                  : "text-muted-foreground"
-              )}
-              title="Group by status"
-            >
-              <HugeiconsIcon icon={LayersLogoIcon} className="size-3.5" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onGroupByChange(groupBy === "status" ? "none" : "status")}
+            className={cn(
+              "h-8 px-2.5 border",
+              groupBy === "status"
+                ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                : "text-muted-foreground"
+            )}
+            title="Group by status"
+          >
+            <HugeiconsIcon icon={LayersLogoIcon} className="size-3.5 mr-1" />
+            Status
+          </Button>
         )}
+
+        {/* Desktop: explicit Print + New Case buttons */}
+        <div className="hidden md:flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8" disabled={printing}>
+                <HugeiconsIcon icon={PrinterIcon} className="size-3.5" />
+                <HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handlePrint("attorney")}>
+                By Attorney
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("status")}>
+                By Status
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("alphabetical")}>
+                Alphabetical
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => exportCaseReport()}>
+                <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
+                DOCX
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-8">
+                New Case
+                <HugeiconsIcon icon={ArrowDown01Icon} className="size-3 ml-0.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setChatOpen(true)}>
+                <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
+                AI
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFormOpen(true)}>
+                <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
+                Manual
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Mobile: overflow menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon-sm" className="h-8 w-8">
+            <Button variant="outline" size="icon-sm" className="h-8 w-8 md:hidden">
               <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[200px]">
-            <DropdownMenuItem onClick={() => exportCaseReport()}>
-              <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
-              Download Report
+            <DropdownMenuItem onClick={() => setChatOpen(true)}>
+              <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
+              New Case (AI)
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFormOpen(true)}>
+              <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
+              New Case (Manual)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger disabled={printing}>
                 <HugeiconsIcon icon={PrinterIcon} className="mr-2 size-4" />
@@ -293,14 +333,9 @@ export function CaseTable({
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setChatOpen(true)}>
-              <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
-              New Case (AI)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFormOpen(true)}>
-              <HugeiconsIcon icon={NoteEditIcon} className="mr-2 size-4" />
-              New Case (Manual)
+            <DropdownMenuItem onClick={() => exportCaseReport()}>
+              <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
+              Download Report
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
