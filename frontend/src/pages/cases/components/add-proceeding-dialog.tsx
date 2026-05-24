@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -108,43 +109,57 @@ export function AddProceedingDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Case Number</Label>
-            <Input
-              value={caseNumber}
-              onChange={(e) => setCaseNumber(e.target.value)}
-              placeholder="e.g. 2024-CV-12345"
-              autoFocus
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Case Number</Label>
+              <Input
+                value={caseNumber}
+                onChange={(e) => setCaseNumber(e.target.value)}
+                placeholder="e.g. 2:24-cv-01234"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Jurisdiction</Label>
+              <Select value={jurisdictionId} onValueChange={setJurisdictionId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {jurisdictions.map((j) => (
+                    <SelectItem key={j.id} value={String(j.id)}>
+                      {j.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Jurisdiction</Label>
-            <Select value={jurisdictionId} onValueChange={setJurisdictionId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select jurisdiction..." />
-              </SelectTrigger>
-              <SelectContent>
-                {jurisdictions.map((j) => (
-                  <SelectItem key={j.id} value={String(j.id)}>
-                    {j.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Judge search */}
           <div className="space-y-1.5">
             <Label className="text-xs">Judge</Label>
-            <Input
-              value={judgeSearch}
-              onChange={(e) => {
-                setJudgeSearch(e.target.value)
-                setSelectedJudgeId(null)
-              }}
-              placeholder="Search for a judge..."
-            />
+            <div className="relative">
+              <Input
+                value={judgeSearch}
+                onChange={(e) => {
+                  setJudgeSearch(e.target.value)
+                  setSelectedJudgeId(null)
+                }}
+                placeholder="Search for a judge..."
+              />
+              {selectedJudgeId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setJudgeSearch("")
+                    setSelectedJudgeId(null)
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             {judges.length > 0 && !selectedJudgeId && (
               <div className="max-h-32 overflow-y-auto border divide-y">
                 {judges.map((j) => (
@@ -165,6 +180,17 @@ export function AddProceedingDialog({
             )}
           </div>
 
+          <div className="space-y-1.5">
+            <Label className="text-xs">Notes</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes..."
+              rows={2}
+              className="resize-none"
+            />
+          </div>
+
           <div className="flex items-center gap-2">
             <Checkbox
               id="is_primary"
@@ -174,15 +200,6 @@ export function AddProceedingDialog({
             <Label htmlFor="is_primary" className="text-xs cursor-pointer">
               Primary proceeding
             </Label>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Notes</Label>
-            <Input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
-            />
           </div>
         </div>
 
