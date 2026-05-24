@@ -14,6 +14,7 @@ import {
   UserGroupIcon,
   Activity01Icon,
   Building06Icon,
+  UserAccountIcon,
 } from "@hugeicons/core-free-icons"
 
 export type NavItem = {
@@ -152,6 +153,11 @@ export const navGroups: NavGroup[] = [
         title: "Jurisdictions",
         url: "/jurisdictions",
         icon: Building06Icon,
+      },
+      {
+        title: "People Types",
+        url: "/people-types",
+        icon: UserAccountIcon,
       },
       {
         title: "Activity",

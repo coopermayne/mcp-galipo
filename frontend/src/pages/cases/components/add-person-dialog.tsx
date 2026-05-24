@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "react-router"
 import { toast } from "sonner"
 import { useDebounce } from "@/hooks/use-debounce"
 import { searchPersons, createPerson, assignPersonToCase } from "@/services/persons"
@@ -165,6 +166,14 @@ export function AddPersonDialog({
                       {formatRoleName(r.name)}
                     </SelectItem>
                   ))}
+                  <div className="border-t border-border mt-1 pt-1 px-2 pb-1">
+                    <Link
+                      to="/people-types"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Manage People Types &rarr;
+                    </Link>
+                  </div>
                 </SelectContent>
               </Select>
             </div>
