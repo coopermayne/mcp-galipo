@@ -259,6 +259,12 @@ class Objection(Base):
 class Case(Base):
     __tablename__ = "cases"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["intake_id"],
+            ["intakes.id"],
+            ondelete="SET NULL",
+            name="cases_intake_id_fkey",
+        ),
         PrimaryKeyConstraint("id", name="cases_pkey"),
         Index("idx_cases_attorney_ids", "attorney_ids"),
         Index("idx_cases_paralegal_ids", "paralegal_ids"),
@@ -300,6 +306,9 @@ class Case(Base):
 
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
+    # Source intake (if this case was created from an intake)
+    intake_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     # When NULL, simple cost-sharing applies via PersonRole.cost_share_pct.
     # When populated, the JSONB document is the source of truth and supports
     # N parties, phases, and caps. See db/cost_sharing.py.
@@ -314,6 +323,7 @@ class Case(Base):
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
     events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)
     financial: Mapped[Optional[CaseFinancial]] = relationship(back_populates="case", uselist=False, passive_deletes=True)
+    intake: Mapped[Optional[Intake]] = relationship(foreign_keys="[Case.intake_id]")
     note_records: Mapped[list[Note]] = relationship(back_populates="case", passive_deletes=True)
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case", passive_deletes=True)
     proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case", passive_deletes=True)

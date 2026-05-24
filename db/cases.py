@@ -218,6 +218,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "color": case.color,
             "attorney_ids": case.attorney_ids,
             "paralegal_ids": case.paralegal_ids,
+            "intake_id": case.intake_id,
             "created_at": _sv(case.created_at),
             "notes": case.notes,
             "updated_at": _sv(case.updated_at),
@@ -393,7 +394,7 @@ def create_case(case_name: str, status: str = "Signing Up",
                 print_code: str = None, case_summary: str = None, result: str = None,
                 date_of_injury: str = None, short_name: str = None,
                 trial_date: str = None, claim_deadline: str = None,
-                complaint_deadline: str = None) -> dict:
+                complaint_deadline: str = None, intake_id: int = None) -> dict:
     """Create a new case. Case numbers are added via proceedings."""
     validate_case_status(status)
     validate_date_format(date_of_injury, "date_of_injury")
@@ -424,6 +425,7 @@ def create_case(case_name: str, status: str = "Signing Up",
             claim_deadline=claim_deadline,
             complaint_deadline=complaint_deadline,
             color=color,
+            intake_id=intake_id,
         )
         session.add(case)
         session.flush()

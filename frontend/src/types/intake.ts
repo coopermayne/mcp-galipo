@@ -43,6 +43,9 @@ export interface Intake {
   has_comment_since_status_change: boolean
   email_submission_count: number
   email_submissions: { id: number; name: string | null; status: string; submitted_on: string | null }[]
+  // Linked case (set when a case has been created from this intake)
+  case_id: number | null
+  case_name: string | null
 }
 
 export interface IntakeComment {

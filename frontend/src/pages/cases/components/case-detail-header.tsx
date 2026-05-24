@@ -1,6 +1,9 @@
 import { useState } from "react"
+import { Link } from "react-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import type { CaseDetail, CaseStatus } from "@/types/case"
 import { updateCase } from "@/services/cases"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
@@ -135,6 +138,15 @@ export function CaseDetailHeader({ caseData }: CaseDetailHeaderProps) {
             </div>
           </PopoverContent>
         </Popover>
+        {caseData.intake_id && (
+          <Link
+            to={`/intakes/${caseData.intake_id}`}
+            className="inline-flex items-center gap-1.5 bg-muted text-muted-foreground px-2.5 py-1 text-xs font-medium hover:text-foreground transition-colors"
+          >
+            From Intake
+            <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
+          </Link>
+        )}
         <StaffAvatars
           caseId={caseData.id}
           attorneys={caseData.attorneys}
