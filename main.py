@@ -30,7 +30,7 @@ IMPORTANT: Call get_current_time at the start of any session to know the current
 TOOLS OVERVIEW:
 - search(entity, ...) — universal search across cases, persons, events, tasks
 - get_details(entity, id) — full details for any entity by ID
-- manage_case(action, ...) — create/update/delete cases
+- manage_case(action, ...) — create/update/delete cases. Supports intake_id on create to link case to source intake.
 - manage_person(action, ...) — create/update/delete persons (contacts)
 - manage_case_role(action, ...) — assign/update/change/remove person roles on cases
 - manage_event(action, ...) — create/update/delete calendar events

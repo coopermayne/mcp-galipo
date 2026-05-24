@@ -113,6 +113,7 @@ def register_case_routes(mcp):
             trial_date=data.trial_date,
             claim_deadline=data.claim_deadline,
             complaint_deadline=data.complaint_deadline,
+            intake_id=data.intake_id,
         )
         broadcast({"entity": "case", "action": "created", "id": result.get("id")})
         return JSONResponse({"success": True, "case": result})

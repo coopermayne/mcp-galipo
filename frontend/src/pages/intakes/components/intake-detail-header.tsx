@@ -1,8 +1,9 @@
 import { useState } from "react"
+import { Link } from "react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ArrowRight01Icon, PrinterIcon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon, PrinterIcon, SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
 import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
@@ -51,6 +52,13 @@ const ALL_STATUSES: IntakeStatus[] = [
   "Atty Review",
   "Needs Rejection Letter",
   "Rejection Letter Sent",
+  "Needs Retainer",
+  "Retainer Sent",
+  "Retainer Signed",
+]
+
+// Statuses where the "Create Case" button should appear
+const CASE_CREATION_STATUSES: IntakeStatus[] = [
   "Needs Retainer",
   "Retainer Sent",
   "Retainer Signed",
@@ -112,9 +120,10 @@ function getCommentPlaceholder(from: IntakeStatus, to: IntakeStatus): string {
 interface IntakeDetailHeaderProps {
   intake: Intake
   onFocusComments?: () => void
+  onCreateCase?: () => void
 }
 
-export function IntakeDetailHeader({ intake }: IntakeDetailHeaderProps) {
+export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
   const [commentDraft, setCommentDraft] = useState("")
@@ -174,14 +183,37 @@ export function IntakeDetailHeader({ intake }: IntakeDetailHeaderProps) {
   const moveToStatuses = ALL_STATUSES.filter((s) => s !== intake.status)
   const isArchived = intake.status === "Archived"
 
+  const showCreateCase =
+    CASE_CREATION_STATUSES.includes(intake.status) && !intake.case_id
+  const hasLinkedCase = !!intake.case_id
+
   return (
     <>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">{intake.name || "Unnamed Intake"}</h1>
           <StatusBadge status={intake.status} />
+          {hasLinkedCase && (
+            <Link
+              to={`/cases/${intake.case_id}`}
+              className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium hover:bg-primary/20 transition-colors"
+            >
+              Case: {intake.case_name || `#${intake.case_id}`}
+              <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
+          {showCreateCase && (
+            <Button
+              size="sm"
+              className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm px-4 gap-2"
+              onClick={onCreateCase}
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+              Create Case
+            </Button>
+          )}
           {allowedTransitions.length > 0 && (
             <span className="mr-1.5 text-xs text-muted-foreground">
               Move to
