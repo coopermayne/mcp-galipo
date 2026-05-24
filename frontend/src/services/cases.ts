@@ -164,3 +164,38 @@ export async function markCaseRead(
   if (!res.ok) throw new Error("Failed to mark case as read")
   return res.json()
 }
+
+// --- Case Search ---
+
+export interface CaseSearchResult {
+  id: number
+  case_name: string
+  short_name: string | null
+  status: string
+  attorney_ids: number[] | null
+  paralegal_ids: number[] | null
+}
+
+export interface CaseSearchResponse {
+  cases: CaseSearchResult[]
+  total: number
+}
+
+export interface SearchCasesParams {
+  q: string
+  my_cases?: boolean
+  include_closed?: boolean
+  limit?: number
+}
+
+export async function searchCases(
+  params: SearchCasesParams
+): Promise<CaseSearchResponse> {
+  const sp = new URLSearchParams({ q: params.q })
+  if (params.my_cases) sp.set("my_cases", "true")
+  if (params.include_closed) sp.set("include_closed", "true")
+  if (params.limit != null) sp.set("limit", String(params.limit))
+  const res = await apiFetch(`/api/v1/cases/search?${sp}`)
+  if (!res.ok) throw new Error("Failed to search cases")
+  return res.json()
+}
