@@ -389,6 +389,7 @@ class CasePersonOut(BaseModel):
     name: str
     phones: list = []
     emails: list = []
+    address: Optional[str] = None
     organization: Optional[str] = None
     person_notes: Optional[str] = None
     assignment_id: int
