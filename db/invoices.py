@@ -66,6 +66,7 @@ def _invoice_to_dict(
         "case_name": case_name,
         "type": inv.type,
         "status": inv.status,
+        "stage": inv.stage,
         "payee_id": inv.payee_id,
         "payee_name": payee_name,
         "payee_address": payee_address,
@@ -93,15 +94,24 @@ def _invoice_to_dict(
     }
 
 
+def _outgoing_filter():
+    """Invoices that represent money leaving our firm — everything except
+    incoming co-counsel transfers (is_transfer with no transfer_to person)."""
+    return ~Invoice.is_transfer | Invoice.transfer_to_person_id.isnot(None)
+
+
 def list_invoices(
     case_id: int = None,
     status: str = None,
+    stage: str = None,
     type: str = None,
     search: str = None,
     sort_by: str = "due_date",
     sort_dir: str = "asc",
     limit: int = 100,
     offset: int = 0,
+    exclude_paid: bool = False,
+    outgoing_only: bool = False,
 ) -> dict:
     paid_by = Person.__table__.alias("paid_by")
     transfer_to = Person.__table__.alias("transfer_to")
@@ -128,6 +138,12 @@ def list_invoices(
         stmt = stmt.where(Invoice.case_id == case_id)
     if status:
         stmt = stmt.where(Invoice.status == status)
+    if stage:
+        stmt = stmt.where(Invoice.stage == stage)
+    if exclude_paid:
+        stmt = stmt.where(Invoice.status != "paid")
+    if outgoing_only:
+        stmt = stmt.where(_outgoing_filter())
     if type:
         stmt = stmt.where(Invoice.type == type)
     if search:
@@ -159,6 +175,12 @@ def list_invoices(
         count_sub = count_sub.where(Invoice.case_id == case_id)
     if status:
         count_sub = count_sub.where(Invoice.status == status)
+    if stage:
+        count_sub = count_sub.where(Invoice.stage == stage)
+    if exclude_paid:
+        count_sub = count_sub.where(Invoice.status != "paid")
+    if outgoing_only:
+        count_sub = count_sub.where(_outgoing_filter())
     if type:
         count_sub = count_sub.where(Invoice.type == type)
     count_stmt = select(func.count()).select_from(count_sub)
@@ -209,6 +231,7 @@ def create_invoice(
     payee_id: int = None,
     type: str = "cost",
     status: str = "unpaid",
+    stage: str = None,
     date: str = None,
     due_date: str = None,
     description: str = None,
@@ -251,6 +274,10 @@ def create_invoice(
             notes=notes,
             is_transfer=is_transfer,
         )
+        if stage:
+            inv.stage = stage
+        elif status == "paid":
+            inv.stage = "Paid"
         session.add(inv)
         session.flush()
         _set_phase_id(session, inv)
@@ -308,6 +335,17 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
                 setattr(inv, key, value)
         inv.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
+        # Keep the financial `status` in sync with the workflow `stage`.
+        if "stage" in fields:
+            if fields["stage"] == "Paid":
+                inv.status = "paid"
+                if not inv.paid_date:
+                    inv.paid_date = datetime.date.today().isoformat()
+            elif inv.status == "paid":
+                inv.status = "unpaid"
+                inv.check_number = None
+                inv.paid_date = None
+
         if "date" in fields:
             _set_phase_id(session, inv)
 
@@ -350,6 +388,7 @@ def mark_invoice_paid(
         require_feature_for_case(session, inv.case_id, FEATURE_COSTS)
 
         inv.status = "paid"
+        inv.stage = "Paid"
         inv.check_number = check_number
         inv.paid_date = paid_date or datetime.date.today().isoformat()
         inv.updated_at = datetime.datetime.now(datetime.timezone.utc)
@@ -402,6 +441,7 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
         require_feature_for_case(session, inv.case_id, FEATURE_COSTS)
 
         inv.status = "unpaid"
+        inv.stage = "Needs Payment"
         inv.check_number = None
         inv.paid_date = None
         inv.updated_at = datetime.datetime.now(datetime.timezone.utc)
@@ -551,6 +591,23 @@ def calculate_equalization(case_id: int, our_share_pct: float) -> dict:
             "counsel_id": counsel_id,
             "counsel_name": counsel_name,
         }
+
+
+def get_invoice_stage_counts() -> dict:
+    """Count outgoing invoices grouped by workflow stage (firm-wide).
+
+    Powers the pipeline filter bar on the main invoices page. Applies the same
+    outgoing + feature filters the page table uses so counts match the rows.
+    """
+    stmt = (
+        select(Invoice.stage, func.count())
+        .where(feature_enabled_filter(FEATURE_COSTS, Invoice.case_id))
+        .where(_outgoing_filter())
+        .group_by(Invoice.stage)
+    )
+    with SessionLocal() as session:
+        rows = session.execute(stmt).all()
+        return {stage: count for stage, count in rows}
 
 
 def get_invoice_stats(case_id: int = None, type: str = None) -> dict:

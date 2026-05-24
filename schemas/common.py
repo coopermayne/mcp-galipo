@@ -32,6 +32,8 @@ IntakeStatus = Literal[
     "Archived",
 ]
 
+InvoiceStage = Literal["Received", "In Review", "Needs Payment", "Paid"]
+
 SearchEntity = Literal["cases", "tasks", "events", "persons"]
 JudgeRole = Literal["Presiding", "Magistrate", "Panel", "Other"]
 ResolutionType = Literal["settlement", "verdict", "judgment", "arbitration_award"]
@@ -46,6 +48,7 @@ TASK_STATUS_LIST: list[str] = list(get_args(TaskStatus))
 PERSON_SIDE_LIST: list[str] = list(get_args(PersonSide))
 URGENCY_LIST: list[str] = list(get_args(Urgency))
 INTAKE_STATUS_LIST: list[str] = list(get_args(IntakeStatus))
+INVOICE_STAGE_LIST: list[str] = list(get_args(InvoiceStage))
 JUDGE_ROLE_LIST: list[str] = list(get_args(JudgeRole))
 RESOLUTION_TYPE_LIST: list[str] = list(get_args(ResolutionType))
 

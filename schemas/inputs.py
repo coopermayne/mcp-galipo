@@ -7,7 +7,7 @@ Used by both MCP tools and REST routes.
 from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus, ResolutionType
+from .common import CaseStatus, TaskStatus, Urgency, IntakeStatus, InvoiceStage, ResolutionType
 
 
 # =============================================================================
@@ -236,6 +236,7 @@ class CreateInvoiceInput(BaseModel):
     type: Optional[Literal["cost", "advance", "reported"]] = "cost"
     case_amount: Optional[float] = None
     status: Optional[Literal["unpaid", "paid"]] = "unpaid"
+    stage: Optional[InvoiceStage] = None
     date: Optional[str] = None
     due_date: Optional[str] = None
     description: Optional[str] = None
@@ -256,6 +257,7 @@ class UpdateInvoiceInput(BaseModel):
     amount: Optional[float] = None
     case_amount: Optional[float] = None
     payee_id: Optional[int] = None
+    stage: Optional[InvoiceStage] = None
     date: Optional[str] = None
     due_date: Optional[str] = None
     description: Optional[str] = None
