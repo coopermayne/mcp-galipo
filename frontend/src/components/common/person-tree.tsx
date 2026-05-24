@@ -13,13 +13,14 @@ import {
 import type { CasePerson } from "@/types/case"
 import { Badge } from "@/components/ui/badge"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Mail01Icon, SmartPhone01Icon, DragDropIcon } from "@hugeicons/core-free-icons"
+import { Mail01Icon, SmartPhone01Icon, Location01Icon, DragDropIcon } from "@hugeicons/core-free-icons"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { getBadgeStyle } from "@/lib/badge-colors"
+import { toast } from "sonner"
 
 /** Map role names to colors from the badge-colors palette. */
 const ROLE_COLORS: Record<string, string> = {
@@ -87,9 +88,16 @@ function formatRoleName(name: string): string {
     .join(" ")
 }
 
+function copyToClipboard(value: string) {
+  navigator.clipboard.writeText(value).then(() => {
+    toast.success("Copied!")
+  })
+}
+
 function PersonNodeContent({ person, isDragOverlay, onClick }: { person: CasePerson; isDragOverlay?: boolean; onClick?: (person: CasePerson) => void }) {
   const hasPhone = Array.isArray(person.phones) && person.phones.length > 0
   const hasEmail = Array.isArray(person.emails) && person.emails.length > 0
+  const hasAddress = !!person.address
   const badgeStyle = getBadgeStyle(ROLE_COLORS[person.role.name])
 
   return (
@@ -112,10 +120,38 @@ function PersonNodeContent({ person, isDragOverlay, onClick }: { person: CasePer
       )}
       {!isDragOverlay && (
         <div className="flex items-center gap-1 ml-auto shrink-0 opacity-0 group-hover/person:opacity-100 transition-opacity">
+          {hasPhone && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const phoneStr = (person.phones as { number: string }[]).map((ph) => ph.number).join(", ")
+                    copyToClipboard(phoneStr)
+                  }}
+                >
+                  <HugeiconsIcon icon={SmartPhone01Icon} className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {(person.phones as { number: string }[]).map((ph) => ph.number).join(", ")}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {hasEmail && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button type="button" className="text-muted-foreground hover:text-foreground">
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const emailStr = (person.emails as { address: string }[]).map((e) => e.address).join(", ")
+                    copyToClipboard(emailStr)
+                  }}
+                >
                   <HugeiconsIcon icon={Mail01Icon} className="size-3.5" />
                 </button>
               </TooltipTrigger>
@@ -124,15 +160,22 @@ function PersonNodeContent({ person, isDragOverlay, onClick }: { person: CasePer
               </TooltipContent>
             </Tooltip>
           )}
-          {hasPhone && (
+          {hasAddress && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button type="button" className="text-muted-foreground hover:text-foreground">
-                  <HugeiconsIcon icon={SmartPhone01Icon} className="size-3.5" />
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    copyToClipboard(person.address!)
+                  }}
+                >
+                  <HugeiconsIcon icon={Location01Icon} className="size-3.5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {(person.phones as { number: string }[]).map((ph) => ph.number).join(", ")}
+                {person.address}
               </TooltipContent>
             </Tooltip>
           )}
