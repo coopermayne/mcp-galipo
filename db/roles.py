@@ -94,11 +94,18 @@ def update_role(role_id: int, name: str = None, category: str = None,
 
 
 def delete_role(role_id: int) -> dict:
-    """Delete a role if it's not in use.
+    """Delete a role if it's not in use and not a system default.
 
     Returns dict with 'success' and 'error' keys.
     """
     with SessionLocal() as session:
+        role = session.get(Role, role_id)
+        if not role:
+            return {"success": False, "error": "Role not found"}
+
+        if role.is_system:
+            return {"success": False, "error": "Cannot delete a system default role"}
+
         # Check if role is in use
         count = session.scalar(
             select(func.count(PersonRole.id)).where(PersonRole.role_id == role_id)
@@ -108,10 +115,6 @@ def delete_role(role_id: int) -> dict:
                 "success": False,
                 "error": f"Cannot delete role: it is assigned to {count} person(s)"
             }
-
-        role = session.get(Role, role_id)
-        if not role:
-            return {"success": False, "error": "Role not found"}
 
         session.delete(role)
         session.commit()
