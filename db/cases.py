@@ -560,6 +560,7 @@ def search_cases(query: str = None, case_number: str = None, person_name: str = 
         if query:
             stmt = stmt.where(or_(
                 Case.case_name.ilike(f"%{query}%"),
+                Case.short_name.ilike(f"%{query}%"),
                 Case.case_summary.ilike(f"%{query}%"),
             ))
 
