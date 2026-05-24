@@ -109,6 +109,7 @@ export interface CasePerson {
   name: string
   phones: unknown[]
   emails: unknown[]
+  address: string | null
   organization: string | null
   person_notes: string | null
   assignment_id: number
