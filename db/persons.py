@@ -40,6 +40,7 @@ def _assignment_to_dict(pr: PersonRole, person: Person, role: Role,
     return CasePersonOut(
         id=person.id, name=person.name,
         phones=person.phones or [], emails=person.emails or [],
+        address=person.address,
         organization=person.organization, person_notes=person.notes,
         assignment_id=pr.id, role_id=pr.role_id,
         attributes=pr.attributes or {}, role_notes=pr.notes,
