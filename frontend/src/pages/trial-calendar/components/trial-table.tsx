@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { getTrialColumns, type CalendarTableRow } from "@/pages/trial-calendar/components/trial-columns"
@@ -84,7 +85,10 @@ export function TrialTable({
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="cursor-pointer group/row"
+                className={cn(
+                  "cursor-pointer group/row",
+                  row.original.kind !== "trial" && "bg-muted/30",
+                )}
                 onClick={() => {
                   if (row.original.kind === "trial") {
                     navigate(`/cases/${row.original.trial.case_id}`)
