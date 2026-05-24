@@ -7,6 +7,7 @@ import {
   SparklesIcon,
   Calendar01Icon,
   TableIcon,
+  Add01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { getTrialCalendar, downloadTrialCalendarPdf } from "@/services/trial-calendar"
@@ -106,14 +107,6 @@ export default function TrialCalendarPage() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Trial Calendar</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => setAiOpen(true)}
-          >
-            <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
-          </Button>
-
           <ToggleGroup
             type="single"
             value={view}
@@ -148,9 +141,24 @@ export default function TrialCalendarPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" onClick={() => setBlockingOpen(true)}>
-              Add Event
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+                  Add Event
+                  <HugeiconsIcon icon={ArrowDown01Icon} className="size-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setBlockingOpen(true)}>
+                  Add Manually
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setAiOpen(true)}>
+                  <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
+                  Create with AI
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Mobile: overflow menu */}
@@ -169,7 +177,11 @@ export default function TrialCalendarPage() {
             <DropdownMenuContent align="end" className="w-[200px]">
               <DropdownMenuItem onClick={() => setBlockingOpen(true)}>
                 <HugeiconsIcon icon={Calendar01Icon} className="mr-2 size-4" />
-                Add Event
+                Add Manually
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAiOpen(true)}>
+                <HugeiconsIcon icon={SparklesIcon} className="mr-2 size-4" />
+                Create with AI
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handlePrint("list")} disabled={printing}>
