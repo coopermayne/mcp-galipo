@@ -59,6 +59,7 @@ export interface CaseDetail {
   color: string | null
   attorney_ids: number[] | null
   paralegal_ids: number[] | null
+  intake_id: number | null
   created_at: string | null
   updated_at: string | null
   attorneys: CaseStaffUser[]

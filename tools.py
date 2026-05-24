@@ -196,6 +196,7 @@ class ManageCaseInput(BaseModel):
     trial_estimated_days: Optional[int] = Field(None, description="Estimated trial duration in days")
     claim_deadline: Optional[str] = Field(None, description="Government claim filing deadline (YYYY-MM-DD)")
     complaint_deadline: Optional[str] = Field(None, description="Complaint filing deadline (YYYY-MM-DD)")
+    intake_id: Optional[int] = Field(None, description="Source intake ID (links case to the intake it was created from)")
 
 
 class ManagePersonInput(BaseModel):
@@ -860,6 +861,7 @@ def register_tools(mcp):
                     trial_date=data.trial_date,
                     claim_deadline=data.claim_deadline,
                     complaint_deadline=data.complaint_deadline,
+                    intake_id=data.intake_id,
                 )
                 return {"success": True, "message": f"Case '{data.case_name}' created", "case_id": result["id"]}
 

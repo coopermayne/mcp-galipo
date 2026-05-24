@@ -38,6 +38,8 @@ interface AiChatSheetProps {
   toolCompletionRules: ToolCompletionRule[]
   /** Optional custom render for tool indicators */
   renderToolIndicator?: (tool: ToolActivity) => React.ReactNode
+  /** If set, this message is auto-sent when the sheet opens */
+  initialMessage?: string
 }
 
 export function AiChatSheet({
@@ -52,6 +54,7 @@ export function AiChatSheet({
   intakeContext,
   toolCompletionRules,
   renderToolIndicator,
+  initialMessage,
 }: AiChatSheetProps) {
   const queryClient = useQueryClient()
   const { messages, send, isStreaming, reset } = useChatStream({ mode, caseContext, intakeContext })
@@ -59,6 +62,7 @@ export function AiChatSheet({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const hasNotifiedRef = useRef<Set<string>>(new Set())
+  const initialSentRef = useRef(false)
 
   // Reset on open/close
   useEffect(() => {
@@ -66,11 +70,22 @@ export function AiChatSheet({
       reset()
       setInput("")
       hasNotifiedRef.current = new Set()
+      initialSentRef.current = false
       setTimeout(() => textareaRef.current?.focus(), 100)
     } else {
       reset()
+      initialSentRef.current = false
     }
   }, [open, reset])
+
+  // Auto-send initial message when sheet opens
+  useEffect(() => {
+    if (open && initialMessage && !initialSentRef.current && !isStreaming && messages.length === 0) {
+      initialSentRef.current = true
+      // Small delay to let the sheet render before sending
+      setTimeout(() => send(initialMessage), 200)
+    }
+  }, [open, initialMessage, isStreaming, messages.length, send])
 
   // Auto-scroll on new messages
   useEffect(() => {

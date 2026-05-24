@@ -25,6 +25,7 @@ class CreateCaseInput(BaseModel):
     trial_date: Optional[str] = None
     claim_deadline: Optional[str] = None
     complaint_deadline: Optional[str] = None
+    intake_id: Optional[int] = None
 
 
 class UpdateCaseInput(BaseModel):

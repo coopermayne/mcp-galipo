@@ -481,6 +481,7 @@ class CaseDetailOut(BaseModel):
     color: Optional[str] = None
     attorney_ids: Optional[list[int]] = None
     paralegal_ids: Optional[list[int]] = None
+    intake_id: Optional[int] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     attorneys: list[dict] = []
@@ -565,6 +566,9 @@ class IntakeOut(BaseModel):
     google_row_number: Optional[int] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
+    # Linked case (populated via reverse lookup, not from ORM)
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
 
 
 class IntakeCommentOut(BaseModel):
