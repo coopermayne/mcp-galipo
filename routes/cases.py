@@ -53,6 +53,34 @@ def register_case_routes(mcp):
         counts = await asyncio.to_thread(db.get_case_status_counts, attorney_ids)
         return JSONResponse(counts)
 
+    @mcp.custom_route("/api/v1/cases/search", methods=["GET"])
+    async def api_search_cases(request):
+        """Search cases by text query with optional filters."""
+        if err := auth.require_auth(request):
+            return err
+
+        q = request.query_params.get("q", "").strip()
+        if len(q) < 2:
+            return JSONResponse({"cases": [], "total": 0})
+
+        # Filter: my_cases — restrict to current user's cases
+        my_cases = request.query_params.get("my_cases", "false").lower() == "true"
+        include_closed = request.query_params.get("include_closed", "false").lower() == "true"
+        limit = int(request.query_params.get("limit", "25"))
+
+        user = auth.get_current_user(request)
+        user_id = user["id"] if (my_cases and user) else None
+
+        results = await asyncio.to_thread(
+            db.search_cases, query=q, user_id=user_id, limit=limit,
+        )
+
+        # Post-filter closed if not included
+        if not include_closed:
+            results = [r for r in results if r.get("status") != "Closed"]
+
+        return JSONResponse({"cases": results, "total": len(results)})
+
     @mcp.custom_route("/api/v1/cases/{case_id}", methods=["GET"])
     async def api_get_case(request):
         """Get a specific case by ID."""
@@ -315,3 +343,4 @@ def register_case_routes(mcp):
         user_id = user["id"] if user else 0
         await asyncio.to_thread(db.mark_case_read, case_id, user_id)
         return JSONResponse({"success": True})
+
