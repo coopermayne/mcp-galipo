@@ -1,5 +1,7 @@
 import { format } from "date-fns"
 import type { ColumnDef } from "@tanstack/react-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { NoteIcon } from "@hugeicons/core-free-icons"
 import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
@@ -64,6 +66,7 @@ export function getTrialColumns(options: {
         if (row.original.kind === "trial") {
           const { color, case_name, status } = row.original.trial
           const isStale = STALE_STATUSES.has(status)
+          const truncated = case_name.length > 35 ? `${case_name.slice(0, 35)}…` : case_name
           return (
             <div className="flex items-center gap-2">
               {color && (
@@ -72,7 +75,18 @@ export function getTrialColumns(options: {
                   style={{ backgroundColor: `var(--palette-${color})` }}
                 />
               )}
-              <span className="font-medium">{case_name}</span>
+              {case_name.length > 35 ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-medium">{truncated}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-md text-xs">
+                    {case_name}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <span className="font-medium">{case_name}</span>
+              )}
               {isStale && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -99,6 +113,21 @@ export function getTrialColumns(options: {
               {getEventTypeLabel(evt.event_type)}
             </Badge>
             <span className="text-muted-foreground">{evt.description}</span>
+            {evt.notes && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <HugeiconsIcon icon={NoteIcon} className="size-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap text-xs">
+                  {evt.notes}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         )
       },

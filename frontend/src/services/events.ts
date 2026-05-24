@@ -9,6 +9,7 @@ export interface CreateEventData {
   location?: string
   document_link?: string
   calculation_note?: string
+  notes?: string
   starred?: boolean
   event_type?: string
   end_date?: string
@@ -22,6 +23,7 @@ export interface UpdateEventData {
   location?: string | null
   document_link?: string | null
   calculation_note?: string | null
+  notes?: string | null
   starred?: boolean
   event_type?: string | null
   end_date?: string | null

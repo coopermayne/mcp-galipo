@@ -152,6 +152,7 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 "date": e.date.isoformat() if e.date else None,
                 "end_date": e.end_date.isoformat() if e.end_date else None,
                 "case_id": e.case_id,
+                "notes": e.notes,
             })
 
     return {

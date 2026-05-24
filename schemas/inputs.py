@@ -84,6 +84,7 @@ class CreateEventInput(BaseModel):
     location: Optional[str] = None
     document_link: Optional[str] = None
     calculation_note: Optional[str] = None
+    notes: Optional[str] = None
     starred: Optional[bool] = False
     event_type: Optional[str] = None
     end_date: Optional[str] = None
@@ -97,6 +98,7 @@ class UpdateEventInput(BaseModel):
     location: Optional[str] = None
     document_link: Optional[str] = None
     calculation_note: Optional[str] = None
+    notes: Optional[str] = None
     starred: Optional[bool] = None
     event_type: Optional[str] = None
     end_date: Optional[str] = None

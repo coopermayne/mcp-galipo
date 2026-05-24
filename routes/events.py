@@ -71,6 +71,7 @@ def register_event_routes(mcp):
                 data.event_type,
                 data.end_date,
                 data.blocks_calendar,
+                notes=data.notes,
             )
         except db.FeatureDisabled as e:
             return feature_disabled_error(e)

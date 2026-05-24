@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
@@ -31,6 +32,7 @@ export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) 
   const [eventType, setEventType] = useState("oral_argument")
   const [startDate, setStartDate] = useState<string | null>(null)
   const [endDate, setEndDate] = useState<string | null>(null)
+  const [notes, setNotes] = useState("")
 
   function handleSubmit() {
     if (!description || !startDate) return
@@ -39,10 +41,12 @@ export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) 
       date: startDate,
       end_date: endDate ?? undefined,
       event_type: eventType,
+      notes: notes.trim() || undefined,
     })
     setDescription("")
     setStartDate(null)
     setEndDate(null)
+    setNotes("")
   }
 
   return (
@@ -84,6 +88,15 @@ export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) 
               <Label>End Date (optional)</Label>
               <DatePicker value={endDate} onChange={setEndDate} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Notes (optional)</Label>
+            <Textarea
+              placeholder="Optional notes about this event"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
           </div>
         </div>
         <DialogFooter>

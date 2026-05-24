@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
@@ -45,6 +46,7 @@ export function EditEventDialog({ event, onOpenChange, onSuccess }: Props) {
   const [eventType, setEventType] = useState("other")
   const [startDate, setStartDate] = useState<string | null>(null)
   const [endDate, setEndDate] = useState<string | null>(null)
+  const [notes, setNotes] = useState("")
 
   useEffect(() => {
     if (event) {
@@ -52,6 +54,7 @@ export function EditEventDialog({ event, onOpenChange, onSuccess }: Props) {
       setEventType(event.event_type)
       setStartDate(event.date)
       setEndDate(event.end_date)
+      setNotes(event.notes ?? "")
     }
   }, [event])
 
@@ -62,6 +65,7 @@ export function EditEventDialog({ event, onOpenChange, onSuccess }: Props) {
         event_type: eventType,
         date: startDate!,
         end_date: endDate,
+        notes: notes.trim() ? notes : null,
       }),
     onSuccess: () => {
       toast.success("Event updated")
@@ -117,6 +121,15 @@ export function EditEventDialog({ event, onOpenChange, onSuccess }: Props) {
               <Label>End Date (optional)</Label>
               <DatePicker value={endDate} onChange={setEndDate} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes about this event"
+              rows={3}
+            />
           </div>
         </div>
         <DialogFooter className="flex !justify-between">
