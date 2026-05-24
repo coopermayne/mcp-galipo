@@ -87,7 +87,7 @@ export function TrialTable({
                 key={row.id}
                 className={cn(
                   "cursor-pointer group/row",
-                  row.original.kind !== "trial" && "bg-muted/30",
+                  row.original.kind !== "trial" && "bg-muted",
                 )}
                 onClick={() => {
                   if (row.original.kind === "trial") {
