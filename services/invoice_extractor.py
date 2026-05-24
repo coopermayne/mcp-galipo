@@ -6,6 +6,8 @@ from typing import Optional
 
 from anthropic import Anthropic
 
+from db.token_usage import record_usage_from_message
+
 EXTRACT_INVOICE_TOOL = {
     "name": "submit_invoice_info",
     "description": "Submit extracted invoice information from a legal invoice, receipt, or cost document.",
@@ -103,6 +105,10 @@ class InvoiceExtractor:
                 {"role": "user", "content": f"Extract invoice information from this document:\n\n{text}"}
             ],
         )
+        record_usage_from_message(
+            source="invoice_extractor", request_type="extract_from_text",
+            model=self.model, message=message,
+        )
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_invoice_info":
@@ -131,6 +137,10 @@ class InvoiceExtractor:
                 }
             ],
         )
+        record_usage_from_message(
+            source="invoice_extractor", request_type="extract_from_document",
+            model=self.model, message=message,
+        )
 
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_invoice_info":
@@ -158,6 +168,10 @@ class InvoiceExtractor:
                     ],
                 }
             ],
+        )
+        record_usage_from_message(
+            source="invoice_extractor", request_type="extract_from_image",
+            model=self.model, message=message,
         )
 
         for block in message.content:
