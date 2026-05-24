@@ -1,7 +1,7 @@
 import { useState, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { listPayees, createPayee, uploadW9, type Payee } from "@/services/payees"
+import { listPayees, createPayee, processW9, type Payee } from "@/services/payees"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -11,6 +11,7 @@ import {
   Attachment01Icon,
   Search01Icon,
   Upload04Icon,
+  Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { openW9File } from "@/services/payees"
 import { EditPayeeDialog } from "@/pages/payees/components/edit-payee-dialog"
@@ -122,6 +123,11 @@ export default function PayeesPage() {
                         <HugeiconsIcon icon={Attachment01Icon} className="size-3.5" />
                         {p.w9_year ? `W-9 (${p.w9_year})` : (p.w9_file_name ?? "View")}
                       </button>
+                    ) : p.w9_year ? (
+                      <span className="inline-flex items-center gap-1 text-success text-sm">
+                        <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
+                        W-9 ({p.w9_year})
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -167,6 +173,7 @@ function CreatePayeeDialog({
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [w9Year, setW9Year] = useState("")
   const [saving, setSaving] = useState(false)
+  const [showFilingInstructions, setShowFilingInstructions] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -193,7 +200,8 @@ function CreatePayeeDialog({
 
       if (pendingFile && w9Year) {
         const year = parseInt(w9Year, 10)
-        await uploadW9(result.payee.id, pendingFile, year)
+        await processW9(result.payee.id, pendingFile, year)
+        setShowFilingInstructions(true)
       }
 
       toast.success("Payee created")
@@ -213,6 +221,7 @@ function CreatePayeeDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -321,5 +330,28 @@ function CreatePayeeDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={showFilingInstructions} onOpenChange={setShowFilingInstructions}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <HugeiconsIcon icon={Tick02Icon} className="size-5 text-success" />
+            W-9 Downloaded
+          </DialogTitle>
+        </DialogHeader>
+        <div className="text-sm text-muted-foreground space-y-2">
+          <p>The W-9 has been renamed and downloaded to your computer.</p>
+          <p className="font-medium text-foreground">
+            Save this file to the shared W-9 folder immediately.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setShowFilingInstructions(false)}>
+            Got it
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

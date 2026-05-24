@@ -19,6 +19,7 @@ import {
   INVOICE_CATEGORIES,
   type InvoiceCategory,
 } from "@/services/invoices"
+import { PerfectionBadge } from "@/pages/cases/costs/components/perfection-badge"
 
 export type RowKind = "invoice" | "advance" | "transfer"
 
@@ -136,6 +137,7 @@ export function getColumns(options: {
             <span className="truncate">
               {row.getValue("payee_name") ?? "No payee"}
             </span>
+            <PerfectionBadge invoice={row.original} />
             {count > 0 && (
               <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block shrink-0">
                 {count}
