@@ -51,7 +51,7 @@ def add_event(case_id: int = None, date: str = "", description: str = "",
               document_link: str = None, calculation_note: str = None,
               time: str = None, location: str = None, starred: bool = False,
               event_type: str = None, end_date: str = None,
-              blocks_calendar: bool = None) -> dict:
+              blocks_calendar: bool = None, notes: str = None) -> dict:
     """Add an event, optionally associated with a case."""
     validate_date_format(date, "date")
     validate_time_format(time, "time")
@@ -68,6 +68,7 @@ def add_event(case_id: int = None, date: str = "", description: str = "",
             description=description,
             document_link=document_link,
             calculation_note=calculation_note,
+            notes=notes,
             starred=starred,
             event_type=event_type,
             end_date=end_date,
@@ -218,9 +219,10 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
                       document_link: str = _NOT_PROVIDED, calculation_note: str = _NOT_PROVIDED,
                       time: str = _NOT_PROVIDED, location: str = _NOT_PROVIDED,
                       starred: bool = _NOT_PROVIDED, event_type: str = _NOT_PROVIDED,
-                      end_date: str = _NOT_PROVIDED, blocks_calendar: bool = _NOT_PROVIDED) -> Optional[dict]:
+                      end_date: str = _NOT_PROVIDED, blocks_calendar: bool = _NOT_PROVIDED,
+                      notes: str = _NOT_PROVIDED) -> Optional[dict]:
     """Update all event fields."""
-    fields = [date, description, document_link, calculation_note, time, location, starred, event_type, end_date, blocks_calendar]
+    fields = [date, description, document_link, calculation_note, time, location, starred, event_type, end_date, blocks_calendar, notes]
     if all(f is _NOT_PROVIDED for f in fields):
         return None
 
@@ -251,6 +253,9 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
 
         if calculation_note is not _NOT_PROVIDED:
             event.calculation_note = calculation_note if calculation_note else None
+
+        if notes is not _NOT_PROVIDED:
+            event.notes = notes if notes else None
 
         if starred is not _NOT_PROVIDED:
             event.starred = starred

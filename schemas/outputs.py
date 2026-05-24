@@ -260,6 +260,7 @@ class EventOut(BaseModel):
     description: str
     document_link: Optional[str] = None
     calculation_note: Optional[str] = None
+    notes: Optional[str] = None
     starred: Optional[bool] = None
     created_at: Optional[datetime.datetime] = None
     event_type: Optional[str] = None

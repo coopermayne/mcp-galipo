@@ -117,6 +117,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
             JOIN proceeding_judges pj ON p.id = pj.proceeding_id
             JOIN judges j ON pj.judge_id = j.id
             WHERE p.case_id = cases.id AND p.is_primary = true
+              AND COALESCE(pj.role, 'Judge') != 'Magistrate Judge'
             ORDER BY pj.sort_order LIMIT 1
         )""").label("judge")
 

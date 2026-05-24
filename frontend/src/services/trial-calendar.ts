@@ -24,6 +24,7 @@ export interface BlockingEvent {
   date: string
   end_date: string | null
   case_id: number | null
+  notes: string | null
 }
 
 export interface TrialCalendarData {

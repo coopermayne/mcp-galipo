@@ -505,6 +505,7 @@ class Event(Base):
     location: Mapped[Optional[str]] = mapped_column(String(255))
     document_link: Mapped[Optional[str]] = mapped_column(Text)
     calculation_note: Mapped[Optional[str]] = mapped_column(Text)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
