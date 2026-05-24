@@ -6,6 +6,22 @@ import { apiFetch } from "@/lib/api"
 
 export type InvoiceStatus = "unpaid" | "paid"
 
+export type InvoiceStage = "Received" | "In Review" | "Needs Payment" | "Paid"
+
+export const INVOICE_STAGES: InvoiceStage[] = [
+  "Received",
+  "In Review",
+  "Needs Payment",
+  "Paid",
+]
+
+// Stages shown in the "Active" pipeline lane (everything before terminal Paid).
+export const ACTIVE_INVOICE_STAGES: InvoiceStage[] = [
+  "Received",
+  "In Review",
+  "Needs Payment",
+]
+
 export type InvoiceCategory =
   | "Court Costs"
   | "Mediation"
@@ -39,6 +55,7 @@ export interface Invoice {
   case_name: string | null
   type: InvoiceType
   status: InvoiceStatus
+  stage: InvoiceStage
   payee_id: number | null
   payee_name: string | null
   payee_address: string | null
@@ -110,12 +127,15 @@ export interface InvoiceListResponse {
 interface ListInvoicesParams {
   case_id?: number
   status?: InvoiceStatus
+  stage?: InvoiceStage
   type?: InvoiceType
   search?: string
   sort_by?: string
   sort_dir?: "asc" | "desc"
   limit?: number
   offset?: number
+  exclude_paid?: boolean
+  outgoing_only?: boolean
 }
 
 export async function listInvoices(
@@ -124,14 +144,23 @@ export async function listInvoices(
   const sp = new URLSearchParams()
   if (params.case_id != null) sp.set("case_id", String(params.case_id))
   if (params.status) sp.set("status", params.status)
+  if (params.stage) sp.set("stage", params.stage)
   if (params.type) sp.set("type", params.type)
   if (params.search) sp.set("search", params.search)
   if (params.sort_by) sp.set("sort_by", params.sort_by)
   if (params.sort_dir) sp.set("sort_dir", params.sort_dir)
   if (params.limit != null) sp.set("limit", String(params.limit))
   if (params.offset != null) sp.set("offset", String(params.offset))
+  if (params.exclude_paid) sp.set("exclude_paid", "true")
+  if (params.outgoing_only) sp.set("outgoing_only", "true")
   const res = await apiFetch(`/api/v1/invoices?${sp}`)
   if (!res.ok) throw new Error("Failed to fetch invoices")
+  return res.json()
+}
+
+export async function getInvoiceStageCounts(): Promise<Record<string, number>> {
+  const res = await apiFetch("/api/v1/invoices/stage-counts")
+  if (!res.ok) throw new Error("Failed to fetch invoice stage counts")
   return res.json()
 }
 
@@ -179,6 +208,7 @@ export async function createInvoice(
 export interface UpdateInvoiceData {
   amount?: number
   case_amount?: number | null
+  stage?: InvoiceStage
   date?: string
   due_date?: string
   description?: string

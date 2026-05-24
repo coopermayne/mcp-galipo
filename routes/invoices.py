@@ -19,9 +19,25 @@ from schemas import (
     CostSharingConfigInput,
 )
 from .common import api_error, pydantic_error, clamp_pagination, feature_disabled_error
+from .comments import _get_db_user_id
 from .sse import broadcast
 
 logger = logging.getLogger(__name__)
+
+
+def _post_stage_change_comment(invoice_id, user, old_stage, new_stage):
+    """Record a workflow-stage change on the invoice's comment thread so other
+    users see the per-user unread badge. Mirrors the intake status-change log."""
+    if not old_stage or old_stage == new_stage:
+        return
+    name = user.get("firstName", "Someone") if user else "Someone"
+    msg = f"{name} changed stage from {old_stage} to {new_stage}"
+    db.add_comment("invoice", invoice_id, _get_db_user_id(user), msg, True)
+    broadcast({
+        "entity": "comment", "action": "created",
+        "entity_type": "invoice", "entity_id": invoice_id,
+        "user_id": _get_db_user_id(user),
+    })
 
 ALLOWED_TYPES = {
     ".pdf": "application/pdf",
@@ -39,23 +55,29 @@ def register_invoice_routes(mcp):
             return err
         case_id = request.query_params.get("case_id")
         status = request.query_params.get("status")
+        stage = request.query_params.get("stage")
         search = request.query_params.get("search")
         sort_by = request.query_params.get("sort_by", "due_date")
         sort_dir = request.query_params.get("sort_dir", "asc")
         limit, offset = clamp_pagination(request)
 
         inv_type = request.query_params.get("type")
+        exclude_paid = request.query_params.get("exclude_paid", "").lower() == "true"
+        outgoing_only = request.query_params.get("outgoing_only", "").lower() == "true"
 
         result = await asyncio.to_thread(
             db.list_invoices,
             case_id=int(case_id) if case_id else None,
             status=status,
+            stage=stage,
             type=inv_type,
             search=search,
             sort_by=sort_by,
             sort_dir=sort_dir,
             limit=limit,
             offset=offset,
+            exclude_paid=exclude_paid,
+            outgoing_only=outgoing_only,
         )
         return JSONResponse(result)
 
@@ -71,6 +93,13 @@ def register_invoice_routes(mcp):
             type=inv_type,
         )
         return JSONResponse(stats)
+
+    @mcp.custom_route("/api/v1/invoices/stage-counts", methods=["GET"])
+    async def api_invoice_stage_counts(request):
+        if err := auth.require_auth(request):
+            return err
+        counts = await asyncio.to_thread(db.get_invoice_stage_counts)
+        return JSONResponse(counts)
 
     @mcp.custom_route("/api/v1/invoices/advance-stats", methods=["GET"])
     async def api_advance_stats(request):
@@ -294,18 +323,31 @@ def register_invoice_routes(mcp):
         if err := auth.require_auth(request):
             return err
         invoice_id = int(request.path_params["invoice_id"])
+        user = auth.get_current_user(request)
         try:
             data = UpdateInvoiceInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
 
         updates = data.model_dump(exclude_unset=True)
+
+        old_stage = None
+        if "stage" in updates:
+            old = await asyncio.to_thread(db.get_invoice, invoice_id)
+            old_stage = old.get("stage") if old else None
+
         try:
             result = await asyncio.to_thread(db.update_invoice, invoice_id, **updates)
         except db.FeatureDisabled as e:
             return feature_disabled_error(e)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+
+        if "stage" in updates:
+            await asyncio.to_thread(
+                _post_stage_change_comment, invoice_id, user, old_stage, result.get("stage")
+            )
+
         broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
@@ -314,10 +356,14 @@ def register_invoice_routes(mcp):
         if err := auth.require_auth(request):
             return err
         invoice_id = int(request.path_params["invoice_id"])
+        user = auth.get_current_user(request)
         try:
             data = MarkInvoicePaidInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
+
+        old = await asyncio.to_thread(db.get_invoice, invoice_id)
+        old_stage = old.get("stage") if old else None
 
         try:
             result = await asyncio.to_thread(
@@ -330,6 +376,9 @@ def register_invoice_routes(mcp):
             return feature_disabled_error(e)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        await asyncio.to_thread(
+            _post_stage_change_comment, invoice_id, user, old_stage, result.get("stage")
+        )
         broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 
@@ -338,12 +387,18 @@ def register_invoice_routes(mcp):
         if err := auth.require_auth(request):
             return err
         invoice_id = int(request.path_params["invoice_id"])
+        user = auth.get_current_user(request)
+        old = await asyncio.to_thread(db.get_invoice, invoice_id)
+        old_stage = old.get("stage") if old else None
         try:
             result = await asyncio.to_thread(db.mark_invoice_unpaid, invoice_id)
         except db.FeatureDisabled as e:
             return feature_disabled_error(e)
         if not result:
             return api_error("Invoice not found", "NOT_FOUND", 404)
+        await asyncio.to_thread(
+            _post_stage_change_comment, invoice_id, user, old_stage, result.get("stage")
+        )
         broadcast({"entity": "invoice", "action": "updated", "id": invoice_id, "case_id": result.get("case_id")})
         return JSONResponse({"success": True, "invoice": result})
 

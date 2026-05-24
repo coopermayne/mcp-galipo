@@ -1150,6 +1150,7 @@ class Invoice(Base):
         PrimaryKeyConstraint("id", name="invoices_pkey"),
         Index("idx_invoices_case_id", "case_id"),
         Index("idx_invoices_status", "status"),
+        Index("idx_invoices_stage", "stage"),
         Index("idx_invoices_due_date", "due_date"),
         Index("idx_invoices_date", "date"),
         Index("idx_invoices_type", "type"),
@@ -1164,6 +1165,12 @@ class Invoice(Base):
     )
     status: Mapped[str] = mapped_column(
         String(20), server_default=text("'unpaid'::character varying")
+    )
+    # Workflow stage (office-manager review pipeline). Independent of `status`,
+    # which remains the financial truth (unpaid/paid). Reaching the "Paid" stage
+    # syncs status -> paid; leaving it syncs status -> unpaid.
+    stage: Mapped[str] = mapped_column(
+        String(30), server_default=text("'Received'::character varying")
     )
     amount: Mapped[float] = mapped_column(Numeric(14, 2))
     case_amount: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))

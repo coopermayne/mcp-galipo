@@ -34,6 +34,7 @@ export const ROW_KIND_BORDER: Record<RowKind, string> = {
   transfer: "border-l-2 border-l-[var(--purple)]",
 }
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
+import { InvoiceStageBadge } from "@/pages/invoices/components/invoice-stage-badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -99,8 +100,10 @@ export function getColumns(options: {
   showCase: boolean
   onMarkPaid?: (invoice: Invoice) => void
   onMarkUnpaid?: (invoice: Invoice) => void
+  unreadCounts?: Record<number, number>
 }): ColumnDef<Invoice>[] {
   const cols: ColumnDef<Invoice>[] = []
+  const unreadCounts = options.unreadCounts ?? {}
 
   if (options.showCase) {
     cols.push({
@@ -126,11 +129,21 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Payee" />
       ),
-      cell: ({ row }) => (
-        <span className="font-medium truncate max-w-[200px] block">
-          {row.getValue("payee_name") ?? "No payee"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const count = unreadCounts[row.original.id] ?? 0
+        return (
+          <span className="inline-flex items-center gap-1.5 font-medium max-w-[200px]">
+            <span className="truncate">
+              {row.getValue("payee_name") ?? "No payee"}
+            </span>
+            {count > 0 && (
+              <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block shrink-0">
+                {count}
+              </span>
+            )}
+          </span>
+        )
+      },
     },
     {
       accessorKey: "amount",
@@ -161,6 +174,13 @@ export function getColumns(options: {
         <DataTableColumnHeader column={column} title="Category" />
       ),
       cell: ({ row }) => <CategoryCell invoice={row.original} />,
+    },
+    {
+      accessorKey: "stage",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Stage" />
+      ),
+      cell: ({ row }) => <InvoiceStageBadge stage={row.original.stage} />,
     },
     {
       accessorKey: "due_date",
