@@ -2,13 +2,20 @@ import { useMemo, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, SparklesIcon, StarIcon } from "@hugeicons/core-free-icons"
+import { Add01Icon, SparklesIcon, StarIcon, CourtLawIcon, LinkSquare02Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
 import { updateProceeding } from "@/services/proceedings"
 import type { CaseDetail, CasePerson, CaseProceeding } from "@/types/case"
 import type { PersonListItem } from "@/types/person"
 import { getRoles } from "@/services/roles"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardAction,
+} from "@/components/ui/card"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
@@ -25,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { AddProceedingDialog } from "@/pages/cases/components/add-proceeding-dialog"
 
 interface CaseSummarySectionProps {
   caseData: CaseDetail
@@ -116,6 +124,7 @@ export function CaseSummarySection({
   const queryClient = useQueryClient()
   const counts = usePersonCounts(caseData)
   const [peopleCategory, setPeopleCategory] = useState<string | null>(null)
+  const [addProceedingOpen, setAddProceedingOpen] = useState(false)
 
   // Fetch roles for the active category (for the "+" dropdown)
   // For counsel drawer, fetch both counsel and mediator roles
@@ -178,28 +187,53 @@ export function CaseSummarySection({
   return (
     <>
       <div className="space-y-4">
-        {/* Proceedings list */}
-        <div className="flex flex-col sm:flex-row sm:items-start gap-2 border p-3">
-          <div className="flex-1 space-y-1">
+        {/* Proceedings */}
+        <Card size="sm">
+          <CardHeader className="border-b bg-muted/40">
+            <CardTitle>
+              Proceedings
+              {sortedProceedings.length > 0 && (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  ({sortedProceedings.length})
+                </span>
+              )}
+            </CardTitle>
+            <CardAction>
+              {onAiProceedings && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  onClick={onAiProceedings}
+                >
+                  <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={() => setAddProceedingOpen(true)}
+              >
+                <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="p-0">
             {sortedProceedings.length > 0 ? (
-              sortedProceedings.map((p) => {
-                const parts: string[] = []
-                if (p.jurisdiction_name) parts.push(p.jurisdiction_name)
-                if (p.judges.length > 0) {
-                  parts.push(formatJudges(p.judges))
-                } else if (p.judge_name) {
-                  parts.push(`Judge ${p.judge_name}`)
-                }
-                const detail = parts.length > 0 ? `(${parts.join(", ")})` : null
-                return (
-                  <div key={p.id} className="flex items-center gap-2 text-xs group/proc">
+              <div className="divide-y divide-border/50">
+                {sortedProceedings.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-start gap-2.5 px-3 py-2.5 group/proc hover:bg-muted/30 transition-colors"
+                  >
                     <button
                       type="button"
                       onClick={() => {
                         if (!p.is_primary) setPrimaryMutation.mutate(p.id)
                       }}
                       className={cn(
-                        "shrink-0",
+                        "shrink-0 mt-0.5",
                         p.is_primary
                           ? "text-warning cursor-default"
                           : "text-muted-foreground/30 hover:text-warning/60 cursor-pointer"
@@ -211,31 +245,61 @@ export function CaseSummarySection({
                     <button
                       type="button"
                       onClick={() => setDetailProceeding(p)}
-                      className="font-mono hover:underline"
+                      className="flex-1 min-w-0 text-left"
                     >
-                      {p.case_number}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-medium hover:underline">
+                          {p.case_number}
+                        </span>
+                        {p.is_primary && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0">
+                            Primary
+                          </Badge>
+                        )}
+                      </div>
+                      {(p.jurisdiction_name || p.judges.length > 0 || p.judge_name) && (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                          {p.jurisdiction_name && (
+                            <span className="text-[11px] text-muted-foreground">
+                              {p.jurisdiction_name}
+                            </span>
+                          )}
+                          {(p.judges.length > 0 || p.judge_name) && (
+                            <>
+                              {p.jurisdiction_name && (
+                                <span className="text-muted-foreground/40 text-[11px]">/</span>
+                              )}
+                              <span className="text-[11px] text-muted-foreground">
+                                {p.judges.length > 0
+                                  ? formatJudges(p.judges)
+                                  : p.judge_name
+                                    ? `Judge ${p.judge_name}`
+                                    : null}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </button>
-                    {detail && (
-                      <span className="text-muted-foreground">{detail}</span>
-                    )}
                   </div>
-                )
-              })
+                ))}
+              </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No proceedings</p>
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <HugeiconsIcon icon={CourtLawIcon} className="size-5 text-muted-foreground/40 mb-2" />
+                <p className="text-xs text-muted-foreground">No proceedings yet</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 h-7 text-xs"
+                  onClick={() => setAddProceedingOpen(true)}
+                >
+                  Add Proceeding
+                </Button>
+              </div>
             )}
-          </div>
-          {onAiProceedings && (
-            <button
-              type="button"
-              onClick={onAiProceedings}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 self-end sm:self-start"
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
-              Manage proceedings
-            </button>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
         {/* People — category buttons */}
         <div className="flex items-center gap-1.5">
@@ -329,47 +393,67 @@ export function CaseSummarySection({
         <Dialog open={!!detailProceeding} onOpenChange={(open) => { if (!open) setDetailProceeding(null) }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="font-mono">{detailProceeding.case_number}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <span className="font-mono">{detailProceeding.case_number}</span>
+                {detailProceeding.is_primary && (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0">Primary</Badge>
+                )}
+              </DialogTitle>
             </DialogHeader>
-            <div className="space-y-2 text-sm">
-              {detailProceeding.is_primary && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Primary</Badge>
-              )}
+            <div className="space-y-3">
               {detailProceeding.jurisdiction_name && (
-                <p className="text-muted-foreground">
-                  {detailProceeding.jurisdiction_name}
-                  {detailProceeding.local_rules_link && (
-                    <>
-                      {" — "}
+                <div className="space-y-1">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Jurisdiction</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm">{detailProceeding.jurisdiction_name}</p>
+                    {detailProceeding.local_rules_link && (
                       <a
                         href={detailProceeding.local_rules_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                       >
+                        <HugeiconsIcon icon={LinkSquare02Icon} className="size-3" />
                         Local Rules
                       </a>
-                    </>
-                  )}
-                </p>
+                    )}
+                  </div>
+                </div>
               )}
               {detailProceeding.judges.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                     {detailProceeding.judges.length === 1 ? "Judge" : "Judges"}
                   </p>
-                  {detailProceeding.judges.map((j) => (
-                    <p key={j.judge_id}>{j.role ? `${j.role}: ` : ""}{j.name}</p>
-                  ))}
+                  <div className="space-y-1">
+                    {detailProceeding.judges.map((j) => (
+                      <div key={j.judge_id} className="flex items-baseline gap-2 text-sm">
+                        <span>{j.name}</span>
+                        {j.role && j.role !== "Judge" && (
+                          <span className="text-[11px] text-muted-foreground">({j.role})</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {detailProceeding.notes && (
-                <p className="text-muted-foreground text-xs">{detailProceeding.notes}</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Notes</p>
+                  <p className="text-sm text-muted-foreground">{detailProceeding.notes}</p>
+                </div>
               )}
             </div>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Add proceeding dialog */}
+      <AddProceedingDialog
+        open={addProceedingOpen}
+        onOpenChange={setAddProceedingOpen}
+        caseId={caseData.id}
+      />
     </>
   )
 }
