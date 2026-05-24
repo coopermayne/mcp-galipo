@@ -12,6 +12,7 @@ import {
   ArrowDataTransferHorizontalIcon,
 } from "@hugeicons/core-free-icons"
 import type { Invoice } from "@/services/invoices"
+import { PerfectionBadge } from "@/pages/cases/costs/components/perfection-badge"
 import {
   openInvoiceFile,
   markInvoiceUnpaid,
@@ -118,8 +119,9 @@ export function getCaseCostColumns(options: {
           )
         }
         return (
-          <span className="font-medium truncate max-w-[200px] block">
+          <span className="font-medium truncate max-w-[200px] flex items-center gap-1.5">
             {row.getValue("payee_name") ?? "No payee"}
+            <PerfectionBadge invoice={inv} />
           </span>
         )
       },

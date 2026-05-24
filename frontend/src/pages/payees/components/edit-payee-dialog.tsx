@@ -17,9 +17,10 @@ import {
   type Payee,
   updatePayee,
   deletePayee,
-  uploadW9,
+  processW9,
   openW9File,
 } from "@/services/payees"
+import { Tick02Icon } from "@hugeicons/core-free-icons"
 
 interface EditPayeeDialogProps {
   payee: Payee | null
@@ -41,6 +42,7 @@ export function EditPayeeDialog({
   const [deleting, setDeleting] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [w9Year, setW9Year] = useState("")
+  const [showFilingInstructions, setShowFilingInstructions] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -84,7 +86,7 @@ export function EditPayeeDialog({
     if (fileRef.current) fileRef.current.value = ""
   }
 
-  async function handleW9Upload() {
+  async function handleW9Process() {
     if (!pendingFile || !payee || !w9Year) return
     const year = parseInt(w9Year, 10)
     if (isNaN(year) || year < 1900 || year > 2100) {
@@ -94,13 +96,13 @@ export function EditPayeeDialog({
 
     setUploading(true)
     try {
-      await uploadW9(payee.id, pendingFile, year)
-      toast.success("W-9 uploaded")
+      await processW9(payee.id, pendingFile, year)
       setPendingFile(null)
       setW9Year("")
       onSuccess()
+      setShowFilingInstructions(true)
     } catch {
-      toast.error("Failed to upload W-9")
+      toast.error("Failed to process W-9")
     } finally {
       setUploading(false)
     }
@@ -122,6 +124,7 @@ export function EditPayeeDialog({
   }
 
   return (
+    <>
     <Dialog open={!!payee} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -167,7 +170,43 @@ export function EditPayeeDialog({
           </div>
           <div className="border-t pt-4">
             <Label className="text-xs">W-9</Label>
-            {payee?.w9_file_path && !pendingFile ? (
+            {pendingFile ? (
+              <div className="mt-1 flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">{pendingFile.name}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="w9-year" className="text-xs">Year</Label>
+                    <Input
+                      id="w9-year"
+                      type="number"
+                      value={w9Year}
+                      onChange={(e) => setW9Year(e.target.value)}
+                      placeholder="e.g. 2026"
+                      min={1900}
+                      max={2100}
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-4">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleW9Process}
+                      disabled={uploading || !w9Year}
+                    >
+                      {uploading ? "Processing..." : "Process"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPendingFile(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : payee?.w9_file_path ? (
               <div className="flex items-center gap-2 mt-1 min-w-0">
                 <button
                   type="button"
@@ -188,41 +227,20 @@ export function EditPayeeDialog({
                   Replace
                 </button>
               </div>
-            ) : pendingFile ? (
-              <div className="mt-1 flex flex-col gap-2">
-                <p className="text-sm text-muted-foreground">{pendingFile.name}</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <Label htmlFor="w9-year" className="text-xs">Year</Label>
-                    <Input
-                      id="w9-year"
-                      type="number"
-                      value={w9Year}
-                      onChange={(e) => setW9Year(e.target.value)}
-                      placeholder="e.g. 2026"
-                      min={1900}
-                      max={2100}
-                    />
-                  </div>
-                  <div className="flex gap-1 pt-4">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleW9Upload}
-                      disabled={uploading || !w9Year}
-                    >
-                      {uploading ? "Uploading..." : "Upload"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPendingFile(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+            ) : payee?.w9_year ? (
+              <div className="flex items-center gap-2 mt-1 min-w-0">
+                <span className="inline-flex items-center gap-1.5 text-sm text-success">
+                  <HugeiconsIcon icon={Tick02Icon} className="size-3.5 shrink-0" />
+                  W-9 on file ({payee.w9_year})
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Replace
+                </button>
               </div>
             ) : (
               <Button
@@ -272,5 +290,28 @@ export function EditPayeeDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={showFilingInstructions} onOpenChange={setShowFilingInstructions}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <HugeiconsIcon icon={Tick02Icon} className="size-5 text-success" />
+            W-9 Downloaded
+          </DialogTitle>
+        </DialogHeader>
+        <div className="text-sm text-muted-foreground space-y-2">
+          <p>The W-9 has been renamed and downloaded to your computer.</p>
+          <p className="font-medium text-foreground">
+            Save this file to the shared W-9 folder immediately.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setShowFilingInstructions(false)}>
+            Got it
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

@@ -59,6 +59,10 @@ export interface Invoice {
   payee_id: number | null
   payee_name: string | null
   payee_address: string | null
+  payee_pay_to: string | null
+  payee_w9_year: number | null
+  is_perfected: boolean
+  perfection_missing: string[]
   amount: string
   case_amount: string | null
   date: string | null

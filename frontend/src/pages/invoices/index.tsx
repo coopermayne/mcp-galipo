@@ -13,7 +13,7 @@ import {
 import { useSearchParams } from "react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon } from "@hugeicons/core-free-icons"
+import { Search01Icon, Tick02Icon, Alert02Icon } from "@hugeicons/core-free-icons"
 import {
   listInvoices,
   getInvoiceStageCounts,
@@ -159,6 +159,15 @@ export default function InvoicesPage() {
     [invoicesData]
   )
 
+  const perfectionSummary = useMemo(() => {
+    if (selectedStage !== "Needs Payment" || !invoicesData) return null
+    const invs = invoicesData.invoices
+    const perfected = invs.filter((i) => i.is_perfected).length
+    const imperfect = invs.length - perfected
+    if (imperfect === 0) return null
+    return { perfected, imperfect }
+  }, [selectedStage, invoicesData])
+
   return (
     <div className="flex flex-col gap-4 p-6">
       <div>
@@ -205,6 +214,20 @@ export default function InvoicesPage() {
           </span>
         </div>
       </div>
+
+      {perfectionSummary && (
+        <div className="flex items-center gap-3 border border-warning/30 bg-warning/5 px-3 py-2 text-xs">
+          <span className="flex items-center gap-1 text-success font-medium">
+            <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
+            {perfectionSummary.perfected} ready for payment
+          </span>
+          <span className="h-3 border-l" />
+          <span className="flex items-center gap-1 text-warning font-medium">
+            <HugeiconsIcon icon={Alert02Icon} className="size-3.5" />
+            {perfectionSummary.imperfect} need attention
+          </span>
+        </div>
+      )}
 
       <div className="border">
         <Table>

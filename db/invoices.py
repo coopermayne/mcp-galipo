@@ -51,6 +51,25 @@ def _rebucket_case_invoices(session, case_id: int, config: Optional[dict]) -> No
         ) or None
 
 
+def _compute_perfection(inv_dict: dict) -> tuple[bool, list[str]]:
+    missing = []
+    if not inv_dict.get("payee_id"):
+        missing.append("payee")
+    else:
+        if not (inv_dict.get("payee_pay_to") or inv_dict.get("payee_name")):
+            missing.append("pay_to")
+        if not inv_dict.get("payee_address"):
+            missing.append("address")
+        if not inv_dict.get("payee_w9_year"):
+            missing.append("w9")
+    amt = inv_dict.get("amount")
+    if not amt or float(amt) <= 0:
+        missing.append("amount")
+    if not inv_dict.get("file_path"):
+        missing.append("file")
+    return len(missing) == 0, missing
+
+
 def _invoice_to_dict(
     inv: Invoice,
     case_name: str = None,
@@ -59,8 +78,10 @@ def _invoice_to_dict(
     payee_address: str = None,
     transfer_to_name: str = None,
     advanced_to_name: str = None,
+    payee_pay_to: str = None,
+    payee_w9_year: int = None,
 ) -> dict:
-    return {
+    result = {
         "id": inv.id,
         "case_id": inv.case_id,
         "case_name": case_name,
@@ -70,6 +91,8 @@ def _invoice_to_dict(
         "payee_id": inv.payee_id,
         "payee_name": payee_name,
         "payee_address": payee_address,
+        "payee_pay_to": payee_pay_to,
+        "payee_w9_year": payee_w9_year,
         "amount": str(inv.amount) if inv.amount is not None else None,
         "case_amount": str(inv.case_amount) if inv.case_amount is not None else None,
         "date": inv.date.isoformat() if inv.date else None,
@@ -92,6 +115,10 @@ def _invoice_to_dict(
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
         "updated_at": inv.updated_at.isoformat() if inv.updated_at else None,
     }
+    is_perfected, perfection_missing = _compute_perfection(result)
+    result["is_perfected"] = is_perfected
+    result["perfection_missing"] = perfection_missing
+    return result
 
 
 def _outgoing_filter():
@@ -123,6 +150,8 @@ def list_invoices(
             paid_by.c.name.label("paid_by_name"),
             Payee.name.label("payee_name"),
             Payee.address.label("payee_address"),
+            Payee.pay_to.label("payee_pay_to"),
+            Payee.w9_year.label("payee_w9_year"),
             transfer_to.c.name.label("transfer_to_name"),
             advanced_to.c.name.label("advanced_to_name"),
         )
@@ -189,8 +218,9 @@ def list_invoices(
         total = session.scalar(count_stmt)
         rows = session.execute(stmt.limit(limit).offset(offset)).all()
         invoices = [
-            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn)
-            for inv, case_name, pbn, payee_name, payee_addr, ttn, atn in rows
+            _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn,
+                             payee_pay_to=ppt, payee_w9_year=pw9y)
+            for inv, case_name, pbn, payee_name, payee_addr, ppt, pw9y, ttn, atn in rows
         ]
         return {"invoices": invoices, "total": total}
 
@@ -207,6 +237,8 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
                 paid_by.c.name.label("paid_by_name"),
                 Payee.name.label("payee_name"),
                 Payee.address.label("payee_address"),
+                Payee.pay_to.label("payee_pay_to"),
+                Payee.w9_year.label("payee_w9_year"),
                 transfer_to.c.name.label("transfer_to_name"),
                 advanced_to.c.name.label("advanced_to_name"),
             )
@@ -219,10 +251,11 @@ def get_invoice(invoice_id: int) -> Optional[dict]:
         ).first()
         if not row:
             return None
-        inv, case_name, pbn, payee_name, payee_addr, ttn, atn = row
+        inv, case_name, pbn, payee_name, payee_addr, ppt, pw9y, ttn, atn = row
         if not is_feature_enabled(session, inv.case_id, FEATURE_COSTS):
             return None
-        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn)
+        return _invoice_to_dict(inv, case_name, pbn, payee_name, payee_addr, ttn, atn,
+                                payee_pay_to=ppt, payee_w9_year=pw9y)
 
 
 def create_invoice(
@@ -287,11 +320,15 @@ def create_invoice(
 
         payee_name = None
         payee_address = None
+        payee_pay_to = None
+        payee_w9_year = None
         if payee_id:
             payee = session.get(Payee, payee_id)
             if payee:
                 payee_name = payee.name
                 payee_address = payee.address
+                payee_pay_to = payee.pay_to
+                payee_w9_year = payee.w9_year
 
         transfer_to_name = None
         if transfer_to_person_id:
@@ -318,7 +355,9 @@ def create_invoice(
         session.add(comment)
 
         session.refresh(inv)
-        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address, transfer_to_name=transfer_to_name, advanced_to_name=advanced_to_name)
+        result = _invoice_to_dict(inv, case_name, payee_name=payee_name, payee_address=payee_address,
+                                  transfer_to_name=transfer_to_name, advanced_to_name=advanced_to_name,
+                                  payee_pay_to=payee_pay_to, payee_w9_year=payee_w9_year)
         session.commit()
         return result
 
@@ -360,11 +399,15 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
             paid_by_name = p.name if p else None
         payee_name = None
         payee_address = None
+        payee_pay_to = None
+        payee_w9_year = None
         if inv.payee_id:
             payee = session.get(Payee, inv.payee_id)
             if payee:
                 payee_name = payee.name
                 payee_address = payee.address
+                payee_pay_to = payee.pay_to
+                payee_w9_year = payee.w9_year
         transfer_to_name = None
         if inv.transfer_to_person_id:
             ttp = session.get(Person, inv.transfer_to_person_id)
@@ -373,7 +416,8 @@ def update_invoice(invoice_id: int, **fields) -> Optional[dict]:
         if inv.advanced_to_person_id:
             atp = session.get(Person, inv.advanced_to_person_id)
             advanced_to_name = atp.name if atp else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name)
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name,
+                                  payee_pay_to=payee_pay_to, payee_w9_year=payee_w9_year)
         session.commit()
         return result
 
@@ -395,11 +439,15 @@ def mark_invoice_paid(
 
         payee_name = None
         payee_address = None
+        payee_pay_to = None
+        payee_w9_year = None
         if inv.payee_id:
             payee = session.get(Payee, inv.payee_id)
             if payee:
                 payee_name = payee.name
                 payee_address = payee.address
+                payee_pay_to = payee.pay_to
+                payee_w9_year = payee.w9_year
 
         comment_payee = payee_name or "unknown payee"
         label = "Advance" if inv.type == "advance" else "Invoice"
@@ -428,7 +476,8 @@ def mark_invoice_paid(
         if inv.advanced_to_person_id:
             atp = session.get(Person, inv.advanced_to_person_id)
             advanced_to_name = atp.name if atp else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name)
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name,
+                                  payee_pay_to=payee_pay_to, payee_w9_year=payee_w9_year)
         session.commit()
         return result
 
@@ -457,11 +506,15 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
             paid_by_name = p.name if p else None
         payee_name = None
         payee_address = None
+        payee_pay_to = None
+        payee_w9_year = None
         if inv.payee_id:
             payee = session.get(Payee, inv.payee_id)
             if payee:
                 payee_name = payee.name
                 payee_address = payee.address
+                payee_pay_to = payee.pay_to
+                payee_w9_year = payee.w9_year
         transfer_to_name = None
         if inv.transfer_to_person_id:
             ttp = session.get(Person, inv.transfer_to_person_id)
@@ -470,7 +523,8 @@ def mark_invoice_unpaid(invoice_id: int) -> Optional[dict]:
         if inv.advanced_to_person_id:
             atp = session.get(Person, inv.advanced_to_person_id)
             advanced_to_name = atp.name if atp else None
-        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name)
+        result = _invoice_to_dict(inv, case_name, paid_by_name, payee_name, payee_address, transfer_to_name, advanced_to_name,
+                                  payee_pay_to=payee_pay_to, payee_w9_year=payee_w9_year)
         session.commit()
         return result
 

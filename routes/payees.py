@@ -162,6 +162,65 @@ def register_payee_routes(mcp):
         )
         return JSONResponse({"success": True, "payee": result})
 
+    @mcp.custom_route("/api/v1/payees/{payee_id}/w9/process", methods=["POST"])
+    async def api_process_w9(request):
+        if err := auth.require_auth(request):
+            return err
+        payee_id = int(request.path_params["payee_id"])
+
+        payee = await asyncio.to_thread(db.get_payee, payee_id)
+        if not payee:
+            return api_error("Payee not found", "NOT_FOUND", 404)
+
+        form = await request.form()
+        file = form.get("file")
+        w9_year = form.get("w9_year")
+
+        if not file:
+            return api_error("file is required", "VALIDATION_ERROR", 400)
+        if not w9_year:
+            return api_error("w9_year is required", "VALIDATION_ERROR", 400)
+
+        year_int = int(w9_year)
+        filename = file.filename or "upload"
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ALLOWED_TYPES:
+            return api_error(
+                f"File type not supported. Allowed: {', '.join(ALLOWED_TYPES.keys())}",
+                "INVALID_FILE_TYPE",
+                400,
+            )
+
+        file_bytes = await file.read()
+        if len(file_bytes) > 20 * 1024 * 1024:
+            return api_error("File too large (max 20MB)", "FILE_TOO_LARGE", 400)
+
+        safe_name = payee["name"].replace(" ", "_").replace("/", "_")
+        output_name = f"W9_{safe_name}_{year_int}_ID{payee_id}{ext}"
+
+        if payee.get("w9_file_path") and os.path.isfile(payee["w9_file_path"]):
+            try:
+                os.remove(payee["w9_file_path"])
+            except OSError:
+                pass
+
+        await asyncio.to_thread(
+            db.update_payee,
+            payee_id,
+            w9_year=year_int,
+            w9_file_path=None,
+            w9_file_name=None,
+        )
+
+        from starlette.responses import Response
+        return Response(
+            content=file_bytes,
+            media_type=ALLOWED_TYPES.get(ext, "application/octet-stream"),
+            headers={
+                "Content-Disposition": f'attachment; filename="{output_name}"',
+            },
+        )
+
     @mcp.custom_route("/api/v1/payees/{payee_id}/w9-token", methods=["POST"])
     async def api_create_w9_file_token(request):
         if err := auth.require_auth(request):

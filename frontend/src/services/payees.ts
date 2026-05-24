@@ -104,6 +104,31 @@ export async function uploadW9(
   return res.json()
 }
 
+export async function processW9(
+  payeeId: number,
+  file: File,
+  year: number
+): Promise<void> {
+  const formData = new FormData()
+  formData.append("file", file)
+  formData.append("w9_year", String(year))
+  const res = await apiFetch(`/api/v1/payees/${payeeId}/w9/process`, {
+    method: "POST",
+    body: formData,
+  })
+  if (!res.ok) throw new Error("Failed to process W9")
+  const blob = await res.blob()
+  const disposition = res.headers.get("Content-Disposition")
+  const match = disposition?.match(/filename="(.+)"/)
+  const filename = match?.[1] ?? `W9_processed.pdf`
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function openW9File(payeeId: number): Promise<void> {
   const res = await apiFetch(`/api/v1/payees/${payeeId}/w9-token`, {
     method: "POST",
