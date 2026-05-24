@@ -31,6 +31,7 @@ import { CaseTasksCard } from "@/pages/cases/components/case-tasks-card"
 import { AddTaskDialog } from "@/pages/cases/components/add-task-dialog"
 import { CaseEventsCard } from "@/pages/cases/components/case-events-card"
 import { AddEventDialog } from "@/pages/cases/components/add-event-dialog"
+import { CaseKeyDates } from "@/pages/cases/components/case-key-dates"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { CaseFinancialsCard } from "@/pages/cases/components/case-financials-card"
 import { CaseFeaturesMenu } from "@/pages/cases/components/case-features-menu"
@@ -245,8 +246,9 @@ function CaseDetailContent() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          {/* Left column — proceedings, people, tasks, events, notes */}
+          {/* Left column — key dates, proceedings, people, tasks, events, notes */}
           <div className="flex flex-col gap-4 lg:col-span-3">
+            <CaseKeyDates caseData={caseData} />
             <CaseSummarySection
               caseData={caseData}
               onAddPerson={openAddPerson}
