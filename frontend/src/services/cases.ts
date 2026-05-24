@@ -65,6 +65,7 @@ export interface CreateCaseData {
   date_of_injury?: string
   trial_date?: string
   case_summary?: string
+  intake_id?: number
 }
 
 export async function createCase(

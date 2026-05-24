@@ -10,7 +10,7 @@ from sqlalchemy import select, func
 
 from .session import SessionLocal
 from .intake_comments import get_comment_flags
-from models import Intake
+from models import Intake, Case
 from schemas import IntakeOut
 
 logger = logging.getLogger(__name__)
@@ -114,6 +114,13 @@ def get_intake_by_id(intake_id: int) -> Optional[dict]:
         if not intake:
             return None
         result = _intake_to_dict(intake)
+        # Reverse lookup: find case linked to this intake
+        linked_case = session.execute(
+            select(Case.id, Case.case_name).where(Case.intake_id == intake_id).limit(1)
+        ).first()
+        if linked_case:
+            result["case_id"] = linked_case.id
+            result["case_name"] = linked_case.case_name
     flags = get_comment_flags([intake_id])
     result["has_comment_since_status_change"] = flags.get(intake_id, False)
     return result
