@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useParams } from "react-router"
+import { useParams, Link } from "react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, MoreHorizontalIcon, UserMultipleIcon } from "@hugeicons/core-free-icons"
+import { Search01Icon, MoreHorizontalIcon, UserMultipleIcon, UserAccountIcon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -159,6 +159,12 @@ export default function ContactsPage() {
             <DropdownMenuItem onClick={() => setMergeOpen(true)}>
               <HugeiconsIcon icon={UserMultipleIcon} className="mr-2 size-4" />
               Find Duplicates
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/people-types">
+                <HugeiconsIcon icon={UserAccountIcon} className="mr-2 size-4" />
+                Manage People Types
+              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

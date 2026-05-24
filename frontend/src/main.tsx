@@ -72,6 +72,7 @@ const router = createBrowserRouter([
       { path: "sms", lazy: lazy(() => import("@/pages/sms")) },
       { path: "sms/:id", lazy: lazy(() => import("@/pages/sms/detail")) },
       { path: "users", lazy: lazy(() => import("@/pages/users")) },
+      { path: "people-types", lazy: lazy(() => import("@/pages/people-types")) },
       { path: "activity", lazy: lazy(() => import("@/pages/activity")) },
     ],
   },

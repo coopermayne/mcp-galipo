@@ -62,6 +62,7 @@ class RoleOut(BaseModel):
     category: str
     sort_order: Optional[int] = None
     description: Optional[str] = None
+    is_system: bool = False
     created_at: Optional[datetime.datetime] = None
 
 

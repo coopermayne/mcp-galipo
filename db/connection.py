@@ -111,6 +111,7 @@ def seed_roles():
                 name=role["name"],
                 category=role["category"],
                 sort_order=role["sort_order"],
+                is_system=True,
             ).on_conflict_do_nothing(index_elements=["name"])
             session.execute(stmt)
         session.commit()
