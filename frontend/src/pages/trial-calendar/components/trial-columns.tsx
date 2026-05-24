@@ -64,17 +64,11 @@ export function getTrialColumns(options: {
       ),
       cell: ({ row }) => {
         if (row.original.kind === "trial") {
-          const { color, case_name, status } = row.original.trial
+          const { case_name, status } = row.original.trial
           const isStale = STALE_STATUSES.has(status)
           const truncated = case_name.length > 35 ? `${case_name.slice(0, 35)}…` : case_name
           return (
             <div className="flex items-center gap-2">
-              {color && (
-                <span
-                  className="inline-block size-2.5 shrink-0"
-                  style={{ backgroundColor: `var(--palette-${color})` }}
-                />
-              )}
               {case_name.length > 35 ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

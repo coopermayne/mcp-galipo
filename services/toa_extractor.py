@@ -15,6 +15,7 @@ from anthropic import Anthropic
 from pypdf import PdfReader
 
 from config import settings
+from db.token_usage import record_usage_from_message
 
 _logger = logging.getLogger("services.toa_extractor")
 
@@ -193,6 +194,10 @@ def extract_authorities(file_bytes: bytes) -> dict:
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
+    record_usage_from_message(
+        source="toa_extractor", request_type="extract_citations",
+        model=model, message=response,
+    )
 
     # Step 3: Parse JSON response
     response_text = ""
@@ -226,6 +231,10 @@ def extract_authorities(file_bytes: bytes) -> dict:
                     ),
                 },
             ],
+        )
+        record_usage_from_message(
+            source="toa_extractor", request_type="extract_citations_retry",
+            model=model, message=retry_response,
         )
         retry_text = ""
         for block in retry_response.content:

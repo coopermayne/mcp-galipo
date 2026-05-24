@@ -1412,3 +1412,45 @@ class CommentRead(Base):
     last_read_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
+
+
+class TokenUsageLog(Base):
+    """Append-only record of Claude API token consumption, one row per request.
+
+    Decoupled analytics log: no FK constraints (a deleted case must never
+    cascade into or block this table), written best-effort off the request's
+    critical path. Raw token counts are the source of truth; estimated_cost_usd
+    is a snapshot at request time so historical rows survive pricing changes.
+    """
+
+    __tablename__ = "token_usage_log"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="token_usage_log_pkey"),
+        Index("idx_token_usage_log_created_at", "created_at"),
+        Index("idx_token_usage_log_source", "source"),
+        Index("idx_token_usage_log_request_type", "request_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    # High-level feature: "chat", "rfp_extractor", "case_extractor", etc.
+    source: Mapped[str] = mapped_column(String(50))
+    # Finer bucket within a source: chat mode/preset, or extractor step.
+    request_type: Mapped[Optional[str]] = mapped_column(String(64))
+    model: Mapped[Optional[str]] = mapped_column(String(100))
+    input_tokens: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    output_tokens: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    cache_creation_input_tokens: Mapped[int] = mapped_column(
+        Integer, server_default=text("0")
+    )
+    cache_read_input_tokens: Mapped[int] = mapped_column(
+        Integer, server_default=text("0")
+    )
+    estimated_cost_usd: Mapped[Optional[float]] = mapped_column(Numeric(12, 6))
+    case_id: Mapped[Optional[int]] = mapped_column(Integer)
+    username: Mapped[Optional[str]] = mapped_column(String(255))
+    conversation_id: Mapped[Optional[str]] = mapped_column(String(64))
+    duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB(none_as_null=True))

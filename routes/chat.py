@@ -125,6 +125,7 @@ from services.chat import (
     log_response,
     log_tool_execution,
 )
+from db.token_usage import record_usage
 
 
 # In-memory conversation storage
@@ -499,6 +500,35 @@ DATA:
             total_output_tokens = 0
             total_cache_creation_tokens = 0
             total_cache_read_tokens = 0
+            _usage_start = time.monotonic()
+
+            async def _persist_usage(stop_reason: str) -> None:
+                """Record token usage for this turn. Best-effort, runs off the
+                event loop and after the response is already flushed, so it never
+                delays the user or breaks the stream."""
+                if total_input_tokens == 0 and total_output_tokens == 0:
+                    return
+                await asyncio.to_thread(
+                    record_usage,
+                    source="chat",
+                    request_type=(preset or mode or "full"),
+                    model=selected_model or client.model,
+                    input_tokens=total_input_tokens,
+                    output_tokens=total_output_tokens,
+                    cache_creation_input_tokens=total_cache_creation_tokens,
+                    cache_read_input_tokens=total_cache_read_tokens,
+                    case_id=case_context if isinstance(case_context, int) else None,
+                    username=username,
+                    conversation_id=conversation_id,
+                    duration_ms=int((time.monotonic() - _usage_start) * 1000),
+                    meta={
+                        "mode": mode,
+                        "preset": preset,
+                        "tool_count": len(tools) if tools else 0,
+                        "iterations": iteration,
+                        "stop_reason": stop_reason,
+                    },
+                )
 
             # Conversation loop - continue until no more tool calls
             max_iterations = 10
@@ -724,6 +754,7 @@ DATA:
                                     # Send done event
                                     yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None, 'model': selected_model or client.model})}\n\n"
                                     await asyncio.sleep(0)  # Flush to client
+                                    await _persist_usage(stop_reason)
                                     return
 
                     except Exception as e:
@@ -760,6 +791,7 @@ DATA:
 
                 yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'tool_calls': all_tool_calls if all_tool_calls else None, 'model': selected_model or client.model})}\n\n"
                 await asyncio.sleep(0)  # Flush to client
+                await _persist_usage("max_iterations")
 
             except Exception as e:
                 _logger.exception(f"Error in SSE generation: {e}")
