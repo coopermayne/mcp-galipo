@@ -62,6 +62,31 @@ export function getColumns(options: {
         const name = options.isMobile && row.original.short_name
           ? row.original.short_name
           : row.getValue<string>("case_name")
+        if (options.isMobile) {
+          const ids = row.original.attorney_ids ?? []
+          const users = ids
+            .map((id) => options.usersMap.get(id))
+            .filter(Boolean) as UserInfo[]
+          return (
+            <div className="flex items-center gap-2">
+              {users.length > 0 && (
+                <div className="flex gap-1 shrink-0">
+                  {users.map((u) => (
+                    <span
+                      key={u.id}
+                      className="inline-flex size-5 items-center justify-center text-[9px] font-medium shrink-0"
+                      style={getAvatarStyleById(u.id)}
+                      title={`${u.first_name} ${u.last_name}`}
+                    >
+                      {u.initials}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <span className="font-medium">{name}</span>
+            </div>
+          )
+        }
         return <span className="font-medium">{name}</span>
       },
     },
