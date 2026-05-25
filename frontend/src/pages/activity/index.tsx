@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router"
 import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -192,7 +193,11 @@ export default function ActivityPage() {
                         <span className="text-sm">{item.user_name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{item.path}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <Link to={item.path} className="hover:underline text-foreground">
+                        {item.path}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatTimestamp(item.viewed_at)}
                     </TableCell>
@@ -310,7 +315,11 @@ export default function ActivityPage() {
                 ) : (
                   userViews.items.map((view) => (
                     <TableRow key={view.id}>
-                      <TableCell className="font-mono text-sm">{view.path}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        <Link to={view.path} className="hover:underline text-foreground">
+                          {view.path}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {formatTimestamp(view.viewed_at)}
                       </TableCell>
