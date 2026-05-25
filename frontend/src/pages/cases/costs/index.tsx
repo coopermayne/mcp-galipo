@@ -5,11 +5,9 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getPaginationRowModel,
   flexRender,
   type SortingState,
   type VisibilityState,
-  type PaginationState,
 } from "@tanstack/react-table"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Alert02Icon, PrinterIcon, Search01Icon } from "@hugeicons/core-free-icons"
@@ -53,7 +51,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DataTablePagination } from "@/components/common/data-table-pagination"
 import { FeatureGate } from "@/components/common/feature-gate"
 import { InvoiceDropzone } from "./components/invoice-dropzone"
 import { BulkInvoiceUpload } from "./components/bulk-invoice-upload"
@@ -918,11 +915,6 @@ function PaidSection({
   isAdvance?: boolean
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 50,
-  })
-
   const columns = useMemo(
     () => getCaseCostColumns({ onEdit: (inv) => onEdit(inv), isAdvance }),
     [onEdit, isAdvance]
@@ -931,12 +923,10 @@ function PaidSection({
   const table = useReactTable({
     data: invoices,
     columns,
-    state: { sorting, columnVisibility: PAID_HIDDEN, pagination },
+    state: { sorting, columnVisibility: PAID_HIDDEN },
     onSortingChange: setSorting,
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   })
 
   return (
@@ -945,11 +935,6 @@ function PaidSection({
         {label ?? "Paid"} ({invoices.length !== total ? `${invoices.length} of ${total}` : total})
       </h2>
       <InvoiceTable table={table} isLoading={isLoading} onEdit={onEdit} emptyMessage={`No ${label?.toLowerCase() ?? "paid invoices"}.`} rowClassName={rowClassName} />
-      {invoices.length > 20 && (
-        <div className="mt-2">
-          <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
-        </div>
-      )}
     </div>
   )
 }
