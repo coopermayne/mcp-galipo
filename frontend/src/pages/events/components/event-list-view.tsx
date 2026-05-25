@@ -14,9 +14,15 @@ import { Badge } from "@/components/ui/badge"
 import { updateEvent, addAttendee, removeAttendee } from "@/services/events"
 import type { EventListItem as EventListItemType } from "@/types/event"
 import { EventListItem } from "@/pages/events/components/event-list-item"
+import { EventPinnedItem } from "@/pages/events/components/event-pinned-item"
 import { EventDetailDialog } from "@/pages/events/components/event-detail-dialog"
 import { groupEvents, type EventGroupBy } from "@/pages/events/group-events"
 import { getBadgeStyle } from "@/lib/badge-colors"
+
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
 
 interface EventListViewProps {
   events: EventListItemType[]
@@ -67,10 +73,26 @@ export function EventListView({
     onError: (e) => toast.error(e.message),
   })
 
+  const { pinnedEvents, groupedEvents } = useMemo(() => {
+    if (showPast) return { pinnedEvents: [], groupedEvents: events }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const pinned: EventListItemType[] = []
+    const rest: EventListItemType[] = []
+    for (const e of events) {
+      if (e.starred && parseLocalDate(e.date) < today) pinned.push(e)
+      else rest.push(e)
+    }
+    pinned.sort((a, b) => b.date.localeCompare(a.date))
+    return { pinnedEvents: pinned, groupedEvents: rest }
+  }, [events, showPast])
+
   const groups = useMemo(
-    () => groupEvents(events, groupBy, showPast),
-    [events, groupBy, showPast]
+    () => groupEvents(groupedEvents, groupBy, showPast),
+    [groupedEvents, groupBy, showPast]
   )
+
+  const hasContent = pinnedEvents.length > 0 || groups.length > 0
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -91,8 +113,19 @@ export function EventListView({
               </div>
             ))}
           </div>
-        ) : groups.length ? (
-          groups.map((group) => (
+        ) : hasContent ? (
+          <>
+            {pinnedEvents.map((event) => (
+              <EventPinnedItem
+                key={event.id}
+                event={event}
+                onEventClick={setSelectedEvent}
+                onToggleStar={(eventId, starred) =>
+                  updateFieldMutation.mutate({ eventId, field: "starred", value: starred })
+                }
+              />
+            ))}
+            {groups.map((group) => (
             <Collapsible key={group.key} defaultOpen>
               <div className="flex w-full items-center bg-muted/50 border-b border-border/50">
                 <CollapsibleTrigger className="flex flex-1 items-center gap-2 px-3 py-2 hover:bg-muted transition-colors cursor-pointer">
@@ -138,7 +171,8 @@ export function EventListView({
                 ))}
               </CollapsibleContent>
             </Collapsible>
-          ))
+            ))}
+          </>
         ) : (
           <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
             No events found.
