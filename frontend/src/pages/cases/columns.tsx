@@ -4,7 +4,7 @@ import { EyeIcon } from "@hugeicons/core-free-icons"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusSelectCell } from "@/pages/cases/components/status-select-cell"
-import { TrialEditCell } from "@/pages/cases/components/trial-edit-cell"
+import { TrialEditCell } from "@/components/common/trial-edit-popover"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 
 interface UserInfo {

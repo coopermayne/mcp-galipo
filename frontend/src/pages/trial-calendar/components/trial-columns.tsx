@@ -7,7 +7,7 @@ import type { StaffMember } from "@/services/staff"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { getEventTypeLabel, getEventTypeColor } from "@/lib/event-types"
-import { TrialEditCell } from "@/pages/cases/components/trial-edit-cell"
+import { TrialEditCell } from "@/components/common/trial-edit-popover"
 import {
   Tooltip,
   TooltipContent,
