@@ -31,7 +31,7 @@ BG_NONE = "FFFFFF"
 
 # Status ordering (case lifecycle flow)
 STATUS_ORDER = [
-    'Signing Up', 'Prospective', 'Pre-Claim', 'Pre-Filing', 'Pleadings',
+    'Signing Up', 'Pre-Claim', 'Pre-Filing', 'Pleadings',
     'Discovery', 'Expert Discovery', 'Pre-trial', 'Trial',
     'Post-Trial', 'Appeal', 'Settl. Pend.', 'Stayed', 'Closed',
 ]
@@ -39,7 +39,6 @@ STATUS_ORDER = [
 # Status colors for DOCX (text color, background color) - matches frontend Tailwind
 STATUS_COLORS = {
     'Signing Up':       {"text": "1D4ED8", "bg": "DBEAFE"},
-    'Prospective':      {"text": "7E22CE", "bg": "F3E8FF"},
     'Pre-Claim':        {"text": "4338CA", "bg": "E0E7FF"},
     'Pre-Filing':       {"text": "4338CA", "bg": "E0E7FF"},
     'Pleadings':        {"text": "0E7490", "bg": "CFFAFE"},

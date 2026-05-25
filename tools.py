@@ -517,7 +517,7 @@ def register_tools(mcp):
         VALID VALUES:
 
         case.status (default "Signing Up"):
-            "Signing Up", "Prospective", "Pre-Claim", "Pre-Filing", "Pleadings",
+            "Signing Up", "Pre-Claim", "Pre-Filing", "Pleadings",
             "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial",
             "Appeal", "Settl. Pend.", "Stayed", "Closed"
 

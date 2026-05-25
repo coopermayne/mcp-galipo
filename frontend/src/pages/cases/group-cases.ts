@@ -16,7 +16,7 @@ interface Pipeline {
 const PIPELINES: Pipeline[] = [
   {
     key: "pre-lit",
-    statuses: ["Signing Up", "Prospective", "Pre-Claim", "Pre-Filing"],
+    statuses: ["Signing Up", "Pre-Claim", "Pre-Filing"],
     sortOrder: 0,
   },
   {

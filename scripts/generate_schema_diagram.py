@@ -169,7 +169,7 @@ Flexible JSON for role-specific case data. For experts:
 ## Enum Values
 
 ### Case Statuses
-- Signing Up, Prospective, Pre-Filing, Pleadings, Discovery
+- Signing Up, Pre-Claim, Pre-Filing, Pleadings, Discovery
 - Expert Discovery, Pre-trial, Trial, Post-Trial, Appeal
 - Settl. Pend., Stayed, Closed
 
