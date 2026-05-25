@@ -246,9 +246,8 @@ function CaseDetailContent() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          {/* Left column — key dates, proceedings, people, tasks, events, notes */}
+          {/* Left column — proceedings, people, tasks, events, notes */}
           <div className="flex flex-col gap-4 lg:col-span-3">
-            <CaseKeyDates caseData={caseData} />
             <CaseSummarySection
               caseData={caseData}
               onAddPerson={openAddPerson}
@@ -306,9 +305,10 @@ function CaseDetailContent() {
             )}
           </div>
 
-          {/* Right column — activity feed + summary/dates */}
+          {/* Right column — key dates, summary, activity feed */}
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-6 flex flex-col gap-4 lg:h-[calc(100vh-9rem)]">
+              <CaseKeyDates caseData={caseData} />
               <CaseInfoPanel caseData={caseData} />
               <CaseActivityFeed caseId={caseData.id} />
             </div>

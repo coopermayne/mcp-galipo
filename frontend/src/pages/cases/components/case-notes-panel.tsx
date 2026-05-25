@@ -16,26 +16,32 @@ interface CaseNotesPanelProps {
   notes: string | null
 }
 
+const NOTES_LIMIT = 2000
+
 export function CaseNotesPanel({ caseId, notes: initialNotes }: CaseNotesPanelProps) {
   const queryClient = useQueryClient()
   const [notes, setNotes] = useState(initialNotes ?? "")
   const [dirty, setDirty] = useState(false)
 
-  // Sync when case data changes (e.g. after refetch)
   useEffect(() => {
     setNotes(initialNotes ?? "")
     setDirty(false)
   }, [initialNotes])
 
   const saveMutation = useMutation({
-    mutationFn: () => updateCase(caseId, { notes }),
+    mutationFn: () => {
+      if (notes.length > NOTES_LIMIT) {
+        return Promise.reject(new Error(`Notes must be ${NOTES_LIMIT} characters or fewer`))
+      }
+      return updateCase(caseId, { notes })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["case", caseId] })
       setDirty(false)
       toast.success("Notes saved")
     },
-    onError: () => {
-      toast.error("Failed to save notes")
+    onError: (e) => {
+      toast.error(e.message)
     },
   })
 
@@ -47,16 +53,26 @@ export function CaseNotesPanel({ caseId, notes: initialNotes }: CaseNotesPanelPr
     []
   )
 
+  const overLimit = notes.length > NOTES_LIMIT
+  const showCounter = notes.length > NOTES_LIMIT * 0.8
+
   return (
     <Card size="sm">
       <CardHeader className="border-b bg-muted/40">
         <div className="flex items-center justify-between">
-          <CardTitle>Notes</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Notes</CardTitle>
+            {showCounter && (
+              <span className={`text-[10px] tabular-nums ${overLimit ? "text-destructive" : "text-muted-foreground"}`}>
+                {notes.length}/{NOTES_LIMIT}
+              </span>
+            )}
+          </div>
           {dirty && (
             <Button
               size="sm"
               onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || overLimit}
             >
               {saveMutation.isPending ? "Saving..." : "Save"}
             </Button>

@@ -1,12 +1,13 @@
 import { useMemo } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { AlertCircleIcon, Calendar03Icon } from "@hugeicons/core-free-icons"
+import { AlertCircleIcon, Calendar03Icon, StarIcon } from "@hugeicons/core-free-icons"
 import type { CaseDetail, CaseStatus } from "@/types/case"
 import { updateCase } from "@/services/cases"
+import { getEvents } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
-import { TrialLikelihood } from "@/pages/cases/components/trial-likelihood"
+import { TrialEditCell } from "@/components/common/trial-edit-popover"
 import { cn } from "@/lib/utils"
 
 interface CaseKeyDatesProps {
@@ -32,14 +33,6 @@ function getCaseStage(status: CaseStatus): CaseStage {
 
 type DateUrgency = "overdue" | "imminent" | "approaching" | "normal" | "none"
 
-/**
- * Determine the urgency level of a deadline date.
- * - overdue: past due
- * - imminent: within 14 days
- * - approaching: within 60 days
- * - normal: more than 60 days away
- * - none: no date set
- */
 function getDateUrgency(dateStr: string | null): DateUrgency {
   if (!dateStr) return "none"
   const today = new Date()
@@ -98,26 +91,6 @@ const URGENCY_STYLES: Record<DateUrgency, { text: string; bg: string; indicator:
   },
 }
 
-const DEFAULT_TRIAL_DAYS = 7
-
-function TrialLengthInline({ days, onSave }: { days: number | null; onSave: (v: number | null) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        const input = prompt("Trial length (days):", String(days ?? DEFAULT_TRIAL_DAYS))
-        if (input === null) return
-        const n = parseInt(input, 10)
-        const value = isNaN(n) || n < 1 ? null : n
-        if (value !== days) onSave(value)
-      }}
-      className="text-xs text-muted-foreground hover:text-foreground transition-colors tabular-nums"
-    >
-      {days ?? DEFAULT_TRIAL_DAYS}d trial
-    </button>
-  )
-}
-
 interface DateRowProps {
   label: string
   dateStr: string | null
@@ -157,6 +130,15 @@ function DateRow({ label, dateStr, onSave, showUrgency = false }: DateRowProps) 
   )
 }
 
+const PACIFIC_TZ = "America/Los_Angeles"
+
+function formatEventDate(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`)
+  return d.toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: PACIFIC_TZ,
+  })
+}
+
 export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
   const queryClient = useQueryClient()
   const stage = useMemo(() => getCaseStage(caseData.status), [caseData.status])
@@ -178,7 +160,23 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
     onError: (e) => toast.error(e.message),
   })
 
-  // Determine which dates to show based on stage
+  const { data: upcomingData } = useQuery({
+    queryKey: ["events", "case", caseData.id, false],
+    queryFn: () => getEvents({ case_id: caseData.id, limit: 500 }),
+  })
+
+  const { data: pastData } = useQuery({
+    queryKey: ["events", "case", caseData.id, true],
+    queryFn: () => getEvents({ case_id: caseData.id, limit: 500, include_past: true, past_days: 365 }),
+  })
+
+  const starredEvents = useMemo(() => {
+    const upcoming = (upcomingData?.events ?? []).filter((e) => e.starred)
+    const pastStarred = (pastData?.events ?? []).filter((e) => e.starred)
+    const ids = new Set(upcoming.map((e) => e.id))
+    return [...pastStarred.filter((e) => !ids.has(e.id)), ...upcoming]
+  }, [upcomingData, pastData])
+
   const showClaimDeadline = stage === "pre-claim"
   const showFilingDeadline = stage === "pre-claim" || stage === "pre-filing"
   const showTrialInfo = stage === "filed"
@@ -199,60 +197,63 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
 
       {/* Date rows */}
       <div className="divide-y divide-border/50">
-        {/* DOI — always shown */}
         <DateRow
-          label="Date of Injury"
+          label="DOI"
           dateStr={caseData.date_of_injury}
           onSave={(v) => updateMutation.mutate({ date_of_injury: v })}
         />
 
-        {/* Pre-claim: claim deadline */}
         {showClaimDeadline && (
           <DateRow
-            label="Claim Deadline"
+            label="Claim DL"
             dateStr={caseData.claim_deadline}
             onSave={(v) => updateMutation.mutate({ claim_deadline: v || null })}
             showUrgency
           />
         )}
 
-        {/* Pre-claim & pre-filing: filing deadline (complaint_deadline) */}
         {showFilingDeadline && (
           <DateRow
-            label="Filing Deadline"
+            label="Complaint DL"
             dateStr={caseData.complaint_deadline}
             onSave={(v) => updateMutation.mutate({ complaint_deadline: v || null })}
             showUrgency
           />
         )}
 
-        {/* Filed: trial date + likelihood + length */}
         {showTrialInfo && (
-          <>
-            <DateRow
-              label="Trial Date"
-              dateStr={caseData.trial_date}
-              onSave={(v) => updateMutation.mutate({ trial_date: v })}
-              showUrgency
+          <div className="flex items-center justify-between gap-3 px-2.5 py-1.5 min-h-[32px]">
+            <span className="text-xs text-muted-foreground shrink-0">Trial</span>
+            <TrialEditCell
+              caseId={caseData.id}
+              trialDate={caseData.trial_date}
+              likelihood={caseData.trial_likelihood}
+              likelihoodNote={caseData.trial_likelihood_note}
+              estimatedDays={caseData.trial_estimated_days}
             />
-            <div className="flex items-center justify-between gap-3 px-2.5 py-1.5 min-h-[32px]">
-              <span className="text-xs text-muted-foreground">Trial Likelihood</span>
-              <TrialLikelihood
-                caseId={caseData.id}
-                likelihood={caseData.trial_likelihood}
-                note={caseData.trial_likelihood_note}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3 px-2.5 py-1.5 min-h-[32px]">
-              <span className="text-xs text-muted-foreground">Est. Length</span>
-              <TrialLengthInline
-                days={caseData.trial_estimated_days}
-                onSave={(v) => updateMutation.mutate({ trial_estimated_days: v })}
-              />
-            </div>
-          </>
+          </div>
         )}
       </div>
+
+      {/* Starred events */}
+      {starredEvents.length > 0 && (
+        <>
+          <div className="border-t" />
+          <div className="divide-y divide-border/50">
+            {starredEvents.map((e) => (
+              <div key={e.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 min-h-[32px]">
+                <span className="flex items-center gap-1.5 text-xs truncate min-w-0">
+                  <HugeiconsIcon icon={StarIcon} className="size-3 text-warning shrink-0" />
+                  <span className="truncate">{e.description}</span>
+                </span>
+                <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                  {formatEventDate(e.date)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -40,7 +40,39 @@ export function CaseEventsCard({ caseId, onAdd, onAiAdd }: CaseEventsCardProps) 
       }),
   })
 
-  const events = data?.events ?? []
+  const { data: allData } = useQuery({
+    queryKey: ["events", "case", caseId, true],
+    queryFn: () =>
+      getEvents({
+        case_id: caseId,
+        limit: 500,
+        include_past: true,
+        past_days: 365,
+      }),
+    enabled: !showPast,
+  })
+
+  const events = useMemo(() => {
+    if (showPast) return data?.events ?? []
+
+    const upcoming = data?.events ?? []
+    const all = allData?.events ?? []
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const starredPast = all.filter((e) => {
+      if (!e.starred) return false
+      const eventDate = new Date(`${e.date}T00:00:00`)
+      return eventDate < today
+    })
+
+    const upcomingIds = new Set(upcoming.map((e) => e.id))
+    const merged = [...upcoming]
+    for (const e of starredPast) {
+      if (!upcomingIds.has(e.id)) merged.push(e)
+    }
+    return merged
+  }, [data, allData, showPast])
 
   const filteredEvents = useMemo(() => {
     if (!search.trim()) return events
