@@ -60,7 +60,6 @@ import type { CaseListItem, CaseStatus } from "@/types/case"
 
 const ALL_STATUSES: CaseStatus[] = [
   "Signing Up",
-  "Prospective",
   "Pre-Claim",
   "Pre-Filing",
   "Pleadings",
@@ -92,6 +91,7 @@ interface CaseTableProps {
   showFilters?: boolean
   groupBy?: CaseGroupBy
   onGroupByChange?: (g: CaseGroupBy) => void
+  showDocxExport?: boolean
 }
 
 export function CaseTable({
@@ -107,6 +107,7 @@ export function CaseTable({
   showFilters,
   groupBy = "none",
   onGroupByChange,
+  showDocxExport = true,
 }: CaseTableProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -274,11 +275,15 @@ export function CaseTable({
               <DropdownMenuItem onClick={() => handlePrint("alphabetical")}>
                 Alphabetical
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => exportCaseReport()}>
-                <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
-                DOCX
-              </DropdownMenuItem>
+              {showDocxExport && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => exportCaseReport()}>
+                    <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
+                    DOCX
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -336,10 +341,12 @@ export function CaseTable({
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuItem onClick={() => exportCaseReport()}>
-              <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
-              Download Report
-            </DropdownMenuItem>
+            {showDocxExport && (
+              <DropdownMenuItem onClick={() => exportCaseReport()}>
+                <HugeiconsIcon icon={Download04Icon} className="mr-2 size-4" />
+                Download Report
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

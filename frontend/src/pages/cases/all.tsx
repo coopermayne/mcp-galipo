@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { getCases } from "@/services/cases"
 import { getStaff } from "@/services/staff"
 import { Button } from "@/components/ui/button"
-import { CaseTable } from "@/pages/cases/components/case-table"
+import { CaseTable, type CaseGroupBy } from "@/pages/cases/components/case-table"
 import type { CaseListItem } from "@/types/case"
 
 // ─── Tab definitions ───────────────────────────────────────────────
@@ -92,6 +92,22 @@ export default function AllCasesPage() {
 
   const activeTab = (searchParams.get("tab") as TabId) || "active"
   const currentTab = TABS.find((t) => t.id === activeTab) ?? TABS[0]
+
+  const groupBy = (searchParams.get("group") as CaseGroupBy) || "none"
+  const setGroupBy = useCallback(
+    (g: CaseGroupBy) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (g === "none") {
+          next.delete("group")
+        } else {
+          next.set("group", g)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams]
+  )
 
   const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 639px)").matches)
   const [sorting, setSorting] = useState<SortingState>(currentTab.defaultSort)
@@ -203,6 +219,9 @@ export default function AllCasesPage() {
         onColumnVisibilityChange={setColumnVisibility}
         columnOrder={currentTab.columnOrder}
         showFilters
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        showDocxExport={false}
       />
     </div>
   )
