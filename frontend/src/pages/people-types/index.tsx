@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { getRolesWithCounts, type Role } from "@/services/roles"
+import { useNavigate } from "react-router"
+import { getRolesWithCounts, getRoleMembers, type Role } from "@/services/roles"
 import { RoleDialog } from "@/pages/people-types/components/role-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, PencilEdit02Icon, ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons"
 
 const CATEGORY_META: Record<string, { label: string; description: string }> = {
   client: { label: "Client", description: "Roles for clients and their representatives" },
@@ -26,10 +27,90 @@ function formatRoleName(name: string) {
     .join(" ")
 }
 
+function RoleMembersList({ roleId }: { roleId: number }) {
+  const navigate = useNavigate()
+  const { data, isLoading } = useQuery({
+    queryKey: ["role-members", roleId],
+    queryFn: () => getRoleMembers(roleId),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-2 space-y-1">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Skeleton key={i} className="h-4 w-48" />
+        ))}
+      </div>
+    )
+  }
+
+  const members = data?.members ?? []
+  if (members.length === 0) {
+    return (
+      <div className="px-8 py-2 text-xs text-muted-foreground">
+        No one assigned to this role.
+      </div>
+    )
+  }
+
+  const grouped = new Map<number, { name: string; cases: { id: number | null; name: string | null }[] }>()
+  for (const m of members) {
+    const existing = grouped.get(m.person_id)
+    if (existing) {
+      existing.cases.push({ id: m.case_id, name: m.case_name })
+    } else {
+      grouped.set(m.person_id, {
+        name: m.person_name,
+        cases: [{ id: m.case_id, name: m.case_name }],
+      })
+    }
+  }
+
+  return (
+    <div className="px-8 py-1.5 space-y-1">
+      {Array.from(grouped.entries()).map(([personId, { name, cases }]) => (
+        <div key={personId} className="flex items-baseline gap-2 text-xs">
+          <button
+            className="font-medium hover:underline cursor-pointer text-left"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/contacts/${personId}`)
+            }}
+          >
+            {name}
+          </button>
+          {cases.some((c) => c.id) && (
+            <span className="text-muted-foreground">
+              —{" "}
+              {cases
+                .filter((c) => c.id)
+                .map((c, i) => (
+                  <span key={c.id}>
+                    {i > 0 && ", "}
+                    <button
+                      className="hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/cases/${c.id}`)
+                      }}
+                    >
+                      {c.name}
+                    </button>
+                  </span>
+                ))}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function PeopleTypesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Role | null>(null)
   const [defaultCategory, setDefaultCategory] = useState<string | undefined>()
+  const [expandedRole, setExpandedRole] = useState<number | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ["roles", "with-counts"],
@@ -55,10 +136,15 @@ export default function PeopleTypesPage() {
     setDialogOpen(true)
   }
 
-  function openEdit(role: Role) {
+  function openEdit(e: React.MouseEvent, role: Role) {
+    e.stopPropagation()
     setEditing(role)
     setDefaultCategory(undefined)
     setDialogOpen(true)
+  }
+
+  function toggleExpand(roleId: number) {
+    setExpandedRole((prev) => (prev === roleId ? null : roleId))
   }
 
   return (
@@ -120,31 +206,50 @@ export default function PeopleTypesPage() {
                       No roles in this category.
                     </div>
                   ) : (
-                    roles.map((role) => (
-                      <div
-                        key={role.id}
-                        className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 hover:bg-muted/30 transition-colors cursor-pointer group"
-                        onClick={() => openEdit(role)}
-                      >
-                        <span className="text-sm font-medium flex-1">
-                          {formatRoleName(role.name)}
-                        </span>
-                        {role.is_system && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            System
-                          </Badge>
-                        )}
-                        {(role.usage_count ?? 0) > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            {role.usage_count} assigned
-                          </span>
-                        )}
-                        <HugeiconsIcon
-                          icon={PencilEdit02Icon}
-                          className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                        />
-                      </div>
-                    ))
+                    roles.map((role) => {
+                      const isExpanded = expandedRole === role.id
+                      const hasMembers = (role.usage_count ?? 0) > 0
+                      return (
+                        <div key={role.id} className="border-b last:border-b-0">
+                          <div
+                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer group"
+                            onClick={() => hasMembers && toggleExpand(role.id)}
+                          >
+                            {hasMembers ? (
+                              <HugeiconsIcon
+                                icon={isExpanded ? ArrowUp01Icon : ArrowDown01Icon}
+                                className="size-3.5 text-muted-foreground shrink-0"
+                              />
+                            ) : (
+                              <span className="w-3.5 shrink-0" />
+                            )}
+                            <span className="text-sm font-medium flex-1">
+                              {formatRoleName(role.name)}
+                            </span>
+                            {role.is_system && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                System
+                              </Badge>
+                            )}
+                            {hasMembers && (
+                              <span className="text-xs text-muted-foreground">
+                                {role.usage_count} assigned
+                              </span>
+                            )}
+                            <button
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                              onClick={(e) => openEdit(e, role)}
+                            >
+                              <HugeiconsIcon
+                                icon={PencilEdit02Icon}
+                                className="size-3.5 text-muted-foreground"
+                              />
+                            </button>
+                          </div>
+                          {isExpanded && <RoleMembersList roleId={role.id} />}
+                        </div>
+                      )
+                    })
                   )}
                 </div>
               </div>

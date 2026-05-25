@@ -62,6 +62,19 @@ export async function updateRole(
   return res.json()
 }
 
+export interface RoleMember {
+  person_id: number
+  person_name: string
+  case_id: number | null
+  case_name: string | null
+}
+
+export async function getRoleMembers(roleId: number): Promise<{ success: boolean; members: RoleMember[] }> {
+  const res = await apiFetch(`/api/v1/roles/${roleId}/members`)
+  if (!res.ok) throw new Error("Failed to fetch role members")
+  return res.json()
+}
+
 export async function deleteRole(id: number): Promise<{ success: boolean }> {
   const res = await apiFetch(`/api/v1/roles/${id}`, {
     method: "DELETE",
