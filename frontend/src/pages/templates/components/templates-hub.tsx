@@ -4,7 +4,8 @@ import {
   LegalDocument01Icon,
   FileSearchIcon,
   NoteIcon,
-  FileEditIcon,
+  UserAdd01Icon,
+  Mail01Icon,
   Invoice01Icon,
   ArrowRight01Icon,
   TextNumberSignIcon,
@@ -44,11 +45,19 @@ const TEMPLATE_TOOLS = [
     ready: false,
   },
   {
-    name: "Retainer",
-    href: "/templates/retainer",
-    icon: FileEditIcon,
+    name: "Intake Documents",
+    href: "/templates/intake-documents",
+    icon: UserAdd01Icon,
     description:
-      "Create retainer agreements with pre-filled client and case information. Supports multiple fee structures and engagement terms.",
+      "Generate the full new-case sign-up packet — retainer & fee-share agreements, guardian ad litem paperwork, medical release and HIPAA forms, and other routine intake documents. Pre-fills from case data and requires the key details up front (client info, co-counsel, fee/cost splits), so the system always captures them.",
+    ready: false,
+  },
+  {
+    name: "Document Requests",
+    href: "/templates/document-requests",
+    icon: Mail01Icon,
+    description:
+      "Generate and track the routine records requests sent during a case — medical records, billing, employment, and similar. Pre-fill provider and case info, produce formatted request letters, and keep a record of what's been requested.",
     ready: false,
   },
   {
