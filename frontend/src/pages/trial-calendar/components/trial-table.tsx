@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { getTrialColumns, type CalendarTableRow } from "@/pages/trial-calendar/components/trial-columns"
@@ -32,6 +33,7 @@ export function TrialTable({
   onEditEvent?: (event: BlockingEvent) => void
 }) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [sorting, setSorting] = useState<SortingState>([
     { id: "trial", desc: false },
   ])
@@ -50,7 +52,7 @@ export function TrialTable({
     return [...trialRows, ...eventRows]
   }, [trials, blockingEvents])
 
-  const columns = useMemo(() => getTrialColumns({ staffMap }), [staffMap])
+  const columns = useMemo(() => getTrialColumns({ staffMap, isMobile }), [staffMap, isMobile])
 
   const table = useReactTable({
     data: rows,
