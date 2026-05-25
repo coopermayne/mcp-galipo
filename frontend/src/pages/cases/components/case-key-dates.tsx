@@ -15,7 +15,7 @@ interface CaseKeyDatesProps {
 
 type CaseStage = "pre-claim" | "pre-filing" | "filed" | "resolved"
 
-const PRE_CLAIM_STATUSES: CaseStatus[] = ["Signing Up", "Prospective", "Pre-Claim"]
+const PRE_CLAIM_STATUSES: CaseStatus[] = ["Signing Up", "Pre-Claim"]
 const PRE_FILING_STATUSES: CaseStatus[] = ["Pre-Filing"]
 const FILED_STATUSES: CaseStatus[] = [
   "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal",

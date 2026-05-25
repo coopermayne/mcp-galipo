@@ -38,7 +38,7 @@ TOOLS OVERVIEW:
 - import_case(data) — bulk import a complete case with all related data
 
 VALID VALUES (these are enforced — invalid values return an error with the valid options):
-- Case status: "Signing Up", "Prospective", "Pre-Filing", "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal", "Settl. Pend.", "Stayed", "Closed"
+- Case status: "Signing Up", "Pre-Claim", "Pre-Filing", "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal", "Settl. Pend.", "Stayed", "Closed"
 - Task status: "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
 - Urgency: "Low", "Medium", "High", "Urgent"
 - Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"

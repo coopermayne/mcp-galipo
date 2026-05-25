@@ -612,11 +612,11 @@ def seed_dev_data():
             "judge": "Hon. David Yoon",
             "experts": ["Dr. Michael Wong"],
         },
-        # 16: Premises liability - Prospective
+        # 16: Premises liability - Pre-Claim
         {
             "case_name": "Petrov v. Big Box Retail Inc.",
             "short_name": "Petrov",
-            "status": "Prospective",
+            "status": "Pre-Claim",
             "case_summary": "Shelving unit collapse at retail store. Client was struck by falling merchandise, suffered shoulder injury. Investigating liability.",
             "date_of_injury": "2025-04-01",
             "client": "Michael Petrov",

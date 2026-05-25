@@ -50,7 +50,7 @@ const PIPELINES: Pipeline[] = [
   {
     label: "PRE-LIT",
     labelClass: "text-muted-foreground",
-    statuses: ["Signing Up", "Prospective", "Pre-Claim", "Pre-Filing"],
+    statuses: ["Signing Up", "Pre-Claim", "Pre-Filing"],
   },
   {
     label: "LITIGATION",

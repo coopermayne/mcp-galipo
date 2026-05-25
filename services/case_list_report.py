@@ -155,7 +155,6 @@ PIE_COLORS = [
 
 STATUS_BAR_COLORS = {
     "Signing Up": "#60a5fa",
-    "Prospective": "#818cf8",
     "Pre-Claim": "#a78bfa",
     "Pre-Filing": "#fbbf24",
     "Pleadings": "#fb923c",
@@ -250,7 +249,7 @@ def _render_alphabetical(cases: list, users_map: dict) -> str:
 
 def _render_by_status(cases: list, users_map: dict) -> str:
     status_order = [
-        "Signing Up", "Prospective", "Pre-Claim", "Pre-Filing", "Pleadings",
+        "Signing Up", "Pre-Claim", "Pre-Filing", "Pleadings",
         "Discovery", "Expert Discovery", "Pre-trial", "Trial",
         "Post-Trial", "Appeal", "Settl. Pend.", "Stayed",
     ]
@@ -331,7 +330,6 @@ def _render_by_attorney(cases: list, users_map: dict) -> str:
 def _status_class(status: str) -> str:
     mapping = {
         "Signing Up": "s-signup",
-        "Prospective": "s-prospect",
         "Pre-Claim": "s-preclaim",
         "Pre-Filing": "s-prefiling",
         "Pleadings": "s-pleadings",
