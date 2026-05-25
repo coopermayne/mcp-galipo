@@ -6,6 +6,7 @@ import datetime
 from typing import Optional
 
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
@@ -86,15 +87,15 @@ def mark_intake_read(intake_id: int, user_id: int) -> None:
     if user_id == 0:
         return
     with SessionLocal() as session:
-        existing = session.get(IntakeCommentRead, (intake_id, user_id))
-        if existing:
-            existing.last_read_at = func.now()
-        else:
-            session.add(IntakeCommentRead(
-                intake_id=intake_id,
-                user_id=user_id,
-                last_read_at=func.now(),
-            ))
+        stmt = insert(IntakeCommentRead).values(
+            intake_id=intake_id,
+            user_id=user_id,
+            last_read_at=func.now(),
+        ).on_conflict_do_update(
+            index_elements=["intake_id", "user_id"],
+            set_={"last_read_at": func.now()},
+        )
+        session.execute(stmt)
         session.commit()
 
 

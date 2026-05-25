@@ -5,6 +5,7 @@ Polymorphic comment operations — works with any entity type.
 from typing import Optional
 
 from sqlalchemy import select, func, and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
@@ -83,16 +84,16 @@ def get_last_read_at(entity_type: str, entity_id: int, user_id: int) -> Optional
 
 def mark_read(entity_type: str, entity_id: int, user_id: int) -> None:
     with SessionLocal() as session:
-        existing = session.get(CommentRead, (entity_type, entity_id, user_id))
-        if existing:
-            existing.last_read_at = func.now()
-        else:
-            session.add(CommentRead(
-                entity_type=entity_type,
-                entity_id=entity_id,
-                user_id=user_id,
-                last_read_at=func.now(),
-            ))
+        stmt = insert(CommentRead).values(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            user_id=user_id,
+            last_read_at=func.now(),
+        ).on_conflict_do_update(
+            index_elements=["entity_type", "entity_id", "user_id"],
+            set_={"last_read_at": func.now()},
+        )
+        session.execute(stmt)
         session.commit()
 
 
