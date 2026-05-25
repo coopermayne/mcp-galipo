@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useParams, Link } from "react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, MoreHorizontalIcon, UserMultipleIcon, UserAccountIcon } from "@hugeicons/core-free-icons"
+import { Search01Icon, MoreHorizontalIcon, UserMultipleIcon, UserAccountIcon, ArrowLeft02Icon, ArrowRight02Icon } from "@hugeicons/core-free-icons"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -53,6 +53,8 @@ export default function ContactsPage() {
   const [selectedPerson, setSelectedPerson] = useState<PersonListItem | null>(null)
   const [selectedJudge, setSelectedJudge] = useState<JudgeListItem | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [page, setPage] = useState(0)
+  const pageSize = 50
 
   // Unified search (when typing)
   const { data: searchData, isLoading: searchLoading } = useQuery({
@@ -63,15 +65,19 @@ export default function ContactsPage() {
 
   // Category browsing (when not searching)
   const { data: browseData, isLoading: browseLoading } = useQuery({
-    queryKey: ["persons", activeCategory],
+    queryKey: ["persons", activeCategory, page],
     queryFn: () =>
       searchPersons({
         category: activeCategory === "judge" ? undefined : activeCategory,
-        limit: 500,
+        limit: pageSize,
+        offset: page * pageSize,
         include_roles: true,
       }),
     enabled: !isSearching && activeCategory !== "judge",
   })
+
+  const browseTotal = browseData?.total ?? 0
+  const totalPages = Math.ceil(browseTotal / pageSize)
 
   // Judges browsing
   const { data: judgesData, isLoading: judgesLoading } = useQuery({
@@ -120,6 +126,8 @@ export default function ContactsPage() {
       })
     }
   }
+
+  useEffect(() => { setPage(0) }, [activeCategory])
 
   const pageTitle = activeCategory
     ? CATEGORIES.find((c) => c.value === activeCategory)?.label ?? "Contacts"
@@ -272,11 +280,40 @@ export default function ContactsPage() {
         </div>
       ) : (
         // Person browsing mode
-        <ContactsListView
-          persons={browsePersons}
-          isLoading={browseLoading}
-          groupByCategory={!activeCategory}
-        />
+        <>
+          <ContactsListView
+            persons={browsePersons}
+            isLoading={browseLoading}
+            groupByCategory={!activeCategory}
+          />
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2">
+              <p className="text-sm text-muted-foreground">
+                {page * pageSize + 1}&ndash;{Math.min((page + 1) * pageSize, browseTotal)} of {browseTotal}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setPage((p) => p - 1)}
+                  disabled={page === 0}
+                >
+                  <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= totalPages - 1}
+                >
+                  <HugeiconsIcon icon={ArrowRight02Icon} className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <ContactDetailDialog
