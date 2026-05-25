@@ -8,6 +8,7 @@ import datetime
 from typing import Optional
 
 from sqlalchemy import select, func, and_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
@@ -88,15 +89,15 @@ def mark_case_read(case_id: int, user_id: int) -> None:
     if user_id == 0:
         return
     with SessionLocal() as session:
-        existing = session.get(CaseCommentRead, (case_id, user_id))
-        if existing:
-            existing.last_read_at = func.now()
-        else:
-            session.add(CaseCommentRead(
-                case_id=case_id,
-                user_id=user_id,
-                last_read_at=func.now(),
-            ))
+        stmt = insert(CaseCommentRead).values(
+            case_id=case_id,
+            user_id=user_id,
+            last_read_at=func.now(),
+        ).on_conflict_do_update(
+            index_elements=["case_id", "user_id"],
+            set_={"last_read_at": func.now()},
+        )
+        session.execute(stmt)
         session.commit()
 
 

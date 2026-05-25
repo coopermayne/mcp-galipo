@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import select, func, or_, and_
+from sqlalchemy.dialects.postgresql import insert
 
 from .session import SessionLocal
 from models import SmsConversation, SmsConversationRead, SmsMessage, SmsMessageMedia, User, Case, Person
@@ -424,15 +425,15 @@ def get_media_by_id(media_id: int) -> Optional[dict]:
 def mark_conversation_read(conversation_id: int, user_id: int) -> None:
     """Mark a conversation as read for this user (upsert)."""
     with SessionLocal() as session:
-        existing = session.get(SmsConversationRead, (conversation_id, user_id))
-        if existing:
-            existing.last_read_at = func.now()
-        else:
-            session.add(SmsConversationRead(
-                conversation_id=conversation_id,
-                user_id=user_id,
-                last_read_at=func.now(),
-            ))
+        stmt = insert(SmsConversationRead).values(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            last_read_at=func.now(),
+        ).on_conflict_do_update(
+            index_elements=["conversation_id", "user_id"],
+            set_={"last_read_at": func.now()},
+        )
+        session.execute(stmt)
         session.commit()
 
 
