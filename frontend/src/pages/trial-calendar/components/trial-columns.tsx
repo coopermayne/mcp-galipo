@@ -28,6 +28,7 @@ const STALE_STATUSES = new Set(["Settl. Pend.", "Closed"])
 
 export function getTrialColumns(options: {
   staffMap: Map<number, StaffMember>
+  isMobile?: boolean
 }): ColumnDef<CalendarTableRow>[] {
   return [
     {
@@ -64,12 +65,13 @@ export function getTrialColumns(options: {
       ),
       cell: ({ row }) => {
         if (row.original.kind === "trial") {
-          const { case_name, status } = row.original.trial
+          const { case_name, short_name, status } = row.original.trial
           const isStale = STALE_STATUSES.has(status)
-          const truncated = case_name.length > 35 ? `${case_name.slice(0, 35)}…` : case_name
+          const displayName = options.isMobile && short_name ? short_name : case_name
+          const truncated = displayName.length > 35 ? `${displayName.slice(0, 35)}…` : displayName
           return (
             <div className="flex items-center gap-2">
-              {case_name.length > 35 ? (
+              {displayName.length > 35 ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="font-medium">{truncated}</span>
@@ -79,7 +81,7 @@ export function getTrialColumns(options: {
                   </TooltipContent>
                 </Tooltip>
               ) : (
-                <span className="font-medium">{case_name}</span>
+                <span className="font-medium">{displayName}</span>
               )}
               {isStale && (
                 <Tooltip>
