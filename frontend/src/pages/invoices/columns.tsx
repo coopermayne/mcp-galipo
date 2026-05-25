@@ -48,7 +48,7 @@ import {
 function formatDate(iso: string | null): string {
   if (!iso) return "—"
   const d = new Date(iso + "T00:00:00")
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
 function formatCurrency(amount: string): string {
