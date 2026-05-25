@@ -61,6 +61,15 @@ def register_role_routes(mcp):
             return api_error("Role not found", "NOT_FOUND", 404)
         return JSONResponse({"success": True, "role": role})
 
+    @mcp.custom_route("/api/v1/roles/{role_id}/members", methods=["GET"])
+    async def api_role_members(request):
+        """Get all persons assigned to a role, with case info."""
+        if err := auth.require_auth(request):
+            return err
+        role_id = int(request.path_params["role_id"])
+        members = await asyncio.to_thread(db.get_role_members, role_id)
+        return JSONResponse({"success": True, "members": members})
+
     @mcp.custom_route("/api/v1/roles/{role_id}", methods=["PUT"])
     async def api_update_role(request):
         """Update a role."""

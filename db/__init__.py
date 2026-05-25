@@ -91,6 +91,7 @@ from .roles import (
     create_role,
     update_role,
     delete_role,
+    get_role_members,
     count_persons_by_role,
     get_roles_with_counts,
 )
@@ -450,6 +451,7 @@ __all__ = [
     "create_role",
     "update_role",
     "delete_role",
+    "get_role_members",
     "count_persons_by_role",
     "get_roles_with_counts",
     # Persons

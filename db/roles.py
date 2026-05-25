@@ -121,6 +121,29 @@ def delete_role(role_id: int) -> dict:
         return {"success": True}
 
 
+def get_role_members(role_id: int) -> List[dict]:
+    """Get all persons assigned to a role, with their case info."""
+    with SessionLocal() as session:
+        from models import Person, Case
+        stmt = (
+            select(PersonRole, Person.name.label("person_name"), Case.case_name.label("case_name"))
+            .join(Person, PersonRole.person_id == Person.id)
+            .outerjoin(Case, PersonRole.case_id == Case.id)
+            .where(PersonRole.role_id == role_id)
+            .order_by(Person.name)
+        )
+        rows = session.execute(stmt).all()
+        return [
+            {
+                "person_id": pr.person_id,
+                "person_name": person_name,
+                "case_id": pr.case_id,
+                "case_name": case_name,
+            }
+            for pr, person_name, case_name in rows
+        ]
+
+
 def count_persons_by_role(role_id: int) -> int:
     """Count how many person_roles entries use this role."""
     with SessionLocal() as session:
