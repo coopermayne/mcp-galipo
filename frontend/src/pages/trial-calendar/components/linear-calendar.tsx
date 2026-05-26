@@ -510,6 +510,11 @@ export function LinearCalendar({
                                       })}
                                     </span>
                                   )}
+                                  {STALE_STATUSES.has(ci.item.trialRaw.status) && (
+                                    <span className="shrink-0 text-[8px] font-semibold leading-none px-1 py-px bg-warning text-warning-foreground whitespace-nowrap">
+                                      {ci.item.trialRaw.status}
+                                    </span>
+                                  )}
                                 </>
                               )}
                             </button>
