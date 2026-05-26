@@ -275,6 +275,10 @@ export function CaseTable({
               <DropdownMenuItem onClick={() => handlePrint("alphabetical")}>
                 Alphabetical
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handlePrint("deadlines")}>
+                Claim Deadlines
+              </DropdownMenuItem>
               {showDocxExport && (
                 <>
                   <DropdownMenuSeparator />
@@ -338,6 +342,10 @@ export function CaseTable({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handlePrint("alphabetical")}>
                   Alphabetical
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handlePrint("deadlines")}>
+                  Claim Deadlines
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>

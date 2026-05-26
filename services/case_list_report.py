@@ -6,6 +6,7 @@ Three grouping modes: by attorney, by status, or alphabetical.
 """
 
 import math
+import datetime as dt_mod
 from io import BytesIO
 from html import escape
 from collections import defaultdict
@@ -50,15 +51,24 @@ def _build_html(cases: list, users_map: dict, group_by: str) -> str:
         "attorney": "By Attorney",
         "status": "By Status",
         "alphabetical": "Alphabetical",
+        "deadlines": "Claim & Filing Deadlines",
     }
     subtitle = subtitle_map.get(group_by, "")
 
-    if group_by == "attorney":
+    if group_by == "deadlines":
+        deadline_cases = [c for c in cases if c.get("status") in ("Pre-Claim", "Pre-Filing")]
+        count = len(deadline_cases)
+        body = _render_deadlines(cases, users_map)
+        title = "Claim Deadline List"
+    elif group_by == "attorney":
         body = _render_by_attorney(cases, users_map)
+        title = "Active Case List"
     elif group_by == "status":
         body = _render_by_status(cases, users_map)
+        title = "Active Case List"
     else:
         body = _render_alphabetical(cases, users_map)
+        title = "Active Case List"
 
     return f"""<!DOCTYPE html>
 <html>
@@ -72,7 +82,7 @@ def _build_html(cases: list, users_map: dict, group_by: str) -> str:
 
 <div class="header">
   <div class="header-left">
-    <span class="title">Active Case List</span>
+    <span class="title">{title}</span>
     <span class="subtitle">{subtitle} &middot; {count} cases</span>
   </div>
   <div class="date">{date_str}</div>
@@ -210,6 +220,7 @@ def _render_pie_with_legend(slices):
             f'<div class="legend-row">'
             f'<span class="legend-swatch" style="background:{color}"></span>'
             f'<span class="legend-label">{escape(label)}</span>'
+            f'<span class="legend-dots">{"." * 80}</span>'
             f'<span class="legend-val">{count}</span>'
             f'</div>\n'
         )
@@ -235,16 +246,7 @@ def _render_bar_chart(bars):
 
 def _render_alphabetical(cases: list, users_map: dict) -> str:
     sorted_cases = sorted(cases, key=lambda c: _case_name(c).lower())
-
-    jurisdictions = defaultdict(int)
-    for c in cases:
-        j = c.get("jurisdiction_name") or "Unspecified"
-        jurisdictions[j] += 1
-    sorted_j = sorted(jurisdictions.items(), key=lambda x: -x[1])
-    slices = [(label, count, PIE_COLORS[i % len(PIE_COLORS)]) for i, (label, count) in enumerate(sorted_j)]
-    chart = _render_pie_with_legend(slices)
-
-    return chart + _render_case_list(sorted_cases, users_map, show_team=True, show_status=True)
+    return _render_case_list(sorted_cases, users_map, show_team=True, show_status=True)
 
 
 def _render_by_status(cases: list, users_map: dict) -> str:
@@ -323,6 +325,125 @@ def _render_by_attorney(cases: list, users_map: dict) -> str:
         unassigned.sort(key=lambda c: _case_name(c).lower())
         sections += f'<div class="group-header">Unassigned <span class="count">{len(unassigned)}</span></div>\n'
         sections += _render_case_list(unassigned, users_map, show_team=False, show_status=True, indent=True)
+
+    return chart + sections
+
+
+def _format_date(date_str: str | None) -> str:
+    if not date_str:
+        return ""
+    try:
+        d = dt_mod.date.fromisoformat(date_str)
+        return d.strftime("%b %-d, %Y")
+    except (ValueError, TypeError):
+        return date_str
+
+
+def _days_until(date_str: str | None) -> int | None:
+    if not date_str:
+        return None
+    try:
+        d = dt_mod.date.fromisoformat(date_str)
+        return (d - dt_mod.date.today()).days
+    except (ValueError, TypeError):
+        return None
+
+
+def _deadline_cell(date_str: str | None, warn_days: int = 30) -> str:
+    if not date_str:
+        return '<span class="dl-none">—</span>'
+    days = _days_until(date_str)
+    formatted = escape(_format_date(date_str))
+    if days is not None and days < 0:
+        return f'<span class="dl-past">{formatted}</span>'
+    if days is not None and days <= warn_days:
+        return f'<span class="dl-urgent">{formatted}</span>'
+    return f'<span>{formatted}</span>'
+
+
+def _render_deadline_row(c: dict, users_map: dict) -> str:
+    name = escape(_case_name(c))
+    status = c.get("status", "")
+    is_pre_filing = status == "Pre-Filing"
+
+    squares = _avatar_squares(c.get("attorney_ids"), users_map)
+    team_html = f'<span class="team">{squares}</span>' if squares else ""
+
+    doi_html = _format_date(c.get("date_of_injury")) or "—"
+
+    if is_pre_filing and c.get("claim_deadline"):
+        claim_html = (
+            f'<span class="dl-done"><s>{escape(_format_date(c["claim_deadline"]))}</s></span>'
+        )
+    else:
+        claim_html = _deadline_cell(c.get("claim_deadline"))
+
+    if is_pre_filing:
+        complaint_html = _deadline_cell(c.get("complaint_deadline"))
+    else:
+        complaint_html = '<span class="dl-none">—</span>'
+
+    return (
+        f'<tr class="dl-row">'
+        f'<td class="dl-team">{team_html}</td>'
+        f'<td class="dl-name">{name}</td>'
+        f'<td class="dl-date">{escape(doi_html)}</td>'
+        f'<td class="dl-date">{claim_html}</td>'
+        f'<td class="dl-date">{complaint_html}</td>'
+        f'</tr>\n'
+    )
+
+
+def _render_deadlines(cases: list, users_map: dict) -> str:
+    deadline_cases = [
+        c for c in cases if c.get("status") in ("Pre-Claim", "Pre-Filing")
+    ]
+
+    pre_claim = [c for c in deadline_cases if c.get("status") == "Pre-Claim"]
+    pre_filing = [c for c in deadline_cases if c.get("status") == "Pre-Filing"]
+
+    def sort_key(c):
+        if c.get("status") == "Pre-Claim":
+            dl = c.get("claim_deadline") or "9999-12-31"
+        else:
+            dl = c.get("complaint_deadline") or "9999-12-31"
+        return dl
+
+    pre_claim.sort(key=sort_key)
+    pre_filing.sort(key=sort_key)
+
+    slices = []
+    if pre_claim:
+        slices.append(("Pre-Claim", len(pre_claim), STATUS_BAR_COLORS.get("Pre-Claim", "#a78bfa")))
+    if pre_filing:
+        slices.append(("Pre-Filing", len(pre_filing), STATUS_BAR_COLORS.get("Pre-Filing", "#fbbf24")))
+    chart = _render_pie_with_legend(slices) if slices else ""
+
+    header = (
+        '<table class="dl-table">'
+        '<thead><tr>'
+        '<th class="dl-th-team"></th>'
+        '<th class="dl-th-name">Case</th>'
+        '<th class="dl-th-date">DOI</th>'
+        '<th class="dl-th-date">Claim DL</th>'
+        '<th class="dl-th-date">Complaint DL</th>'
+        '</tr></thead>\n'
+    )
+
+    sections = ""
+    if pre_claim:
+        badge = f'<span class="badge {_status_class("Pre-Claim")}">Pre-Claim</span>'
+        sections += f'<div class="group-header">{badge} <span class="count">{len(pre_claim)}</span></div>\n'
+        sections += header + '<tbody>\n'
+        sections += "".join(_render_deadline_row(c, users_map) for c in pre_claim)
+        sections += '</tbody></table>\n'
+
+    if pre_filing:
+        badge = f'<span class="badge {_status_class("Pre-Filing")}">Pre-Filing</span>'
+        sections += f'<div class="group-header">{badge} <span class="count">{len(pre_filing)}</span></div>\n'
+        sections += header + '<tbody>\n'
+        sections += "".join(_render_deadline_row(c, users_map) for c in pre_filing)
+        sections += '</tbody></table>\n'
 
     return chart + sections
 
@@ -418,10 +539,10 @@ def _get_css() -> str:
       padding: 6pt 0;
       border-bottom: 0.5pt solid #e2e8f0;
     }
-    .pie-legend { flex: 1; padding-top: 2pt; }
+    .pie-legend { padding-top: 2pt; }
     .legend-row {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 4pt;
       padding: 1pt 0;
       font-size: 8pt;
@@ -431,9 +552,11 @@ def _get_css() -> str:
       height: 8pt;
       display: inline-block;
       flex-shrink: 0;
+      align-self: center;
     }
-    .legend-label { flex: 1; color: #374151; }
-    .legend-val { font-weight: 600; color: #1e293b; min-width: 14pt; text-align: right; }
+    .legend-label { color: #374151; flex-shrink: 0; }
+    .legend-dots { flex: 1; overflow: hidden; color: #cbd5e1; letter-spacing: 1pt; font-size: 6pt; }
+    .legend-val { font-weight: 600; color: #1e293b; flex-shrink: 0; }
 
     .bar-chart {
       margin-bottom: 8pt;
@@ -506,6 +629,42 @@ def _get_css() -> str:
       margin-left: 3pt;
       vertical-align: middle;
     }
+    /* ── Deadline table ── */
+    .dl-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      margin-bottom: 4pt;
+    }
+    .dl-table thead { border-bottom: 0.75pt solid #cbd5e1; }
+    .dl-table th {
+      font-size: 7pt;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.3pt;
+      padding: 2pt 4pt;
+      text-align: left;
+    }
+    .dl-th-team { width: 24pt; }
+    .dl-th-name { }
+    .dl-th-date { width: 75pt; }
+    .dl-th-status { width: 55pt; }
+    .dl-row td {
+      padding: 2pt 4pt;
+      border-bottom: 0.25pt solid #e8ecf0;
+      vertical-align: middle;
+    }
+    .dl-team { width: 24pt; }
+    .dl-name { font-weight: 600; }
+    .dl-date { font-size: 8.5pt; white-space: nowrap; }
+    .dl-status { }
+    .dl-none { color: #94a3b8; }
+    .dl-past { color: #dc2626; font-weight: 600; }
+    .dl-urgent { color: #d97706; font-weight: 600; }
+    .dl-done { color: #16a34a; font-size: 8.5pt; }
+    .dl-done s { color: #94a3b8; font-weight: 400; }
+
     .s-signup    { background: #dbeafe; color: #1e40af; }
     .s-prospect  { background: #e0e7ff; color: #3730a3; }
     .s-preclaim  { background: #ede9fe; color: #5b21b6; }

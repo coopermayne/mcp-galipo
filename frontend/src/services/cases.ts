@@ -143,7 +143,7 @@ export async function exportCaseReport(): Promise<void> {
   downloadBlob(blob, `Case Report ${date}.docx`)
 }
 
-export type CaseListGroupBy = "attorney" | "status" | "alphabetical"
+export type CaseListGroupBy = "attorney" | "status" | "alphabetical" | "deadlines"
 
 export async function exportCaseListPdf(groupBy: CaseListGroupBy): Promise<void> {
   const res = await apiFetch(`/api/v1/cases/export/list-pdf?group_by=${groupBy}`)
@@ -154,6 +154,7 @@ export async function exportCaseListPdf(groupBy: CaseListGroupBy): Promise<void>
     attorney: "by Attorney",
     status: "by Status",
     alphabetical: "Alphabetical",
+    deadlines: "Claim Deadlines",
   }
   downloadBlob(blob, `Case List ${labels[groupBy]} ${date}.pdf`)
 }
