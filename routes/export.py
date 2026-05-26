@@ -407,8 +407,8 @@ def register_export_routes(mcp):
             return err
 
         group_by = request.query_params.get("group_by", "alphabetical")
-        if group_by not in ("attorney", "status", "alphabetical"):
-            return api_error("group_by must be attorney, status, or alphabetical", "INVALID_INPUT", 400)
+        if group_by not in ("attorney", "status", "alphabetical", "deadlines"):
+            return api_error("group_by must be attorney, status, alphabetical, or deadlines", "INVALID_INPUT", 400)
 
         from db.cases import get_all_cases
 

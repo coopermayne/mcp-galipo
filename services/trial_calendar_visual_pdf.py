@@ -68,30 +68,27 @@ def _normalize_items(trials: list, blocking_events: list, staff_map: dict) -> li
         end = _add_weekdays(start, max(t.get("trial_estimated_days") or 1, 1))
         short = t.get("short_name") or t.get("case_name", "").split(" ")[0]
         aids = t.get("attorney_ids") or []
-        initials = ""
-        if aids:
-            s = staff_map.get(aids[0])
-            if s:
-                initials = s.get("initials", "")
-        label = f"{short} ({initials})" if initials else short
         items.append({
             "kind": "trial",
             "start": start,
             "end": end,
-            "label": label,
+            "label": short,
             "status": t.get("status", ""),
+            "attorney_ids": aids,
         })
     for evt in blocking_events:
         if not evt.get("date"):
             continue
         start = _parse(evt["date"])
         end = _parse(evt["end_date"]) if evt.get("end_date") else start
-        is_vacation = evt.get("event_type") == "vacation"
+        event_type = evt.get("event_type", "other")
         items.append({
-            "kind": "vacation" if is_vacation else "event",
+            "kind": "event",
             "start": start,
             "end": end,
             "label": evt.get("description", "Event"),
+            "event_type": event_type,
+            "attorney_ids": [],
         })
     return items
 
@@ -246,11 +243,58 @@ CLR_MUTED_FG = "#808080"
 CLR_BORDER = "#e5e5e5"
 CLR_MUTED_BG = "#f5f5f5"
 CLR_DESTRUCTIVE = "#d93636"
-CLR_INFO = "#2563eb"
 CLR_SUCCESS = "#16a34a"
 CLR_PRIMARY = "#2563eb"
 
+# Event type colors — matched to frontend EVENT_TYPES (palette-* vars → hex)
+EVENT_TYPE_COLORS = {
+    "vacation":      "#0284c7",  # palette-sky
+    "holiday":       "#059669",  # palette-emerald
+    "trial":         "#dc2626",  # palette-red
+    "oral_argument": "#ea580c",  # palette-orange
+    "hearing":       "#d97706",  # palette-amber
+    "mediation":     "#9333ea",  # palette-purple
+    "deposition":    "#0d9488",  # palette-teal
+    "conference":    "#4f46e5",  # palette-indigo
+    "other":         "#db2777",  # palette-pink
+}
+
+# Avatar palette — same order as frontend BADGE_COLOR_NAMES / case_list_report.py
+AVATAR_COLORS = [
+    ("#dc2626", "#ffffff"),  # red
+    ("#ea580c", "#ffffff"),  # orange
+    ("#d97706", "#1c1917"),  # amber
+    ("#ca8a04", "#1c1917"),  # yellow
+    ("#65a30d", "#ffffff"),  # lime
+    ("#16a34a", "#ffffff"),  # green
+    ("#059669", "#ffffff"),  # emerald
+    ("#0d9488", "#ffffff"),  # teal
+    ("#0891b2", "#ffffff"),  # cyan
+    ("#0284c7", "#ffffff"),  # sky
+    ("#2563eb", "#ffffff"),  # blue
+    ("#4f46e5", "#ffffff"),  # indigo
+    ("#7c3aed", "#ffffff"),  # violet
+    ("#9333ea", "#ffffff"),  # purple
+    ("#c026d3", "#ffffff"),  # fuchsia
+    ("#db2777", "#ffffff"),  # pink
+]
+
 DAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def _avatar_squares_html(attorney_ids: list, staff_map: dict) -> str:
+    if not attorney_ids:
+        return ""
+    squares = ""
+    for uid in attorney_ids:
+        s = staff_map.get(uid)
+        initials = s.get("initials", "?") if s else "?"
+        bg, fg = AVATAR_COLORS[uid % len(AVATAR_COLORS)]
+        squares += (
+            f'<span class="bar-avatar" style="background:{bg};color:{fg}">'
+            f'{escape(initials)}</span>'
+        )
+    return f'<span class="bar-avatars">{squares}</span>'
 
 
 def _row_height(lane_count: int) -> int:
@@ -262,7 +306,7 @@ def _row_height(lane_count: int) -> int:
     )
 
 
-def _render_week_row(week: dict, today: datetime.date, open_days: set[str]) -> str:
+def _render_week_row(week: dict, today: datetime.date, open_days: set[str], staff_map: dict = None) -> str:
     h = _row_height(week["lane_count"])
     has_conflict = len(week["conflict_columns"]) > 0
     border_cls = ' month-start' if week["month_label"] else ''
@@ -313,23 +357,24 @@ def _render_week_row(week: dict, today: datetime.date, open_days: set[str]) -> s
         width = f"{((ci['col_end'] - ci['col_start'] + 1) / 7) * 100:.3f}%"
         top = DAYNUM_H + ci["lane"] * (LANE_H + LANE_GAP)
 
-        if item["kind"] == "vacation":
-            bg = CLR_INFO
-            opacity = 1.0
-        elif item["kind"] == "event":
+        if item["kind"] == "trial":
             bg = CLR_DESTRUCTIVE
             opacity = 1.0
         else:
-            bg = CLR_DESTRUCTIVE
+            et = item.get("event_type", "other")
+            bg = EVENT_TYPE_COLORS.get(et, EVENT_TYPE_COLORS["other"])
             opacity = 1.0
 
         stale = item.get("status", "") in ("Settl. Pend.", "Closed")
         stale_html = f' <span class="bar-stale">{escape(item["status"])}</span>' if stale else ""
 
+        avatars_html = _avatar_squares_html(item.get("attorney_ids", []), staff_map)
+
         bars += (
             f'<div class="bar" style="left:{left};width:{width};top:{top}pt;'
             f'background:{bg};opacity:{opacity:.2f}">'
-            f'<span class="bar-label">{escape(item["label"])}{stale_html}</span></div>'
+            f'<span class="bar-label">{escape(item["label"])}{stale_html}</span>'
+            f'{avatars_html}</div>'
         )
 
     return (
@@ -451,7 +496,7 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
         rows_html = ""
         for month_rows in page_groups:
             for row in month_rows:
-                rows_html += _render_week_row(row, today, open_days)
+                rows_html += _render_week_row(row, today, open_days, staff_map)
 
         pages_html += f'<div class="calendar">{day_header_row}{rows_html}</div>'
 
@@ -471,11 +516,25 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
 
 
 def _legend() -> str:
-    return f"""<div class="legend">
-<span class="leg-item"><span class="leg-swatch" style="background:{CLR_DESTRUCTIVE}"></span> Trial</span>
-<span class="leg-item"><span class="leg-swatch" style="background:{CLR_INFO}"></span> Vacation</span>
-<span class="leg-item"><span class="leg-swatch" style="background:{CLR_SUCCESS};opacity:0.4"></span> Open day</span>
-</div>"""
+    items = [
+        (CLR_DESTRUCTIVE, "Trial"),
+        (EVENT_TYPE_COLORS["vacation"], "Vacation"),
+        (EVENT_TYPE_COLORS["holiday"], "Holiday"),
+        (EVENT_TYPE_COLORS["hearing"], "Hearing"),
+        (EVENT_TYPE_COLORS["mediation"], "Mediation"),
+        (EVENT_TYPE_COLORS["deposition"], "Deposition"),
+        (CLR_SUCCESS, "Open day", "opacity:0.4"),
+    ]
+    html = '<div class="legend">'
+    for entry in items:
+        color, label = entry[0], entry[1]
+        extra_style = entry[2] if len(entry) > 2 else ""
+        style = f"background:{color}"
+        if extra_style:
+            style += f";{extra_style}"
+        html += f'<span class="leg-item"><span class="leg-swatch" style="{style}"></span> {label}</span>'
+    html += '</div>'
+    return html
 
 
 def _get_css() -> str:
@@ -670,6 +729,24 @@ body {{
   color: #92400e;
   padding: 0.5pt 1.5pt;
   margin-left: 1pt;
+}}
+.bar-avatars {{
+  display: flex;
+  gap: 0.5pt;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-right: 1pt;
+}}
+.bar-avatar {{
+  display: inline-flex;
+  width: 10pt;
+  height: 10pt;
+  align-items: center;
+  justify-content: center;
+  font-size: 5pt;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
 }}
 
 .page-break {{
