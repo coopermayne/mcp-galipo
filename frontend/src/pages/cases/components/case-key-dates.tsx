@@ -178,7 +178,7 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
 
   const showClaimDeadline = stage === "pre-claim"
   const showFilingDeadline = stage === "pre-claim" || stage === "pre-filing"
-  const showTrialInfo = stage === "filed"
+  const showTrialInfo = stage === "filed" || stage === "resolved"
 
   return (
     <div className="border">
