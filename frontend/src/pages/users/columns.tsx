@@ -89,10 +89,10 @@ export function getColumns(options: {
       id: "actions",
       enableHiding: false,
       cell: ({ row }) => (
+        <div onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="size-8 p-0">
-              <span className="sr-only">Open menu</span>
               <HugeiconsIcon
                 icon={MoreHorizontalCircle01Icon}
                 className="size-4"
@@ -120,6 +120,7 @@ export function getColumns(options: {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       ),
     },
   ]
