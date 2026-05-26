@@ -240,7 +240,9 @@ export function EventListItem({
           icon={StarIcon}
           className={cn(
             "size-4 transition-colors",
-            event.starred
+            event.starred && isPast
+              ? "text-muted-foreground fill-muted-foreground"
+              : event.starred
               ? "text-warning fill-warning"
               : "text-muted-foreground/30 hover:text-warning/60"
           )}

@@ -28,7 +28,8 @@ export function EventPinnedItem({
       className={cn(
         "group flex items-center gap-2 px-3 py-1.5",
         "border-b border-border/50",
-        "hover:bg-accent/50 transition-colors cursor-pointer"
+        "hover:bg-accent/50 transition-colors cursor-pointer",
+        "opacity-50"
       )}
       onClick={() => onEventClick(event)}
     >
@@ -45,7 +46,7 @@ export function EventPinnedItem({
           className={cn(
             "size-3.5 transition-colors",
             event.starred
-              ? "text-warning fill-warning"
+              ? "text-muted-foreground fill-muted-foreground"
               : "text-muted-foreground/30 hover:text-warning/60"
           )}
         />
