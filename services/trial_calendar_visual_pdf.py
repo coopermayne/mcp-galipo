@@ -75,6 +75,7 @@ def _normalize_items(trials: list, blocking_events: list, staff_map: dict) -> li
             "label": short,
             "status": t.get("status", ""),
             "attorney_ids": aids,
+            "proposed": bool(t.get("proposed")),
         })
     for evt in blocking_events:
         if not evt.get("date"):
@@ -361,23 +362,32 @@ def _render_week_row(week: dict, today: datetime.date, open_days: set[str], staf
         width = f"{((ci['col_end'] - ci['col_start'] + 1) / 7) * 100:.3f}%"
         top = DAYNUM_H + ci["lane"] * (LANE_H + LANE_GAP)
 
+        is_hold = item["kind"] == "trial" and item.get("proposed")
         if item["kind"] == "trial":
             bg = CLR_DESTRUCTIVE
-            opacity = 1.0
         else:
             et = item.get("event_type", "other")
             bg = EVENT_TYPE_COLORS.get(et, EVENT_TYPE_COLORS["other"])
-            opacity = 1.0
+
+        bar_style = f"left:{left};width:{width};top:{top}pt;background:{bg}"
+        if is_hold:
+            # Two-tone red diagonal stripes mark a tentative hold (matches the
+            # web UI's hatched look while staying clearly red, not muddy black).
+            bar_style += (
+                ";background-image:repeating-linear-gradient(45deg,"
+                f"{CLR_DESTRUCTIVE} 0,{CLR_DESTRUCTIVE} 2.5pt,"
+                "#8f1a1a 2.5pt,#8f1a1a 5pt)"
+            )
 
         stale = item.get("status", "") in ("Settl. Pend.", "Closed")
         stale_html = f' <span class="bar-stale">{escape(item["status"])}</span>' if stale else ""
+        hold_html = ' <span class="bar-hold">HOLD</span>' if is_hold else ""
 
         avatars_html = _avatar_squares_html(item.get("attorney_ids", []), staff_map)
 
         bars += (
-            f'<div class="bar" style="left:{left};width:{width};top:{top}pt;'
-            f'background:{bg};opacity:{opacity:.2f}">'
-            f'<span class="bar-label">{escape(item["label"])}{stale_html}</span>'
+            f'<div class="bar" style="{bar_style}">'
+            f'<span class="bar-label">{escape(item["label"])}{hold_html}{stale_html}</span>'
             f'{avatars_html}</div>'
         )
 
@@ -520,8 +530,17 @@ def _build_html(trials: list, blocking_events: list, staff_map: dict) -> str:
 
 
 def _legend() -> str:
+    html = '<div class="legend">'
+    html += (
+        f'<span class="leg-item"><span class="leg-swatch" '
+        f'style="background:{CLR_DESTRUCTIVE}"></span> Trial</span>'
+    )
+    # Hold uses a striped swatch matching the hold bars.
+    html += (
+        f'<span class="leg-item"><span class="leg-swatch leg-hold" '
+        f'style="background:{CLR_DESTRUCTIVE}"></span> Hold</span>'
+    )
     items = [
-        (CLR_DESTRUCTIVE, "Trial"),
         (EVENT_TYPE_COLORS["vacation"], "Vacation"),
         (EVENT_TYPE_COLORS["holiday"], "Holiday"),
         (EVENT_TYPE_COLORS["hearing"], "Hearing"),
@@ -529,7 +548,6 @@ def _legend() -> str:
         (EVENT_TYPE_COLORS["deposition"], "Deposition"),
         (CLR_SUCCESS, "Open day", "opacity:0.4"),
     ]
-    html = '<div class="legend">'
     for entry in items:
         color, label = entry[0], entry[1]
         extra_style = entry[2] if len(entry) > 2 else ""
@@ -578,6 +596,11 @@ body {{
   display: inline-block;
   width: 10pt;
   height: 5pt;
+}}
+.leg-hold {{
+  background-image: repeating-linear-gradient(45deg,
+    {CLR_DESTRUCTIVE} 0, {CLR_DESTRUCTIVE} 1.5pt,
+    #8f1a1a 1.5pt, #8f1a1a 3pt);
 }}
 .leg-note {{ font-style: italic; color: #aaa; }}
 
@@ -734,10 +757,19 @@ body {{
   padding: 0.5pt 1.5pt;
   margin-left: 1pt;
 }}
+.bar-hold {{
+  font-size: 4.5pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(255,255,255,0.9);
+  color: #b91c1c;
+  padding: 0.5pt 1.5pt;
+  margin-left: 1pt;
+}}
 .bar-avatars {{
   display: flex;
   gap: 0.5pt;
-  margin-left: auto;
+  margin-left: 3pt;
   flex-shrink: 0;
   padding-right: 1pt;
 }}
