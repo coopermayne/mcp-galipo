@@ -112,6 +112,32 @@ export async function deleteCase(
   return res.json()
 }
 
+/**
+ * Confirm one of a case's hold dates (proposed_trial_dates): promotes it to
+ * trial_date and clears the remaining holds.
+ */
+export async function confirmTrialDate(
+  id: number,
+  confirmedDate: string
+): Promise<{ success: boolean; case: CaseDetail }> {
+  const res = await apiFetch(`/api/v1/cases/${id}/confirm-trial-date`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmed_date: confirmedDate }),
+  })
+  if (!res.ok) {
+    let message = "Failed to confirm trial date"
+    try {
+      const body = await res.json()
+      if (body?.error?.message) message = body.error.message
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message)
+  }
+  return res.json()
+}
+
 // --- Case Comments (Activity Feed) ---
 
 export async function getCaseComments(

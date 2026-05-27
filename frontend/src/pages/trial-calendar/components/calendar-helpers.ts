@@ -100,7 +100,9 @@ export function normalizeItems(
     const start = parseDate(t.trial_date)
     const end = addWeekdaysFn(start, Math.max(t.trial_estimated_days ?? 1, 1))
     items.push({
-      id: `trial-${t.case_id}`,
+      // Include the date: a case with multiple holds emits several trial
+      // items sharing one case_id, so case_id alone is not unique.
+      id: `trial-${t.case_id}-${t.trial_date}`,
       kind: "trial",
       start,
       end,

@@ -62,6 +62,16 @@ function getItemStyle(item: CalendarItem): React.CSSProperties {
   if (item.kind !== "trial" && item.eventRaw) {
     return { backgroundColor: getEventTypeColor(item.eventRaw.event_type) }
   }
+  // Holds (proposed dates) are tentative — render a diagonal hatch so they
+  // never read as a confirmed trial. Likelihood opacity doesn't apply.
+  if (item.trialRaw?.proposed) {
+    return {
+      backgroundColor: "var(--destructive)",
+      backgroundImage:
+        "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.25) 4px, rgba(0,0,0,0.25) 8px)",
+      opacity: 0.9,
+    }
+  }
   const likelihood = item.trialRaw?.trial_likelihood ?? 100
   const opacity = Math.max(likelihood / 100, 0.3)
   return { backgroundColor: "var(--destructive)", opacity }
@@ -389,12 +399,18 @@ export function LinearCalendar({
                       if (ci.item.kind === "trial" && ci.item.trialRaw) {
                         const t = ci.item.trialRaw
                         const isStale = STALE_STATUSES.has(t.status)
+                        const isHold = t.proposed
                         tooltipBody = (
                           <div className="space-y-1 max-w-64">
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold">
                                 {t.case_name}
                               </span>
+                              {isHold && (
+                                <span className="text-[10px] font-semibold px-1 py-px bg-warning text-warning-foreground whitespace-nowrap">
+                                  HOLD
+                                </span>
+                              )}
                               {isStale && (
                                 <span className="text-[10px] font-medium px-1 py-px bg-warning/15 text-warning-foreground border border-warning/30">
                                   {t.status}
@@ -403,7 +419,7 @@ export function LinearCalendar({
                             </div>
                             <div className="text-muted-foreground text-xs space-y-0.5">
                               <div>
-                                Trial:{" "}
+                                {isHold ? "Hold: " : "Trial: "}
                                 {format(
                                   parseDate(t.trial_date),
                                   "MMM d, yyyy",
@@ -412,6 +428,11 @@ export function LinearCalendar({
                                   ? ` · ${t.trial_estimated_days} days`
                                   : ""}
                               </div>
+                              {isHold && (
+                                <div className="italic">
+                                  Date offered to court — not yet confirmed
+                                </div>
+                              )}
                               {t.jurisdiction_name && (
                                 <div>{t.jurisdiction_name}</div>
                               )}
@@ -423,10 +444,12 @@ export function LinearCalendar({
                                   Atty: {attyNames(t.attorney_ids)}
                                 </div>
                               )}
-                              <div>
-                                Likelihood: {t.trial_likelihood ?? "?"}%
-                              </div>
-                              {t.trial_likelihood_note && (
+                              {!isHold && (
+                                <div>
+                                  Likelihood: {t.trial_likelihood ?? "?"}%
+                                </div>
+                              )}
+                              {!isHold && t.trial_likelihood_note && (
                                 <div className="italic">
                                   "{t.trial_likelihood_note}"
                                 </div>
@@ -488,6 +511,11 @@ export function LinearCalendar({
                               </span>
                               {ci.item.kind === "trial" && ci.item.trialRaw && (
                                 <>
+                                  {ci.item.trialRaw.proposed && (
+                                    <span className="shrink-0 text-[8px] font-bold leading-none px-1 py-px bg-warning text-warning-foreground whitespace-nowrap">
+                                      HOLD
+                                    </span>
+                                  )}
                                   {ci.item.trialRaw.jurisdiction_name && (
                                     <span className="text-[9px] leading-none text-white/70 truncate shrink-0">
                                       {ci.item.trialRaw.jurisdiction_name}
