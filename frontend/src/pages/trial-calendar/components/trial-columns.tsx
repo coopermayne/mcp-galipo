@@ -1,17 +1,13 @@
 import { format } from "date-fns"
 import type { ColumnDef } from "@tanstack/react-table"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { NoteIcon } from "@hugeicons/core-free-icons"
 import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
-import { confirmTrialDate } from "@/services/cases"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { getEventTypeLabel, getEventTypeColor } from "@/lib/event-types"
 import { TrialEditCell } from "@/components/common/trial-edit-popover"
-import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
@@ -29,38 +25,6 @@ function parseDate(s: string): Date {
 }
 
 const STALE_STATUSES = new Set(["Settl. Pend.", "Closed"])
-
-/** Read-only hold date with a Confirm action (promotes it to the trial date). */
-function HoldConfirmCell({ caseId, date }: { caseId: number; date: string }) {
-  const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: () => confirmTrialDate(caseId, date),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
-      queryClient.invalidateQueries({ queryKey: ["cases"] })
-      queryClient.invalidateQueries({ queryKey: ["case", caseId] })
-      toast.success("Trial date confirmed")
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm">{format(parseDate(date), "MMM d, yyyy")}</span>
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-6 px-2 text-[11px]"
-        disabled={mutation.isPending}
-        onClick={(e) => {
-          e.stopPropagation()
-          mutation.mutate()
-        }}
-      >
-        Confirm
-      </Button>
-    </div>
-  )
-}
 
 export function getTrialColumns(options: {
   staffMap: Map<number, StaffMember>
@@ -178,10 +142,14 @@ export function getTrialColumns(options: {
       cell: ({ row }) => {
         if (row.original.kind === "trial") {
           const t = row.original.trial
-          // A hold row's date is one of several candidates — editing it as the
-          // trial date would be wrong. Offer a Confirm action instead.
+          // A hold's date is one of several candidates — show it read-only.
+          // Confirming happens on the case page (click the row to open it).
           if (t.proposed) {
-            return <HoldConfirmCell caseId={t.case_id} date={t.trial_date} />
+            return (
+              <span className="text-sm">
+                {format(parseDate(t.trial_date), "MMM d, yyyy")}
+              </span>
+            )
           }
           return (
             <TrialEditCell
