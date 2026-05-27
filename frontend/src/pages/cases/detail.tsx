@@ -40,7 +40,7 @@ import { isCaseFeatureEnabled } from "@/types/case"
 
 export default function CaseDetailPage() {
   return (
-    <FeatureGate feature="case-detail" redirectTo="/cases">
+    <FeatureGate feature="case-detail" redirectTo="/your-cases">
       <CaseDetailContent />
     </FeatureGate>
   )
@@ -102,7 +102,7 @@ function CaseDetailContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cases"] })
       toast.success("Case deleted")
-      navigate("/cases")
+      navigate("/your-cases")
     },
     onError: () => toast.error("Failed to delete case"),
   })

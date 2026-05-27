@@ -8,10 +8,10 @@ import { SettingsDialog } from "@/components/common/settings-dialog"
 
 const descriptions: Record<string, string> = {
   Intakes: "Review and process new client inquiries",
-  "My Cases": "Your assigned personal injury cases",
+  "Your Cases": "Your assigned personal injury cases",
   "All Cases": "Browse every case in the firm",
-  Tasks: "Track to-dos and assignments",
-  Calendar: "Deadlines, hearings, and events",
+  "Your Tasks": "Track to-dos and assignments",
+  "Your Calendar": "Deadlines, hearings, and events",
   "Trial Calendar": "View upcoming trials and find open dates",
   Financials: "Case costs, liens, and settlements",
   Invoices: "Manage invoices and payees",
