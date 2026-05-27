@@ -2,9 +2,9 @@ import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PencilEdit01Icon, InformationCircleIcon, Add01Icon } from "@hugeicons/core-free-icons"
+import { PencilEdit01Icon, InformationCircleIcon, Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { todayInLA } from "@/lib/datetime"
-import { updateCase } from "@/services/cases"
+import { updateCase, confirmTrialDate } from "@/services/cases"
 import {
   Popover,
   PopoverContent,
@@ -44,6 +44,8 @@ interface TrialEditCellProps {
   likelihood: number | null
   likelihoodNote: string | null
   estimatedDays: number | null
+  /** Hold dates offered to the court (proposed_trial_dates). */
+  proposedDates?: string[] | null
 }
 
 export function TrialEditCell({
@@ -52,6 +54,7 @@ export function TrialEditCell({
   likelihood,
   likelihoodNote,
   estimatedDays,
+  proposedDates,
 }: TrialEditCellProps) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -61,16 +64,42 @@ export function TrialEditCell({
   const [draftDays, setDraftDays] = useState(estimatedDays ?? 7)
   const [hasLikelihood, setHasLikelihood] = useState(likelihood != null)
 
+  const holds = proposedDates ?? []
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["cases"] })
+    queryClient.invalidateQueries({ queryKey: ["case", caseId] })
+    queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
+  }
+
   const mutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => updateCase(caseId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cases"] })
-      queryClient.invalidateQueries({ queryKey: ["case", caseId] })
-      queryClient.invalidateQueries({ queryKey: ["trial-calendar"] })
+      invalidate()
       toast.success("Trial info updated")
     },
     onError: (e) => toast.error(e.message),
   })
+
+  const confirmMutation = useMutation({
+    mutationFn: (date: string) => confirmTrialDate(caseId, date),
+    onSuccess: () => {
+      invalidate()
+      toast.success("Trial date confirmed")
+      setOpen(false)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  function addHold(date: string | null) {
+    if (!date || holds.includes(date)) return
+    mutation.mutate({ proposed_trial_dates: [...holds, date].sort() })
+  }
+
+  function removeHold(date: string) {
+    const next = holds.filter((d) => d !== date)
+    mutation.mutate({ proposed_trial_dates: next.length ? next : null })
+  }
 
   function handleOpen(openState: boolean) {
     if (openState) {
@@ -145,6 +174,19 @@ export function TrialEditCell({
                 </span>
               </div>
             </>
+          ) : holds.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold leading-none px-1 py-px bg-warning text-warning-foreground whitespace-nowrap">
+                HOLD
+              </span>
+              <span className="text-sm">
+                {holds.length} hold{holds.length !== 1 ? "s" : ""}
+              </span>
+              <HugeiconsIcon
+                icon={PencilEdit01Icon}
+                className="size-3 shrink-0 opacity-0 group-hover/trial:opacity-50 transition-opacity"
+              />
+            </div>
           ) : (
             <span className="text-muted-foreground group-hover/trial:text-foreground transition-colors">
               <HugeiconsIcon
@@ -163,6 +205,52 @@ export function TrialEditCell({
               value={draftDate || null}
               onChange={(d) => setDraftDate(d ?? "")}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">
+              Holds (dates offered to court)
+            </label>
+            {holds.length > 0 && (
+              <div className="space-y-1">
+                {holds.map((d) => (
+                  <div
+                    key={d}
+                    className="flex items-center gap-1 border border-input px-2 py-1"
+                  >
+                    <span className="text-xs flex-1 tabular-nums">
+                      {formatTrialDate(d)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px]"
+                      disabled={confirmMutation.isPending}
+                      onClick={() => confirmMutation.mutate(d)}
+                    >
+                      Confirm
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => removeHold(d)}
+                    >
+                      <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <DatePicker
+              value={null}
+              onChange={addHold}
+              placeholder="+ Add hold date"
+            />
+            {holds.length > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Confirming a hold sets it as the trial date and releases the rest.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">

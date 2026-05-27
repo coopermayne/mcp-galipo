@@ -229,6 +229,7 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
               likelihood={caseData.trial_likelihood}
               likelihoodNote={caseData.trial_likelihood_note}
               estimatedDays={caseData.trial_estimated_days}
+              proposedDates={caseData.proposed_trial_dates}
             />
           </div>
         )}
