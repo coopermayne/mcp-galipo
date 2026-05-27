@@ -271,8 +271,13 @@ export function processWeek(
 
   const conflictColumns = new Set<number>()
   for (let col = 0; col < 7; col++) {
-    if (items.filter((i) => col >= i.colStart && col <= i.colEnd).length >= 2)
-      conflictColumns.add(col)
+    const overlapping = items.filter(
+      (i) =>
+        col >= i.colStart &&
+        col <= i.colEnd &&
+        i.item.eventRaw?.event_type !== "holiday",
+    )
+    if (overlapping.length >= 2) conflictColumns.add(col)
   }
 
   return { items, laneCount: Math.max(laneEnds.length, 1), conflictColumns }

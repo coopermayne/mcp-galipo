@@ -182,7 +182,11 @@ def _process_week(
 
     conflict_columns: set[int] = set()
     for col in range(7):
-        count = sum(1 for ci in result_items if col >= ci["col_start"] and col <= ci["col_end"])
+        count = sum(
+            1 for ci in result_items
+            if col >= ci["col_start"] and col <= ci["col_end"]
+            and ci["item"].get("event_type") != "holiday"
+        )
         if count >= 2:
             conflict_columns.add(col)
 
