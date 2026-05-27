@@ -3,6 +3,7 @@ import { Link } from "react-router"
 import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
 import { navGroups } from "@/components/layout/nav-data"
+import { OPT_IN_FEATURES } from "@/types/user"
 import { useAuth } from "@/hooks/use-auth"
 import {
   Sidebar,
@@ -27,6 +28,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         const filtered = group.items.filter((item) => {
           if (item.positions && !(user?.position && item.positions.includes(user.position))) {
             return false
+          }
+          // Opt-in features are hidden unless explicitly enabled for the user,
+          // even when visibleFeatures is null (full access).
+          if (item.featureKey && (OPT_IN_FEATURES as string[]).includes(item.featureKey)) {
+            const enabled = user?.visibleFeatures as readonly string[] | null | undefined
+            return Boolean(enabled?.includes(item.featureKey))
           }
           if (user?.visibleFeatures === null || user?.visibleFeatures === undefined) {
             return true

@@ -76,7 +76,7 @@ export const navGroups: NavGroup[] = [
         title: "Case Health",
         url: "/case-health",
         icon: AlertCircleIcon,
-        featureKey: "cases",
+        featureKey: "case-health",
       },
       {
         title: "Trial Calendar",

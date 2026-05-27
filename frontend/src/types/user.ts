@@ -5,6 +5,7 @@ export type FeatureKey =
   | "intakes"
   | "cases"
   | "case-detail"
+  | "case-health"
   | "financials"
   | "invoices"
   | "tasks"
@@ -21,6 +22,7 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "intakes", label: "Intakes" },
   { value: "cases", label: "Cases" },
   { value: "case-detail", label: "Case Detail Page" },
+  { value: "case-health", label: "Case Health" },
   { value: "financials", label: "Financials" },
   { value: "invoices", label: "Invoices" },
   { value: "tasks", label: "Tasks" },
@@ -33,9 +35,15 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "ai-chat", label: "AI Chat" },
 ]
 
-/** Features enabled when visibleFeatures is null (full access). ai-chat is opt-in only. */
+/**
+ * Opt-in features are hidden unless explicitly enabled for a user — even when
+ * visibleFeatures is null (full access). They are excluded from DEFAULT_FEATURES.
+ */
+export const OPT_IN_FEATURES: FeatureKey[] = ["ai-chat", "case-health"]
+
+/** Features enabled when visibleFeatures is null (full access). Opt-in features excluded. */
 export const DEFAULT_FEATURES: FeatureKey[] = FEATURE_OPTIONS
-  .filter((f) => f.value !== "ai-chat")
+  .filter((f) => !OPT_IN_FEATURES.includes(f.value))
   .map((f) => f.value)
 
 export interface User {
