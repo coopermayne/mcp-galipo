@@ -6,6 +6,7 @@ import { AuthContext, useAuthProvider } from "@/hooks/use-auth"
 import { ThemeContext, useThemeProvider } from "@/hooks/use-theme"
 import { RootLayout } from "@/components/layout/root-layout"
 import { Toaster } from "@/components/ui/sonner"
+import { Navigate } from "react-router"
 import LoginPage from "@/pages/login"
 
 import "./index.css"
@@ -54,15 +55,18 @@ const router = createBrowserRouter([
       { index: true, lazy: lazy(() => import("@/pages/dashboard")) },
       { path: "intakes", lazy: lazy(() => import("@/pages/intakes")) },
       { path: "intakes/:id", lazy: lazy(() => import("@/pages/intakes/detail")) },
-      { path: "cases", lazy: lazy(() => import("@/pages/cases")) },
-      { path: "cases/all", lazy: lazy(() => import("@/pages/cases/all")) },
+      { path: "cases", lazy: lazy(() => import("@/pages/cases/all")) },
+      { path: "cases/all", element: <Navigate to="/cases" replace /> },
+      { path: "your-cases", lazy: lazy(() => import("@/pages/cases")) },
       { path: "financials", lazy: lazy(() => import("@/pages/financials")) },
       { path: "invoices", lazy: lazy(() => import("@/pages/invoices")) },
       { path: "payees", lazy: lazy(() => import("@/pages/payees")) },
       { path: "cases/:id", lazy: lazy(() => import("@/pages/cases/detail")) },
       { path: "cases/:id/costs", lazy: lazy(() => import("@/pages/cases/costs")) },
-      { path: "tasks", lazy: lazy(() => import("@/pages/tasks")) },
-      { path: "events", lazy: lazy(() => import("@/pages/events")) },
+      { path: "your-tasks", lazy: lazy(() => import("@/pages/tasks")) },
+      { path: "tasks", element: <Navigate to="/your-tasks" replace /> },
+      { path: "your-events", lazy: lazy(() => import("@/pages/events")) },
+      { path: "events", element: <Navigate to="/your-events" replace /> },
       { path: "trial-calendar", lazy: lazy(() => import("@/pages/trial-calendar")) },
       { path: "contacts/*", lazy: lazy(() => import("@/pages/contacts")) },
       { path: "judges", lazy: lazy(() => import("@/pages/judges")) },

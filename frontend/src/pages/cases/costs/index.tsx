@@ -69,7 +69,7 @@ import { getLienColumns } from "./lien-columns"
 
 export default function CaseCostsPage() {
   return (
-    <FeatureGate feature="invoices" redirectTo="/cases">
+    <FeatureGate feature="invoices" redirectTo="/your-cases">
       <CaseCostsContent />
     </FeatureGate>
   )

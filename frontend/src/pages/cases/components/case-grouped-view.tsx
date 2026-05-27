@@ -76,7 +76,7 @@ export function CaseGroupedView({
                     onClick={() => {
                       const listIndex = listIds.indexOf(c.id)
                       navigate(`/cases/${c.id}`, {
-                        state: { listIds, listIndex, listPath: `/cases${window.location.search}` } satisfies ListNavState,
+                        state: { listIds, listIndex, listPath: `${window.location.pathname}${window.location.search}` } satisfies ListNavState,
                       })
                     }}
                   />

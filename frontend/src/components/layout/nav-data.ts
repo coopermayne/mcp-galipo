@@ -36,21 +36,21 @@ export const navGroups: NavGroup[] = [
     label: "Daily",
     items: [
       {
-        title: "My Cases",
-        url: "/cases",
+        title: "Your Cases",
+        url: "/your-cases",
         icon: Briefcase01Icon,
         featureKey: "cases",
         positions: ["attorney", "paralegal"],
       },
       {
-        title: "Tasks",
-        url: "/tasks",
+        title: "Your Tasks",
+        url: "/your-tasks",
         icon: Task01Icon,
         featureKey: "tasks",
       },
       {
-        title: "Calendar",
-        url: "/events",
+        title: "Your Calendar",
+        url: "/your-events",
         icon: Calendar03Icon,
         featureKey: "calendar",
       },
@@ -67,7 +67,7 @@ export const navGroups: NavGroup[] = [
       },
       {
         title: "All Cases",
-        url: "/cases/all",
+        url: "/cases",
         icon: Briefcase02Icon,
         featureKey: "cases",
       },
