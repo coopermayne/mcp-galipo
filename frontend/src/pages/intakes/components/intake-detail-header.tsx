@@ -8,6 +8,7 @@ import type { Intake, IntakeStatus } from "@/types/intake"
 import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
+import { getIntakeStatusStyle } from "@/pages/intakes/status-colors"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -28,21 +29,6 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
-
-const statusButtonColors: Record<IntakeStatus, string> = {
-  "New": "border-info bg-info text-info-foreground hover:bg-info/85",
-  "Dave Review": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
-  "Needs Follow-Up": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
-  "Awaiting PC": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
-  "Atty Review": "border-purple bg-purple text-purple-foreground hover:bg-purple/85",
-  "Needs Rejection Letter": "border-destructive bg-destructive text-white hover:bg-destructive/85",
-  "Rejection Letter Sent": "border-destructive bg-destructive text-white hover:bg-destructive/85",
-  "Needs Retainer": "border-success bg-success text-success-foreground hover:bg-success/85",
-  "Retainer Sent": "border-success bg-success text-success-foreground hover:bg-success/85",
-  "Retainer Signed": "border-success bg-success text-success-foreground hover:bg-success/85",
-  "Archived": "border-muted bg-muted text-muted-foreground hover:bg-muted/85",
-}
 
 const ALL_STATUSES: IntakeStatus[] = [
   "New",
@@ -223,10 +209,8 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
             <Button
               key={status}
               size="sm"
-              className={cn(
-                "font-medium",
-                statusButtonColors[status as IntakeStatus]
-              )}
+              className="font-medium border hover:opacity-90"
+              style={getIntakeStatusStyle(status as IntakeStatus)}
               onClick={() => handleStatusClick(status as IntakeStatus)}
               disabled={statusMutation.isPending}
             >
