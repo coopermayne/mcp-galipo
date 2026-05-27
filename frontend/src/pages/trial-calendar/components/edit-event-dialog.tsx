@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -32,7 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { updateEvent, deleteEvent } from "@/services/events"
-import { EVENT_TYPES } from "@/lib/event-types"
+import { EVENT_TYPE_OPTIONS, EVENT_TYPE_MAP } from "@/lib/event-types"
 import type { BlockingEvent } from "@/services/trial-calendar"
 
 interface Props {
@@ -47,6 +47,17 @@ export function EditEventDialog({ event, onOpenChange, onSuccess }: Props) {
   const [startDate, setStartDate] = useState<string | null>(null)
   const [endDate, setEndDate] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
+
+  // Offer the short picker list, but keep this event's existing type as an
+  // option if it predates the trimmed list — so editing never silently
+  // changes a legacy type (e.g. "hearing", "deposition").
+  const typeOptions = useMemo(() => {
+    if (eventType && !EVENT_TYPE_OPTIONS.some((t) => t.value === eventType)) {
+      const legacy = EVENT_TYPE_MAP.get(eventType)
+      if (legacy) return [legacy, ...EVENT_TYPE_OPTIONS]
+    }
+    return EVENT_TYPE_OPTIONS
+  }, [eventType])
 
   useEffect(() => {
     if (event) {
@@ -97,7 +108,7 @@ export function EditEventDialog({ event, onOpenChange, onSuccess }: Props) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {EVENT_TYPES.map((t) => (
+                {typeOptions.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
                     {t.label}
                   </SelectItem>
