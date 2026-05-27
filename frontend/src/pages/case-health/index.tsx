@@ -6,11 +6,19 @@ import { useAuth } from "@/hooks/use-auth"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
 import { getAlerts, dismissAlert, undismissAlert } from "@/services/alerts"
+import { getStaff } from "@/services/staff"
 import type { CaseAlert } from "@/types/alert"
 import { severityRank } from "@/lib/alert-severity"
 import { AlertRow } from "@/components/common/alert-row"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { getBadgeStyle } from "@/lib/badge-colors"
 import { cn } from "@/lib/utils"
 
@@ -31,6 +39,7 @@ function CaseHealthContent() {
 
   const severityFilter = (searchParams.get("severity") as SeverityFilter) || "all"
   const showDismissed = searchParams.get("dismissed") === "true"
+  const assigneeFilter = searchParams.get("assignee") || "all"
 
   const setParam = (key: string, value: string) => {
     setSearchParams(
@@ -47,6 +56,11 @@ function CaseHealthContent() {
   const { data, isLoading } = useQuery({
     queryKey: ["alerts", { includeDismissed: showDismissed }],
     queryFn: () => getAlerts({ include_dismissed: showDismissed }),
+  })
+
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: getStaff,
   })
 
   const dismiss = useMutation({
@@ -68,11 +82,35 @@ function CaseHealthContent() {
     onError: () => toast.error("Failed to restore alert"),
   })
 
+  // Staff who are assigned to at least one alerted case — the people who can
+  // actually act on these issues. Keeps the dropdown free of irrelevant names.
+  const assigneeOptions = useMemo(() => {
+    const alerts = data?.alerts ?? []
+    const assigned = new Set<number>()
+    for (const a of alerts) {
+      for (const id of a.attorney_ids ?? []) assigned.add(id)
+      for (const id of a.paralegal_ids ?? []) assigned.add(id)
+    }
+    return (staffData?.data ?? [])
+      .filter((s) => assigned.has(s.id))
+      .map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`.trim() }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [data, staffData])
+
   const groups = useMemo(() => {
     const alerts = data?.alerts ?? []
-    const filtered = alerts.filter(
-      (a) => severityFilter === "all" || a.severity === severityFilter
-    )
+    const assigneeId = assigneeFilter === "all" ? null : Number(assigneeFilter)
+    const filtered = alerts.filter((a) => {
+      if (severityFilter !== "all" && a.severity !== severityFilter) return false
+      if (
+        assigneeId !== null &&
+        !(a.attorney_ids ?? []).includes(assigneeId) &&
+        !(a.paralegal_ids ?? []).includes(assigneeId)
+      ) {
+        return false
+      }
+      return true
+    })
     const byCase = new Map<number, { case: CaseAlert; alerts: CaseAlert[] }>()
     for (const a of filtered) {
       if (!byCase.has(a.case_id)) byCase.set(a.case_id, { case: a, alerts: [] })
@@ -91,7 +129,7 @@ function CaseHealthContent() {
       return an.localeCompare(bn)
     })
     return arr
-  }, [data, severityFilter])
+  }, [data, severityFilter, assigneeFilter])
 
   const busy = dismiss.isPending || restore.isPending
 
@@ -127,6 +165,22 @@ function CaseHealthContent() {
           >
             Review{data ? ` (${data.warning_count})` : ""}
           </Button>
+          <Select
+            value={assigneeFilter}
+            onValueChange={(v) => setParam("assignee", v === "all" ? "" : v)}
+          >
+            <SelectTrigger size="sm" className="w-[200px]">
+              <SelectValue placeholder="Assigned to" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All assignees</SelectItem>
+              {assigneeOptions.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Button
           variant={showDismissed ? "secondary" : "ghost"}
