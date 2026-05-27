@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { todayInLA } from "@/lib/datetime"
 import {
   Add01Icon,
   Search01Icon,
@@ -58,8 +59,7 @@ export function CaseEventsCard({ caseId, onAdd, onAiAdd }: CaseEventsCardProps) 
     const upcoming = data?.events ?? []
     const all = allData?.events ?? []
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = todayInLA()
     const starredPast = all.filter((e) => {
       if (!e.starred) return false
       const eventDate = new Date(`${e.date}T00:00:00`)

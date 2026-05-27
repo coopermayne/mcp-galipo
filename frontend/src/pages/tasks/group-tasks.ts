@@ -1,4 +1,5 @@
 import type { TaskListItem } from "@/types/task"
+import { todayInLA } from "@/lib/datetime"
 
 export type TaskGroupBy = "date" | "case"
 
@@ -8,12 +9,6 @@ export interface TaskGroup {
   tasks: TaskListItem[]
   sortOrder: number
   caseColor?: string | null
-}
-
-function todayMidnight(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
 }
 
 function parseLocalDate(dateStr: string): Date {
@@ -33,7 +28,7 @@ function endOfWeek(date: Date): Date {
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 export function groupTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
-  const today = todayMidnight()
+  const today = todayInLA()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const dayAfterTomorrow = new Date(tomorrow)
@@ -188,7 +183,7 @@ const sortByCompletionDesc = (a: TaskListItem, b: TaskListItem) => {
 }
 
 export function groupDoneTasksByDate(tasks: TaskListItem[]): TaskGroup[] {
-  const today = todayMidnight()
+  const today = todayInLA()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
 

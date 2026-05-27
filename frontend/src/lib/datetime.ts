@@ -55,6 +55,22 @@ export function formatDateHeader(iso: string): string {
   })
 }
 
+// Current date in America/Los_Angeles as a local Date at midnight. Pair with
+// parseLocalDate (which builds local Dates from YYYY-MM-DD) for day-bucket
+// comparisons — never use `new Date()` directly, which keys off browser tz.
+export function todayInLA(): Date {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: LA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(new Date())
+    .split("-")
+    .map(Number)
+  return new Date(y, m - 1, d)
+}
+
 export function getDateKey(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: LA,

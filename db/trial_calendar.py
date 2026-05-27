@@ -5,6 +5,7 @@ from sqlalchemy import select, literal_column
 
 from models import Case, Event
 from .session import SessionLocal
+from lib.tz import today_la
 
 
 def _add_months(d: datetime.date, months: int) -> datetime.date:
@@ -19,7 +20,7 @@ def _add_months(d: datetime.date, months: int) -> datetime.date:
 
 def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
     """Get trial calendar data: trials and blocking events within a date range."""
-    today = datetime.date.today()
+    today = today_la()
     range_start = _add_months(today, -months_behind) if months_behind > 0 else today
     range_end = _add_months(today, months_ahead)
 
@@ -183,7 +184,7 @@ def find_available_trial_slots(
     max_results: int = 10,
 ) -> dict:
     """Find available weekday blocks for a trial of the given duration."""
-    today = datetime.date.today()
+    today = today_la()
     range_start = (
         max(datetime.date.fromisoformat(earliest_date), today + datetime.timedelta(days=1))
         if earliest_date

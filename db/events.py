@@ -18,6 +18,7 @@ from .feature_gates import (
 )
 from models import Event, Case, Task, User
 from schemas import EventOut
+from lib.tz import today_la_sql
 
 
 def _serialize_value(val):
@@ -86,7 +87,7 @@ def get_upcoming_events(limit: int = None, offset: int = None, include_past: boo
                         past_days: int = 14, case_id: int = None, user_id: int = None,
                         attendee_id: int = None) -> dict:
     """Get events (hearings, depositions, filing deadlines, etc.)."""
-    today = func.current_date()
+    today = today_la_sql()
 
     # Task count subquery
     task_count_sq = (
@@ -362,7 +363,7 @@ def search_events(query: str = None, case_id: int = None,
 def get_calendar(days: int = 30, include_tasks: bool = True,
                  include_events: bool = True) -> List[dict]:
     """Get calendar items for the next N days."""
-    today = func.current_date()
+    today = today_la_sql()
     items = []
 
     with SessionLocal() as session:

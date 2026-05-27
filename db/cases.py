@@ -20,6 +20,7 @@ from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
     Proceeding, ProceedingJudge, Judge, Jurisdiction,
 )
+from lib.tz import today_la_sql
 
 
 def _add_months(d: datetime.date, months: int) -> datetime.date:
@@ -151,7 +152,7 @@ def get_all_cases(status_filter: Optional[str] = None, limit: int = None,
 
         upcoming_event_sq = literal_column("""(
             SELECT COUNT(*) FROM events e
-            WHERE e.case_id = cases.id AND e.date >= CURRENT_DATE
+            WHERE e.case_id = cases.id AND e.date >= (now() AT TIME ZONE 'America/Los_Angeles')::date
         )""").label("upcoming_event_count")
 
         stmt = (
@@ -617,7 +618,7 @@ def get_case_summary(case_id: int) -> Optional[dict]:
             SELECT COUNT(*) FROM events e WHERE e.case_id = cases.id
         )""").label("event_count")
         upcoming_event_sq = literal_column("""(
-            SELECT COUNT(*) FROM events e WHERE e.case_id = cases.id AND e.date >= CURRENT_DATE
+            SELECT COUNT(*) FROM events e WHERE e.case_id = cases.id AND e.date >= (now() AT TIME ZONE 'America/Los_Angeles')::date
         )""").label("upcoming_event_count")
         note_count_sq = literal_column("""(
             SELECT COUNT(*) FROM notes n WHERE n.case_id = cases.id
@@ -676,8 +677,8 @@ def get_dashboard_stats(attorney_ids: list[int] | None = None) -> dict:
         upcoming_events = session.scalar(
             select(func.count()).select_from(Event)
             .where(
-                Event.date >= func.current_date(),
-                Event.date <= func.current_date() + 30,
+                Event.date >= today_la_sql(),
+                Event.date <= today_la_sql() + 30,
             )
         )
 
