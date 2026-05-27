@@ -41,6 +41,7 @@ import {
 import { cn } from "@/lib/utils"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
 import { statuses, urgencies } from "@/pages/tasks/task-data"
+import { todayInLA } from "@/lib/datetime"
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number)
@@ -49,8 +50,7 @@ function parseLocalDate(dateStr: string): Date {
 
 function formatDate(dateStr: string): string {
   const d = parseLocalDate(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = todayInLA()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
@@ -253,9 +253,7 @@ interface TaskListItemProps {
 
 function isOverdue(dateStr: string | null): boolean {
   if (!dateStr) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return parseLocalDate(dateStr) < today
+  return parseLocalDate(dateStr) < todayInLA()
 }
 
 function InlineEventLinker({
@@ -371,8 +369,7 @@ function formatCompletionDate(task: TaskListItemType): string {
   const dateStr = task.completion_date
   if (!dateStr) return "Completed"
   const d = parseLocalDate(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = todayInLA()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
 

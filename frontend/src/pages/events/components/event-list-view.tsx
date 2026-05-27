@@ -18,6 +18,7 @@ import { EventPinnedItem } from "@/pages/events/components/event-pinned-item"
 import { EventDetailDialog } from "@/pages/events/components/event-detail-dialog"
 import { groupEvents, type EventGroupBy } from "@/pages/events/group-events"
 import { getBadgeStyle } from "@/lib/badge-colors"
+import { todayInLA } from "@/lib/datetime"
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number)
@@ -75,8 +76,7 @@ export function EventListView({
 
   const { pinnedEvents, groupedEvents } = useMemo(() => {
     if (showPast) return { pinnedEvents: [], groupedEvents: events }
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = todayInLA()
     const pinned: EventListItemType[] = []
     const rest: EventListItemType[] = []
     for (const e of events) {

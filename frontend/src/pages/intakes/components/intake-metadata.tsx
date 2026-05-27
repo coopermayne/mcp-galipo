@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { Intake } from "@/types/intake"
 import { formatPhone } from "@/lib/utils"
+import { todayInLA } from "@/lib/datetime"
 import { updateIntake } from "@/services/intakes"
 import { Input } from "@/components/ui/input"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -48,8 +49,7 @@ function formatDate(dateStr: string | null): string {
 function daysUntil(doi: string, months: number): number {
   const deadline = parseLocalDate(doi)
   deadline.setMonth(deadline.getMonth() + months)
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
+  const now = todayInLA()
   return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 
