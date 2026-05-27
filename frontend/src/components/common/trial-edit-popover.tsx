@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PencilEdit01Icon, InformationCircleIcon, Add01Icon } from "@hugeicons/core-free-icons"
+import { todayInLA } from "@/lib/datetime"
 import { updateCase } from "@/services/cases"
 import {
   Popover,
@@ -33,8 +34,7 @@ export function formatTrialDate(dateStr: string | null): string {
 export function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
   const d = new Date(dateStr + "T00:00:00")
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
+  const now = todayInLA()
   return Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 

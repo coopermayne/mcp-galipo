@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
+import { todayInLA } from "@/lib/datetime"
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number)
@@ -32,8 +33,7 @@ function parseLocalDate(dateStr: string): Date {
 
 function formatDate(dateStr: string): string {
   const d = parseLocalDate(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = todayInLA()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
@@ -212,11 +212,7 @@ export function EventListItem({
   onRemoveAttendee,
   hideCaseBadge,
 }: EventListItemProps) {
-  const isPast = parseLocalDate(event.date) < (() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  })()
+  const isPast = parseLocalDate(event.date) < todayInLA()
 
   return (
     <div

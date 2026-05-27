@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { AlertCircleIcon, Calendar03Icon, StarIcon } from "@hugeicons/core-free-icons"
+import { todayInLA } from "@/lib/datetime"
 import type { CaseDetail, CaseStatus } from "@/types/case"
 import { updateCase } from "@/services/cases"
 import { getEvents } from "@/services/events"
@@ -35,8 +36,7 @@ type DateUrgency = "overdue" | "imminent" | "approaching" | "normal" | "none"
 
 function getDateUrgency(dateStr: string | null): DateUrgency {
   if (!dateStr) return "none"
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = todayInLA()
   const target = new Date(`${dateStr}T00:00:00`)
   const diffMs = target.getTime() - today.getTime()
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
@@ -48,8 +48,7 @@ function getDateUrgency(dateStr: string | null): DateUrgency {
 }
 
 function getDaysLabel(dateStr: string): string {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = todayInLA()
   const target = new Date(`${dateStr}T00:00:00`)
   const diffMs = target.getTime() - today.getTime()
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))

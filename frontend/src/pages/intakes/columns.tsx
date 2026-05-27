@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { SparklesIcon } from "@hugeicons/core-free-icons"
+import { todayInLA } from "@/lib/datetime"
 import type { Intake } from "@/types/intake"
 import { formatTimestampRaw } from "@/lib/datetime"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
@@ -106,8 +107,7 @@ function daysUntil(doi: string, months: number): number {
   const d = parseLocalDate(doi)
   const deadline = new Date(d)
   deadline.setMonth(deadline.getMonth() + months)
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
+  const now = todayInLA()
   return Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 

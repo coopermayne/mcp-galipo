@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { statuses, urgencies } from "@/pages/tasks/task-data"
+import { todayInLA } from "@/lib/datetime"
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number)
@@ -126,10 +127,8 @@ export function getColumns(options: {
       cell: ({ row }) => {
         const dateStr = row.getValue("due_date") as string | null
         if (!dateStr) return <span className="text-muted-foreground">—</span>
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
         const isOverdue =
-          parseLocalDate(dateStr) < today && row.original.status !== "Done"
+          parseLocalDate(dateStr) < todayInLA() && row.original.status !== "Done"
         return (
           <span className={cn(isOverdue && "text-destructive font-medium")}>
             {formatDate(dateStr)}

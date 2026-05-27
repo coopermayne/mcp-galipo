@@ -20,6 +20,7 @@ from .feature_gates import (
 )
 from models import Task, Case, Event, User, Intake
 from schemas import TaskOut, UserBriefOut, TaskDetailOut
+from lib.tz import today_la_sql
 
 
 def _task_to_dict(task: Task) -> dict:
@@ -370,7 +371,7 @@ def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
     with SessionLocal() as session:
         stmt = (
             update(Task)
-            .where(Task.due_date < func.current_date(), Task.status != "Done")
+            .where(Task.due_date < today_la_sql(), Task.status != "Done")
             .where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
             .values(due_date=new_date)
         )
