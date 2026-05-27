@@ -5,7 +5,9 @@ import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { getEventTypeLabel, getEventTypeColor } from "@/lib/event-types"
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { STALE_STATUSES } from "./trial-columns"
 
 type Row =
   | { kind: "trial"; date: string; trial: TrialItem }
@@ -48,6 +50,7 @@ export function TrialListMobile({
       {rows.map((row) => {
         if (row.kind === "trial") {
           const t = row.trial
+          const isStale = STALE_STATUSES.has(t.status)
           return (
             <button
               key={`trial-${t.case_id}`}
@@ -73,7 +76,14 @@ export function TrialListMobile({
                   })}
                 </div>
               )}
-              <span className="min-w-0 flex-1 truncate font-medium">{t.case_name}</span>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate font-medium",
+                  isStale && "line-through text-muted-foreground",
+                )}
+              >
+                {t.short_name ?? t.case_name}
+              </span>
               <span className="shrink-0 text-sm tabular-nums">
                 {format(parseDate(t.trial_date), "MMM d, yyyy")}
               </span>
