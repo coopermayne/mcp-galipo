@@ -1,7 +1,8 @@
 import { useMemo } from "react"
-import { Link, useSearchParams } from "react-router"
+import { Link, Navigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { useAuth } from "@/hooks/use-auth"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
 import { getAlerts, dismissAlert, undismissAlert } from "@/services/alerts"
@@ -16,6 +17,15 @@ import { cn } from "@/lib/utils"
 type SeverityFilter = "all" | "error" | "warning"
 
 export default function CaseHealthPage() {
+  const { user } = useAuth()
+  // Opt-in feature: hidden unless explicitly enabled for the user.
+  if (user && !user.visibleFeatures?.includes("case-health")) {
+    return <Navigate to="/" replace />
+  }
+  return <CaseHealthContent />
+}
+
+function CaseHealthContent() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
 
