@@ -36,6 +36,7 @@ import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { CaseFinancialsCard } from "@/pages/cases/components/case-financials-card"
 import { CaseFeaturesMenu } from "@/pages/cases/components/case-features-menu"
 import { ListNav } from "@/components/common/list-nav"
+import { CaseHealthCard } from "@/components/common/case-health-card"
 import { isCaseFeatureEnabled } from "@/types/case"
 
 export default function CaseDetailPage() {
@@ -308,6 +309,7 @@ function CaseDetailContent() {
           {/* Right column — key dates, summary, activity feed */}
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-6 flex flex-col gap-4 lg:h-[calc(100vh-9rem)]">
+              <CaseHealthCard caseId={caseData.id} />
               <CaseKeyDates caseData={caseData} />
               <CaseInfoPanel caseData={caseData} />
               <CaseActivityFeed caseId={caseData.id} />

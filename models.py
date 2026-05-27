@@ -1413,6 +1413,36 @@ class DuplicateDismissal(Base):
     )
 
 
+class AlertDismissal(Base):
+    """A dismissed case-health alert. Computed alerts are suppressed when a
+    matching (case_id, rule_id) dismissal exists. For dismissible rules whose
+    underlying data can change, `fingerprint` captures the relevant data at
+    dismissal time — if it no longer matches, the alert re-surfaces."""
+    __tablename__ = "alert_dismissals"
+    __table_args__ = (
+        UniqueConstraint("case_id", "rule_id", name="uq_alert_dismissals_case_rule"),
+        ForeignKeyConstraint(
+            ["case_id"], ["cases.id"], ondelete="CASCADE",
+            name="alert_dismissals_case_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["dismissed_by"], ["users.id"], ondelete="SET NULL",
+            name="alert_dismissals_dismissed_by_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="alert_dismissals_pkey"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(Integer)
+    rule_id: Mapped[str] = mapped_column(String(50))
+    fingerprint: Mapped[Optional[str]] = mapped_column(Text)
+    dismissed_by: Mapped[Optional[int]] = mapped_column(Integer)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+
+
 class CommentRead(Base):
     __tablename__ = "comment_reads"
     __table_args__ = (
