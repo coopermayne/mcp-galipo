@@ -390,6 +390,13 @@ from .import_case import (
     import_case,
 )
 
+# Case health alerts
+from .alerts import (
+    get_case_alerts,
+    dismiss_alert,
+    undismiss_alert,
+)
+
 # ORM event listeners (import registers them at startup)
 from . import listeners  # noqa: F401
 
@@ -671,4 +678,8 @@ __all__ = [
     "get_trial_calendar",
     # Bulk import
     "import_case",
+    # Case health alerts
+    "get_case_alerts",
+    "dismiss_alert",
+    "undismiss_alert",
 ]

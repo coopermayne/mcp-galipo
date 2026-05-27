@@ -68,6 +68,7 @@ const router = createBrowserRouter([
       { path: "your-events", lazy: lazy(() => import("@/pages/events")) },
       { path: "events", element: <Navigate to="/your-events" replace /> },
       { path: "trial-calendar", lazy: lazy(() => import("@/pages/trial-calendar")) },
+      { path: "case-health", lazy: lazy(() => import("@/pages/case-health")) },
       { path: "contacts/*", lazy: lazy(() => import("@/pages/contacts")) },
       { path: "judges", lazy: lazy(() => import("@/pages/judges")) },
       { path: "jurisdictions", lazy: lazy(() => import("@/pages/jurisdictions")) },

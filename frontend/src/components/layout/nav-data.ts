@@ -15,6 +15,7 @@ import {
   Activity01Icon,
   Building06Icon,
   UserAccountIcon,
+  AlertCircleIcon,
 } from "@hugeicons/core-free-icons"
 
 export type NavItem = {
@@ -69,6 +70,12 @@ export const navGroups: NavGroup[] = [
         title: "All Cases",
         url: "/cases",
         icon: Briefcase02Icon,
+        featureKey: "cases",
+      },
+      {
+        title: "Case Health",
+        url: "/case-health",
+        icon: AlertCircleIcon,
         featureKey: "cases",
       },
       {
