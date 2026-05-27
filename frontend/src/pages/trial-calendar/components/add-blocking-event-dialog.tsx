@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { CreateEventData } from "@/services/events"
-import { EVENT_TYPES } from "@/lib/event-types"
+import { EVENT_TYPE_OPTIONS } from "@/lib/event-types"
 
 interface Props {
   open: boolean
@@ -29,7 +29,7 @@ interface Props {
 
 export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) {
   const [description, setDescription] = useState("")
-  const [eventType, setEventType] = useState("oral_argument")
+  const [eventType, setEventType] = useState("vacation")
   const [startDate, setStartDate] = useState<string | null>(null)
   const [endDate, setEndDate] = useState<string | null>(null)
   const [notes, setNotes] = useState("")
@@ -63,7 +63,7 @@ export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) 
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {EVENT_TYPES.map((t) => (
+                {EVENT_TYPE_OPTIONS.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
                     {t.label}
                   </SelectItem>
@@ -74,7 +74,7 @@ export function AddBlockingEventDialog({ open, onOpenChange, onSubmit }: Props) 
           <div className="space-y-2">
             <Label>Description</Label>
             <Input
-              placeholder="9th Circuit Oral Argument - Smith v. Jones"
+              placeholder="Firm holiday, vacation, bar conference..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
