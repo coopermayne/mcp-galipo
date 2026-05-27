@@ -11,6 +11,7 @@ import { DataTableColumnHeader } from "@/components/common/data-table-column-hea
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { getEventTypeLabel, getEventTypeColor } from "@/lib/event-types"
 import { TrialEditCell } from "@/components/common/trial-edit-popover"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -28,7 +29,7 @@ function parseDate(s: string): Date {
   return new Date(y, m - 1, d)
 }
 
-const STALE_STATUSES = new Set(["Settl. Pend.", "Closed"])
+export const STALE_STATUSES = new Set(["Settl. Pend.", "Closed"])
 
 /** Read-only hold date with a Confirm action (promotes it to the trial date). */
 function HoldConfirmCell({ caseId, date }: { caseId: number; date: string }) {
@@ -105,19 +106,20 @@ export function getTrialColumns(options: {
           const isStale = STALE_STATUSES.has(status)
           const displayName = options.isMobile && short_name ? short_name : case_name
           const truncated = displayName.length > 35 ? `${displayName.slice(0, 35)}…` : displayName
+          const nameClass = cn("font-medium", isStale && "line-through text-muted-foreground")
           return (
             <div className="flex items-center gap-2">
               {displayName.length > 35 ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="font-medium">{truncated}</span>
+                    <span className={nameClass}>{truncated}</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-md text-xs">
                     {case_name}
                   </TooltipContent>
                 </Tooltip>
               ) : (
-                <span className="font-medium">{displayName}</span>
+                <span className={nameClass}>{displayName}</span>
               )}
               {proposed && (
                 <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 bg-warning text-warning-foreground whitespace-nowrap">
