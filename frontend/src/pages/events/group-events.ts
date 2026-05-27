@@ -1,4 +1,5 @@
 import type { EventListItem } from "@/types/event"
+import { todayInLA } from "@/lib/datetime"
 
 export type EventGroupBy = "date" | "case"
 
@@ -8,12 +9,6 @@ export interface EventGroup {
   events: EventListItem[]
   sortOrder: number
   caseColor?: string | null
-}
-
-function todayMidnight(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
 }
 
 function parseLocalDate(dateStr: string): Date {
@@ -48,7 +43,7 @@ const sortByDateDesc = (a: EventListItem, b: EventListItem) => {
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 export function groupEventsByDate(events: EventListItem[]): EventGroup[] {
-  const today = todayMidnight()
+  const today = todayInLA()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const dayAfterTomorrow = new Date(tomorrow)
@@ -164,7 +159,7 @@ export function groupEventsByCase(events: EventListItem[]): EventGroup[] {
 }
 
 export function groupPastEventsByDate(events: EventListItem[]): EventGroup[] {
-  const today = todayMidnight()
+  const today = todayInLA()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
 
