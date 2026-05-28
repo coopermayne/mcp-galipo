@@ -73,7 +73,7 @@ export default function ContactsPage() {
         offset: page * pageSize,
         include_roles: true,
       }),
-    enabled: !isSearching && activeCategory !== "judge",
+    enabled: !isSearching && !!activeCategory && activeCategory !== "judge",
   })
 
   const browseTotal = browseData?.total ?? 0
@@ -278,13 +278,19 @@ export default function ContactsPage() {
             </div>
           )}
         </div>
+      ) : !activeCategory ? (
+        // "All" — prompt to search instead of listing everyone
+        <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+          <HugeiconsIcon icon={Search01Icon} className="size-8 mb-3 opacity-50" />
+          <p className="text-sm">Search for a contact, or pick a category to browse.</p>
+        </div>
       ) : (
-        // Person browsing mode
+        // Person browsing mode (specific category)
         <>
           <ContactsListView
             persons={browsePersons}
             isLoading={browseLoading}
-            groupByCategory={!activeCategory}
+            groupByCategory={false}
           />
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-2">
