@@ -114,28 +114,22 @@ def get_intake_by_id(intake_id: int) -> Optional[dict]:
         if not intake:
             return None
         result = _intake_to_dict(intake)
-        # Reverse lookup: find case linked to this intake
-        linked_case = session.execute(
-            select(Case.id, Case.case_name).where(Case.intake_id == intake_id).limit(1)
-        ).first()
-        if linked_case:
-            result["case_id"] = linked_case.id
-            result["case_name"] = linked_case.case_name
+        # Populate the linked case name (case_id comes straight from the ORM)
+        if intake.case_id is not None:
+            linked_case = session.get(Case, intake.case_id)
+            if linked_case:
+                result["case_name"] = linked_case.case_name
     flags = get_comment_flags([intake_id])
     result["has_comment_since_status_change"] = flags.get(intake_id, False)
     return result
 
 
-class IntakeLinkError(Exception):
-    """Raised when an intake cannot be linked to a case."""
-
-
 def link_intake_to_case(intake_id: int, case_id: int) -> Optional[dict]:
-    """Link an existing case to an intake by setting case.intake_id.
+    """Link an intake to an existing case by setting intake.case_id.
 
+    A case can gather multiple intakes; each intake points to at most one case.
     Returns the refreshed intake dict (with case_id/case_name), or None if the
-    intake or case doesn't exist. Raises IntakeLinkError if the case is already
-    linked to a different intake.
+    intake or case doesn't exist.
     """
     with SessionLocal() as session:
         intake = session.get(Intake, intake_id)
@@ -144,17 +138,13 @@ def link_intake_to_case(intake_id: int, case_id: int) -> Optional[dict]:
         case = session.get(Case, case_id)
         if not case:
             return None
-        if case.intake_id is not None and case.intake_id != intake_id:
-            raise IntakeLinkError(
-                f"Case '{case.case_name}' is already linked to another intake."
-            )
-        case.intake_id = intake_id
+        intake.case_id = case_id
         session.commit()
     return get_intake_by_id(intake_id)
 
 
 def unlink_intake_from_case(intake_id: int) -> Optional[dict]:
-    """Clear the link between an intake and its case (sets case.intake_id NULL).
+    """Clear the link between an intake and its case (sets intake.case_id NULL).
 
     Returns the refreshed intake dict (with case_id/case_name now null), or None
     if the intake doesn't exist. A no-op if the intake isn't linked to any case.
@@ -163,12 +153,8 @@ def unlink_intake_from_case(intake_id: int) -> Optional[dict]:
         intake = session.get(Intake, intake_id)
         if not intake:
             return None
-        case = session.execute(
-            select(Case).where(Case.intake_id == intake_id)
-        ).scalars().first()
-        if case:
-            case.intake_id = None
-            session.commit()
+        intake.case_id = None
+        session.commit()
     return get_intake_by_id(intake_id)
 
 

@@ -138,15 +138,16 @@ export function CaseDetailHeader({ caseData }: CaseDetailHeaderProps) {
             </div>
           </PopoverContent>
         </Popover>
-        {caseData.intake_id && (
+        {caseData.intakes.map((intake) => (
           <Link
-            to={`/intakes/${caseData.intake_id}`}
+            key={intake.id}
+            to={`/intakes/${intake.id}`}
             className="inline-flex items-center gap-1.5 bg-muted text-muted-foreground px-2.5 py-1 text-xs font-medium hover:text-foreground transition-colors"
           >
-            From Intake
+            Intake: {intake.name || `#${intake.id}`}
             <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
           </Link>
-        )}
+        ))}
         <StaffAvatars
           caseId={caseData.id}
           attorneys={caseData.attorneys}

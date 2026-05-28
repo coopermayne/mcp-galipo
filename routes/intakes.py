@@ -174,12 +174,9 @@ def register_intake_routes(mcp):
         if case_id is None:
             return api_error("case_id is required", "VALIDATION_ERROR", 400)
 
-        try:
-            result = await asyncio.to_thread(
-                db.link_intake_to_case, intake_id, int(case_id)
-            )
-        except db.IntakeLinkError as e:
-            return api_error(str(e), "ALREADY_LINKED", 400)
+        result = await asyncio.to_thread(
+            db.link_intake_to_case, intake_id, int(case_id)
+        )
         if not result:
             return api_error("Intake or case not found", "NOT_FOUND", 404)
 
