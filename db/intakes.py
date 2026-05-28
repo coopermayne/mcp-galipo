@@ -126,6 +126,33 @@ def get_intake_by_id(intake_id: int) -> Optional[dict]:
     return result
 
 
+class IntakeLinkError(Exception):
+    """Raised when an intake cannot be linked to a case."""
+
+
+def link_intake_to_case(intake_id: int, case_id: int) -> Optional[dict]:
+    """Link an existing case to an intake by setting case.intake_id.
+
+    Returns the refreshed intake dict (with case_id/case_name), or None if the
+    intake or case doesn't exist. Raises IntakeLinkError if the case is already
+    linked to a different intake.
+    """
+    with SessionLocal() as session:
+        intake = session.get(Intake, intake_id)
+        if not intake:
+            return None
+        case = session.get(Case, case_id)
+        if not case:
+            return None
+        if case.intake_id is not None and case.intake_id != intake_id:
+            raise IntakeLinkError(
+                f"Case '{case.case_name}' is already linked to another intake."
+            )
+        case.intake_id = intake_id
+        session.commit()
+    return get_intake_by_id(intake_id)
+
+
 def set_ai_analyzing(intake_id: int, analyzing: bool) -> None:
     """Set the ai_analyzing flag on an intake."""
     with SessionLocal() as session:

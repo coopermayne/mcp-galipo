@@ -3,7 +3,7 @@ import { Link } from "react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ArrowRight01Icon, PrinterIcon, SparklesIcon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon, ArrowDown01Icon, PrinterIcon, SparklesIcon, Link01Icon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
 import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
@@ -107,9 +107,10 @@ interface IntakeDetailHeaderProps {
   intake: Intake
   onFocusComments?: () => void
   onCreateCase?: () => void
+  onConnectCase?: () => void
 }
 
-export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderProps) {
+export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
   const [commentDraft, setCommentDraft] = useState("")
@@ -191,14 +192,28 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
         </div>
         <div className="flex items-center gap-1.5">
           {showCreateCase && (
-            <Button
-              size="sm"
-              className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm px-4 gap-2"
-              onClick={onCreateCase}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="size-4" />
-              Create Case
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm px-4 gap-2"
+                >
+                  <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+                  Create Case
+                  <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 opacity-80" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onCreateCase} className="gap-2">
+                  <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+                  Create new case
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onConnectCase} className="gap-2">
+                  <HugeiconsIcon icon={Link01Icon} className="size-4" />
+                  Connect to existing case
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {allowedTransitions.length > 0 && (
             <span className="mr-1.5 text-xs text-muted-foreground">

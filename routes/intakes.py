@@ -160,6 +160,46 @@ def register_intake_routes(mcp):
             return api_error("Intake not found", "NOT_FOUND", 404)
         return JSONResponse(intake)
 
+    @mcp.custom_route("/api/v1/intakes/{intake_id}/link-case", methods=["POST"])
+    async def api_link_intake_to_case(request):
+        """Link an existing case to this intake."""
+        if err := auth.require_auth(request):
+            return err
+        intake_id = int(request.path_params["intake_id"])
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
+        body = await request.json()
+        case_id = body.get("case_id")
+        if case_id is None:
+            return api_error("case_id is required", "VALIDATION_ERROR", 400)
+
+        try:
+            result = await asyncio.to_thread(
+                db.link_intake_to_case, intake_id, int(case_id)
+            )
+        except db.IntakeLinkError as e:
+            return api_error(str(e), "ALREADY_LINKED", 400)
+        if not result:
+            return api_error("Intake or case not found", "NOT_FOUND", 404)
+
+        # Log the link as a system comment
+        name = user.get("firstName", "Someone") if user else "System"
+        await asyncio.to_thread(
+            db.add_intake_comment,
+            intake_id,
+            _get_db_user_id(user),
+            f"{name} linked this intake to case '{result.get('case_name') or case_id}'",
+            True,  # is_system
+        )
+
+        broadcast({
+            "entity": "intake", "action": "updated",
+            "id": intake_id, "intake_id": intake_id, "user_id": user_id,
+        })
+        broadcast({"entity": "case", "action": "updated", "id": int(case_id)})
+        return JSONResponse({"success": True, "intake": result})
+
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["PUT"])
     async def api_update_intake(request):
         """Update an intake's status and/or notes."""
