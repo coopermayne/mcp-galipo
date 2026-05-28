@@ -56,6 +56,8 @@ def _build_html(trials: list, staff_map: dict, blocking_events: list) -> str:
             status = t.get("status", "")
             stale = status in ("Settl. Pend.", "Closed")
             case_name = escape(t.get("case_name", ""))
+            if t.get("proposed"):
+                case_name += ' <span class="hold-tag">HOLD</span>'
             if stale:
                 case_name += f' <span class="stale-tag">{escape(status)}</span>'
 
@@ -254,6 +256,19 @@ tr.alt { background: #f8f8f8; }
   font-weight: 600;
   background: #fef3c7;
   color: #92400e;
+  padding: 1pt 3pt;
+  margin-left: 3pt;
+  vertical-align: middle;
+}
+
+.hold-tag {
+  display: inline-block;
+  font-style: normal;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: #fee2e2;
+  color: #b91c1c;
   padding: 1pt 3pt;
   margin-left: 3pt;
   vertical-align: middle;
