@@ -190,6 +190,7 @@ def register_intake_routes(mcp):
             db_user_id,
             f"{name} linked this intake to case '{result.get('case_name') or case_id}'",
             True,  # is_system
+            {"type": "case_link", "case_id": int(case_id)},
         )
         await asyncio.to_thread(
             db.add_case_comment,
@@ -197,6 +198,7 @@ def register_intake_routes(mcp):
             db_user_id,
             f'{name} linked intake "{intake_label}" to this case',
             True,  # is_system
+            {"type": "intake_link", "intake_id": intake_id},
         )
 
         broadcast({
@@ -236,6 +238,7 @@ def register_intake_routes(mcp):
                 db_user_id,
                 f"{name} disconnected this intake from case '{old_case_name or old_case_id}'",
                 True,  # is_system
+                {"type": "case_link", "case_id": old_case_id},
             )
             await asyncio.to_thread(
                 db.add_case_comment,
@@ -243,6 +246,7 @@ def register_intake_routes(mcp):
                 db_user_id,
                 f'{name} disconnected intake "{intake_label}" from this case',
                 True,  # is_system
+                {"type": "intake_link", "intake_id": intake_id},
             )
             broadcast({"entity": "case", "action": "updated", "id": old_case_id})
 
