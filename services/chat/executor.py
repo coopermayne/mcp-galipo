@@ -31,11 +31,15 @@ class ChatContext:
 
     MCP tools expect a Context object for logging. This provides a compatible
     interface that logs to Python's standard logging instead of MCP's system.
-    Also carries request-scoped data like the logged-in user_id.
+    Also carries request-scoped data like the logged-in user_id and, when the
+    chat is scoped to a case page, the active case_context. Tools use
+    case_context to force-bind newly created entities to the case the user is
+    viewing, so an LLM that omits case_id cannot orphan the record.
     """
 
-    def __init__(self, user_id: int | None = None):
+    def __init__(self, user_id: int | None = None, case_context: int | None = None):
         self.user_id = user_id
+        self.case_context = case_context
 
     def info(self, msg: str) -> None:
         logger.info(f"[MCP Tool] {msg}")
@@ -162,12 +166,16 @@ def _generate_summary(result: Any, tool_name: str, args: dict[str, Any]) -> str:
     return "Operation completed"
 
 
-def execute_tool(tool_call: ToolCall, user_id: int | None = None) -> ToolResult:
+def execute_tool(tool_call: ToolCall, user_id: int | None = None,
+                 case_context: int | None = None) -> ToolResult:
     """Execute a tool by calling the MCP tool function directly.
 
     Args:
         tool_call: The tool call to execute, containing name, id, and arguments.
         user_id: Optional logged-in user ID for scoping queries to their cases.
+        case_context: Optional case ID the user is currently viewing. Create
+            tools bind newly created entities to this case when no case_id is
+            supplied, preventing orphaned events/tasks/notes.
 
     Returns:
         ToolResult with the execution result or error message.
@@ -213,8 +221,8 @@ def execute_tool(tool_call: ToolCall, user_id: int | None = None) -> ToolResult:
                 if isinstance(annotation, type) and issubclass(annotation, BaseModel):
                     args[param_name] = annotation(**args[param_name])
 
-        # Create per-call context with user_id for case-scoped queries
-        ctx = ChatContext(user_id=user_id)
+        # Create per-call context with user_id and the active case for scoping
+        ctx = ChatContext(user_id=user_id, case_context=case_context)
 
         # Some tools (list_attorneys, import_case) are async
         result = tool.fn(ctx, **args)

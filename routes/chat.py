@@ -400,7 +400,9 @@ Always be helpful and concise. When you need more information to complete a task
         if case_context:
             system_prompt += f"""
 
-The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}."""
+The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}.
+ALWAYS pass case_id={case_context} when creating events, tasks, or notes here — never create them without a case_id.
+Do NOT set blocks_calendar on events; that is a trial-calendar-only setting and does not apply to a case's events."""
 
             try:
                 proceedings = _db.get_proceedings(case_context)
@@ -649,7 +651,11 @@ DATA:
                                     _current_user_id = current_user["id"] if current_user else None
                                     for tc in iteration_tool_calls:
                                         start_time = time.time()
-                                        result = execute_tool(tc, user_id=_current_user_id)
+                                        result = execute_tool(
+                                            tc,
+                                            user_id=_current_user_id,
+                                            case_context=case_context if isinstance(case_context, int) else None,
+                                        )
                                         duration_ms = int((time.time() - start_time) * 1000)
 
                                         tool_results.append(result)
