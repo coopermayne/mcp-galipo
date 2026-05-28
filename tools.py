@@ -1149,8 +1149,18 @@ def register_tools(mcp):
                     return validation_error("date is required for create")
                 if not data.description:
                     return validation_error("description is required for create")
+                # When the chat is scoped to a case (the case-detail event panel
+                # always sets case_context; the trial-calendar mode never does):
+                #   1. Bind to that case if the model omitted case_id — otherwise
+                #      an AI-created event can be saved with case_id=NULL,
+                #      detaching it from the case.
+                #   2. Never let it block the trial calendar — blocking events
+                #      are a trial-calendar concern, not a case-page one.
+                active_case = getattr(context, "case_context", None)
+                case_id = data.case_id if data.case_id is not None else active_case
+                blocks_calendar = False if active_case is not None else data.blocks_calendar
                 result = db.add_event(
-                    case_id=data.case_id,
+                    case_id=case_id,
                     date=data.date,
                     description=data.description,
                     document_link=data.document_link,
@@ -1160,7 +1170,7 @@ def register_tools(mcp):
                     starred=data.starred or False,
                     event_type=data.event_type,
                     end_date=data.end_date,
-                    blocks_calendar=data.blocks_calendar,
+                    blocks_calendar=blocks_calendar,
                 )
                 return {"success": True, "message": f"Event created: {data.description}", "event_id": result["id"]}
 
@@ -1214,8 +1224,15 @@ def register_tools(mcp):
             if data.action == "create":
                 if not data.description:
                     return validation_error("description is required for create")
+                # Bind to the case the user is viewing if the model omitted both
+                # case_id and intake_id — otherwise an AI-created task on a case
+                # page can be saved unattached. (Don't override an explicit
+                # intake_id; intake tasks are intentionally case-less.)
+                case_id = data.case_id
+                if case_id is None and data.intake_id is None:
+                    case_id = getattr(context, "case_context", None)
                 result = db.add_task(
-                    case_id=data.case_id,
+                    case_id=case_id,
                     description=data.description,
                     due_date=data.due_date,
                     status=data.status or "Pending",
@@ -1284,11 +1301,13 @@ def register_tools(mcp):
         context.info(f"manage_note: {data.action}")
         try:
             if data.action == "create":
-                if not data.case_id:
+                # Bind to the case the user is viewing if the model omitted it.
+                case_id = data.case_id if data.case_id is not None else getattr(context, "case_context", None)
+                if not case_id:
                     return validation_error("case_id is required for create")
                 if not data.content:
                     return validation_error("content is required for create")
-                result = db.add_note(case_id=data.case_id, content=data.content)
+                result = db.add_note(case_id=case_id, content=data.content)
                 return {"success": True, "message": "Note created", "note_id": result["id"]}
 
             elif data.action == "update":
