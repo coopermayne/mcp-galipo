@@ -54,6 +54,38 @@ export async function updateIntake(
   return res.json()
 }
 
+export async function linkIntakeToCase(
+  intakeId: number,
+  caseId: number
+): Promise<{ success: boolean; intake: Intake }> {
+  const res = await apiFetch(`/api/v1/intakes/${intakeId}/link-case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ case_id: caseId }),
+  })
+  if (!res.ok) {
+    let message = "Failed to link case"
+    try {
+      const body = await res.json()
+      if (body?.error?.message) message = body.error.message
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message)
+  }
+  return res.json()
+}
+
+export async function unlinkIntakeFromCase(
+  intakeId: number
+): Promise<{ success: boolean; intake: Intake }> {
+  const res = await apiFetch(`/api/v1/intakes/${intakeId}/link-case`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error("Failed to disconnect case")
+  return res.json()
+}
+
 export async function bulkArchiveByStatus(
   status: string
 ): Promise<{ success: boolean; count: number }> {

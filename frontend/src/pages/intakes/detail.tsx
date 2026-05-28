@@ -11,6 +11,7 @@ import { IntakeNotes } from "@/pages/intakes/components/intake-notes"
 import { IntakeTasksCard } from "@/pages/intakes/components/intake-tasks-card"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
+import { ConnectCaseDialog } from "@/pages/intakes/components/connect-case-dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { ListNav } from "@/components/common/list-nav"
@@ -32,6 +33,7 @@ export default function IntakeDetailPage() {
   const [highlightComments, setHighlightComments] = useState(false)
   const [aiTasksOpen, setAiTasksOpen] = useState(false)
   const [createCaseOpen, setCreateCaseOpen] = useState(false)
+  const [connectCaseOpen, setConnectCaseOpen] = useState(false)
 
   const {
     data: intake,
@@ -88,6 +90,7 @@ export default function IntakeDetailPage() {
         intake={intake}
         onFocusComments={handleFocusComments}
         onCreateCase={() => setCreateCaseOpen(true)}
+        onConnectCase={() => setConnectCaseOpen(true)}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -130,6 +133,12 @@ export default function IntakeDetailPage() {
         open={createCaseOpen}
         onOpenChange={setCreateCaseOpen}
         intakeData={intake}
+      />
+
+      <ConnectCaseDialog
+        intakeId={intake.id}
+        open={connectCaseOpen}
+        onOpenChange={setConnectCaseOpen}
       />
     </div>
   )

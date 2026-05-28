@@ -3,11 +3,12 @@ import { Link } from "react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ArrowRight01Icon, PrinterIcon, SparklesIcon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon, ArrowDown01Icon, PrinterIcon, SparklesIcon, Link01Icon, Unlink01Icon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
-import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
+import { updateIntake, getIntakeTransitions, createIntakeComment, unlinkIntakeFromCase } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
+import { getIntakeStatusStyle } from "@/pages/intakes/status-colors"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -28,21 +29,6 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
-
-const statusButtonColors: Record<IntakeStatus, string> = {
-  "New": "border-info bg-info text-info-foreground hover:bg-info/85",
-  "Dave Review": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
-  "Needs Follow-Up": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
-  "Awaiting PC": "border-warning bg-warning text-warning-foreground hover:bg-warning/85",
-  "Atty Review": "border-purple bg-purple text-purple-foreground hover:bg-purple/85",
-  "Needs Rejection Letter": "border-destructive bg-destructive text-white hover:bg-destructive/85",
-  "Rejection Letter Sent": "border-destructive bg-destructive text-white hover:bg-destructive/85",
-  "Needs Retainer": "border-success bg-success text-success-foreground hover:bg-success/85",
-  "Retainer Sent": "border-success bg-success text-success-foreground hover:bg-success/85",
-  "Retainer Signed": "border-success bg-success text-success-foreground hover:bg-success/85",
-  "Archived": "border-muted bg-muted text-muted-foreground hover:bg-muted/85",
-}
 
 const ALL_STATUSES: IntakeStatus[] = [
   "New",
@@ -121,13 +107,15 @@ interface IntakeDetailHeaderProps {
   intake: Intake
   onFocusComments?: () => void
   onCreateCase?: () => void
+  onConnectCase?: () => void
 }
 
-export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderProps) {
+export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
   const [commentDraft, setCommentDraft] = useState("")
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
+  const [showUnlinkWarning, setShowUnlinkWarning] = useState(false)
 
   const { data: transitions } = useQuery({
     queryKey: ["intake-transitions"],
@@ -154,6 +142,20 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
     mutationFn: (content: string) => createIntakeComment(intake.id, content),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["intake-comments", intake.id] })
+    },
+  })
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => unlinkIntakeFromCase(intake.id),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["intake", intake.id], data.intake)
+      queryClient.invalidateQueries({ queryKey: ["intakes"] })
+      queryClient.invalidateQueries({ queryKey: ["intake-comments", intake.id] })
+      queryClient.invalidateQueries({ queryKey: ["cases"] })
+      toast.success("Case disconnected")
+    },
+    onError: () => {
+      toast.error("Failed to disconnect case")
     },
   })
 
@@ -205,14 +207,28 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
         </div>
         <div className="flex items-center gap-1.5">
           {showCreateCase && (
-            <Button
-              size="sm"
-              className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm px-4 gap-2"
-              onClick={onCreateCase}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="size-4" />
-              Create Case
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm px-4 gap-2"
+                >
+                  <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+                  Create Case
+                  <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 opacity-80" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onCreateCase} className="gap-2">
+                  <HugeiconsIcon icon={SparklesIcon} className="size-4" />
+                  Create new case
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onConnectCase} className="gap-2">
+                  <HugeiconsIcon icon={Link01Icon} className="size-4" />
+                  Connect to existing case
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {allowedTransitions.length > 0 && (
             <span className="mr-1.5 text-xs text-muted-foreground">
@@ -223,10 +239,8 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
             <Button
               key={status}
               size="sm"
-              className={cn(
-                "font-medium",
-                statusButtonColors[status as IntakeStatus]
-              )}
+              className="font-medium border hover:opacity-90"
+              style={getIntakeStatusStyle(status as IntakeStatus)}
               onClick={() => handleStatusClick(status as IntakeStatus)}
               disabled={statusMutation.isPending}
             >
@@ -278,6 +292,20 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
                 >
                   Archive
                 </DropdownMenuItem>
+              )}
+              {hasLinkedCase && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setShowUnlinkWarning(true)}
+                    disabled={unlinkMutation.isPending}
+                    className="gap-2"
+                  >
+                    <HugeiconsIcon icon={Unlink01Icon} className="size-4" />
+                    Disconnect case
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -350,6 +378,29 @@ export function IntakeDetailHeader({ intake, onCreateCase }: IntakeDetailHeaderP
               }}
             >
               Archive Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showUnlinkWarning} onOpenChange={setShowUnlinkWarning}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect this case?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This unlinks {intake.case_name || `case #${intake.case_id}`} from this intake. The case itself is not deleted, and you can connect a case again afterward.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setShowUnlinkWarning(false)
+                unlinkMutation.mutate()
+              }}
+            >
+              Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

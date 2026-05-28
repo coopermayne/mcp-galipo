@@ -6,6 +6,8 @@ export interface CaseAlert {
   short_name: string | null
   case_color: string | null
   case_status: string
+  attorney_ids: number[] | null
+  paralegal_ids: number[] | null
   rule_id: string
   label: string
   severity: AlertSeverity

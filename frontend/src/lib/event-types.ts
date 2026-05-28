@@ -18,6 +18,15 @@ export const EVENT_TYPES: EventTypeConfig[] = [
 
 export const EVENT_TYPE_MAP = new Map(EVENT_TYPES.map((t) => [t.value, t]))
 
+/**
+ * Types offered in the manual add/edit event pickers — kept short to avoid
+ * confusion. The full EVENT_TYPES list above is still used to render/label any
+ * pre-existing events that use other types.
+ */
+export const EVENT_TYPE_OPTIONS: EventTypeConfig[] = EVENT_TYPES.filter((t) =>
+  ["vacation", "holiday", "conference", "other"].includes(t.value),
+)
+
 export function getEventTypeColor(eventType: string): string {
   return EVENT_TYPE_MAP.get(eventType)?.color ?? "var(--palette-pink)"
 }

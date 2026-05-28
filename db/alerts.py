@@ -24,6 +24,10 @@ FILED_STATUSES = {
     "Pre-trial", "Trial", "Post-Trial", "Appeal",
 }
 
+# Pre-litigation statuses. A missing Date of Injury only warrants an alert
+# while a case is still in this phase — later phases assume it's locked in.
+PRE_LIT_STATUSES = {"Signing Up", "Pre-Claim", "Pre-Filing"}
+
 # Rule metadata surfaced to the frontend. `dismissible=False` means the issue
 # can only clear by being resolved in the data.
 RULE_META = {
@@ -45,7 +49,7 @@ def _evaluate_case(row, users_by_id: dict) -> list[dict]:
     attorney_ids = list(row.attorney_ids or [])
     paralegal_ids = list(row.paralegal_ids or [])
 
-    if row.date_of_injury is None:
+    if row.date_of_injury is None and row.status in PRE_LIT_STATUSES:
         issues.append({"rule_id": "missing_doi", "message": "No Date of Injury set."})
 
     if not paralegal_ids:
@@ -154,6 +158,8 @@ def get_case_alerts(case_id: Optional[int] = None, include_dismissed: bool = Fal
                     "short_name": row.short_name,
                     "case_color": row.color,
                     "case_status": row.status,
+                    "attorney_ids": list(row.attorney_ids or []),
+                    "paralegal_ids": list(row.paralegal_ids or []),
                     "rule_id": rule_id,
                     "label": meta["label"],
                     "severity": meta["severity"],
