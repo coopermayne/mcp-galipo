@@ -200,6 +200,43 @@ def register_intake_routes(mcp):
         broadcast({"entity": "case", "action": "updated", "id": int(case_id)})
         return JSONResponse({"success": True, "intake": result})
 
+    @mcp.custom_route("/api/v1/intakes/{intake_id}/link-case", methods=["DELETE"])
+    async def api_unlink_intake_from_case(request):
+        """Disconnect this intake from its linked case."""
+        if err := auth.require_auth(request):
+            return err
+        intake_id = int(request.path_params["intake_id"])
+        user = auth.get_current_user(request)
+        user_id = user["id"] if user else 0
+
+        # Capture the linked case before clearing it, for the system comment
+        before = await asyncio.to_thread(db.get_intake_by_id, intake_id)
+        if not before:
+            return api_error("Intake not found", "NOT_FOUND", 404)
+        old_case_id = before.get("case_id")
+        old_case_name = before.get("case_name")
+
+        result = await asyncio.to_thread(db.unlink_intake_from_case, intake_id)
+        if not result:
+            return api_error("Intake not found", "NOT_FOUND", 404)
+
+        if old_case_id:
+            name = user.get("firstName", "Someone") if user else "System"
+            await asyncio.to_thread(
+                db.add_intake_comment,
+                intake_id,
+                _get_db_user_id(user),
+                f"{name} disconnected this intake from case '{old_case_name or old_case_id}'",
+                True,  # is_system
+            )
+            broadcast({"entity": "case", "action": "updated", "id": old_case_id})
+
+        broadcast({
+            "entity": "intake", "action": "updated",
+            "id": intake_id, "intake_id": intake_id, "user_id": user_id,
+        })
+        return JSONResponse({"success": True, "intake": result})
+
     @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["PUT"])
     async def api_update_intake(request):
         """Update an intake's status and/or notes."""

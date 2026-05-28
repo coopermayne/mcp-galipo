@@ -3,9 +3,9 @@ import { Link } from "react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ArrowRight01Icon, ArrowDown01Icon, PrinterIcon, SparklesIcon, Link01Icon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon, ArrowDown01Icon, PrinterIcon, SparklesIcon, Link01Icon, Unlink01Icon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
-import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
+import { updateIntake, getIntakeTransitions, createIntakeComment, unlinkIntakeFromCase } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { getIntakeStatusStyle } from "@/pages/intakes/status-colors"
@@ -115,6 +115,7 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
   const [commentDraft, setCommentDraft] = useState("")
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
+  const [showUnlinkWarning, setShowUnlinkWarning] = useState(false)
 
   const { data: transitions } = useQuery({
     queryKey: ["intake-transitions"],
@@ -141,6 +142,20 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
     mutationFn: (content: string) => createIntakeComment(intake.id, content),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["intake-comments", intake.id] })
+    },
+  })
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => unlinkIntakeFromCase(intake.id),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["intake", intake.id], data.intake)
+      queryClient.invalidateQueries({ queryKey: ["intakes"] })
+      queryClient.invalidateQueries({ queryKey: ["intake-comments", intake.id] })
+      queryClient.invalidateQueries({ queryKey: ["cases"] })
+      toast.success("Case disconnected")
+    },
+    onError: () => {
+      toast.error("Failed to disconnect case")
     },
   })
 
@@ -278,6 +293,20 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
                   Archive
                 </DropdownMenuItem>
               )}
+              {hasLinkedCase && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setShowUnlinkWarning(true)}
+                    disabled={unlinkMutation.isPending}
+                    className="gap-2"
+                  >
+                    <HugeiconsIcon icon={Unlink01Icon} className="size-4" />
+                    Disconnect case
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -349,6 +378,29 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
               }}
             >
               Archive Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showUnlinkWarning} onOpenChange={setShowUnlinkWarning}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect this case?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This unlinks {intake.case_name || `case #${intake.case_id}`} from this intake. The case itself is not deleted, and you can connect a case again afterward.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setShowUnlinkWarning(false)
+                unlinkMutation.mutate()
+              }}
+            >
+              Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
