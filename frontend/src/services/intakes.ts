@@ -76,6 +76,16 @@ export async function linkIntakeToCase(
   return res.json()
 }
 
+export async function unlinkIntakeFromCase(
+  intakeId: number
+): Promise<{ success: boolean; intake: Intake }> {
+  const res = await apiFetch(`/api/v1/intakes/${intakeId}/link-case`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error("Failed to disconnect case")
+  return res.json()
+}
+
 export async function bulkArchiveByStatus(
   status: string
 ): Promise<{ success: boolean; count: number }> {
