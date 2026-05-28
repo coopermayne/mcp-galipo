@@ -12,6 +12,7 @@ import {
   UserAdd01Icon,
   CourtLawIcon,
   Task01Icon,
+  Link01Icon,
   ArrowExpand01Icon,
 } from "@hugeicons/core-free-icons"
 import type { CaseComment, CaseStatus } from "@/types/case"
@@ -47,6 +48,7 @@ const NOTE_ADDED_RE = /^(.+?) added a note$/
 const PERSON_ADDED_RE = /^(.+?) added (.+?) as (.+)$/
 const PROCEEDING_ADDED_RE = /^(.+?) added proceeding (.+)$/
 const STAFF_RE = /^(.+?) (assigned|removed) (.+?) as (Attorney|Paralegal)$/
+const INTAKE_LINK_RE = /^(.+?) (?:linked|disconnected) intake "(.+)" (?:to|from) this case$/
 
 function parseStatusChange(content: string) {
   const m = content.match(STATUS_CHANGE_RE)
@@ -147,6 +149,7 @@ function TimelineEntry({ comment }: { comment: CaseComment }) {
     if (PERSON_ADDED_RE.test(comment.content)) return <IconEntry comment={comment} icon={UserAdd01Icon} />
     if (PROCEEDING_ADDED_RE.test(comment.content)) return <IconEntry comment={comment} icon={CourtLawIcon} />
     if (STAFF_RE.test(comment.content)) return <IconEntry comment={comment} icon={UserAdd01Icon} />
+    if (INTAKE_LINK_RE.test(comment.content)) return <IconEntry comment={comment} icon={Link01Icon} />
     return <SystemMessageEntry comment={comment} />
   }
   return <UserCommentEntry comment={comment} />

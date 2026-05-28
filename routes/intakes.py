@@ -180,13 +180,22 @@ def register_intake_routes(mcp):
         if not result:
             return api_error("Intake or case not found", "NOT_FOUND", 404)
 
-        # Log the link as a system comment
+        # Log the link as a system comment on both the intake and the case feeds
         name = user.get("firstName", "Someone") if user else "System"
+        db_user_id = _get_db_user_id(user)
+        intake_label = result.get("name") or f"Intake #{intake_id}"
         await asyncio.to_thread(
             db.add_intake_comment,
             intake_id,
-            _get_db_user_id(user),
+            db_user_id,
             f"{name} linked this intake to case '{result.get('case_name') or case_id}'",
+            True,  # is_system
+        )
+        await asyncio.to_thread(
+            db.add_case_comment,
+            int(case_id),
+            db_user_id,
+            f'{name} linked intake "{intake_label}" to this case',
             True,  # is_system
         )
 
@@ -219,11 +228,20 @@ def register_intake_routes(mcp):
 
         if old_case_id:
             name = user.get("firstName", "Someone") if user else "System"
+            db_user_id = _get_db_user_id(user)
+            intake_label = before.get("name") or f"Intake #{intake_id}"
             await asyncio.to_thread(
                 db.add_intake_comment,
                 intake_id,
-                _get_db_user_id(user),
+                db_user_id,
                 f"{name} disconnected this intake from case '{old_case_name or old_case_id}'",
+                True,  # is_system
+            )
+            await asyncio.to_thread(
+                db.add_case_comment,
+                old_case_id,
+                db_user_id,
+                f'{name} disconnected intake "{intake_label}" from this case',
                 True,  # is_system
             )
             broadcast({"entity": "case", "action": "updated", "id": old_case_id})
