@@ -83,7 +83,7 @@ export function EventListView({
       if (e.starred && parseLocalDate(e.date) < today) pinned.push(e)
       else rest.push(e)
     }
-    pinned.sort((a, b) => b.date.localeCompare(a.date))
+    pinned.sort((a, b) => a.date.localeCompare(b.date))
     return { pinnedEvents: pinned, groupedEvents: rest }
   }, [events, showPast])
 
