@@ -99,7 +99,7 @@ export default function IntakesPage() {
   })
 
   const bulkArchiveMutation = useMutation({
-    mutationFn: () => bulkArchiveByStatus("Rejection Letter Sent"),
+    mutationFn: () => bulkArchiveByStatus(["Rejection Letter Sent", "No Response Needed"]),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["intakes"] })
       queryClient.invalidateQueries({ queryKey: ["intake-counts"] })

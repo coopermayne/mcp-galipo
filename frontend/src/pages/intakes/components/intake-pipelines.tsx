@@ -24,7 +24,7 @@ const PIPELINES: Pipeline[] = [
   {
     label: "REJECT",
     badgeClass: "bg-destructive/15 text-destructive border-destructive/25",
-    statuses: ["Needs Rejection Letter", "Rejection Letter Sent"],
+    statuses: ["Needs Rejection Letter", "Rejection Letter Sent", "No Response Needed"],
   },
   {
     label: "ACCEPT",

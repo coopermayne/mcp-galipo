@@ -6,6 +6,7 @@ export type IntakeStatus =
   | "Atty Review"
   | "Needs Rejection Letter"
   | "Rejection Letter Sent"
+  | "No Response Needed"
   | "Needs Retainer"
   | "Retainer Sent"
   | "Retainer Signed"

@@ -320,17 +320,18 @@ def register_intake_routes(mcp):
         user_id = user["id"] if user else 0
 
         body = await request.json()
-        status = body.get("status")
-        if not status:
+        statuses = body.get("statuses") or body.get("status")
+        if not statuses:
             return api_error("status is required", "VALIDATION_ERROR", 400)
 
-        archived_ids = await asyncio.to_thread(db.bulk_archive_by_status, status)
+        archived = await asyncio.to_thread(db.bulk_archive_by_status, statuses)
+        archived_ids = [intake_id for intake_id, _ in archived]
 
-        # Create system comments for each archived intake
-        if user and archived_ids:
+        # Create a system comment (with the actual prior status) for each archived intake
+        if user and archived:
             name = user.get("firstName", "Someone")
-            msg = f"{name} changed status from {status} to Archived"
-            for intake_id in archived_ids:
+            for intake_id, prev_status in archived:
+                msg = f"{name} changed status from {prev_status} to Archived"
                 await asyncio.to_thread(
                     db.add_intake_comment, intake_id, _get_db_user_id(user), msg, True
                 )
