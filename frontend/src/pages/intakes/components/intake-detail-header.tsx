@@ -39,6 +39,7 @@ const ALL_STATUSES: IntakeStatus[] = [
   "Atty Review",
   "Needs Rejection Letter",
   "Rejection Letter Sent",
+  "No Response Needed",
   "Needs Retainer",
   "Retainer Sent",
   "Retainer Signed",
@@ -293,6 +294,7 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
                   onClick={() => {
                     const safeToArchive: IntakeStatus[] = [
                       "Rejection Letter Sent",
+                      "No Response Needed",
                       "Retainer Signed",
                     ]
                     if (safeToArchive.includes(intake.status)) {

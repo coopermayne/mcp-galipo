@@ -205,19 +205,23 @@ def update_intake(intake_id: int, **kwargs) -> Optional[dict]:
         return result
 
 
-def bulk_archive_by_status(status: str) -> list[int]:
-    """Archive all intakes with the given status. Returns list of archived intake IDs."""
+def bulk_archive_by_status(statuses: str | list[str]) -> list[tuple[int, str]]:
+    """Archive all intakes with any of the given statuses.
+
+    Returns a list of (intake_id, previous_status) tuples for each archived intake.
+    """
+    status_list = [statuses] if isinstance(statuses, str) else list(statuses)
     with SessionLocal() as session:
         intakes = session.scalars(
-            select(Intake).where(Intake.status == status)
+            select(Intake).where(Intake.status.in_(status_list))
         ).all()
-        archived_ids = []
+        archived = []
         for intake in intakes:
+            archived.append((intake.id, intake.status))
             intake.status = "Archived"
             intake.updated_at = func.now()
-            archived_ids.append(intake.id)
         session.commit()
-        return archived_ids
+        return archived
 
 
 def delete_intake(intake_id: int) -> bool:
