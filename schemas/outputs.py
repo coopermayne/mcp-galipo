@@ -483,7 +483,7 @@ class CaseDetailOut(BaseModel):
     color: Optional[str] = None
     attorney_ids: Optional[list[int]] = None
     paralegal_ids: Optional[list[int]] = None
-    intake_id: Optional[int] = None
+    intakes: list[dict] = []
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     attorneys: list[dict] = []

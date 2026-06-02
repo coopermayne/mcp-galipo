@@ -27,7 +27,7 @@ Urgency = Literal["Low", "Medium", "High", "Urgent"]
 IntakeStatus = Literal[
     "New", "Dave Review", "Needs Follow-Up", "Awaiting PC",
     "Atty Review",
-    "Needs Rejection Letter", "Rejection Letter Sent",
+    "Needs Rejection Letter", "Rejection Letter Sent", "No Response Needed",
     "Needs Retainer", "Retainer Sent", "Retainer Signed",
     "Archived",
 ]
@@ -55,12 +55,13 @@ RESOLUTION_TYPE_LIST: list[str] = list(get_args(ResolutionType))
 # Allowed status transitions for intakes (status -> list of valid next statuses)
 INTAKE_TRANSITIONS: dict[str, list[str]] = {
     "New": ["Dave Review"],
-    "Dave Review": ["Needs Follow-Up", "Awaiting PC", "Atty Review", "Needs Rejection Letter", "Needs Retainer"],
+    "Dave Review": ["Needs Follow-Up", "Awaiting PC", "Atty Review", "Needs Rejection Letter", "No Response Needed", "Needs Retainer"],
     "Needs Follow-Up": ["Awaiting PC", "Dave Review"],
     "Awaiting PC": ["Needs Follow-Up", "Dave Review"],
     "Atty Review": ["Dave Review"],
     "Needs Rejection Letter": ["Rejection Letter Sent"],
     "Rejection Letter Sent": ["Archived"],
+    "No Response Needed": ["Archived"],
     "Needs Retainer": ["Retainer Sent"],
     "Retainer Sent": ["Retainer Signed"],
     "Retainer Signed": ["Archived"],

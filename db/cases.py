@@ -18,7 +18,7 @@ from .feature_gates import (
 )
 from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
-    Proceeding, ProceedingJudge, Judge, Jurisdiction,
+    Proceeding, ProceedingJudge, Judge, Jurisdiction, Intake,
 )
 from lib.tz import today_la_sql
 
@@ -219,7 +219,14 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "color": case.color,
             "attorney_ids": case.attorney_ids,
             "paralegal_ids": case.paralegal_ids,
-            "intake_id": case.intake_id,
+            "intakes": [
+                {"id": i.id, "name": i.name, "status": i.status}
+                for i in session.execute(
+                    select(Intake.id, Intake.name, Intake.status)
+                    .where(Intake.case_id == case_id)
+                    .order_by(Intake.submitted_on.desc().nullslast(), Intake.id.desc())
+                ).all()
+            ],
             "created_at": _sv(case.created_at),
             "notes": case.notes,
             "updated_at": _sv(case.updated_at),
@@ -426,11 +433,15 @@ def create_case(case_name: str, status: str = "Signing Up",
             claim_deadline=claim_deadline,
             complaint_deadline=complaint_deadline,
             color=color,
-            intake_id=intake_id,
         )
         session.add(case)
         session.flush()
         case_id = case.id
+        # Link the originating intake to this case, if provided
+        if intake_id is not None:
+            intake = session.get(Intake, intake_id)
+            if intake is not None:
+                intake.case_id = case_id
         session.commit()
 
     return get_case_by_id(case_id)

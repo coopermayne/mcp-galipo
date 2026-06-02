@@ -46,10 +46,17 @@ class Base(DeclarativeBase):
 class Intake(Base):
     __tablename__ = "intakes"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"],
+            ["cases.id"],
+            ondelete="SET NULL",
+            name="intakes_case_id_fkey",
+        ),
         PrimaryKeyConstraint("id", name="intakes_pkey"),
         UniqueConstraint("google_row_number", name="intakes_google_row_number_key"),
         Index("idx_intakes_status", "status"),
         Index("idx_intakes_submitted_on", "submitted_on"),
+        Index("idx_intakes_case_id", "case_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -84,6 +91,8 @@ class Intake(Base):
     location_short: Mapped[Optional[str]] = mapped_column(String(100))
     ai_analyzing: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     google_row_number: Mapped[Optional[int]] = mapped_column(Integer, unique=True, nullable=True)
+    # Case this intake culminated in (a case can gather multiple intakes)
+    case_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Timestamps
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
@@ -95,6 +104,7 @@ class Intake(Base):
     # Relationships
     comments: Mapped[list[IntakeComment]] = relationship(back_populates="intake")
     tasks: Mapped[list[Task]] = relationship(back_populates="intake")
+    case: Mapped[Optional[Case]] = relationship(back_populates="intakes")
 
 
 class IntakeComment(Base):
@@ -259,12 +269,6 @@ class Objection(Base):
 class Case(Base):
     __tablename__ = "cases"
     __table_args__ = (
-        ForeignKeyConstraint(
-            ["intake_id"],
-            ["intakes.id"],
-            ondelete="SET NULL",
-            name="cases_intake_id_fkey",
-        ),
         PrimaryKeyConstraint("id", name="cases_pkey"),
         Index("idx_cases_attorney_ids", "attorney_ids"),
         Index("idx_cases_paralegal_ids", "paralegal_ids"),
@@ -306,9 +310,6 @@ class Case(Base):
 
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Source intake (if this case was created from an intake)
-    intake_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-
     # When NULL, simple cost-sharing applies via PersonRole.cost_share_pct.
     # When populated, the JSONB document is the source of truth and supports
     # N parties, phases, and caps. See db/cost_sharing.py.
@@ -323,7 +324,7 @@ class Case(Base):
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
     events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)
     financial: Mapped[Optional[CaseFinancial]] = relationship(back_populates="case", uselist=False, passive_deletes=True)
-    intake: Mapped[Optional[Intake]] = relationship(foreign_keys="[Case.intake_id]")
+    intakes: Mapped[list[Intake]] = relationship(back_populates="case")
     note_records: Mapped[list[Note]] = relationship(back_populates="case", passive_deletes=True)
     person_roles: Mapped[list[PersonRole]] = relationship(back_populates="case", passive_deletes=True)
     proceedings: Mapped[list[Proceeding]] = relationship(back_populates="case", passive_deletes=True)

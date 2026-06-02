@@ -174,23 +174,31 @@ def register_intake_routes(mcp):
         if case_id is None:
             return api_error("case_id is required", "VALIDATION_ERROR", 400)
 
-        try:
-            result = await asyncio.to_thread(
-                db.link_intake_to_case, intake_id, int(case_id)
-            )
-        except db.IntakeLinkError as e:
-            return api_error(str(e), "ALREADY_LINKED", 400)
+        result = await asyncio.to_thread(
+            db.link_intake_to_case, intake_id, int(case_id)
+        )
         if not result:
             return api_error("Intake or case not found", "NOT_FOUND", 404)
 
-        # Log the link as a system comment
+        # Log the link as a system comment on both the intake and the case feeds
         name = user.get("firstName", "Someone") if user else "System"
+        db_user_id = _get_db_user_id(user)
+        intake_label = result.get("name") or f"Intake #{intake_id}"
         await asyncio.to_thread(
             db.add_intake_comment,
             intake_id,
-            _get_db_user_id(user),
+            db_user_id,
             f"{name} linked this intake to case '{result.get('case_name') or case_id}'",
             True,  # is_system
+            {"type": "case_link", "case_id": int(case_id)},
+        )
+        await asyncio.to_thread(
+            db.add_case_comment,
+            int(case_id),
+            db_user_id,
+            f'{name} linked intake "{intake_label}" to this case',
+            True,  # is_system
+            {"type": "intake_link", "intake_id": intake_id},
         )
 
         broadcast({
@@ -222,12 +230,23 @@ def register_intake_routes(mcp):
 
         if old_case_id:
             name = user.get("firstName", "Someone") if user else "System"
+            db_user_id = _get_db_user_id(user)
+            intake_label = before.get("name") or f"Intake #{intake_id}"
             await asyncio.to_thread(
                 db.add_intake_comment,
                 intake_id,
-                _get_db_user_id(user),
+                db_user_id,
                 f"{name} disconnected this intake from case '{old_case_name or old_case_id}'",
                 True,  # is_system
+                {"type": "case_link", "case_id": old_case_id},
+            )
+            await asyncio.to_thread(
+                db.add_case_comment,
+                old_case_id,
+                db_user_id,
+                f'{name} disconnected intake "{intake_label}" from this case',
+                True,  # is_system
+                {"type": "intake_link", "intake_id": intake_id},
             )
             broadcast({"entity": "case", "action": "updated", "id": old_case_id})
 
@@ -301,17 +320,18 @@ def register_intake_routes(mcp):
         user_id = user["id"] if user else 0
 
         body = await request.json()
-        status = body.get("status")
-        if not status:
+        statuses = body.get("statuses") or body.get("status")
+        if not statuses:
             return api_error("status is required", "VALIDATION_ERROR", 400)
 
-        archived_ids = await asyncio.to_thread(db.bulk_archive_by_status, status)
+        archived = await asyncio.to_thread(db.bulk_archive_by_status, statuses)
+        archived_ids = [intake_id for intake_id, _ in archived]
 
-        # Create system comments for each archived intake
-        if user and archived_ids:
+        # Create a system comment (with the actual prior status) for each archived intake
+        if user and archived:
             name = user.get("firstName", "Someone")
-            msg = f"{name} changed status from {status} to Archived"
-            for intake_id in archived_ids:
+            for intake_id, prev_status in archived:
+                msg = f"{name} changed status from {prev_status} to Archived"
                 await asyncio.to_thread(
                     db.add_intake_comment, intake_id, _get_db_user_id(user), msg, True
                 )
