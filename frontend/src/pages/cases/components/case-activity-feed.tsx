@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react"
+import { Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -12,6 +13,7 @@ import {
   UserAdd01Icon,
   CourtLawIcon,
   Task01Icon,
+  Link01Icon,
   ArrowExpand01Icon,
 } from "@hugeicons/core-free-icons"
 import type { CaseComment, CaseStatus } from "@/types/case"
@@ -47,6 +49,22 @@ const NOTE_ADDED_RE = /^(.+?) added a note$/
 const PERSON_ADDED_RE = /^(.+?) added (.+?) as (.+)$/
 const PROCEEDING_ADDED_RE = /^(.+?) added proceeding (.+)$/
 const STAFF_RE = /^(.+?) (assigned|removed) (.+?) as (Attorney|Paralegal)$/
+
+// Render content with the quoted segment turned into a link (e.g. an intake name).
+function renderQuotedLink(content: string, quoteChar: string, to: string | null) {
+  const first = content.indexOf(quoteChar)
+  const last = content.lastIndexOf(quoteChar)
+  if (!to || first === -1 || last === first) return content
+  return (
+    <>
+      {content.slice(0, first + 1)}
+      <Link to={to} className="font-medium text-primary hover:underline">
+        {content.slice(first + 1, last)}
+      </Link>
+      {content.slice(last)}
+    </>
+  )
+}
 
 function parseStatusChange(content: string) {
   const m = content.match(STATUS_CHANGE_RE)
@@ -107,6 +125,25 @@ function SystemMessageEntry({ comment }: { comment: CaseComment }) {
   return <IconEntry comment={comment} icon={InformationCircleIcon} />
 }
 
+function IntakeLinkEntry({ comment }: { comment: CaseComment }) {
+  const intakeId = comment.detail?.intake_id as number | undefined
+  return (
+    <div className="relative flex gap-3 py-2">
+      <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
+        <HugeiconsIcon icon={Link01Icon} className="size-3 text-muted-foreground" />
+      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+        <span>
+          {renderQuotedLink(comment.content, '"', intakeId ? `/intakes/${intakeId}` : null)}
+        </span>
+        <span className="ml-auto shrink-0 opacity-60">
+          {formatTime(comment.created_at)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function UserCommentEntry({ comment }: { comment: CaseComment }) {
   const initials = comment.user_initials || "?"
   const name =
@@ -138,6 +175,7 @@ function UserCommentEntry({ comment }: { comment: CaseComment }) {
 
 function TimelineEntry({ comment }: { comment: CaseComment }) {
   if (comment.is_system) {
+    if (comment.detail?.type === "intake_link") return <IntakeLinkEntry comment={comment} />
     if (parseStatusChange(comment.content)) return <StatusChangeEntry comment={comment} />
     if (TASK_COMPLETED_RE.test(comment.content)) return <IconEntry comment={comment} icon={Tick02Icon} />
     if (TASK_STATUS_RE.test(comment.content)) return <IconEntry comment={comment} icon={Task01Icon} />

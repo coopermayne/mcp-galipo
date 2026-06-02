@@ -39,6 +39,12 @@ export interface CaseListItem {
   upcoming_event_count: number | null
 }
 
+export interface LinkedIntake {
+  id: number
+  name: string | null
+  status: string
+}
+
 export interface CaseDetail {
   id: number
   case_name: string
@@ -58,7 +64,7 @@ export interface CaseDetail {
   color: string | null
   attorney_ids: number[] | null
   paralegal_ids: number[] | null
-  intake_id: number | null
+  intakes: LinkedIntake[]
   created_at: string | null
   updated_at: string | null
   attorneys: CaseStaffUser[]

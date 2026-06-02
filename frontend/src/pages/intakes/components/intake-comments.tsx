@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react"
+import { Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -12,6 +13,7 @@ import {
   AiBrainIcon,
   Mail01Icon,
   SmartPhone01Icon,
+  Link01Icon,
 } from "@hugeicons/core-free-icons"
 import type { IntakeComment } from "@/types/intake"
 import type { IntakeStatus } from "@/types/intake"
@@ -89,6 +91,41 @@ function SystemMessageEntry({ comment }: { comment: IntakeComment }) {
       {/* Content */}
       <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
         <span>{comment.content}</span>
+        <span className="ml-auto shrink-0 opacity-60">
+          {formatTime(comment.created_at)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Render content with the quoted segment turned into a link (e.g. a case name).
+function renderQuotedLink(content: string, quoteChar: string, to: string | null) {
+  const first = content.indexOf(quoteChar)
+  const last = content.lastIndexOf(quoteChar)
+  if (!to || first === -1 || last === first) return content
+  return (
+    <>
+      {content.slice(0, first + 1)}
+      <Link to={to} className="font-medium text-primary hover:underline">
+        {content.slice(first + 1, last)}
+      </Link>
+      {content.slice(last)}
+    </>
+  )
+}
+
+function CaseLinkEntry({ comment }: { comment: IntakeComment }) {
+  const caseId = comment.detail?.case_id as number | undefined
+  return (
+    <div className="relative flex gap-3 py-2">
+      <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
+        <HugeiconsIcon icon={Link01Icon} className="size-3 text-muted-foreground" />
+      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+        <span>
+          {renderQuotedLink(comment.content, "'", caseId ? `/cases/${caseId}` : null)}
+        </span>
         <span className="ml-auto shrink-0 opacity-60">
           {formatTime(comment.created_at)}
         </span>
@@ -342,6 +379,7 @@ function InteractionEntry({ comment }: { comment: IntakeComment }) {
 
 function TimelineEntry({ comment }: { comment: IntakeComment }) {
   if (comment.is_system) {
+    if (comment.detail?.type === "case_link") return <CaseLinkEntry comment={comment} />
     if (comment.detail?.type === "interaction") return <InteractionEntry comment={comment} />
     if (CREATION_RE.test(comment.content)) return <CreationEntry comment={comment} />
     if (ANALYSIS_RE.test(comment.content)) return <AnalysisEntry comment={comment} />

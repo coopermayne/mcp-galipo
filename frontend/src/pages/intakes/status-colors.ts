@@ -27,6 +27,7 @@ const INTAKE_STATUS_COLORS: Record<IntakeStatus, StatusColor> = {
   "Atty Review": { color: "--palette-violet" },
   "Needs Rejection Letter": { color: "--palette-red" },
   "Rejection Letter Sent": { color: "--palette-red", faded: true },
+  "No Response Needed": { color: "--palette-red", faded: true },
   "Needs Retainer": { color: "--palette-green" },
   "Retainer Sent": { color: "--palette-teal" },
   "Retainer Signed": { color: "--palette-green", faded: true },

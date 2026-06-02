@@ -8,6 +8,7 @@ import type { Intake, IntakeStatus } from "@/types/intake"
 import { updateIntake, getIntakeTransitions, createIntakeComment, unlinkIntakeFromCase } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
+import { RejectionLetterDialog } from "@/pages/intakes/components/rejection-letter-dialog"
 import { getIntakeStatusStyle } from "@/pages/intakes/status-colors"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,6 +39,7 @@ const ALL_STATUSES: IntakeStatus[] = [
   "Atty Review",
   "Needs Rejection Letter",
   "Rejection Letter Sent",
+  "No Response Needed",
   "Needs Retainer",
   "Retainer Sent",
   "Retainer Signed",
@@ -116,6 +118,7 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
   const [commentDraft, setCommentDraft] = useState("")
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
   const [showUnlinkWarning, setShowUnlinkWarning] = useState(false)
+  const [showRejectionLetter, setShowRejectionLetter] = useState(false)
 
   const { data: transitions } = useQuery({
     queryKey: ["intake-transitions"],
@@ -206,6 +209,17 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          {intake.status === "Needs Rejection Letter" && (
+            <Button
+              size="sm"
+              onClick={() => setShowRejectionLetter(true)}
+              style={getIntakeStatusStyle("Needs Rejection Letter")}
+              className="font-semibold border shadow-sm px-4 gap-2 hover:opacity-90"
+            >
+              <HugeiconsIcon icon={SparklesIcon} className="size-4 animate-pulse" />
+              Write Rejection Letter
+            </Button>
+          )}
           {showCreateCase && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -280,6 +294,7 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
                   onClick={() => {
                     const safeToArchive: IntakeStatus[] = [
                       "Rejection Letter Sent",
+                      "No Response Needed",
                       "Retainer Signed",
                     ]
                     if (safeToArchive.includes(intake.status)) {
@@ -359,6 +374,12 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RejectionLetterDialog
+        intake={intake}
+        open={showRejectionLetter}
+        onOpenChange={setShowRejectionLetter}
+      />
 
       <AlertDialog open={showArchiveWarning} onOpenChange={setShowArchiveWarning}>
         <AlertDialogContent size="sm">

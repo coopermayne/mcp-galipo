@@ -87,12 +87,12 @@ export async function unlinkIntakeFromCase(
 }
 
 export async function bulkArchiveByStatus(
-  status: string
+  statuses: string | string[]
 ): Promise<{ success: boolean; count: number }> {
   const res = await apiFetch("/api/v1/intakes/bulk-archive", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ statuses: Array.isArray(statuses) ? statuses : [statuses] }),
   })
   if (!res.ok) throw new Error("Failed to bulk archive intakes")
   return res.json()

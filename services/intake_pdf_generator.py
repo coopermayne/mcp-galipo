@@ -135,6 +135,7 @@ def _status_css_class(status: str) -> str:
         'Atty Review': 'status-purple',
         'Needs Rejection Letter': 'status-destructive',
         'Rejection Letter Sent': 'status-destructive',
+        'No Response Needed': 'status-destructive',
         'Needs Retainer': 'status-success',
         'Retainer Sent': 'status-success',
         'Retainer Signed': 'status-success',
