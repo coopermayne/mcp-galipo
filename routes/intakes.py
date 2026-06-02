@@ -31,7 +31,12 @@ def register_intake_routes(mcp):
         if err := auth.require_auth(request):
             return err
         status = request.query_params.get("status")
-        limit, offset = clamp_pagination(request)
+        # The intakes table paginates client-side, so a single request must be
+        # able to return the whole view. Active is always small; the archive can
+        # reach a few thousand. Raise only the *max* bound — the default stays
+        # conservative so any limit-less call behaves exactly as before, and
+        # every other endpoint keeps the standard MAX_PAGE_SIZE cap.
+        limit, offset = clamp_pagination(request, max_limit=10000)
         exclude_archived = request.query_params.get("exclude_archived", "").lower() == "true"
 
         result = await asyncio.to_thread(

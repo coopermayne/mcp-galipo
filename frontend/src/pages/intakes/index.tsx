@@ -63,7 +63,11 @@ export default function IntakesPage() {
     queryFn: () =>
       getIntakes({
         status: selectedStatus ?? undefined,
-        limit: 2000,
+        // Load the whole view in one request and paginate client-side. Active
+        // is always small; the archive can reach a few thousand. This matches
+        // the backend's intakes max_limit (10000); if the archive ever exceeds
+        // that, switch to server-side pagination.
+        limit: 10000,
         exclude_archived: selectedStatus === null,
       }),
   })
@@ -300,7 +304,7 @@ export default function IntakesPage() {
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} pageSizes={[20, 50, 100]} />
+      <DataTablePagination table={table} pageSizes={[25, 50, 100, 250]} />
       <IntakeFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
