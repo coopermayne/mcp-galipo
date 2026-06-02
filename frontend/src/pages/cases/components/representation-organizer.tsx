@@ -25,7 +25,7 @@ import { getBadgeStyle } from "@/lib/badge-colors"
 import { useRepresentationLayoutMutation } from "@/hooks/use-representation-layout"
 
 type Column = "parties" | "attorneys" | "experts"
-type Family = Column | "other"
+type Family = Column
 
 const COLUMNS: { key: Column; label: string }[] = [
   { key: "parties", label: "Parties" },
@@ -37,21 +37,23 @@ const FAMILY_LABELS: Record<Family, string> = {
   parties: "Parties",
   attorneys: "Counsel",
   experts: "Experts",
-  other: "Other",
 }
 
-function familyOf(person: CasePerson): Family {
+// Only people in these role categories can be organized. Everyone else
+// (mediators, witnesses, lien holders, adjusters, …) never belongs in a
+// representation row, so they're excluded from the organizer entirely.
+// Clients include plaintiffs, decedents, and guardians ad litem.
+function familyOf(person: CasePerson): Family | null {
   switch (person.role.category) {
     case "client":
     case "defendant":
       return "parties"
     case "counsel":
-    case "mediator":
       return "attorneys"
     case "expert":
       return "experts"
     default:
-      return "other"
+      return null
   }
 }
 
@@ -78,7 +80,7 @@ interface DropData {
   isTray: boolean
 }
 
-/** Name + role badge, optionally with subordinates rendered inline beneath. */
+/** Name with the role label below it, plus any subordinates inline beneath. */
 function PersonChipContent({
   person,
   subordinates,
@@ -90,24 +92,22 @@ function PersonChipContent({
 }) {
   return (
     <div className={isOverlay ? "bg-background border px-2 py-1 shadow-md" : ""}>
-      <div className="flex items-center gap-1.5 min-w-0">
-        <span className="text-sm font-medium truncate">{person.name}</span>
-        <Badge
-          variant="outline"
-          className="text-[10px] px-1.5 py-0 shrink-0 font-normal border-transparent"
-          style={getBadgeStyle(ROLE_COLORS[person.role.name])}
-        >
-          {formatRoleName(person.role.name)}
-        </Badge>
-      </div>
+      <div className="text-sm font-medium leading-tight break-words">{person.name}</div>
+      <Badge
+        variant="outline"
+        className="mt-0.5 text-[10px] px-1.5 py-0 font-normal border-transparent"
+        style={getBadgeStyle(ROLE_COLORS[person.role.name])}
+      >
+        {formatRoleName(person.role.name)}
+      </Badge>
       {subordinates && subordinates.length > 0 && (
-        <div className="mt-0.5 ml-2 border-l border-border pl-2 space-y-0.5">
+        <div className="mt-1 ml-1 border-l border-border pl-2 space-y-0.5">
           {subordinates.map((sub) => (
-            <div key={sub.id} className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs text-muted-foreground truncate">{sub.name}</span>
-              <span className="text-[10px] text-muted-foreground/70 shrink-0">
+            <div key={sub.id} className="leading-tight">
+              <div className="text-xs text-muted-foreground break-words">{sub.name}</div>
+              <div className="text-[10px] text-muted-foreground/70">
                 {formatRoleName(sub.role.name)}
-              </span>
+              </div>
             </div>
           ))}
         </div>
@@ -139,7 +139,7 @@ function PersonChip({
   return (
     <div
       ref={setNodeRef}
-      className={`group/chip flex items-start gap-1 border bg-card px-1.5 py-1 ${
+      className={`group/chip flex items-start gap-1.5 py-0.5 ${
         isDragging ? "opacity-30" : ""
       }`}
     >
@@ -200,13 +200,7 @@ function ColumnCell({
 }
 
 /** The unassigned tray — a droppable that removes a person from all rows. */
-function UnassignedTray({
-  children,
-  empty,
-}: {
-  children: React.ReactNode
-  empty: boolean
-}) {
+function UnassignedTray({ children }: { children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: "drop:tray",
     data: { rowId: null, column: null, isTray: true } satisfies DropData,
@@ -221,13 +215,7 @@ function UnassignedTray({
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
         Unassigned
       </div>
-      {empty ? (
-        <span className="text-xs text-muted-foreground/60">
-          Everyone is placed. Drag a chip here to unassign.
-        </span>
-      ) : (
-        children
-      )}
+      {children}
     </div>
   )
 }
@@ -243,14 +231,15 @@ export function RepresentationOrganizer({
   casePersons,
   initialLayout,
 }: RepresentationOrganizerProps) {
-  // Lead people (no grouped_under_id), deduped by person id — these are the
-  // draggable units. Subordinates render inline under their lead.
+  // Eligible lead people (no grouped_under_id, organizable category), deduped
+  // by person id — these are the draggable units. Subordinates render inline
+  // under their lead.
   const { leadsById, subordinatesByLead } = useMemo(() => {
     const leads = new Map<number, CasePerson>()
     const subs = new Map<number, CasePerson[]>()
     for (const p of casePersons) {
       if (p.grouped_under_id == null) {
-        if (!leads.has(p.id)) leads.set(p.id, p)
+        if (familyOf(p) !== null && !leads.has(p.id)) leads.set(p.id, p)
       } else {
         const arr = subs.get(p.grouped_under_id) ?? []
         arr.push(p)
@@ -326,10 +315,10 @@ export function RepresentationOrganizer({
       parties: [],
       attorneys: [],
       experts: [],
-      other: [],
     }
     for (const [id, person] of leadsById) {
-      if (!placedIds.has(id)) groups[familyOf(person)].push(person)
+      const fam = familyOf(person)
+      if (fam && !placedIds.has(id)) groups[fam].push(person)
     }
     return groups
   }, [leadsById, placedIds])
@@ -410,30 +399,32 @@ export function RepresentationOrganizer({
       onDragEnd={handleDragEnd}
     >
       <div className="flex flex-col gap-3">
-        <UnassignedTray empty={trayEmpty}>
-          <div className="flex flex-col gap-2">
-            {(Object.keys(trayGroups) as Family[]).map((fam) =>
-              trayGroups[fam].length > 0 ? (
-                <div key={fam}>
-                  <div className="text-[10px] text-muted-foreground/70 mb-1">
-                    {FAMILY_LABELS[fam]}
+        {!trayEmpty && (
+          <UnassignedTray>
+            <div className="flex flex-col gap-2">
+              {(Object.keys(trayGroups) as Family[]).map((fam) =>
+                trayGroups[fam].length > 0 ? (
+                  <div key={fam}>
+                    <div className="text-[10px] text-muted-foreground/70 mb-1">
+                      {FAMILY_LABELS[fam]}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3">
+                      {trayGroups[fam].map((person) => (
+                        <PersonChip
+                          key={person.id}
+                          person={person}
+                          subordinates={subordinatesByLead.get(person.id) ?? []}
+                          fromRowId={null}
+                          fromColumn={null}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {trayGroups[fam].map((person) => (
-                      <PersonChip
-                        key={person.id}
-                        person={person}
-                        subordinates={subordinatesByLead.get(person.id) ?? []}
-                        fromRowId={null}
-                        fromColumn={null}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : null
-            )}
-          </div>
-        </UnassignedTray>
+                ) : null
+              )}
+            </div>
+          </UnassignedTray>
+        )}
 
         {layout.rows.map((row, idx) => (
           <div key={row.id} className="border">
