@@ -14,11 +14,19 @@ REACT_DIST_DIR = Path(__file__).parent.parent / "frontend" / "dist"  # React bui
 REACT_ASSETS_DIR = REACT_DIST_DIR / "assets"
 
 DEFAULT_PAGE_SIZE = 50
-MAX_PAGE_SIZE = 200
+MAX_PAGE_SIZE = 400
 
 
-def clamp_pagination(request, default_limit=DEFAULT_PAGE_SIZE) -> tuple[int, int]:
-    """Extract and clamp limit/offset from query params."""
+def clamp_pagination(
+    request, default_limit=DEFAULT_PAGE_SIZE, max_limit=MAX_PAGE_SIZE
+) -> tuple[int, int]:
+    """Extract and clamp limit/offset from query params.
+
+    ``max_limit`` defaults to the conservative ``MAX_PAGE_SIZE`` for most
+    endpoints; pass a higher value for endpoints that legitimately need to
+    return a full (still bounded) result set in one request — e.g. the intakes
+    list, where the archive view is paginated client-side.
+    """
     try:
         limit = int(request.query_params.get("limit", str(default_limit)))
     except (ValueError, TypeError):
@@ -27,7 +35,7 @@ def clamp_pagination(request, default_limit=DEFAULT_PAGE_SIZE) -> tuple[int, int
         offset = int(request.query_params.get("offset", "0"))
     except (ValueError, TypeError):
         offset = 0
-    return max(1, min(limit, MAX_PAGE_SIZE)), max(0, offset)
+    return max(1, min(limit, max_limit)), max(0, offset)
 
 
 def api_error(message: str, code: str, status_code: int = 400):
