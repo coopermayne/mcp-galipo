@@ -35,6 +35,17 @@ const INTAKE_STATUS_COLORS: Record<IntakeStatus, StatusColor> = {
 }
 
 /**
+ * Raw CSS color value for a status, e.g. `"var(--palette-sky)"`.
+ *
+ * This is the status's base palette color — the same hue the table pill uses
+ * (a solid pill's fill, or a faded pill's text/border accent). Handy for small
+ * indicators (the pipeline status dots) that need to match the pill at a glance.
+ */
+export function getIntakeStatusColorVar(status: IntakeStatus): string {
+  return `var(${INTAKE_STATUS_COLORS[status].color})`
+}
+
+/**
  * Inline style for a status badge or button.
  * Solid statuses get a filled background + contrasting foreground; faded
  * "done" statuses get a soft tint + colored text + subtle border.
