@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { getIntakeStatusColorVar } from "@/pages/intakes/status-colors"
 
 interface Pipeline {
   label: string
@@ -32,6 +33,27 @@ const PIPELINES: Pipeline[] = [
     statuses: ["Needs Retainer", "Retainer Sent", "Retainer Signed"],
   },
 ]
+
+/**
+ * Rectilinear step arrow used between pipeline statuses — a straight shaft with
+ * a sharp (square-cap, miter-join) head, matching the app's square theme.
+ * Inherits color/size from BreadcrumbSeparator (muted-foreground, size-3.5).
+ */
+function StepArrow() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="square"
+      strokeLinejoin="miter"
+      aria-hidden="true"
+    >
+      <path d="M2.5 8h9M8.5 5l3 3-3 3" />
+    </svg>
+  )
+}
 
 interface IntakePipelinesProps {
   counts: IntakeCountsResponse | undefined
@@ -123,9 +145,14 @@ export function IntakePipelines({
               {pipeline.statuses.map((status, i) => {
                 const isActive = selectedStatus === status
                 const count = counts?.[status] ?? 0
+                const statusColor = getIntakeStatusColorVar(status)
                 return (
                   <React.Fragment key={status}>
-                    {i > 0 && <BreadcrumbSeparator />}
+                    {i > 0 && (
+                      <BreadcrumbSeparator>
+                        <StepArrow />
+                      </BreadcrumbSeparator>
+                    )}
                     <BreadcrumbItem className="gap-1">
                       <button
                         onClick={() =>
@@ -139,12 +166,11 @@ export function IntakePipelines({
                         )}
                       >
                         <span
-                          className={cn(
-                            "inline-block size-1.5 shrink-0 border",
-                            isActive
-                              ? "border-foreground bg-foreground"
-                              : "border-muted-foreground/50 bg-transparent"
-                          )}
+                          className="inline-block size-1.5 shrink-0 border"
+                          style={{
+                            backgroundColor: statusColor,
+                            borderColor: isActive ? "var(--foreground)" : statusColor,
+                          }}
                         />
                         <span
                           className={cn(
