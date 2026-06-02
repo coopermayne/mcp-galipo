@@ -23,7 +23,7 @@ import { getBadgeStyle } from "@/lib/badge-colors"
 import { toast } from "sonner"
 
 /** Map role names to colors from the badge-colors palette. */
-const ROLE_COLORS: Record<string, string> = {
+export const ROLE_COLORS: Record<string, string> = {
   // Counsel
   co_counsel: "green",
   referring_attorney: "teal",

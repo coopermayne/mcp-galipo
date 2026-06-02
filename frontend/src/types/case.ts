@@ -76,6 +76,19 @@ export interface CaseDetail {
   proceedings: CaseProceeding[]
   feature_toggles: CaseFeatureToggles | null
   feature_data_counts?: Record<CaseFeatureKey, number>
+  representation_layout: RepresentationLayout | null
+}
+
+/** Presentational drag-and-drop grouping of case people into rows. */
+export interface RepresentationRow {
+  id: string
+  parties: number[]
+  attorneys: number[]
+  experts: number[]
+}
+
+export interface RepresentationLayout {
+  rows: RepresentationRow[]
 }
 
 export type CaseFeatureKey = "tasks" | "events" | "financials" | "costs"
