@@ -24,6 +24,7 @@ import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-cha
 import { FeatureGate } from "@/components/common/feature-gate"
 import { CaseDetailHeader } from "@/pages/cases/components/case-detail-header"
 import { CaseSummarySection } from "@/pages/cases/components/case-summary-section"
+import { CaseRepresentationCard } from "@/pages/cases/components/case-representation-card"
 import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
 import { CaseInfoPanel } from "@/pages/cases/components/case-info-panel"
 import { AddPersonDialog } from "@/pages/cases/components/add-person-dialog"
@@ -256,6 +257,7 @@ function CaseDetailContent() {
               onAiPeople={() => setAiPeopleOpen(true)}
               onNest={handleNest}
             />
+            <CaseRepresentationCard caseData={caseData} />
             {showTasks && (
               <CaseTasksCard
                 caseId={caseData.id}

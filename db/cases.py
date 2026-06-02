@@ -231,6 +231,7 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "notes": case.notes,
             "updated_at": _sv(case.updated_at),
             "feature_toggles": case.feature_toggles,
+            "representation_layout": case.representation_layout,
             "feature_data_counts": get_feature_data_counts(session, case_id),
         }
 
@@ -520,6 +521,24 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
 
         if changed:
             case.updated_at = func.now()
+        session.commit()
+
+    return get_case_by_id(case_id)
+
+
+def update_representation_layout(case_id: int, layout: Optional[dict]) -> Optional[dict]:
+    """Replace the case's representation_layout JSONB.
+
+    `layout` is the full {"rows": [...]} document (or None to clear it).
+    Stored as-is — it's a presentational layout, validated by the schema layer.
+    Returns the refreshed case dict, or None if the case doesn't exist.
+    """
+    with SessionLocal() as session:
+        case = session.get(Case, case_id)
+        if not case:
+            return None
+        case.representation_layout = layout
+        case.updated_at = func.now()
         session.commit()
 
     return get_case_by_id(case_id)

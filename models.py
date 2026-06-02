@@ -320,6 +320,13 @@ class Case(Base):
     # OFF. Shared across the team — turning a section on shows it for everyone.
     feature_toggles: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
+    # Presentational drag-and-drop grouping of the case's people into
+    # "representation rows" (which parties share which counsel/experts).
+    # Shape: {"rows": [{"id", "parties": [person_id], "attorneys": [...],
+    # "experts": [...]}]}. Purely a display layout — not queried from SQL.
+    # See db/cases.py:update_representation_layout and the frontend organizer.
+    representation_layout: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
     events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)

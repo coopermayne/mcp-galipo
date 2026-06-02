@@ -47,6 +47,17 @@ class UpdateCaseInput(BaseModel):
     feature_toggles: Optional[dict[str, Any]] = None
 
 
+class RepresentationRowInput(BaseModel):
+    id: str
+    parties: list[int] = []
+    attorneys: list[int] = []
+    experts: list[int] = []
+
+
+class RepresentationLayoutInput(BaseModel):
+    rows: list[RepresentationRowInput] = []
+
+
 # =============================================================================
 # Route Input Models — Tasks
 # =============================================================================

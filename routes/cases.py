@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 import db
 import auth
-from schemas import CreateCaseInput, UpdateCaseInput, CreateCaseCommentInput
+from schemas import CreateCaseInput, UpdateCaseInput, CreateCaseCommentInput, RepresentationLayoutInput
 from .common import api_error, pydantic_error, clamp_pagination
 from .comments import _get_db_user_id
 from .sse import broadcast
@@ -155,6 +155,24 @@ def register_case_routes(mcp):
                 True,
             )
 
+        broadcast({"entity": "case", "action": "updated", "id": case_id})
+        return JSONResponse({"success": True, "case": result})
+
+    @mcp.custom_route("/api/v1/cases/{case_id}/representation-layout", methods=["PUT"])
+    async def api_update_representation_layout(request):
+        """Replace the case's representation organizer layout (presentational)."""
+        if err := auth.require_auth(request):
+            return err
+        case_id = int(request.path_params["case_id"])
+        try:
+            data = RepresentationLayoutInput(**(await request.json()))
+        except ValidationError as e:
+            return pydantic_error(e)
+        result = await asyncio.to_thread(
+            db.update_representation_layout, case_id, data.model_dump()
+        )
+        if not result:
+            return api_error("Case not found", "NOT_FOUND", 404)
         broadcast({"entity": "case", "action": "updated", "id": case_id})
         return JSONResponse({"success": True, "case": result})
 
