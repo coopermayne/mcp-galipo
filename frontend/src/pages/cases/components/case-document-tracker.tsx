@@ -4,6 +4,8 @@ import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
+  ArrowDown01Icon,
+  ArrowRight01Icon,
   CheckmarkCircle02Icon,
   Delete01Icon,
   SentIcon,
@@ -97,7 +99,12 @@ export function CaseDocumentTracker({ caseId }: CaseDocumentTrackerProps) {
     return { total: visible.length, complete, active, todo }
   }, [allItems])
 
-  const naCount = allItems.filter((i) => i.status === "na").length
+  // All N/A items, regardless of which catalog group they came from, are
+  // pulled out of their groups and collected into one collapsible bucket.
+  const naItems = useMemo(
+    () => allItems.filter((i) => i.status === "na"),
+    [allItems]
+  )
 
   return (
     <Card size="sm">
@@ -179,7 +186,6 @@ export function CaseDocumentTracker({ caseId }: CaseDocumentTrackerProps) {
                 caseId={caseId}
                 label={group.label}
                 items={group.items}
-                showNa={showNa}
                 expandedKey={expandedKey}
                 setExpandedKey={setExpandedKey}
                 onChanged={invalidate}
@@ -191,22 +197,41 @@ export function CaseDocumentTracker({ caseId }: CaseDocumentTrackerProps) {
                 caseId={caseId}
                 label="Other"
                 items={data.custom_items}
-                showNa={showNa}
                 expandedKey={expandedKey}
                 setExpandedKey={setExpandedKey}
                 onChanged={invalidate}
               />
             )}
 
-            {naCount > 0 && (
-              <div className="border-t px-3 py-2">
+            {naItems.length > 0 && (
+              <div className="border-t">
                 <button
                   type="button"
                   onClick={() => setShowNa((v) => !v)}
-                  className="text-[11px] text-muted-foreground hover:text-foreground"
+                  className="flex w-full items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
                 >
-                  {showNa ? "Hide" : "Show"} N/A ({naCount})
+                  <HugeiconsIcon
+                    icon={showNa ? ArrowDown01Icon : ArrowRight01Icon}
+                    className="size-3"
+                  />
+                  N/A
+                  <span className="bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
+                    {naItems.length}
+                  </span>
                 </button>
+                {showNa &&
+                  naItems.map((item) => (
+                    <ChecklistRow
+                      key={item.key}
+                      caseId={caseId}
+                      item={item}
+                      expanded={expandedKey === item.key}
+                      onToggle={() =>
+                        setExpandedKey(expandedKey === item.key ? null : item.key)
+                      }
+                      onChanged={invalidate}
+                    />
+                  ))}
               </div>
             )}
           </div>
@@ -220,7 +245,6 @@ interface GroupSectionProps {
   caseId: number
   label: string
   items: ChecklistItem[]
-  showNa: boolean
   expandedKey: string | null
   setExpandedKey: (k: string | null) => void
   onChanged: () => void
@@ -230,12 +254,12 @@ function ChecklistGroupSection({
   caseId,
   label,
   items,
-  showNa,
   expandedKey,
   setExpandedKey,
   onChanged,
 }: GroupSectionProps) {
-  const visible = items.filter((i) => showNa || i.status !== "na")
+  // N/A items live in their own bucket at the end, never inline in a group.
+  const visible = items.filter((i) => i.status !== "na")
   if (visible.length === 0) return null
 
   return (
