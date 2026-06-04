@@ -30,6 +30,12 @@ import {
   CardAction,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -265,7 +271,6 @@ interface ChecklistRowProps {
 }
 
 function ChecklistRow({ caseId, item, expanded, onToggle, onChanged }: ChecklistRowProps) {
-  const meta = CHECKLIST_STATUS_META[item.status]
   const isComplete = item.status === "complete"
   const isPartial = item.status === "partial"
 
@@ -276,51 +281,104 @@ function ChecklistRow({ caseId, item, expanded, onToggle, onChanged }: Checklist
         expanded && "border-l-2 border-l-warning bg-muted/20"
       )}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/30"
-      >
-        <StatusDot status={item.status} />
-        <div className="min-w-0 flex-1">
-          <div
-            className={cn(
-              "truncate text-[13px] font-medium",
-              isComplete && "font-normal text-muted-foreground"
-            )}
-          >
-            {item.label}
-          </div>
-          {item.notes && (
+      <div className="flex items-center gap-2 pr-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3 text-left hover:bg-muted/30"
+        >
+          <StatusDot status={item.status} />
+          <div className="min-w-0 flex-1">
             <div
               className={cn(
-                "truncate text-[11px]",
-                isPartial ? "text-warning" : "text-muted-foreground"
+                "truncate text-[13px] font-medium",
+                isComplete && "font-normal text-muted-foreground"
               )}
             >
-              {item.notes}
+              {item.label}
             </div>
+            {item.notes && (
+              <div
+                className={cn(
+                  "truncate text-[11px]",
+                  isPartial ? "text-warning" : "text-muted-foreground"
+                )}
+              >
+                {item.notes}
+              </div>
+            )}
+          </div>
+          {item.comment_count > 0 && (
+            <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+              {item.comment_count}↳
+            </span>
           )}
-        </div>
-        {item.comment_count > 0 && (
-          <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
-            {item.comment_count}↳
-          </span>
-        )}
-        <span
-          className={cn(
-            "shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            STATUS_BADGE[item.status]
-          )}
-        >
-          {meta.label}
-        </span>
-      </button>
+        </button>
+
+        <StatusChip caseId={caseId} item={item} onChanged={onChanged} />
+      </div>
 
       {expanded && (
         <ExpandedItem caseId={caseId} item={item} onChanged={onChanged} />
       )}
     </div>
+  )
+}
+
+interface StatusChipProps {
+  caseId: number
+  item: ChecklistItem
+  onChanged: () => void
+}
+
+/**
+ * The collapsed-row status pill, doubling as a quick-change control: click it
+ * to pick a new status from a dropdown without expanding the item.
+ */
+function StatusChip({ caseId, item, onChanged }: StatusChipProps) {
+  const queryClient = useQueryClient()
+  const meta = CHECKLIST_STATUS_META[item.status]
+
+  const setStatus = useMutation({
+    mutationFn: (status: ChecklistStatus) =>
+      setChecklistItem(caseId, item.key, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["checklist-comments", caseId, item.key],
+      })
+      onChanged()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={setStatus.isPending}
+          className={cn(
+            "shrink-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-opacity hover:opacity-80 disabled:opacity-50",
+            STATUS_BADGE[item.status]
+          )}
+        >
+          {meta.label}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[150px]">
+        {CHECKLIST_STATUS_ORDER.map((s) => (
+          <DropdownMenuItem
+            key={s}
+            disabled={s === item.status}
+            onSelect={() => setStatus.mutate(s)}
+            className="gap-2 text-[12px]"
+          >
+            <StatusDot status={s} />
+            {CHECKLIST_STATUS_META[s].label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
