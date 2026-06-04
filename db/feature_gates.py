@@ -17,6 +17,7 @@ Feature keys (must match the frontend `CaseFeatureKey` union):
     events      -> Event rows
     financials  -> CaseFinancial + CounselFee rows
     costs       -> Invoice + Lien rows (the entire case-costs page)
+    documents   -> CaseChecklistItem rows (the document-tracking card)
 
 Rows with a NULL case_id (e.g., unassigned tasks) are never filtered out
 because they don't belong to any case.
@@ -27,15 +28,19 @@ from typing import Optional
 from sqlalchemy import func, or_, select as sa_select
 from sqlalchemy.orm import Session
 
-from models import Case, Task, Event, CaseFinancial, Invoice, Lien
+from models import Case, Task, Event, CaseFinancial, Invoice, Lien, CaseChecklistItem
 
 
 FEATURE_TASKS = "tasks"
 FEATURE_EVENTS = "events"
 FEATURE_FINANCIALS = "financials"
 FEATURE_COSTS = "costs"
+FEATURE_DOCUMENTS = "documents"
 
-ALL_FEATURES = (FEATURE_TASKS, FEATURE_EVENTS, FEATURE_FINANCIALS, FEATURE_COSTS)
+ALL_FEATURES = (
+    FEATURE_TASKS, FEATURE_EVENTS, FEATURE_FINANCIALS, FEATURE_COSTS,
+    FEATURE_DOCUMENTS,
+)
 
 
 class FeatureDisabled(Exception):
@@ -46,6 +51,7 @@ class FeatureDisabled(Exception):
         FEATURE_EVENTS: "Events",
         FEATURE_FINANCIALS: "Financials",
         FEATURE_COSTS: "Costs",
+        FEATURE_DOCUMENTS: "Documents",
     }
 
     def __init__(self, case_id: int, feature: str):
@@ -105,6 +111,7 @@ def get_feature_data_counts(session: Session, case_id: int) -> dict[str, int]:
         FEATURE_FINANCIALS: session.scalar(sa_select(func.count(CaseFinancial.id)).where(CaseFinancial.case_id == case_id)) or 0,
         FEATURE_COSTS:      (session.scalar(sa_select(func.count(Invoice.id)).where(Invoice.case_id == case_id)) or 0)
                            + (session.scalar(sa_select(func.count(Lien.id)).where(Lien.case_id == case_id)) or 0),
+        FEATURE_DOCUMENTS:  session.scalar(sa_select(func.count(CaseChecklistItem.id)).where(CaseChecklistItem.case_id == case_id)) or 0,
     }
 
 
