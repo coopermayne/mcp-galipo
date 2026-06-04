@@ -29,7 +29,7 @@ export function CaseFeaturesMenu({ caseData }: CaseFeaturesMenuProps) {
   const queryClient = useQueryClient()
   const toggles = caseData.feature_toggles ?? {}
   const counts = caseData.feature_data_counts ?? {
-    tasks: 0, events: 0, financials: 0, costs: 0,
+    tasks: 0, events: 0, financials: 0, costs: 0, documents: 0,
   }
 
   const mutation = useMutation({

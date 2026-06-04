@@ -32,6 +32,7 @@ import { CaseTasksCard } from "@/pages/cases/components/case-tasks-card"
 import { AddTaskDialog } from "@/pages/cases/components/add-task-dialog"
 import { CaseEventsCard } from "@/pages/cases/components/case-events-card"
 import { AddEventDialog } from "@/pages/cases/components/add-event-dialog"
+import { CaseDocumentTracker } from "@/pages/cases/components/case-document-tracker"
 import { CaseKeyDates } from "@/pages/cases/components/case-key-dates"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { CaseFinancialsCard } from "@/pages/cases/components/case-financials-card"
@@ -213,6 +214,7 @@ function CaseDetailContent() {
   const showTasks = isCaseFeatureEnabled(toggles, "tasks")
   const showEvents = isCaseFeatureEnabled(toggles, "events")
   const showFinancials = isCaseFeatureEnabled(toggles, "financials")
+  const showDocuments = isCaseFeatureEnabled(toggles, "documents")
   const userHasInvoicesFeature =
     user?.visibleFeatures == null || user.visibleFeatures.includes("invoices")
   const showCosts = isCaseFeatureEnabled(toggles, "costs") && userHasInvoicesFeature
@@ -272,6 +274,7 @@ function CaseDetailContent() {
                 onAiAdd={() => setAiEventsOpen(true)}
               />
             )}
+            {showDocuments && <CaseDocumentTracker caseId={caseData.id} />}
             <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
             {showFinancials && (
               <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
