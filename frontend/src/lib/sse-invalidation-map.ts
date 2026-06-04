@@ -77,6 +77,15 @@ export const INVALIDATION_MAP: Record<
     return keys
   },
 
+  checklist: (event) => {
+    const keys: (string | (string | number)[])[] = []
+    if (event.case_id) {
+      keys.push(["checklist", event.case_id])
+      keys.push(["case", event.case_id])
+    }
+    return keys
+  },
+
   invoice: (event) => {
     const keys: (string | (string | number)[])[] = ["invoices", "invoice-stats"]
     if (event.case_id) keys.push(["case-costs", event.case_id])

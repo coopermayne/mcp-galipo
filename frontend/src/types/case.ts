@@ -91,7 +91,7 @@ export interface RepresentationLayout {
   rows: RepresentationRow[]
 }
 
-export type CaseFeatureKey = "tasks" | "events" | "financials" | "costs"
+export type CaseFeatureKey = "tasks" | "events" | "financials" | "costs" | "documents"
 
 export type CaseFeatureToggles = Partial<Record<CaseFeatureKey, boolean>>
 
@@ -102,6 +102,7 @@ export const CASE_FEATURE_DEFINITIONS: {
 }[] = [
   { key: "tasks", label: "Tasks", description: "Track to-dos on this case" },
   { key: "events", label: "Events", description: "Calendar dates and deadlines" },
+  { key: "documents", label: "Documents", description: "Intake document & authorization tracking" },
   { key: "financials", label: "Financials", description: "Settlement & disbursement summary" },
   { key: "costs", label: "Costs", description: "Costs/invoices link and totals" },
 ]

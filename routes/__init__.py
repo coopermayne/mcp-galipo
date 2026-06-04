@@ -60,6 +60,7 @@ from .health import register_health_routes
 from .activity import register_activity_routes
 from .contacts import register_contact_routes
 from .comments import register_comment_routes
+from .checklist import register_checklist_routes
 from .trial_calendar import register_trial_calendar_routes
 from .dale import register_dale_routes
 from .alerts import register_alert_routes
@@ -140,6 +141,8 @@ def register_routes(mcp):
     register_contact_routes(mcp)
     _logger.debug("Registering comment routes...")
     register_comment_routes(mcp)
+    _logger.debug("Registering checklist routes...")
+    register_checklist_routes(mcp)
     _logger.debug("Registering trial calendar routes...")
     register_trial_calendar_routes(mcp)
     _logger.debug("Registering Dale routes...")
