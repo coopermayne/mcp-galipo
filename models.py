@@ -329,6 +329,7 @@ class Case(Base):
 
     # Relationships
     comments: Mapped[list[CaseComment]] = relationship(back_populates="case", passive_deletes=True)
+    checklist_items: Mapped[list[CaseChecklistItem]] = relationship(back_populates="case", passive_deletes=True)
     events: Mapped[list[Event]] = relationship(back_populates="case", passive_deletes=True)
     financial: Mapped[Optional[CaseFinancial]] = relationship(back_populates="case", uselist=False, passive_deletes=True)
     intakes: Mapped[list[Intake]] = relationship(back_populates="case")
@@ -338,6 +339,56 @@ class Case(Base):
     tasks: Mapped[list[Task]] = relationship(back_populates="case", passive_deletes=True)
     invoices: Mapped[list[Invoice]] = relationship(back_populates="case", passive_deletes=True)
     liens: Mapped[list[Lien]] = relationship(back_populates="case", passive_deletes=True)
+
+
+class CaseChecklistItem(Base):
+    """A tracked intake document or authorization for a case.
+
+    The catalog of standard items (the two groups — authorizations and
+    documents) lives in code (db/checklist.py); rows here are created lazily
+    only when an item is actually acted on (status moved off the default,
+    notes added, a comment posted, or a custom item created). Untouched
+    catalog items are virtual and have no row — so enabling the Documents
+    section on a case never materializes rows, keeping the feature toggle
+    freely reversible.
+
+    The per-item activity log reuses the polymorphic `comments` table with
+    entity_type="checklist_item" and entity_id=this row's id.
+    """
+
+    __tablename__ = "case_checklist_items"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id"], ["cases.id"], ondelete="CASCADE",
+            name="case_checklist_items_case_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="case_checklist_items_pkey"),
+        UniqueConstraint(
+            "case_id", "item_key", name="uq_case_checklist_items_case_key"
+        ),
+        Index("idx_case_checklist_items_case_id", "case_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(Integer)
+    # Catalog key (e.g. "signed_retainer") or "custom:<uuid>" for user-added.
+    item_key: Mapped[str] = mapped_column(String(60))
+    # Only set for custom items; standard items take their label from the catalog.
+    label: Mapped[Optional[str]] = mapped_column(String(120))
+    # One of: needed | in_progress | partial | complete | na
+    status: Mapped[str] = mapped_column(
+        String(20), server_default=text("'needed'::character varying")
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    case: Mapped[Case] = relationship(back_populates="checklist_items")
 
 
 class ExpertiseType(Base):
