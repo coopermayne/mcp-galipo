@@ -383,6 +383,16 @@ from .comments import (
     get_unread_counts as get_comment_unread_counts,
 )
 
+# Document tracking checklist
+from .checklist import (
+    get_checklist,
+    set_checklist_item,
+    add_custom_item as add_checklist_custom_item,
+    delete_checklist_item,
+    get_item_comments as get_checklist_item_comments,
+    add_item_comment as add_checklist_item_comment,
+)
+
 # Trial calendar
 from .trial_calendar import (
     get_trial_calendar,
@@ -604,6 +614,13 @@ __all__ = [
     "mark_intake_read",
     "get_unread_counts",
     "get_recent_activity",
+    # Document tracking checklist
+    "get_checklist",
+    "set_checklist_item",
+    "add_checklist_custom_item",
+    "delete_checklist_item",
+    "get_checklist_item_comments",
+    "add_checklist_item_comment",
     # SMS
     "list_sms_conversations",
     "get_sms_conversation",
