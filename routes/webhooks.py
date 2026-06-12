@@ -56,6 +56,43 @@ def register_webhook_routes(mcp):
 
         return JSONResponse({"webhook": webhook})
 
+    @mcp.custom_route("/api/v1/webhooks/{webhook_id}/link", methods=["POST"])
+    async def link_webhook(request):
+        """Link a webhook to a proceeding (manual triage)."""
+        if err := auth.require_auth(request):
+            return err
+
+        webhook_id = int(request.path_params["webhook_id"])
+        data = await request.json()
+        proceeding_id = data.get("proceeding_id")
+        if not proceeding_id:
+            return api_error("proceeding_id is required", "VALIDATION_ERROR", 400)
+
+        result = await asyncio.to_thread(
+            db.link_webhook_to_proceeding,
+            webhook_id,
+            int(proceeding_id),
+            docket_id=data.get("docket_id"),
+            link_siblings=bool(data.get("link_siblings", False)),
+        )
+        if result is None:
+            return api_error("Webhook not found", "NOT_FOUND", 404)
+
+        return JSONResponse({"success": True, **result})
+
+    @mcp.custom_route("/api/v1/webhooks/{webhook_id}/unlink", methods=["POST"])
+    async def unlink_webhook(request):
+        """Unlink a webhook from its proceeding (return to pending)."""
+        if err := auth.require_auth(request):
+            return err
+
+        webhook_id = int(request.path_params["webhook_id"])
+        result = await asyncio.to_thread(db.unlink_webhook, webhook_id)
+        if result is None:
+            return api_error("Webhook not found", "NOT_FOUND", 404)
+
+        return JSONResponse({"success": True})
+
     @mcp.custom_route("/api/v1/webhooks/{webhook_id}", methods=["DELETE"])
     async def delete_webhook(request):
         """Delete a webhook log by ID."""

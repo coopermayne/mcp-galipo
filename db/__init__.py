@@ -208,6 +208,8 @@ from .webhooks import (
     mark_webhook_failed,
     idempotency_key_exists,
     delete_webhook_log,
+    link_webhook_to_proceeding,
+    unlink_webhook,
 )
 
 # User operations
@@ -564,6 +566,8 @@ __all__ = [
     "mark_webhook_failed",
     "idempotency_key_exists",
     "delete_webhook_log",
+    "link_webhook_to_proceeding",
+    "unlink_webhook",
     # Users
     "hash_password",
     "verify_password",
