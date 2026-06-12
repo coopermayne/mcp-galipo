@@ -130,6 +130,11 @@ class WebhookOut(BaseModel):
     created_at: Optional[datetime.datetime] = None
     processed_at: Optional[datetime.datetime] = None
 
+    # Linked case context (derived from proceeding -> case; not stored on the row)
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    case_number: Optional[str] = None
+
 
 # --- Users ---
 
