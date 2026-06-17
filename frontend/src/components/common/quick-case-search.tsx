@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router"
 import { useQuery } from "@tanstack/react-query"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon,
@@ -37,6 +38,7 @@ interface QuickCaseSearchProps {
 
 export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
   const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [query, setQuery] = useState("")
@@ -99,7 +101,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
     (item: SearchItem) => {
       onOpenChange(false)
       if (item.type === "case") {
-        navigate(`/cases/${item.data.id}`)
+        openCasePreview(item.data.id)
       } else {
         // Navigate to contacts page with the appropriate category
         if (item.data.type === "judge") {
@@ -109,7 +111,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
         }
       }
     },
-    [navigate, onOpenChange]
+    [navigate, openCasePreview, onOpenChange]
   )
 
   const handleKeyDown = useCallback(

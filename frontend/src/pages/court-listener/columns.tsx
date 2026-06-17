@@ -1,5 +1,4 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { Link } from "react-router"
 import type { WebhookLog } from "@/types/webhook"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -127,6 +126,7 @@ interface ColumnOptions {
   onDelete: (webhook: WebhookLog) => void
   onLink: (webhook: WebhookLog) => void
   onUnlink: (webhook: WebhookLog) => void
+  onOpenCase: (caseId: number) => void
 }
 
 export function getColumns({
@@ -134,6 +134,7 @@ export function getColumns({
   onDelete,
   onLink,
   onUnlink,
+  onOpenCase,
 }: ColumnOptions): ColumnDef<WebhookLog>[] {
   return [
     {
@@ -147,14 +148,16 @@ export function getColumns({
         if (!wh.case_id || !wh.case_name) {
           return <span className="text-muted-foreground">—</span>
         }
+        const caseId = wh.case_id
         return (
-          <Link
-            to={`/cases/${wh.case_id}`}
-            className="font-medium hover:underline"
+          <button
+            type="button"
+            onClick={() => onOpenCase(caseId)}
+            className="font-medium hover:underline cursor-pointer text-left"
             title={wh.case_number ?? undefined}
           >
             {wh.case_name}
-          </Link>
+          </button>
         )
       },
       filterFn: "includesString",

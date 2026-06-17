@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import {
   startOfMonth,
   endOfMonth,
@@ -58,7 +58,7 @@ export function VerticalTimeline({
   staffMap: Map<number, StaffMember>
   onEditEvent: (eventId: number) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
 
   const rangeStart = startOfMonth(months[0])
   const rangeEnd = endOfMonth(months[months.length - 1])
@@ -334,7 +334,7 @@ export function VerticalTimeline({
                           backgroundColor: color,
                           opacity,
                         }}
-                        onClick={() => navigate(`/cases/${t.case_id}`)}
+                        onClick={() => openCasePreview(t.case_id)}
                       >
                         <span className="line-clamp-3">{label}</span>
                       </button>

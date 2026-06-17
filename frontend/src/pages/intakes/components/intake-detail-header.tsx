@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { Link } from "react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -7,6 +6,7 @@ import { MoreHorizontalCircle01Icon, ArrowRight01Icon, ArrowDown01Icon, PrinterI
 import type { Intake, IntakeStatus } from "@/types/intake"
 import { updateIntake, getIntakeTransitions, createIntakeComment, unlinkIntakeFromCase } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { RejectionLetterDialog } from "@/pages/intakes/components/rejection-letter-dialog"
 import { getIntakeStatusStyle } from "@/pages/intakes/status-colors"
@@ -114,6 +114,7 @@ interface IntakeDetailHeaderProps {
 
 export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
+  const { openCasePreview } = useCasePreview()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
   const [commentDraft, setCommentDraft] = useState("")
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
@@ -199,13 +200,14 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
           <h1 className="text-lg font-semibold">{intake.name || "Unnamed Intake"}</h1>
           <StatusBadge status={intake.status} />
           {hasLinkedCase && (
-            <Link
-              to={`/cases/${intake.case_id}`}
-              className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium hover:bg-primary/20 transition-colors"
+            <button
+              type="button"
+              onClick={() => intake.case_id != null && openCasePreview(intake.case_id)}
+              className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium hover:bg-primary/20 transition-colors cursor-pointer"
             >
               Case: {intake.case_name || `#${intake.case_id}`}
               <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
-            </Link>
+            </button>
           )}
         </div>
         <div className="flex items-center gap-1.5">

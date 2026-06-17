@@ -12,7 +12,7 @@ import {
   type ColumnOrderState,
   flexRender,
 } from "@tanstack/react-table"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -25,11 +25,9 @@ import {
   LayersLogoIcon,
   ArrowDown01Icon,
 } from "@hugeicons/core-free-icons"
-import { useNavigate } from "react-router"
-import { getCase, createCase, type CreateCaseData, exportCaseReport, exportCaseListPdf, type CaseListGroupBy } from "@/services/cases"
-import type { ListNavState } from "@/components/common/list-nav"
+import { createCase, type CreateCaseData, exportCaseReport, exportCaseListPdf, type CaseListGroupBy } from "@/services/cases"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { getColumns } from "@/pages/cases/columns"
-import { CaseQuickView } from "@/pages/cases/components/case-quick-view"
 import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
 import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
 import { CaseGroupedView } from "@/pages/cases/components/case-grouped-view"
@@ -110,11 +108,10 @@ export function CaseTable({
   showDocxExport = true,
 }: CaseTableProps) {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [formOpen, setFormOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
-  const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null)
   const [printing, setPrinting] = useState(false)
 
   const handlePrint = useCallback(async (groupBy: CaseListGroupBy) => {
@@ -127,8 +124,8 @@ export function CaseTable({
   }, [])
 
   const onPreview = useCallback((id: number) => {
-    setSelectedCaseId(id)
-  }, [])
+    openCasePreview(id)
+  }, [openCasePreview])
 
   const createMutation = useMutation({
     mutationFn: (data: CreateCaseData) => createCase(data),
@@ -190,12 +187,6 @@ export function CaseTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [table.getFilteredRowModel().rows]
   )
-
-  const { data: selectedCase } = useQuery({
-    queryKey: ["case", selectedCaseId],
-    queryFn: () => getCase(selectedCaseId!),
-    enabled: selectedCaseId != null,
-  })
 
   return (
     <>
@@ -398,15 +389,7 @@ export function CaseTable({
                 <TableRow
                   key={row.id}
                   className="cursor-pointer group/row"
-                  data-state={selectedCaseId === row.original.id ? "selected" : undefined}
-                  onClick={() => {
-                    const rows = table.getRowModel().rows
-                    const listIds = rows.map((r) => r.original.id)
-                    const listIndex = rows.findIndex((r) => r.id === row.id)
-                    navigate(`/cases/${row.original.id}`, {
-                      state: { listIds, listIndex, listPath: `${window.location.pathname}${window.location.search}` } satisfies ListNavState,
-                    })
-                  }}
+                  onClick={() => openCasePreview(row.original.id)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -428,12 +411,6 @@ export function CaseTable({
       )}
 
       {/* Dialogs */}
-      <CaseQuickView
-        caseData={selectedCase ?? null}
-        open={selectedCaseId != null}
-        onClose={() => setSelectedCaseId(null)}
-        usersMap={usersMap}
-      />
       <CaseFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}

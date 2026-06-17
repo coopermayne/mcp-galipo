@@ -1,5 +1,4 @@
 import { useMemo } from "react"
-import { useNavigate } from "react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import {
@@ -8,7 +7,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { ListNavState } from "@/components/common/list-nav"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { groupCasesByStatus } from "@/pages/cases/group-cases"
@@ -32,14 +31,8 @@ export function CaseGroupedView({
   isLoading,
   usersMap,
 }: CaseGroupedViewProps) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const groups = useMemo(() => groupCasesByStatus(cases), [cases])
-
-  // Build flattened ID list in display order for prev/next nav
-  const listIds = useMemo(
-    () => groups.flatMap((g) => g.cases.map((c) => c.id)),
-    [groups]
-  )
 
   return (
     <div className="border border-border">
@@ -73,12 +66,7 @@ export function CaseGroupedView({
                     key={c.id}
                     caseItem={c}
                     usersMap={usersMap}
-                    onClick={() => {
-                      const listIndex = listIds.indexOf(c.id)
-                      navigate(`/cases/${c.id}`, {
-                        state: { listIds, listIndex, listPath: `${window.location.pathname}${window.location.search}` } satisfies ListNavState,
-                      })
-                    }}
+                    onClick={() => openCasePreview(c.id)}
                   />
                 ))}
               </div>

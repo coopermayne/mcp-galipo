@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { Link, Navigate, useSearchParams } from "react-router"
+import { Navigate, useSearchParams } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
 import { getAlerts, dismissAlert, undismissAlert } from "@/services/alerts"
 import { getStaff } from "@/services/staff"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import type { CaseAlert } from "@/types/alert"
 import { severityRank } from "@/lib/alert-severity"
 import { AlertRow } from "@/components/common/alert-row"
@@ -36,6 +37,7 @@ export default function CaseHealthPage() {
 function CaseHealthContent() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
+  const { openCasePreview } = useCasePreview()
 
   const severityFilter = (searchParams.get("severity") as SeverityFilter) || "all"
   const showDismissed = searchParams.get("dismissed") === "true"
@@ -220,16 +222,17 @@ function CaseHealthContent() {
                     · {g.case.case_status}
                   </span>
                 </div>
-                <Link
-                  to={`/cases/${g.case.case_id}`}
+                <button
+                  type="button"
+                  onClick={() => openCasePreview(g.case.case_id)}
                   className={cn(
-                    "flex shrink-0 items-center gap-1 text-xs text-muted-foreground",
+                    "flex shrink-0 items-center gap-1 text-xs text-muted-foreground cursor-pointer",
                     "hover:text-foreground"
                   )}
                 >
                   Open case
                   <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
-                </Link>
+                </button>
               </div>
               <div className="divide-y">
                 {g.alerts.map((a) => (

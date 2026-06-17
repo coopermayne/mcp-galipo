@@ -1,9 +1,14 @@
+import { useNavigate } from "react-router"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import type { CaseDetail } from "@/types/case"
 import { TrialLikelihood } from "@/pages/cases/components/trial-likelihood"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import { CaseNotesPanel } from "@/pages/cases/components/case-notes-panel"
 import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
 import { getAvatarStyleById } from "@/lib/badge-colors"
+import { useFeature } from "@/hooks/use-feature"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
@@ -41,6 +46,9 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickViewProps) {
+  const navigate = useNavigate()
+  const canViewDetail = useFeature("case-detail")
+
   // Get primary proceeding info
   const primaryProceeding = caseData?.proceedings?.find((p) => p.is_primary) ?? caseData?.proceedings?.[0]
   const caseNumber = primaryProceeding?.case_number
@@ -77,6 +85,20 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
                   <span className="text-xs text-muted-foreground">{caseData.short_name}</span>
                 )}
                 <CaseStatusBadge status={caseData.status} />
+                {canViewDetail && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto h-7 mr-8 text-xs"
+                    onClick={() => {
+                      navigate(`/cases/${caseData.id}`)
+                      onClose()
+                    }}
+                  >
+                    Open full details
+                    <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
+                  </Button>
+                )}
               </div>
             </SheetHeader>
 

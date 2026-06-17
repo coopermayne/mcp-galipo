@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { format } from "date-fns"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { getAvatarStyleById } from "@/lib/badge-colors"
@@ -29,7 +29,7 @@ export function TrialListMobile({
   staffMap: Map<number, StaffMember>
   onEditEvent?: (event: BlockingEvent) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
 
   const rows = useMemo<Row[]>(() => {
     const trialRows: Row[] = trials.map((t) => ({ kind: "trial", date: t.trial_date, trial: t }))
@@ -56,7 +56,7 @@ export function TrialListMobile({
               key={`trial-${t.case_id}`}
               type="button"
               className="flex w-full items-center gap-3 p-3 text-left active:bg-muted/50"
-              onClick={() => navigate(`/cases/${t.case_id}`)}
+              onClick={() => openCasePreview(t.case_id)}
             >
               {t.attorney_ids.length > 0 && (
                 <div className="flex shrink-0 gap-1">

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -227,6 +228,7 @@ export function ContactDetailDialog({
   extraInvalidateKeys,
 }: ContactDetailDialogProps) {
   const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const queryClient = useQueryClient()
   const [confirmAction, setConfirmAction] = useState<"remove" | "delete" | null>(null)
 
@@ -509,7 +511,7 @@ export function ContactDetailDialog({
                     onClick={() => {
                       if (roleCaseId != null) {
                         onOpenChange(false)
-                        navigate(`/cases/${roleCaseId}`)
+                        openCasePreview(roleCaseId)
                       }
                     }}
                   >
