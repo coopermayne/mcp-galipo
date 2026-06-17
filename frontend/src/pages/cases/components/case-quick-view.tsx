@@ -64,7 +64,7 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <SheetContent side="right" className="sm:max-w-[520px] w-full flex flex-col p-0">
+      <SheetContent side="right" className="data-[side=right]:w-full data-[side=right]:sm:max-w-[1040px] flex flex-col p-0">
         {caseData ? (
           <>
             {/* Header */}
@@ -103,7 +103,9 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
             </SheetHeader>
 
             {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto lg:grid lg:grid-cols-[minmax(0,380px)_1fr] lg:items-start">
+              {/* Left column — case meta */}
+              <div className="lg:border-r lg:self-stretch">
               {/* Key Info */}
               <div className="px-4 py-3 space-y-1.5 border-b">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -187,7 +189,10 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
                   )}
                 </div>
               )}
+              </div>
 
+              {/* Right column — notes + activity */}
+              <div className="lg:self-stretch">
               {/* Notes */}
               <div className="border-b">
                 <CaseNotesPanel caseId={caseData.id} notes={caseData.notes} />
@@ -199,6 +204,7 @@ export function CaseQuickView({ caseData, open, onClose, usersMap }: CaseQuickVi
                   Activity
                 </span>
                 <CaseActivityFeed caseId={caseData.id} />
+              </div>
               </div>
             </div>
           </>
