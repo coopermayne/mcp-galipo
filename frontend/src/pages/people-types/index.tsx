@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { getRolesWithCounts, getRoleMembers, type Role } from "@/services/roles"
 import { RoleDialog } from "@/pages/people-types/components/role-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +30,7 @@ function formatRoleName(name: string) {
 
 function RoleMembersList({ roleId }: { roleId: number }) {
   const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const { data, isLoading } = useQuery({
     queryKey: ["role-members", roleId],
     queryFn: () => getRoleMembers(roleId),
@@ -91,7 +93,7 @@ function RoleMembersList({ roleId }: { roleId: number }) {
                       className="hover:underline cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation()
-                        navigate(`/cases/${c.id}`)
+                        if (c.id != null) openCasePreview(c.id)
                       }}
                     >
                       {c.name}

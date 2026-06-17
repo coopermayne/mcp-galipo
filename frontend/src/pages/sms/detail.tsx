@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -37,6 +38,7 @@ export default function SmsDetailPage() {
   const conversationId = Number(id)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
 
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [editLabel, setEditLabel] = useState("")
@@ -191,14 +193,17 @@ export default function SmsDetailPage() {
 
         <div className="ml-auto flex items-center gap-1.5">
           {conversation?.case_id && conversation.short_name && (
-            <Link to={`/cases/${conversation.case_id}`}>
+            <button
+              type="button"
+              onClick={() => conversation.case_id != null && openCasePreview(conversation.case_id)}
+            >
               <Badge
                 className="hover:opacity-80 transition-opacity cursor-pointer"
                 style={getBadgeStyle(conversation.case_color)}
               >
                 {conversation.short_name}
               </Badge>
-            </Link>
+            </button>
           )}
           {conversation?.person_id && conversation.person_name && (
             <Badge variant="secondary">{conversation.person_name}</Badge>

@@ -1,8 +1,8 @@
 import { useMemo } from "react"
-import { Link } from "react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Loading03Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import type { ToolActivity } from "@/hooks/use-chat-stream"
 import type { Intake } from "@/types/intake"
 
@@ -125,6 +125,7 @@ const TOOL_LABELS: Record<string, string> = {
 }
 
 function CaseToolIndicator({ tool }: { tool: ToolActivity }) {
+  const { openCasePreview } = useCasePreview()
   const label = TOOL_LABELS[tool.name] ?? tool.name.replace(/_/g, " ")
   const caseId = useMemo(() => parseCaseId(tool.result), [tool.result])
 
@@ -144,13 +145,14 @@ function CaseToolIndicator({ tool }: { tool: ToolActivity }) {
         <span className="text-success inline-flex items-center gap-1.5">
           Created {label}
           {caseId && (
-            <Link
-              to={`/cases/${caseId}`}
-              className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-success/80"
+            <button
+              type="button"
+              onClick={() => openCasePreview(caseId)}
+              className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-success/80 cursor-pointer"
             >
               View #{caseId}
               <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
-            </Link>
+            </button>
           )}
         </span>
       )}

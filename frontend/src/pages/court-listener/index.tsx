@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon } from "@hugeicons/core-free-icons"
 import { getWebhooks, deleteWebhook, unlinkWebhook } from "@/services/webhooks"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { getColumns, extractEntry } from "@/pages/court-listener/columns"
 import { LinkCaseDialog } from "@/pages/court-listener/components/link-case-dialog"
 import type { WebhookLog } from "@/types/webhook"
@@ -54,6 +55,7 @@ const linkFilterOptions = [
 
 export default function CourtListenerPage() {
   const queryClient = useQueryClient()
+  const { openCasePreview } = useCasePreview()
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created_at", desc: true },
   ])
@@ -118,8 +120,9 @@ export default function CourtListenerPage() {
         onDelete: handleDelete,
         onLink: handleLink,
         onUnlink: handleUnlink,
+        onOpenCase: openCasePreview,
       }),
-    [handleViewPayload, handleDelete, handleLink, handleUnlink]
+    [handleViewPayload, handleDelete, handleLink, handleUnlink, openCasePreview]
   )
 
   const webhooks = data?.webhooks ?? []

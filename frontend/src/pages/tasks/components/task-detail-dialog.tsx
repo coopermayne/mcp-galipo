@@ -7,6 +7,7 @@ import type { TaskStatus, Urgency } from "@/types/case"
 import { getTask, updateTask, deleteTask } from "@/services/tasks"
 import { getStaff } from "@/services/staff"
 import { getEventsByCase, type CaseEvent } from "@/services/events"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
 import { ActivityFeed } from "@/components/common/activity-feed"
@@ -59,6 +60,7 @@ export function TaskDetailDialog({
   onOpenChange,
 }: TaskDetailDialogProps) {
   const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const queryClient = useQueryClient()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -122,7 +124,7 @@ export function TaskDetailDialog({
               size="xs"
               onClick={() => {
                 onOpenChange(false)
-                navigate(`/cases/${task.case_id}`)
+                if (task.case_id) openCasePreview(task.case_id)
               }}
               className="w-fit h-auto p-0 border-0"
             >

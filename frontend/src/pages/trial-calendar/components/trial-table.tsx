@@ -6,7 +6,7 @@ import {
   flexRender,
   type SortingState,
 } from "@tanstack/react-table"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ export function TrialTable({
   staffMap: Map<number, StaffMember>
   onEditEvent?: (event: BlockingEvent) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const isMobile = useIsMobile()
   const [sorting, setSorting] = useState<SortingState>([
     { id: "trial", desc: false },
@@ -93,7 +93,7 @@ export function TrialTable({
                 )}
                 onClick={() => {
                   if (row.original.kind === "trial") {
-                    navigate(`/cases/${row.original.trial.case_id}`)
+                    openCasePreview(row.original.trial.case_id)
                   } else if (row.original.kind === "event" && onEditEvent) {
                     onEditEvent(row.original.event)
                   }

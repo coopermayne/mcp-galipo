@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { format, addDays } from "date-fns"
 import {
   Tooltip,
@@ -148,7 +148,7 @@ export function LinearCalendar({
   staffMap: Map<number, StaffMember>
   onEditEvent?: (event: BlockingEvent) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const [highlightOpen, setHighlightOpen] = useState(true)
 
   const todayKey = useMemo(() => {
@@ -500,7 +500,7 @@ export function LinearCalendar({
                               }}
                               onClick={() => {
                                 if (ci.item.caseId) {
-                                  navigate(`/cases/${ci.item.caseId}`)
+                                  openCasePreview(ci.item.caseId)
                                 } else if (ci.item.eventRaw && onEditEvent) {
                                   onEditEvent(ci.item.eventRaw)
                                 }

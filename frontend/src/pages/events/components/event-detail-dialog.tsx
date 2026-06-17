@@ -1,9 +1,9 @@
 import { useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { StarIcon, Cancel01Icon } from "@hugeicons/core-free-icons"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import type { EventListItem } from "@/types/event"
 import {
   getEvent,
@@ -47,7 +47,7 @@ export function EventDetailDialog({
   onOpenChange,
   invalidateKeys = [["events"]],
 }: EventDetailDialogProps) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const queryClient = useQueryClient()
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -128,7 +128,7 @@ export function EventDetailDialog({
               size="xs"
               onClick={() => {
                 onOpenChange(false)
-                navigate(`/cases/${event.case_id}`)
+                if (event.case_id) openCasePreview(event.case_id)
               }}
               className="w-fit h-auto p-0 border-0"
             >
