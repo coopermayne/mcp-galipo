@@ -177,7 +177,7 @@ def extract_authorities(file_bytes: bytes) -> dict:
 
     # Step 2: Call Claude
     client = Anthropic(api_key=settings.anthropic_api_key)
-    model = "claude-sonnet-4-20250514"
+    model = "claude-sonnet-4-6"
 
     user_message = (
         "Here is the full text of a legal brief. Each page is labeled with "
