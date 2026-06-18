@@ -26,6 +26,7 @@ import {
   Moon02Icon,
   Sun01Icon,
   Logout01Icon,
+  Alert01Icon,
 } from "@hugeicons/core-free-icons"
 import { useTheme } from "@/hooks/use-theme"
 import { useAuth } from "@/hooks/use-auth"
@@ -45,6 +46,21 @@ export function NavUser() {
 
   return (
     <SidebarMenu>
+      {user?.mustChangePassword && (
+        <SidebarMenuItem>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            title="You're using a default password. Click to change it."
+            className="flex w-full animate-bounce items-center gap-2 border border-warning/40 bg-warning/15 px-2 py-1.5 text-left text-xs font-medium text-warning transition-colors hover:bg-warning/25 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          >
+            <HugeiconsIcon icon={Alert01Icon} size={16} strokeWidth={2} className="shrink-0" />
+            <span className="truncate group-data-[collapsible=icon]:hidden">
+              Change your password
+            </span>
+          </button>
+        </SidebarMenuItem>
+      )}
       <SidebarMenuItem>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         <DropdownMenu>

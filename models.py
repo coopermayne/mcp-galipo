@@ -592,6 +592,12 @@ class Event(Base):
     blocks_calendar: Mapped[Optional[bool]] = mapped_column(
         Boolean, server_default=text("false")
     )
+    # Marks a case event (FPTC, PTC, trial readiness, MIL hearing, etc.) that
+    # should appear on the trial calendar. Display-only: unlike blocks_calendar
+    # it does NOT affect trial-slot availability.
+    on_trial_calendar: Mapped[Optional[bool]] = mapped_column(
+        Boolean, server_default=text("false")
+    )
 
     # Relationships
     case: Mapped[Optional[Case]] = relationship(back_populates="events")

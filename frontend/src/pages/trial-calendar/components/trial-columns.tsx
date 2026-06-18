@@ -2,7 +2,7 @@ import { format } from "date-fns"
 import type { ColumnDef } from "@tanstack/react-table"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { NoteIcon } from "@hugeicons/core-free-icons"
-import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
+import type { TrialItem, BlockingEvent, TrialEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { getAvatarStyleById } from "@/lib/badge-colors"
@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 export type CalendarTableRow =
   | { kind: "trial"; date: string; trial: TrialItem }
   | { kind: "event"; date: string; event: BlockingEvent }
+  | { kind: "trial_event"; date: string; trialEvent: TrialEvent }
 
 function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number)
@@ -105,6 +106,43 @@ export function getTrialColumns(options: {
             </div>
           )
         }
+        if (row.original.kind === "trial_event") {
+          const te = row.original.trialEvent
+          const displayName = options.isMobile && te.short_name ? te.short_name : te.case_name
+          const isStale = STALE_STATUSES.has(te.status)
+          return (
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 font-normal border-transparent text-white"
+                style={{ backgroundColor: getEventTypeColor(te.event_type) }}
+              >
+                {getEventTypeLabel(te.event_type)}
+              </Badge>
+              <span className={cn("font-medium", isStale && "line-through text-muted-foreground")}>
+                {displayName}
+              </span>
+              {te.description && te.description !== getEventTypeLabel(te.event_type) && (
+                <span className="text-muted-foreground">{te.description}</span>
+              )}
+              {te.notes && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="inline-flex shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <HugeiconsIcon icon={NoteIcon} className="size-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap text-xs">
+                    {te.notes}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )
+        }
         const evt = row.original.event
         return (
           <div className="flex items-center gap-2">
@@ -161,6 +199,18 @@ export function getTrialColumns(options: {
               likelihoodNote={t.trial_likelihood_note}
               estimatedDays={t.trial_estimated_days}
             />
+          )
+        }
+        if (row.original.kind === "trial_event") {
+          const te = row.original.trialEvent
+          return (
+            <span>
+              {format(parseDate(te.date), "MMM d, yyyy")}
+              {te.end_date && ` – ${format(parseDate(te.end_date), "MMM d, yyyy")}`}
+              {te.time && (
+                <span className="text-muted-foreground"> · {te.time}</span>
+              )}
+            </span>
           )
         }
         const evt = row.original.event

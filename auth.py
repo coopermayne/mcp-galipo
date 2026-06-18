@@ -58,6 +58,7 @@ def authenticate(email: str, password: str) -> Optional[dict]:
                 "isAdmin": user["is_admin"],
                 "paralegalId": user.get("paralegal_id"),
                 "visibleFeatures": user.get("visible_features"),
+                "mustChangePassword": user["must_change_password"],
             },
             "mustChangePassword": user["must_change_password"],
         }
@@ -78,6 +79,7 @@ def authenticate(email: str, password: str) -> Optional[dict]:
                     "initials": "AU",
                     "position": "admin",
                     "isAdmin": True,
+                    "mustChangePassword": False,
                 },
                 "mustChangePassword": False,
             }

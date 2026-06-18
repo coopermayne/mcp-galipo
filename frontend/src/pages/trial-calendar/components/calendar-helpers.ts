@@ -1,9 +1,10 @@
 import { addDays, getDay, startOfWeek, format } from "date-fns"
-import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
+import type { TrialItem, BlockingEvent, TrialEvent } from "@/services/trial-calendar"
+import { getEventTypeLabel } from "@/lib/event-types"
 
 export interface CalendarItem {
   id: string
-  kind: "trial" | "vacation" | "event"
+  kind: "trial" | "vacation" | "event" | "trial_event"
   start: Date
   end: Date
   label: string
@@ -12,6 +13,7 @@ export interface CalendarItem {
   caseId?: number
   trialRaw?: TrialItem
   eventRaw?: BlockingEvent
+  trialEventRaw?: TrialEvent
 }
 
 export interface BusySpan {
@@ -127,6 +129,28 @@ export function normalizeItems(
     })
   }
   return items
+}
+
+/**
+ * Trial-calendar case events (FPTC, PTC, etc.) as DISPLAY-ONLY calendar items.
+ * These are kept separate from normalizeItems so they never feed into
+ * busy-span / open-window availability math — they only render on the grid.
+ */
+export function normalizeTrialEvents(trialEvents: TrialEvent[]): CalendarItem[] {
+  return trialEvents.map((e) => {
+    const start = parseDate(e.date)
+    const end = e.end_date ? parseDate(e.end_date) : start
+    return {
+      id: `trial-evt-${e.id}`,
+      kind: "trial_event" as const,
+      start,
+      end,
+      label: `${getEventTypeLabel(e.event_type)}: ${e.short_name || e.case_name}`,
+      status: "firm" as const,
+      caseId: e.case_id,
+      trialEventRaw: e,
+    }
+  })
 }
 
 // ── Merge overlapping/touching busy spans ──
