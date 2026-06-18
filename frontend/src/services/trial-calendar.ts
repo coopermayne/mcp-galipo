@@ -27,9 +27,27 @@ export interface BlockingEvent {
   notes: string | null
 }
 
+/** A case event flagged for the trial calendar (FPTC, PTC, MIL hearing, etc.). */
+export interface TrialEvent {
+  id: number
+  event_type: string
+  description: string
+  date: string
+  end_date: string | null
+  time: string | null
+  location: string | null
+  notes: string | null
+  case_id: number
+  case_name: string
+  short_name: string | null
+  color: string | null
+  status: string
+}
+
 export interface TrialCalendarData {
   trials: TrialItem[]
   blocking_events: BlockingEvent[]
+  trial_events: TrialEvent[]
   range: { start: string; end: string }
 }
 

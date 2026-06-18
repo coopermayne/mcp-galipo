@@ -61,6 +61,7 @@ export interface User {
   visibleFeatures: FeatureKey[] | null
   createdAt: string | null
   updatedAt: string | null
+  lastActiveAt: string | null
   paralegal: {
     id: number
     firstName: string | null

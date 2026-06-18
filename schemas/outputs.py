@@ -156,6 +156,7 @@ class UserOut(BaseModel):
     visible_features: Optional[list] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
+    last_active_at: Optional[datetime.datetime] = None
     paralegal: Optional[UserBriefOut] = None
 
     @field_validator("visible_features", mode="before")
@@ -272,6 +273,7 @@ class EventOut(BaseModel):
     event_type: Optional[str] = None
     end_date: Optional[datetime.date] = None
     blocks_calendar: Optional[bool] = None
+    on_trial_calendar: Optional[bool] = None
 
     @field_serializer('time')
     def serialize_time(self, val: Optional[datetime.time], _info) -> Optional[str]:

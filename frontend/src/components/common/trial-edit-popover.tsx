@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
+import { TrialEventsEditor } from "@/components/common/trial-events-editor"
 
 export function getLikelihoodColor(value: number): string {
   if (value <= 30) return "text-success"
@@ -251,6 +252,10 @@ export function TrialEditCell({
                 Confirming a hold sets it as the trial date and releases the rest.
               </p>
             )}
+          </div>
+
+          <div className="border-t -mx-1 px-1 pt-3">
+            <TrialEventsEditor caseId={caseId} enabled={open} />
           </div>
 
           <div className="space-y-1">
