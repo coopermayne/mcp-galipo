@@ -351,6 +351,7 @@ def create_invoice(
             case_id=case_id,
             content=f"{label} added: ${amount:,.2f} to {comment_payee}",
             is_system=True,
+            detail={"type": "invoice"},
         )
         session.add(comment)
 
@@ -456,6 +457,7 @@ def mark_invoice_paid(
             content=f"{label} paid: ${float(inv.amount):,.2f} to {comment_payee}"
             + (f" (Ref: {check_number})" if check_number else ""),
             is_system=True,
+            detail={"type": "invoice"},
         )
         session.add(comment)
 

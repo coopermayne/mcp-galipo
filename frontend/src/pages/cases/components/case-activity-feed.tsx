@@ -50,6 +50,15 @@ const PERSON_ADDED_RE = /^(.+?) added (.+?) as (.+)$/
 const PROCEEDING_ADDED_RE = /^(.+?) added proceeding (.+)$/
 const STAFF_RE = /^(.+?) (assigned|removed) (.+?) as (Attorney|Paralegal)$/
 
+// Invoice/cost activity is hidden from the case activity log — financial info
+// only surfaces where the user is specifically focused on financials.
+const INVOICE_ACTIVITY_RE = /^(Invoice|Advance|Transfer) (added|paid):/
+
+function isInvoiceActivity(comment: CaseComment): boolean {
+  if (!comment.is_system) return false
+  return comment.detail?.type === "invoice" || INVOICE_ACTIVITY_RE.test(comment.content)
+}
+
 // Render content with the quoted segment turned into a link (e.g. an intake name).
 function renderQuotedLink(content: string, quoteChar: string, to: string | null) {
   const first = content.indexOf(quoteChar)
@@ -364,9 +373,14 @@ export function CaseActivityFeed({ caseId }: CaseActivityFeedProps) {
     addComment.mutate(trimmed)
   }
 
-  const groups = useMemo(
-    () => groupByDate(data?.comments ?? []),
+  const visibleComments = useMemo(
+    () => (data?.comments ?? []).filter((c) => !isInvoiceActivity(c)),
     [data?.comments]
+  )
+
+  const groups = useMemo(
+    () => groupByDate(visibleComments),
+    [visibleComments]
   )
 
   return (
@@ -387,7 +401,7 @@ export function CaseActivityFeed({ caseId }: CaseActivityFeedProps) {
         <FeedContent
           groups={groups}
           isLoading={isLoading}
-          isEmpty={data?.comments.length === 0}
+          isEmpty={visibleComments.length === 0}
           scrollRef={scrollRef}
         />
 
@@ -407,7 +421,7 @@ export function CaseActivityFeed({ caseId }: CaseActivityFeedProps) {
           <FeedContent
             groups={groups}
             isLoading={isLoading}
-            isEmpty={data?.comments.length === 0}
+            isEmpty={visibleComments.length === 0}
             scrollRef={panelScrollRef}
           />
           <CommentForm
