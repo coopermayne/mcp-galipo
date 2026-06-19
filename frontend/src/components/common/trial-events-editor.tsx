@@ -82,9 +82,10 @@ export function TrialEventsEditor({
   })
 
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs text-muted-foreground">Trial calendar events</label>
+    <div>
+      <p className="mb-4 text-xs font-medium text-muted-foreground">Events</p>
 
+      <div className="space-y-2">
       {events.length > 0 && (
         <div className="space-y-1">
           {events.map((e) => (
@@ -171,6 +172,7 @@ export function TrialEventsEditor({
           Add trial event
         </button>
       )}
+      </div>
     </div>
   )
 }

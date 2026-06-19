@@ -51,6 +51,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
             updateMutation.mutate({ case_summary: v })
           }}
           type="textarea"
+          withSaveButton
           placeholder="Add a summary..."
           displayClassName="text-xs whitespace-pre-wrap"
         />

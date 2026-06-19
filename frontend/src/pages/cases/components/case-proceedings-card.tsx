@@ -2,9 +2,9 @@ import { useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, SparklesIcon, StarIcon, CourtLawIcon, LinkSquare02Icon } from "@hugeicons/core-free-icons"
+import { SparklesIcon, StarIcon, CourtLawIcon, LinkSquare02Icon } from "@hugeicons/core-free-icons"
 import { cn } from "@/lib/utils"
-import { updateProceeding } from "@/services/proceedings"
+import { updateProceeding, deleteProceeding } from "@/services/proceedings"
 import type { CaseDetail, CaseProceeding } from "@/types/case"
 import { Button } from "@/components/ui/button"
 import { SectionPanel } from "@/components/common/section-panel"
@@ -14,8 +14,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
-import { AddProceedingDialog } from "@/pages/cases/components/add-proceeding-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 
 interface CaseProceedingsCardProps {
@@ -35,7 +46,6 @@ function formatJudges(judges: { name: string; role: string | null }[]): string {
 
 export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
   const queryClient = useQueryClient()
-  const [addProceedingOpen, setAddProceedingOpen] = useState(false)
   const [detailProceeding, setDetailProceeding] = useState<CaseProceeding | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
 
@@ -72,6 +82,17 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
     onError: (e) => toast.error(e.message),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (proceedingId: number) => deleteProceeding(proceedingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["case", caseData.id] })
+      queryClient.invalidateQueries({ queryKey: ["cases"] })
+      toast.success("Proceeding removed")
+      setDetailProceeding(null)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   return (
     <>
       <SectionPanel
@@ -87,24 +108,15 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
           </>
         }
         accessory={
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              onClick={() => setAiOpen(true)}
-            >
-              <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              onClick={() => setAddProceedingOpen(true)}
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
-            </Button>
-          </>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6"
+            onClick={() => setAiOpen(true)}
+            title="Manage proceedings with AI"
+          >
+            <HugeiconsIcon icon={SparklesIcon} className="size-3.5" />
+          </Button>
         }
       >
           {sortedProceedings.length > 0 ? (
@@ -179,8 +191,9 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
                 variant="outline"
                 size="sm"
                 className="mt-2 h-7 text-xs"
-                onClick={() => setAddProceedingOpen(true)}
+                onClick={() => setAiOpen(true)}
               >
+                <HugeiconsIcon icon={SparklesIcon} className="size-3.5 mr-1" />
                 Add Proceeding
               </Button>
             </div>
@@ -243,16 +256,42 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
                 </div>
               )}
             </div>
+            <DialogFooter className="border-t pt-3 sm:justify-start">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    Remove proceeding
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove this proceeding?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently deletes proceeding{" "}
+                      <span className="font-mono">{detailProceeding.case_number}</span>{" "}
+                      and its judge assignments. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteMutation.mutate(detailProceeding.id)}
+                      disabled={deleteMutation.isPending}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {deleteMutation.isPending ? "Removing..." : "Remove"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
-
-      {/* Add proceeding dialog */}
-      <AddProceedingDialog
-        open={addProceedingOpen}
-        onOpenChange={setAddProceedingOpen}
-        caseId={caseData.id}
-      />
 
       {/* AI proceedings chat — floating modal */}
       <AiChatSheet
