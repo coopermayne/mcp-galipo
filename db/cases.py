@@ -216,6 +216,10 @@ def get_case_by_id(case_id: int) -> Optional[dict]:
             "trial_estimated_days": case.trial_estimated_days,
             "claim_deadline": _sv(case.claim_deadline),
             "complaint_deadline": _sv(case.complaint_deadline),
+            "complaint_deadline_note": case.complaint_deadline_note,
+            "claim_filed_date": _sv(case.claim_filed_date),
+            "claim_rejection_date": _sv(case.claim_rejection_date),
+            "complaint_filed_date": _sv(case.complaint_filed_date),
             "color": case.color,
             "attorney_ids": case.attorney_ids,
             "paralegal_ids": case.paralegal_ids,
@@ -456,11 +460,15 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
         "trial_date", "proposed_trial_dates",
         "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "claim_deadline", "complaint_deadline",
+        "complaint_deadline_note", "claim_filed_date", "claim_rejection_date",
+        "complaint_filed_date",
         "feature_toggles",
     ]
 
     nullable_fields = {
         "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline",
+        "complaint_deadline_note", "claim_filed_date", "claim_rejection_date",
+        "complaint_filed_date",
         "proposed_trial_dates", "trial_likelihood", "trial_likelihood_note",
         "trial_estimated_days", "notes", "result", "case_summary",
         "feature_toggles",
@@ -513,7 +521,10 @@ def update_case(case_id: int, **kwargs) -> Optional[dict]:
                     if isinstance(value, list):
                         for d in value:
                             validate_date_format(d, "proposed_trial_dates")
-                elif field in ("date_of_injury", "trial_date", "claim_deadline", "complaint_deadline"):
+                elif field in (
+                    "date_of_injury", "trial_date", "claim_deadline", "complaint_deadline",
+                    "claim_filed_date", "claim_rejection_date", "complaint_filed_date",
+                ):
                     validate_date_format(value, field)
 
             setattr(case, field, value)
