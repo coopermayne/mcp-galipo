@@ -294,6 +294,10 @@ class Case(Base):
     trial_estimated_days: Mapped[Optional[int]] = mapped_column(Integer)
     claim_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
     complaint_deadline: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    complaint_deadline_note: Mapped[Optional[str]] = mapped_column(Text)
+    claim_filed_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    claim_rejection_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    complaint_filed_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )

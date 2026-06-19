@@ -43,6 +43,10 @@ class UpdateCaseInput(BaseModel):
     trial_estimated_days: Optional[int] = None
     claim_deadline: Optional[str] = None
     complaint_deadline: Optional[str] = None
+    complaint_deadline_note: Optional[str] = None
+    claim_filed_date: Optional[str] = None
+    claim_rejection_date: Optional[str] = None
+    complaint_filed_date: Optional[str] = None
     notes: Optional[str] = None
     feature_toggles: Optional[dict[str, Any]] = None
 

@@ -130,6 +130,30 @@ function DateRow({ label, dateStr, onSave, showUrgency = false }: DateRowProps) 
   )
 }
 
+function NoteRow({
+  label,
+  value,
+  onSave,
+}: {
+  label: string
+  value: string | null
+  onSave: (v: string) => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-3 py-2 min-h-[34px]">
+      <span className="text-xs text-muted-foreground shrink-0 pt-0.5">{label}</span>
+      <div className="flex-1 min-w-0 text-right">
+        <InlineEditField
+          value={value ?? ""}
+          onSave={onSave}
+          placeholder="Add note..."
+          displayClassName="text-xs text-muted-foreground justify-end"
+        />
+      </div>
+    </div>
+  )
+}
+
 function SectionCaption({ label }: { label: string }) {
   return (
     <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -147,6 +171,10 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
       date_of_injury: string
       claim_deadline: string | null
       complaint_deadline: string | null
+      complaint_deadline_note: string | null
+      claim_filed_date: string | null
+      claim_rejection_date: string | null
+      complaint_filed_date: string | null
       trial_date: string
       trial_estimated_days: number | null
     }>) => updateCase(caseData.id, data),
@@ -159,8 +187,14 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
     onError: (e) => toast.error(e.message),
   })
 
+  // Which dates surface depends on the case phase (values are kept in the DB
+  // even when hidden — moving the status back shows them again):
+  //  • pre-claim     → Claim DL
+  //  • pre-complaint → Claim filed, Claim rejected, Complaint DL + note
+  //  • filed onward  → Complaint filed
   const showClaimDeadline = stage === "pre-claim"
-  const showFilingDeadline = stage === "pre-claim" || stage === "pre-filing"
+  const showPreComplaint = stage === "pre-filing"
+  const showComplaintFiled = stage === "filed" || stage === "resolved"
   const showTrialInfo = stage === "filed" || stage === "resolved"
 
   const stageLabel =
@@ -179,7 +213,7 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
         </span>
       }
     >
-      {/* Dates */}
+      {/* Dates — phase-dependent */}
       <div className="divide-y divide-border/50">
         <DateRow
           label="DOI"
@@ -196,12 +230,37 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
           />
         )}
 
-        {showFilingDeadline && (
+        {showPreComplaint && (
+          <>
+            <DateRow
+              label="Claim Filed"
+              dateStr={caseData.claim_filed_date}
+              onSave={(v) => updateMutation.mutate({ claim_filed_date: v || null })}
+            />
+            <DateRow
+              label="Claim Rejected"
+              dateStr={caseData.claim_rejection_date}
+              onSave={(v) => updateMutation.mutate({ claim_rejection_date: v || null })}
+            />
+            <DateRow
+              label="Complaint DL"
+              dateStr={caseData.complaint_deadline}
+              onSave={(v) => updateMutation.mutate({ complaint_deadline: v || null })}
+              showUrgency
+            />
+            <NoteRow
+              label="DL Note"
+              value={caseData.complaint_deadline_note}
+              onSave={(v) => updateMutation.mutate({ complaint_deadline_note: v || null })}
+            />
+          </>
+        )}
+
+        {showComplaintFiled && (
           <DateRow
-            label="Complaint DL"
-            dateStr={caseData.complaint_deadline}
-            onSave={(v) => updateMutation.mutate({ complaint_deadline: v || null })}
-            showUrgency
+            label="Complaint Filed"
+            dateStr={caseData.complaint_filed_date}
+            onSave={(v) => updateMutation.mutate({ complaint_filed_date: v || null })}
           />
         )}
       </div>
