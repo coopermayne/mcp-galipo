@@ -7,13 +7,7 @@ import { cn } from "@/lib/utils"
 import { updateProceeding } from "@/services/proceedings"
 import type { CaseDetail, CaseProceeding } from "@/types/case"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardAction,
-} from "@/components/ui/card"
+import { SectionPanel } from "@/components/common/section-panel"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -80,17 +74,20 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
 
   return (
     <>
-      <Card size="sm">
-        <CardHeader className="border-b bg-muted/40">
-          <CardTitle>
+      <SectionPanel
+        icon={CourtLawIcon}
+        title={
+          <>
             Proceedings
             {sortedProceedings.length > 0 && (
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
+              <span className="ml-1 font-normal text-muted-foreground">
                 ({sortedProceedings.length})
               </span>
             )}
-          </CardTitle>
-          <CardAction>
+          </>
+        }
+        accessory={
+          <>
             <Button
               variant="ghost"
               size="icon"
@@ -107,9 +104,9 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
             >
               <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
             </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="p-0">
+          </>
+        }
+      >
           {sortedProceedings.length > 0 ? (
             <div className="divide-y divide-border/50">
               {sortedProceedings.map((p) => (
@@ -188,8 +185,7 @@ export function CaseProceedingsCard({ caseData }: CaseProceedingsCardProps) {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </SectionPanel>
 
       {/* Single proceeding detail dialog */}
       {detailProceeding && (
