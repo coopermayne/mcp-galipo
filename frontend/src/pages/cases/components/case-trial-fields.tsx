@@ -8,6 +8,32 @@ import { getLikelihoodColor, formatTrialDate } from "@/components/common/trial-e
 import { DatePicker } from "@/components/ui/date-picker"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+/** Aligned label-left field row used across the trial editor. */
+function Field({
+  label,
+  align = "center",
+  children,
+}: {
+  label: string
+  align?: "center" | "start"
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn("flex gap-3", align === "start" ? "items-start" : "items-center")}>
+      <span
+        className={cn(
+          "w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground",
+          align === "start" && "pt-1.5"
+        )}
+      >
+        {label}
+      </span>
+      {children}
+    </div>
+  )
+}
 
 /** Default likelihood applied when a trial date is first set. */
 const DEFAULT_LIKELIHOOD = 100
@@ -109,12 +135,11 @@ export function CaseTrialFields({
   }
 
   return (
-    <div className="divide-y divide-border/40">
-      {/* Trial Date · est. days · holds link */}
-      <div className="space-y-1 py-3 first:pt-0 last:pb-0">
-        <label className="text-xs text-muted-foreground">Trial Date</label>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
+    <div className="space-y-2.5">
+      {/* Trial date · days · holds */}
+      <Field label="Trial date">
+        <div className="flex flex-1 flex-wrap items-center gap-2 min-w-0">
+          <div className="min-w-[150px] flex-1">
             <DatePicker value={trialDate || null} onChange={handleTrialDateChange} />
           </div>
           {trialDate && (
@@ -126,7 +151,7 @@ export function CaseTrialFields({
                 onBlur={commitDays}
                 min={1}
                 max={365}
-                className="w-14 bg-transparent border border-input px-2 py-1 text-sm text-center outline-none focus:ring-1 focus:ring-ring tabular-nums"
+                className="w-12 bg-transparent border border-input px-1.5 py-1 text-sm text-center outline-none focus:ring-1 focus:ring-ring tabular-nums"
               />
               <span className="text-xs text-muted-foreground">days</span>
             </div>
@@ -139,96 +164,85 @@ export function CaseTrialFields({
             >
               <HugeiconsIcon
                 icon={ArrowRight01Icon}
-                className={`size-3 transition-transform ${holdsOpen ? "rotate-90" : ""}`}
+                className={cn("size-3 transition-transform", holdsOpen && "rotate-90")}
               />
               Holds
             </button>
           )}
         </div>
-      </div>
+      </Field>
 
       {/* Holds — shown when any exist, or toggled open via the link */}
       {showHolds && (
-        <div className="space-y-1.5 py-3 first:pt-0 last:pb-0">
-          <label className="text-xs text-muted-foreground">
-            Holds (dates offered to court)
-          </label>
-          {holds.length > 0 && (
-            <div className="space-y-1">
-              {holds.map((d) => (
-                <div
-                  key={d}
-                  className="flex items-center gap-1 border border-input px-2 py-1"
+        <Field label="Holds" align="start">
+          <div className="flex-1 min-w-0 space-y-1">
+            {holds.map((d) => (
+              <div
+                key={d}
+                className="flex items-center gap-1 border border-input px-2 py-1"
+              >
+                <span className="text-xs flex-1 tabular-nums">
+                  {formatTrialDate(d)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  disabled={confirmMutation.isPending}
+                  onClick={() => confirmMutation.mutate(d)}
                 >
-                  <span className="text-xs flex-1 tabular-nums">
-                    {formatTrialDate(d)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[11px]"
-                    disabled={confirmMutation.isPending}
-                    onClick={() => confirmMutation.mutate(d)}
-                  >
-                    Confirm
-                  </Button>
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => removeHold(d)}
-                  >
-                    <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <DatePicker value={null} onChange={addHold} placeholder="+ Add hold date" />
-          {holds.length > 0 && (
-            <p className="text-[10px] text-muted-foreground">
-              Confirming a hold sets it as the trial date and releases the rest.
-            </p>
-          )}
-        </div>
+                  Confirm
+                </Button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => removeHold(d)}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+                </button>
+              </div>
+            ))}
+            <DatePicker value={null} onChange={addHold} placeholder="+ Add hold date" />
+            {holds.length > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Confirming a hold sets it as the trial date and releases the rest.
+              </p>
+            )}
+          </div>
+        </Field>
       )}
 
       {trialDate && (
         <>
           {/* Likelihood — always shown once a trial date is set (default 100%) */}
-          <div className="space-y-2 py-3 first:pt-0 last:pb-0">
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-muted-foreground">Likelihood</label>
-              <span className={`text-sm font-medium tabular-nums ${getLikelihoodColor(likeDraft)}`}>
+          <Field label="Likelihood">
+            <div className="flex flex-1 items-center gap-3 min-w-0">
+              <Slider
+                className="flex-1"
+                value={[likeDraft]}
+                onValueChange={([v]) => setLikeDraft(v)}
+                onValueCommit={([v]) => mutation.mutate({ trial_likelihood: v })}
+                min={0}
+                max={100}
+                step={10}
+              />
+              <span className={cn("w-9 text-right text-sm font-medium tabular-nums", getLikelihoodColor(likeDraft))}>
                 {likeDraft}%
               </span>
             </div>
-            <Slider
-              value={[likeDraft]}
-              onValueChange={([v]) => setLikeDraft(v)}
-              onValueCommit={([v]) => mutation.mutate({ trial_likelihood: v })}
-              min={0}
-              max={100}
-              step={10}
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>0%</span>
-              <span>50%</span>
-              <span>100%</span>
-            </div>
-          </div>
+          </Field>
 
           {/* Reason — always shown once a trial date is set */}
-          <div className="space-y-1 py-3 first:pt-0 last:pb-0">
-            <label className="text-xs text-muted-foreground">Reason</label>
+          <Field label="Reason" align="start">
             <textarea
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
               onBlur={commitNote}
               rows={2}
               placeholder="e.g., likely to file MSJ, case will settle..."
-              className="w-full bg-transparent border border-input px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring resize-none"
+              className="flex-1 min-w-0 bg-transparent border border-input px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring resize-none"
             />
-          </div>
+          </Field>
         </>
       )}
     </div>

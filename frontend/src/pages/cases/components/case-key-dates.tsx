@@ -9,6 +9,7 @@ import { updateCase } from "@/services/cases"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { CaseTrialFields } from "@/pages/cases/components/case-trial-fields"
 import { TrialEventsEditor } from "@/components/common/trial-events-editor"
+import { SectionPanel } from "@/components/common/section-panel"
 import { cn } from "@/lib/utils"
 
 interface CaseKeyDatesProps {
@@ -103,7 +104,7 @@ function DateRow({ label, dateStr, onSave, showUrgency = false }: DateRowProps) 
 
   return (
     <div className={cn(
-      "flex items-center justify-between gap-3 px-2.5 py-1.5 min-h-[32px]",
+      "flex items-center justify-between gap-3 px-3 py-2 min-h-[34px]",
       styles.bg,
     )}>
       <div className="flex items-center gap-2 shrink-0">
@@ -129,12 +130,10 @@ function DateRow({ label, dateStr, onSave, showUrgency = false }: DateRowProps) 
   )
 }
 
-function SectionHeader({ label, className }: { label: string; className?: string }) {
+function SectionCaption({ label }: { label: string }) {
   return (
-    <div className={cn("px-3 py-1.5 bg-muted/20 border-b border-border/50", className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
+    <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+      {label}
     </div>
   )
 }
@@ -164,22 +163,23 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
   const showFilingDeadline = stage === "pre-claim" || stage === "pre-filing"
   const showTrialInfo = stage === "filed" || stage === "resolved"
 
-  return (
-    <div className="border">
-      {/* Card header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
-        <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium">Key Dates</span>
-        <span className="text-[10px] text-muted-foreground ml-auto uppercase tracking-wider">
-          {stage === "pre-claim" && "Pre-Claim"}
-          {stage === "pre-filing" && "Pre-Filing"}
-          {stage === "filed" && "Filed"}
-          {stage === "resolved" && "Resolved"}
-        </span>
-      </div>
+  const stageLabel =
+    stage === "pre-claim" ? "Pre-Claim"
+    : stage === "pre-filing" ? "Pre-Filing"
+    : stage === "filed" ? "Filed"
+    : "Resolved"
 
-      {/* Dates section */}
-      <SectionHeader label="Dates" />
+  return (
+    <SectionPanel
+      icon={Calendar03Icon}
+      title="Key Dates"
+      accessory={
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          {stageLabel}
+        </span>
+      }
+    >
+      {/* Dates */}
       <div className="divide-y divide-border/50">
         <DateRow
           label="DOI"
@@ -206,11 +206,11 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
         )}
       </div>
 
-      {/* Trial section — date/holds/days, likelihood, reason, calendar events */}
+      {/* Trial — grouped + tinted to set it apart from the dates above */}
       {showTrialInfo && (
-        <>
-          <SectionHeader label="Trial" className="border-t" />
-          <div className="px-2.5 py-3">
+        <div className="border-t bg-muted/20">
+          <SectionCaption label="Trial" />
+          <div className="px-3 pb-3">
             <CaseTrialFields
               key={caseData.id}
               caseId={caseData.id}
@@ -224,12 +224,12 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
 
           {/* Trial calendar events (FPTC, PTC, TRC, MIL…) — only once a trial date is set */}
           {caseData.trial_date && (
-            <div className="border-t border-border/50 px-2.5 py-2.5">
+            <div className="border-t border-border/40 px-3 py-2.5">
               <TrialEventsEditor caseId={caseData.id} />
             </div>
           )}
-        </>
+        </div>
       )}
-    </div>
+    </SectionPanel>
   )
 }
