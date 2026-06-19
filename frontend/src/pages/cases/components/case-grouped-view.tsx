@@ -33,6 +33,11 @@ export function CaseGroupedView({
 }: CaseGroupedViewProps) {
   const { openCasePreview } = useCasePreview()
   const groups = useMemo(() => groupCasesByStatus(cases), [cases])
+  // Flattened display order for j/k navigation in the preview modal.
+  const orderedIds = useMemo(
+    () => groups.flatMap((g) => g.cases.map((c) => c.id)),
+    [groups]
+  )
 
   return (
     <div className="border border-border">
@@ -66,7 +71,7 @@ export function CaseGroupedView({
                     key={c.id}
                     caseItem={c}
                     usersMap={usersMap}
-                    onClick={() => openCasePreview(c.id)}
+                    onClick={() => openCasePreview(c.id, orderedIds)}
                   />
                 ))}
               </div>

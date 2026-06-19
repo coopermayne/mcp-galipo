@@ -66,7 +66,6 @@ function CaseDetailContent() {
   const [aiTasksOpen, setAiTasksOpen] = useState(false)
   const [aiEventsOpen, setAiEventsOpen] = useState(false)
   const [aiPeopleOpen, setAiPeopleOpen] = useState(false)
-  const [aiProceedingsOpen, setAiProceedingsOpen] = useState(false)
 
   useEffect(() => {
     const aiMode = searchParams.get("ai")
@@ -157,19 +156,6 @@ function CaseDetailContent() {
     },
   ], [caseId])
 
-  const aiProceedingsRules: ToolCompletionRule[] = useMemo(() => [
-    {
-      toolNames: ["manage_proceeding"],
-      queryKeys: [["case", caseId], ["cases"]],
-      toastMessage: "Proceeding updated via AI",
-    },
-    {
-      toolNames: ["manage_judge"],
-      queryKeys: [["case", caseId], ["judges"]],
-      toastMessage: "Judge updated via AI",
-    },
-  ], [caseId])
-
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6 p-6">
@@ -255,7 +241,6 @@ function CaseDetailContent() {
             <CaseSummarySection
               caseData={caseData}
               onAddPerson={openAddPerson}
-              onAiProceedings={() => setAiProceedingsOpen(true)}
               onAiPeople={() => setAiPeopleOpen(true)}
               onNest={handleNest}
             />
@@ -372,17 +357,6 @@ function CaseDetailContent() {
           mode="people"
           caseContext={caseData.id}
           toolCompletionRules={aiPeopleRules}
-        />
-        <AiChatSheet
-          open={aiProceedingsOpen}
-          onOpenChange={setAiProceedingsOpen}
-          title="AI Proceedings"
-          description="Manage court proceedings, judges, and jurisdictions for this case via chat."
-          placeholder="e.g. Add a proceeding in C.D. Cal. case #2:24-cv-01234, assigned to Judge Dolly Gee..."
-          emptyStateText="Describe proceedings to add or edit. Claude can create proceedings, search/create judges, and assign them."
-          mode="proceedings"
-          caseContext={caseData.id}
-          toolCompletionRules={aiProceedingsRules}
         />
       </div>
     </TooltipProvider>

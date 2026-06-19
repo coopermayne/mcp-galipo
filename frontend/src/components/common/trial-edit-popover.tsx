@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PencilEdit01Icon, InformationCircleIcon, Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
+import { PencilEdit01Icon, Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { todayInLA } from "@/lib/datetime"
 import { updateCase, confirmTrialDate } from "@/services/cases"
 import {
@@ -11,11 +11,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { DatePicker } from "@/components/ui/date-picker"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { TrialEventsEditor } from "@/components/common/trial-events-editor"
@@ -144,36 +139,31 @@ export function TrialEditCell({
                 >
                   {formatTrialDate(trialDate)}
                 </span>
+                <span className="text-muted-foreground text-[10px]">·</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {estimatedDays ?? 7}d
+                </span>
+                {likelihood != null && (
+                  <>
+                    <span className="text-muted-foreground text-[10px]">·</span>
+                    <span className={`text-xs tabular-nums font-medium ${getLikelihoodColor(likelihood)}`}>
+                      {likelihood}%
+                    </span>
+                  </>
+                )}
                 <HugeiconsIcon
                   icon={PencilEdit01Icon}
                   className="size-3 shrink-0 opacity-0 group-hover/trial:opacity-50 transition-opacity"
                 />
               </div>
-              <div className="flex items-center gap-1.5">
-                {likelihood != null ? (
-                  <span className={`text-xs tabular-nums font-medium ${getLikelihoodColor(likelihood)}`}>
-                    {likelihood}%
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground text-xs">—</span>
-                )}
-                {likelihoodNote && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-muted-foreground hover:text-foreground">
-                        <HugeiconsIcon icon={InformationCircleIcon} className="size-3" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs">
-                      {likelihoodNote}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <span className="text-muted-foreground text-[10px]">·</span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {estimatedDays ?? 7}d
+              {likelihood != null && likelihoodNote && (
+                <span
+                  className="text-xs text-muted-foreground truncate"
+                  title={likelihoodNote}
+                >
+                  {likelihoodNote}
                 </span>
-              </div>
+              )}
             </>
           ) : holds.length > 0 ? (
             <div className="flex items-center gap-1.5">
@@ -254,9 +244,11 @@ export function TrialEditCell({
             )}
           </div>
 
-          <div className="border-t -mx-1 px-1 pt-3">
-            <TrialEventsEditor caseId={caseId} enabled={open} />
-          </div>
+          {trialDate && (
+            <div className="border-t -mx-1 px-1 pt-3">
+              <TrialEventsEditor caseId={caseId} enabled={open} />
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Est. Days</label>
