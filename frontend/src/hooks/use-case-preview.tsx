@@ -1,12 +1,15 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getCase } from "@/services/cases"
-import { getStaff } from "@/services/staff"
 import { CaseQuickView } from "@/pages/cases/components/case-quick-view"
 
 type CasePreviewContextValue = {
-  /** Open the case preview modal for the given case id. */
-  openCasePreview: (caseId: number) => void
+  /**
+   * Open the case preview modal for the given case id. Optionally pass the
+   * ordered list of case ids currently visible (in display order) to enable
+   * j/k keyboard navigation between cases in that list.
+   */
+  openCasePreview: (caseId: number, caseIds?: number[]) => void
   /** Close the case preview modal. */
   closeCasePreview: () => void
 }
@@ -21,8 +24,11 @@ const CasePreviewContext = createContext<CasePreviewContextValue | null>(null)
  */
 export function CasePreviewProvider({ children }: { children: React.ReactNode }) {
   const [previewCaseId, setPreviewCaseId] = useState<number | null>(null)
+  // Ordered list of case ids in the current view, for j/k navigation.
+  const listIdsRef = useRef<number[]>([])
 
-  const openCasePreview = useCallback((caseId: number) => {
+  const openCasePreview = useCallback((caseId: number, caseIds?: number[]) => {
+    listIdsRef.current = caseIds ?? []
     setPreviewCaseId(caseId)
   }, [])
 
@@ -30,26 +36,37 @@ export function CasePreviewProvider({ children }: { children: React.ReactNode })
     setPreviewCaseId(null)
   }, [])
 
-  const { data: staffData } = useQuery({
-    queryKey: ["staff"],
-    queryFn: getStaff,
-    staleTime: 5 * 60 * 1000,
-  })
+  // j/k to move to the next/previous case in the current list.
+  useEffect(() => {
+    if (previewCaseId == null) return
 
-  const usersMap = useMemo(() => {
-    const map = new Map<number, { id: number; first_name: string; last_name: string; initials: string }>()
-    if (staffData?.data) {
-      for (const u of staffData.data) {
-        map.set(u.id, {
-          id: u.id,
-          first_name: u.firstName ?? "",
-          last_name: u.lastName ?? "",
-          initials: u.initials ?? "",
-        })
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "j" && e.key !== "k") return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      // Don't hijack keys while editing a field inside the modal.
+      const el = document.activeElement as HTMLElement | null
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
+        return
+      }
+
+      const ids = listIdsRef.current
+      if (ids.length === 0) return
+      const idx = ids.indexOf(previewCaseId!)
+      if (idx === -1) return
+
+      if (e.key === "j" && idx < ids.length - 1) {
+        e.preventDefault()
+        setPreviewCaseId(ids[idx + 1])
+      } else if (e.key === "k" && idx > 0) {
+        e.preventDefault()
+        setPreviewCaseId(ids[idx - 1])
       }
     }
-    return map
-  }, [staffData])
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [previewCaseId])
 
   const { data: selectedCase } = useQuery({
     queryKey: ["case", previewCaseId],
@@ -69,7 +86,6 @@ export function CasePreviewProvider({ children }: { children: React.ReactNode })
         caseData={selectedCase ?? null}
         open={previewCaseId != null}
         onClose={closeCasePreview}
-        usersMap={usersMap}
       />
     </CasePreviewContext.Provider>
   )

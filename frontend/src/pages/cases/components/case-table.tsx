@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useRef } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -123,8 +123,13 @@ export function CaseTable({
     }
   }, [])
 
+  // Ordered ids of the rows currently displayed, for j/k navigation in the
+  // preview modal. Kept in a ref so the column-level preview button (defined
+  // via table meta before the row model exists) can read the latest order.
+  const orderedIdsRef = useRef<number[]>([])
+
   const onPreview = useCallback((id: number) => {
-    openCasePreview(id)
+    openCasePreview(id, orderedIdsRef.current)
   }, [openCasePreview])
 
   const createMutation = useMutation({
@@ -187,6 +192,14 @@ export function CaseTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [table.getFilteredRowModel().rows]
   )
+
+  // Display order (sorted + filtered) for keyboard navigation.
+  const orderedIds = useMemo(
+    () => table.getRowModel().rows.map((r) => r.original.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [table.getRowModel().rows]
+  )
+  orderedIdsRef.current = orderedIds
 
   return (
     <>
@@ -389,7 +402,7 @@ export function CaseTable({
                 <TableRow
                   key={row.id}
                   className="cursor-pointer group/row"
-                  onClick={() => openCasePreview(row.original.id)}
+                  onClick={() => openCasePreview(row.original.id, orderedIds)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

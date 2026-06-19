@@ -1,14 +1,14 @@
 import { useMemo } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { AlertCircleIcon, Calendar03Icon, StarIcon } from "@hugeicons/core-free-icons"
+import { AlertCircleIcon, Calendar03Icon } from "@hugeicons/core-free-icons"
 import { todayInLA } from "@/lib/datetime"
 import type { CaseDetail, CaseStatus } from "@/types/case"
 import { updateCase } from "@/services/cases"
-import { getEvents } from "@/services/events"
 import { InlineEditField } from "@/components/common/inline-edit-field"
-import { TrialEditCell } from "@/components/common/trial-edit-popover"
+import { CaseTrialFields } from "@/pages/cases/components/case-trial-fields"
+import { TrialEventsEditor } from "@/components/common/trial-events-editor"
 import { cn } from "@/lib/utils"
 
 interface CaseKeyDatesProps {
@@ -129,13 +129,14 @@ function DateRow({ label, dateStr, onSave, showUrgency = false }: DateRowProps) 
   )
 }
 
-const PACIFIC_TZ = "America/Los_Angeles"
-
-function formatEventDate(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00Z`)
-  return d.toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric", timeZone: PACIFIC_TZ,
-  })
+function SectionHeader({ label, className }: { label: string; className?: string }) {
+  return (
+    <div className={cn("px-3 py-1.5 bg-muted/20 border-b border-border/50", className)}>
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+    </div>
+  )
 }
 
 export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
@@ -159,30 +160,13 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
     onError: (e) => toast.error(e.message),
   })
 
-  const { data: upcomingData } = useQuery({
-    queryKey: ["events", "case", caseData.id, false],
-    queryFn: () => getEvents({ case_id: caseData.id, limit: 500 }),
-  })
-
-  const { data: pastData } = useQuery({
-    queryKey: ["events", "case", caseData.id, true],
-    queryFn: () => getEvents({ case_id: caseData.id, limit: 500, include_past: true, past_days: 365 }),
-  })
-
-  const starredEvents = useMemo(() => {
-    const upcoming = (upcomingData?.events ?? []).filter((e) => e.starred)
-    const pastStarred = (pastData?.events ?? []).filter((e) => e.starred)
-    const ids = new Set(upcoming.map((e) => e.id))
-    return [...pastStarred.filter((e) => !ids.has(e.id)), ...upcoming]
-  }, [upcomingData, pastData])
-
   const showClaimDeadline = stage === "pre-claim"
   const showFilingDeadline = stage === "pre-claim" || stage === "pre-filing"
   const showTrialInfo = stage === "filed" || stage === "resolved"
 
   return (
     <div className="border">
-      {/* Header */}
+      {/* Card header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
         <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 text-muted-foreground" />
         <span className="text-xs font-medium">Key Dates</span>
@@ -194,7 +178,8 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
         </span>
       </div>
 
-      {/* Date rows */}
+      {/* Dates section */}
+      <SectionHeader label="Dates" />
       <div className="divide-y divide-border/50">
         <DateRow
           label="DOI"
@@ -219,11 +204,15 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
             showUrgency
           />
         )}
+      </div>
 
-        {showTrialInfo && (
-          <div className="flex items-center justify-between gap-3 px-2.5 py-1.5 min-h-[32px]">
-            <span className="text-xs text-muted-foreground shrink-0">Trial</span>
-            <TrialEditCell
+      {/* Trial section — date/holds/days, likelihood, reason, calendar events */}
+      {showTrialInfo && (
+        <>
+          <SectionHeader label="Trial" className="border-t" />
+          <div className="px-2.5 py-3">
+            <CaseTrialFields
+              key={caseData.id}
               caseId={caseData.id}
               trialDate={caseData.trial_date}
               likelihood={caseData.trial_likelihood}
@@ -232,26 +221,13 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
               proposedDates={caseData.proposed_trial_dates}
             />
           </div>
-        )}
-      </div>
 
-      {/* Starred events */}
-      {starredEvents.length > 0 && (
-        <>
-          <div className="border-t" />
-          <div className="divide-y divide-border/50">
-            {starredEvents.map((e) => (
-              <div key={e.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 min-h-[32px]">
-                <span className="flex items-center gap-1.5 text-xs truncate min-w-0">
-                  <HugeiconsIcon icon={StarIcon} className="size-3 text-warning shrink-0" />
-                  <span className="truncate">{e.description}</span>
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                  {formatEventDate(e.date)}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* Trial calendar events (FPTC, PTC, TRC, MIL…) — only once a trial date is set */}
+          {caseData.trial_date && (
+            <div className="border-t border-border/50 px-2.5 py-2.5">
+              <TrialEventsEditor caseId={caseData.id} />
+            </div>
+          )}
         </>
       )}
     </div>
