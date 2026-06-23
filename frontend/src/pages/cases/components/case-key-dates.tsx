@@ -281,12 +281,11 @@ export function CaseKeyDates({ caseData }: CaseKeyDatesProps) {
             />
           </div>
 
-          {/* Trial calendar events (FPTC, PTC, TRC, MIL…) — only once a trial date is set */}
-          {caseData.trial_date && (
-            <div className="border-t border-border/40 px-3 py-2.5">
-              <TrialEventsEditor caseId={caseData.id} />
-            </div>
-          )}
+          {/* Trial calendar events (FPTC, PTC, TRC, MIL…) — independent of the
+              trial date, since an FPTC often precedes (or sets) the trial date. */}
+          <div className="border-t border-border/40 px-3 py-2.5">
+            <TrialEventsEditor caseId={caseData.id} />
+          </div>
         </div>
       )}
     </SectionPanel>
