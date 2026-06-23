@@ -1,9 +1,10 @@
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { updateCase, confirmTrialDate } from "@/services/cases"
+import { getTrialEventsByCase } from "@/services/events"
 import { getLikelihoodColor, formatTrialDate } from "@/components/common/trial-edit-popover"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Slider } from "@/components/ui/slider"
@@ -72,6 +73,15 @@ export function CaseTrialFields({
   const [holdsOpen, setHoldsOpen] = useState(false)
 
   const showHolds = holds.length > 0 || holdsOpen
+
+  // Trial events (FPTC etc.) can exist before a trial date — the judge often
+  // sets the date at the FPTC. Surface a "pending" hint in that case. Shares
+  // the cache key with TrialEventsEditor so it's deduped.
+  const { data: trialEvents = [] } = useQuery({
+    queryKey: ["case-trial-events", caseId],
+    queryFn: () => getTrialEventsByCase(caseId),
+  })
+  const awaitingTrialDate = !trialDate && trialEvents.length > 0
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["cases"] })
@@ -171,6 +181,15 @@ export function CaseTrialFields({
           )}
         </div>
       </Field>
+
+      {/* Pending hint — events exist but no trial date yet (e.g. set at FPTC) */}
+      {awaitingTrialDate && (
+        <Field label="">
+          <span className="text-xs text-info">
+            Awaiting trial date — often set at the FPTC.
+          </span>
+        </Field>
+      )}
 
       {/* Holds — shown when any exist, or toggled open via the link */}
       {showHolds && (
