@@ -412,3 +412,34 @@ class UpdateLienInput(BaseModel):
     check_number: Optional[str] = None
     description: Optional[str] = None
     notes: Optional[str] = None
+
+
+# =============================================================================
+# Route Input Models — Worklog (voice-driven work log)
+# =============================================================================
+
+class WorklogSelectionInput(BaseModel):
+    """A surfaced item the user ticked to fold into the day's log. Resolved to
+    text/case/duration during consolidation; never stored as a back-reference."""
+    source_type: Literal["event", "task", "comment"]
+    source_id: int
+
+
+class ConsolidateWorklogInput(BaseModel):
+    transcript: str = ""
+    log_date: Optional[str] = None  # YYYY-MM-DD; defaults to today
+    selections: list[WorklogSelectionInput] = []
+
+
+class WorklogEntryInput(BaseModel):
+    case_id: Optional[int] = None
+    minutes: int
+    description: str
+    raw_reference: Optional[str] = None
+    person_ids: list[int] = []
+
+
+class ConfirmWorklogInput(BaseModel):
+    transcript: str = ""
+    log_date: Optional[str] = None
+    entries: list[WorklogEntryInput]
