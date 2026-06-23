@@ -187,6 +187,7 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 "short_name": c.short_name,
                 "color": c.color,
                 "status": c.status,
+                "attorney_ids": c.attorney_ids or [],
             })
 
     return {

@@ -37,8 +37,10 @@ export function getTrialColumns(options: {
       id: "team",
       header: "Team",
       cell: ({ row }) => {
-        if (row.original.kind !== "trial") return null
-        const ids = row.original.trial.attorney_ids
+        let ids: number[]
+        if (row.original.kind === "trial") ids = row.original.trial.attorney_ids
+        else if (row.original.kind === "trial_event") ids = row.original.trialEvent.attorney_ids ?? []
+        else return null
         if (!ids.length) return <span className="text-muted-foreground">—</span>
         return (
           <div className="flex gap-1">
@@ -204,7 +206,7 @@ export function getTrialColumns(options: {
         if (row.original.kind === "trial_event") {
           const te = row.original.trialEvent
           return (
-            <span>
+            <span className="text-sm">
               {format(parseDate(te.date), "MMM d, yyyy")}
               {te.end_date && ` – ${format(parseDate(te.end_date), "MMM d, yyyy")}`}
               {te.time && (
@@ -217,14 +219,14 @@ export function getTrialColumns(options: {
         const dateStr = row.original.date
         if (evt.end_date) {
           return (
-            <span>
+            <span className="text-sm">
               {format(parseDate(dateStr), "MMM d, yyyy")}
               {" – "}
               {format(parseDate(evt.end_date), "MMM d, yyyy")}
             </span>
           )
         }
-        return <span>{format(parseDate(dateStr), "MMM d, yyyy")}</span>
+        return <span className="text-sm">{format(parseDate(dateStr), "MMM d, yyyy")}</span>
       },
       sortingFn: (a, b) => a.original.date.localeCompare(b.original.date),
     },
