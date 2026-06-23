@@ -27,6 +27,7 @@ import { CaseSummarySection } from "@/pages/cases/components/case-summary-sectio
 import { CaseRepresentationCard } from "@/pages/cases/components/case-representation-card"
 import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
 import { CaseInfoPanel } from "@/pages/cases/components/case-info-panel"
+import { CaseWorkLog } from "@/pages/cases/components/case-work-log"
 import { AddPersonDialog } from "@/pages/cases/components/add-person-dialog"
 import { CaseTasksCard } from "@/pages/cases/components/case-tasks-card"
 import { AddTaskDialog } from "@/pages/cases/components/add-task-dialog"
@@ -302,6 +303,7 @@ function CaseDetailContent() {
               <CaseHealthCard caseId={caseData.id} />
               <CaseKeyDates caseData={caseData} />
               <CaseInfoPanel caseData={caseData} />
+              <CaseWorkLog caseId={caseData.id} />
               <CaseActivityFeed caseId={caseData.id} />
             </div>
           </div>
