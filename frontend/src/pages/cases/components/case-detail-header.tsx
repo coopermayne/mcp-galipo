@@ -47,9 +47,15 @@ const STATUS_GROUPS: StatusGroup[] = [
 
 interface CaseDetailHeaderProps {
   caseData: CaseDetail
+  /**
+   * Stacked layout: case name + short name on the first line, then status and
+   * assigned people on a second line. Default (inline) keeps name + status +
+   * people on one row with the short name beneath.
+   */
+  stacked?: boolean
 }
 
-export function CaseDetailHeader({ caseData }: CaseDetailHeaderProps) {
+export function CaseDetailHeader({ caseData, stacked = false }: CaseDetailHeaderProps) {
   const queryClient = useQueryClient()
   const [statusOpen, setStatusOpen] = useState(false)
 
@@ -75,78 +81,109 @@ export function CaseDetailHeader({ caseData }: CaseDetailHeaderProps) {
     setStatusOpen(false)
   }
 
+  const nameField = (
+    <InlineEditField
+      value={caseData.case_name}
+      onSave={(v) => updateMutation.mutate({ case_name: v })}
+      displayClassName="text-lg font-semibold w-fit"
+      className="text-lg font-semibold"
+    />
+  )
+
+  const shortNameField = (
+    <InlineEditField
+      value={caseData.short_name ?? ""}
+      onSave={(v) => updateMutation.mutate({ short_name: v })}
+      placeholder="Add short name..."
+      displayClassName={cn("text-xs text-muted-foreground", stacked && "w-fit")}
+    />
+  )
+
+  const statusControl = (
+    <Popover open={statusOpen} onOpenChange={setStatusOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className="cursor-pointer shrink-0">
+          <CaseStatusBadge status={caseData.status} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-3">
+        <div className="space-y-3">
+          {STATUS_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p
+                className={cn(
+                  "text-[10px] font-bold tracking-widest uppercase mb-1.5",
+                  group.labelClass
+                )}
+              >
+                {group.label}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {group.statuses.map((status) => {
+                  const isActive = caseData.status === status
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => handleStatusChange(status)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2 py-1 text-xs transition-colors",
+                        isActive
+                          ? "bg-accent text-accent-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block size-1.5 shrink-0 border",
+                          isActive
+                            ? "border-foreground bg-foreground"
+                            : "border-muted-foreground/50 bg-transparent"
+                        )}
+                      />
+                      {status}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+
+  const staff = (
+    <StaffAvatars
+      caseId={caseData.id}
+      attorneys={caseData.attorneys}
+      paralegals={caseData.paralegals}
+    />
+  )
+
+  if (stacked) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          {nameField}
+          {shortNameField}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {statusControl}
+          {staff}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-        <InlineEditField
-          value={caseData.case_name}
-          onSave={(v) => updateMutation.mutate({ case_name: v })}
-          displayClassName="text-lg font-semibold w-fit"
-          className="text-lg font-semibold"
-        />
-        <Popover open={statusOpen} onOpenChange={setStatusOpen}>
-          <PopoverTrigger asChild>
-            <button type="button" className="cursor-pointer shrink-0">
-              <CaseStatusBadge status={caseData.status} />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-80 p-3">
-            <div className="space-y-3">
-              {STATUS_GROUPS.map((group) => (
-                <div key={group.label}>
-                  <p
-                    className={cn(
-                      "text-[10px] font-bold tracking-widest uppercase mb-1.5",
-                      group.labelClass
-                    )}
-                  >
-                    {group.label}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {group.statuses.map((status) => {
-                      const isActive = caseData.status === status
-                      return (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() => handleStatusChange(status)}
-                          className={cn(
-                            "inline-flex items-center gap-1.5 px-2 py-1 text-xs transition-colors",
-                            isActive
-                              ? "bg-accent text-accent-foreground font-medium"
-                              : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "inline-block size-1.5 shrink-0 border",
-                              isActive
-                                ? "border-foreground bg-foreground"
-                                : "border-muted-foreground/50 bg-transparent"
-                            )}
-                          />
-                          {status}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-        <StaffAvatars
-          caseId={caseData.id}
-          attorneys={caseData.attorneys}
-          paralegals={caseData.paralegals}
-        />
+        {nameField}
+        {statusControl}
+        {staff}
       </div>
-      <InlineEditField
-        value={caseData.short_name ?? ""}
-        onSave={(v) => updateMutation.mutate({ short_name: v })}
-        placeholder="Add short name..."
-        displayClassName="text-xs text-muted-foreground"
-      />
+      {shortNameField}
     </div>
   )
 }
