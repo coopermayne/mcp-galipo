@@ -30,19 +30,9 @@ export function CaseQuickView({ caseData, open, onClose }: CaseQuickViewProps) {
       <SheetContent side="right" className="data-[side=right]:w-full data-[side=right]:sm:max-w-[560px] flex flex-col p-0">
         {caseData ? (
           <TooltipProvider>
-            {/* Header — title, status, assignment chips (same as detail page) */}
-            <SheetHeader className="px-4 py-3 border-b space-y-2">
-              <div className="flex items-start gap-2">
-                {caseData.color && (
-                  <span
-                    className="inline-block size-2.5 shrink-0 mt-1.5"
-                    style={{ backgroundColor: caseData.color }}
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <CaseDetailHeader caseData={caseData} />
-                </div>
-              </div>
+            {/* Header — name + short name, then status + assigned people */}
+            <SheetHeader className="px-4 py-3 border-b">
+              <CaseDetailHeader caseData={caseData} stacked />
             </SheetHeader>
 
             {/* Scrollable body — proceedings, key dates, summary */}
