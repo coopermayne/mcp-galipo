@@ -99,9 +99,17 @@ lengths; flexible work absorbs the remainder and is scaled to fit. If anchored i
 exceed 7h, keep them accurate and let the total exceed — the user will adjust. Never pad with
 invented activities; only distribute time across what's given.
 
-STEP 4 — MATCH each activity to a case (fuzzy by name) and to people from the candidate lists.
-No confident case match -> case_id=null, put the user's phrasing in case_guess. ALWAYS fill
-raw_reference. Use the submit_worklog tool; entries in chronological order."""
+STEP 4 — MATCH each activity to a case (fuzzy by name). No confident case match -> case_id=null,
+put the user's phrasing in case_guess. ALWAYS fill raw_reference.
+
+PEOPLE: Only tag a person when they are EXPLICITLY NAMED or clearly referenced in that activity's
+text (e.g. "call with Tanner Navaroli", "met opposing counsel Jane Doe"). Match the named person
+to the candidate list and use their id. Do NOT tag people just because they are associated with the
+case — an activity like "drafted the opposition" or "reviewed body cam footage" names no one, so
+person_ids must be empty. When in doubt, leave it empty. A generic role with no name ("called
+opposing counsel") is NOT a tag unless the candidate list has that exact named person.
+
+Use the submit_worklog tool; entries in chronological order."""
 
 
 def _gather_candidates(user_id: Optional[int]) -> tuple[list[dict], list[dict]]:
