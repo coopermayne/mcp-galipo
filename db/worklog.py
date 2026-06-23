@@ -469,6 +469,7 @@ def get_worklog_by_case(case_id: int) -> dict:
                 "id": entry.id,
                 "minutes": entry.minutes,
                 "description": entry.description,
+                "author_id": log.created_by,
                 "author_initials": author.initials if author else None,
                 "people": [
                     {"id": persons[pp.person_id].id, "name": persons[pp.person_id].name}
