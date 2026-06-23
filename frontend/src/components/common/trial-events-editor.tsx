@@ -99,8 +99,10 @@ export function TrialEventsEditor({
               >
                 {getEventTypeLabel(e.event_type ?? "")}
               </Badge>
-              <span className="text-[11px] flex-1 truncate" title={e.description}>
-                {e.description}
+              <span className="text-[11px] flex-1 truncate" title={e.description ?? ""}>
+                {e.description && e.description !== getEventTypeLabel(e.event_type ?? "")
+                  ? e.description
+                  : null}
               </span>
               <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
                 {formatTrialDate(e.date)}
