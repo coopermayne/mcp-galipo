@@ -591,3 +591,53 @@ class IntakeCommentOut(BaseModel):
     user_first_name: Optional[str] = None
     user_last_name: Optional[str] = None
     user_initials: Optional[str] = None
+
+
+# =============================================================================
+# Worklog (voice-driven work log)
+# =============================================================================
+
+class WorklogPersonOut(BaseModel):
+    id: int
+    name: str
+
+
+class WorklogCandidateOut(BaseModel):
+    """A surfaced item (event / completed-or-changed task / case comment) the
+    user can tick to fold into the day's log."""
+    source_type: str
+    source_id: int
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    short_name: Optional[str] = None
+    description: str
+    anchored_minutes: Optional[int] = None  # events with a real start/end time
+    when: Optional[str] = None              # display hint (time / label)
+
+
+class WorklogEntryOut(BaseModel):
+    id: int
+    voice_log_id: int
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    short_name: Optional[str] = None
+    minutes: int
+    description: str
+    raw_reference: Optional[str] = None     # original phrasing / case_guess
+    activity_date: Optional[str] = None
+    created_at: Optional[datetime.datetime] = None
+    people: list[WorklogPersonOut] = []
+
+
+class WorklogOut(BaseModel):
+    id: int
+    transcript: Optional[str] = None
+    log_date: Optional[str] = None
+    status: str
+    error: Optional[str] = None
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    created_by_initials: Optional[str] = None
+    created_at: Optional[datetime.datetime] = None
+    confirmed_at: Optional[datetime.datetime] = None
+    entries: list[WorklogEntryOut] = []

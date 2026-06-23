@@ -173,6 +173,21 @@ from .notes import (
     get_notes,
 )
 
+# Worklog (voice-driven work log)
+from .worklog import (
+    get_worklog_candidates,
+    resolve_selection_context,
+    create_processing_log,
+    set_worklog_status,
+    save_consolidated_entries,
+    get_worklog,
+    list_pending_worklogs,
+    confirm_worklog,
+    delete_worklog,
+    get_worklog_by_case,
+    get_worklog_by_person,
+)
+
 # Type operations (expertise types only - person types replaced by roles)
 from .types import (
     get_expertise_types,
@@ -538,6 +553,18 @@ __all__ = [
     "update_note",
     "delete_note",
     "get_notes",
+    # Worklog
+    "get_worklog_candidates",
+    "resolve_selection_context",
+    "create_processing_log",
+    "set_worklog_status",
+    "save_consolidated_entries",
+    "get_worklog",
+    "list_pending_worklogs",
+    "confirm_worklog",
+    "delete_worklog",
+    "get_worklog_by_case",
+    "get_worklog_by_person",
     # Types (expertise types only)
     "get_expertise_types",
     "create_expertise_type",

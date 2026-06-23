@@ -343,6 +343,7 @@ class Case(Base):
     tasks: Mapped[list[Task]] = relationship(back_populates="case", passive_deletes=True)
     invoices: Mapped[list[Invoice]] = relationship(back_populates="case", passive_deletes=True)
     liens: Mapped[list[Lien]] = relationship(back_populates="case", passive_deletes=True)
+    worklog_entries: Mapped[list[WorklogEntry]] = relationship(back_populates="case", passive_deletes=True)
 
 
 class CaseChecklistItem(Base):
@@ -1573,3 +1574,116 @@ class TokenUsageLog(Base):
     conversation_id: Mapped[Optional[str]] = mapped_column(String(64))
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
     meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB(none_as_null=True))
+
+
+class VoiceLog(Base):
+    """One work-logging session: a raw memo for a given day, consolidated by AI
+    into time-estimated WorklogEntry rows.
+
+    Lifecycle: 'processing' (AI running in a background thread) -> 'ready'
+    (entries written, awaiting review) -> 'confirmed' (user reviewed; only
+    confirmed entries count toward case/contact totals). 'failed' on error.
+    """
+
+    __tablename__ = "voice_logs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["created_by"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="voice_logs_created_by_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="voice_logs_pkey"),
+        Index("idx_voice_logs_log_date", "log_date"),
+        Index("idx_voice_logs_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    transcript: Mapped[Optional[str]] = mapped_column(Text)
+    log_date: Mapped[datetime.date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), server_default=text("'processing'"))
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    confirmed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True)
+    )
+
+    # Relationships
+    entries: Mapped[list[WorklogEntry]] = relationship(
+        back_populates="voice_log", passive_deletes=True
+    )
+
+
+class WorklogEntry(Base):
+    """A consolidated, time-estimated activity — one entry belongs to exactly
+    one case (or none, when unmatched). Surfaced source items are merged into
+    `description` by the AI; we keep no back-reference to the source rows."""
+
+    __tablename__ = "worklog_entries"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["voice_log_id"],
+            ["voice_logs.id"],
+            ondelete="CASCADE",
+            name="worklog_entries_voice_log_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["case_id"],
+            ["cases.id"],
+            ondelete="SET NULL",
+            name="worklog_entries_case_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="worklog_entries_pkey"),
+        Index("idx_worklog_entries_voice_log_id", "voice_log_id"),
+        Index("idx_worklog_entries_case_id", "case_id"),
+        Index("idx_worklog_entries_activity_date", "activity_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    voice_log_id: Mapped[int] = mapped_column(Integer)
+    case_id: Mapped[Optional[int]] = mapped_column(Integer)
+    minutes: Mapped[int] = mapped_column(Integer)
+    description: Mapped[str] = mapped_column(Text)
+    raw_reference: Mapped[Optional[str]] = mapped_column(Text)
+    activity_date: Mapped[datetime.date] = mapped_column(Date)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+
+    # Relationships
+    voice_log: Mapped[VoiceLog] = relationship(back_populates="entries")
+    case: Mapped[Optional[Case]] = relationship(back_populates="worklog_entries")
+    people: Mapped[list[WorklogEntryPerson]] = relationship(
+        back_populates="entry", passive_deletes=True
+    )
+
+
+class WorklogEntryPerson(Base):
+    """Junction: a worklog entry can name several people (many-to-many)."""
+
+    __tablename__ = "worklog_entry_people"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["entry_id"],
+            ["worklog_entries.id"],
+            ondelete="CASCADE",
+            name="worklog_entry_people_entry_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["person_id"],
+            ["persons.id"],
+            ondelete="CASCADE",
+            name="worklog_entry_people_person_id_fkey",
+        ),
+        PrimaryKeyConstraint("entry_id", "person_id", name="worklog_entry_people_pkey"),
+        Index("idx_worklog_entry_people_person_id", "person_id"),
+    )
+
+    entry_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    person_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # Relationships
+    entry: Mapped[WorklogEntry] = relationship(back_populates="people")

@@ -70,6 +70,7 @@ from .invoices import register_invoice_routes
 from .liens import register_lien_routes
 from .health import register_health_routes
 from .activity import register_activity_routes
+from .worklog import register_worklog_routes
 from .contacts import register_contact_routes
 from .comments import register_comment_routes
 from .checklist import register_checklist_routes
@@ -149,6 +150,8 @@ def register_routes(mcp):
     register_health_routes(mcp)
     _logger.debug("Registering activity routes...")
     register_activity_routes(mcp)
+    _logger.debug("Registering worklog routes...")
+    register_worklog_routes(mcp)
     _logger.debug("Registering contact routes...")
     register_contact_routes(mcp)
     _logger.debug("Registering comment routes...")
@@ -196,5 +199,6 @@ __all__ = [
     "register_invoice_routes",
     "register_lien_routes",
     "register_activity_routes",
+    "register_worklog_routes",
     "register_static_routes",
 ]
