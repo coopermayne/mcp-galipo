@@ -42,6 +42,7 @@ export interface TrialEvent {
   short_name: string | null
   color: string | null
   status: string
+  attorney_ids: number[]
 }
 
 export interface TrialCalendarData {
