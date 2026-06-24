@@ -22,7 +22,7 @@ import type { PersonListItem } from "@/types/person"
 import type { ContactInfo } from "@/types/person"
 import { getPerson, updatePerson, removePersonFromCase, deletePerson } from "@/services/persons"
 import { getConversationsByPerson, createConversation } from "@/services/sms"
-import { getWorklogByPerson, formatMinutes } from "@/services/worklog"
+import { getWorklogByPerson, formatHours } from "@/services/worklog"
 import { Button } from "@/components/ui/button"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { Badge } from "@/components/ui/badge"
@@ -246,7 +246,7 @@ function PersonInteractionsSection({
           Interactions
         </span>
         <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-          {formatMinutes(data?.total_minutes ?? 0)}
+          {formatHours(data?.total_hours ?? 0)}
         </span>
       </div>
       <div className="pl-5 space-y-1">
@@ -269,7 +269,7 @@ function PersonInteractionsSection({
               </p>
             </div>
             <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">
-              {formatMinutes(e.minutes)}
+              {formatHours(e.hours)}
             </span>
           </div>
         ))}

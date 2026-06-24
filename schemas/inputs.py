@@ -429,13 +429,16 @@ class ConsolidateWorklogInput(BaseModel):
     transcript: str = ""
     log_date: Optional[str] = None  # YYYY-MM-DD; defaults to today
     selections: list[WorklogSelectionInput] = []
+    # Ids of cases the user explicitly @-tagged in the memo — strong, exact
+    # id↔name hints for the AI (their full names appear verbatim in transcript).
+    mentioned_case_ids: list[int] = []
 
 
 class AddWorklogEntryInput(BaseModel):
     """Manually add a single entry to a day's ledger."""
     log_date: Optional[str] = None  # YYYY-MM-DD; defaults today
     case_id: Optional[int] = None
-    minutes: int = 0
+    hours: float = 0  # time spent, in decimal hours (0.1 = 6 min)
     description: str = ""
     person_ids: list[int] = []
 
@@ -444,6 +447,6 @@ class UpdateWorklogEntryInput(BaseModel):
     """Patch an existing entry. Unset fields are left unchanged; case_id may be
     sent as null to clear the match."""
     case_id: Optional[int] = None
-    minutes: Optional[int] = None
+    hours: Optional[float] = None
     description: Optional[str] = None
     person_ids: Optional[list[int]] = None

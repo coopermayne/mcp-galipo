@@ -1,132 +1,133 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon, AlertCircleIcon } from "@hugeicons/core-free-icons"
+import { Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { getCases } from "@/services/cases"
-import { searchPersons } from "@/services/persons"
+import type { CaseListItem } from "@/types/case"
 import { Badge } from "@/components/ui/badge"
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-} from "@/components/ui/combobox"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { getBadgeStyle } from "@/lib/badge-colors"
+import { cn } from "@/lib/utils"
 
-interface CaseOption {
-  id: number
-  case_name: string
-  short_name: string | null
-}
-
-export function CasePicker({
+/**
+ * Compact case selector: a colored case chip (or an "unmatched"/"+ case" hint)
+ * that opens a searchable popover. Mirrors the case badge used in task/event
+ * lists. Calls onChange with the picked case id (or null to clear).
+ */
+export function InlineCasePicker({
   value,
-  label,
+  shortName,
+  caseName,
+  caseColor,
   guess,
   onChange,
 }: {
   value: number | null
-  label: string | null
+  shortName: string | null
+  caseName: string | null
+  caseColor: string | null
   guess: string | null
-  onChange: (c: CaseOption | null) => void
+  onChange: (caseId: number | null) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState("")
+
   const { data } = useQuery({
     queryKey: ["cases", "worklog-picker"],
     queryFn: () => getCases({ limit: 500 }),
     staleTime: 5 * 60 * 1000,
+    enabled: open,
   })
-  const cases = data?.cases ?? []
-  const selected = value != null ? cases.find((c) => c.id === value) ?? null : null
+
+  const filtered = useMemo(() => {
+    const cases = (data?.cases ?? []) as CaseListItem[]
+    const ql = q.trim().toLowerCase()
+    return cases
+      .filter((c) => c.status !== "Closed")
+      .filter(
+        (c) =>
+          !ql ||
+          (c.short_name ?? "").toLowerCase().includes(ql) ||
+          c.case_name.toLowerCase().includes(ql)
+      )
+      .slice(0, 50)
+  }, [data, q])
+
+  const label = shortName || caseName
 
   return (
-    <div className="space-y-1">
-      <Combobox
-        value={selected}
-        onValueChange={(c: CaseOption | null) => onChange(c)}
-        items={cases}
-        itemToStringLabel={(c: CaseOption) => c.short_name || c.case_name}
-      >
-        <ComboboxInput
-          placeholder={label ? label : "Match a case…"}
-          showClear={!!value}
-          showTrigger
-          className="text-xs"
-        />
-        <ComboboxContent>
-          <ComboboxList>
-            {(c: CaseOption) => (
-              <ComboboxItem key={c.id} value={c}>
-                <div className="flex flex-col">
-                  <span className="text-xs">{c.short_name || c.case_name}</span>
-                  {c.short_name && (
-                    <span className="text-[10px] text-muted-foreground">{c.case_name}</span>
-                  )}
-                </div>
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-      {!value && guess && (
-        <span className="flex items-center gap-1 text-[10px] text-warning-foreground">
-          <HugeiconsIcon icon={AlertCircleIcon} className="size-3" />
-          unmatched — “{guess}”
-        </span>
-      )}
-    </div>
-  )
-}
-
-export function PeopleEditor({
-  people,
-  onAdd,
-  onRemove,
-}: {
-  people: { id: number; name: string }[]
-  onAdd: (p: { id: number; name: string }) => void
-  onRemove: (id: number) => void
-}) {
-  const { data } = useQuery({
-    queryKey: ["persons", "worklog-picker"],
-    queryFn: () => searchPersons({ limit: 500, include_roles: false }),
-    staleTime: 5 * 60 * 1000,
-  })
-  const options = useMemo(
-    () => (data?.persons ?? []).map((p) => ({ id: p.id, name: p.name })),
-    [data]
-  )
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {people.map((p) => (
-        <Badge key={p.id} variant="secondary" className="gap-1 pr-1">
-          {p.name}
-          <button type="button" onClick={() => onRemove(p.id)} className="hover:text-destructive">
-            <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-          </button>
-        </Badge>
-      ))}
-      <div className="w-44">
-        <Combobox
-          value={null}
-          onValueChange={(p: { id: number; name: string } | null) => {
-            if (p) onAdd(p)
-          }}
-          items={options}
-          itemToStringLabel={(p: { id: number; name: string }) => p.name}
-        >
-          <ComboboxInput placeholder="+ person" className="h-7 text-xs" />
-          <ComboboxContent>
-            <ComboboxList>
-              {(p: { id: number; name: string }) => (
-                <ComboboxItem key={p.id} value={p}>
-                  <span className="text-xs">{p.name}</span>
-                </ComboboxItem>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ("") }}>
+      <PopoverTrigger asChild>
+        <button type="button" className="shrink-0 inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+          {value && label ? (
+            <Badge
+              className="h-4 max-w-[10rem] truncate px-1.5 py-0 text-[10px] leading-none"
+              style={getBadgeStyle(caseColor)}
+            >
+              {label}
+            </Badge>
+          ) : guess ? (
+            <Badge
+              variant="outline"
+              className="h-4 max-w-[10rem] truncate border-dashed px-1.5 py-0 text-[10px] leading-none text-warning-foreground"
+              title={`unmatched — ${guess}`}
+            >
+              {guess}
+            </Badge>
+          ) : (
+            <span className="inline-flex h-4 items-center gap-0.5 border border-dashed border-muted-foreground/30 px-1.5 text-[10px] text-muted-foreground/60 transition-colors hover:border-muted-foreground/60 hover:text-muted-foreground">
+              <HugeiconsIcon icon={Add01Icon} className="size-2.5" />
+              case
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-60 p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="border-b p-1.5">
+          <Input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search cases…"
+            className="h-7 text-xs"
+          />
+        </div>
+        <div className="max-h-56 overflow-auto p-1">
+          {value && (
+            <button
+              type="button"
+              onClick={() => { onChange(null); setOpen(false) }}
+              className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+              Clear case
+            </button>
+          )}
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => { onChange(c.id); setOpen(false) }}
+              className={cn(
+                "flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-accent/50",
+                c.id === value && "bg-accent/40"
               )}
-            </ComboboxList>
-          </ComboboxContent>
-        </Combobox>
-      </div>
-    </div>
+            >
+              <Badge
+                className="h-4 shrink-0 px-1.5 py-0 text-[10px] leading-none"
+                style={getBadgeStyle(c.color)}
+              >
+                {c.short_name || c.case_name}
+              </Badge>
+              <span className="truncate text-[11px] text-muted-foreground">{c.case_name}</span>
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-2 py-3 text-center text-[11px] text-muted-foreground">No cases</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

@@ -7,7 +7,7 @@ export interface WorklogCandidate {
   case_name: string | null
   short_name: string | null
   description: string
-  anchored_minutes: number | null
+  anchored_hours: number | null
   when: string | null
   already_logged: boolean
 }
@@ -29,7 +29,8 @@ export interface WorklogEntry {
   case_id: number | null
   case_name: string | null
   short_name: string | null
-  minutes: number
+  case_color: string | null
+  hours: number
   description: string
   raw_reference: string | null
   activity_date: string | null
@@ -52,7 +53,7 @@ export interface Worklog {
 /** The current user's editable ledger for one day. */
 export interface WorklogDay {
   date: string
-  total_minutes: number
+  total_hours: number
   entries: WorklogEntry[]
   processing_ids: number[]
 }
@@ -66,10 +67,10 @@ export interface WorklogSelection {
 /** Confirmed worklog for a case, grouped by day. */
 export interface WorklogByCaseDay {
   date: string
-  minutes: number
+  hours: number
   entries: {
     id: number
-    minutes: number
+    hours: number
     description: string
     author_id: number | null
     author_initials: string | null
@@ -79,13 +80,13 @@ export interface WorklogByCaseDay {
 
 export interface WorklogByCase {
   case_id: number
-  total_minutes: number
+  total_hours: number
   days: WorklogByCaseDay[]
 }
 
 export interface WorklogByPersonEntry {
   id: number
-  minutes: number
+  hours: number
   description: string
   activity_date: string | null
   case_id: number | null
@@ -95,6 +96,6 @@ export interface WorklogByPersonEntry {
 
 export interface WorklogByPerson {
   person_id: number
-  total_minutes: number
+  total_hours: number
   entries: WorklogByPersonEntry[]
 }

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { PenTool01Icon } from "@hugeicons/core-free-icons"
-import { getWorklogByCase, formatMinutes } from "@/services/worklog"
+import { getWorklogByCase, formatHours } from "@/services/worklog"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { SectionPanel } from "@/components/common/section-panel"
 import { formatLA } from "@/lib/datetime"
@@ -18,7 +18,7 @@ export function CaseWorkLog({ caseId }: CaseWorkLogProps) {
   })
 
   const days = data?.days ?? []
-  const total = data?.total_minutes ?? 0
+  const total = data?.total_hours ?? 0
 
   return (
     <SectionPanel
@@ -27,7 +27,7 @@ export function CaseWorkLog({ caseId }: CaseWorkLogProps) {
       accessory={
         total > 0 ? (
           <span className="text-xs font-medium tabular-nums text-muted-foreground">
-            {formatMinutes(total)}
+            {formatHours(total)}
           </span>
         ) : null
       }
@@ -43,7 +43,7 @@ export function CaseWorkLog({ caseId }: CaseWorkLogProps) {
                   {formatLA(`${day.date}T00:00:00`, { weekday: "short", month: "short", day: "numeric" })}
                 </span>
                 <span className="text-[11px] tabular-nums text-muted-foreground">
-                  {formatMinutes(day.minutes)}
+                  {formatHours(day.hours)}
                 </span>
               </div>
               <div className="space-y-1.5">
@@ -60,7 +60,7 @@ export function CaseWorkLog({ caseId }: CaseWorkLogProps) {
                     )}
                     <span className="flex-1 text-xs">{e.description}</span>
                     <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">
-                      {formatMinutes(e.minutes)}
+                      {formatHours(e.hours)}
                     </span>
                   </div>
                 ))}

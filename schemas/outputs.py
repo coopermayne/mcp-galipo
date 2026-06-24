@@ -611,7 +611,7 @@ class WorklogCandidateOut(BaseModel):
     case_name: Optional[str] = None
     short_name: Optional[str] = None
     description: str
-    anchored_minutes: Optional[int] = None  # events with a real start/end time
+    anchored_hours: Optional[float] = None  # events with a real start/end time
     when: Optional[str] = None              # display hint (time / label)
 
 
@@ -621,7 +621,8 @@ class WorklogEntryOut(BaseModel):
     case_id: Optional[int] = None
     case_name: Optional[str] = None
     short_name: Optional[str] = None
-    minutes: int
+    case_color: Optional[str] = None
+    hours: float
     description: str
     raw_reference: Optional[str] = None     # original phrasing / case_guess
     activity_date: Optional[str] = None

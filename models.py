@@ -1654,7 +1654,8 @@ class WorklogEntry(Base):
     voice_log_id: Mapped[Optional[int]] = mapped_column(Integer)
     case_id: Mapped[Optional[int]] = mapped_column(Integer)
     created_by: Mapped[Optional[int]] = mapped_column(Integer)
-    minutes: Mapped[int] = mapped_column(Integer)
+    # Time spent, in hours with decimals (legal billing in tenths: 0.1 = 6 min).
+    hours: Mapped[float] = mapped_column(Numeric(6, 2))
     description: Mapped[str] = mapped_column(Text)
     raw_reference: Mapped[Optional[str]] = mapped_column(Text)
     activity_date: Mapped[datetime.date] = mapped_column(Date)
