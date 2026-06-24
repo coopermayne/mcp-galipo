@@ -1,4 +1,4 @@
-export type WorklogStatus = "processing" | "ready" | "confirmed" | "failed"
+export type WorklogStatus = "processing" | "done" | "failed"
 
 export interface WorklogCandidate {
   source_type: "event" | "task" | "comment"
@@ -9,6 +9,7 @@ export interface WorklogCandidate {
   description: string
   anchored_minutes: number | null
   when: string | null
+  already_logged: boolean
 }
 
 export interface WorklogCandidates {
@@ -24,7 +25,7 @@ export interface WorklogPerson {
 
 export interface WorklogEntry {
   id: number
-  voice_log_id: number
+  voice_log_id: number | null
   case_id: number | null
   case_name: string | null
   short_name: string | null
@@ -33,36 +34,33 @@ export interface WorklogEntry {
   raw_reference: string | null
   activity_date: string | null
   created_at: string | null
+  author_id: number | null
+  author_initials: string | null
   people: WorklogPerson[]
 }
 
+/** A consolidation session, used only for polling the processing state. */
 export interface Worklog {
   id: number
   transcript: string | null
   log_date: string | null
   status: WorklogStatus
   error: string | null
-  created_by: number | null
-  created_by_name: string | null
-  created_by_initials: string | null
-  created_at: string | null
-  confirmed_at: string | null
   entries: WorklogEntry[]
+}
+
+/** The current user's editable ledger for one day. */
+export interface WorklogDay {
+  date: string
+  total_minutes: number
+  entries: WorklogEntry[]
+  processing_ids: number[]
 }
 
 /** Draft shape posted to /consolidate. */
 export interface WorklogSelection {
   source_type: "event" | "task" | "comment"
   source_id: number
-}
-
-/** Editable entry shape posted to /confirm. */
-export interface WorklogEntryInput {
-  case_id: number | null
-  minutes: number
-  description: string
-  raw_reference: string | null
-  person_ids: number[]
 }
 
 /** Confirmed worklog for a case, grouped by day. */

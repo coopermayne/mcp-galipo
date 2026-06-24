@@ -372,12 +372,12 @@ def add_manual_entry(log_date: str, created_by: Optional[int], case_id: Optional
         return _load_entries(session, [eid])[0]
 
 
-def update_worklog_entry(entry_id: int, fields: dict) -> Optional[dict]:
+def update_worklog_entry(entry_id: int, fields: dict, user_id: Optional[int]) -> Optional[dict]:
     """Patch an entry (case_id, minutes, description, person_ids). Works on any
-    entry, including past days."""
+    day, but only on the caller's own entries (returns None otherwise)."""
     with SessionLocal() as session:
         entry = session.get(WorklogEntry, entry_id)
-        if not entry:
+        if not entry or entry.created_by != user_id:
             return None
         if "case_id" in fields:
             entry.case_id = fields["case_id"]
@@ -392,10 +392,11 @@ def update_worklog_entry(entry_id: int, fields: dict) -> Optional[dict]:
         return _load_entries(session, [entry_id])[0]
 
 
-def delete_worklog_entry(entry_id: int) -> bool:
+def delete_worklog_entry(entry_id: int, user_id: Optional[int]) -> bool:
+    """Delete the caller's own entry (no-op for others' entries)."""
     with SessionLocal() as session:
         entry = session.get(WorklogEntry, entry_id)
-        if not entry:
+        if not entry or entry.created_by != user_id:
             return False
         session.delete(entry)
         session.commit()
