@@ -1636,15 +1636,24 @@ class WorklogEntry(Base):
             ondelete="SET NULL",
             name="worklog_entries_case_id_fkey",
         ),
+        ForeignKeyConstraint(
+            ["created_by"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="worklog_entries_created_by_fkey",
+        ),
         PrimaryKeyConstraint("id", name="worklog_entries_pkey"),
         Index("idx_worklog_entries_voice_log_id", "voice_log_id"),
         Index("idx_worklog_entries_case_id", "case_id"),
         Index("idx_worklog_entries_activity_date", "activity_date"),
+        Index("idx_worklog_entries_author_date", "created_by", "activity_date"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    voice_log_id: Mapped[int] = mapped_column(Integer)
+    # Nullable: manual entries are not tied to an AI consolidation session.
+    voice_log_id: Mapped[Optional[int]] = mapped_column(Integer)
     case_id: Mapped[Optional[int]] = mapped_column(Integer)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer)
     minutes: Mapped[int] = mapped_column(Integer)
     description: Mapped[str] = mapped_column(Text)
     raw_reference: Mapped[Optional[str]] = mapped_column(Text)
@@ -1654,7 +1663,7 @@ class WorklogEntry(Base):
     )
 
     # Relationships
-    voice_log: Mapped[VoiceLog] = relationship(back_populates="entries")
+    voice_log: Mapped[Optional[VoiceLog]] = relationship(back_populates="entries")
     case: Mapped[Optional[Case]] = relationship(back_populates="worklog_entries")
     people: Mapped[list[WorklogEntryPerson]] = relationship(
         back_populates="entry", passive_deletes=True
@@ -1687,3 +1696,28 @@ class WorklogEntryPerson(Base):
 
     # Relationships
     entry: Mapped[WorklogEntry] = relationship(back_populates="people")
+
+
+class VoiceLogSource(Base):
+    """Records which surfaced items (events / tasks / comments) the user pulled
+    into a logging session, so the candidate list can flag items already logged
+    for a day. Kept separate from entries (the AI merges items, so there's no
+    per-entry source link) — this just tracks 'this item was used'."""
+
+    __tablename__ = "voice_log_sources"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["voice_log_id"],
+            ["voice_logs.id"],
+            ondelete="CASCADE",
+            name="voice_log_sources_voice_log_id_fkey",
+        ),
+        PrimaryKeyConstraint(
+            "voice_log_id", "source_type", "source_id",
+            name="voice_log_sources_pkey",
+        ),
+    )
+
+    voice_log_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_type: Mapped[str] = mapped_column(String(20), primary_key=True)
+    source_id: Mapped[int] = mapped_column(Integer, primary_key=True)
