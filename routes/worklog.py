@@ -71,7 +71,8 @@ def register_worklog_routes(mcp):
         from services.worklog_consolidator import run_worklog_consolidation
         threading.Thread(
             target=run_worklog_consolidation,
-            args=(voice_log_id, data.transcript, log_date, selections, user_id),
+            args=(voice_log_id, data.transcript, log_date, selections, user_id,
+                  data.mentioned_case_ids),
             daemon=True,
         ).start()
 
@@ -89,7 +90,7 @@ def register_worklog_routes(mcp):
         user_id = _get_db_user_id(auth.get_current_user(request))
         result = await asyncio.to_thread(
             db.add_manual_entry, data.log_date, user_id, data.case_id,
-            data.minutes, data.description, data.person_ids,
+            data.hours, data.description, data.person_ids,
         )
         return JSONResponse(result)
 

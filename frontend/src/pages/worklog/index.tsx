@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PenTool01Icon, ArrowLeft01Icon, ArrowRight01Icon, Add01Icon } from "@hugeicons/core-free-icons"
-import { getWorklogDay, addWorklogEntry, formatMinutes } from "@/services/worklog"
+import { getWorklogDay, addWorklogEntry, formatHours } from "@/services/worklog"
 import { WorklogEntryRow } from "@/pages/worklog/components/worklog-entry-row"
 import { WorklogComposer } from "@/pages/worklog/components/worklog-composer"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,7 @@ export default function WorklogPage() {
   })
 
   const addEntry = useMutation({
-    mutationFn: () => addWorklogEntry({ log_date: dayKey, minutes: 0, description: "" }),
+    mutationFn: () => addWorklogEntry({ log_date: dayKey, hours: 0, description: "" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["worklog-day", dayKey] }),
     onError: (e) => toast.error(e.message),
   })
@@ -73,23 +73,22 @@ export default function WorklogPage() {
         )}
         <span className="ml-auto text-sm">
           <span className="text-muted-foreground">Total </span>
-          <span className="font-semibold tabular-nums">{formatMinutes(day?.total_minutes ?? 0)}</span>
+          <span className="font-semibold tabular-nums">{formatHours(day?.total_hours ?? 0)}</span>
         </span>
       </div>
 
       {/* Ledger */}
-      <div className="space-y-3 mb-6">
+      <div className="space-y-2 mb-6">
         {isLoading ? (
-          <>
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-          </>
+          <Skeleton className="h-24" />
         ) : entries.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center border border-dashed">
             Nothing logged for {formatLA(`${dayKey}T00:00:00`, { weekday: "long", month: "long", day: "numeric" })} yet.
           </p>
         ) : (
-          entries.map((e) => <WorklogEntryRow key={e.id} entry={e} dayKey={dayKey} />)
+          <div className="divide-y divide-border/50 border">
+            {entries.map((e) => <WorklogEntryRow key={e.id} entry={e} dayKey={dayKey} />)}
+          </div>
         )}
 
         <Button

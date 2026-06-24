@@ -37,6 +37,15 @@ from models import (
 TERMINAL_TASK_STATUSES = ("Done",)
 
 
+def _norm_hours(v) -> float:
+    """Clamp to a non-negative number of hours, rounded to 2 decimals (legal
+    billing granularity is tenths: 0.1 = 6 min)."""
+    try:
+        return max(0.0, round(float(v or 0), 2))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _parse_date(s: Optional[str]) -> datetime.date:
     if not s:
         from lib.tz import today_la
@@ -106,7 +115,7 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
                 "case_name": case.case_name if case else None,
                 "short_name": case.short_name if case else None,
                 "description": ev.description,
-                "anchored_minutes": 60 if ev.time is not None else None,
+                "anchored_hours": 1.0 if ev.time is not None else None,
                 "when": ev.time.strftime("%-I:%M %p") if ev.time else (ev.event_type or None),
             }))
 
@@ -128,7 +137,7 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
                 "case_name": case.case_name if case else None,
                 "short_name": case.short_name if case else None,
                 "description": tk.description,
-                "anchored_minutes": None,
+                "anchored_hours": None,
                 "when": "completed" if tk.completion_date == day else "updated",
             }))
 
@@ -151,7 +160,7 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
                 "case_name": case.case_name if case else None,
                 "short_name": case.short_name if case else None,
                 "description": cm.content,
-                "anchored_minutes": None,
+                "anchored_hours": None,
                 "when": None,
             }))
 
@@ -177,21 +186,21 @@ def resolve_selection_context(selections: list[dict], user_id: Optional[int]) ->
             ).all():
                 out.append({"case_id": ev.case_id, "case_name": case.case_name if case else None,
                             "description": ev.description,
-                            "anchored_minutes": 60 if ev.time is not None else None})
+                            "anchored_hours": 1.0 if ev.time is not None else None})
         if by_type["task"]:
             for tk, case in session.execute(
                 select(Task, Case).outerjoin(Case, Task.case_id == Case.id)
                 .where(Task.id.in_(by_type["task"]))
             ).all():
                 out.append({"case_id": tk.case_id, "case_name": case.case_name if case else None,
-                            "description": tk.description, "anchored_minutes": None})
+                            "description": tk.description, "anchored_hours": None})
         if by_type["comment"]:
             for cm, case in session.execute(
                 select(CaseComment, Case).outerjoin(Case, CaseComment.case_id == Case.id)
                 .where(CaseComment.id.in_(by_type["comment"]))
             ).all():
                 out.append({"case_id": cm.case_id, "case_name": case.case_name if case else None,
-                            "description": cm.content, "anchored_minutes": None})
+                            "description": cm.content, "anchored_hours": None})
     return out
 
 
@@ -248,7 +257,7 @@ def save_consolidated_entries(voice_log_id: int, entries: list[dict]) -> dict:
                 voice_log_id=voice_log_id,
                 case_id=e.get("case_id"),
                 created_by=log.created_by,
-                minutes=int(e.get("minutes") or 0),
+                hours=_norm_hours(e.get("hours")),
                 description=e.get("description") or "",
                 raw_reference=e.get("raw_reference"),
                 activity_date=log.log_date,
@@ -326,7 +335,8 @@ def _load_entries(session, entry_ids: list[int]) -> list[dict]:
             "case_id": e.case_id,
             "case_name": case.case_name if case else None,
             "short_name": case.short_name if case else None,
-            "minutes": e.minutes,
+            "case_color": case.color if case else None,
+            "hours": float(e.hours or 0),
             "description": e.description,
             "raw_reference": e.raw_reference,
             "activity_date": e.activity_date.isoformat() if e.activity_date else None,
@@ -350,7 +360,7 @@ def _set_entry_people(session, entry_id: int, person_ids: list[int]) -> None:
 
 
 def add_manual_entry(log_date: str, created_by: Optional[int], case_id: Optional[int],
-                     minutes: int, description: str, person_ids: list[int]) -> dict:
+                     hours: float, description: str, person_ids: list[int]) -> dict:
     """Add a standalone (non-AI) entry directly to a day's ledger."""
     day = _parse_date(log_date)
     with SessionLocal() as session:
@@ -358,7 +368,7 @@ def add_manual_entry(log_date: str, created_by: Optional[int], case_id: Optional
             voice_log_id=None,
             case_id=case_id,
             created_by=created_by,
-            minutes=max(0, int(minutes or 0)),
+            hours=_norm_hours(hours),
             description=description or "",
             raw_reference=None,
             activity_date=day,
@@ -373,7 +383,7 @@ def add_manual_entry(log_date: str, created_by: Optional[int], case_id: Optional
 
 
 def update_worklog_entry(entry_id: int, fields: dict, user_id: Optional[int]) -> Optional[dict]:
-    """Patch an entry (case_id, minutes, description, person_ids). Works on any
+    """Patch an entry (case_id, hours, description, person_ids). Works on any
     day, but only on the caller's own entries (returns None otherwise)."""
     with SessionLocal() as session:
         entry = session.get(WorklogEntry, entry_id)
@@ -381,8 +391,8 @@ def update_worklog_entry(entry_id: int, fields: dict, user_id: Optional[int]) ->
             return None
         if "case_id" in fields:
             entry.case_id = fields["case_id"]
-        if "minutes" in fields and fields["minutes"] is not None:
-            entry.minutes = max(0, int(fields["minutes"]))
+        if "hours" in fields and fields["hours"] is not None:
+            entry.hours = _norm_hours(fields["hours"])
         if "description" in fields and fields["description"] is not None:
             entry.description = fields["description"]
         if "person_ids" in fields and fields["person_ids"] is not None:
@@ -430,7 +440,7 @@ def get_worklog_day(log_date: str, user_id: Optional[int]) -> dict:
 
     return {
         "date": day.isoformat(),
-        "total_minutes": sum(e["minutes"] or 0 for e in entries),
+        "total_hours": round(sum(e["hours"] or 0 for e in entries), 2),
         "entries": entries,
         "processing_ids": processing_ids,
     }
@@ -448,22 +458,22 @@ def get_worklog_by_case(case_id: int) -> dict:
         entries = _load_entries(session, entry_ids)
 
     # Group by date, preserving newest-first order.
-    total = 0
+    total = 0.0
     groups: dict[str, dict] = {}
     for e in sorted(entries, key=lambda x: (x["activity_date"] or "", x["id"]), reverse=True):
-        total += e["minutes"] or 0
+        total += e["hours"] or 0
         key = e["activity_date"] or "unknown"
-        g = groups.setdefault(key, {"date": key, "minutes": 0, "entries": []})
-        g["minutes"] += e["minutes"] or 0
+        g = groups.setdefault(key, {"date": key, "hours": 0.0, "entries": []})
+        g["hours"] = round(g["hours"] + (e["hours"] or 0), 2)
         g["entries"].append({
             "id": e["id"],
-            "minutes": e["minutes"],
+            "hours": e["hours"],
             "description": e["description"],
             "author_id": e["author_id"],
             "author_initials": e["author_initials"],
             "people": e["people"],
         })
-    return {"case_id": case_id, "total_minutes": total, "days": list(groups.values())}
+    return {"case_id": case_id, "total_hours": round(total, 2), "days": list(groups.values())}
 
 
 def get_worklog_by_person(person_id: int) -> dict:
@@ -478,12 +488,12 @@ def get_worklog_by_person(person_id: int) -> dict:
         entries = _load_entries(session, entry_ids)
 
     entries.sort(key=lambda x: (x["activity_date"] or "", x["id"]), reverse=True)
-    total = sum(e["minutes"] or 0 for e in entries)
+    total = round(sum(e["hours"] or 0 for e in entries), 2)
     return {
         "person_id": person_id,
-        "total_minutes": total,
+        "total_hours": total,
         "entries": [{
-            "id": e["id"], "minutes": e["minutes"], "description": e["description"],
+            "id": e["id"], "hours": e["hours"], "description": e["description"],
             "activity_date": e["activity_date"], "case_id": e["case_id"],
             "case_name": e["case_name"], "short_name": e["short_name"],
         } for e in entries],

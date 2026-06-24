@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -6,10 +6,17 @@ import {
   Calendar03Icon, Task01Icon, Message01Icon, Loading03Icon, Tick02Icon,
 } from "@hugeicons/core-free-icons"
 import { getWorklogCandidates, consolidateWorklog } from "@/services/worklog"
+import { getCases } from "@/services/cases"
 import type { WorklogCandidate, WorklogSelection } from "@/types/worklog"
-import { Textarea } from "@/components/ui/textarea"
+import type { CaseListItem } from "@/types/case"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  MentionTextarea,
+  type MentionOption,
+  type MentionTrigger,
+} from "@/components/common/mention-textarea"
+import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
 
 interface WorklogComposerProps {
@@ -32,6 +39,7 @@ const GROUPS: { key: "events" | "tasks" | "comments"; label: string; icon: typeo
  * The resulting entries append to the day ledger (the day query polls for them). */
 export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [transcript, setTranscript] = useState("")
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
@@ -39,6 +47,49 @@ export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
     queryKey: ["worklog-candidates", dayKey],
     queryFn: () => getWorklogCandidates(dayKey),
   })
+
+  // Cases for the "@" pickers — typing @ inserts the full case name so the AI
+  // matches the right case (and we can recover its id by name).
+  //   @   → my active cases (fast, scoped to the logged-in user)
+  //   @@  → all active firm cases
+  const { data: caseData } = useQuery({
+    queryKey: ["cases", "worklog-picker"],
+    queryFn: () => getCases({ limit: 500 }),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const toOption = (c: CaseListItem): MentionOption => ({
+    id: c.id,
+    label: c.case_name, // full name is inserted into the memo
+    sublabel: c.short_name ?? undefined,
+  })
+
+  const activeCases = useMemo(
+    () => (caseData?.cases ?? []).filter((c) => c.status !== "Closed"),
+    [caseData]
+  )
+  const allCaseMentions = useMemo(() => activeCases.map(toOption), [activeCases])
+  const myCaseMentions = useMemo(() => {
+    const uid = user?.id
+    if (uid == null) return allCaseMentions
+    const mine = activeCases
+      .filter(
+        (c) =>
+          (c.attorney_ids ?? []).includes(uid) || (c.paralegal_ids ?? []).includes(uid)
+      )
+      .map(toOption)
+    // If the user owns no active cases, fall back to all (mirrors the backend
+    // candidate scoping) so "@" is never a dead end.
+    return mine.length > 0 ? mine : allCaseMentions
+  }, [activeCases, user?.id, allCaseMentions])
+
+  const mentionTriggers: MentionTrigger[] = useMemo(
+    () => [
+      { trigger: "@", options: myCaseMentions, label: "My cases" },
+      { trigger: "@@", options: allCaseMentions, label: "All active cases" },
+    ],
+    [myCaseMentions, allCaseMentions]
+  )
 
   const consolidate = useMutation({
     mutationFn: () => {
@@ -50,7 +101,12 @@ export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
       const selections: WorklogSelection[] = all
         .filter((c) => selected.has(selKey(c)))
         .map((c) => ({ source_type: c.source_type, source_id: c.source_id }))
-      return consolidateWorklog({ transcript, log_date: dayKey, selections })
+      // Recover the ids of cases the user @-tagged: their full name is in the
+      // memo verbatim, so the AI gets an exact id↔name hint for those cases.
+      const mentioned_case_ids = allCaseMentions
+        .filter((c) => transcript.includes(c.label))
+        .map((c) => Number(c.id))
+      return consolidateWorklog({ transcript, log_date: dayKey, selections, mentioned_case_ids })
     },
     onSuccess: () => {
       // The day query will pick up the in-flight log and poll until entries land.
@@ -145,11 +201,12 @@ export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
           </div>
         )}
 
-        <Textarea
+        <MentionTextarea
           value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
+          onChange={setTranscript}
+          triggers={mentionTriggers}
           rows={4}
-          placeholder="What else did you work on? e.g. Drafted the opposition in Armstrong, call with Tanner about Reyes…"
+          placeholder="What else did you work on? Type @ to tag one of your cases (@@ for all firm cases)…"
           className="resize-none"
         />
 

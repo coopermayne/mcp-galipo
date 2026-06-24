@@ -27,6 +27,8 @@ export interface ConsolidatePayload {
   transcript?: string
   log_date?: string | null
   selections?: WorklogSelection[]
+  /** Ids of cases the user explicitly @-tagged in the memo (exact match hints). */
+  mentioned_case_ids?: number[]
 }
 
 export async function consolidateWorklog(
@@ -56,7 +58,7 @@ export async function getWorklogDay(date: string): Promise<WorklogDay> {
 export interface AddEntryPayload {
   log_date: string
   case_id?: number | null
-  minutes?: number
+  hours?: number
   description?: string
   person_ids?: number[]
 }
@@ -74,7 +76,7 @@ export async function addWorklogEntry(payload: AddEntryPayload): Promise<Worklog
 
 export interface UpdateEntryPayload {
   case_id?: number | null
-  minutes?: number
+  hours?: number
   description?: string
   person_ids?: number[]
 }
@@ -103,12 +105,10 @@ export async function getWorklogByPerson(personId: number): Promise<WorklogByPer
   return json(await apiFetch(`/api/v1/worklog/by-person/${personId}`), "Failed to fetch person worklog")
 }
 
-/** Format integer minutes as "1h 30m" / "45m" / "2h". */
-export function formatMinutes(min: number): string {
-  if (!min || min <= 0) return "0m"
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  if (h && m) return `${h}h ${m}m`
-  if (h) return `${h}h`
-  return `${m}m`
+/** Format decimal hours as "1.5h" / "0.1h" / "2h" (trailing zeros trimmed). */
+export function formatHours(hours: number): string {
+  if (!hours || hours <= 0) return "0h"
+  // Round to tenths, then drop a trailing ".0".
+  const rounded = Math.round(hours * 10) / 10
+  return `${rounded}h`
 }
