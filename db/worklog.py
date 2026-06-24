@@ -1,13 +1,16 @@
 """
 Worklog (voice-driven work log) data layer.
 
-A VoiceLog is one logging session: a raw memo for a day, consolidated by AI
-into time-estimated WorklogEntry rows. Lifecycle:
-    'processing' -> 'ready' -> 'confirmed'   ('failed' on error)
-Only 'confirmed' entries count toward case/contact totals.
+A day is an editable ledger of time-estimated entries. Entries come from two
+places:
+  • AI consolidation — a VoiceLog session (status 'processing' -> 'done' /
+    'failed') whose background job writes entries that land directly in the day.
+  • Manual add — a standalone entry (voice_log_id NULL).
 
-Mirrors db/notes.py (SessionLocal ctx mgr, dict returns) and db/intakes.py
-(status helpers for the background AI job).
+Entries are always live (no confirm gate); they're editable and deletable at any
+time, including on past days (backfill). VoiceLogSource records which surfaced
+items were pulled into a session so the candidate list can flag what's already
+been logged for a day.
 """
 
 import datetime
@@ -20,6 +23,7 @@ from sqlalchemy.orm import selectinload
 from .session import SessionLocal
 from models import (
     VoiceLog,
+    VoiceLogSource,
     WorklogEntry,
     WorklogEntryPerson,
     Case,
@@ -30,21 +34,15 @@ from models import (
     User,
 )
 
-# Task statuses that count as "finished work" for the updated-that-day candidate.
 TERMINAL_TASK_STATUSES = ("Done",)
 
 
 def _parse_date(s: Optional[str]) -> datetime.date:
-    """Parse YYYY-MM-DD, defaulting to today (Pacific) when missing."""
     if not s:
         from lib.tz import today_la
         return today_la()
     return datetime.date.fromisoformat(s)
 
-
-# ---------------------------------------------------------------------------
-# Phase 1 — surfaced candidates
-# ---------------------------------------------------------------------------
 
 def _changed_to_terminal_today(day: datetime.date):
     """Predicate: task moved to a terminal status on `day` (Pacific)."""
@@ -54,18 +52,28 @@ def _changed_to_terminal_today(day: datetime.date):
     )
 
 
+# ---------------------------------------------------------------------------
+# Surfaced candidates
+# ---------------------------------------------------------------------------
+
+def _logged_source_keys(session, day: datetime.date) -> set[str]:
+    """`{source_type}:{source_id}` already pulled into a (non-failed) log for the
+    day — used to flag candidates as already logged."""
+    rows = session.execute(
+        select(VoiceLogSource.source_type, VoiceLogSource.source_id)
+        .join(VoiceLog, VoiceLogSource.voice_log_id == VoiceLog.id)
+        .where(VoiceLog.log_date == day, VoiceLog.status != "failed")
+    ).all()
+    return {f"{r.source_type}:{r.source_id}" for r in rows}
+
+
 def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
-    """Surface things already on record for `log_date`, scoped to the user's
-    cases: calendar events, tasks finished that day, and the user's own
-    (non-system) case comments. Returns {"events", "tasks", "comments"} lists of
-    candidate dicts. source_type/source_id are used only to fetch context during
-    consolidation — they are never stored on entries.
-    """
+    """Surface events / tasks finished that day / the user's own comments for
+    `log_date`, scoped to the user's cases. Each item carries `already_logged`."""
     day = _parse_date(log_date)
     uid_arr = cast([user_id], SA_ARRAY(Integer())) if user_id else None
 
     def case_scope(stmt):
-        # Events/tasks belong to a case; scope to the user's cases (or unowned).
         if uid_arr is None:
             return stmt
         return stmt.where(or_(
@@ -78,7 +86,12 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
     comments: list[dict] = []
 
     with SessionLocal() as session:
-        # Events on the date.
+        logged = _logged_source_keys(session, day)
+
+        def mark(d: dict) -> dict:
+            d["already_logged"] = f"{d['source_type']}:{d['source_id']}" in logged
+            return d
+
         ev_stmt = case_scope(
             select(Event, Case)
             .join(Case, Event.case_id == Case.id)
@@ -86,10 +99,7 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
             .order_by(Event.time.is_(None), Event.time)
         )
         for ev, case in session.execute(ev_stmt).all():
-            # Anchor a duration only when the event has an explicit end_date is
-            # not available here (events are single-day with a time); leave None
-            # so the AI estimates, unless a time is present (treat as ~1h slot).
-            events.append({
+            events.append(mark({
                 "source_type": "event",
                 "source_id": ev.id,
                 "case_id": ev.case_id,
@@ -98,17 +108,12 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
                 "description": ev.description,
                 "anchored_minutes": 60 if ev.time is not None else None,
                 "when": ev.time.strftime("%-I:%M %p") if ev.time else (ev.event_type or None),
-            })
+            }))
 
-        # Tasks finished that day: completed on the date, or status-changed to a
-        # terminal status on the date. Labeled so the UI can distinguish.
         task_stmt = case_scope(
             select(Task, Case)
             .join(Case, Task.case_id == Case.id)
-            .where(or_(
-                Task.completion_date == day,
-                _changed_to_terminal_today(day),
-            ))
+            .where(or_(Task.completion_date == day, _changed_to_terminal_today(day)))
             .order_by(Task.updated_at)
         )
         seen_task_ids: set[int] = set()
@@ -116,8 +121,7 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
             if tk.id in seen_task_ids:
                 continue
             seen_task_ids.add(tk.id)
-            completed = tk.completion_date == day
-            tasks.append({
+            tasks.append(mark({
                 "source_type": "task",
                 "source_id": tk.id,
                 "case_id": tk.case_id,
@@ -125,10 +129,9 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
                 "short_name": case.short_name if case else None,
                 "description": tk.description,
                 "anchored_minutes": None,
-                "when": "completed" if completed else "updated",
-            })
+                "when": "completed" if tk.completion_date == day else "updated",
+            }))
 
-        # The user's own non-system case comments created that day.
         cm_stmt = (
             select(CaseComment, Case)
             .join(Case, CaseComment.case_id == Case.id)
@@ -141,7 +144,7 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
         if user_id:
             cm_stmt = cm_stmt.where(CaseComment.user_id == user_id)
         for cm, case in session.execute(cm_stmt).all():
-            comments.append({
+            comments.append(mark({
                 "source_type": "comment",
                 "source_id": cm.id,
                 "case_id": cm.case_id,
@@ -150,87 +153,74 @@ def get_worklog_candidates(log_date: str, user_id: Optional[int]) -> dict:
                 "description": cm.content,
                 "anchored_minutes": None,
                 "when": None,
-            })
+            }))
 
     return {"events": events, "tasks": tasks, "comments": comments}
 
 
 def resolve_selection_context(selections: list[dict], user_id: Optional[int]) -> list[dict]:
-    """Resolve [{source_type, source_id}] to text/case/duration for the AI.
-    Used by the consolidator; not exposed via a route."""
+    """Resolve [{source_type, source_id}] to text/case/duration for the AI."""
     out: list[dict] = []
     if not selections:
         return out
     by_type: dict[str, list[int]] = {"event": [], "task": [], "comment": []}
     for s in selections:
-        st = s.get("source_type")
-        sid = s.get("source_id")
+        st, sid = s.get("source_type"), s.get("source_id")
         if st in by_type and isinstance(sid, int):
             by_type[st].append(sid)
 
     with SessionLocal() as session:
         if by_type["event"]:
-            rows = session.execute(
+            for ev, case in session.execute(
                 select(Event, Case).outerjoin(Case, Event.case_id == Case.id)
                 .where(Event.id.in_(by_type["event"]))
-            ).all()
-            for ev, case in rows:
-                out.append({
-                    "case_id": ev.case_id,
-                    "case_name": case.case_name if case else None,
-                    "description": ev.description,
-                    "anchored_minutes": 60 if ev.time is not None else None,
-                })
+            ).all():
+                out.append({"case_id": ev.case_id, "case_name": case.case_name if case else None,
+                            "description": ev.description,
+                            "anchored_minutes": 60 if ev.time is not None else None})
         if by_type["task"]:
-            rows = session.execute(
+            for tk, case in session.execute(
                 select(Task, Case).outerjoin(Case, Task.case_id == Case.id)
                 .where(Task.id.in_(by_type["task"]))
-            ).all()
-            for tk, case in rows:
-                out.append({
-                    "case_id": tk.case_id,
-                    "case_name": case.case_name if case else None,
-                    "description": tk.description,
-                    "anchored_minutes": None,
-                })
+            ).all():
+                out.append({"case_id": tk.case_id, "case_name": case.case_name if case else None,
+                            "description": tk.description, "anchored_minutes": None})
         if by_type["comment"]:
-            rows = session.execute(
+            for cm, case in session.execute(
                 select(CaseComment, Case).outerjoin(Case, CaseComment.case_id == Case.id)
                 .where(CaseComment.id.in_(by_type["comment"]))
-            ).all()
-            for cm, case in rows:
-                out.append({
-                    "case_id": cm.case_id,
-                    "case_name": case.case_name if case else None,
-                    "description": cm.content,
-                    "anchored_minutes": None,
-                })
+            ).all():
+                out.append({"case_id": cm.case_id, "case_name": case.case_name if case else None,
+                            "description": cm.content, "anchored_minutes": None})
     return out
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 — processing + consolidation
+# AI consolidation session
 # ---------------------------------------------------------------------------
 
-def create_processing_log(transcript: str, log_date: str, created_by: Optional[int]) -> int:
-    """Insert a VoiceLog with status='processing'; return its id."""
+def create_processing_log(transcript: str, log_date: str, created_by: Optional[int],
+                          selections: Optional[list[dict]] = None) -> int:
+    """Insert a VoiceLog with status='processing'; record the selected source
+    items (for already-logged flags). Returns its id."""
     day = _parse_date(log_date)
     with SessionLocal() as session:
-        log = VoiceLog(
-            transcript=transcript or None,
-            log_date=day,
-            status="processing",
-            created_by=created_by,
-        )
+        log = VoiceLog(transcript=transcript or None, log_date=day,
+                       status="processing", created_by=created_by)
         session.add(log)
         session.flush()
         log_id = log.id
+        seen: set[tuple] = set()
+        for s in (selections or []):
+            st, sid = s.get("source_type"), s.get("source_id")
+            if st and isinstance(sid, int) and (st, sid) not in seen:
+                seen.add((st, sid))
+                session.add(VoiceLogSource(voice_log_id=log_id, source_type=st, source_id=sid))
         session.commit()
         return log_id
 
 
 def set_worklog_status(voice_log_id: int, status: str, error: Optional[str] = None) -> None:
-    """Set a log's status (mirrors db.set_ai_analyzing)."""
     with SessionLocal() as session:
         log = session.get(VoiceLog, voice_log_id)
         if not log:
@@ -241,14 +231,12 @@ def set_worklog_status(voice_log_id: int, status: str, error: Optional[str] = No
 
 
 def save_consolidated_entries(voice_log_id: int, entries: list[dict]) -> dict:
-    """Replace a log's entries with the AI's consolidated set and flip to
-    'ready'. entries: [{case_id|None, minutes, description, raw_reference,
-    person_ids}]. Mirrors db.save_ai_analysis (writes results + clears flag)."""
+    """Write the AI's entries for a session and flip it to 'done'. Entries land
+    live in the day immediately (no review gate)."""
     with SessionLocal() as session:
         log = session.get(VoiceLog, voice_log_id)
         if not log:
             return {}
-        # Wipe any prior entries (re-run safety).
         for old in session.execute(
             select(WorklogEntry).where(WorklogEntry.voice_log_id == voice_log_id)
         ).scalars():
@@ -259,6 +247,7 @@ def save_consolidated_entries(voice_log_id: int, entries: list[dict]) -> dict:
             entry = WorklogEntry(
                 voice_log_id=voice_log_id,
                 case_id=e.get("case_id"),
+                created_by=log.created_by,
                 minutes=int(e.get("minutes") or 0),
                 description=e.get("description") or "",
                 raw_reference=e.get("raw_reference"),
@@ -269,151 +258,33 @@ def save_consolidated_entries(voice_log_id: int, entries: list[dict]) -> dict:
             for pid in dict.fromkeys(e.get("person_ids") or []):
                 session.add(WorklogEntryPerson(entry_id=entry.id, person_id=pid))
 
-        log.status = "ready"
+        log.status = "done"
         log.error = None
         session.commit()
     return get_worklog(voice_log_id) or {}
 
 
-# ---------------------------------------------------------------------------
-# Serialization helpers
-# ---------------------------------------------------------------------------
-
-def _entry_to_dict(entry: WorklogEntry, case: Optional[Case], people: list[Person]) -> dict:
-    return {
-        "id": entry.id,
-        "voice_log_id": entry.voice_log_id,
-        "case_id": entry.case_id,
-        "case_name": case.case_name if case else None,
-        "short_name": case.short_name if case else None,
-        "minutes": entry.minutes,
-        "description": entry.description,
-        "raw_reference": entry.raw_reference,
-        "activity_date": entry.activity_date.isoformat() if entry.activity_date else None,
-        "created_at": entry.created_at.isoformat() if entry.created_at else None,
-        "people": [{"id": p.id, "name": p.name} for p in people],
-    }
-
-
-def _load_entries(session, voice_log_id: int) -> list[dict]:
-    rows = session.execute(
-        select(WorklogEntry)
-        .where(WorklogEntry.voice_log_id == voice_log_id)
-        .options(selectinload(WorklogEntry.people))
-        .order_by(WorklogEntry.id)
-    ).scalars().all()
-    # Bulk-load cases + people names.
-    case_ids = {e.case_id for e in rows if e.case_id}
-    cases = {}
-    if case_ids:
-        cases = {
-            c.id: c for c in session.execute(
-                select(Case).where(Case.id.in_(case_ids))
-            ).scalars()
-        }
-    person_ids = {pp.person_id for e in rows for pp in e.people}
-    persons = {}
-    if person_ids:
-        persons = {
-            p.id: p for p in session.execute(
-                select(Person).where(Person.id.in_(person_ids))
-            ).scalars()
-        }
-    out = []
-    for e in rows:
-        ppl = [persons[pp.person_id] for pp in e.people if pp.person_id in persons]
-        out.append(_entry_to_dict(e, cases.get(e.case_id), ppl))
-    return out
-
-
-def _log_to_dict(session, log: VoiceLog, include_entries: bool = True) -> dict:
-    author = session.get(User, log.created_by) if log.created_by else None
-    d = {
-        "id": log.id,
-        "transcript": log.transcript,
-        "log_date": log.log_date.isoformat() if log.log_date else None,
-        "status": log.status,
-        "error": log.error,
-        "created_by": log.created_by,
-        "created_by_name": f"{author.first_name} {author.last_name}".strip() if author else None,
-        "created_by_initials": author.initials if author else None,
-        "created_at": log.created_at.isoformat() if log.created_at else None,
-        "confirmed_at": log.confirmed_at.isoformat() if log.confirmed_at else None,
-        "entries": _load_entries(session, log.id) if include_entries else [],
-    }
-    return d
-
-
-# ---------------------------------------------------------------------------
-# Phase 2/3 — fetch, pending list, confirm, discard
-# ---------------------------------------------------------------------------
-
 def get_worklog(voice_log_id: int) -> Optional[dict]:
-    """Fetch a log + its entries (for polling and review)."""
+    """Fetch a session + its entries (for polling the processing state)."""
     with SessionLocal() as session:
         log = session.get(VoiceLog, voice_log_id)
         if not log:
             return None
-        return _log_to_dict(session, log)
-
-
-def list_pending_worklogs(user_id: Optional[int]) -> list[dict]:
-    """Logs awaiting attention (processing or ready) — the 'needs review' list.
-    Firm-wide; the small office shares one queue."""
-    with SessionLocal() as session:
-        logs = session.execute(
-            select(VoiceLog)
-            .where(VoiceLog.status.in_(("processing", "ready")))
-            .order_by(VoiceLog.created_at.desc())
-        ).scalars().all()
-        return [_log_to_dict(session, log) for log in logs]
-
-
-def confirm_worklog(
-    voice_log_id: int,
-    transcript: str,
-    log_date: Optional[str],
-    entries: list[dict],
-) -> Optional[dict]:
-    """Apply the user's edits, replace entries, set status='confirmed'."""
-    with SessionLocal() as session:
-        log = session.get(VoiceLog, voice_log_id)
-        if not log:
-            return None
-        if transcript is not None:
-            log.transcript = transcript or None
-        if log_date:
-            log.log_date = _parse_date(log_date)
-
-        for old in session.execute(
-            select(WorklogEntry).where(WorklogEntry.voice_log_id == voice_log_id)
-        ).scalars():
-            session.delete(old)
-        session.flush()
-
-        for e in entries:
-            entry = WorklogEntry(
-                voice_log_id=voice_log_id,
-                case_id=e.get("case_id"),
-                minutes=int(e.get("minutes") or 0),
-                description=e.get("description") or "",
-                raw_reference=e.get("raw_reference"),
-                activity_date=log.log_date,
-            )
-            session.add(entry)
-            session.flush()
-            for pid in dict.fromkeys(e.get("person_ids") or []):
-                session.add(WorklogEntryPerson(entry_id=entry.id, person_id=pid))
-
-        log.status = "confirmed"
-        log.confirmed_at = func.now()
-        log.error = None
-        session.commit()
-        return get_worklog(voice_log_id)
+        entries = _load_entries(session, [e.id for e in session.execute(
+            select(WorklogEntry.id).where(WorklogEntry.voice_log_id == voice_log_id)
+        ).all()])
+        return {
+            "id": log.id,
+            "transcript": log.transcript,
+            "log_date": log.log_date.isoformat() if log.log_date else None,
+            "status": log.status,
+            "error": log.error,
+            "created_by": log.created_by,
+            "entries": entries,
+        }
 
 
 def delete_worklog(voice_log_id: int) -> bool:
-    """Discard a log and its entries."""
     with SessionLocal() as session:
         log = session.get(VoiceLog, voice_log_id)
         if not log:
@@ -424,110 +295,195 @@ def delete_worklog(voice_log_id: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Views — confirmed-only, grouped
+# Entry serialization + CRUD
 # ---------------------------------------------------------------------------
 
-def get_worklog_by_case(case_id: int) -> dict:
-    """Confirmed worklog entries for a case, grouped by activity_date, newest
-    first, with a total. Firm-wide: each entry carries its author's initials."""
+def _load_entries(session, entry_ids: list[int]) -> list[dict]:
+    """Serialize a set of entries (by id) with case, people, and author info."""
+    if not entry_ids:
+        return []
+    rows = session.execute(
+        select(WorklogEntry)
+        .where(WorklogEntry.id.in_(entry_ids))
+        .options(selectinload(WorklogEntry.people))
+        .order_by(WorklogEntry.id)
+    ).scalars().all()
+
+    case_ids = {e.case_id for e in rows if e.case_id}
+    cases = {c.id: c for c in session.execute(select(Case).where(Case.id.in_(case_ids))).scalars()} if case_ids else {}
+    person_ids = {pp.person_id for e in rows for pp in e.people}
+    persons = {p.id: p for p in session.execute(select(Person).where(Person.id.in_(person_ids))).scalars()} if person_ids else {}
+    author_ids = {e.created_by for e in rows if e.created_by}
+    authors = {u.id: u for u in session.execute(select(User).where(User.id.in_(author_ids))).scalars()} if author_ids else {}
+
+    out = []
+    for e in rows:
+        case = cases.get(e.case_id)
+        author = authors.get(e.created_by)
+        out.append({
+            "id": e.id,
+            "voice_log_id": e.voice_log_id,
+            "case_id": e.case_id,
+            "case_name": case.case_name if case else None,
+            "short_name": case.short_name if case else None,
+            "minutes": e.minutes,
+            "description": e.description,
+            "raw_reference": e.raw_reference,
+            "activity_date": e.activity_date.isoformat() if e.activity_date else None,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+            "author_id": e.created_by,
+            "author_initials": author.initials if author else None,
+            "people": [{"id": persons[pp.person_id].id, "name": persons[pp.person_id].name}
+                       for pp in e.people if pp.person_id in persons],
+        })
+    return out
+
+
+def _set_entry_people(session, entry_id: int, person_ids: list[int]) -> None:
+    for old in session.execute(
+        select(WorklogEntryPerson).where(WorklogEntryPerson.entry_id == entry_id)
+    ).scalars():
+        session.delete(old)
+    session.flush()
+    for pid in dict.fromkeys(person_ids or []):
+        session.add(WorklogEntryPerson(entry_id=entry_id, person_id=pid))
+
+
+def add_manual_entry(log_date: str, created_by: Optional[int], case_id: Optional[int],
+                     minutes: int, description: str, person_ids: list[int]) -> dict:
+    """Add a standalone (non-AI) entry directly to a day's ledger."""
+    day = _parse_date(log_date)
     with SessionLocal() as session:
-        rows = session.execute(
-            select(WorklogEntry, VoiceLog)
-            .join(VoiceLog, WorklogEntry.voice_log_id == VoiceLog.id)
-            .where(
-                WorklogEntry.case_id == case_id,
-                VoiceLog.status == "confirmed",
-            )
-            .options(selectinload(WorklogEntry.people))
+        entry = WorklogEntry(
+            voice_log_id=None,
+            case_id=case_id,
+            created_by=created_by,
+            minutes=max(0, int(minutes or 0)),
+            description=description or "",
+            raw_reference=None,
+            activity_date=day,
+        )
+        session.add(entry)
+        session.flush()
+        for pid in dict.fromkeys(person_ids or []):
+            session.add(WorklogEntryPerson(entry_id=entry.id, person_id=pid))
+        eid = entry.id
+        session.commit()
+        return _load_entries(session, [eid])[0]
+
+
+def update_worklog_entry(entry_id: int, fields: dict) -> Optional[dict]:
+    """Patch an entry (case_id, minutes, description, person_ids). Works on any
+    entry, including past days."""
+    with SessionLocal() as session:
+        entry = session.get(WorklogEntry, entry_id)
+        if not entry:
+            return None
+        if "case_id" in fields:
+            entry.case_id = fields["case_id"]
+        if "minutes" in fields and fields["minutes"] is not None:
+            entry.minutes = max(0, int(fields["minutes"]))
+        if "description" in fields and fields["description"] is not None:
+            entry.description = fields["description"]
+        if "person_ids" in fields and fields["person_ids"] is not None:
+            _set_entry_people(session, entry_id, fields["person_ids"])
+        session.flush()
+        session.commit()
+        return _load_entries(session, [entry_id])[0]
+
+
+def delete_worklog_entry(entry_id: int) -> bool:
+    with SessionLocal() as session:
+        entry = session.get(WorklogEntry, entry_id)
+        if not entry:
+            return False
+        session.delete(entry)
+        session.commit()
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Day ledger + views
+# ---------------------------------------------------------------------------
+
+def get_worklog_day(log_date: str, user_id: Optional[int]) -> dict:
+    """The user's ledger for a day: entries earliest->latest, a total, and any
+    in-flight consolidation ids (so the UI can show 'working on it')."""
+    day = _parse_date(log_date)
+    with SessionLocal() as session:
+        entry_stmt = select(WorklogEntry.id).where(WorklogEntry.activity_date == day)
+        log_stmt = select(VoiceLog.id).where(
+            VoiceLog.log_date == day, VoiceLog.status == "processing"
+        )
+        if user_id:
+            entry_stmt = entry_stmt.where(WorklogEntry.created_by == user_id)
+            log_stmt = log_stmt.where(VoiceLog.created_by == user_id)
+        else:
+            entry_stmt = entry_stmt.where(WorklogEntry.created_by.is_(None))
+            log_stmt = log_stmt.where(VoiceLog.created_by.is_(None))
+
+        entry_stmt = entry_stmt.order_by(WorklogEntry.id)
+        entry_ids = [r.id for r in session.execute(entry_stmt).all()]
+        entries = _load_entries(session, entry_ids)
+        processing_ids = [r.id for r in session.execute(log_stmt).all()]
+
+    return {
+        "date": day.isoformat(),
+        "total_minutes": sum(e["minutes"] or 0 for e in entries),
+        "entries": entries,
+        "processing_ids": processing_ids,
+    }
+
+
+def get_worklog_by_case(case_id: int) -> dict:
+    """All worklog entries for a case, grouped by day (newest first), with a
+    total. Firm-wide: each entry carries its author's initials."""
+    with SessionLocal() as session:
+        entry_ids = [r.id for r in session.execute(
+            select(WorklogEntry.id)
+            .where(WorklogEntry.case_id == case_id)
             .order_by(WorklogEntry.activity_date.desc(), WorklogEntry.id)
-        ).all()
+        ).all()]
+        entries = _load_entries(session, entry_ids)
 
-        person_ids = {pp.person_id for e, _ in rows for pp in e.people}
-        persons = {}
-        if person_ids:
-            persons = {
-                p.id: p for p in session.execute(
-                    select(Person).where(Person.id.in_(person_ids))
-                ).scalars()
-            }
-        authors = {}
-        author_ids = {log.created_by for _, log in rows if log.created_by}
-        if author_ids:
-            authors = {
-                u.id: u for u in session.execute(
-                    select(User).where(User.id.in_(author_ids))
-                ).scalars()
-            }
-
-        total = 0
-        groups: dict[str, dict] = {}
-        for entry, log in rows:
-            total += entry.minutes or 0
-            key = entry.activity_date.isoformat() if entry.activity_date else "unknown"
-            author = authors.get(log.created_by)
-            item = {
-                "id": entry.id,
-                "minutes": entry.minutes,
-                "description": entry.description,
-                "author_id": log.created_by,
-                "author_initials": author.initials if author else None,
-                "people": [
-                    {"id": persons[pp.person_id].id, "name": persons[pp.person_id].name}
-                    for pp in entry.people if pp.person_id in persons
-                ],
-            }
-            g = groups.setdefault(key, {"date": key, "minutes": 0, "entries": []})
-            g["minutes"] += entry.minutes or 0
-            g["entries"].append(item)
-
-        return {
-            "case_id": case_id,
-            "total_minutes": total,
-            "days": list(groups.values()),
-        }
+    # Group by date, preserving newest-first order.
+    total = 0
+    groups: dict[str, dict] = {}
+    for e in sorted(entries, key=lambda x: (x["activity_date"] or "", x["id"]), reverse=True):
+        total += e["minutes"] or 0
+        key = e["activity_date"] or "unknown"
+        g = groups.setdefault(key, {"date": key, "minutes": 0, "entries": []})
+        g["minutes"] += e["minutes"] or 0
+        g["entries"].append({
+            "id": e["id"],
+            "minutes": e["minutes"],
+            "description": e["description"],
+            "author_id": e["author_id"],
+            "author_initials": e["author_initials"],
+            "people": e["people"],
+        })
+    return {"case_id": case_id, "total_minutes": total, "days": list(groups.values())}
 
 
 def get_worklog_by_person(person_id: int) -> dict:
-    """Confirmed worklog entries that name a person, newest first, with case
-    info — the contact 'Interactions' view."""
+    """All worklog entries naming a person, newest first, with case info."""
     with SessionLocal() as session:
-        rows = session.execute(
-            select(WorklogEntry, VoiceLog)
-            .join(VoiceLog, WorklogEntry.voice_log_id == VoiceLog.id)
+        entry_ids = [r.id for r in session.execute(
+            select(WorklogEntry.id)
             .join(WorklogEntryPerson, WorklogEntryPerson.entry_id == WorklogEntry.id)
-            .where(
-                WorklogEntryPerson.person_id == person_id,
-                VoiceLog.status == "confirmed",
-            )
+            .where(WorklogEntryPerson.person_id == person_id)
             .order_by(WorklogEntry.activity_date.desc(), WorklogEntry.id)
-        ).all()
+        ).all()]
+        entries = _load_entries(session, entry_ids)
 
-        case_ids = {e.case_id for e, _ in rows if e.case_id}
-        cases = {}
-        if case_ids:
-            cases = {
-                c.id: c for c in session.execute(
-                    select(Case).where(Case.id.in_(case_ids))
-                ).scalars()
-            }
-
-        entries = []
-        total = 0
-        for entry, _log in rows:
-            total += entry.minutes or 0
-            case = cases.get(entry.case_id)
-            entries.append({
-                "id": entry.id,
-                "minutes": entry.minutes,
-                "description": entry.description,
-                "activity_date": entry.activity_date.isoformat() if entry.activity_date else None,
-                "case_id": entry.case_id,
-                "case_name": case.case_name if case else None,
-                "short_name": case.short_name if case else None,
-            })
-
-        return {
-            "person_id": person_id,
-            "total_minutes": total,
-            "entries": entries,
-        }
+    entries.sort(key=lambda x: (x["activity_date"] or "", x["id"]), reverse=True)
+    total = sum(e["minutes"] or 0 for e in entries)
+    return {
+        "person_id": person_id,
+        "total_minutes": total,
+        "entries": [{
+            "id": e["id"], "minutes": e["minutes"], "description": e["description"],
+            "activity_date": e["activity_date"], "case_id": e["case_id"],
+            "case_name": e["case_name"], "short_name": e["short_name"],
+        } for e in entries],
+    }

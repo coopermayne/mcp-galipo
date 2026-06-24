@@ -431,15 +431,19 @@ class ConsolidateWorklogInput(BaseModel):
     selections: list[WorklogSelectionInput] = []
 
 
-class WorklogEntryInput(BaseModel):
+class AddWorklogEntryInput(BaseModel):
+    """Manually add a single entry to a day's ledger."""
+    log_date: Optional[str] = None  # YYYY-MM-DD; defaults today
     case_id: Optional[int] = None
-    minutes: int
-    description: str
-    raw_reference: Optional[str] = None
+    minutes: int = 0
+    description: str = ""
     person_ids: list[int] = []
 
 
-class ConfirmWorklogInput(BaseModel):
-    transcript: str = ""
-    log_date: Optional[str] = None
-    entries: list[WorklogEntryInput]
+class UpdateWorklogEntryInput(BaseModel):
+    """Patch an existing entry. Unset fields are left unchanged; case_id may be
+    sent as null to clear the match."""
+    case_id: Optional[int] = None
+    minutes: Optional[int] = None
+    description: Optional[str] = None
+    person_ids: Optional[list[int]] = None
