@@ -2,187 +2,110 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading03Icon, ArrowLeft01Icon, PenTool01Icon } from "@hugeicons/core-free-icons"
-import {
-  consolidateWorklog,
-  getWorklog,
-  listPendingWorklogs,
-  confirmWorklog,
-  discardWorklog,
-  formatMinutes,
-} from "@/services/worklog"
-import type { WorklogEntryInput, WorklogSelection } from "@/types/worklog"
-import { WorklogInput } from "@/pages/worklog/components/worklog-input"
-import { WorklogReview } from "@/pages/worklog/components/worklog-review"
+import { PenTool01Icon, ArrowLeft01Icon, ArrowRight01Icon, Add01Icon } from "@hugeicons/core-free-icons"
+import { getWorklogDay, addWorklogEntry, formatMinutes } from "@/services/worklog"
+import { WorklogEntryRow } from "@/pages/worklog/components/worklog-entry-row"
+import { WorklogComposer } from "@/pages/worklog/components/worklog-composer"
 import { Button } from "@/components/ui/button"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatLA } from "@/lib/datetime"
-import { cn } from "@/lib/utils"
+
+function todayKey(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+function shiftDay(key: string, delta: number): string {
+  const [y, m, d] = key.split("-").map(Number)
+  const date = new Date(y, m - 1, d + delta)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+}
 
 export default function WorklogPage() {
   const queryClient = useQueryClient()
-  const [activeId, setActiveId] = useState<number | null>(null)
+  const [dayKey, setDayKey] = useState<string>(todayKey)
 
-  // Active log — polled while processing so the page flips to review when ready.
-  const { data: activeLog } = useQuery({
-    queryKey: ["worklog", activeId],
-    queryFn: () => getWorklog(activeId!),
-    enabled: activeId != null,
-    refetchInterval: (q) => (q.state.data?.status === "processing" ? 2000 : false),
+  const { data: day, isLoading } = useQuery({
+    queryKey: ["worklog-day", dayKey],
+    queryFn: () => getWorklogDay(dayKey),
+    // Keep refreshing while a consolidation is in flight for this day.
+    refetchInterval: (q) => ((q.state.data?.processing_ids?.length ?? 0) > 0 ? 2500 : false),
   })
 
-  // Phase is derived from the active log's status — no separate state to sync.
-  const status = activeLog?.status
-  const phase: "input" | "processing" | "review" | "failed" =
-    activeId == null ? "input"
-    : status === "ready" || status === "confirmed" ? "review"
-    : status === "failed" ? "failed"
-    : "processing"
-
-  // Pending "to review" list (processing + ready).
-  const { data: pending } = useQuery({
-    queryKey: ["worklog-pending"],
-    queryFn: listPendingWorklogs,
-    refetchInterval: phase === "processing" ? 3000 : false,
-  })
-
-  const consolidateMutation = useMutation({
-    mutationFn: (payload: { transcript: string; log_date: string; selections: WorklogSelection[] }) =>
-      consolidateWorklog(payload),
-    onSuccess: (res) => {
-      setActiveId(res.voice_log_id)
-      queryClient.invalidateQueries({ queryKey: ["worklog-pending"] })
-    },
+  const addEntry = useMutation({
+    mutationFn: () => addWorklogEntry({ log_date: dayKey, minutes: 0, description: "" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["worklog-day", dayKey] }),
     onError: (e) => toast.error(e.message),
   })
 
-  const confirmMutation = useMutation({
-    mutationFn: ({ id, entries }: { id: number; entries: WorklogEntryInput[] }) =>
-      confirmWorklog(id, { entries }),
-    onSuccess: () => {
-      toast.success("Day logged")
-      queryClient.invalidateQueries({ queryKey: ["worklog-pending"] })
-      queryClient.invalidateQueries({ queryKey: ["worklog-by-case"] })
-      setActiveId(null)
-    },
-    onError: (e) => toast.error(e.message),
-  })
-
-  const discardMutation = useMutation({
-    mutationFn: (id: number) => discardWorklog(id),
-    onSuccess: () => {
-      toast.success("Discarded")
-      queryClient.invalidateQueries({ queryKey: ["worklog-pending"] })
-      setActiveId(null)
-    },
-    onError: (e) => toast.error(e.message),
-  })
-
-  function openLog(id: number) {
-    setActiveId(id)
-  }
-
-  function backToInput() {
-    setActiveId(null)
-  }
+  const entries = day?.entries ?? []
+  const isToday = dayKey === todayKey()
 
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center gap-2 mb-6">
         <HugeiconsIcon icon={PenTool01Icon} className="size-5 text-muted-foreground" />
         <h1 className="text-lg font-semibold">Log my day</h1>
-        {phase !== "input" && (
-          <Button variant="ghost" size="sm" onClick={backToInput} className="ml-auto text-xs">
-            <HugeiconsIcon icon={ArrowLeft01Icon} className="size-3.5" />
-            New log
-          </Button>
-        )}
       </div>
 
-      {/* To-review list (only on input phase) */}
-      {phase === "input" && pending && pending.length > 0 && (
-        <div className="mb-6 border">
-          <div className="px-3 h-10 flex items-center border-b bg-muted/30">
-            <span className="text-sm font-semibold">To review</span>
-            <span className="ml-1.5 text-xs text-muted-foreground">({pending.length})</span>
-          </div>
-          <div className="divide-y divide-border/50">
-            {pending.map((w) => (
-              <button
-                key={w.id}
-                type="button"
-                onClick={() => openLog(w.id)}
-                className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors"
-              >
-                <span className="text-xs font-medium">
-                  {w.log_date ? formatLA(`${w.log_date}T00:00:00`, { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                </span>
-                <span
-                  className={cn(
-                    "text-[10px] uppercase tracking-wider px-1.5 py-0.5",
-                    w.status === "ready" ? "bg-success/15 text-success-foreground" : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {w.status === "processing" ? "working…" : "ready"}
-                </span>
-                {w.status === "ready" && (
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {w.entries.length} {w.entries.length === 1 ? "entry" : "entries"} ·{" "}
-                    {formatMinutes(w.entries.reduce((s, e) => s + e.minutes, 0))}
-                  </span>
-                )}
-                {w.status === "processing" && (
-                  <HugeiconsIcon icon={Loading03Icon} className="size-3.5 animate-spin ml-auto text-muted-foreground" />
-                )}
-              </button>
-            ))}
-          </div>
+      {/* Day navigator */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button variant="outline" size="icon-sm" onClick={() => setDayKey((k) => shiftDay(k, -1))} title="Previous day">
+          <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+        </Button>
+        <div className="w-44">
+          <DatePicker value={dayKey} onChange={(d) => setDayKey(d ?? dayKey)} />
         </div>
-      )}
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => setDayKey((k) => shiftDay(k, 1))}
+          title="Next day"
+          disabled={isToday}
+        >
+          <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+        </Button>
+        {!isToday && (
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDayKey(todayKey())}>
+            Today
+          </Button>
+        )}
+        <span className="ml-auto text-sm">
+          <span className="text-muted-foreground">Total </span>
+          <span className="font-semibold tabular-nums">{formatMinutes(day?.total_minutes ?? 0)}</span>
+        </span>
+      </div>
 
-      {phase === "input" && (
-        <WorklogInput
-          onConsolidate={(payload) => consolidateMutation.mutate(payload)}
-          isSubmitting={consolidateMutation.isPending}
-        />
-      )}
-
-      {phase === "processing" && (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <HugeiconsIcon icon={Loading03Icon} className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm font-medium">Working on your day…</p>
-          <p className="text-xs text-muted-foreground max-w-sm">
-            Claude is splitting and estimating your work. This takes a few seconds — you can
-            leave this page and come back; it'll be waiting under “To review.”
+      {/* Ledger */}
+      <div className="space-y-3 mb-6">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </>
+        ) : entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center border border-dashed">
+            Nothing logged for {formatLA(`${dayKey}T00:00:00`, { weekday: "long", month: "long", day: "numeric" })} yet.
           </p>
-          <div className="w-full max-w-md mt-4 space-y-2">
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
-          </div>
-        </div>
-      )}
+        ) : (
+          entries.map((e) => <WorklogEntryRow key={e.id} entry={e} dayKey={dayKey} />)
+        )}
 
-      {phase === "review" && activeLog && (
-        <WorklogReview
-          worklog={activeLog}
-          onConfirm={(entries) => confirmMutation.mutate({ id: activeLog.id, entries })}
-          onDiscard={() => discardMutation.mutate(activeLog.id)}
-          isSaving={confirmMutation.isPending}
-        />
-      )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => addEntry.mutate()}
+          disabled={addEntry.isPending}
+        >
+          <HugeiconsIcon icon={Add01Icon} className="size-4" />
+          Add entry
+        </Button>
+      </div>
 
-      {phase === "failed" && activeLog && (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <p className="text-sm font-medium text-destructive">Consolidation failed</p>
-          <p className="text-xs text-muted-foreground max-w-sm">{activeLog.error || "Something went wrong."}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={backToInput}>Back</Button>
-            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => discardMutation.mutate(activeLog.id)}>
-              Discard
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Composer */}
+      <WorklogComposer dayKey={dayKey} processing={(day?.processing_ids?.length ?? 0) > 0} />
     </main>
   )
 }

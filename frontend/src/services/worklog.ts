@@ -1,10 +1,11 @@
 import type {
   WorklogCandidates,
   Worklog,
+  WorklogDay,
+  WorklogEntry,
   WorklogByCase,
   WorklogByPerson,
   WorklogSelection,
-  WorklogEntryInput,
 } from "@/types/worklog"
 import { apiFetch } from "@/lib/api"
 
@@ -45,34 +46,53 @@ export async function getWorklog(id: number): Promise<Worklog> {
   return json(await apiFetch(`/api/v1/worklog/${id}`), "Failed to fetch worklog")
 }
 
-export async function listPendingWorklogs(): Promise<Worklog[]> {
-  const data = await json<{ worklogs: Worklog[] }>(
-    await apiFetch("/api/v1/worklog/pending"),
-    "Failed to fetch pending worklogs"
-  )
-  return data.worklogs
-}
-
-export interface ConfirmPayload {
-  transcript?: string
-  log_date?: string | null
-  entries: WorklogEntryInput[]
-}
-
-export async function confirmWorklog(id: number, payload: ConfirmPayload): Promise<Worklog> {
+export async function getWorklogDay(date: string): Promise<WorklogDay> {
   return json(
-    await apiFetch(`/api/v1/worklog/${id}/confirm`, {
+    await apiFetch(`/api/v1/worklog/day?date=${encodeURIComponent(date)}`),
+    "Failed to fetch day"
+  )
+}
+
+export interface AddEntryPayload {
+  log_date: string
+  case_id?: number | null
+  minutes?: number
+  description?: string
+  person_ids?: number[]
+}
+
+export async function addWorklogEntry(payload: AddEntryPayload): Promise<WorklogEntry> {
+  return json(
+    await apiFetch("/api/v1/worklog/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
-    "Failed to confirm worklog"
+    "Failed to add entry"
   )
 }
 
-export async function discardWorklog(id: number): Promise<void> {
-  const res = await apiFetch(`/api/v1/worklog/${id}`, { method: "DELETE" })
-  if (!res.ok) throw new Error("Failed to discard worklog")
+export interface UpdateEntryPayload {
+  case_id?: number | null
+  minutes?: number
+  description?: string
+  person_ids?: number[]
+}
+
+export async function updateWorklogEntry(id: number, payload: UpdateEntryPayload): Promise<WorklogEntry> {
+  return json(
+    await apiFetch(`/api/v1/worklog/entries/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+    "Failed to update entry"
+  )
+}
+
+export async function deleteWorklogEntry(id: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/worklog/entries/${id}`, { method: "DELETE" })
+  if (!res.ok) throw new Error("Failed to delete entry")
 }
 
 export async function getWorklogByCase(caseId: number): Promise<WorklogByCase> {

@@ -103,8 +103,9 @@ def register_worklog_routes(mcp):
             data = UpdateWorklogEntryInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
+        user_id = _get_db_user_id(auth.get_current_user(request))
         fields = data.model_dump(exclude_unset=True)
-        result = await asyncio.to_thread(db.update_worklog_entry, entry_id, fields)
+        result = await asyncio.to_thread(db.update_worklog_entry, entry_id, fields, user_id)
         if not result:
             return api_error("Entry not found", "NOT_FOUND", 404)
         return JSONResponse(result)
@@ -115,7 +116,8 @@ def register_worklog_routes(mcp):
         if err := auth.require_auth(request):
             return err
         entry_id = int(request.path_params["entry_id"])
-        deleted = await asyncio.to_thread(db.delete_worklog_entry, entry_id)
+        user_id = _get_db_user_id(auth.get_current_user(request))
+        deleted = await asyncio.to_thread(db.delete_worklog_entry, entry_id, user_id)
         if deleted:
             return JSONResponse({"success": True})
         return api_error("Entry not found", "NOT_FOUND", 404)
