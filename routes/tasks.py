@@ -33,6 +33,7 @@ def register_task_routes(mcp):
         due_date_to = request.query_params.get("due_date_to")
         user_id = request.query_params.get("user_id")
         assignee_id = request.query_params.get("assignee_id")
+        event_id = request.query_params.get("event_id")
         limit, offset = clamp_pagination(request)
 
         result = await asyncio.to_thread(
@@ -48,6 +49,7 @@ def register_task_routes(mcp):
             user_id=int(user_id) if user_id else None,
             assignee_id=int(assignee_id) if assignee_id else None,
             intake_id=int(intake_id) if intake_id else None,
+            event_id=int(event_id) if event_id else None,
         )
         return JSONResponse(result)
 

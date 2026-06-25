@@ -247,6 +247,8 @@ interface TaskListItemProps {
   onTaskClick: (task: TaskListItemType) => void
   onUpdateTask: (taskId: number, field: string, value: unknown) => void
   hideCaseBadge?: boolean
+  /** Hide the linked-event chip (e.g. when already inside an event context) */
+  hideEventLinker?: boolean
   showDone?: boolean
   unreadCount?: number
 }
@@ -398,6 +400,7 @@ export function TaskListItem({
   onTaskClick,
   onUpdateTask,
   hideCaseBadge,
+  hideEventLinker,
   showDone,
   unreadCount,
 }: TaskListItemProps) {
@@ -491,7 +494,7 @@ export function TaskListItem({
               </div>
 
               {/* Linked event — inline combobox (hidden on mobile) */}
-              {(task.has_events || task.case_id) && (
+              {!hideEventLinker && (task.has_events || task.case_id) && (
                 <span className="hidden sm:inline-flex">
                   <InlineEventLinker
                     task={task}
