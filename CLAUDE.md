@@ -436,7 +436,7 @@ See `.env.example` for a complete template.
 Use `/api/v1/health` to verify production deploy state. No authentication required.
 
 ```bash
-curl https://galipo.coopermayne.com/api/v1/health
+curl https://<your-production-host>/api/v1/health
 ```
 
 Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_seconds`. Compare `alembic_revision` against local (`alembic current`) to confirm production has the latest migrations. Compare `git_commit` to verify the deployed code version.
@@ -450,6 +450,8 @@ Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_sec
 **NEVER force push to remote `main`.** Do not run `git push --force`, `git push --force-with-lease`, or any force-push variant against `main`. This is a hard rule with no exceptions. Force-pushing to a topic branch you own is fine when needed (e.g., after a rebase), but prefer a new commit when possible.
 
 **Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity. PRs are the merge gate — pushing more commits to a branch updates its existing PR.
+
+**Always `git fetch origin` before reasoning about what's ahead of `main`.** `origin/main` is a local cached ref that only moves on fetch/pull — `main` often advances on the remote mid-session (e.g. another PR merges). A range like `git log origin/main..staging` against a stale ref will report commits as "ahead of main" that were already merged, leading to wrong PR descriptions. Fetch first, or trust `gh pr view <n> --json commits` (server-side, always current) over a local `..` comparison.
 
 ## MCP Tools Usage
 

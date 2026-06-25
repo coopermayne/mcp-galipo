@@ -370,7 +370,8 @@ def register_sms_routes(mcp):
                         notify_body = f"New SMS from {from_number}"
                         if preview:
                             notify_body += f": \"{preview}\""
-                        notify_body += "\nhttps://galipo.coopermayne.com/sms"
+                        if settings.mcp_base_url:
+                            notify_body += f"\n{settings.mcp_base_url}/sms"
                         notify_client.messages.create(
                             body=notify_body,
                             from_=settings.twilio_phone,

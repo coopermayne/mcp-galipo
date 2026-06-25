@@ -686,7 +686,7 @@ Production `CMD` runs `alembic upgrade head && gunicorn main:app -k uvicorn.work
 ### Production health check
 
 ```bash
-curl https://galipo.coopermayne.com/api/v1/health
+curl https://<your-production-host>/api/v1/health
 ```
 
 Returns `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_seconds`. Compare `alembic_revision` to your local `alembic current` to confirm prod has the latest migrations. Compare `git_commit` to confirm the deployed code version.
