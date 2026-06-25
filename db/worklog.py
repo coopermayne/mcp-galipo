@@ -391,6 +391,10 @@ def update_worklog_entry(entry_id: int, fields: dict, user_id: Optional[int]) ->
             return None
         if "case_id" in fields:
             entry.case_id = fields["case_id"]
+            # The user explicitly resolved the assignment — to a case or to
+            # "General" (null). Either way, drop the AI's unmatched guess so the
+            # entry stops showing the dashed "unmatched" chip.
+            entry.raw_reference = None
         if "hours" in fields and fields["hours"] is not None:
             entry.hours = _norm_hours(fields["hours"])
         if "description" in fields and fields["description"] is not None:
