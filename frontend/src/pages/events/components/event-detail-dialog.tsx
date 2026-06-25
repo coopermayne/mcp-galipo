@@ -15,6 +15,7 @@ import {
 import { getStaff } from "@/services/staff"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
+import { EventTasksSection } from "@/pages/events/components/event-tasks-section"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -306,6 +307,9 @@ export function EventDetailDialog({
             )}
           </div>
         </div>
+
+        {/* Tasks */}
+        <EventTasksSection eventId={event.id} caseId={event.case_id ?? null} />
       </DialogContent>
     </Dialog>
   )

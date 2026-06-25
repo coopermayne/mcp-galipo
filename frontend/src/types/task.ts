@@ -59,6 +59,7 @@ export interface TaskDetail {
 export interface GetTasksParams {
   case_id?: number
   intake_id?: number
+  event_id?: number
   status?: TaskStatus
   exclude_status?: TaskStatus
   urgency?: Urgency

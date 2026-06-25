@@ -97,7 +97,7 @@ def add_task(case_id: int = None, description: str = "", due_date: str = None,
 def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: str = None,
               urgency_filter: str = None, due_date_from: str = None, due_date_to: str = None,
               limit: int = None, offset: int = None, assignee_id: int = None,
-              user_id: int = None, intake_id: int = None) -> dict:
+              user_id: int = None, intake_id: int = None, event_id: int = None) -> dict:
     """Get tasks with optional filters."""
     # Validate filters
     if status_filter:
@@ -133,6 +133,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
         stmt = stmt.where(Task.case_id == case_id)
     if intake_id:
         stmt = stmt.where(Task.intake_id == intake_id)
+    if event_id:
+        stmt = stmt.where(Task.event_id == event_id)
     stmt = stmt.where(feature_clause)
     if status_filter:
         stmt = stmt.where(Task.status == status_filter)
@@ -162,6 +164,8 @@ def get_tasks(case_id: int = None, status_filter: str = None, exclude_status: st
             count_base = count_base.where(Task.case_id == case_id)
         if intake_id:
             count_base = count_base.where(Task.intake_id == intake_id)
+        if event_id:
+            count_base = count_base.where(Task.event_id == event_id)
         count_base = count_base.where(feature_clause)
         if status_filter:
             count_base = count_base.where(Task.status == status_filter)
