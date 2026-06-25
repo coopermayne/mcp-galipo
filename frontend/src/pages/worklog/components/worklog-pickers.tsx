@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 import { getCases } from "@/services/cases"
 import type { CaseListItem } from "@/types/case"
 import { Badge } from "@/components/ui/badge"
@@ -11,9 +9,14 @@ import { getBadgeStyle } from "@/lib/badge-colors"
 import { cn } from "@/lib/utils"
 
 /**
- * Compact case selector: a colored case chip (or an "unmatched"/"+ case" hint)
- * that opens a searchable popover. Mirrors the case badge used in task/event
- * lists. Calls onChange with the picked case id (or null to clear).
+ * Compact case selector. The trigger shows one of three states:
+ *   - a colored case chip when matched to a case,
+ *   - a dashed "unmatched" chip when the AI couldn't match a referenced case
+ *     (`guess` present) — needs the user's attention,
+ *   - a neutral "General" chip when the entry intentionally has no case.
+ * The popover offers "No case (general)" as a first-class choice alongside the
+ * searchable case list. onChange fires with the picked case id, or null for
+ * General / no case.
  */
 export function InlineCasePicker({
   value,
@@ -76,9 +79,8 @@ export function InlineCasePicker({
               {guess}
             </Badge>
           ) : (
-            <span className="inline-flex h-4 items-center gap-0.5 border border-dashed border-muted-foreground/30 px-1.5 text-[10px] text-muted-foreground/60 transition-colors hover:border-muted-foreground/60 hover:text-muted-foreground">
-              <HugeiconsIcon icon={Add01Icon} className="size-2.5" />
-              case
+            <span className="inline-flex h-4 items-center border bg-muted/60 px-1.5 text-[10px] leading-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              General
             </span>
           )}
         </button>
@@ -94,16 +96,19 @@ export function InlineCasePicker({
           />
         </div>
         <div className="max-h-56 overflow-auto p-1">
-          {value && (
-            <button
-              type="button"
-              onClick={() => { onChange(null); setOpen(false) }}
-              className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-              Clear case
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => { onChange(null); setOpen(false) }}
+            className={cn(
+              "mb-1 flex w-full items-center gap-2 border-b px-2 py-1.5 text-left hover:bg-accent/50",
+              value === null && !guess && "bg-accent/40"
+            )}
+          >
+            <span className="inline-flex h-4 shrink-0 items-center border bg-muted/60 px-1.5 text-[10px] leading-none text-muted-foreground">
+              General
+            </span>
+            <span className="truncate text-[11px] text-muted-foreground">No case — general work</span>
+          </button>
           {filtered.map((c) => (
             <button
               key={c.id}
