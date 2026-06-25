@@ -33,6 +33,8 @@ export function EventTasksSection({ eventId, caseId }: EventTasksSectionProps) {
     queryClient.invalidateQueries({ queryKey: tasksKey })
     queryClient.invalidateQueries({ queryKey: ["tasks"] })
     queryClient.invalidateQueries({ queryKey: ["event", eventId] })
+    // Refresh the events list so the task-count indicator updates
+    queryClient.invalidateQueries({ queryKey: ["events"] })
   }
 
   const updateMutation = useMutation({
