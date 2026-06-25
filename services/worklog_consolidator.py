@@ -57,7 +57,10 @@ SUBMIT_WORKLOG_TOOL = {
                         },
                         "case_guess": {
                             "type": "string",
-                            "description": "How the user referred to the case (for unmatched display).",
+                            "description": (
+                                "How the user referred to a SPECIFIC case that couldn't be "
+                                "matched. Leave empty for general work that isn't about any case."
+                            ),
                         },
                         "person_ids": {
                             "type": "array",
@@ -66,10 +69,14 @@ SUBMIT_WORKLOG_TOOL = {
                         },
                         "raw_reference": {
                             "type": "string",
-                            "description": "The original phrasing for this activity.",
+                            "description": (
+                                "The user's original phrasing for this activity, but ONLY when it "
+                                "names a specific case that couldn't be matched. OMIT for general "
+                                "work with no case (it renders as a clean 'General' entry)."
+                            ),
                         },
                     },
-                    "required": ["description", "hours", "raw_reference"],
+                    "required": ["description", "hours"],
                 },
             }
         },
@@ -104,13 +111,18 @@ lengths; flexible work absorbs the remainder and is scaled to fit. If anchored i
 exceed 7h, keep them accurate and let the total exceed — the user will adjust. Never pad with
 invented activities; only distribute time across what's given.
 
-STEP 4 — MATCH each activity to a case (fuzzy by name). No confident case match -> case_id=null,
-put the user's phrasing in case_guess. ALWAYS fill raw_reference.
+STEP 4 — MATCH each activity to a case (fuzzy by name). Three outcomes:
+  (a) Confident match -> set case_id.
+  (b) The user named a SPECIFIC case but you can't match it -> case_id=null, put the user's
+      phrasing in case_guess and raw_reference (it shows as an "unmatched" chip to fix).
+  (c) General work that isn't about any single case (admin, intake review, CLE, firm meetings,
+      reviewing potential new matters, etc.) -> case_id=null and LEAVE case_guess / raw_reference
+      EMPTY. This is a valid "General" entry, not an error — do NOT invent a case reference for it.
 - DESCRIPTIONS: write the activity ONLY — never repeat the case name or party names in the
   description (the case is stored separately via case_id and shown as its own chip). Strip any
   "for <Case>" / "in <Case>" / "on the <Case> matter" phrasing. E.g. "Prepared discovery
-  responses", NOT "Prepared discovery responses for Brooks v. Vons Grocery". Keep raw_reference
-  intact (it preserves the original phrasing for unmatched display).
+  responses", NOT "Prepared discovery responses for Brooks v. Vons Grocery". For (b), keep
+  raw_reference intact (it preserves the original phrasing for unmatched display).
 - EXPLICITLY TAGGED CASES: if that list is provided, the user picked those cases by name and
   their exact case_name appears verbatim in the memo. When an activity's text contains a tagged
   case's name, you MUST use that exact case_id — do not second-guess or leave it null.
