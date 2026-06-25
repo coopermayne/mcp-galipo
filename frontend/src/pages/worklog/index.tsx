@@ -9,6 +9,7 @@ import { WorklogComposer } from "@/pages/worklog/components/worklog-composer"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Skeleton } from "@/components/ui/skeleton"
+import { FeatureGate } from "@/components/common/feature-gate"
 import { formatLA } from "@/lib/datetime"
 
 function todayKey(): string {
@@ -43,6 +44,7 @@ export default function WorklogPage() {
   const isToday = dayKey === todayKey()
 
   return (
+    <FeatureGate feature="log-my-day" redirectTo="/">
     <main className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center gap-2 mb-6">
         <HugeiconsIcon icon={PenTool01Icon} className="size-5 text-muted-foreground" />
@@ -106,5 +108,6 @@ export default function WorklogPage() {
       {/* Composer */}
       <WorklogComposer dayKey={dayKey} processing={(day?.processing_ids?.length ?? 0) > 0} />
     </main>
+    </FeatureGate>
   )
 }

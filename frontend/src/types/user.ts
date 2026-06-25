@@ -16,6 +16,7 @@ export type FeatureKey =
   | "court-listener"
   | "sms"
   | "ai-chat"
+  | "log-my-day"
 
 export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "dashboard", label: "Dashboard" },
@@ -33,13 +34,14 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "court-listener", label: "CourtListener" },
   { value: "sms", label: "SMS" },
   { value: "ai-chat", label: "AI Chat" },
+  { value: "log-my-day", label: "Log My Day" },
 ]
 
 /**
  * Opt-in features are hidden unless explicitly enabled for a user — even when
  * visibleFeatures is null (full access). They are excluded from DEFAULT_FEATURES.
  */
-export const OPT_IN_FEATURES: FeatureKey[] = ["ai-chat", "case-health"]
+export const OPT_IN_FEATURES: FeatureKey[] = ["ai-chat", "case-health", "log-my-day"]
 
 /** Features enabled when visibleFeatures is null (full access). Opt-in features excluded. */
 export const DEFAULT_FEATURES: FeatureKey[] = FEATURE_OPTIONS
