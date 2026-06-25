@@ -7,9 +7,12 @@ export interface EventListItem {
   description: string
   document_link: string | null
   calculation_note: string | null
+  notes: string | null
   starred: boolean | null
   event_type: string | null
   end_date: string | null
+  blocks_calendar: boolean | null
+  on_trial_calendar: boolean | null
   created_at: string | null
   case_name: string | null
   short_name: string | null

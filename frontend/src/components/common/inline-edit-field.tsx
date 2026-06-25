@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { DatePicker } from "@/components/ui/date-picker"
+import { Button } from "@/components/ui/button"
 
 interface InlineEditFieldProps {
   value: string
@@ -11,6 +12,12 @@ interface InlineEditFieldProps {
   placeholder?: string
   className?: string
   displayClassName?: string
+  /**
+   * Show explicit Save / Cancel buttons while editing instead of committing on
+   * blur. Only applies to the textarea type. Use when the value is long enough
+   * that the user expects to deliberately save (e.g. a summary).
+   */
+  withSaveButton?: boolean
 }
 
 export function InlineEditField(props: InlineEditFieldProps) {
@@ -36,6 +43,7 @@ function InlineEditFieldInner({
   placeholder = "—",
   className,
   displayClassName,
+  withSaveButton = false,
 }: InlineEditFieldProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -65,6 +73,8 @@ function InlineEditFieldInner({
       cancel()
     } else if (e.key === "Enter" && type !== "textarea") {
       commit()
+    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && type === "textarea") {
+      commit()
     }
   }
 
@@ -75,7 +85,8 @@ function InlineEditFieldInner({
       onChange: (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
       ) => setDraft(e.target.value),
-      onBlur: commit,
+      // With explicit Save buttons we don't commit on blur — the user decides.
+      ...(withSaveButton ? {} : { onBlur: commit }),
       onKeyDown: handleKeyDown,
       className: cn(
         "w-full bg-transparent border border-input px-1.5 py-0.5 text-sm outline-none focus:ring-1 focus:ring-ring",
@@ -84,6 +95,21 @@ function InlineEditFieldInner({
     }
 
     if (type === "textarea") {
+      if (withSaveButton) {
+        return (
+          <div className="space-y-1.5">
+            <textarea {...shared} rows={3} />
+            <div className="flex items-center justify-end gap-1.5">
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={cancel}>
+                Cancel
+              </Button>
+              <Button size="sm" className="h-7 px-3 text-xs" onClick={commit}>
+                Save
+              </Button>
+            </div>
+          </div>
+        )
+      }
       return <textarea {...shared} rows={3} />
     }
     return <input {...shared} type={type} />

@@ -156,9 +156,44 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
                 "notes": e.notes,
             })
 
+        # Case events explicitly flagged for the trial calendar (FPTC, PTC,
+        # trial readiness, MIL hearings, etc.). Display-only — they do NOT
+        # block trial-slot availability the way blocking_events do.
+        trial_event_stmt = (
+            select(Event, Case)
+            .join(Case, Event.case_id == Case.id)
+            .where(
+                Event.on_trial_calendar.is_(True),
+                Event.date >= range_start,
+                Event.date <= range_end,
+            )
+            .order_by(Event.date)
+        )
+        trial_event_rows = session.execute(trial_event_stmt).all()
+
+        trial_events = []
+        for e, c in trial_event_rows:
+            trial_events.append({
+                "id": e.id,
+                "event_type": e.event_type,
+                "description": e.description,
+                "date": e.date.isoformat() if e.date else None,
+                "end_date": e.end_date.isoformat() if e.end_date else None,
+                "time": e.time.strftime("%H:%M") if e.time else None,
+                "location": e.location,
+                "notes": e.notes,
+                "case_id": e.case_id,
+                "case_name": c.case_name,
+                "short_name": c.short_name,
+                "color": c.color,
+                "status": c.status,
+                "attorney_ids": c.attorney_ids or [],
+            })
+
     return {
         "trials": trials,
         "blocking_events": blocking_events,
+        "trial_events": trial_events,
         "range": {
             "start": range_start.isoformat(),
             "end": range_end.isoformat(),

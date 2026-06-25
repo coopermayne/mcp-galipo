@@ -205,10 +205,10 @@ export default function TrialCalendarPage() {
         ) : (
           <>
             <div className="hidden md:block">
-              <TrialTable trials={upcomingTrials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+              <TrialTable trials={upcomingTrials} blockingEvents={data.blocking_events} trialEvents={data.trial_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
             </div>
             <div className="md:hidden">
-              <TrialListMobile trials={upcomingTrials} blockingEvents={data.blocking_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
+              <TrialListMobile trials={upcomingTrials} blockingEvents={data.blocking_events} trialEvents={data.trial_events} staffMap={staffMap} onEditEvent={setEditingEvent} />
             </div>
           </>
         )

@@ -14,7 +14,20 @@ export const EVENT_TYPES: EventTypeConfig[] = [
   { value: "deposition", label: "Deposition", color: "var(--palette-teal)" },
   { value: "conference", label: "Conference", color: "var(--palette-indigo)" },
   { value: "other", label: "Other", color: "var(--palette-pink)" },
+  // Trial-calendar event types (case events that affect the trial schedule)
+  { value: "fptc", label: "FPTC", color: "var(--palette-red)" },
+  { value: "ptc", label: "PTC", color: "var(--palette-orange)" },
+  { value: "trc", label: "Trial Readiness", color: "var(--palette-amber)" },
+  { value: "mil", label: "Motion in Limine", color: "var(--palette-purple)" },
 ]
+
+/**
+ * Types offered when adding an event to a case's trial calendar. FPTC and a
+ * confirmed trial generally can't be moved; the rest are scheduling-flexible.
+ */
+export const TRIAL_EVENT_TYPE_OPTIONS: EventTypeConfig[] = EVENT_TYPES.filter((t) =>
+  ["fptc", "ptc", "trc", "mil", "hearing", "conference", "other"].includes(t.value),
+)
 
 export const EVENT_TYPE_MAP = new Map(EVENT_TYPES.map((t) => [t.value, t]))
 

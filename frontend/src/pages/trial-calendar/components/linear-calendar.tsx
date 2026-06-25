@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { format, addDays } from "date-fns"
 import {
   Tooltip,
@@ -28,6 +28,7 @@ import type { StaffMember } from "@/services/staff"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import {
   normalizeItems,
+  normalizeTrialEvents,
   mergeBusySpans,
   computeOpenWindows,
   computeOpenDays,
@@ -59,6 +60,9 @@ function rh(laneCount: number): number {
 }
 
 function getItemStyle(item: CalendarItem): React.CSSProperties {
+  if (item.kind === "trial_event" && item.trialEventRaw) {
+    return { backgroundColor: getEventTypeColor(item.trialEventRaw.event_type) }
+  }
   if (item.kind !== "trial" && item.eventRaw) {
     return { backgroundColor: getEventTypeColor(item.eventRaw.event_type) }
   }
@@ -148,7 +152,7 @@ export function LinearCalendar({
   staffMap: Map<number, StaffMember>
   onEditEvent?: (event: BlockingEvent) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const [highlightOpen, setHighlightOpen] = useState(true)
 
   const todayKey = useMemo(() => {
@@ -164,7 +168,10 @@ export function LinearCalendar({
     const openWindows = computeOpenWindows(busy, rangeStart, rangeEnd)
     const openDays = computeOpenDays(items, rangeStart, rangeEnd)
     const weeks = generateWeeks(rangeStart, rangeEnd)
-    const weekRows = buildWeekRows(weeks, items)
+    // Trial events are display-only: render them on the grid but keep them out
+    // of busy/openWindows/openDays so they never affect slot availability.
+    const displayItems = [...items, ...normalizeTrialEvents(data.trial_events)]
+    const weekRows = buildWeekRows(weeks, displayItems)
     const windowPills = computeWindowPills(openWindows, weeks)
     return { openWindows, weekRows, openDays, windowPills }
   }, [data])
@@ -465,6 +472,30 @@ export function LinearCalendar({
                             )}
                           </div>
                         )
+                      } else if (ci.item.kind === "trial_event" && ci.item.trialEventRaw) {
+                        const te = ci.item.trialEventRaw
+                        tooltipBody = (
+                          <div className="space-y-1 max-w-64">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-semibold px-1 py-px text-white whitespace-nowrap" style={{ backgroundColor: getEventTypeColor(te.event_type) }}>
+                                {getEventTypeLabel(te.event_type)}
+                              </span>
+                              <span className="font-semibold">{te.case_name}</span>
+                            </div>
+                            <div className="text-muted-foreground text-xs space-y-0.5">
+                              <div>
+                                {format(parseDate(te.date), "MMM d, yyyy")}
+                                {te.end_date && ` – ${format(parseDate(te.end_date), "MMM d, yyyy")}`}
+                                {te.time && ` · ${te.time}`}
+                              </div>
+                              {te.description && te.description !== getEventTypeLabel(te.event_type) && (
+                                <div>{te.description}</div>
+                              )}
+                              {te.location && <div>{te.location}</div>}
+                              {te.notes && <div className="italic">"{te.notes}"</div>}
+                            </div>
+                          </div>
+                        )
                       } else {
                         tooltipBody = (
                           <div className="space-y-1 max-w-64">
@@ -500,7 +531,7 @@ export function LinearCalendar({
                               }}
                               onClick={() => {
                                 if (ci.item.caseId) {
-                                  navigate(`/cases/${ci.item.caseId}`)
+                                  openCasePreview(ci.item.caseId)
                                 } else if (ci.item.eventRaw && onEditEvent) {
                                   onEditEvent(ci.item.eventRaw)
                                 }

@@ -11,6 +11,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -40,6 +47,11 @@ interface AiChatSheetProps {
   renderToolIndicator?: (tool: ToolActivity) => React.ReactNode
   /** If set, this message is auto-sent when the sheet opens */
   initialMessage?: string
+  /**
+   * How to present the chat. "sheet" (default) slides in from the right;
+   * "dialog" opens a centered floating modal.
+   */
+  variant?: "sheet" | "dialog"
 }
 
 export function AiChatSheet({
@@ -55,6 +67,7 @@ export function AiChatSheet({
   toolCompletionRules,
   renderToolIndicator,
   initialMessage,
+  variant = "sheet",
 }: AiChatSheetProps) {
   const queryClient = useQueryClient()
   const { messages, send, isStreaming, reset } = useChatStream({ mode, caseContext, intakeContext })
@@ -126,6 +139,82 @@ export function AiChatSheet({
     }
   }
 
+  const conversation = (
+    <>
+      {/* Messages area */}
+      <div className="scrollbar-hidden flex-1 overflow-y-auto space-y-3">
+        {messages.length === 0 && (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-muted-foreground text-sm text-center max-w-md">
+              {emptyStateText}
+            </p>
+          </div>
+        )}
+
+        {messages.map((msg, i) => (
+          <MessageBubble
+            key={i}
+            message={msg}
+            isStreaming={isStreaming && i === messages.length - 1 && msg.role === "assistant"}
+            renderToolIndicator={renderToolIndicator}
+          />
+        ))}
+
+        {isStreaming &&
+          messages.length > 0 &&
+          messages[messages.length - 1].role === "assistant" &&
+          !messages[messages.length - 1].content &&
+          !(messages[messages.length - 1].toolCalls?.length) && (
+            <div className="flex justify-start">
+              <div className="bg-muted px-3 py-2 text-sm">
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className="size-4 animate-spin"
+                />
+              </div>
+            </div>
+          )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <div className="flex items-end gap-2 border-t pt-3">
+        <Textarea
+          ref={textareaRef}
+          placeholder={placeholder}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={2}
+          className="min-h-[60px] resize-none"
+        />
+        <Button
+          size="icon"
+          className="shrink-0"
+          onClick={handleSend}
+          disabled={isStreaming || !input.trim()}
+        >
+          <HugeiconsIcon icon={SentIcon} className="size-4" />
+        </Button>
+      </div>
+    </>
+  )
+
+  if (variant === "dialog") {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="flex flex-col gap-4 sm:max-w-2xl h-[70vh] max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          {conversation}
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col data-[side=right]:sm:max-w-[50vw]">
@@ -133,64 +222,7 @@ export function AiChatSheet({
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
-
-        {/* Messages area */}
-        <div className="scrollbar-hidden flex-1 overflow-y-auto space-y-3">
-          {messages.length === 0 && (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-muted-foreground text-sm text-center max-w-md">
-                {emptyStateText}
-              </p>
-            </div>
-          )}
-
-          {messages.map((msg, i) => (
-            <MessageBubble
-              key={i}
-              message={msg}
-              isStreaming={isStreaming && i === messages.length - 1 && msg.role === "assistant"}
-              renderToolIndicator={renderToolIndicator}
-            />
-          ))}
-
-          {isStreaming &&
-            messages.length > 0 &&
-            messages[messages.length - 1].role === "assistant" &&
-            !messages[messages.length - 1].content &&
-            !(messages[messages.length - 1].toolCalls?.length) && (
-              <div className="flex justify-start">
-                <div className="bg-muted px-3 py-2 text-sm">
-                  <HugeiconsIcon
-                    icon={Loading03Icon}
-                    className="size-4 animate-spin"
-                  />
-                </div>
-              </div>
-            )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input area */}
-        <div className="flex items-end gap-2 border-t pt-3">
-          <Textarea
-            ref={textareaRef}
-            placeholder={placeholder}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={2}
-            className="min-h-[60px] resize-none"
-          />
-          <Button
-            size="icon"
-            className="shrink-0"
-            onClick={handleSend}
-            disabled={isStreaming || !input.trim()}
-          >
-            <HugeiconsIcon icon={SentIcon} className="size-4" />
-          </Button>
-        </div>
+        {conversation}
       </SheetContent>
     </Sheet>
   )

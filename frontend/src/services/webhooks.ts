@@ -28,3 +28,28 @@ export async function deleteWebhook(id: number): Promise<{ success: boolean }> {
   if (!res.ok) throw new Error("Failed to delete webhook")
   return res.json()
 }
+
+interface LinkWebhookData {
+  proceeding_id: number
+  docket_id?: number | null
+  link_siblings?: boolean
+}
+
+export async function linkWebhook(
+  id: number,
+  data: LinkWebhookData
+): Promise<{ success: boolean; linked_ids: number[]; count: number }> {
+  const res = await apiFetch(`/api/v1/webhooks/${id}/link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Failed to link webhook")
+  return res.json()
+}
+
+export async function unlinkWebhook(id: number): Promise<{ success: boolean }> {
+  const res = await apiFetch(`/api/v1/webhooks/${id}/unlink`, { method: "POST" })
+  if (!res.ok) throw new Error("Failed to unlink webhook")
+  return res.json()
+}

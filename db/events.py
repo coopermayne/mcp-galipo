@@ -52,7 +52,8 @@ def add_event(case_id: int = None, date: str = "", description: str = "",
               document_link: str = None, calculation_note: str = None,
               time: str = None, location: str = None, starred: bool = False,
               event_type: str = None, end_date: str = None,
-              blocks_calendar: bool = None, notes: str = None) -> dict:
+              blocks_calendar: bool = None, notes: str = None,
+              on_trial_calendar: bool = None) -> dict:
     """Add an event, optionally associated with a case."""
     validate_date_format(date, "date")
     validate_time_format(time, "time")
@@ -74,6 +75,7 @@ def add_event(case_id: int = None, date: str = "", description: str = "",
             event_type=event_type,
             end_date=end_date,
             blocks_calendar=blocks_calendar if blocks_calendar is not None else False,
+            on_trial_calendar=on_trial_calendar if on_trial_calendar is not None else False,
         )
         session.add(event)
         session.flush()
@@ -221,9 +223,9 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
                       time: str = _NOT_PROVIDED, location: str = _NOT_PROVIDED,
                       starred: bool = _NOT_PROVIDED, event_type: str = _NOT_PROVIDED,
                       end_date: str = _NOT_PROVIDED, blocks_calendar: bool = _NOT_PROVIDED,
-                      notes: str = _NOT_PROVIDED) -> Optional[dict]:
+                      notes: str = _NOT_PROVIDED, on_trial_calendar: bool = _NOT_PROVIDED) -> Optional[dict]:
     """Update all event fields."""
-    fields = [date, description, document_link, calculation_note, time, location, starred, event_type, end_date, blocks_calendar, notes]
+    fields = [date, description, document_link, calculation_note, time, location, starred, event_type, end_date, blocks_calendar, notes, on_trial_calendar]
     if all(f is _NOT_PROVIDED for f in fields):
         return None
 
@@ -271,6 +273,9 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
 
         if blocks_calendar is not _NOT_PROVIDED:
             event.blocks_calendar = blocks_calendar
+
+        if on_trial_calendar is not _NOT_PROVIDED:
+            event.on_trial_calendar = on_trial_calendar
 
         session.flush()
         session.refresh(event)

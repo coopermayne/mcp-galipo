@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { format } from "date-fns"
-import { useNavigate } from "react-router"
-import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
+import { useCasePreview } from "@/hooks/use-case-preview"
+import type { TrialItem, BlockingEvent, TrialEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { getEventTypeLabel, getEventTypeColor } from "@/lib/event-types"
@@ -12,6 +12,7 @@ import { STALE_STATUSES } from "./trial-columns"
 type Row =
   | { kind: "trial"; date: string; trial: TrialItem }
   | { kind: "event"; date: string; event: BlockingEvent }
+  | { kind: "trial_event"; date: string; trialEvent: TrialEvent }
 
 function parseDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number)
@@ -21,21 +22,24 @@ function parseDate(s: string): Date {
 export function TrialListMobile({
   trials,
   blockingEvents,
+  trialEvents,
   staffMap,
   onEditEvent,
 }: {
   trials: TrialItem[]
   blockingEvents: BlockingEvent[]
+  trialEvents: TrialEvent[]
   staffMap: Map<number, StaffMember>
   onEditEvent?: (event: BlockingEvent) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
 
   const rows = useMemo<Row[]>(() => {
     const trialRows: Row[] = trials.map((t) => ({ kind: "trial", date: t.trial_date, trial: t }))
     const eventRows: Row[] = blockingEvents.map((e) => ({ kind: "event", date: e.date, event: e }))
-    return [...trialRows, ...eventRows].sort((a, b) => a.date.localeCompare(b.date))
-  }, [trials, blockingEvents])
+    const trialEventRows: Row[] = trialEvents.map((e) => ({ kind: "trial_event", date: e.date, trialEvent: e }))
+    return [...trialRows, ...eventRows, ...trialEventRows].sort((a, b) => a.date.localeCompare(b.date))
+  }, [trials, blockingEvents, trialEvents])
 
   if (!rows.length) {
     return (
@@ -56,7 +60,7 @@ export function TrialListMobile({
               key={`trial-${t.case_id}`}
               type="button"
               className="flex w-full items-center gap-3 p-3 text-left active:bg-muted/50"
-              onClick={() => navigate(`/cases/${t.case_id}`)}
+              onClick={() => openCasePreview(t.case_id)}
             >
               {t.attorney_ids.length > 0 && (
                 <div className="flex shrink-0 gap-1">
@@ -86,6 +90,33 @@ export function TrialListMobile({
               </span>
               <span className="shrink-0 text-sm tabular-nums">
                 {format(parseDate(t.trial_date), "MMM d, yyyy")}
+              </span>
+            </button>
+          )
+        }
+
+        if (row.kind === "trial_event") {
+          const te = row.trialEvent
+          return (
+            <button
+              key={`trial-event-${te.id}`}
+              type="button"
+              className="flex w-full items-center gap-3 p-3 text-left active:bg-muted/50"
+              onClick={() => openCasePreview(te.case_id)}
+            >
+              <Badge
+                variant="outline"
+                className="shrink-0 border-transparent px-1.5 py-0 text-[10px] font-normal text-white"
+                style={{ backgroundColor: getEventTypeColor(te.event_type) }}
+              >
+                {getEventTypeLabel(te.event_type)}
+              </Badge>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {te.short_name ?? te.case_name}
+              </span>
+              <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                {format(parseDate(te.date), "MMM d")}
+                {te.end_date && ` – ${format(parseDate(te.end_date), "MMM d")}`}
               </span>
             </button>
           )

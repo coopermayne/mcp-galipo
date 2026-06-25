@@ -9,6 +9,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { getAvatarStyleById } from "@/lib/badge-colors"
+import { timeAgo } from "@/lib/datetime"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -84,6 +85,34 @@ export function getColumns(options: {
         ) : (
           <Badge variant="destructive">Inactive</Badge>
         ),
+    },
+    {
+      accessorKey: "mustChangePassword",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Password" />
+      ),
+      cell: ({ row }) =>
+        row.original.mustChangePassword ? (
+          <Badge className="border-warning/30 bg-warning/15 text-warning">
+            Default
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">Set</span>
+        ),
+    },
+    {
+      accessorKey: "lastActiveAt",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Last Active" />
+      ),
+      cell: ({ row }) => {
+        const last = row.original.lastActiveAt
+        return (
+          <span className={last ? undefined : "text-muted-foreground"}>
+            {last ? timeAgo(last) : "Never"}
+          </span>
+        )
+      },
     },
     {
       id: "actions",

@@ -173,6 +173,23 @@ from .notes import (
     get_notes,
 )
 
+# Worklog (voice-driven work log)
+from .worklog import (
+    get_worklog_candidates,
+    resolve_selection_context,
+    create_processing_log,
+    set_worklog_status,
+    save_consolidated_entries,
+    get_worklog,
+    delete_worklog,
+    get_worklog_day,
+    add_manual_entry,
+    update_worklog_entry,
+    delete_worklog_entry,
+    get_worklog_by_case,
+    get_worklog_by_person,
+)
+
 # Type operations (expertise types only - person types replaced by roles)
 from .types import (
     get_expertise_types,
@@ -208,6 +225,8 @@ from .webhooks import (
     mark_webhook_failed,
     idempotency_key_exists,
     delete_webhook_log,
+    link_webhook_to_proceeding,
+    unlink_webhook,
 )
 
 # User operations
@@ -536,6 +555,20 @@ __all__ = [
     "update_note",
     "delete_note",
     "get_notes",
+    # Worklog
+    "get_worklog_candidates",
+    "resolve_selection_context",
+    "create_processing_log",
+    "set_worklog_status",
+    "save_consolidated_entries",
+    "get_worklog",
+    "delete_worklog",
+    "get_worklog_day",
+    "add_manual_entry",
+    "update_worklog_entry",
+    "delete_worklog_entry",
+    "get_worklog_by_case",
+    "get_worklog_by_person",
     # Types (expertise types only)
     "get_expertise_types",
     "create_expertise_type",
@@ -564,6 +597,8 @@ __all__ = [
     "mark_webhook_failed",
     "idempotency_key_exists",
     "delete_webhook_log",
+    "link_webhook_to_proceeding",
+    "unlink_webhook",
     # Users
     "hash_password",
     "verify_password",

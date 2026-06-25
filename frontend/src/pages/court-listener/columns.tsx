@@ -6,6 +6,8 @@ import {
   ViewIcon,
   MoreHorizontalIcon,
   Download04Icon,
+  Link01Icon,
+  Unlink01Icon,
 } from "@hugeicons/core-free-icons"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { formatTimestamp } from "@/lib/datetime"
@@ -122,15 +124,74 @@ function formatDateTime(dateStr: string | null): string {
 interface ColumnOptions {
   onViewPayload: (webhook: WebhookLog) => void
   onDelete: (webhook: WebhookLog) => void
+  onLink: (webhook: WebhookLog) => void
+  onUnlink: (webhook: WebhookLog) => void
+  onOpenCase: (caseId: number) => void
 }
 
-export function getColumns({ onViewPayload, onDelete }: ColumnOptions): ColumnDef<WebhookLog>[] {
+export function getColumns({
+  onViewPayload,
+  onDelete,
+  onLink,
+  onUnlink,
+  onOpenCase,
+}: ColumnOptions): ColumnDef<WebhookLog>[] {
   return [
+    {
+      id: "linked_case",
+      accessorFn: (row) => row.case_name ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Case" />
+      ),
+      cell: ({ row }) => {
+        const wh = row.original
+        if (!wh.case_id || !wh.case_name) {
+          return <span className="text-muted-foreground">—</span>
+        }
+        const caseId = wh.case_id
+        return (
+          <button
+            type="button"
+            onClick={() => onOpenCase(caseId)}
+            className="font-medium hover:underline cursor-pointer text-left"
+            title={wh.case_number ?? undefined}
+          >
+            {wh.case_name}
+          </button>
+        )
+      },
+      filterFn: "includesString",
+    },
+    {
+      id: "link_status",
+      accessorFn: (row) => (row.proceeding_id ? "Linked" : "Unlinked"),
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Link" />
+      ),
+      cell: ({ row }) => {
+        const linked = !!row.original.proceeding_id
+        return (
+          <Badge
+            className={cn(
+              "border-0 font-medium",
+              linked
+                ? "bg-success text-success-foreground"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {linked ? "Linked" : "Unlinked"}
+          </Badge>
+        )
+      },
+      filterFn: (row, id, value: string[]) => {
+        return value.includes(row.getValue(id) as string)
+      },
+    },
     {
       id: "case_name",
       accessorFn: (row) => extractEntry(row)?.caseName ?? "",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Case" />
+        <DataTableColumnHeader column={column} title="Docket" />
       ),
       cell: ({ row }) => {
         const entry = extractEntry(row.original)
@@ -280,6 +341,17 @@ export function getColumns({ onViewPayload, onDelete }: ColumnOptions): ColumnDe
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {row.original.proceeding_id ? (
+              <DropdownMenuItem onClick={() => onUnlink(row.original)}>
+                <HugeiconsIcon icon={Unlink01Icon} className="mr-2 size-4" />
+                Unlink from case
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => onLink(row.original)}>
+                <HugeiconsIcon icon={Link01Icon} className="mr-2 size-4" />
+                Link to case
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onViewPayload(row.original)}>
               <HugeiconsIcon icon={ViewIcon} className="mr-2 size-4" />
               View Payload

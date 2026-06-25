@@ -43,6 +43,10 @@ class UpdateCaseInput(BaseModel):
     trial_estimated_days: Optional[int] = None
     claim_deadline: Optional[str] = None
     complaint_deadline: Optional[str] = None
+    complaint_deadline_note: Optional[str] = None
+    claim_filed_date: Optional[str] = None
+    claim_rejection_date: Optional[str] = None
+    complaint_filed_date: Optional[str] = None
     notes: Optional[str] = None
     feature_toggles: Optional[dict[str, Any]] = None
 
@@ -101,6 +105,7 @@ class CreateEventInput(BaseModel):
     event_type: Optional[str] = None
     end_date: Optional[str] = None
     blocks_calendar: Optional[bool] = None
+    on_trial_calendar: Optional[bool] = None
 
 
 class UpdateEventInput(BaseModel):
@@ -115,6 +120,7 @@ class UpdateEventInput(BaseModel):
     event_type: Optional[str] = None
     end_date: Optional[str] = None
     blocks_calendar: Optional[bool] = None
+    on_trial_calendar: Optional[bool] = None
 
 
 # =============================================================================
@@ -406,3 +412,41 @@ class UpdateLienInput(BaseModel):
     check_number: Optional[str] = None
     description: Optional[str] = None
     notes: Optional[str] = None
+
+
+# =============================================================================
+# Route Input Models — Worklog (voice-driven work log)
+# =============================================================================
+
+class WorklogSelectionInput(BaseModel):
+    """A surfaced item the user ticked to fold into the day's log. Resolved to
+    text/case/duration during consolidation; never stored as a back-reference."""
+    source_type: Literal["event", "task", "comment"]
+    source_id: int
+
+
+class ConsolidateWorklogInput(BaseModel):
+    transcript: str = ""
+    log_date: Optional[str] = None  # YYYY-MM-DD; defaults to today
+    selections: list[WorklogSelectionInput] = []
+    # Ids of cases the user explicitly @-tagged in the memo — strong, exact
+    # id↔name hints for the AI (their full names appear verbatim in transcript).
+    mentioned_case_ids: list[int] = []
+
+
+class AddWorklogEntryInput(BaseModel):
+    """Manually add a single entry to a day's ledger."""
+    log_date: Optional[str] = None  # YYYY-MM-DD; defaults today
+    case_id: Optional[int] = None
+    hours: float = 0  # time spent, in decimal hours (0.1 = 6 min)
+    description: str = ""
+    person_ids: list[int] = []
+
+
+class UpdateWorklogEntryInput(BaseModel):
+    """Patch an existing entry. Unset fields are left unchanged; case_id may be
+    sent as null to clear the match."""
+    case_id: Optional[int] = None
+    hours: Optional[float] = None
+    description: Optional[str] = None
+    person_ids: Optional[list[int]] = None

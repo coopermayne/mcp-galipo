@@ -16,8 +16,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon } from "@hugeicons/core-free-icons"
-import { getWebhooks, deleteWebhook } from "@/services/webhooks"
-import { getColumns } from "@/pages/court-listener/columns"
+import { getWebhooks, deleteWebhook, unlinkWebhook } from "@/services/webhooks"
+import { useCasePreview } from "@/hooks/use-case-preview"
+import { getColumns, extractEntry } from "@/pages/court-listener/columns"
+import { LinkCaseDialog } from "@/pages/court-listener/components/link-case-dialog"
 import type { WebhookLog } from "@/types/webhook"
 import {
   Table,
@@ -46,14 +48,21 @@ const statusFilterOptions = [
   { label: "Failed", value: "failed" },
 ]
 
+const linkFilterOptions = [
+  { label: "Linked", value: "Linked" },
+  { label: "Unlinked", value: "Unlinked" },
+]
+
 export default function CourtListenerPage() {
   const queryClient = useQueryClient()
+  const { openCasePreview } = useCasePreview()
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created_at", desc: true },
   ])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [payloadWebhook, setPayloadWebhook] = useState<WebhookLog | null>(null)
+  const [linkWebhookTarget, setLinkWebhookTarget] = useState<WebhookLog | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ["webhooks", "courtlistener"],
@@ -71,6 +80,17 @@ export default function CourtListenerPage() {
     },
   })
 
+  const unlinkMutation = useMutation({
+    mutationFn: (id: number) => unlinkWebhook(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] })
+      toast.success("Unlinked from case")
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
   const handleDelete = useCallback(
     (webhook: WebhookLog) => {
       deleteMutation.mutate(webhook.id)
@@ -82,12 +102,44 @@ export default function CourtListenerPage() {
     setPayloadWebhook(webhook)
   }, [])
 
+  const handleLink = useCallback((webhook: WebhookLog) => {
+    setLinkWebhookTarget(webhook)
+  }, [])
+
+  const handleUnlink = useCallback(
+    (webhook: WebhookLog) => {
+      unlinkMutation.mutate(webhook.id)
+    },
+    [unlinkMutation]
+  )
+
   const columns = useMemo(
-    () => getColumns({ onViewPayload: handleViewPayload, onDelete: handleDelete }),
-    [handleViewPayload, handleDelete]
+    () =>
+      getColumns({
+        onViewPayload: handleViewPayload,
+        onDelete: handleDelete,
+        onLink: handleLink,
+        onUnlink: handleUnlink,
+        onOpenCase: openCasePreview,
+      }),
+    [handleViewPayload, handleDelete, handleLink, handleUnlink, openCasePreview]
   )
 
   const webhooks = data?.webhooks ?? []
+
+  // Docket id + count of other unlinked items sharing it, for the link dialog.
+  const linkDocketId = linkWebhookTarget
+    ? extractEntry(linkWebhookTarget)?.docketId ?? null
+    : null
+  const siblingCount =
+    linkWebhookTarget && linkDocketId != null
+      ? webhooks.filter(
+          (w) =>
+            w.id !== linkWebhookTarget.id &&
+            !w.proceeding_id &&
+            extractEntry(w)?.docketId === linkDocketId
+        ).length
+      : 0
 
   const table = useReactTable({
     data: webhooks,
@@ -132,6 +184,11 @@ export default function CourtListenerPage() {
             className="h-8 pl-8"
           />
         </div>
+        <DataTableFacetedFilter
+          column={table.getColumn("link_status")}
+          title="Link"
+          options={linkFilterOptions}
+        />
         <DataTableFacetedFilter
           column={table.getColumn("processing_status")}
           title="Status"
@@ -215,6 +272,16 @@ export default function CourtListenerPage() {
           </pre>
         </DialogContent>
       </Dialog>
+
+      <LinkCaseDialog
+        webhook={linkWebhookTarget}
+        docketId={linkDocketId}
+        siblingCount={siblingCount}
+        open={linkWebhookTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setLinkWebhookTarget(null)
+        }}
+      />
     </div>
   )
 }

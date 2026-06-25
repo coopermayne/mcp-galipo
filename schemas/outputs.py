@@ -130,6 +130,11 @@ class WebhookOut(BaseModel):
     created_at: Optional[datetime.datetime] = None
     processed_at: Optional[datetime.datetime] = None
 
+    # Linked case context (derived from proceeding -> case; not stored on the row)
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    case_number: Optional[str] = None
+
 
 # --- Users ---
 
@@ -151,6 +156,7 @@ class UserOut(BaseModel):
     visible_features: Optional[list] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
+    last_active_at: Optional[datetime.datetime] = None
     paralegal: Optional[UserBriefOut] = None
 
     @field_validator("visible_features", mode="before")
@@ -267,6 +273,7 @@ class EventOut(BaseModel):
     event_type: Optional[str] = None
     end_date: Optional[datetime.date] = None
     blocks_calendar: Optional[bool] = None
+    on_trial_calendar: Optional[bool] = None
 
     @field_serializer('time')
     def serialize_time(self, val: Optional[datetime.time], _info) -> Optional[str]:
@@ -584,3 +591,54 @@ class IntakeCommentOut(BaseModel):
     user_first_name: Optional[str] = None
     user_last_name: Optional[str] = None
     user_initials: Optional[str] = None
+
+
+# =============================================================================
+# Worklog (voice-driven work log)
+# =============================================================================
+
+class WorklogPersonOut(BaseModel):
+    id: int
+    name: str
+
+
+class WorklogCandidateOut(BaseModel):
+    """A surfaced item (event / completed-or-changed task / case comment) the
+    user can tick to fold into the day's log."""
+    source_type: str
+    source_id: int
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    short_name: Optional[str] = None
+    description: str
+    anchored_hours: Optional[float] = None  # events with a real start/end time
+    when: Optional[str] = None              # display hint (time / label)
+
+
+class WorklogEntryOut(BaseModel):
+    id: int
+    voice_log_id: int
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    short_name: Optional[str] = None
+    case_color: Optional[str] = None
+    hours: float
+    description: str
+    raw_reference: Optional[str] = None     # original phrasing / case_guess
+    activity_date: Optional[str] = None
+    created_at: Optional[datetime.datetime] = None
+    people: list[WorklogPersonOut] = []
+
+
+class WorklogOut(BaseModel):
+    id: int
+    transcript: Optional[str] = None
+    log_date: Optional[str] = None
+    status: str
+    error: Optional[str] = None
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    created_by_initials: Optional[str] = None
+    created_at: Optional[datetime.datetime] = None
+    confirmed_at: Optional[datetime.datetime] = None
+    entries: list[WorklogEntryOut] = []

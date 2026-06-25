@@ -4,7 +4,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   type SortingState,
   type ColumnFiltersState,
   type VisibilityState,
@@ -23,7 +22,6 @@ import {
 import { getColumns } from "@/pages/users/columns"
 import { UserToolbar } from "@/pages/users/components/user-toolbar"
 import { UserFormDialog } from "@/pages/users/components/user-form-dialog"
-import { DataTablePagination } from "@/components/common/data-table-pagination"
 import {
   Table,
   TableBody,
@@ -132,7 +130,6 @@ export default function UsersPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   })
 
   function handleFormSubmit(formData: Record<string, unknown>) {
@@ -224,8 +221,6 @@ export default function UsersPage() {
           </TableBody>
         </Table>
       </div>
-
-      <DataTablePagination table={table} />
 
       {/* Create / Edit Dialog */}
       <UserFormDialog

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router"
 import { toast } from "sonner"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   SmartPhone01Icon,
@@ -160,7 +160,7 @@ export function JudgeDetailDialog({
   open,
   onOpenChange,
 }: JudgeDetailDialogProps) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const queryClient = useQueryClient()
 
   const { data: detail } = useQuery({
@@ -336,7 +336,7 @@ export function JudgeDetailDialog({
                     className="flex items-center justify-between gap-2 py-1 cursor-pointer hover:bg-accent/50 -mx-2 px-2 transition-colors"
                     onClick={() => {
                       onOpenChange(false)
-                      navigate(`/cases/${p.case_id}`)
+                      openCasePreview(p.case_id)
                     }}
                   >
                     <div className="flex items-center gap-2 min-w-0">

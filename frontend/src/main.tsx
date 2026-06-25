@@ -65,6 +65,7 @@ const router = createBrowserRouter([
       { path: "cases/:id/costs", lazy: lazy(() => import("@/pages/cases/costs")) },
       { path: "your-tasks", lazy: lazy(() => import("@/pages/tasks")) },
       { path: "tasks", element: <Navigate to="/your-tasks" replace /> },
+      { path: "log", lazy: lazy(() => import("@/pages/worklog")) },
       { path: "your-events", lazy: lazy(() => import("@/pages/events")) },
       { path: "events", element: <Navigate to="/your-events" replace /> },
       { path: "trial-calendar", lazy: lazy(() => import("@/pages/trial-calendar")) },

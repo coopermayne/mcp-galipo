@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import {
   startOfWeek,
   addDays,
@@ -77,7 +77,7 @@ export function WeekHeatmap({
   staffMap: Map<number, StaffMember>
   onEditEvent: (eventId: number) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
 
   const today = useMemo(() => {
     const n = new Date()
@@ -398,7 +398,7 @@ export function WeekHeatmap({
                             }}
                             onClick={(e) => {
                               e.stopPropagation()
-                              navigate(`/cases/${bar.trial.case_id}`)
+                              openCasePreview(bar.trial.case_id)
                             }}
                           >
                             <div
