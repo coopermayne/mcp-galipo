@@ -6,7 +6,7 @@ import {
   flexRender,
   type SortingState,
 } from "@tanstack/react-table"
-import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import {
   Table,
   TableBody,
@@ -17,22 +17,24 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
-import type { TrialItem, BlockingEvent } from "@/services/trial-calendar"
+import type { TrialItem, BlockingEvent, TrialEvent } from "@/services/trial-calendar"
 import type { StaffMember } from "@/services/staff"
 import { getTrialColumns, type CalendarTableRow } from "@/pages/trial-calendar/components/trial-columns"
 
 export function TrialTable({
   trials,
   blockingEvents,
+  trialEvents,
   staffMap,
   onEditEvent,
 }: {
   trials: TrialItem[]
   blockingEvents: BlockingEvent[]
+  trialEvents: TrialEvent[]
   staffMap: Map<number, StaffMember>
   onEditEvent?: (event: BlockingEvent) => void
 }) {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const isMobile = useIsMobile()
   const [sorting, setSorting] = useState<SortingState>([
     { id: "trial", desc: false },
@@ -49,8 +51,13 @@ export function TrialTable({
       date: e.date,
       event: e,
     }))
-    return [...trialRows, ...eventRows]
-  }, [trials, blockingEvents])
+    const trialEventRows: CalendarTableRow[] = trialEvents.map((e) => ({
+      kind: "trial_event" as const,
+      date: e.date,
+      trialEvent: e,
+    }))
+    return [...trialRows, ...eventRows, ...trialEventRows]
+  }, [trials, blockingEvents, trialEvents])
 
   const columns = useMemo(() => getTrialColumns({ staffMap, isMobile }), [staffMap, isMobile])
 
@@ -93,7 +100,9 @@ export function TrialTable({
                 )}
                 onClick={() => {
                   if (row.original.kind === "trial") {
-                    navigate(`/cases/${row.original.trial.case_id}`)
+                    openCasePreview(row.original.trial.case_id)
+                  } else if (row.original.kind === "trial_event") {
+                    openCasePreview(row.original.trialEvent.case_id)
                   } else if (row.original.kind === "event" && onEditEvent) {
                     onEditEvent(row.original.event)
                   }

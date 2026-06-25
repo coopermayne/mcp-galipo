@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -15,11 +16,13 @@ import {
   Message01Icon,
   MoreHorizontalIcon,
   Delete01Icon,
+  PenTool01Icon,
 } from "@hugeicons/core-free-icons"
 import type { PersonListItem } from "@/types/person"
 import type { ContactInfo } from "@/types/person"
 import { getPerson, updatePerson, removePersonFromCase, deletePerson } from "@/services/persons"
 import { getConversationsByPerson, createConversation } from "@/services/sms"
+import { getWorklogByPerson, formatHours } from "@/services/worklog"
 import { Button } from "@/components/ui/button"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { Badge } from "@/components/ui/badge"
@@ -219,6 +222,62 @@ function PersonSmsSection({
   )
 }
 
+function PersonInteractionsSection({
+  personId,
+  navigate,
+  onClose,
+}: {
+  personId: number
+  navigate: ReturnType<typeof useNavigate>
+  onClose: () => void
+}) {
+  const { data } = useQuery({
+    queryKey: ["worklog-by-person", personId],
+    queryFn: () => getWorklogByPerson(personId),
+  })
+  const entries = data?.entries ?? []
+  if (entries.length === 0) return null
+
+  return (
+    <div className="border-t pt-3 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <HugeiconsIcon icon={PenTool01Icon} className="size-3.5 text-muted-foreground" />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Interactions
+        </span>
+        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+          {formatHours(data?.total_hours ?? 0)}
+        </span>
+      </div>
+      <div className="pl-5 space-y-1">
+        {entries.map((e) => (
+          <div
+            key={e.id}
+            className="flex items-start justify-between gap-2 py-1 -mx-2 px-2 cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() => {
+              if (e.case_id) {
+                onClose()
+                navigate(`/cases/${e.case_id}`)
+              }
+            }}
+          >
+            <div className="min-w-0">
+              <span className="text-xs">{e.description}</span>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {(e.short_name || e.case_name) ?? "—"}
+                {e.activity_date ? ` · ${e.activity_date}` : ""}
+              </p>
+            </div>
+            <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">
+              {formatHours(e.hours)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function ContactDetailDialog({
   person,
   open,
@@ -227,6 +286,7 @@ export function ContactDetailDialog({
   extraInvalidateKeys,
 }: ContactDetailDialogProps) {
   const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const queryClient = useQueryClient()
   const [confirmAction, setConfirmAction] = useState<"remove" | "delete" | null>(null)
 
@@ -489,6 +549,9 @@ export function ContactDetailDialog({
           {/* SMS */}
           <PersonSmsSection personId={person.id} phones={phones} navigate={navigate} onClose={() => onOpenChange(false)} />
 
+          {/* Interactions (worklog entries naming this person) */}
+          <PersonInteractionsSection personId={person.id} navigate={navigate} onClose={() => onOpenChange(false)} />
+
           {/* Case Assignments */}
           {caseRoles.size > 0 && (
             <div className="border-t pt-3 space-y-2">
@@ -509,7 +572,7 @@ export function ContactDetailDialog({
                     onClick={() => {
                       if (roleCaseId != null) {
                         onOpenChange(false)
-                        navigate(`/cases/${roleCaseId}`)
+                        openCasePreview(roleCaseId)
                       }
                     }}
                   >

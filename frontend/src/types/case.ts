@@ -61,6 +61,10 @@ export interface CaseDetail {
   trial_estimated_days: number | null
   claim_deadline: string | null
   complaint_deadline: string | null
+  complaint_deadline_note: string | null
+  claim_filed_date: string | null
+  claim_rejection_date: string | null
+  complaint_filed_date: string | null
   color: string | null
   attorney_ids: number[] | null
   paralegal_ids: number[] | null

@@ -9,7 +9,8 @@ import {
   type VisibilityState,
   flexRender,
 } from "@tanstack/react-table"
-import { useSearchParams, useNavigate } from "react-router"
+import { useSearchParams } from "react-router"
+import { useCasePreview } from "@/hooks/use-case-preview"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
 import { getFinancials, getFinancialCounts } from "@/services/financials"
@@ -37,7 +38,7 @@ function formatCurrency(value: number): string {
 }
 
 export default function FinancialsPage() {
-  const navigate = useNavigate()
+  const { openCasePreview } = useCasePreview()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedType = searchParams.get("type")
@@ -182,7 +183,7 @@ export default function FinancialsPage() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/cases/${row.original.case_id}`)}
+                  onClick={() => openCasePreview(row.original.case_id)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

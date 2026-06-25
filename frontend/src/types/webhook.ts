@@ -12,6 +12,10 @@ export interface WebhookLog {
   processing_error: string | null
   created_at: string | null
   processed_at: string | null
+  // Linked case context (derived from proceeding -> case)
+  case_id: number | null
+  case_name: string | null
+  case_number: string | null
 }
 
 export type WebhookProcessingStatus = "pending" | "processing" | "completed" | "failed"

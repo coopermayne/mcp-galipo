@@ -91,6 +91,12 @@ When the user wants to add a person to a case, use manage_person with case_id an
 
 Example: manage_person(action="create", name="Dr. Smith", case_id=14, role="plaintiff_expert")
 
+To REMOVE a person from a case (e.g. added by mistake), use manage_case_role with action="remove". This only unlinks them from THIS case — the person record itself is kept.
+
+Example: manage_case_role(action="remove", case_id=14, person_id=5, role="witness")
+
+If you don't know the person_id or their exact role, first call search(entity="persons", case_id=N) to look up the case roster, then remove them. To change someone's role instead of removing them, use manage_case_role with action="change_role".
+
 Available roles (use snake_case names):
 - Client side: plaintiff, contact, guardian_ad_litem, decedent
 - Counsel: co_counsel, referring_attorney, opposing_counsel, criminal_defense_attorney, prosecutor, public_defender

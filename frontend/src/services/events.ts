@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api"
-import type { EventListResponse, EventDetail, GetEventsParams } from "@/types/event"
+import type { EventListResponse, EventDetail, GetEventsParams, EventListItem } from "@/types/event"
 
 export interface CreateEventData {
   case_id?: number
@@ -14,6 +14,7 @@ export interface CreateEventData {
   event_type?: string
   end_date?: string
   blocks_calendar?: boolean
+  on_trial_calendar?: boolean
 }
 
 export interface UpdateEventData {
@@ -28,6 +29,7 @@ export interface UpdateEventData {
   event_type?: string | null
   end_date?: string | null
   blocks_calendar?: boolean
+  on_trial_calendar?: boolean
 }
 
 export async function createEvent(data: CreateEventData) {
@@ -95,6 +97,43 @@ export async function removeAttendee(eventId: number, userId: number) {
   })
   if (!res.ok) throw new Error("Failed to remove attendee")
   return res.json()
+}
+
+export interface CaseTrialEvent {
+  id: number
+  date: string
+  end_date: string | null
+  time: string | null
+  location: string | null
+  description: string
+  event_type: string | null
+  notes: string | null
+}
+
+/** Fetch a case's events that are flagged for the trial calendar (past + future). */
+export async function getTrialEventsByCase(caseId: number): Promise<CaseTrialEvent[]> {
+  const [upcoming, past] = await Promise.all([
+    apiFetch(`/api/v1/events?case_id=${caseId}&limit=200`),
+    apiFetch(`/api/v1/events?case_id=${caseId}&include_past=true&past_days=3650&limit=200`),
+  ])
+  if (!upcoming.ok || !past.ok) throw new Error("Failed to fetch events")
+  const [u, p] = await Promise.all([upcoming.json(), past.json()])
+  const map = new Map<number, CaseTrialEvent>()
+  for (const e of [...p.events, ...u.events] as EventListItem[]) {
+    if (e.on_trial_calendar) {
+      map.set(e.id, {
+        id: e.id,
+        date: e.date,
+        end_date: e.end_date,
+        time: e.time,
+        location: e.location,
+        description: e.description,
+        event_type: e.event_type,
+        notes: e.notes ?? null,
+      })
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
 }
 
 export async function getEventsByCase(caseId: number): Promise<CaseEvent[]> {

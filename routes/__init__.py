@@ -17,20 +17,32 @@ Route modules:
 """
 
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-# Set up debug logging to file
+# Set up logging to a rotating file so it can never run away again.
+# IMPORTANT: keep the root logger at INFO. Setting the root logger to DEBUG
+# funnels every third-party library's DEBUG output into this file — the
+# `docket.worker` scheduler and `fakeredis` poll in tight loops and previously
+# grew this file to ~10 GB. Only our own "routes.*" loggers run at DEBUG.
 _log_file = Path(__file__).parent.parent / "logs" / "routes_debug.log"
 _log_file.parent.mkdir(exist_ok=True)
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(_log_file),
+        RotatingFileHandler(_log_file, maxBytes=10 * 1024 * 1024, backupCount=3),
         logging.StreamHandler()
     ]
 )
+
+# Quiet known-chatty third-party loggers regardless of root level.
+for _noisy in ("docket", "fakeredis", "mcp.server", "googleapiclient"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 _logger = logging.getLogger("routes")
+# Keep our own route logging verbose without dragging in library DEBUG noise.
+_logger.setLevel(logging.DEBUG)
 
 from .auth import register_auth_routes
 from .stats import register_stats_routes
@@ -58,6 +70,7 @@ from .invoices import register_invoice_routes
 from .liens import register_lien_routes
 from .health import register_health_routes
 from .activity import register_activity_routes
+from .worklog import register_worklog_routes
 from .contacts import register_contact_routes
 from .comments import register_comment_routes
 from .checklist import register_checklist_routes
@@ -137,6 +150,8 @@ def register_routes(mcp):
     register_health_routes(mcp)
     _logger.debug("Registering activity routes...")
     register_activity_routes(mcp)
+    _logger.debug("Registering worklog routes...")
+    register_worklog_routes(mcp)
     _logger.debug("Registering contact routes...")
     register_contact_routes(mcp)
     _logger.debug("Registering comment routes...")
@@ -184,5 +199,6 @@ __all__ = [
     "register_invoice_routes",
     "register_lien_routes",
     "register_activity_routes",
+    "register_worklog_routes",
     "register_static_routes",
 ]

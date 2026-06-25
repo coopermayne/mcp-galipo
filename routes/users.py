@@ -45,6 +45,7 @@ def _user_to_camel(user: dict) -> dict:
         "visibleFeatures": user.get("visible_features"),
         "createdAt": user.get("created_at"),
         "updatedAt": user.get("updated_at"),
+        "lastActiveAt": user.get("last_active_at"),
     }
     # Include nested paralegal object if present
     if user.get("paralegal"):

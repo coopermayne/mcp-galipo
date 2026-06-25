@@ -1,5 +1,24 @@
 import { apiFetch } from "@/lib/api"
 
+export interface Proceeding {
+  id: number
+  case_id: number
+  case_number: string
+  is_primary: boolean | null
+  notes: string | null
+  courtlistener_docket_id: number | null
+  pacer_case_id: string | null
+  jurisdiction_name: string | null
+  judge_name: string | null
+}
+
+export async function getProceedings(caseId: number): Promise<Proceeding[]> {
+  const res = await apiFetch(`/api/v1/cases/${caseId}/proceedings`)
+  if (!res.ok) throw new Error("Failed to fetch proceedings")
+  const data = await res.json()
+  return data.proceedings ?? []
+}
+
 export interface CreateProceedingData {
   case_number: string
   jurisdiction_id?: number

@@ -16,6 +16,7 @@ import {
   Building06Icon,
   UserAccountIcon,
   AlertCircleIcon,
+  PenTool01Icon,
 } from "@hugeicons/core-free-icons"
 
 export type NavItem = {
@@ -54,6 +55,12 @@ export const navGroups: NavGroup[] = [
         url: "/your-events",
         icon: Calendar03Icon,
         featureKey: "calendar",
+      },
+      {
+        title: "Log My Day",
+        url: "/log",
+        icon: PenTool01Icon,
+        featureKey: "log-my-day",
       },
     ],
   },
