@@ -7,7 +7,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { getWorklogCandidates, consolidateWorklog } from "@/services/worklog"
 import { getCases } from "@/services/cases"
-import type { WorklogCandidate, WorklogSelection } from "@/types/worklog"
+import type { WorklogCandidate, WorklogCandidates, WorklogSelection } from "@/types/worklog"
 import type { CaseListItem } from "@/types/case"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -109,6 +109,26 @@ export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
       return consolidateWorklog({ transcript, log_date: dayKey, selections, mentioned_case_ids })
     },
     onSuccess: () => {
+      // The selected sources are recorded synchronously at submit, so they're
+      // "logged" immediately. Optimistically flip them in the candidate cache
+      // (instant feedback, no refresh) and refetch to reconcile.
+      const submitted = new Set(selected)
+      queryClient.setQueryData<WorklogCandidates>(
+        ["worklog-candidates", dayKey],
+        (old) => {
+          if (!old) return old
+          const mark = (arr: WorklogCandidate[]) =>
+            arr.map((c) =>
+              submitted.has(selKey(c)) ? { ...c, already_logged: true } : c
+            )
+          return {
+            events: mark(old.events),
+            tasks: mark(old.tasks),
+            comments: mark(old.comments),
+          }
+        }
+      )
+      queryClient.invalidateQueries({ queryKey: ["worklog-candidates", dayKey] })
       // The day query will pick up the in-flight log and poll until entries land.
       queryClient.invalidateQueries({ queryKey: ["worklog-day", dayKey] })
       setTranscript("")
@@ -161,15 +181,24 @@ export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
                   </div>
                   {items.map((c) => {
                     const k = selKey(c)
-                    const on = selected.has(k)
+                    const logged = c.already_logged
+                    // Already-logged items show checked + locked so they read as
+                    // handled; they're never in `selected`, so Consolidate can't
+                    // re-submit (double-log) them.
+                    const on = logged || selected.has(k)
                     return (
                       <div
                         key={k}
                         role="button"
-                        onClick={() => toggle(c)}
+                        aria-disabled={logged}
+                        onClick={() => { if (!logged) toggle(c) }}
                         className={cn(
-                          "flex w-full items-start gap-2.5 border px-2.5 py-1.5 text-left cursor-pointer transition-colors",
-                          on ? "border-info/60 bg-info/5" : "border-input hover:bg-muted/40"
+                          "flex w-full items-start gap-2.5 border px-2.5 py-1.5 text-left transition-colors",
+                          logged
+                            ? "border-success/40 bg-success/5 opacity-60 cursor-default"
+                            : selected.has(k)
+                            ? "border-info/60 bg-info/5 cursor-pointer"
+                            : "border-input hover:bg-muted/40 cursor-pointer"
                         )}
                       >
                         <Checkbox checked={on} className="mt-0.5 pointer-events-none" />
@@ -183,10 +212,10 @@ export function WorklogComposer({ dayKey, processing }: WorklogComposerProps) {
                             {c.when && (
                               <span className="text-[10px] text-muted-foreground shrink-0">{c.when}</span>
                             )}
-                            {c.already_logged && (
-                              <span className="ml-auto flex items-center gap-0.5 text-[10px] text-success-foreground shrink-0">
-                                <HugeiconsIcon icon={Tick02Icon} className="size-3" />
-                                logged
+                            {logged && (
+                              <span className="ml-auto flex items-center gap-0.5 text-[11px] font-medium text-success shrink-0">
+                                <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
+                                Logged
                               </span>
                             )}
                           </div>
