@@ -60,6 +60,7 @@ export const navGroups: NavGroup[] = [
         title: "Log My Day",
         url: "/log",
         icon: PenTool01Icon,
+        featureKey: "log-my-day",
       },
     ],
   },

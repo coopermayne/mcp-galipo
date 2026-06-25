@@ -40,7 +40,12 @@ SUBMIT_WORKLOG_TOOL = {
                     "properties": {
                         "description": {
                             "type": "string",
-                            "description": "Concise summary of the work done.",
+                            "description": (
+                                "Concise summary of the work done — the activity ONLY. Do NOT "
+                                "include the case name or party names; the case is recorded "
+                                "separately via case_id. E.g. 'Drafted the complaint', not "
+                                "'Drafted the complaint for Reyes v. City of Los Angeles'."
+                            ),
                         },
                         "hours": {
                             "type": "number",
@@ -101,6 +106,11 @@ invented activities; only distribute time across what's given.
 
 STEP 4 — MATCH each activity to a case (fuzzy by name). No confident case match -> case_id=null,
 put the user's phrasing in case_guess. ALWAYS fill raw_reference.
+- DESCRIPTIONS: write the activity ONLY — never repeat the case name or party names in the
+  description (the case is stored separately via case_id and shown as its own chip). Strip any
+  "for <Case>" / "in <Case>" / "on the <Case> matter" phrasing. E.g. "Prepared discovery
+  responses", NOT "Prepared discovery responses for Brooks v. Vons Grocery". Keep raw_reference
+  intact (it preserves the original phrasing for unmatched display).
 - EXPLICITLY TAGGED CASES: if that list is provided, the user picked those cases by name and
   their exact case_name appears verbatim in the memo. When an activity's text contains a tagged
   case's name, you MUST use that exact case_id — do not second-guess or leave it null.
