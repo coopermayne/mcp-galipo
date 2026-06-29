@@ -77,6 +77,7 @@ from .checklist import register_checklist_routes
 from .trial_calendar import register_trial_calendar_routes
 from .dale import register_dale_routes
 from .alerts import register_alert_routes
+from .quickcreate import register_quickcreate_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -164,6 +165,8 @@ def register_routes(mcp):
     register_dale_routes(mcp)
     _logger.debug("Registering alert routes...")
     register_alert_routes(mcp)
+    _logger.debug("Registering quick-create routes...")
+    register_quickcreate_routes(mcp)
 
     # Register static/SPA routes last (catch-all must be last)
     _logger.debug("Registering static routes...")
@@ -200,5 +203,6 @@ __all__ = [
     "register_lien_routes",
     "register_activity_routes",
     "register_worklog_routes",
+    "register_quickcreate_routes",
     "register_static_routes",
 ]

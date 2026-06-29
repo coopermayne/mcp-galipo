@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { QuickCaseSearch } from "@/components/common/quick-case-search"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 import { CasePreviewProvider } from "@/hooks/use-case-preview"
+import { QuickCreateProvider } from "@/hooks/use-quick-create"
 import { Button } from "@/components/ui/button"
 
 /** Extract case ID from the current URL path if on a case detail page. */
@@ -76,6 +77,7 @@ export function RootLayout() {
   return (
     <TooltipProvider>
       <CasePreviewProvider>
+      <QuickCreateProvider>
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
@@ -108,6 +110,7 @@ export function RootLayout() {
         caseContext={caseContext}
         toolCompletionRules={chatRules}
       />
+      </QuickCreateProvider>
       </CasePreviewProvider>
     </TooltipProvider>
   )
