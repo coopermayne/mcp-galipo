@@ -98,12 +98,6 @@ def initialize_database():
             # Seed lookup tables (idempotent - only inserts if empty)
             db.seed_db()
 
-        # Seed dev data if requested (one-time staging setup)
-        if settings.seed_dev_data:
-            print("SEED_DEV_DATA=true: Running dev data seed...")
-            from scripts.seed_dev_data import seed_dev_data
-            seed_dev_data()
-
         # Ensure media directory exists
         from pathlib import Path
         Path(settings.media_dir).mkdir(parents=True, exist_ok=True)

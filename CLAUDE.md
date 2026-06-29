@@ -451,6 +451,17 @@ Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_sec
 
 **Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity. PRs are the merge gate — pushing more commits to a branch updates its existing PR.
 
+## Never commit real URLs, emails, or personal data
+
+This repo is **public**. Treat anything committed as permanently public (it stays in history even if later removed). Never bake real-world identifiers into source, docs, tests, or seed data — use config/env, placeholders, or obviously-fake sample data:
+
+- **Production hosts/URLs** → read from `settings.mcp_base_url` (env `MCP_BASE_URL`); use `https://<your-production-host>` in docs, never the real domain.
+- **Email addresses** → use `@example.com` with fake local parts. This includes seed/dev data, fixtures, and tests.
+- **Real people** → any dev/seed/fixture data must use **invented personas**, never real staff names/emails/bar numbers. (The old firm-roster seed scripts were removed for this reason.)
+- **Secrets** (API keys, tokens, passwords, `DATABASE_URL`) → env only, never in the repo.
+
+If you spot a violation or are asked to add such data, flag it and use the placeholder/env alternative instead of committing it.
+
 ## MCP Tools Usage
 
 Project MCP servers are configured in `.mcp.json`:

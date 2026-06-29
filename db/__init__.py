@@ -30,7 +30,6 @@ from .connection import (
     _NOT_PROVIDED,
     drop_all_tables,
     init_db,
-    seed_admin_user,
     seed_jurisdictions,
     seed_expertise_types,
     seed_roles,
@@ -245,13 +244,6 @@ from .users import (
     get_attorneys_for_paralegal,
 )
 
-# Dev user seeding (safe - only runs in verified dev environments)
-from .dev_users import (
-    seed_dev_users,
-    is_dev_environment,
-    DEV_USERS,
-    DEV_PASSWORD,
-)
 
 # Objections
 from .objections import (
@@ -452,7 +444,6 @@ __all__ = [
     "_NOT_PROVIDED",
     "drop_all_tables",
     "init_db",
-    "seed_admin_user",
     "seed_jurisdictions",
     "seed_expertise_types",
     "seed_roles",
@@ -612,11 +603,6 @@ __all__ = [
     "delete_user",
     "authenticate_user",
     "get_attorneys_for_paralegal",
-    # Dev user seeding
-    "seed_dev_users",
-    "is_dev_environment",
-    "DEV_USERS",
-    "DEV_PASSWORD",
     # Objections
     "get_objections",
     "get_objection_by_id",

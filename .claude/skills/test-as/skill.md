@@ -5,51 +5,13 @@ description: Open a browser and log in as a selected user for manual testing
 
 # Login as User
 
-Open the frontend in a browser, already logged in as a selected user. Optimized for speed — minimal tool calls.
+Open the frontend in a browser, already logged in as a chosen user. Optimized for speed — minimal tool calls.
 
-## Step 1: Ask Who to Log In As
+## Step 1: Ask Which User
 
-Use AskUserQuestion to present the user selection. The top 3 are pinned; the rest are listed under "Other".
+Ask the user for the **email address** to log in as (free text). Dev/seed users are not hardcoded here — enter whatever account exists in the current database.
 
-```
-question: "Who do you want to log in as?"
-header: "User"
-options:
-  - label: "Cooper Mayne"
-    description: "cmayne@example.com"
-  - label: "Darci Gilbert"
-    description: "dgilbert@example.com"
-  - label: "Dave Galipo"
-    description: "davegalipo@example.com"
-  - label: "Someone else"
-    description: "Pick from the full user list"
-```
-
-If the user selects "Someone else", use AskUserQuestion again with these options:
-
-```
-question: "Which user?"
-header: "User"
-options:
-  - label: "Santiago Laurel"
-    description: "slaurel@example.com"
-  - label: "Leslie DeLeon"
-    description: "ldeleon@example.com"
-  - label: "Dale Galipo"
-    description: "someone@example.com"
-  - label: "Another user"
-    description: "Enter email manually"
-```
-
-Map the selected user to their email:
-- Cooper Mayne → cmayne@example.com
-- Darci Gilbert → dgilbert@example.com
-- Dave Galipo → davegalipo@example.com
-- Santiago Laurel → slaurel@example.com
-- Leslie DeLeon → ldeleon@example.com
-- Dale Galipo → someone@example.com
-
-If "Another user" is selected, ask for the email as free text.
+If you want the password to come from the environment, set `TEST_LOGIN_PASSWORD` in `.env`; otherwise ask the user for the password.
 
 ## Step 2: Get Token AND Open Browser (IN PARALLEL)
 
@@ -63,12 +25,12 @@ VITE_PORT=${VITE_PORT:-5173}
 
 TOKEN=$(curl -s -X POST "http://localhost:$PORT/api/v1/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"username": "$USER_EMAIL", "password": "home3232"}' | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('token','FAIL'))")
+  -d "{\"username\": \"$USER_EMAIL\", \"password\": \"${TEST_LOGIN_PASSWORD:-$PASSWORD}\"}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('token','FAIL'))")
 
 echo "TOKEN=$TOKEN"
 echo "VITE_PORT=$VITE_PORT"
 ```
-Replace `$USER_EMAIL` with the selected user's email.
+Replace `$USER_EMAIL` with the chosen email, and supply the password via `TEST_LOGIN_PASSWORD` (env) or `$PASSWORD`.
 
 **Call B — browser_navigate:** Navigate to `http://localhost:5173` (use VITE_PORT if known from env, default 5173).
 
@@ -89,6 +51,6 @@ browser_evaluate → () => {
 
 ## Step 4: Report (brief)
 
-One line: `Logged in as **[Name]** ([email]) — browser is open.`
+One line: `Logged in as **[email]** — browser is open.`
 
 Do NOT close the browser — the user needs it for manual testing.

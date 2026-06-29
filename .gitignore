@@ -27,3 +27,6 @@ test-results/
 media/
 .claude/worktrees/
 test-screenshots/
+
+# Local-only notes / planning docs (never committed)
+*.local.md

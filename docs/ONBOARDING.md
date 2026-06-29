@@ -87,12 +87,11 @@ Get the app booting on your machine first — everything else will make more sen
    ```bash
    alembic upgrade head
    ```
-7. **Seed dev data** (optional but recommended):
+7. **Seed dev data** (optional):
    ```bash
-   python scripts/seed_dev_users.py
-   python scripts/seed_dev_data.py
    python scripts/seed_judges.py
    ```
+   Note: the firm-roster/dev-user seed scripts were removed (they contained real staff data). Lookup tables (jurisdictions, roles, objections) are seeded automatically on startup via `db.seed_db()`. Create any dev users you need manually, with fake data.
 8. **Run both servers** — backend on `:8000`, frontend on `:5173`:
    ```bash
    # terminal 1
@@ -303,7 +302,6 @@ Each file is a domain. They all use `with SessionLocal() as session:` from [`db/
 | [`db/listeners.py`](../db/listeners.py) | SQLAlchemy ORM event listeners (updated_at, etc.) |
 | [`db/webhooks.py`](../db/webhooks.py) | Webhook log CRUD |
 | [`db/validation.py`](../db/validation.py) | Shared validation helpers and error constants |
-| [`db/dev_users.py`](../db/dev_users.py) | Dev seed helper |
 
 ### Alembic migration workflow
 
@@ -701,8 +699,6 @@ Returns `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_seco
 | [`scripts/restore.sh`](../scripts/restore.sh) | Restore from gzipped backup file |
 | [`scripts/restore_db.sh`](../scripts/restore_db.sh) | Alternative restore |
 | [`scripts/generate_schema_diagram.py`](../scripts/generate_schema_diagram.py) | Regenerates [`docs/SCHEMA.md`](SCHEMA.md) Mermaid ER diagram via SchemaCrawler (requires Docker) |
-| [`scripts/seed_dev_data.py`](../scripts/seed_dev_data.py) | 25+ mock persons, 8 cases, judges, events, tasks |
-| [`scripts/seed_dev_users.py`](../scripts/seed_dev_users.py) | Seeds firm users with standard dev password |
 | [`scripts/seed_judges.py`](../scripts/seed_judges.py) | California federal district judges (Feb 2026 data) |
 | [`scripts/seed_webhook_data.py`](../scripts/seed_webhook_data.py) | Bulk import CourtListener webhook CSV |
 | [`scripts/analyze_chat_logs.py`](../scripts/analyze_chat_logs.py) | Cost/token analysis of chat logs |

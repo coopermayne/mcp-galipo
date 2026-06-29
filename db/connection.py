@@ -27,28 +27,6 @@ def drop_all_tables():
     print("All tables dropped.")
 
 
-def seed_admin_user():
-    """Seed the admin user for production. Idempotent (ON CONFLICT DO NOTHING)."""
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
-    from models import User
-    from .session import SessionLocal
-
-    with SessionLocal() as session:
-        stmt = pg_insert(User).values(
-            email="cmayne@example.com",
-            password_hash="REDACTED-PASSWORD-HASH",
-            first_name="Cooper",
-            last_name="Mayne",
-            initials="CM",
-            bar_number="343691",
-            position="attorney",
-            is_admin=True,
-            must_change_password=True,
-        ).on_conflict_do_nothing(index_elements=["email"])
-        session.execute(stmt)
-        session.commit()
-
-
 def seed_jurisdictions():
     """Seed initial jurisdictions if the table is empty."""
     from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -202,15 +180,9 @@ def seed_objections():
 
 
 def seed_db():
-    """Seed all lookup tables and users."""
-    seed_admin_user()
+    """Seed all non-PII lookup tables (jurisdictions, roles, objections, etc.)."""
     seed_jurisdictions()
     seed_expertise_types()
     seed_roles()
     seed_objections()
     print("Database seeded with lookup data.")
-
-    # Seed dev users if in a verified dev environment
-    # This is safe: only runs on localhost + galipo_2/galipo_3 databases
-    from .dev_users import seed_dev_users
-    seed_dev_users()
