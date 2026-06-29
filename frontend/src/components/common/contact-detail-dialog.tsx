@@ -372,7 +372,7 @@ export function ContactDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-lg">
         {showActionsMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -472,7 +472,7 @@ export function ContactDetailDialog({
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
+        <div className="-mr-2 mt-2 min-h-0 flex-1 space-y-4 overflow-y-auto pr-2">
           {/* Organization */}
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
