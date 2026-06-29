@@ -15,6 +15,7 @@ export interface WebhookLog {
   // Linked case context (derived from proceeding -> case)
   case_id: number | null
   case_name: string | null
+  case_short_name: string | null
   case_number: string | null
 }
 

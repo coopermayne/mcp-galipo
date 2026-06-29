@@ -38,26 +38,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DataTablePagination } from "@/components/common/data-table-pagination"
-import { DataTableFacetedFilter } from "@/components/common/data-table-faceted-filter"
 import { DataTableViewOptions } from "@/components/common/data-table-view-options"
-
-const statusFilterOptions = [
-  { label: "Pending", value: "pending" },
-  { label: "Processing", value: "processing" },
-  { label: "Completed", value: "completed" },
-  { label: "Failed", value: "failed" },
-]
-
-const linkFilterOptions = [
-  { label: "Linked", value: "Linked" },
-  { label: "Unlinked", value: "Unlinked" },
-]
 
 export default function CourtListenerPage() {
   const queryClient = useQueryClient()
   const { openCasePreview } = useCasePreview()
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "created_at", desc: true },
+    { id: "date_filed", desc: true },
   ])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -184,16 +171,6 @@ export default function CourtListenerPage() {
             className="h-8 pl-8"
           />
         </div>
-        <DataTableFacetedFilter
-          column={table.getColumn("link_status")}
-          title="Link"
-          options={linkFilterOptions}
-        />
-        <DataTableFacetedFilter
-          column={table.getColumn("processing_status")}
-          title="Status"
-          options={statusFilterOptions}
-        />
         <DataTableViewOptions table={table} />
       </div>
 
