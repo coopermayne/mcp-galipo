@@ -261,7 +261,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
                 : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
-            My Cases
+            Mine
           </button>
           <button
             type="button"
@@ -273,7 +273,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
                 : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
-            All Cases
+            All
           </button>
           <div className="bg-border mx-1 h-3 w-px" />
           <button
