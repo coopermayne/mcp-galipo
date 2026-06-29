@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router"
 import { useQuery } from "@tanstack/react-query"
-import { useCasePreview } from "@/hooks/use-case-preview"
+import { useQuickCreate } from "@/hooks/use-quick-create"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon,
@@ -38,7 +38,7 @@ interface QuickCaseSearchProps {
 
 export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
   const navigate = useNavigate()
-  const { openCasePreview } = useCasePreview()
+  const { openQuickCreate } = useQuickCreate()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [query, setQuery] = useState("")
@@ -101,7 +101,8 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
     (item: SearchItem) => {
       onOpenChange(false)
       if (item.type === "case") {
-        openCasePreview(item.data.id)
+        // Quick search opens the full case detail page (not the preview modal).
+        navigate(`/cases/${item.data.id}`)
       } else {
         // Navigate to contacts page with the appropriate category
         if (item.data.type === "judge") {
@@ -111,25 +112,43 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
         }
       }
     },
-    [navigate, openCasePreview, onOpenChange]
+    [navigate, onOpenChange]
+  )
+
+  // ⌃T (Mac) / Alt+T → new Task; ⌃E / Alt+E → new Event, for the highlighted
+  // case. Uses Ctrl on Mac / Alt elsewhere to dodge reserved browser shortcuts
+  // (⌘T = new tab), matching the ⌃G search toggle.
+  const handleQuickCreate = useCallback(
+    (item: SearchItem | undefined, kind: "task" | "event") => {
+      if (!item || item.type !== "case") return
+      onOpenChange(false)
+      openQuickCreate(kind, item.data.id, item.data.case_name)
+    },
+    [openQuickCreate, onOpenChange]
   )
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+      const createMod = isMac ? e.ctrlKey : e.altKey
+      const key = e.key.toLowerCase()
+
       if (e.key === "ArrowDown") {
         e.preventDefault()
         setSelectedIndex((i) => Math.min(i + 1, items.length - 1))
       } else if (e.key === "ArrowUp") {
         e.preventDefault()
         setSelectedIndex((i) => Math.max(i - 1, 0))
+      } else if (createMod && (key === "t" || key === "e")) {
+        e.preventDefault()
+        handleQuickCreate(items[clampedIndex], key === "t" ? "task" : "event")
       } else if (e.key === "Enter") {
         e.preventDefault()
-        if (items[clampedIndex]) {
-          handleSelect(items[clampedIndex])
-        }
+        const item = items[clampedIndex]
+        if (item) handleSelect(item)
       }
     },
-    [items, clampedIndex, handleSelect]
+    [items, clampedIndex, handleSelect, handleQuickCreate]
   )
 
   function handleOpenChange(nextOpen: boolean) {
@@ -330,6 +349,10 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
           <kbd className="bg-muted px-1 py-0.5">↑↓</kbd> navigate
           {" · "}
           <kbd className="bg-muted px-1 py-0.5">Enter</kbd> open
+          {" · "}
+          <kbd className="bg-muted px-1 py-0.5">⌃T</kbd> new task
+          {" · "}
+          <kbd className="bg-muted px-1 py-0.5">⌃E</kbd> new event
           {" · "}
           <kbd className="bg-muted px-1 py-0.5">Esc</kbd> close
         </div>

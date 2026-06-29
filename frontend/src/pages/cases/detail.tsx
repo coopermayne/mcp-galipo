@@ -24,7 +24,8 @@ import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-cha
 import { FeatureGate } from "@/components/common/feature-gate"
 import { CaseDetailHeader } from "@/pages/cases/components/case-detail-header"
 import { CaseSummarySection } from "@/pages/cases/components/case-summary-section"
-import { CaseRepresentationCard } from "@/pages/cases/components/case-representation-card"
+// Hidden until finished — see GH #148
+// import { CaseRepresentationCard } from "@/pages/cases/components/case-representation-card"
 import { CaseActivityFeed } from "@/pages/cases/components/case-activity-feed"
 import { CaseInfoPanel } from "@/pages/cases/components/case-info-panel"
 import { CaseWorkLog } from "@/pages/cases/components/case-work-log"
@@ -245,7 +246,8 @@ function CaseDetailContent() {
               onAiPeople={() => setAiPeopleOpen(true)}
               onNest={handleNest}
             />
-            <CaseRepresentationCard caseData={caseData} />
+            {/* Representation section hidden until finished — see GH #148 */}
+            {/* <CaseRepresentationCard caseData={caseData} /> */}
             {showTasks && (
               <CaseTasksCard
                 caseId={caseData.id}
@@ -265,6 +267,7 @@ function CaseDetailContent() {
             {showFinancials && (
               <CaseFinancialsCard caseId={caseData.id} casePersons={caseData.persons} />
             )}
+            <CaseWorkLog caseId={caseData.id} />
 
             {user?.isAdmin && (
               <div className="flex justify-end pt-4 border-t border-border/40">
@@ -303,7 +306,6 @@ function CaseDetailContent() {
               <CaseHealthCard caseId={caseData.id} />
               <CaseKeyDates caseData={caseData} />
               <CaseInfoPanel caseData={caseData} />
-              <CaseWorkLog caseId={caseData.id} />
               <CaseActivityFeed caseId={caseData.id} />
             </div>
           </div>
