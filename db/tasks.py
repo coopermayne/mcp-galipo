@@ -389,7 +389,7 @@ def reschedule_overdue_tasks(new_date: str, task_ids: List[int] = None) -> dict:
 def search_tasks(query: str = None, case_id: int = None, status: str = None,
                  urgency: str = None, assignee_id: int = None, limit: int = 50,
                  user_id: int = None, due_date_before: str = None,
-                 due_date_after: str = None) -> List[dict]:
+                 due_date_after: str = None, exclude_status: str = None) -> List[dict]:
     """Search tasks by various criteria."""
     if status:
         validate_task_status(status)
@@ -427,6 +427,8 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
         stmt = stmt.where(Task.case_id == case_id)
     if status:
         stmt = stmt.where(Task.status == status)
+    if exclude_status:
+        stmt = stmt.where(Task.status != exclude_status)
     if urgency:
         stmt = stmt.where(Task.urgency == urgency)
     if assignee_id:

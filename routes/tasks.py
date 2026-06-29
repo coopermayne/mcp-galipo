@@ -123,6 +123,7 @@ def register_task_routes(mcp):
         user_id = user["id"] if (my_tasks and user) else None
         results = await asyncio.to_thread(
             db.search_tasks, query=q, user_id=user_id, limit=limit,
+            exclude_status="Done",
         )
         return JSONResponse({"tasks": results, "total": len(results)})
 
