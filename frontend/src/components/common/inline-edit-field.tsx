@@ -125,7 +125,9 @@ function InlineEditFieldInner({
         displayClassName
       )}
     >
-      <span className="break-words">{value || placeholder}</span>
+      <span className={cn("break-words", type === "textarea" && "whitespace-pre-wrap")}>
+        {value || placeholder}
+      </span>
       <HugeiconsIcon
         icon={PencilEdit01Icon}
         className="size-3 shrink-0 opacity-0 group-hover/edit:opacity-50 transition-opacity"
