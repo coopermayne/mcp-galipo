@@ -31,18 +31,20 @@ def _attach_case_context(session, dicts: List[dict]) -> List[dict]:
         return dicts
 
     rows = session.execute(
-        select(Proceeding.id, Proceeding.case_number, Case.id, Case.case_name)
+        select(Proceeding.id, Proceeding.case_number, Case.id, Case.case_name, Case.short_name)
         .join(Case, Case.id == Proceeding.case_id, isouter=True)
         .where(Proceeding.id.in_(proc_ids))
     ).all()
     by_proc = {
-        r[0]: {"case_number": r[1], "case_id": r[2], "case_name": r[3]} for r in rows
+        r[0]: {"case_number": r[1], "case_id": r[2], "case_name": r[3], "case_short_name": r[4]}
+        for r in rows
     }
     for d in dicts:
         ctx = by_proc.get(d.get("proceeding_id"))
         if ctx:
             d["case_id"] = ctx["case_id"]
             d["case_name"] = ctx["case_name"]
+            d["case_short_name"] = ctx["case_short_name"]
             d["case_number"] = ctx["case_number"]
     return dicts
 

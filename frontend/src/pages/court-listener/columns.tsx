@@ -10,8 +10,6 @@ import {
   Unlink01Icon,
 } from "@hugeicons/core-free-icons"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
-import { formatTimestamp } from "@/lib/datetime"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,7 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
 
 const CL_STORAGE_BASE = "https://storage.courtlistener.com"
 const CL_BASE = "https://www.courtlistener.com"
@@ -100,13 +97,6 @@ function slugToCaseName(slug: string): string {
     .replace(/ And /g, " and ")
 }
 
-const statusStyles: Record<string, string> = {
-  pending: "bg-warning text-warning-foreground",
-  processing: "bg-info text-info-foreground",
-  completed: "bg-success text-success-foreground",
-  failed: "bg-destructive text-destructive-foreground",
-}
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—"
   const d = new Date(dateStr + "T00:00:00")
@@ -115,10 +105,6 @@ function formatDate(dateStr: string | null): string {
     day: "numeric",
     year: "numeric",
   })
-}
-
-function formatDateTime(dateStr: string | null): string {
-  return formatTimestamp(dateStr)
 }
 
 interface ColumnOptions {
@@ -139,53 +125,30 @@ export function getColumns({
   return [
     {
       id: "linked_case",
-      accessorFn: (row) => row.case_name ?? "",
+      accessorFn: (row) => row.case_short_name ?? row.case_name ?? "",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Case" />
       ),
       cell: ({ row }) => {
         const wh = row.original
-        if (!wh.case_id || !wh.case_name) {
-          return <span className="text-muted-foreground">—</span>
+        // No proceeding/case linked → show "unlinked" right here.
+        if (!wh.case_id) {
+          return <span className="text-muted-foreground italic">unlinked</span>
         }
         const caseId = wh.case_id
+        const label = wh.case_short_name || wh.case_name || wh.case_number || "Case"
         return (
           <button
             type="button"
             onClick={() => onOpenCase(caseId)}
-            className="font-medium hover:underline cursor-pointer text-left"
-            title={wh.case_number ?? undefined}
+            className="font-medium hover:underline cursor-pointer text-left whitespace-nowrap"
+            title={wh.case_name ?? wh.case_number ?? undefined}
           >
-            {wh.case_name}
+            {label}
           </button>
         )
       },
       filterFn: "includesString",
-    },
-    {
-      id: "link_status",
-      accessorFn: (row) => (row.proceeding_id ? "Linked" : "Unlinked"),
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Link" />
-      ),
-      cell: ({ row }) => {
-        const linked = !!row.original.proceeding_id
-        return (
-          <Badge
-            className={cn(
-              "border-0 font-medium",
-              linked
-                ? "bg-success text-success-foreground"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {linked ? "Linked" : "Unlinked"}
-          </Badge>
-        )
-      },
-      filterFn: (row, id, value: string[]) => {
-        return value.includes(row.getValue(id) as string)
-      },
     },
     {
       id: "case_name",
@@ -228,9 +191,11 @@ export function getColumns({
       cell: ({ row }) => {
         const entry = extractEntry(row.original)
         if (!entry?.description) return <span className="text-muted-foreground">—</span>
+        const desc = entry.description
+        const short = desc.length > 20 ? `${desc.slice(0, 20)}…` : desc
         return (
-          <span className="text-xs line-clamp-2 max-w-md" title={entry.description}>
-            {entry.description}
+          <span className="text-xs whitespace-nowrap" title={desc}>
+            {short}
           </span>
         )
       },
@@ -300,34 +265,6 @@ export function getColumns({
           </DropdownMenu>
         )
       },
-    },
-    {
-      accessorKey: "processing_status",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Status" />
-      ),
-      cell: ({ row }) => {
-        const status = row.original.processing_status
-        return (
-          <Badge className={cn("border-0 font-medium", statusStyles[status] ?? "bg-muted text-muted-foreground")}>
-            {status}
-          </Badge>
-        )
-      },
-      filterFn: (row, id, value: string[]) => {
-        return value.includes(row.getValue(id) as string)
-      },
-    },
-    {
-      accessorKey: "created_at",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Received" />
-      ),
-      cell: ({ row }) => (
-        <span className="text-xs whitespace-nowrap">
-          {formatDateTime(row.original.created_at)}
-        </span>
-      ),
     },
     {
       id: "actions",
