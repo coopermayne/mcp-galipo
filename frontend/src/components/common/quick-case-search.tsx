@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { useQuickCreate } from "@/hooks/use-quick-create"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon,
   Briefcase01Icon,
   UserMultipleIcon,
+  Task01Icon,
   ArrowDown01Icon,
   ArrowRight01Icon,
 } from "@hugeicons/core-free-icons"
@@ -17,6 +19,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import type { CaseStatus } from "@/types/case"
 import { searchCases, type CaseSearchResult } from "@/services/cases"
@@ -24,11 +32,16 @@ import {
   searchContacts,
   type UnifiedSearchResult,
 } from "@/services/contacts"
+import { searchTasks, updateTask } from "@/services/tasks"
+import type { TaskListItem } from "@/types/task"
+import { statuses } from "@/pages/tasks/task-data"
+import { TaskDetailDialog } from "@/pages/tasks/components/task-detail-dialog"
 import { useDebounce } from "@/hooks/use-debounce"
 import { cn } from "@/lib/utils"
 
 type SearchItem =
   | { type: "case"; data: CaseSearchResult }
+  | { type: "task"; data: TaskListItem }
   | { type: "contact"; data: UnifiedSearchResult }
 
 interface QuickCaseSearchProps {
@@ -39,14 +52,19 @@ interface QuickCaseSearchProps {
 export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
   const navigate = useNavigate()
   const { openQuickCreate } = useQuickCreate()
+  const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [query, setQuery] = useState("")
   const [myCases, setMyCases] = useState(true)
   const [includeClosed, setIncludeClosed] = useState(false)
   const [casesCollapsed, setCasesCollapsed] = useState(false)
+  const [tasksCollapsed, setTasksCollapsed] = useState(false)
   const [contactsCollapsed, setContactsCollapsed] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
+  // A task chosen from the results opens the detail dialog. It lives here (not
+  // inside the search Dialog) so it survives the search closing.
+  const [selectedTask, setSelectedTask] = useState<TaskListItem | null>(null)
 
   const debouncedQuery = useDebounce(query, 200)
 
@@ -64,6 +82,14 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
     staleTime: 10_000,
   })
 
+  // Tasks search (by description or case name)
+  const { data: tasksData, isFetching: tasksFetching } = useQuery({
+    queryKey: ["global-search", "tasks", debouncedQuery, myCases],
+    queryFn: () => searchTasks({ q: debouncedQuery, my_tasks: myCases, limit: 15 }),
+    enabled: open && debouncedQuery.length >= 2,
+    staleTime: 10_000,
+  })
+
   // Contacts search
   const { data: contactsData, isFetching: contactsFetching } = useQuery({
     queryKey: ["global-search", "contacts", debouncedQuery],
@@ -73,8 +99,20 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
   })
 
   const cases = useMemo(() => casesData?.cases ?? [], [casesData])
+  const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData])
   const contacts = useMemo(() => contactsData?.results ?? [], [contactsData])
-  const isLoading = casesFetching || contactsFetching
+  const isLoading = casesFetching || tasksFetching || contactsFetching
+
+  // Inline status change on a task result — no need to open the task.
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      updateTask(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["global-search"] })
+      queryClient.invalidateQueries({ queryKey: ["tasks"] })
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to update status"),
+  })
 
   // Build a flat list of selectable items for keyboard nav
   const items = useMemo<SearchItem[]>(() => {
@@ -84,13 +122,18 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
         result.push({ type: "case", data: c })
       }
     }
+    if (!tasksCollapsed) {
+      for (const t of tasks) {
+        result.push({ type: "task", data: t })
+      }
+    }
     if (!contactsCollapsed) {
       for (const c of contacts) {
         result.push({ type: "contact", data: c })
       }
     }
     return result
-  }, [cases, contacts, casesCollapsed, contactsCollapsed])
+  }, [cases, tasks, contacts, casesCollapsed, tasksCollapsed, contactsCollapsed])
 
   // Clamp selected index when items change
   const clampedIndex = selectedIndex >= items.length
@@ -103,6 +146,9 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
       if (item.type === "case") {
         // Quick search opens the full case detail page (not the preview modal).
         navigate(`/cases/${item.data.id}`)
+      } else if (item.type === "task") {
+        // Open the task detail dialog right from search.
+        setSelectedTask(item.data)
       } else {
         // Navigate to contacts page with the appropriate category
         if (item.data.type === "judge") {
@@ -157,6 +203,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
       setQuery("")
       setSelectedIndex(0)
       setCasesCollapsed(false)
+      setTasksCollapsed(false)
       setContactsCollapsed(false)
     } else {
       requestAnimationFrame(() => inputRef.current?.focus())
@@ -165,11 +212,12 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogHeader className="sr-only">
         <DialogTitle>Global Search</DialogTitle>
         <DialogDescription>
-          Search across cases and contacts
+          Search across cases, tasks, and contacts
         </DialogDescription>
       </DialogHeader>
       <DialogContent
@@ -191,7 +239,7 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
               setSelectedIndex(0)
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Search cases and contacts..."
+            placeholder="Search cases, tasks, and contacts..."
             className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
           />
           {isLoading && (
@@ -295,6 +343,47 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
                 </SearchSection>
               )}
 
+              {/* Tasks section */}
+              {tasks.length > 0 && (
+                <SearchSection
+                  icon={Task01Icon}
+                  label="Tasks"
+                  count={tasks.length}
+                  collapsed={tasksCollapsed}
+                  onToggle={() => setTasksCollapsed((v) => !v)}
+                >
+                  {tasks.map((t) => {
+                    const idx = items.findIndex(
+                      (item) => item.type === "task" && item.data.id === t.id
+                    )
+                    return (
+                      <SearchResultItem
+                        key={`task-${t.id}`}
+                        selected={idx === clampedIndex}
+                        onSelect={() => handleSelect({ type: "task", data: t })}
+                        onHover={() => setSelectedIndex(idx)}
+                      >
+                        <TaskStatusControl
+                          status={t.status}
+                          onChange={(status) =>
+                            statusMutation.mutate({ id: t.id, status })
+                          }
+                        />
+                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="truncate text-xs font-medium">
+                            {t.description}
+                          </span>
+                          <span className="text-muted-foreground truncate text-[11px]">
+                            {t.case_name ?? t.intake_name ?? "No case"}
+                            {t.due_date ? ` · due ${formatDueDate(t.due_date)}` : ""}
+                          </span>
+                        </div>
+                      </SearchResultItem>
+                    )
+                  })}
+                </SearchSection>
+              )}
+
               {/* Contacts section */}
               {contacts.length > 0 && (
                 <SearchSection
@@ -358,6 +447,68 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
         </div>
       </DialogContent>
     </Dialog>
+    <TaskDetailDialog
+      task={selectedTask}
+      open={selectedTask != null}
+      onOpenChange={(o) => {
+        if (!o) setSelectedTask(null)
+      }}
+    />
+    </>
+  )
+}
+
+/** Yyyy-mm-dd → "Jun 5" in Pacific time. */
+function formatDueDate(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "America/Los_Angeles",
+  }).format(new Date(`${date}T00:00:00`))
+}
+
+/** Inline status icon + dropdown for a task result row. Clicking it changes the
+ *  task's status without opening the task; stops propagation so the row's
+ *  open-detail handler doesn't also fire. */
+function TaskStatusControl({
+  status,
+  onChange,
+}: {
+  status: string
+  onChange: (status: string) => void
+}) {
+  const current = statuses.find((s) => s.value === status) ?? statuses[0]
+  const Icon = current.icon
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          title={`Status: ${current.label}`}
+          className="shrink-0 p-0.5 hover:opacity-70"
+        >
+          <Icon className={cn("size-4", current.iconColor)} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+        {statuses.map((s) => {
+          const SIcon = s.icon
+          return (
+            <DropdownMenuItem
+              key={s.value}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (s.value !== status) onChange(s.value)
+              }}
+            >
+              <SIcon className={cn("size-4", s.iconColor)} />
+              <span>{s.label}</span>
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

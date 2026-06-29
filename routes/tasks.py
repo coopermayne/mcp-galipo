@@ -107,6 +107,25 @@ def register_task_routes(mcp):
         broadcast({"entity": "task", "action": "created", "id": task_id, "case_id": data.case_id})
         return JSONResponse({"success": True, "task": result})
 
+    # NOTE: must be registered before "/api/v1/tasks/{task_id}" (GET) or it'd be
+    # shadowed by the param route ("search" parsed as task_id).
+    @mcp.custom_route("/api/v1/tasks/search", methods=["GET"])
+    async def api_search_tasks(request):
+        """Text-search tasks by description or case name (global quick search)."""
+        if err := auth.require_auth(request):
+            return err
+        q = request.query_params.get("q", "").strip()
+        if len(q) < 2:
+            return JSONResponse({"tasks": [], "total": 0})
+        my_tasks = request.query_params.get("my_tasks", "false").lower() == "true"
+        limit = int(request.query_params.get("limit", "15"))
+        user = auth.get_current_user(request)
+        user_id = user["id"] if (my_tasks and user) else None
+        results = await asyncio.to_thread(
+            db.search_tasks, query=q, user_id=user_id, limit=limit,
+        )
+        return JSONResponse({"tasks": results, "total": len(results)})
+
     @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
     async def api_get_task(request):
         """Get a single task by ID."""

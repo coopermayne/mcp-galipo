@@ -39,6 +39,21 @@ export interface UpdateTaskData {
   assignee_id?: number | null
 }
 
+export interface SearchTasksParams {
+  q: string
+  my_tasks?: boolean
+  limit?: number
+}
+
+export async function searchTasks(params: SearchTasksParams): Promise<TaskListResponse> {
+  const sp = new URLSearchParams({ q: params.q })
+  if (params.my_tasks) sp.set("my_tasks", "true")
+  if (params.limit) sp.set("limit", String(params.limit))
+  const res = await apiFetch(`/api/v1/tasks/search?${sp.toString()}`)
+  if (!res.ok) throw new Error("Failed to search tasks")
+  return res.json()
+}
+
 export async function createTask(data: CreateTaskData) {
   const res = await apiFetch("/api/v1/tasks", {
     method: "POST",

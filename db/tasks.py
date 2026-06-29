@@ -417,7 +417,12 @@ def search_tasks(query: str = None, case_id: int = None, status: str = None,
 
     stmt = stmt.where(feature_enabled_filter(FEATURE_TASKS, Task.case_id))
     if query:
-        stmt = stmt.where(Task.description.ilike(f"%{query}%"))
+        like = f"%{query}%"
+        stmt = stmt.where(or_(
+            Task.description.ilike(like),
+            Case.case_name.ilike(like),
+            Case.short_name.ilike(like),
+        ))
     if case_id:
         stmt = stmt.where(Task.case_id == case_id)
     if status:
