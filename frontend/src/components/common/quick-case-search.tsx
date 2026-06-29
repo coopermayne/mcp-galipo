@@ -115,10 +115,12 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
     [navigate, onOpenChange]
   )
 
-  // ⌃/⌘+Enter on a case → new Event; ⇧+Enter → new Task (both for that case).
+  // ⌃T (Mac) / Alt+T → new Task; ⌃E / Alt+E → new Event, for the highlighted
+  // case. Uses Ctrl on Mac / Alt elsewhere to dodge reserved browser shortcuts
+  // (⌘T = new tab), matching the ⌃G search toggle.
   const handleQuickCreate = useCallback(
-    (item: SearchItem, kind: "task" | "event") => {
-      if (item.type !== "case") return
+    (item: SearchItem | undefined, kind: "task" | "event") => {
+      if (!item || item.type !== "case") return
       onOpenChange(false)
       openQuickCreate(kind, item.data.id, item.data.case_name)
     },
@@ -127,23 +129,23 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+      const createMod = isMac ? e.ctrlKey : e.altKey
+      const key = e.key.toLowerCase()
+
       if (e.key === "ArrowDown") {
         e.preventDefault()
         setSelectedIndex((i) => Math.min(i + 1, items.length - 1))
       } else if (e.key === "ArrowUp") {
         e.preventDefault()
         setSelectedIndex((i) => Math.max(i - 1, 0))
+      } else if (createMod && (key === "t" || key === "e")) {
+        e.preventDefault()
+        handleQuickCreate(items[clampedIndex], key === "t" ? "task" : "event")
       } else if (e.key === "Enter") {
         e.preventDefault()
         const item = items[clampedIndex]
-        if (!item) return
-        if (e.shiftKey) {
-          handleQuickCreate(item, "task")
-        } else if (e.ctrlKey || e.metaKey) {
-          handleQuickCreate(item, "event")
-        } else {
-          handleSelect(item)
-        }
+        if (item) handleSelect(item)
       }
     },
     [items, clampedIndex, handleSelect, handleQuickCreate]
@@ -348,9 +350,9 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
           {" · "}
           <kbd className="bg-muted px-1 py-0.5">Enter</kbd> open
           {" · "}
-          <kbd className="bg-muted px-1 py-0.5">⌘/⌃Enter</kbd> new event
+          <kbd className="bg-muted px-1 py-0.5">⌃T</kbd> new task
           {" · "}
-          <kbd className="bg-muted px-1 py-0.5">⇧Enter</kbd> new task
+          <kbd className="bg-muted px-1 py-0.5">⌃E</kbd> new event
           {" · "}
           <kbd className="bg-muted px-1 py-0.5">Esc</kbd> close
         </div>
