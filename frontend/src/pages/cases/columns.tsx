@@ -215,16 +215,16 @@ export function getColumns(options: {
       header: "",
       size: 40,
       cell: ({ row, table }) => {
-        const onPreview = (table.options.meta as { onPreview?: (id: number) => void })?.onPreview
+        const onOpenDetail = (table.options.meta as { onOpenDetail?: (id: number) => void })?.onOpenDetail
         return (
           <button
             type="button"
             className="text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100 transition-opacity p-1"
             onClick={(e) => {
               e.stopPropagation()
-              onPreview?.(row.original.id)
+              onOpenDetail?.(row.original.id)
             }}
-            title="Quick view"
+            title="Open case detail"
           >
             <HugeiconsIcon icon={EyeIcon} className="size-4" />
           </button>

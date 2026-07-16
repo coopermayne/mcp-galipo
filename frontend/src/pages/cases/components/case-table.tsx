@@ -12,6 +12,7 @@ import {
   type ColumnOrderState,
   flexRender,
 } from "@tanstack/react-table"
+import { useNavigate } from "react-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -32,6 +33,7 @@ import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
 import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
 import { CaseGroupedView } from "@/pages/cases/components/case-grouped-view"
 import { DataTableFacetedFilter } from "@/components/common/data-table-faceted-filter"
+import type { ListNavState } from "@/components/common/list-nav"
 import {
   Table,
   TableBody,
@@ -108,6 +110,7 @@ export function CaseTable({
   showDocxExport = true,
 }: CaseTableProps) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { openCasePreview } = useCasePreview()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [formOpen, setFormOpen] = useState(false)
@@ -123,14 +126,22 @@ export function CaseTable({
     }
   }, [])
 
-  // Ordered ids of the rows currently displayed, for j/k navigation in the
-  // preview modal. Kept in a ref so the column-level preview button (defined
-  // via table meta before the row model exists) can read the latest order.
+  // Ordered ids of the rows currently displayed, kept in a ref so the
+  // column-level "open detail" button (wired via table meta before the row
+  // model exists) can pass the list to the detail page for prev/next + j/k nav.
   const orderedIdsRef = useRef<number[]>([])
 
-  const onPreview = useCallback((id: number) => {
-    openCasePreview(id, orderedIdsRef.current)
-  }, [openCasePreview])
+  const onOpenDetail = useCallback((id: number) => {
+    const listIds = orderedIdsRef.current
+    const listIndex = listIds.indexOf(id)
+    navigate(`/cases/${id}`, {
+      state: {
+        listIds,
+        listIndex,
+        listPath: `${window.location.pathname}${window.location.search}`,
+      } satisfies ListNavState,
+    })
+  }, [navigate])
 
   const createMutation = useMutation({
     mutationFn: (data: CreateCaseData) => createCase(data),
@@ -164,7 +175,7 @@ export function CaseTable({
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    meta: { onPreview },
+    meta: { onOpenDetail },
   })
 
   const nameColumn = table.getColumn("case_name")
