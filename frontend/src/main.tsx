@@ -44,7 +44,16 @@ window.addEventListener("vite:preloadError", (event) => {
 function lazy(importFn: () => Promise<{ default: React.ComponentType }>) {
   return () =>
     importFn()
-      .then((m) => ({ Component: m.default }))
+      .then((m) => {
+        // A stale chunk can *resolve* to undefined (or without a default export)
+        // instead of rejecting. Reading m.default would throw
+        // "Cannot read properties of undefined (reading 'default')", which
+        // isStaleChunkError doesn't match — so normalize it into a stale error.
+        if (!m?.default) {
+          throw new Error("Failed to fetch dynamically imported module")
+        }
+        return { Component: m.default }
+      })
       .catch((err) => {
         // If we can recover, return a never-resolving promise so React shows
         // the route fallback (not the error screen) while the reload happens.
