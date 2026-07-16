@@ -443,13 +443,15 @@ Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_sec
 
 ## Git Practices
 
-**A human is always the one to decide when code goes to production.** That means: only a human pushes to remote `main`. Never `git push` to `main` (or anything that fast-forwards `main`) — even if asked to "sync" or "push to main." If the user explicitly wants a push to `main`, push only the underlying topic branch instead and let them do the merge.
+**Development flow.** Work locally on `main` or a short-lived feature branch — there is **no local `staging` branch** (don't create one). To test, push your local work directly to the remote `staging` branch (which drives the test/staging environment). Once it checks out on staging, open a **PR from `staging` → `main`** to bring it into production. So the typical path is: commit locally → `git push origin <local-branch>:staging` (or push a feature branch and let it flow to staging) → verify on staging → PR into `main`.
 
-**Pushing to feature/topic branches is fine.** Branches like `claude/*`, feature branches, or any non-`main` branch can be pushed freely — that's how PRs get updated. Use `git push -u origin <branch-name>` as normal. The PR review gate is what protects production, so pushing to a branch is just updating an in-flight PR.
+**A human is always the one to decide when code goes to production.** That means: only a human pushes to remote `main`. Never `git push` to `main` (or anything that fast-forwards `main`) — even if asked to "sync" or "push to main." Bringing code into `main` always goes through a PR that a human merges. If the user explicitly wants a push to `main`, push to `staging` (or the underlying topic branch) instead and let them do the merge.
+
+**Pushing to `staging` and feature/topic branches is fine.** The remote `staging` branch, `claude/*` branches, feature branches, or any non-`main` branch can be pushed freely — that's how testing happens and how PRs get updated. Use `git push origin <local-branch>:staging` to test, or `git push -u origin <branch-name>` for a feature branch. The PR review gate is what protects production, so pushing to any non-`main` branch is safe.
 
 **NEVER force push to remote `main`.** Do not run `git push --force`, `git push --force-with-lease`, or any force-push variant against `main`. This is a hard rule with no exceptions. Force-pushing to a topic branch you own is fine when needed (e.g., after a rebase), but prefer a new commit when possible.
 
-**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity. PRs are the merge gate — pushing more commits to a branch updates its existing PR.
+**Development setup**: We use [lazygit](https://github.com/jesseduffield/lazygit) in a separate terminal tab to monitor git activity. PRs (from `staging` → `main`) are the merge gate — pushing more commits to `staging` updates the environment and any open PR.
 
 ## Never commit real URLs, emails, or personal data
 
