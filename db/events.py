@@ -11,7 +11,7 @@ from sqlalchemy.orm import joinedload
 
 from .session import SessionLocal
 from .connection import _NOT_PROVIDED
-from .validation import validate_date_format, validate_time_format
+from .validation import validate_date_format, validate_time_format, ValidationError
 from .feature_gates import (
     FEATURE_EVENTS, FEATURE_TASKS, feature_enabled_filter,
     require_feature_for_case, is_feature_enabled,
@@ -236,8 +236,11 @@ def update_event_full(event_id: int, date: str = _NOT_PROVIDED, description: str
         require_feature_for_case(session, event.case_id, FEATURE_EVENTS)
 
         if date is not _NOT_PROVIDED:
-            if date is not None:
-                validate_date_format(date, "date")
+            # date is NOT NULL in the DB — reject an explicit null instead of
+            # letting it hit the DB as an IntegrityError (500).
+            if date is None:
+                raise ValidationError("date is required and cannot be cleared.")
+            validate_date_format(date, "date")
             event.date = date
 
         if time is not _NOT_PROVIDED:

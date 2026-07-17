@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/ui/date-picker"
 import { getStaff, type StaffMember } from "@/services/staff"
 import {
   quickCreate,
@@ -186,23 +186,14 @@ export function QuickCreateDialog({
                 When is <span className="font-medium">{draft.description}</span>?
               </p>
               <div className="flex items-end gap-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-muted-foreground text-[11px]">Date</label>
-                  <Input
-                    type="date"
-                    value={dateInput}
-                    onChange={(e) => setDateInput(e.target.value)}
-                    className="text-sm"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-muted-foreground text-[11px]">Time (optional)</label>
-                  <Input
-                    type="time"
-                    value={timeInput}
-                    onChange={(e) => setTimeInput(e.target.value)}
-                    className="text-sm"
+                <div className="flex flex-col gap-1 flex-1">
+                  <label className="text-muted-foreground text-[11px]">Date &amp; Time</label>
+                  <DatePicker
+                    value={dateInput || null}
+                    onChange={(d) => setDateInput(d ?? "")}
+                    withTime
+                    time={timeInput || null}
+                    onTimeChange={(t) => setTimeInput(t ?? "")}
                   />
                 </div>
                 <Button size="sm" onClick={submitDate} disabled={!dateInput || mutation.isPending}>

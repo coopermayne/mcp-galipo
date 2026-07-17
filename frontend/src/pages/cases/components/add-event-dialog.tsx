@@ -76,22 +76,15 @@ export function AddEventDialog({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Date</Label>
-              <DatePicker
-                value={date || null}
-                onChange={(d) => setDate(d ?? "")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Time</Label>
-              <Input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Date &amp; Time</Label>
+            <DatePicker
+              value={date || null}
+              onChange={(d) => setDate(d ?? "")}
+              withTime
+              time={time || null}
+              onTimeChange={(t) => setTime(t ?? "")}
+            />
           </div>
 
           <div className="space-y-1.5">

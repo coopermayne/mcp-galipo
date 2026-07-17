@@ -14,6 +14,7 @@ import {
 } from "@/services/events"
 import { getStaff } from "@/services/staff"
 import { InlineEditField } from "@/components/common/inline-edit-field"
+import { DatePicker } from "@/components/ui/date-picker"
 import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
 import { EventTasksSection } from "@/pages/events/components/event-tasks-section"
 import { getBadgeStyle, getAvatarStyleById } from "@/lib/badge-colors"
@@ -153,31 +154,24 @@ export function EventDetailDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Date */}
-          <div className="flex flex-col gap-1">
+          {/* Date & Time */}
+          <div className="flex flex-col gap-1 col-span-2">
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Date
+              Date &amp; Time
             </span>
-            <InlineEditField
+            <DatePicker
               value={detail?.date ?? event.date}
-              onSave={(v) => mutation.mutate({ field: "date", value: v })}
-              type="date"
-              className="h-7 text-xs"
-            />
-          </div>
-
-          {/* Time */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Time
-            </span>
-            <InlineEditField
-              value={detail?.time ?? event.time ?? ""}
-              onSave={(v) =>
-                mutation.mutate({ field: "time", value: v || null })
-              }
-              placeholder="No time"
-              className="h-7 text-xs"
+              onChange={(d) => {
+                // Events require a date — ignore a cleared value.
+                if (d) mutation.mutate({ field: "date", value: d })
+              }}
+              withTime
+              // Once detail is loaded, trust its time even when null (a cleared
+              // time must not fall back to the stale event.time list prop).
+              time={detail ? detail.time ?? null : event.time ?? null}
+              onTimeChange={(t) => mutation.mutate({ field: "time", value: t })}
+              variant="inline"
+              className="text-xs"
             />
           </div>
 
