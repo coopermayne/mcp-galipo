@@ -243,10 +243,10 @@ export function EventListItem({
           {event.description}
         </p>
 
-        {/* Metadata row */}
-        <div className="flex items-center gap-2.5 mt-0.5">
+        {/* Metadata row — chips wrap on mobile, stay single-line at sm+ (desktop unchanged) */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-1 mt-0.5">
           {/* Date & time — interactive (same picker everywhere) */}
-          <div onClick={(e) => e.stopPropagation()}>
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <DatePicker
               value={event.date}
               onChange={(date) => onUpdateEvent(event.id, "date", date)}
@@ -256,6 +256,7 @@ export function EventListItem({
               withTime
               time={event.time ?? null}
               onTimeChange={(t) => onUpdateEvent(event.id, "time", t)}
+              className="whitespace-nowrap"
             />
           </div>
 
