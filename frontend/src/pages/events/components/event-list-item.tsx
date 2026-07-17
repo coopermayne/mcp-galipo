@@ -44,14 +44,6 @@ function formatDate(dateStr: string): string {
   return `${base} (${dow})`
 }
 
-function formatTime(timeStr: string | null): string | null {
-  if (!timeStr) return null
-  const [h, m] = timeStr.split(":").map(Number)
-  const d = new Date()
-  d.setHours(h, m)
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-}
-
 function StaffRow({
   staffId,
   initials,
@@ -253,7 +245,7 @@ export function EventListItem({
 
         {/* Metadata row */}
         <div className="flex items-center gap-2.5 mt-0.5">
-          {/* Date — interactive */}
+          {/* Date & time — interactive (same picker everywhere) */}
           <div onClick={(e) => e.stopPropagation()}>
             <DatePicker
               value={event.date}
@@ -261,15 +253,11 @@ export function EventListItem({
               variant="inline"
               placeholder="Set date"
               formatValue={formatDate}
+              withTime
+              time={event.time ?? null}
+              onTimeChange={(t) => onUpdateEvent(event.id, "time", t)}
             />
           </div>
-
-          {/* Time */}
-          {event.time && (
-            <span className="text-xs text-muted-foreground">
-              {formatTime(event.time)}
-            </span>
-          )}
 
           {/* Location */}
           {event.location && (
