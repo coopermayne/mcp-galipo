@@ -119,11 +119,17 @@ def validate_date_format(date_str: str, field_name: str = "date") -> str:
 
 
 def validate_time_format(time_str: str, field_name: str = "time") -> str:
-    """Validate time string is in HH:MM format."""
+    """Validate time string is in HH:MM format with in-range values."""
     if time_str is None:
         return None
-    if not re.match(r'^\d{2}:\d{2}$', time_str):
+    m = re.match(r'^(\d{2}):(\d{2})$', time_str)
+    if not m:
         raise ValidationError(f"Invalid {field_name} format '{time_str}'. Must be HH:MM.")
+    hours, minutes = int(m.group(1)), int(m.group(2))
+    if hours > 23 or minutes > 59:
+        raise ValidationError(
+            f"Invalid {field_name} '{time_str}'. Hours must be 00-23 and minutes 00-59."
+        )
     return time_str
 
 

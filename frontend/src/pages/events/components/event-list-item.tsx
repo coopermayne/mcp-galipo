@@ -44,14 +44,6 @@ function formatDate(dateStr: string): string {
   return `${base} (${dow})`
 }
 
-function formatTime(timeStr: string | null): string | null {
-  if (!timeStr) return null
-  const [h, m] = timeStr.split(":").map(Number)
-  const d = new Date()
-  d.setHours(h, m)
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-}
-
 function StaffRow({
   staffId,
   initials,
@@ -251,25 +243,22 @@ export function EventListItem({
           {event.description}
         </p>
 
-        {/* Metadata row */}
-        <div className="flex items-center gap-2.5 mt-0.5">
-          {/* Date — interactive */}
-          <div onClick={(e) => e.stopPropagation()}>
+        {/* Metadata row — chips wrap on mobile, stay single-line at sm+ (desktop unchanged) */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2.5 gap-y-1 mt-0.5">
+          {/* Date & time — interactive (same picker everywhere) */}
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <DatePicker
               value={event.date}
               onChange={(date) => onUpdateEvent(event.id, "date", date)}
               variant="inline"
               placeholder="Set date"
               formatValue={formatDate}
+              withTime
+              time={event.time ?? null}
+              onTimeChange={(t) => onUpdateEvent(event.id, "time", t)}
+              className="whitespace-nowrap"
             />
           </div>
-
-          {/* Time */}
-          {event.time && (
-            <span className="text-xs text-muted-foreground">
-              {formatTime(event.time)}
-            </span>
-          )}
 
           {/* Location */}
           {event.location && (

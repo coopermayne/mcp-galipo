@@ -174,7 +174,10 @@ def register_event_routes(mcp):
             data = UpdateEventInput(**(await request.json()))
         except ValidationError as e:
             return pydantic_error(e)
-        updates = data.model_dump(exclude_none=True)
+        # exclude_unset (not exclude_none): keep explicit nulls the client sent so
+        # nullable fields like `time`/`location` can be cleared. update_event_full
+        # uses a _NOT_PROVIDED sentinel to distinguish "omitted" from "set to null".
+        updates = data.model_dump(exclude_unset=True)
         try:
             result = await asyncio.to_thread(db.update_event_full, event_id, **updates)
         except db.FeatureDisabled as e:
