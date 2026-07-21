@@ -42,6 +42,11 @@ ALL_FEATURES = (
     FEATURE_DOCUMENTS,
 )
 
+# New cases default to every feature enabled. Stored explicitly (rather than
+# relying on NULL) because a NULL `feature_toggles` reads as all-disabled —
+# see is_feature_enabled() below.
+DEFAULT_FEATURE_TOGGLES = {feature: True for feature in ALL_FEATURES}
+
 
 class FeatureDisabled(Exception):
     """Raised when an operation requires a case feature that is disabled."""

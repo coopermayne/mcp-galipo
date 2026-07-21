@@ -22,6 +22,7 @@ from .validation import (
     CASE_STATUSES,
 )
 from .fuzzy_match import resolve_judge, resolve_jurisdiction, resolve_person
+from .feature_gates import DEFAULT_FEATURE_TOGGLES
 from models import (
     Case, Person, Role, PersonRole, Jurisdiction, Proceeding,
     ProceedingJudge, Judge, Event, Note, Task, User,
@@ -196,6 +197,7 @@ def _create_case(session, case_data: dict) -> int:
         result=case_data.get("result"),
         date_of_injury=case_data.get("date_of_injury"),
         color=color,
+        feature_toggles=dict(DEFAULT_FEATURE_TOGGLES),
     )
     session.add(case)
     session.flush()

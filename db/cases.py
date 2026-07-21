@@ -14,7 +14,7 @@ from sqlalchemy.orm import aliased
 from .session import SessionLocal
 from .validation import validate_case_status, validate_date_format, ValidationError
 from .feature_gates import (
-    ALL_FEATURES, FeatureHasData, get_feature_data_counts,
+    ALL_FEATURES, DEFAULT_FEATURE_TOGGLES, FeatureHasData, get_feature_data_counts,
 )
 from models import (
     Case, User, PersonRole, Role, Person, Event, Task,
@@ -438,6 +438,7 @@ def create_case(case_name: str, status: str = "Signing Up",
             claim_deadline=claim_deadline,
             complaint_deadline=complaint_deadline,
             color=color,
+            feature_toggles=dict(DEFAULT_FEATURE_TOGGLES),
         )
         session.add(case)
         session.flush()

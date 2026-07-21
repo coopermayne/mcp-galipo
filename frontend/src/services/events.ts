@@ -32,13 +32,26 @@ export interface UpdateEventData {
   on_trial_calendar?: boolean
 }
 
+/** Surface the backend's `error.message` (e.g. feature-disabled) instead of a
+ *  generic string, so toasts explain what actually went wrong. */
+async function eventError(res: Response, fallback: string): Promise<Error> {
+  let message = fallback
+  try {
+    const body = await res.json()
+    if (body?.error?.message) message = body.error.message
+  } catch {
+    /* ignore */
+  }
+  return new Error(message)
+}
+
 export async function createEvent(data: CreateEventData) {
   const res = await apiFetch("/api/v1/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error("Failed to create event")
+  if (!res.ok) throw await eventError(res, "Failed to create event")
   return res.json()
 }
 
@@ -48,13 +61,13 @@ export async function updateEvent(eventId: number, data: UpdateEventData) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error("Failed to update event")
+  if (!res.ok) throw await eventError(res, "Failed to update event")
   return res.json()
 }
 
 export async function deleteEvent(eventId: number) {
   const res = await apiFetch(`/api/v1/events/${eventId}`, { method: "DELETE" })
-  if (!res.ok) throw new Error("Failed to delete event")
+  if (!res.ok) throw await eventError(res, "Failed to delete event")
   return res.json()
 }
 
