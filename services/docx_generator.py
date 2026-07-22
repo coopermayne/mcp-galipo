@@ -201,7 +201,7 @@ def _transform_case(case_data: dict, today: str) -> dict:
         detail_rt.add("Client: ", color=CLR_GREY, size=24)
         detail_rt.add(clients, color=CLR_NAVY, size=24)
 
-    # Counsel & mediators — one line per person with role badge
+    # Counsel, mediators & experts — one line per role group with role badge
     counsel_items = _build_counsel(persons)
 
     # Events with RichText
@@ -255,9 +255,11 @@ ROLE_BADGE_COLORS = {
     "prosecutor":         {"text": "FFFFFF", "bg": "DC2626"},  # red
     "defense_counsel":    {"text": "FFFFFF", "bg": "EA580C"},  # orange
     "criminal_defense_attorney": {"text": "FFFFFF", "bg": "EA580C"},  # orange
+    "plaintiff_expert":   {"text": "FFFFFF", "bg": "059669"},  # emerald
+    "defense_expert":     {"text": "FFFFFF", "bg": "C026D3"},  # fuchsia
 }
 
-# Display order for counsel role groups
+# Display order for counsel/mediator/expert role groups (experts listed last)
 COUNSEL_ROLE_ORDER = [
     "referring_attorney",
     "co_counsel",
@@ -267,6 +269,8 @@ COUNSEL_ROLE_ORDER = [
     "prosecutor",
     "defense_counsel",
     "criminal_defense_attorney",
+    "plaintiff_expert",
+    "defense_expert",
 ]
 
 COUNSEL_ROLE_LABELS = {
@@ -278,17 +282,19 @@ COUNSEL_ROLE_LABELS = {
     "prosecutor": "Prosecutor",
     "defense_counsel": "Defense Counsel",
     "criminal_defense_attorney": "Criminal Defense Attorney",
+    "plaintiff_expert": "Plaintiff Expert",
+    "defense_expert": "Defense Expert",
 }
 
 
 def _build_counsel(persons: list) -> list:
-    """Build counsel & mediator list grouped by role — one line per role with colored tag + names."""
+    """Build counsel, mediator & expert list grouped by role — one line per role with colored tag + names."""
     from docxtpl import RichText
 
     # Group persons by role
     by_role = {}
     for p in persons:
-        if p.get("role_category") not in ("counsel", "mediator"):
+        if p.get("role_category") not in ("counsel", "mediator", "expert"):
             continue
         role = p.get("role", "")
         if p.get("name"):
@@ -297,8 +303,11 @@ def _build_counsel(persons: list) -> list:
     if not by_role:
         return []
 
-    # Roles that show firm name
-    SHOW_ORG_ROLES = {"opposing_counsel", "prosecutor", "defense_counsel", "criminal_defense_attorney"}
+    # Roles that show firm / affiliation name
+    SHOW_ORG_ROLES = {
+        "opposing_counsel", "prosecutor", "defense_counsel", "criminal_defense_attorney",
+        "plaintiff_expert", "defense_expert",
+    }
 
     items = []
     for role in COUNSEL_ROLE_ORDER:
