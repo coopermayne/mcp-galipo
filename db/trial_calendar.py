@@ -36,13 +36,16 @@ def get_trial_calendar(months_ahead: int = 6, months_behind: int = 1) -> dict:
             WHERE p.case_id = cases.id AND p.is_primary = true LIMIT 1
         )""").label("case_number")
 
+        # Exclude magistrates — only presiding/panel judges are printed. Role
+        # data uses mixed vocabularies ("Magistrate" vs "Magistrate Judge"), so
+        # match by substring rather than an exact stale string.
         judge_names_sq = literal_column("""(
             SELECT string_agg(jg.name, ', ' ORDER BY pj.sort_order)
             FROM proceedings p
             JOIN proceeding_judges pj ON pj.proceeding_id = p.id
             JOIN judges jg ON jg.id = pj.judge_id
             WHERE p.case_id = cases.id AND p.is_primary = true
-              AND COALESCE(pj.role, 'Judge') != 'Magistrate Judge'
+              AND COALESCE(pj.role, '') NOT ILIKE '%magistrate%'
         )""").label("judge_names")
 
         trial_stmt = (

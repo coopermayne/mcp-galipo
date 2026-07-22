@@ -483,7 +483,14 @@ def _get_judge_name(proceedings, persons):
     for proc in proceedings:
         judges = proc.get("judges", [])
         if judges:
-            return judges[0].get("name", "")
+            # Always print the presiding judge, never the magistrate. Role data
+            # uses mixed vocabularies ("Judge"/"Presiding" vs
+            # "Magistrate"/"Magistrate Judge"), so match magistrate by substring.
+            non_magistrate = [
+                j for j in judges if "magistrate" not in (j.get("role") or "").lower()
+            ]
+            chosen = non_magistrate[0] if non_magistrate else judges[0]
+            return chosen.get("name", "")
     names = _get_persons_by_role(persons, "Judge")
     return names[0] if names else ""
 
