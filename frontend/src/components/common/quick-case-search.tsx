@@ -3,6 +3,7 @@ import { useNavigate } from "react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useQuickCreate } from "@/hooks/use-quick-create"
+import { usePersonPreview } from "@/hooks/use-person-preview"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon,
@@ -51,6 +52,7 @@ interface QuickCaseSearchProps {
 
 export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
   const navigate = useNavigate()
+  const { openPersonPreview } = usePersonPreview()
   const { openQuickCreate } = useQuickCreate()
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -149,16 +151,16 @@ export function QuickCaseSearch({ open, onOpenChange }: QuickCaseSearchProps) {
       } else if (item.type === "task") {
         // Open the task detail dialog right from search.
         setSelectedTask(item.data)
+      } else if (item.data.type === "judge") {
+        // Judges still live on the contacts page.
+        navigate("/contacts/judges")
       } else {
-        // Navigate to contacts page with the appropriate category
-        if (item.data.type === "judge") {
-          navigate("/contacts/judges")
-        } else {
-          navigate("/contacts")
-        }
+        // Open the person's detail modal over the current page, so closing it
+        // returns the user right where they started (instead of navigating away).
+        openPersonPreview(item.data)
       }
     },
-    [navigate, onOpenChange]
+    [navigate, onOpenChange, openPersonPreview]
   )
 
   // ⌃T (Mac) / Alt+T → new Task; ⌃E / Alt+E → new Event, for the highlighted

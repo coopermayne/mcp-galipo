@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { QuickCaseSearch } from "@/components/common/quick-case-search"
 import { AiChatSheet, type ToolCompletionRule } from "@/components/common/ai-chat-sheet"
 import { CasePreviewProvider } from "@/hooks/use-case-preview"
+import { PersonPreviewProvider } from "@/hooks/use-person-preview"
 import { QuickCreateProvider } from "@/hooks/use-quick-create"
 import { Button } from "@/components/ui/button"
 
@@ -77,6 +78,7 @@ export function RootLayout() {
   return (
     <TooltipProvider>
       <CasePreviewProvider>
+      <PersonPreviewProvider>
       <QuickCreateProvider>
       <SidebarProvider>
         <AppSidebar />
@@ -111,6 +113,7 @@ export function RootLayout() {
         toolCompletionRules={chatRules}
       />
       </QuickCreateProvider>
+      </PersonPreviewProvider>
       </CasePreviewProvider>
     </TooltipProvider>
   )
