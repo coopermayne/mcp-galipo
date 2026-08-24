@@ -40,14 +40,6 @@ class Settings(BaseSettings):
     mcp_auth_password: str | None = None
     mcp_base_url: str | None = None
 
-    # Twilio SMS
-    twilio_account_sid: str | None = None
-    twilio_token: str | None = None
-    twilio_phone: str | None = None
-
-    # SMS notification (phone number to text when inbound SMS arrives)
-    notify_phone: str | None = None
-
     # Media storage
     media_dir: str = "/app/media"
 
