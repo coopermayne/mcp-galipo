@@ -8,6 +8,7 @@ import type { Intake } from "@/types/intake"
 import { formatTimestampRaw } from "@/lib/datetime"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
+import { TruncatedText } from "@/components/common/truncated-text"
 import { Checkbox } from "@/components/ui/checkbox"
 import { analyzeIntake } from "@/services/intakes"
 import {
@@ -210,17 +211,17 @@ export function getColumns(options: {
         const globalFilter = table.getState().globalFilter as string
         const match = getMatchReason(row.original, globalFilter)
         return (
-          <div className="flex flex-col">
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              {row.getValue("name") || "—"}
+          <div className="flex flex-col max-w-[240px]">
+            <span className="inline-flex items-center gap-1.5 font-medium min-w-0">
+              <TruncatedText text={row.getValue("name")} />
               {count > 0 && (
-                <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block">
+                <span className="bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 min-w-[18px] text-center inline-block shrink-0">
                   {count}
                 </span>
               )}
             </span>
             {match && (
-              <span className="text-muted-foreground text-xs truncate max-w-[300px]">
+              <span className="text-muted-foreground text-xs truncate">
                 ↳ {match.label}: &ldquo;{match.value}&rdquo;
               </span>
             )}
@@ -272,7 +273,12 @@ export function getColumns(options: {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Case Type" />
       ),
-      cell: ({ row }) => row.getValue("case_type") || "—",
+      cell: ({ row }) => (
+        <TruncatedText
+          text={row.getValue("case_type")}
+          className="max-w-[200px]"
+        />
+      ),
     },
     {
       accessorKey: "incident_date",
