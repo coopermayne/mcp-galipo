@@ -3,7 +3,7 @@ import { ContactDetailDialog } from "@/components/common/contact-detail-dialog"
 import type { PersonListItem } from "@/types/person"
 
 /** Minimal person shape needed to open the preview. The dialog re-fetches full
- *  detail (roles, address, notes, SMS…) itself, so only id + name are required;
+ *  detail (roles, address, notes…) itself, so only id + name are required;
  *  any extra fields just make the modal render richer before hydration. */
 export type PersonPreviewInput = { id: number; name: string } & Partial<PersonListItem>
 
