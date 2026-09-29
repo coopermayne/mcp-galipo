@@ -24,6 +24,19 @@ python main.py
 
 Note: Database migrations run via Alembic. See "Database Migrations" section below.
 
+### Python Dependencies (pinned)
+
+`requirements.in` lists top-level deps (edit this). `requirements.txt` is the **generated lockfile** — every package at an exact version — and is what Docker installs. Never hand-edit it. Unpinned deps once took prod down: a routine rebuild pulled SQLAlchemy 2.1, which switched the default Postgres driver.
+
+```bash
+./scripts/update-deps.sh                  # re-lock after editing requirements.in (keeps other pins)
+./scripts/update-deps.sh --upgrade        # bump everything (do this every month or two)
+./scripts/update-deps.sh -P anthropic     # bump one package
+.venv/bin/pip install -r requirements.txt # sync local venv
+```
+
+The script resolves for the prod image (Python 3.12, Linux) via `uv` (`.venv/bin/pip install uv` once). Upgrade flow: run it on a branch → review the diff for major-version jumps → install locally and smoke-test → push to `staging` → PR to `main`. Frontend deps are already locked via `package-lock.json` + `npm ci`.
+
 ### Frontend (React/Vite + shadcn/ui)
 ```bash
 cd frontend
