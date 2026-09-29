@@ -1,6 +1,4 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { EyeIcon } from "@hugeicons/core-free-icons"
 import type { CaseListItem } from "@/types/case"
 import { DataTableColumnHeader } from "@/components/common/data-table-column-header"
 import { todayInLA } from "@/lib/datetime"
@@ -208,27 +206,6 @@ export function getColumns(options: {
       filterFn: (row, id, value: string[]) => {
         if (!value?.length) return true
         return value.includes(row.getValue(id) as string)
-      },
-    },
-    {
-      id: "preview",
-      header: "",
-      size: 40,
-      cell: ({ row, table }) => {
-        const onOpenDetail = (table.options.meta as { onOpenDetail?: (id: number) => void })?.onOpenDetail
-        return (
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100 transition-opacity p-1"
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenDetail?.(row.original.id)
-            }}
-            title="Open case detail"
-          >
-            <HugeiconsIcon icon={EyeIcon} className="size-4" />
-          </button>
-        )
       },
     },
   ]

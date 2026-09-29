@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from "react"
+import { useMemo, useState, useCallback } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,6 +28,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { createCase, type CreateCaseData, exportCaseReport, exportCaseListPdf, type CaseListGroupBy } from "@/services/cases"
 import { useCasePreview } from "@/hooks/use-case-preview"
+import { useFeature } from "@/hooks/use-feature"
 import { getColumns } from "@/pages/cases/columns"
 import { CaseFormDialog } from "@/pages/cases/components/case-form-dialog"
 import { CaseChatDialog } from "@/pages/cases/components/case-chat-dialog"
@@ -126,22 +127,22 @@ export function CaseTable({
     }
   }, [])
 
-  // Ordered ids of the rows currently displayed, kept in a ref so the
-  // column-level "open detail" button (wired via table meta before the row
-  // model exists) can pass the list to the detail page for prev/next + j/k nav.
-  const orderedIdsRef = useRef<number[]>([])
-
-  const onOpenDetail = useCallback((id: number) => {
-    const listIds = orderedIdsRef.current
-    const listIndex = listIds.indexOf(id)
+  // Row click opens the full case page, carrying the displayed order for
+  // prev/next + j/k nav. Users without the case-detail feature get the preview.
+  const canOpenDetail = useFeature("case-detail")
+  const openCase = useCallback((id: number, listIds: number[]) => {
+    if (!canOpenDetail) {
+      openCasePreview(id, listIds)
+      return
+    }
     navigate(`/cases/${id}`, {
       state: {
         listIds,
-        listIndex,
+        listIndex: listIds.indexOf(id),
         listPath: `${window.location.pathname}${window.location.search}`,
       } satisfies ListNavState,
     })
-  }, [navigate])
+  }, [canOpenDetail, navigate, openCasePreview])
 
   const createMutation = useMutation({
     mutationFn: (data: CreateCaseData) => createCase(data),
@@ -175,7 +176,6 @@ export function CaseTable({
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    meta: { onOpenDetail },
   })
 
   const nameColumn = table.getColumn("case_name")
@@ -210,7 +210,6 @@ export function CaseTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [table.getRowModel().rows]
   )
-  orderedIdsRef.current = orderedIds
 
   return (
     <>
@@ -380,6 +379,7 @@ export function CaseTable({
           cases={filteredCases}
           isLoading={isLoading}
           usersMap={usersMap}
+          onOpenCase={openCase}
         />
       ) : (
       <div className="border">
@@ -412,8 +412,8 @@ export function CaseTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer group/row"
-                  onClick={() => openCasePreview(row.original.id, orderedIds)}
+                  className="cursor-pointer"
+                  onClick={() => openCase(row.original.id, orderedIds)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

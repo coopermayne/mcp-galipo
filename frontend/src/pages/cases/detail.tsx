@@ -6,6 +6,7 @@ import { getCase, deleteCase } from "@/services/cases"
 import { updateCaseAssignment } from "@/services/persons"
 import { getInvoiceStats } from "@/services/invoices"
 import { useAuth } from "@/hooks/use-auth"
+import { useQuickCreate } from "@/hooks/use-quick-create"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -157,6 +158,34 @@ function CaseDetailContent() {
       toastMessage: "Person added via AI",
     },
   ], [caseId])
+
+  // ^T / ^E (Alt on non-Mac) opens AI quick-create for this case — same keys
+  // as quick search. Skipped while typing so ^E/^T keep their text-field meaning.
+  const { openQuickCreate } = useQuickCreate()
+  useEffect(() => {
+    if (!caseData) return
+    const { id: currentId, case_name: caseName, feature_toggles: toggles } = caseData
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented || !(isMac ? e.ctrlKey : e.altKey)) return
+      const key = e.key.toLowerCase()
+      if (key !== "t" && key !== "e") return
+
+      const el = document.activeElement as HTMLElement | null
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
+        return
+      }
+
+      const kind = key === "t" ? "task" : "event"
+      if (!isCaseFeatureEnabled(toggles, kind === "task" ? "tasks" : "events")) return
+      e.preventDefault()
+      openQuickCreate(kind, currentId, caseName)
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [caseData, openQuickCreate])
 
   if (isLoading) {
     return (
