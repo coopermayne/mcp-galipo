@@ -1,0 +1,27 @@
+# Top-level Python dependencies — edit THIS file, not requirements.txt.
+#
+# requirements.txt is the generated lockfile (every package, exact versions)
+# that Docker installs from. Regenerate it with ./scripts/update-deps.sh.
+
+fastmcp>=2.14,<3
+fastapi
+uvicorn[standard]
+bcrypt
+gunicorn
+python-dotenv
+psycopg2-binary
+# 2.1 switched the default postgresql driver to psycopg v3 (took prod down)
+sqlalchemy>=2.0,<2.1
+alembic
+anthropic
+filelock
+PyJWT
+weasyprint
+docxtpl
+pypdf
+docxcompose
+pydantic-settings
+rapidfuzz
+httpx
+google-api-python-client
+google-auth

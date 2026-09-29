@@ -1,21 +1,386 @@
-fastmcp>=2.14,<3
-fastapi
-uvicorn[standard]
-bcrypt
-gunicorn
-python-dotenv
-psycopg2-binary
-sqlalchemy>=2.0,<2.1
-alembic
-anthropic
-filelock
-PyJWT
-weasyprint
-docxtpl
-pypdf
-docxcompose
-pydantic-settings
-rapidfuzz
-httpx
-google-api-python-client
-google-auth
+alembic==1.18.4
+    # via -r requirements.in
+annotated-doc==0.0.4
+    # via
+    #   fastapi
+    #   typer
+annotated-types==0.7.0
+    # via pydantic
+anthropic==0.109.1
+    # via -r requirements.in
+anyio==4.13.0
+    # via
+    #   anthropic
+    #   httpx
+    #   mcp
+    #   sse-starlette
+    #   starlette
+    #   watchfiles
+attrs==26.1.0
+    # via
+    #   cyclopts
+    #   jsonschema
+    #   jsonschema-path
+    #   referencing
+authlib==1.7.2
+    # via fastmcp
+babel==2.18.0
+    # via docxcompose
+bcrypt==5.0.0
+    # via -r requirements.in
+beartype==0.22.9
+    # via
+    #   py-key-value-aio
+    #   py-key-value-shared
+brotli==1.2.0
+    # via fonttools
+burner-redis==0.1.7
+    # via pydocket
+cachetools==7.1.4
+    # via py-key-value-aio
+certifi==2026.5.20
+    # via
+    #   httpcore
+    #   httpx
+    #   requests
+cffi==2.0.0
+    # via
+    #   cryptography
+    #   weasyprint
+charset-normalizer==3.4.7
+    # via requests
+click==8.4.1
+    # via uvicorn
+cloudpickle==3.1.2
+    # via pydocket
+cronsim==2.7
+    # via pydocket
+cryptography==49.0.0
+    # via
+    #   authlib
+    #   google-auth
+    #   joserfc
+    #   pyjwt
+    #   secretstorage
+cssselect2==0.9.0
+    # via weasyprint
+cyclopts==4.18.0
+    # via fastmcp
+diskcache==5.6.3
+    # via py-key-value-aio
+distro==1.9.0
+    # via anthropic
+dnspython==2.8.0
+    # via email-validator
+docstring-parser==0.18.0
+    # via
+    #   anthropic
+    #   cyclopts
+docxcompose==2.2.0
+    # via -r requirements.in
+docxtpl==0.20.2
+    # via -r requirements.in
+email-validator==2.3.0
+    # via pydantic
+exceptiongroup==1.3.1
+    # via fastmcp
+fakeredis==2.34.1
+    # via fastmcp
+fastapi==0.136.3
+    # via -r requirements.in
+fastmcp==2.14.7
+    # via -r requirements.in
+filelock==3.29.3
+    # via -r requirements.in
+fonttools==4.63.0
+    # via weasyprint
+google-api-core==2.31.0
+    # via google-api-python-client
+google-api-python-client==2.197.0
+    # via -r requirements.in
+google-auth==2.54.0
+    # via
+    #   -r requirements.in
+    #   google-api-core
+    #   google-api-python-client
+    #   google-auth-httplib2
+google-auth-httplib2==0.4.0
+    # via google-api-python-client
+googleapis-common-protos==1.75.0
+    # via google-api-core
+greenlet==3.5.6
+    # via sqlalchemy
+gunicorn==26.0.0
+    # via -r requirements.in
+h11==0.16.0
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==1.0.9
+    # via httpx
+httplib2==0.31.2
+    # via
+    #   google-api-python-client
+    #   google-auth-httplib2
+httptools==0.8.0
+    # via uvicorn
+httpx==0.28.1
+    # via
+    #   -r requirements.in
+    #   anthropic
+    #   fastmcp
+    #   mcp
+httpx-sse==0.4.3
+    # via mcp
+idna==3.18
+    # via
+    #   anyio
+    #   email-validator
+    #   httpx
+    #   requests
+jaraco-classes==3.4.0
+    # via keyring
+jaraco-context==6.1.2
+    # via keyring
+jaraco-functools==4.5.0
+    # via keyring
+jeepney==0.9.0
+    # via
+    #   keyring
+    #   secretstorage
+jinja2==3.1.6
+    # via docxtpl
+jiter==0.15.0
+    # via anthropic
+joserfc==1.7.1
+    # via authlib
+jsonref==1.1.0
+    # via fastmcp
+jsonschema==4.26.0
+    # via mcp
+jsonschema-path==0.5.0
+    # via fastmcp
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+keyring==25.7.0
+    # via py-key-value-aio
+lupa==2.8
+    # via fakeredis
+lxml==6.1.1
+    # via
+    #   docxcompose
+    #   docxtpl
+    #   python-docx
+mako==1.3.12
+    # via alembic
+markdown-it-py==4.2.0
+    # via rich
+markupsafe==3.0.3
+    # via
+    #   jinja2
+    #   mako
+mcp==1.27.2
+    # via fastmcp
+mdurl==0.1.2
+    # via markdown-it-py
+more-itertools==11.1.0
+    # via
+    #   jaraco-classes
+    #   jaraco-functools
+openapi-pydantic==0.5.1
+    # via fastmcp
+opentelemetry-api==1.42.1
+    # via pydocket
+packaging==26.2
+    # via
+    #   fastmcp
+    #   gunicorn
+pathable==0.6.0
+    # via jsonschema-path
+pathvalidate==3.3.1
+    # via py-key-value-aio
+pillow==12.2.0
+    # via weasyprint
+platformdirs==4.10.0
+    # via fastmcp
+prometheus-client==0.25.0
+    # via pydocket
+proto-plus==1.28.0
+    # via google-api-core
+protobuf==7.35.1
+    # via
+    #   google-api-core
+    #   googleapis-common-protos
+    #   proto-plus
+psycopg2-binary==2.9.12
+    # via -r requirements.in
+py-key-value-aio==0.3.0
+    # via
+    #   fastmcp
+    #   pydocket
+py-key-value-shared==0.3.0
+    # via py-key-value-aio
+pyasn1==0.6.3
+    # via pyasn1-modules
+pyasn1-modules==0.4.2
+    # via google-auth
+pycparser==3.0
+    # via cffi
+pydantic==2.13.4
+    # via
+    #   anthropic
+    #   fastapi
+    #   fastmcp
+    #   mcp
+    #   openapi-pydantic
+    #   pydantic-settings
+pydantic-core==2.46.4
+    # via pydantic
+pydantic-settings==2.14.1
+    # via
+    #   -r requirements.in
+    #   mcp
+pydocket==0.21.1
+    # via fastmcp
+pydyf==0.12.1
+    # via weasyprint
+pygments==2.20.0
+    # via
+    #   rich
+    #   rich-rst
+pyjwt==2.13.0
+    # via
+    #   -r requirements.in
+    #   mcp
+pyparsing==3.3.2
+    # via httplib2
+pypdf==6.13.2
+    # via -r requirements.in
+pyperclip==1.11.0
+    # via fastmcp
+pyphen==0.17.2
+    # via weasyprint
+python-docx==1.2.0
+    # via
+    #   docxcompose
+    #   docxtpl
+python-dotenv==1.2.2
+    # via
+    #   -r requirements.in
+    #   fastmcp
+    #   pydantic-settings
+    #   uvicorn
+python-json-logger==4.1.0
+    # via pydocket
+python-multipart==0.0.32
+    # via mcp
+pyyaml==6.0.3
+    # via
+    #   jsonschema-path
+    #   uvicorn
+rapidfuzz==3.14.5
+    # via -r requirements.in
+redis==8.0.0
+    # via
+    #   fakeredis
+    #   py-key-value-aio
+    #   pydocket
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-path
+    #   jsonschema-specifications
+requests==2.34.2
+    # via google-api-core
+rich==15.0.0
+    # via
+    #   cyclopts
+    #   fastmcp
+    #   pydocket
+    #   rich-rst
+    #   typer
+rich-rst==2.0.1
+    # via cyclopts
+rpds-py==2026.5.1
+    # via
+    #   jsonschema
+    #   referencing
+secretstorage==3.5.0
+    # via keyring
+shellingham==1.5.4
+    # via typer
+sniffio==1.3.1
+    # via anthropic
+sortedcontainers==2.4.0
+    # via fakeredis
+sqlalchemy==2.0.50
+    # via
+    #   -r requirements.in
+    #   alembic
+sse-starlette==3.4.4
+    # via mcp
+starlette==1.3.1
+    # via
+    #   fastapi
+    #   mcp
+    #   sse-starlette
+tinycss2==1.5.1
+    # via
+    #   cssselect2
+    #   weasyprint
+tinyhtml5==2.1.0
+    # via weasyprint
+typer==0.26.7
+    # via pydocket
+typing-extensions==4.15.0
+    # via
+    #   alembic
+    #   anthropic
+    #   anyio
+    #   exceptiongroup
+    #   fastapi
+    #   mcp
+    #   opentelemetry-api
+    #   py-key-value-shared
+    #   pydantic
+    #   pydantic-core
+    #   pydocket
+    #   python-docx
+    #   referencing
+    #   sqlalchemy
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via
+    #   fastapi
+    #   mcp
+    #   pydantic
+    #   pydantic-settings
+uncalled-for==0.3.2
+    # via pydocket
+uritemplate==4.2.0
+    # via google-api-python-client
+urllib3==2.7.0
+    # via requests
+uvicorn==0.49.0
+    # via
+    #   -r requirements.in
+    #   fastmcp
+    #   mcp
+uvloop==0.22.1
+    # via uvicorn
+watchfiles==1.2.0
+    # via uvicorn
+weasyprint==69.0
+    # via -r requirements.in
+webencodings==0.5.1
+    # via
+    #   cssselect2
+    #   tinycss2
+    #   tinyhtml5
+websockets==16.0
+    # via
+    #   fastmcp
+    #   uvicorn
+zopfli==0.4.3
+    # via fonttools
