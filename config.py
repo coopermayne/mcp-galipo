@@ -56,10 +56,15 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def normalize_database_url(cls, v: str) -> str:
-        """Normalize postgres:// to postgresql:// (Heroku/Coolify use the former,
-        but SQLAlchemy only accepts the latter)."""
-        if v.startswith("postgres://"):
-            return v.replace("postgres://", "postgresql://", 1)
+        """Normalize postgres:// / postgresql:// to postgresql+psycopg2://.
+
+        Heroku/Coolify use postgres://, which SQLAlchemy rejects. The driver is
+        pinned explicitly because SQLAlchemy 2.1 changed the default postgresql
+        driver to psycopg (v3), which isn't installed — only psycopg2-binary is.
+        """
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return v.replace(prefix, "postgresql+psycopg2://", 1)
         return v
 
     @model_validator(mode="after")
