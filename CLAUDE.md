@@ -8,10 +8,6 @@ Galipo is a legal case management system for personal injury law firms. It opera
 - An **MCP server** with tools for Claude AI integration (via FastMCP, Streamable HTTP transport)
 - A **React web dashboard** for managing cases, tasks, deadlines, and contacts
 
-## Old Frontend (`_frontend_old/`)
-
-The `_frontend_old/` directory contains the previous frontend codebase, kept for reference only. **Do NOT reference, copy from, or use patterns from `_frontend_old/` unless the user explicitly directs you to.** The new frontend is a clean start with different conventions.
-
 ## Commands
 
 ### Backend (Python/FastAPI)

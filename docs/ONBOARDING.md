@@ -523,7 +523,7 @@ Flow: user message → mode system prompt applies → presets inject context →
 
 ## 10. Frontend (React + shadcn)
 
-The dashboard. Located in [`frontend/`](../frontend/). **Do not look at `_frontend_old/`** — it's archived for reference; conventions are different. The new frontend is a clean start.
+The dashboard. Located in [`frontend/`](../frontend/).
 
 ### Stack
 
@@ -768,10 +768,9 @@ The ones that bite people most often:
 9. **Status colors** — `--success / --warning / --info / --purple`, not raw Tailwind colors.
 10. **Reuse first** — check [`components/common/`](../frontend/src/components/common/) before building anything new. Promote feature components to `common/` the moment they're used twice.
 11. **Routes register order matters** — static last, or the SPA catch-all eats `/api`.
-12. **`_frontend_old/` is archived** — do not copy patterns from it unless told.
-13. **`/dev` slash command** — use it to start/restart both servers cleanly during local dev.
-14. **Don't `git push` unless explicitly told** — [`CLAUDE.md`](../CLAUDE.md) is firm on this; the team uses lazygit and reviews before pushing.
-15. **`MCP_INSTRUCTIONS` in [`main.py`](../main.py)** — update it when you change MCP tools or enums; that's what Claude reads to know what's possible.
+12. **`/dev` slash command** — use it to start/restart both servers cleanly during local dev.
+13. **Don't `git push` unless explicitly told** — [`CLAUDE.md`](../CLAUDE.md) is firm on this; the team uses lazygit and reviews before pushing.
+14. **`MCP_INSTRUCTIONS` in [`main.py`](../main.py)** — update it when you change MCP tools or enums; that's what Claude reads to know what's possible.
 
 ---
 
