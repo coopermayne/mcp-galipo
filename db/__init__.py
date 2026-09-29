@@ -291,25 +291,6 @@ from .intake_comments import (
     get_recent_activity,
 )
 
-# SMS
-from .sms import (
-    list_conversations as list_sms_conversations,
-    get_conversation as get_sms_conversation,
-    get_messages as get_sms_messages,
-    find_or_create_conversation as find_or_create_sms_conversation,
-    create_message as create_sms_message,
-    update_conversation_label as update_sms_conversation_label,
-    archive_conversation as archive_sms_conversation,
-    delete_conversation as delete_sms_conversation,
-    create_message_media as create_sms_message_media,
-    get_media_by_id as get_sms_media_by_id,
-    mark_conversation_read as mark_sms_conversation_read,
-    get_unread_counts as get_sms_unread_counts,
-    link_conversation,
-    get_conversations_by_person,
-    update_message_status as update_sms_message_status,
-)
-
 # Financials
 from .financials import (
     get_all_financials,
@@ -642,19 +623,6 @@ __all__ = [
     "delete_checklist_item",
     "get_checklist_item_comments",
     "add_checklist_item_comment",
-    # SMS
-    "list_sms_conversations",
-    "get_sms_conversation",
-    "get_sms_messages",
-    "find_or_create_sms_conversation",
-    "create_sms_message",
-    "update_sms_conversation_label",
-    "archive_sms_conversation",
-    "delete_sms_conversation",
-    "create_sms_message_media",
-    "get_sms_media_by_id",
-    "mark_sms_conversation_read",
-    "get_sms_unread_counts",
     # Financials
     "get_all_financials",
     "get_financial_by_id",

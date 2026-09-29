@@ -10,7 +10,7 @@ Every section links to the actual files so you can click through and see the cod
 
 Galipo is a **legal case management system for personal injury law firms**. It is two products sharing one Python process and one PostgreSQL database:
 
-1. A **React + shadcn web dashboard** for staff (attorneys, paralegals, admin) to manage cases, tasks, deadlines, contacts, financials, intakes, SMS, and document generation.
+1. A **React + shadcn web dashboard** for staff (attorneys, paralegals, admin) to manage cases, tasks, deadlines, contacts, financials, intakes, and document generation.
 2. An **MCP (Model Context Protocol) server** that exposes ~20 high-level tools so Claude (Desktop, claude.ai, or the in-app chat) can read and write the same data on behalf of the user.
 
 Both surfaces hit the same database via the same `db/` layer, validated through the same Pydantic schemas. The MCP server and the REST API are mounted on a single FastMCP/FastAPI ASGI app.
@@ -189,7 +189,7 @@ COPY templates/ ./templates/
 
 ### [`requirements.txt`](../requirements.txt) — key deps
 
-`fastmcp`, `fastapi`, `uvicorn`, `gunicorn`, `sqlalchemy`, `alembic`, `psycopg2-binary`, `PyJWT`, `bcrypt`, `anthropic`, `weasyprint`, `docxtpl`, `pypdf`, `google-api-python-client`, `twilio`, `filelock`.
+`fastmcp`, `fastapi`, `uvicorn`, `gunicorn`, `sqlalchemy`, `alembic`, `psycopg2-binary`, `PyJWT`, `bcrypt`, `anthropic`, `weasyprint`, `docxtpl`, `pypdf`, `google-api-python-client`, `filelock`.
 
 ### [`.mcp.json`](../.mcp.json) — Claude's tools, not ours
 
@@ -298,7 +298,6 @@ Each file is a domain. They all use `with SessionLocal() as session:` from [`db/
 | [`db/payees.py`](../db/payees.py) | Vendor/expert entities for invoices/liens |
 | [`db/import_case.py`](../db/import_case.py) | Atomic bulk case import |
 | [`db/trial_calendar.py`](../db/trial_calendar.py) | Trial dates + blocking events view |
-| [`db/sms.py`](../db/sms.py) | Twilio SMS conversations + messages |
 | [`db/listeners.py`](../db/listeners.py) | SQLAlchemy ORM event listeners (updated_at, etc.) |
 | [`db/webhooks.py`](../db/webhooks.py) | Webhook log CRUD |
 | [`db/validation.py`](../db/validation.py) | Shared validation helpers and error constants |
@@ -377,7 +376,6 @@ Auth: every endpoint except `/api/v1/health` and the CourtListener webhook calls
 | [`routes/chat.py`](../routes/chat.py) | `/api/v1/chat` | In-app Claude chat; SSE streaming; in-memory rate limit (20/min/user) |
 | [`routes/sse.py`](../routes/sse.py) | `/api/v1/stream` | Server-Sent Events with per-client `asyncio.Queue` (256 buffer), 15s heartbeat. Accepts token via query param |
 | [`routes/webhooks.py`](../routes/webhooks.py) | `/api/v1/webhooks` | Log viewer + `/courtlistener/{token}` ingestion (token from `WEBHOOK_SECRET_COURTLISTENER`) |
-| [`routes/sms.py`](../routes/sms.py) | `/api/v1/sms` | Twilio SMS conversations + outbound + inbound webhook |
 | [`routes/export.py`](../routes/export.py) | `/api/v1/export` | Case list JSON/PDF/DOCX, intakes PDF, costs PDF |
 | [`routes/templates.py`](../routes/templates.py) | `/api/v1/templates` | Upload pleading PDF → AI extract → edit → DOCX generate |
 | [`routes/rfp.py`](../routes/rfp.py) | `/api/v1/rfp` | Upload RFP PDF → extract requests → AI-suggest objections → generate response DOCX |
@@ -397,7 +395,7 @@ Status codes: 401 unauth, 403 forbidden, 404 missing, 429 rate-limited (with `Re
 
 ### Registration order matters
 
-[`routes/__init__.py`](../routes/__init__.py) registers in dependency order: auth → domain APIs → specialized (chat, export, webhooks, SMS) → **static last**. The static catch-all serves `index.html` for SPA routing and would otherwise intercept everything.
+[`routes/__init__.py`](../routes/__init__.py) registers in dependency order: auth → domain APIs → specialized (chat, export, webhooks) → **static last**. The static catch-all serves `index.html` for SPA routing and would otherwise intercept everything.
 
 ---
 
@@ -574,7 +572,7 @@ frontend/src/
 │   ├── intakes/          index.tsx + detail.tsx + columns.tsx + components/
 │   ├── cases/            index.tsx + all.tsx + detail.tsx + costs/ + components/
 │   ├── tasks/, events/, trial-calendar/, financials/, invoices/, payees/,
-│   ├── contacts/, judges/, templates/, court-listener/, sms/, users/, activity/
+│   ├── contacts/, judges/, templates/, court-listener/, users/, activity/
 │   └── login/
 ├── hooks/                # useAuth, useTheme, useDebounce, useMobile, useSSE, useChatStream, ...
 ├── services/             # API clients (one file per backend domain)
@@ -606,7 +604,6 @@ Defined in [`frontend/src/main.tsx`](../frontend/src/main.tsx) (around lines 37�
 | `/judges` | [`pages/judges/`](../frontend/src/pages/judges/) |
 | `/templates/*` | [`pages/templates/`](../frontend/src/pages/templates/) |
 | `/court-listener` | [`pages/court-listener/`](../frontend/src/pages/court-listener/) |
-| `/sms`, `/sms/:id` | [`pages/sms/`](../frontend/src/pages/sms/) |
 | `/users` | [`pages/users/`](../frontend/src/pages/users/) (admin) |
 | `/activity` | [`pages/activity/`](../frontend/src/pages/activity/) |
 
@@ -623,7 +620,6 @@ Defined in [`frontend/src/main.tsx`](../frontend/src/main.tsx) (around lines 37�
 | [`services/events.ts`](../frontend/src/services/events.ts) | `/api/v1/events/*` | |
 | [`services/financials.ts`](../frontend/src/services/financials.ts) | `/api/v1/financials/*` | |
 | [`services/invoices.ts`](../frontend/src/services/invoices.ts) | `/api/v1/invoices/*` | |
-| [`services/sms.ts`](../frontend/src/services/sms.ts) | `/api/v1/sms/*` | |
 | [`services/persons.ts`](../frontend/src/services/persons.ts) | `/api/v1/persons/*` | |
 | [`services/contacts.ts`](../frontend/src/services/contacts.ts) | `/api/v1/contacts/*` | unified search |
 | [`services/judges.ts`](../frontend/src/services/judges.ts) | `/api/v1/judges/*` | |
@@ -749,10 +745,9 @@ Full list in [`.env.example`](../.env.example) and the table in [`CLAUDE.md`](..
 | `EXTRACTION_MODEL` | no (Haiku) | PDF/text extractors |
 | `MCP_AUTH_PASSWORD` + `MCP_BASE_URL` | for hosted MCP | Enables OAuth on `/mcp` |
 | `WEBHOOK_SECRET_COURTLISTENER` | for CL webhooks | Token in path |
-| `MEDIA_DIR` | no | Uploaded SMS media |
+| `MEDIA_DIR` | no | Uploaded invoice / lien / payee files |
 | `RESET_DB` | dev only | `true` drops all tables on startup |
 | `GOOGLE_SHEETS_*` | for intake sync | Service-account creds + spreadsheet ID |
-| `TWILIO_*` | for SMS | Account SID, auth token, phone |
 
 **Always load env vars with `set -a && source .env && set +a`.** Without `set -a` they live in the shell only — Python/Node won't see them and you'll silently hit the wrong DB.
 

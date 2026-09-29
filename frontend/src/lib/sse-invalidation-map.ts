@@ -42,21 +42,6 @@ export const INVALIDATION_MAP: Record<
     return keys
   },
 
-  sms_message: (event) => {
-    const keys: (string | (string | number)[])[] = [
-      "sms-conversations",
-      "sms-unread-counts",
-    ]
-    if (event.conversation_id) {
-      keys.push(["sms-messages", event.conversation_id])
-    }
-    return keys
-  },
-
-  sms_conversation: () => {
-    return ["sms-conversations"]
-  },
-
   case: (event) => {
     const keys: (string | (string | number)[])[] = ["cases", "case-counts"]
     if (event.id) keys.push(["case", event.id])

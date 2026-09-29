@@ -14,7 +14,6 @@ export type FeatureKey =
   | "contacts"
   | "templates"
   | "court-listener"
-  | "sms"
   | "ai-chat"
   | "log-my-day"
 
@@ -32,7 +31,6 @@ export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
   { value: "contacts", label: "Contacts" },
   { value: "templates", label: "Templates" },
   { value: "court-listener", label: "CourtListener" },
-  { value: "sms", label: "SMS" },
   { value: "ai-chat", label: "AI Chat" },
   { value: "log-my-day", label: "Log My Day" },
 ]

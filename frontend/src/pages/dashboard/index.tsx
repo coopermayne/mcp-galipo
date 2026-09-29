@@ -18,7 +18,6 @@ const descriptions: Record<string, string> = {
   Contacts: "Clients, counsel, experts, and more",
   Templates: "Generate pleadings, RFPs, and documents",
   CourtListener: "Federal court filing alerts",
-  SMS: "Client text message dashboard",
   Users: "Manage team accounts and permissions",
   Activity: "Recent system activity log",
 }
