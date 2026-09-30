@@ -367,6 +367,12 @@ Resolving relative day names to ISO dates:
 
 When dates are mentioned without a year, infer the year from context.
 
+Duplicate tasks/events: the first manage_task/manage_event create on a case with existing items returns status="review_existing" with all of that case's existing events or open tasks, and creates nothing. Compare against the list yourself (same real-world item, even if worded differently or rescheduled):
+- Already there, same details → tell the user; don't create it.
+- Already there, changed details (e.g. a continued depo) → ask "Update <existing> from <old> → <new>?" and on yes call action="update" with that id and only the changed fields.
+- Genuinely new → re-call create with confirmed_new=true (one review covers all new items for that case this turn). Create the genuinely new ones right away; only matched ones wait for the user.
+This overrides any instruction to create without confirmation.
+
 Always be helpful and concise. When you need more information to complete a task, ask clarifying questions."""
 
         # Add logged-in user identity

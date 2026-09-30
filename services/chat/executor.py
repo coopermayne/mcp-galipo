@@ -138,6 +138,10 @@ def _generate_summary(result: Any, tool_name: str, args: dict[str, Any]) -> str:
         if result.get('error_type'):
             return f"Error: {result.get('message', 'Unknown error')}"
 
+    # Create held back so the model can check the case's existing items
+    if isinstance(result, dict) and result.get('status') == 'review_existing':
+        return result.get('message', 'Checking existing items before creating')
+
     # Success with message
     if isinstance(result, dict) and result.get('success') and result.get('message'):
         return result['message']

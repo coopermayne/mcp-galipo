@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from fastmcp import Context
 import db
 from db import ValidationError
+from db.existing_items import existing_events, existing_tasks
 from db.fuzzy_match import resolve_judge
 from db.session import SessionLocal
 from schemas import (
@@ -58,6 +59,31 @@ def not_found_error(resource: str, hint=None, suggestion=None) -> dict:
         f"{resource} not found", "NOT_FOUND",
         hint=hint, suggestion=suggestion or default_suggestions.get(resource)
     )
+
+
+def review_existing_response(kind: str, existing: list[dict]) -> dict:
+    """Result for a create held back so the model can check for duplicates.
+
+    The model gets every existing item on the case and decides itself whether
+    the new one is really one of them. Not an error (the chat UI shouldn't
+    render it red) — nothing was created yet.
+    """
+    id_field = f"{kind}_id"
+    return {
+        "success": False,
+        "status": "review_existing",
+        "message": f"Checking {len(existing)} existing {kind}s on the case before creating",
+        f"existing_{kind}s": existing,
+        "next_step": (
+            f"Nothing was created yet. Compare what you're creating against these existing {kind}s — "
+            f"same real-world {kind} even if worded differently or rescheduled. "
+            f"If it's already there with the same details: tell the user, don't create. "
+            f"If it's already there with changed details (e.g. a new date): ask the user whether to update "
+            f"the existing {kind} (show old → new); on yes call manage_{kind}(action='update', {id_field}=<id>, "
+            f"<changed fields only>). If it's genuinely new: re-call create with confirmed_new=true "
+            f"(this review covers every new {kind} for this case in the same turn — create those right away; only matched ones wait for the user)."
+        ),
+    }
 
 
 def judge_role_error() -> dict:
@@ -246,6 +272,7 @@ class ManageEventInput(BaseModel):
     event_type: Optional[str] = Field(None, description="Event type: vacation, holiday, trial, oral_argument, hearing, mediation, deposition, conference, other")
     end_date: Optional[str] = Field(None, description="End date YYYY-MM-DD for multi-day events")
     blocks_calendar: Optional[bool] = Field(None, description="Show on trial calendar (set true for blocking events)")
+    confirmed_new: Optional[bool] = Field(None, description="(create) Set true only after reviewing the case's existing events (returned by a create with status=review_existing) and confirming this is not one of them.")
 
 
 class ManageTaskInput(BaseModel):
@@ -261,6 +288,7 @@ class ManageTaskInput(BaseModel):
     urgency: Optional[Urgency] = Field(None, description="Task urgency")
     event_id: Optional[int] = Field(None, description="Link task to an event")
     assignee_id: Optional[int] = Field(None, description="Assign to a user (staff member ID)")
+    confirmed_new: Optional[bool] = Field(None, description="(create) Set true only after reviewing the case's existing tasks (returned by a create with status=review_existing) and confirming this is not one of them.")
     # For bulk_update
     task_ids: Optional[list[int]] = Field(None, description="(bulk_update) List of task IDs to update")
     current_status: Optional[TaskStatus] = Field(None, description="(bulk_update) Only update tasks with this current status")
@@ -1159,6 +1187,10 @@ def register_tools(mcp):
                 active_case = getattr(context, "case_context", None)
                 case_id = data.case_id if data.case_id is not None else active_case
                 blocks_calendar = False if active_case is not None else data.blocks_calendar
+                if case_id is not None and not data.confirmed_new:
+                    existing = existing_events(case_id)
+                    if existing:
+                        return review_existing_response("event", existing)
                 result = db.add_event(
                     case_id=case_id,
                     date=data.date,
@@ -1231,6 +1263,10 @@ def register_tools(mcp):
                 case_id = data.case_id
                 if case_id is None and data.intake_id is None:
                     case_id = getattr(context, "case_context", None)
+                if not data.confirmed_new:
+                    existing = existing_tasks(case_id=case_id, intake_id=data.intake_id)
+                    if existing:
+                        return review_existing_response("task", existing)
                 result = db.add_task(
                     case_id=case_id,
                     description=data.description,

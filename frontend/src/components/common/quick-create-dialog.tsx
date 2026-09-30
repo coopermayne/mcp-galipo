@@ -21,7 +21,9 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { getStaff, type StaffMember } from "@/services/staff"
 import {
   quickCreate,
+  type DuplicateMatch,
   type EventDraft,
+  type FieldChanges,
   type QuickCreateResponse,
   type QuickKind,
 } from "@/services/quick-create"
@@ -51,6 +53,49 @@ function staffName(staff: StaffMember[], id: number | null | undefined): string 
   return s ? `${s.firstName} ${s.lastName}`.trim() : null
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  date: "Date",
+  end_date: "End",
+  time: "Time",
+  location: "Location",
+  due_date: "Due",
+  urgency: "Urgency",
+  assignee_id: "Assignee",
+}
+
+function formatFieldValue(
+  field: string,
+  value: string | number | null | undefined,
+  staff: StaffMember[]
+): string {
+  if (value == null || value === "") return "none"
+  if (field === "date" || field === "end_date" || field === "due_date") {
+    return formatDateOnly(String(value))
+  }
+  if (field === "time") return String(value).slice(0, 5)
+  if (field === "assignee_id") return staffName(staff, Number(value)) ?? `#${value}`
+  return String(value)
+}
+
+function ChangeList({ changes, staff }: { changes: FieldChanges; staff: StaffMember[] }) {
+  return (
+    <ul className="space-y-0.5 text-xs">
+      {Object.entries(changes).map(([field, d]) => (
+        <li key={field} className="flex gap-2">
+          <span className="text-muted-foreground w-16 shrink-0">{FIELD_LABELS[field] ?? field}</span>
+          <span>
+            <span className="text-muted-foreground line-through">
+              {formatFieldValue(field, d.existing, staff)}
+            </span>
+            {" → "}
+            <span className="font-medium">{formatFieldValue(field, d.new, staff)}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function QuickCreateDialog({
   open,
   onOpenChange,
@@ -62,8 +107,12 @@ export function QuickCreateDialog({
   const textRef = useRef<HTMLTextAreaElement>(null)
 
   const [text, setText] = useState("")
-  const [phase, setPhase] = useState<"input" | "needs_date" | "done">("input")
+  const [phase, setPhase] = useState<"input" | "needs_date" | "duplicate" | "done">("input")
   const [draft, setDraft] = useState<EventDraft | null>(null)
+  const [duplicate, setDuplicate] = useState<Extract<
+    QuickCreateResponse,
+    { status: "possible_duplicate" }
+  > | null>(null)
   const [dateInput, setDateInput] = useState("")
   const [timeInput, setTimeInput] = useState("")
   const [result, setResult] = useState<QuickCreateResponse | null>(null)
@@ -83,6 +132,7 @@ export function QuickCreateDialog({
       setText("")
       setPhase("input")
       setDraft(null)
+      setDuplicate(null)
       setDateInput("")
       setTimeInput("")
       setResult(null)
@@ -97,12 +147,17 @@ export function QuickCreateDialog({
       setPhase("needs_date")
       return
     }
+    if (res.status === "possible_duplicate") {
+      setDuplicate(res)
+      setPhase("duplicate")
+      return
+    }
     setResult(res)
     setPhase("done")
     queryClient.invalidateQueries({ queryKey: ["tasks"] })
     queryClient.invalidateQueries({ queryKey: ["events"] })
     queryClient.invalidateQueries({ queryKey: ["case", caseId] })
-    toast.success(`Created ${noun}`)
+    toast.success(res.status === "updated" ? `Updated ${noun}` : `Created ${noun}`)
   }
 
   const mutation = useMutation({
@@ -124,6 +179,16 @@ export function QuickCreateDialog({
       case_id: caseId,
       draft: { ...draft, date: dateInput, time: timeInput || null },
     })
+  }
+
+  function updateExisting(id: number) {
+    if (!duplicate || mutation.isPending) return
+    mutation.mutate({ kind, case_id: caseId, draft: duplicate.draft, update_id: id })
+  }
+
+  function createAnyway() {
+    if (!duplicate || mutation.isPending) return
+    mutation.mutate({ kind, case_id: caseId, draft: duplicate.draft, create_anyway: true })
   }
 
   function handleTextKeyDown(e: React.KeyboardEvent) {
@@ -207,7 +272,19 @@ export function QuickCreateDialog({
             </div>
           )}
 
-          {phase === "done" && result?.status === "created" && (
+          {phase === "duplicate" && duplicate && (
+            <DuplicateView
+              noun={noun}
+              matches={duplicate.matches}
+              staff={staff}
+              pending={mutation.isPending}
+              onUpdate={updateExisting}
+              onCreateAnyway={createAnyway}
+              onCancel={() => onOpenChange(false)}
+            />
+          )}
+
+          {phase === "done" && (result?.status === "created" || result?.status === "updated") && (
             <SuccessView
               result={result}
               caseName={caseName}
@@ -217,6 +294,7 @@ export function QuickCreateDialog({
                 setPhase("input")
                 setResult(null)
                 setDraft(null)
+                setDuplicate(null)
                 requestAnimationFrame(() => textRef.current?.focus())
               }}
               onClose={() => onOpenChange(false)}
@@ -228,6 +306,82 @@ export function QuickCreateDialog({
   )
 }
 
+function DuplicateView({
+  noun,
+  matches,
+  staff,
+  pending,
+  onUpdate,
+  onCreateAnyway,
+  onCancel,
+}: {
+  noun: string
+  matches: DuplicateMatch[]
+  staff: StaffMember[]
+  pending: boolean
+  onUpdate: (id: number) => void
+  onCreateAnyway: () => void
+  onCancel: () => void
+}) {
+  const allSame = matches.every((m) => m.match === "duplicate")
+
+  function existingMeta(m: DuplicateMatch): string {
+    const meta: string[] = []
+    if (m.date) meta.push(formatDateOnly(m.date))
+    if (m.time) meta.push(m.time.slice(0, 5))
+    if (m.location) meta.push(m.location)
+    if (m.due_date !== undefined) {
+      meta.push(m.due_date ? `due ${formatDateOnly(m.due_date)}` : "no due date")
+    }
+    if (m.urgency) meta.push(m.urgency)
+    const who = staffName(staff, m.assignee_id)
+    if (who) meta.push(who)
+    return meta.join(" · ")
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm">
+        {allSame
+          ? `This ${noun} is already on the case.`
+          : `This looks like an existing ${noun}. Update it instead?`}
+      </p>
+      <div className="divide-y border">
+        {matches.map((m) => (
+          <div key={m.id} className="flex items-start justify-between gap-3 px-3 py-2">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-sm font-medium">{m.description}</span>
+              <span className="text-muted-foreground text-xs">{existingMeta(m)}</span>
+              {m.match === "differs" ? (
+                <ChangeList changes={m.differences} staff={staff} />
+              ) : (
+                <span className="text-muted-foreground text-xs">Same details</span>
+              )}
+            </div>
+            {m.match === "differs" && (
+              <Button size="sm" onClick={() => onUpdate(m.id)} disabled={pending}>
+                {pending ? (
+                  <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+                ) : (
+                  "Update"
+                )}
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={pending}>
+          {allSame ? "Close" : "Cancel"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={onCreateAnyway} disabled={pending}>
+          Create new anyway
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function SuccessView({
   result,
   caseName,
@@ -235,7 +389,7 @@ function SuccessView({
   onAnother,
   onClose,
 }: {
-  result: Extract<QuickCreateResponse, { status: "created" }>
+  result: Extract<QuickCreateResponse, { status: "created" | "updated" }>
   caseName: string
   staff: StaffMember[]
   onAnother: () => void
@@ -270,6 +424,12 @@ function SuccessView({
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-medium">{title}</span>
           <span className="text-muted-foreground text-xs">{meta.join(" · ")}</span>
+          {result.status === "updated" &&
+            (Object.keys(result.changes).length > 0 ? (
+              <ChangeList changes={result.changes} staff={staff} />
+            ) : (
+              <span className="text-muted-foreground text-xs">No changes needed</span>
+            ))}
         </div>
       </div>
       <div className="flex items-center justify-end gap-2">
