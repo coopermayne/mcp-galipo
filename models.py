@@ -102,7 +102,7 @@ class Intake(Base):
     )
 
     # Relationships
-    comments: Mapped[list[IntakeComment]] = relationship(back_populates="intake")
+    comments: Mapped[list[IntakeComment]] = relationship(back_populates="intake", passive_deletes=True)
     tasks: Mapped[list[Task]] = relationship(back_populates="intake")
     case: Mapped[Optional[Case]] = relationship(back_populates="intakes")
 
