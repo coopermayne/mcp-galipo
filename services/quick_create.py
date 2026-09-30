@@ -13,6 +13,9 @@ Deliberate product rules (do NOT relax these):
   the date; this service simply leaves ``date`` null when it can't resolve one.
 - Relative dates ("next Tuesday", "in 3 days") are resolved against TODAY,
   which is passed in (Pacific calendar date).
+- Duplicates: the case's existing tasks/events are passed in and the model
+  sets ``existing_id`` when the note is really about one of them (a
+  rescheduled hearing, a repeated task). The route then offers an update.
 
 Mirrors services/worklog_consolidator.py for the forced-tool LLM pattern.
 """
@@ -73,6 +76,14 @@ TASK_TOOL = {
                     "against CANDIDATE STAFF. Null if no one is named."
                 ),
             },
+            "existing_id": {
+                "type": ["integer", "null"],
+                "description": (
+                    "Id from EXISTING TASKS if the note is about one of them — the same "
+                    "real-world task even if worded differently, rescheduled, "
+                    "continued, corrected, or simply repeated. Null if it's new."
+                ),
+            },
         },
         "required": ["description"],
     },
@@ -122,6 +133,14 @@ EVENT_TOOL = {
                     "STAFF. Empty if no one is named."
                 ),
             },
+            "existing_id": {
+                "type": ["integer", "null"],
+                "description": (
+                    "Id from EXISTING EVENTS if the note is about one of them — the same "
+                    "real-world event even if worded differently, rescheduled, "
+                    "continued, corrected, or simply repeated. Null if it's new."
+                ),
+            },
         },
         "required": ["description"],
     },
@@ -134,7 +153,9 @@ _TASK_SYSTEM = (
     "- Set due_date ONLY if the note implies one, resolving relative dates via "
     "the DATE REFERENCE table (never compute dates yourself); otherwise null.\n"
     "- Infer urgency from tone (default Medium).\n"
-    "- Set assignee_id only when a CANDIDATE STAFF member is clearly named."
+    "- Set assignee_id only when a CANDIDATE STAFF member is clearly named.\n"
+    "- Check EXISTING TASKS: if the note is about one already there (even "
+    "reworded, or with a new due date), set existing_id; otherwise null."
 )
 
 _EVENT_SYSTEM = (
@@ -146,7 +167,12 @@ _EVENT_SYSTEM = (
     "yourself). If the note gives no resolvable date, set date to null (the app "
     "will ask the user separately) — never guess.\n"
     "- Use 24-hour HH:MM for time.\n"
-    "- Set attendee_ids only for CANDIDATE STAFF members clearly named."
+    "- Set attendee_ids only for CANDIDATE STAFF members clearly named.\n"
+    "- Check EXISTING EVENTS: if the note is about one already there — e.g. "
+    "'mediation continued to Nov 3' refers to the existing mediation — set "
+    "existing_id; otherwise null. A deposition of a different person, or a "
+    "different hearing, is a new event. If the note only changes the time of "
+    "an existing event, date may be null."
 )
 
 
@@ -184,12 +210,17 @@ def _date_reference(today: date, days: int = 21) -> str:
     return "\n".join(lines)
 
 
-def parse_quick_item(kind: str, text: str) -> dict:
+def parse_quick_item(kind: str, text: str, existing: list[dict] | None = None) -> dict:
     """Parse ``text`` into a single task/event dict for a known case.
 
-    Returns the validated field dict (ids checked against real staff, dates and
-    times normalised — anything malformed is dropped to null rather than raised).
+    ``existing`` is the case's current tasks/events (see db/existing_items.py);
+    the model sets ``existing_id`` when the note refers to one of them.
+
+    Returns the validated field dict (ids checked against real staff and the
+    existing items, dates and times normalised — anything malformed is dropped
+    to null rather than raised).
     """
+    existing = existing or []
     if kind not in ("task", "event"):
         raise ValueError(f"Unknown quick-create kind: {kind}")
 
@@ -208,7 +239,9 @@ def parse_quick_item(kind: str, text: str) -> dict:
         f"{_date_reference(today)}\n\n"
         f"NOTE:\n{text.strip()}\n\n"
         f"CANDIDATE STAFF (match names; use the id):\n"
-        f"{json.dumps(staff, ensure_ascii=False)}"
+        f"{json.dumps(staff, ensure_ascii=False)}\n\n"
+        f"EXISTING {kind.upper()}S ON THIS CASE:\n"
+        f"{json.dumps(existing, ensure_ascii=False) if existing else '(none)'}"
     )
 
     message = client.messages.create(
@@ -232,6 +265,9 @@ def parse_quick_item(kind: str, text: str) -> dict:
         raise ValueError("Quick-create failed - no tool call received")
 
     valid_staff_ids = {s["id"] for s in staff}
+    existing_id = raw.get("existing_id")
+    if existing_id not in {e["id"] for e in existing}:
+        existing_id = None
     description = (raw.get("description") or "").strip()
     if not description:
         raise ValueError("Quick-create produced an empty description")
@@ -254,6 +290,7 @@ def parse_quick_item(kind: str, text: str) -> dict:
             "due_date": _date(raw.get("due_date")),
             "urgency": urgency,
             "assignee_id": assignee_id,
+            "existing_id": existing_id,
         }
 
     attendee_ids = [i for i in (raw.get("attendee_ids") or []) if i in valid_staff_ids]
@@ -265,4 +302,5 @@ def parse_quick_item(kind: str, text: str) -> dict:
         "notes": (raw.get("notes") or None),
         "event_type": (raw.get("event_type") or None),
         "attendee_ids": attendee_ids,
+        "existing_id": existing_id,
     }

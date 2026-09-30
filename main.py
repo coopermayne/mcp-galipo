@@ -66,7 +66,14 @@ PROCEEDINGS WORKFLOW:
 DATA ENTRY GUIDELINES:
 - Skip vacated, canceled, or stricken events/deadlines — do not add these
 - Use the calculation_note field for deadline sources (e.g., "Dkt. 47, LR 7-3")
-- For depositions, include the deponent name in the event description"""
+- For depositions, include the deponent name in the event description
+
+DUPLICATES (tasks and events):
+The first manage_event/manage_task create on a case that already has items returns status="review_existing" with every existing event (recent + upcoming) or open task on that case, and creates nothing. Compare what you're creating against that list yourself — the same real-world item may be worded differently or rescheduled:
+- Already there with the same details → tell the user; don't create it again.
+- Already there with changed details (e.g. a continued hearing) → ask the user whether to update it, showing old → new (e.g. "Update 'Depo of Jane Doe' from Apr 20 → May 10?"). On yes, call action="update" with that id and only the changed fields.
+- Genuinely new → re-call create with confirmed_new=true. One review covers every new item for that case in the same turn — create the genuinely new ones right away; only the matched ones wait for the user.
+Prefer updating an existing item over creating a new one when the user is correcting or rescheduling something."""
 
 
 def initialize_database():
