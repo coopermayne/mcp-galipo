@@ -52,7 +52,6 @@ const TABS: TabDef[] = [
       "complaint_deadline",
       "effective_deadline",
       "status",
-      "preview",
     ],
   },
   {

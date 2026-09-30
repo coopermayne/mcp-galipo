@@ -7,7 +7,6 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useCasePreview } from "@/hooks/use-case-preview"
 import { CaseStatusBadge } from "@/pages/cases/components/status-badge"
 import { getAvatarStyleById } from "@/lib/badge-colors"
 import { groupCasesByStatus } from "@/pages/cases/group-cases"
@@ -24,16 +23,17 @@ interface CaseGroupedViewProps {
   cases: CaseListItem[]
   isLoading?: boolean
   usersMap: Map<number, UserInfo>
+  onOpenCase: (id: number, orderedIds: number[]) => void
 }
 
 export function CaseGroupedView({
   cases,
   isLoading,
   usersMap,
+  onOpenCase,
 }: CaseGroupedViewProps) {
-  const { openCasePreview } = useCasePreview()
   const groups = useMemo(() => groupCasesByStatus(cases), [cases])
-  // Flattened display order for j/k navigation in the preview modal.
+  // Flattened display order for prev/next + j/k navigation.
   const orderedIds = useMemo(
     () => groups.flatMap((g) => g.cases.map((c) => c.id)),
     [groups]
@@ -71,7 +71,7 @@ export function CaseGroupedView({
                     key={c.id}
                     caseItem={c}
                     usersMap={usersMap}
-                    onClick={() => openCasePreview(c.id, orderedIds)}
+                    onClick={() => onOpenCase(c.id, orderedIds)}
                   />
                 ))}
               </div>
