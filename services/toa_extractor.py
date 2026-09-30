@@ -6,16 +6,15 @@ printed-page numbering. Sends text to Claude to identify and categorize
 all legal citations.
 """
 
-import json
 import logging
-import re
 from io import BytesIO
 
 from anthropic import Anthropic
 from pypdf import PdfReader
 
 from config import settings
-from db.token_usage import record_usage_from_message
+from lib import ai_models
+from services.structured_output import request_json
 
 _logger = logging.getLogger("services.toa_extractor")
 
@@ -146,6 +145,40 @@ For other: include "author", "title", and "rest" fields.
 All entries include "pages" (array of integers), "flags" (array of strings, empty if none), and "flag_messages" (array of strings, empty if none)."""
 
 
+_STRING = {"type": "string"}
+
+# The reply shape described in _SYSTEM_PROMPT's "Response Format", enforced via
+# structured outputs. Category-specific fields are optional.
+AUTHORITIES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "authorities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["case", "constitutional_provision", "statute", "rule", "other"],
+                    },
+                    "name": _STRING,
+                    "cite": _STRING,
+                    "text": _STRING,
+                    "author": _STRING,
+                    "title": _STRING,
+                    "rest": _STRING,
+                    "pages": {"type": "array", "items": {"type": "integer"}},
+                    "flags": {"type": "array", "items": _STRING},
+                    "flag_messages": {"type": "array", "items": _STRING},
+                },
+                "required": ["category", "pages", "flags", "flag_messages"],
+            },
+        },
+    },
+    "required": ["authorities"],
+}
+
+
 def extract_authorities(file_bytes: bytes) -> dict:
     """
     Extract all legal authorities from a PDF brief.
@@ -177,7 +210,7 @@ def extract_authorities(file_bytes: bytes) -> dict:
 
     # Step 2: Call Claude
     client = Anthropic(api_key=settings.anthropic_api_key)
-    model = "claude-sonnet-4-6"
+    model = ai_models.TOA_EXTRACTION
 
     user_message = (
         "Here is the full text of a legal brief. Each page is labeled with "
@@ -188,66 +221,11 @@ def extract_authorities(file_bytes: bytes) -> dict:
 
     _logger.info(f"Sending {page_count}-page brief to Claude ({model}) for extraction")
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=8000,
-        system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
+    result = request_json(
+        client, model=model, schema=AUTHORITIES_SCHEMA, system=_SYSTEM_PROMPT,
+        content=user_message, max_tokens=16000,
+        usage_source="toa_extractor", usage_type="extract_citations",
     )
-    record_usage_from_message(
-        source="toa_extractor", request_type="extract_citations",
-        model=model, message=response,
-    )
-
-    # Step 3: Parse JSON response
-    response_text = ""
-    for block in response.content:
-        if block.type == "text":
-            response_text += block.text
-
-    # Strip markdown code fences if present
-    response_text = response_text.strip()
-    if response_text.startswith("```"):
-        response_text = re.sub(r"^```(?:json)?\s*", "", response_text)
-        response_text = re.sub(r"\s*```$", "", response_text)
-
-    try:
-        result = json.loads(response_text)
-    except json.JSONDecodeError:
-        # Retry once with a nudge
-        _logger.warning("First extraction returned invalid JSON, retrying...")
-        retry_response = client.messages.create(
-            model=model,
-            max_tokens=8000,
-            system=_SYSTEM_PROMPT,
-            messages=[
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": response_text},
-                {
-                    "role": "user",
-                    "content": (
-                        "Your previous response was not valid JSON. "
-                        "Return ONLY the JSON object, no other text."
-                    ),
-                },
-            ],
-        )
-        record_usage_from_message(
-            source="toa_extractor", request_type="extract_citations_retry",
-            model=model, message=retry_response,
-        )
-        retry_text = ""
-        for block in retry_response.content:
-            if block.type == "text":
-                retry_text += block.text
-        retry_text = retry_text.strip()
-        if retry_text.startswith("```"):
-            retry_text = re.sub(r"^```(?:json)?\s*", "", retry_text)
-            retry_text = re.sub(r"\s*```$", "", retry_text)
-        try:
-            result = json.loads(retry_text)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse citation extraction result: {e}")
 
     authorities = result.get("authorities", [])
     _logger.info(f"Extracted {len(authorities)} authorities from brief")

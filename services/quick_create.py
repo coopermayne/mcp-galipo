@@ -1,7 +1,7 @@
 """
 Quick-create service.
 
-A single, synchronous Claude call (forced tool use) that turns a short
+A single, synchronous Claude call (structured JSON output) that turns a short
 natural-language note into ONE task or event for a *known* case. The case is
 already chosen by the caller (the highlighted quick-search result), so unlike
 the worklog consolidator there is no case matching — only field extraction.
@@ -17,7 +17,8 @@ Deliberate product rules (do NOT relax these):
   sets ``existing_id`` when the note is really about one of them (a
   rescheduled hearing, a repeated task). The route then offers an update.
 
-Mirrors services/worklog_consolidator.py for the forced-tool LLM pattern.
+The reply is constrained to TASK_SCHEMA / EVENT_SCHEMA via
+services/structured_output.py.
 """
 
 import json
@@ -28,7 +29,7 @@ from datetime import date, timedelta
 
 from anthropic import Anthropic
 
-from db.token_usage import record_usage_from_message
+from services.structured_output import request_json
 from db.users import get_all_users
 from lib.tz import today_la
 
@@ -43,112 +44,104 @@ EVENT_TYPE_HINT = (
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 
-TASK_TOOL = {
-    "name": "submit_task",
-    "description": "Create a single task from the user's note.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "description": {
-                "type": "string",
-                "description": (
-                    "Concise task title in imperative form (e.g. 'Draft MSJ "
-                    "response'). Do NOT include the case name — the case is "
-                    "recorded separately."
-                ),
-            },
-            "due_date": {
-                "type": ["string", "null"],
-                "description": (
-                    "Due date as YYYY-MM-DD, resolved against TODAY. Null if the "
-                    "note gives no date — never invent one."
-                ),
-            },
-            "urgency": {
-                "type": "string",
-                "enum": URGENCY_VALUES,
-                "description": "Urgency inferred from the note's tone. Default 'Medium'.",
-            },
-            "assignee_id": {
-                "type": ["integer", "null"],
-                "description": (
-                    "Id of the single staff member to assign, matched by name "
-                    "against CANDIDATE STAFF. Null if no one is named."
-                ),
-            },
-            "existing_id": {
-                "type": ["integer", "null"],
-                "description": (
-                    "Id from EXISTING TASKS if the note is about one of them — the same "
-                    "real-world task even if worded differently, rescheduled, "
-                    "continued, corrected, or simply repeated. Null if it's new."
-                ),
-            },
+TASK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "description": {
+            "type": "string",
+            "description": (
+                "Concise task title in imperative form (e.g. 'Draft MSJ "
+                "response'). Do NOT include the case name — the case is "
+                "recorded separately."
+            ),
         },
-        "required": ["description"],
+        "due_date": {
+            "type": ["string", "null"],
+            "description": (
+                "Due date as YYYY-MM-DD, resolved against TODAY. Null if the "
+                "note gives no date — never invent one."
+            ),
+        },
+        "urgency": {
+            "type": "string",
+            "enum": URGENCY_VALUES,
+            "description": "Urgency inferred from the note's tone. Default 'Medium'.",
+        },
+        "assignee_id": {
+            "type": ["integer", "null"],
+            "description": (
+                "Id of the single staff member to assign, matched by name "
+                "against CANDIDATE STAFF. Null if no one is named."
+            ),
+        },
+        "existing_id": {
+            "type": ["integer", "null"],
+            "description": (
+                "Id from EXISTING TASKS if the note is about one of them — the same "
+                "real-world task even if worded differently, rescheduled, "
+                "continued, corrected, or simply repeated. Null if it's new."
+            ),
+        },
     },
+    "required": ["description"],
 }
 
-EVENT_TOOL = {
-    "name": "submit_event",
-    "description": "Create a single calendar event from the user's note.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "description": {
-                "type": "string",
-                "description": (
-                    "Concise event title (e.g. 'Deposition of plaintiff'). Do "
-                    "NOT include the case name."
-                ),
-            },
-            "date": {
-                "type": ["string", "null"],
-                "description": (
-                    "Event date as YYYY-MM-DD, resolved against TODAY. Null if "
-                    "the note gives no resolvable date — never invent one."
-                ),
-            },
-            "time": {
-                "type": ["string", "null"],
-                "description": "Start time in 24-hour HH:MM (e.g. '10:00', '14:30'). Null if none.",
-            },
-            "location": {
-                "type": ["string", "null"],
-                "description": "Location if mentioned, else null.",
-            },
-            "notes": {
-                "type": ["string", "null"],
-                "description": "Any extra detail worth recording, else null.",
-            },
-            "event_type": {
-                "type": ["string", "null"],
-                "description": f"One of: {EVENT_TYPE_HINT}. Null if unclear.",
-            },
-            "attendee_ids": {
-                "type": "array",
-                "items": {"type": "integer"},
-                "description": (
-                    "Ids of staff attending, matched by name against CANDIDATE "
-                    "STAFF. Empty if no one is named."
-                ),
-            },
-            "existing_id": {
-                "type": ["integer", "null"],
-                "description": (
-                    "Id from EXISTING EVENTS if the note is about one of them — the same "
-                    "real-world event even if worded differently, rescheduled, "
-                    "continued, corrected, or simply repeated. Null if it's new."
-                ),
-            },
+EVENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "description": {
+            "type": "string",
+            "description": (
+                "Concise event title (e.g. 'Deposition of plaintiff'). Do "
+                "NOT include the case name."
+            ),
         },
-        "required": ["description"],
+        "date": {
+            "type": ["string", "null"],
+            "description": (
+                "Event date as YYYY-MM-DD, resolved against TODAY. Null if "
+                "the note gives no resolvable date — never invent one."
+            ),
+        },
+        "time": {
+            "type": ["string", "null"],
+            "description": "Start time in 24-hour HH:MM (e.g. '10:00', '14:30'). Null if none.",
+        },
+        "location": {
+            "type": ["string", "null"],
+            "description": "Location if mentioned, else null.",
+        },
+        "notes": {
+            "type": ["string", "null"],
+            "description": "Any extra detail worth recording, else null.",
+        },
+        "event_type": {
+            "type": ["string", "null"],
+            "description": f"One of: {EVENT_TYPE_HINT}. Null if unclear.",
+        },
+        "attendee_ids": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": (
+                "Ids of staff attending, matched by name against CANDIDATE "
+                "STAFF. Empty if no one is named."
+            ),
+        },
+        "existing_id": {
+            "type": ["integer", "null"],
+            "description": (
+                "Id from EXISTING EVENTS if the note is about one of them — the same "
+                "real-world event even if worded differently, rescheduled, "
+                "continued, corrected, or simply repeated. Null if it's new."
+            ),
+        },
     },
+    "required": ["description"],
 }
 
 _TASK_SYSTEM = (
     "You convert a short note into ONE task for a case the user already chose. "
-    "Call submit_task exactly once. Never ask questions and never add commentary.\n"
+    "Return exactly one task. Never ask questions and never add commentary.\n"
     "- Write a concise imperative title; omit the case name.\n"
     "- Set due_date ONLY if the note implies one, resolving relative dates via "
     "the DATE REFERENCE table (never compute dates yourself); otherwise null.\n"
@@ -160,7 +153,7 @@ _TASK_SYSTEM = (
 
 _EVENT_SYSTEM = (
     "You convert a short note into ONE calendar event for a case the user "
-    "already chose. Call submit_event exactly once. Never ask questions and "
+    "already chose. Return exactly one event. Never ask questions and "
     "never add commentary.\n"
     "- Write a concise event title; omit the case name.\n"
     "- Resolve the date via the DATE REFERENCE table (never compute dates "
@@ -192,8 +185,8 @@ def _client_and_model():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is required")
-    from config import settings
-    return Anthropic(api_key=api_key), settings.chat_model_full
+    from lib import ai_models
+    return Anthropic(api_key=api_key), ai_models.CHAT
 
 
 def _date_reference(today: date, days: int = 21) -> str:
@@ -228,7 +221,7 @@ def parse_quick_item(kind: str, text: str, existing: list[dict] | None = None) -
     today = today_la()
     client, model = _client_and_model()
 
-    tool = TASK_TOOL if kind == "task" else EVENT_TOOL
+    schema = TASK_SCHEMA if kind == "task" else EVENT_SCHEMA
     system = _TASK_SYSTEM if kind == "task" else _EVENT_SYSTEM
     content = (
         f"TODAY: {today.isoformat()} ({today.strftime('%A')})\n\n"
@@ -244,25 +237,10 @@ def parse_quick_item(kind: str, text: str, existing: list[dict] | None = None) -
         f"{json.dumps(existing, ensure_ascii=False) if existing else '(none)'}"
     )
 
-    message = client.messages.create(
-        model=model,
-        max_tokens=1024,
-        system=system,
-        tools=[tool],
-        tool_choice={"type": "tool", "name": tool["name"]},
-        messages=[{"role": "user", "content": content}],
+    raw = request_json(
+        client, model=model, schema=schema, system=system, content=content,
+        max_tokens=1024, usage_source="quick_create", usage_type=kind,
     )
-    record_usage_from_message(
-        source="quick_create", request_type=kind, model=model, message=message,
-    )
-
-    raw = None
-    for block in message.content:
-        if block.type == "tool_use" and block.name == tool["name"]:
-            raw = block.input
-            break
-    if raw is None:
-        raise ValueError("Quick-create failed - no tool call received")
 
     valid_staff_ids = {s["id"] for s in staff}
     existing_id = raw.get("existing_id")

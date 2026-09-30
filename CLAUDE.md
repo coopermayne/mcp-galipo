@@ -422,9 +422,7 @@ set -a && source .env && set +a
 | `AUTH_PASSWORD` | Yes | (none) | Web dashboard login password |
 | `PORT` | No | 8000 | Backend server port (used by uvicorn and Vite proxy) |
 | `VITE_PORT` | No | 5173 | Frontend dev server port |
-| `ANTHROPIC_API_KEY` | No | (none) | For in-app chat feature |
-| `CHAT_MODEL` | No | (none) | Model for in-app chat (e.g., claude-haiku-4-5) |
-| `EXTRACTION_MODEL` | No | claude-haiku-4-5-20251001 | Model for PDF extraction (templates, RFP) |
+| `ANTHROPIC_API_KEY` | No | (none) | For all AI features (chat, extraction, quick-create) |
 | `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
 | `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP OAuth authentication (requires MCP_BASE_URL) |
 | `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |
@@ -432,6 +430,10 @@ set -a && source .env && set +a
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
 
 See `.env.example` for a complete template.
+
+**Claude models are not env vars.** Every model the app uses is a named constant in [`lib/ai_models.py`](lib/ai_models.py), one per job. A model and the request code that calls it change together (newer models reject some request shapes, e.g. forced `tool_choice`), so a model switch is a code change reviewed and tested with its request changes — never a server setting. Import from there; don't hardcode model IDs elsewhere.
+
+For one-shot calls that must return JSON, use `request_json()` in [`services/structured_output.py`](services/structured_output.py) (structured outputs + refusal handling), not a forced `tool_choice` — newer models reject forced tool use with a 400.
 
 ## Endpoints
 

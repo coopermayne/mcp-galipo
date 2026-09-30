@@ -191,11 +191,10 @@ def register_chat_routes(mcp):
     @mcp.custom_route("/api/v1/chat/info", methods=["GET"])
     async def api_chat_info(request):
         """Return chat configuration info (model name, etc.)."""
-        from config import settings as _settings
+        from lib import ai_models
         return JSONResponse({
-            "model": _settings.chat_model,
-            "model_full": _settings.chat_model_full,
-            "model_max": _settings.chat_model_max,
+            "model": ai_models.CHAT_FAST,
+            "model_full": ai_models.CHAT,
         })
 
     @mcp.custom_route("/api/v1/chat/stream", methods=["POST"])
@@ -639,6 +638,17 @@ DATA:
                                         f"cache_create={usage.get('cache_creation_input_tokens',0)} cache_read={usage.get('cache_read_input_tokens',0)} "
                                         f"stop={stop_reason} tools_called={[tc.name for tc in iteration_tool_calls]}"
                                     )
+
+                                if stop_reason == "refusal":
+                                    # The model declined on safety grounds. Keep the
+                                    # declined reply out of history so the user can
+                                    # rephrase and carry on in the same conversation.
+                                    _logger.warning(f"Chat model declined (refusal) in conversation {conversation_id}")
+                                    _conversations[conversation_id] = messages
+                                    yield f"data: {json.dumps({'type': 'error', 'message': 'The AI declined to respond to that message. Try rephrasing it.'})}\n\n"
+                                    await asyncio.sleep(0)  # Flush to client
+                                    await _persist_usage(stop_reason)
+                                    return
 
                                 if stop_reason == "tool_use" and iteration_tool_calls:
                                     # Add assistant message with tool calls to history

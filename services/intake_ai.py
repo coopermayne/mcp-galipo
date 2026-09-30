@@ -4,14 +4,14 @@ AI-powered intake analysis service.
 Uses Claude to generate a summary and case quality rating for intake leads.
 """
 
-import json
 import logging
 from datetime import date
 
 from anthropic import Anthropic
 
 from config import settings
-from db.token_usage import record_usage_from_message
+from lib import ai_models
+from services.structured_output import request_json
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,23 @@ Respond with valid JSON only. The "summary" field must contain the markdown text
 {{"summary": "### Events at Issue\\n...", "rating": N, "injury_rating": N, "reasoning": "...", "location_short": "City, ST or null"}}"""
 
 
+_RATING = {"type": "integer", "enum": [1, 2, 3, 4, 5]}
+
+# The reply shape described at the end of SYSTEM_PROMPT_TEMPLATE, enforced via
+# structured outputs.
+ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "rating": _RATING,
+        "injury_rating": _RATING,
+        "reasoning": {"type": "string"},
+        "location_short": {"type": ["string", "null"]},
+    },
+    "required": ["summary", "rating", "injury_rating", "reasoning", "location_short"],
+}
+
+
 def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | None = None) -> dict:
     """Analyze a single intake and return AI summary, rating, and reasoning.
 
@@ -118,26 +135,11 @@ def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | No
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(today=date.today().strftime("%B %d, %Y"))
 
     client = Anthropic(api_key=settings.anthropic_api_key)
-    response = client.messages.create(
-        model=settings.chat_model_full,
-        max_tokens=1000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_message}],
+    parsed = request_json(
+        client, model=ai_models.CHAT, schema=ANALYSIS_SCHEMA, system=system_prompt,
+        content=user_message, max_tokens=1000,
+        usage_source="intake_ai", usage_type="analyze_intake",
     )
-    record_usage_from_message(
-        source="intake_ai", request_type="analyze_intake",
-        model=settings.chat_model_full, message=response,
-    )
-
-    text = response.content[0].text.strip()
-    # Strip markdown code fences if present
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-
-    parsed = json.loads(text)
 
     rating = max(1, min(5, int(parsed.get("rating", 1))))
     injury_rating = max(1, min(5, int(parsed.get("injury_rating", 1))))
