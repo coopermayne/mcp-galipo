@@ -110,8 +110,8 @@ class IntakeExtractor:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
         self.client = Anthropic(api_key=api_key)
-        from config import settings
-        self.model = settings.extraction_model
+        from lib import ai_models
+        self.model = ai_models.EXTRACTION
 
     def extract_intake_info(self, text: str) -> dict:
         """

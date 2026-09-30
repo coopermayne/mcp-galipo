@@ -191,11 +191,10 @@ def register_chat_routes(mcp):
     @mcp.custom_route("/api/v1/chat/info", methods=["GET"])
     async def api_chat_info(request):
         """Return chat configuration info (model name, etc.)."""
-        from config import settings as _settings
+        from lib import ai_models
         return JSONResponse({
-            "model": _settings.chat_model,
-            "model_full": _settings.chat_model_full,
-            "model_max": _settings.chat_model_max,
+            "model": ai_models.CHAT_FAST,
+            "model_full": ai_models.CHAT,
         })
 
     @mcp.custom_route("/api/v1/chat/stream", methods=["POST"])

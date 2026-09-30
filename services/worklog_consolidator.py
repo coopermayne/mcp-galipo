@@ -229,9 +229,9 @@ def _consolidate_with_claude(transcript: str, log_date: str, selected: list[dict
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is required")
-    from config import settings
+    from lib import ai_models
     client = Anthropic(api_key=api_key)
-    model = settings.chat_model_full
+    model = ai_models.CHAT
 
     # Resolve the user's @-tagged ids to {id, case_name} hints (only ids that are
     # real, open candidate cases survive).

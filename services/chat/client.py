@@ -10,6 +10,7 @@ from anthropic import AsyncAnthropic
 from typing import Any, AsyncGenerator
 
 from config import settings
+from lib import ai_models
 from .types import ToolCall, StreamEventType
 
 
@@ -72,9 +73,8 @@ class ChatClient:
             api_key=settings.anthropic_api_key,
             default_headers={"anthropic-beta": "extended-cache-ttl-2025-04-11"}
         )
-        self.model = settings.chat_model
-        self.model_full = settings.chat_model_full
-        self.model_max = settings.chat_model_max
+        self.model = ai_models.CHAT_FAST
+        self.model_full = ai_models.CHAT
         self.max_tokens = settings.chat_max_tokens
 
     async def send_message(

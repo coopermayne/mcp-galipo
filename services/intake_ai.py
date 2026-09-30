@@ -11,6 +11,7 @@ from datetime import date
 from anthropic import Anthropic
 
 from config import settings
+from lib import ai_models
 from db.token_usage import record_usage_from_message
 
 logger = logging.getLogger(__name__)
@@ -119,14 +120,14 @@ def analyze_intake(intake_data: dict, notes: str = "", comments: list[dict] | No
 
     client = Anthropic(api_key=settings.anthropic_api_key)
     response = client.messages.create(
-        model=settings.chat_model_full,
+        model=ai_models.CHAT,
         max_tokens=1000,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
     record_usage_from_message(
         source="intake_ai", request_type="analyze_intake",
-        model=settings.chat_model_full, message=response,
+        model=ai_models.CHAT, message=response,
     )
 
     text = response.content[0].text.strip()

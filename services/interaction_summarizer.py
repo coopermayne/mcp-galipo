@@ -52,7 +52,7 @@ def summarize_interaction(
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is required")
 
-    from config import settings
+    from lib import ai_models
 
     client = Anthropic(api_key=api_key)
 
@@ -74,14 +74,14 @@ def summarize_interaction(
     user_msg = f"{context_block}Summarize this {interaction_type}{direction_label}:\n\n{content}"
 
     message = client.messages.create(
-        model=settings.extraction_model,
+        model=ai_models.EXTRACTION,
         max_tokens=256,
         system=system,
         messages=[{"role": "user", "content": user_msg}],
     )
     record_usage_from_message(
         source="interaction_summarizer", request_type="summarize_interaction",
-        model=settings.extraction_model, message=message,
+        model=ai_models.EXTRACTION, message=message,
     )
 
     return message.content[0].text.strip()

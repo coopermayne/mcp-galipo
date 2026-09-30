@@ -467,11 +467,11 @@ Defined in [`tools.py`](../tools.py); the dispatch list is in `register_tools()`
 
 | File | Model | Job |
 |---|---|---|
-| [`services/case_extractor.py`](../services/case_extractor.py) | `settings.extraction_model` | Court caption, parties, judge, hearing date/time/location from motions and briefs. Also suggests document filenames. |
-| [`services/intake_extractor.py`](../services/intake_extractor.py) | `settings.extraction_model` | Parses inbound emails/notes/referral letters into intake fields (name, phone, DOI, case type, location, referral source). |
-| [`services/invoice_extractor.py`](../services/invoice_extractor.py) | `settings.extraction_model` | Extracts vendor, amount, date, category, payable info from invoice text or image; Claude vision fallback for scanned PDFs. |
-| [`services/rfp_extractor.py`](../services/rfp_extractor.py) | `settings.extraction_model` | Pulls the case caption and individual numbered requests from a Request for Production. Then runs an analysis pass that suggests applicable objections per request. Logs token usage. |
-| [`services/toa_extractor.py`](../services/toa_extractor.py) | `claude-sonnet-4-6` (hardcoded) | Table-of-Authorities: extracts cases, statutes, constitutional provisions, secondary sources from a brief. Resolves short forms / `Id.`, flags duplicates and inconsistencies, attributes page numbers via per-page text. |
+| [`services/case_extractor.py`](../services/case_extractor.py) | `ai_models.EXTRACTION` | Court caption, parties, judge, hearing date/time/location from motions and briefs. Also suggests document filenames. |
+| [`services/intake_extractor.py`](../services/intake_extractor.py) | `ai_models.EXTRACTION` | Parses inbound emails/notes/referral letters into intake fields (name, phone, DOI, case type, location, referral source). |
+| [`services/invoice_extractor.py`](../services/invoice_extractor.py) | `ai_models.EXTRACTION` | Extracts vendor, amount, date, category, payable info from invoice text or image; Claude vision fallback for scanned PDFs. |
+| [`services/rfp_extractor.py`](../services/rfp_extractor.py) | `ai_models.EXTRACTION` | Pulls the case caption and individual numbered requests from a Request for Production. Then runs an analysis pass that suggests applicable objections per request. Logs token usage. |
+| [`services/toa_extractor.py`](../services/toa_extractor.py) | `ai_models.TOA_EXTRACTION` | Table-of-Authorities: extracts cases, statutes, constitutional provisions, secondary sources from a brief. Resolves short forms / `Id.`, flags duplicates and inconsistencies, attributes page numbers via per-page text. |
 | [`services/pdf_extractor.py`](../services/pdf_extractor.py) | (utility) | Generic pypdf text dump (first N pages). Raises on image-only PDFs so callers can fall back to vision. |
 
 All extractors use Claude's **tool_use** to enforce schema compliance. System prompts emphasize precision ("extract exactly what appears, no placeholders") and never fabricate.
@@ -482,7 +482,7 @@ All extractors use Claude's **tool_use** to enforce schema compliance. System pr
 
 ### Interaction summarizer
 
-[`services/interaction_summarizer.py`](../services/interaction_summarizer.py) — short 1–2 sentence summaries of logged emails / phone calls, focused on what's NEW vs. what's already in case notes. Uses `extraction_model` (Haiku) for cost.
+[`services/interaction_summarizer.py`](../services/interaction_summarizer.py) — short 1–2 sentence summaries of logged emails / phone calls, focused on what's NEW vs. what's already in case notes. Uses `ai_models.EXTRACTION` (Haiku) for cost.
 
 ### Document generators
 
@@ -505,7 +505,7 @@ DOCX path uses [docxtpl](https://docxtpl.readthedocs.io/); PDF path uses [WeasyP
 
 The Claude-powered chat that lives in the dashboard. Files:
 
-- [`services/chat/client.py`](../services/chat/client.py) — `AsyncAnthropic` wrapper. Applies ephemeral prompt caching to tool definitions. System prompt enforces batch tool calling. Uses `settings.chat_model`.
+- [`services/chat/client.py`](../services/chat/client.py) — `AsyncAnthropic` wrapper. Applies ephemeral prompt caching to tool definitions. System prompt enforces batch tool calling. Models come from [`lib/ai_models.py`](../lib/ai_models.py): `CHAT_FAST` for scoped modes and presets, `CHAT` for freeform, case setup and intakes.
 - [`services/chat/modes.py`](../services/chat/modes.py) — mode definitions (`tasks`, `events`, `people`, `proceedings`, `overview`). Each mode has an allowlisted tool set and a system prompt addition that steers Claude's behavior.
 - [`services/chat/presets.py`](../services/chat/presets.py) — pre-fetches high-priority tasks and upcoming events/deadlines and injects them straight into the system prompt, so Claude doesn't need to spend tool calls on common questions. Filters by `user_id` when given.
 - [`services/chat/executor.py`](../services/chat/executor.py) — runs MCP tools from the chat. Truncates large results intelligently (caps at ~12k chars, summarizes overflow).
@@ -741,8 +741,6 @@ Full list in [`.env.example`](../.env.example) and the table in [`CLAUDE.md`](..
 | `PORT` | no (8000) | Backend port |
 | `VITE_PORT` | no (5173) | Vite dev port |
 | `ANTHROPIC_API_KEY` | for AI | All Claude features |
-| `CHAT_MODEL` | no | In-app chat model |
-| `EXTRACTION_MODEL` | no (Haiku) | PDF/text extractors |
 | `MCP_AUTH_PASSWORD` + `MCP_BASE_URL` | for hosted MCP | Enables OAuth on `/mcp` |
 | `WEBHOOK_SECRET_COURTLISTENER` | for CL webhooks | Token in path |
 | `MEDIA_DIR` | no | Uploaded invoice / lien / payee files |

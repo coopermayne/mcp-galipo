@@ -192,8 +192,8 @@ def _client_and_model():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is required")
-    from config import settings
-    return Anthropic(api_key=api_key), settings.chat_model_full
+    from lib import ai_models
+    return Anthropic(api_key=api_key), ai_models.CHAT
 
 
 def _date_reference(today: date, days: int = 21) -> str:

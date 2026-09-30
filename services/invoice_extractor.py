@@ -91,8 +91,8 @@ class InvoiceExtractor:
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         self.client = Anthropic(api_key=api_key)
-        from config import settings
-        self.model = settings.extraction_model
+        from lib import ai_models
+        self.model = ai_models.EXTRACTION
 
     def extract_from_text(self, text: str) -> dict:
         message = self.client.messages.create(
