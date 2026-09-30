@@ -19,6 +19,9 @@ CHAT = "claude-sonnet-4-6"
 
 # Field extraction from documents/text (invoices, intakes, cases, RFPs) and
 # short interaction summaries — high volume, simple structure.
+# NOTE: these extractors still force a tool call (tool_choice type "tool").
+# Haiku 4.5 accepts that; Sonnet 5.5 / Opus 5.5 reject it with a 400. Move
+# them to services/structured_output.py before pointing this at a newer model.
 EXTRACTION = "claude-haiku-4-5"
 
 # Table of Authorities extraction — long briefs, citation resolution.

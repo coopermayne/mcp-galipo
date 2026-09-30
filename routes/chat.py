@@ -639,6 +639,17 @@ DATA:
                                         f"stop={stop_reason} tools_called={[tc.name for tc in iteration_tool_calls]}"
                                     )
 
+                                if stop_reason == "refusal":
+                                    # The model declined on safety grounds. Keep the
+                                    # declined reply out of history so the user can
+                                    # rephrase and carry on in the same conversation.
+                                    _logger.warning(f"Chat model declined (refusal) in conversation {conversation_id}")
+                                    _conversations[conversation_id] = messages
+                                    yield f"data: {json.dumps({'type': 'error', 'message': 'The AI declined to respond to that message. Try rephrasing it.'})}\n\n"
+                                    await asyncio.sleep(0)  # Flush to client
+                                    await _persist_usage(stop_reason)
+                                    return
+
                                 if stop_reason == "tool_use" and iteration_tool_calls:
                                     # Add assistant message with tool calls to history
                                     assistant_content: list[dict[str, Any]] = []

@@ -433,6 +433,8 @@ See `.env.example` for a complete template.
 
 **Claude models are not env vars.** Every model the app uses is a named constant in [`lib/ai_models.py`](lib/ai_models.py), one per job. A model and the request code that calls it change together (newer models reject some request shapes, e.g. forced `tool_choice`), so a model switch is a code change reviewed and tested with its request changes — never a server setting. Import from there; don't hardcode model IDs elsewhere.
 
+For one-shot calls that must return JSON, use `request_json()` in [`services/structured_output.py`](services/structured_output.py) (structured outputs + refusal handling), not a forced `tool_choice` — newer models reject forced tool use with a 400.
+
 ## Endpoints
 
 - **Frontend**: http://localhost:5173 (Vite dev server)

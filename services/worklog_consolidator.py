@@ -4,7 +4,7 @@ Worklog consolidation service.
 Background-thread AI job that turns a lawyer's day (a free-text memo + selected
 surfaced items) into discrete, time-estimated work-log entries linked to cases
 and people. Mirrors services/intake_ai.py for the async pattern and
-services/case_extractor.py for the forced-tool LLM call.
+services/structured_output.py for the structured-JSON LLM call.
 
 This is NOT a precise time tracker — it produces broad-strokes estimates (in
 decimal hours) that add up to a believable working day (~5–7h, hard ceiling ~7h).
@@ -20,68 +20,64 @@ from sqlalchemy import ARRAY as SA_ARRAY, Integer
 
 import db
 from db.session import SessionLocal
-from db.token_usage import record_usage_from_message
+from services.structured_output import request_json
 from models import Case, Person, PersonRole
 
 logger = logging.getLogger(__name__)
 
 CLOSED_STATUSES = ("Closed",)
 
-SUBMIT_WORKLOG_TOOL = {
-    "name": "submit_worklog",
-    "description": "Submit the consolidated work-log entries for the day.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "entries": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string",
-                            "description": (
-                                "Concise summary of the work done — the activity ONLY. Do NOT "
-                                "include the case name or party names; the case is recorded "
-                                "separately via case_id. E.g. 'Drafted the complaint', not "
-                                "'Drafted the complaint for Reyes v. City of Los Angeles'."
-                            ),
-                        },
-                        "hours": {
-                            "type": "number",
-                            "description": "Estimated hours spent on this activity, in decimal hours (0.1 = 6 minutes, 0.5 = 30 minutes). Use tenth-of-an-hour increments.",
-                        },
-                        "case_id": {
-                            "type": ["integer", "null"],
-                            "description": "Matched case id, or null if no confident match.",
-                        },
-                        "case_guess": {
-                            "type": "string",
-                            "description": (
-                                "How the user referred to a SPECIFIC case that couldn't be "
-                                "matched. Leave empty for general work that isn't about any case."
-                            ),
-                        },
-                        "person_ids": {
-                            "type": "array",
-                            "items": {"type": "integer"},
-                            "description": "Matched person ids named in this activity.",
-                        },
-                        "raw_reference": {
-                            "type": "string",
-                            "description": (
-                                "The user's original phrasing for this activity, but ONLY when it "
-                                "names a specific case that couldn't be matched. OMIT for general "
-                                "work with no case (it renders as a clean 'General' entry)."
-                            ),
-                        },
+WORKLOG_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "entries": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "description": (
+                            "Concise summary of the work done — the activity ONLY. Do NOT "
+                            "include the case name or party names; the case is recorded "
+                            "separately via case_id. E.g. 'Drafted the complaint', not "
+                            "'Drafted the complaint for Reyes v. City of Los Angeles'."
+                        ),
                     },
-                    "required": ["description", "hours"],
+                    "hours": {
+                        "type": "number",
+                        "description": "Estimated hours spent on this activity, in decimal hours (0.1 = 6 minutes, 0.5 = 30 minutes). Use tenth-of-an-hour increments.",
+                    },
+                    "case_id": {
+                        "type": ["integer", "null"],
+                        "description": "Matched case id, or null if no confident match.",
+                    },
+                    "case_guess": {
+                        "type": "string",
+                        "description": (
+                            "How the user referred to a SPECIFIC case that couldn't be "
+                            "matched. Leave empty for general work that isn't about any case."
+                        ),
+                    },
+                    "person_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Matched person ids named in this activity.",
+                    },
+                    "raw_reference": {
+                        "type": "string",
+                        "description": (
+                            "The user's original phrasing for this activity, but ONLY when it "
+                            "names a specific case that couldn't be matched. OMIT for general "
+                            "work with no case (it renders as a clean 'General' entry)."
+                        ),
+                    },
                 },
-            }
-        },
-        "required": ["entries"],
+                "required": ["description", "hours"],
+            },
+        }
     },
+    "required": ["entries"],
 }
 
 SYSTEM_PROMPT = """You convert a lawyer's day into discrete work-log entries.
@@ -134,7 +130,7 @@ case — an activity like "drafted the opposition" or "reviewed body cam footage
 person_ids must be empty. When in doubt, leave it empty. A generic role with no name ("called
 opposing counsel") is NOT a tag unless the candidate list has that exact named person.
 
-Use the submit_worklog tool; entries in chronological order."""
+Return the entries in chronological order."""
 
 
 def _gather_candidates(user_id: Optional[int]) -> tuple[list[dict], list[dict]]:
@@ -239,29 +235,11 @@ def _consolidate_with_claude(transcript: str, log_date: str, selected: list[dict
     tagged = [{"id": c["id"], "case_name": c["case_name"]}
               for c in cases if c["id"] in tagged_ids]
 
-    message = client.messages.create(
-        model=model,
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        tools=[SUBMIT_WORKLOG_TOOL],
-        tool_choice={"type": "tool", "name": "submit_worklog"},
-        messages=[{
-            "role": "user",
-            "content": _build_user_content(transcript, log_date, selected, cases, people, tagged),
-        }],
-    )
-    record_usage_from_message(
-        source="worklog_consolidator", request_type="consolidate",
-        model=model, message=message,
-    )
-
-    raw_entries = None
-    for block in message.content:
-        if block.type == "tool_use" and block.name == "submit_worklog":
-            raw_entries = block.input.get("entries", [])
-            break
-    if raw_entries is None:
-        raise ValueError("Consolidation failed - no submit_worklog tool call received")
+    raw_entries = request_json(
+        client, model=model, schema=WORKLOG_SCHEMA, system=SYSTEM_PROMPT,
+        content=_build_user_content(transcript, log_date, selected, cases, people, tagged),
+        max_tokens=2048, usage_source="worklog_consolidator", usage_type="consolidate",
+    ).get("entries", [])
 
     valid_case_ids = {c["id"] for c in cases}
     valid_person_ids = {p["id"] for p in people}
