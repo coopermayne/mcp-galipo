@@ -119,7 +119,6 @@ from services.chat import (
     StreamEventType,
     get_tool_definitions,
     get_mode_system_prompt,
-    get_preset_context,
     execute_tool,
     log_request,
     log_response,
@@ -178,17 +177,17 @@ def _get_username_from_request(request) -> str | None:
         return None
 
 
-def register_chat_routes(mcp):
+def register_chat_routes(router):
     """Register chat routes."""
     _logger.info("register_chat_routes called")
 
     # Debug endpoint - no auth required, just for testing
-    @mcp.custom_route("/api/v1/chat/debug", methods=["GET"])
+    @router.custom_route("/api/v1/chat/debug", methods=["GET"])
     async def api_chat_debug(request):
         _logger.info("Debug endpoint hit!")
         return JSONResponse({"status": "ok", "message": "Chat routes are registered!"})
 
-    @mcp.custom_route("/api/v1/chat/info", methods=["GET"])
+    @router.custom_route("/api/v1/chat/info", methods=["GET"])
     async def api_chat_info(request):
         """Return chat configuration info (model name, etc.)."""
         from lib import ai_models
@@ -197,7 +196,7 @@ def register_chat_routes(mcp):
             "model_full": ai_models.CHAT,
         })
 
-    @mcp.custom_route("/api/v1/chat/stream", methods=["POST"])
+    @router.custom_route("/api/v1/chat/stream", methods=["POST"])
     async def api_chat_stream(request):
         """
         Stream a chat response using Server-Sent Events (SSE).
@@ -205,7 +204,8 @@ def register_chat_routes(mcp):
         Request body:
             - message: str - The user's message
             - conversation_id: str | None - Optional conversation ID for continuing a conversation
-            - case_context: int | None - Optional case ID if user is viewing a case
+            - intake_context: int | None - Optional intake ID if user is viewing an intake
+            - mode: str | None - Chat mode (tasks, intakes)
 
         SSE Events (JSON per line):
             - {"type": "text", "content": "partial text..."}
@@ -244,11 +244,9 @@ def register_chat_routes(mcp):
             return api_error("Message is required", "MISSING_FIELD", 400)
 
         conversation_id = data.get("conversation_id")
-        case_context = data.get("case_context")
         intake_context = data.get("intake_context")
-        mode = data.get("mode")  # Optional: tasks, events, people, overview, full
-        preset = data.get("preset")  # Optional: priorities, deadlines, overdue, activity
-        _logger.info(f"Chat request - mode: {mode}, preset: {preset}, case_context: {case_context}, intake_context: {intake_context}")
+        mode = data.get("mode")  # tasks or intakes
+        _logger.info(f"Chat request - mode: {mode}, intake_context: {intake_context}")
 
         # Generate new conversation ID if not provided
         if not conversation_id:
@@ -275,45 +273,24 @@ def register_chat_routes(mcp):
             messages.pop()
             return api_error(str(e), "CONFIG_ERROR", 500)
 
-        # Look up logged-in user and available roles for system prompt context
+        # Look up logged-in user for system prompt context
         import db as _db
         current_user = None
         if username:
             current_user = _db.get_user_by_email(username)
-        available_roles = _db.get_roles()
-        _current_user_id = current_user["id"] if current_user else None
 
-        # Handle presets (no tools needed - data is pre-fetched)
-        preset_data = None
-        preset_prompt = None
-        if preset:
-            result = get_preset_context(preset, case_context, user_id=_current_user_id)
-            if result:
-                preset_data, preset_prompt = result
-                _logger.info(f"Preset '{preset}' loaded with data")
-
-        # Get tool definitions (filtered by mode if specified, empty for presets)
-        if preset_data:
-            tools = []  # No tools needed for presets
-        else:
-            tools = get_tool_definitions(mode)
+        tools = get_tool_definitions(mode)
         # Log detailed tool breakdown
         eager_tools = [t["name"] for t in tools if not t.get("defer_loading") and "type" not in t]
         deferred_tools = [t["name"] for t in tools if t.get("defer_loading")]
         server_tools = [t.get("name", t.get("type", "?")) for t in tools if "type" in t]
         _logger.info(f"Tools: {len(tools)} total | eager={eager_tools} | deferred={deferred_tools} | server={server_tools}")
 
-        # Model selection: Opus for case_setup, Sonnet for freeform/intakes, Haiku for scoped modes
-        if preset_data:
-            selected_model = None  # Default (haiku) — just summarizing pre-loaded data
-        elif mode == "case_setup":
-            selected_model = client.model_full  # Sonnet — structured multi-tool case creation
-        elif mode == "intakes":
-            selected_model = client.model_full  # Sonnet — intake parsing needs smarter model
-        elif mode and mode != "full":
-            selected_model = None  # Default (haiku) — scoped tools, clear intent
+        # Model selection: the full model for intake parsing, the fast default otherwise
+        if mode == "intakes":
+            selected_model = client.model_full  # intake parsing needs the smarter model
         else:
-            selected_model = client.model_full  # Sonnet — freeform, all tools
+            selected_model = None  # Default — scoped tools, clear intent
         _logger.info(f"Selected model: {selected_model or client.model}")
 
         # Build system prompt with current date and optional case context
@@ -354,9 +331,8 @@ Upcoming dates (use these — do not do date arithmetic yourself):
 {upcoming_table}
 
 You can help users:
-- Query case information, tasks, deadlines, events, contacts
-- Create and update notes, tasks, and events
-- Search for persons and contacts
+- Create intakes from pasted emails, voicemails, and notes
+- Create and update follow-up tasks
 
 Resolving relative day names to ISO dates:
 - "Wednesday" or "this Wednesday" → look up the row labeled Wednesday above (the nearest upcoming Wednesday).
@@ -366,7 +342,7 @@ Resolving relative day names to ISO dates:
 
 When dates are mentioned without a year, infer the year from context.
 
-Duplicate tasks/events: the first manage_task/manage_event create on a case with existing items returns status="review_existing" with all of that case's existing events or open tasks, and creates nothing. Compare against the list yourself (same real-world item, even if worded differently or rescheduled):
+Duplicate tasks: the first manage_task create on an item with existing open tasks returns status="review_existing" with those tasks, and creates nothing. Compare against the list yourself (same real-world item, even if worded differently or rescheduled):
 - Already there, same details → tell the user; don't create it.
 - Already there, changed details (e.g. a continued depo) → ask "Update <existing> from <old> → <new>?" and on yes call action="update" with that id and only the changed fields.
 - Genuinely new → re-call create with confirmed_new=true (one review covers all new items for that case this turn). Create the genuinely new ones right away; only matched ones wait for the user.
@@ -382,70 +358,12 @@ Always be helpful and concise. When you need more information to complete a task
                 p = current_user['paralegal']
                 user_info += f" Their default paralegal is {p['first_name']} {p['last_name']} (user ID: {p['id']})."
             system_prompt += user_info
-            system_prompt += "\n\nSearch queries default to your cases only (my_cases_only=true). If the user asks for firm-wide data or another attorney's cases, set my_cases_only=false."
 
         # Add staff directory so AI can resolve attorney/paralegal IDs
         all_users = _db.get_all_users()
         if all_users:
             staff_lines = [f"  {u['id']}: {u['first_name']} {u['last_name']} ({u['position']})" for u in all_users]
             system_prompt += "\n\nStaff directory (id: name, position):\n" + "\n".join(staff_lines)
-
-        # Add available roles for person assignment
-        if available_roles:
-            roles_by_category: dict[str, list[str]] = {}
-            for r in available_roles:
-                cat = r.get("category", "other")
-                roles_by_category.setdefault(cat, []).append(r["name"])
-            roles_text = "\n\nAvailable roles for person assignment (use these exact names with manage_person or manage_case_role):"
-            for cat, names in roles_by_category.items():
-                roles_text += f"\n  {cat}: {', '.join(names)}"
-            roles_text += "\nIf you need a role not listed above, you can use any name — it will be created automatically."
-            system_prompt += roles_text
-
-        if case_context:
-            system_prompt += f"""
-
-The user is currently viewing case ID: {case_context}. When they ask about "this case" or "the case", they mean case ID {case_context}.
-ALWAYS pass case_id={case_context} when creating events, tasks, or notes here — never create them without a case_id.
-Do NOT set blocks_calendar on events; that is a trial-calendar-only setting and does not apply to a case's events."""
-
-            try:
-                proceedings = _db.get_proceedings(case_context)
-            except Exception:
-                _logger.error(
-                    f"Failed to pre-load proceedings for case {case_context}",
-                    exc_info=True,
-                )
-                proceedings = []
-
-            if proceedings:
-                lines = []
-                for p in proceedings:
-                    judges = p.get("judges") or []
-                    judges_str = ", ".join(
-                        f"{j.get('name')} (judge_id={j.get('judge_id')})" for j in judges
-                    ) or "none"
-                    lines.append(
-                        f"  - proceeding_id={p['id']}, case_number={p.get('case_number') or 'N/A'}, "
-                        f"jurisdiction={p.get('jurisdiction_name') or 'N/A'}, "
-                        f"primary={bool(p.get('is_primary'))}, judges=[{judges_str}]"
-                    )
-                default_note = (
-                    "This is the only proceeding — use its proceeding_id directly when the user refers to \"the proceeding\"."
-                    if len(proceedings) == 1
-                    else "When the user refers to \"the proceeding\" without specifying, default to the primary proceeding. If the user's reference is ambiguous across multiple proceedings, ask a brief clarifying question."
-                )
-                system_prompt += (
-                    "\n\nProceedings already attached to this case (use these proceeding_ids directly — do NOT call get_details just to look them up):\n"
-                    + "\n".join(lines)
-                    + f"\n{default_note}"
-                )
-            else:
-                system_prompt += (
-                    "\n\nThis case currently has NO proceedings. Before adding a judge, you must first create a proceeding with manage_proceeding(action=\"create\", case_id="
-                    + str(case_context)
-                    + ", case_number=...)."
-                )
 
         if intake_context:
             # Always inject the base instruction so Claude knows it's on an
@@ -483,17 +401,6 @@ Intake details:
 
 {mode_prompt}"""
 
-        # Add preset data and prompt if a preset is active
-        if preset_data and preset_prompt:
-            system_prompt += f"""
-
-{preset_prompt}
-
-DATA:
-```json
-{json.dumps(preset_data, indent=2)}
-```"""
-
         async def generate_sse_events() -> AsyncGenerator[str, None]:
             """Generate SSE events from Claude's streaming response."""
             nonlocal messages
@@ -518,19 +425,17 @@ DATA:
                 await asyncio.to_thread(
                     record_usage,
                     source="chat",
-                    request_type=(preset or mode or "full"),
+                    request_type=(mode or "full"),
                     model=selected_model or client.model,
                     input_tokens=total_input_tokens,
                     output_tokens=total_output_tokens,
                     cache_creation_input_tokens=total_cache_creation_tokens,
                     cache_read_input_tokens=total_cache_read_tokens,
-                    case_id=case_context if isinstance(case_context, int) else None,
                     username=username,
                     conversation_id=conversation_id,
                     duration_ms=int((time.monotonic() - _usage_start) * 1000),
                     meta={
                         "mode": mode,
-                        "preset": preset,
                         "tool_count": len(tools) if tools else 0,
                         "iterations": iteration,
                         "stop_reason": stop_reason,
@@ -556,7 +461,6 @@ DATA:
                             system_prompt=system_prompt,
                             messages=messages,
                             tools=tools,
-                            case_context=case_context,
                         )
 
                         # Stream the response from Claude
@@ -670,7 +574,6 @@ DATA:
                                         result = execute_tool(
                                             tc,
                                             user_id=_current_user_id,
-                                            case_context=case_context if isinstance(case_context, int) else None,
                                         )
                                         duration_ms = int((time.time() - start_time) * 1000)
 
@@ -829,7 +732,7 @@ DATA:
             }
         )
 
-    @mcp.custom_route("/api/v1/chat/conversations/{conversation_id}", methods=["DELETE"])
+    @router.custom_route("/api/v1/chat/conversations/{conversation_id}", methods=["DELETE"])
     async def api_delete_conversation(request):
         """Delete a conversation from memory."""
         if err := auth.require_auth(request):

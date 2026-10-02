@@ -16,10 +16,10 @@ from .comments import _get_db_user_id
 from .sse import broadcast
 
 
-def register_task_routes(mcp):
+def register_task_routes(router):
     """Register task management routes."""
 
-    @mcp.custom_route("/api/v1/tasks", methods=["GET"])
+    @router.custom_route("/api/v1/tasks", methods=["GET"])
     async def api_list_tasks(request):
         """List tasks with optional filtering and pagination."""
         if err := auth.require_auth(request):
@@ -53,7 +53,7 @@ def register_task_routes(mcp):
         )
         return JSONResponse(result)
 
-    @mcp.custom_route("/api/v1/tasks", methods=["POST"])
+    @router.custom_route("/api/v1/tasks", methods=["POST"])
     async def api_create_task(request):
         """Create a new task."""
         if err := auth.require_auth(request):
@@ -109,7 +109,7 @@ def register_task_routes(mcp):
 
     # NOTE: must be registered before "/api/v1/tasks/{task_id}" (GET) or it'd be
     # shadowed by the param route ("search" parsed as task_id).
-    @mcp.custom_route("/api/v1/tasks/search", methods=["GET"])
+    @router.custom_route("/api/v1/tasks/search", methods=["GET"])
     async def api_search_tasks(request):
         """Text-search tasks by description or case name (global quick search)."""
         if err := auth.require_auth(request):
@@ -127,7 +127,7 @@ def register_task_routes(mcp):
         )
         return JSONResponse({"tasks": results, "total": len(results)})
 
-    @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
+    @router.custom_route("/api/v1/tasks/{task_id}", methods=["GET"])
     async def api_get_task(request):
         """Get a single task by ID."""
         if err := auth.require_auth(request):
@@ -138,7 +138,7 @@ def register_task_routes(mcp):
             return api_error("Task not found", "NOT_FOUND", 404)
         return JSONResponse(result)
 
-    @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["PUT"])
+    @router.custom_route("/api/v1/tasks/{task_id}", methods=["PUT"])
     async def api_update_task(request):
         """Update a task."""
         if err := auth.require_auth(request):
@@ -219,7 +219,7 @@ def register_task_routes(mcp):
         broadcast({"entity": "task", "action": "updated", "id": task_id, "case_id": case_id})
         return JSONResponse({"success": True, "task": result})
 
-    @mcp.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
+    @router.custom_route("/api/v1/tasks/{task_id}", methods=["DELETE"])
     async def api_delete_task(request):
         """Delete a task."""
         if err := auth.require_auth(request):
@@ -234,7 +234,7 @@ def register_task_routes(mcp):
             return JSONResponse({"success": True})
         return api_error("Task not found", "NOT_FOUND", 404)
 
-    @mcp.custom_route("/api/v1/tasks/reorder", methods=["POST"])
+    @router.custom_route("/api/v1/tasks/reorder", methods=["POST"])
     async def api_reorder_task(request):
         """Reorder a task and optionally change its urgency."""
         if err := auth.require_auth(request):
@@ -262,7 +262,7 @@ def register_task_routes(mcp):
         except db.ValidationError as e:
             return api_error(str(e), "VALIDATION_ERROR", 400)
 
-    @mcp.custom_route("/api/v1/tasks/reschedule-overdue", methods=["POST"])
+    @router.custom_route("/api/v1/tasks/reschedule-overdue", methods=["POST"])
     async def api_reschedule_overdue_tasks(request):
         """Reschedule all overdue incomplete tasks to a new date."""
         if err := auth.require_auth(request):

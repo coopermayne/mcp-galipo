@@ -54,10 +54,10 @@ def _check_db() -> tuple[bool, str]:
         return False, str(e)
 
 
-def register_health_routes(mcp):
+def register_health_routes(router):
     """Register health check routes."""
 
-    @mcp.custom_route("/api/v1/health", methods=["GET"])
+    @router.custom_route("/api/v1/health", methods=["GET"])
     async def api_health(request):
         db_ok, db_msg = _check_db()
         revision = _get_alembic_revision()

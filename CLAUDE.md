@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Galipo is a legal case management system for personal injury law firms. It operates as both:
-- An **MCP server** with tools for Claude AI integration (via FastMCP, Streamable HTTP transport)
-- A **React web dashboard** for managing cases, tasks, deadlines, and contacts
+Galipo is the firm's **intake system**: a React web app (Starlette backend) for triaging new matters, with Google Sheets sync, AI intake creation/analysis, comments, follow-up tasks, and PDF export.
+
+**This branch is the pared-down, intake-only build.** The full case-management app (cases, calendar, contacts, financials, trial calendar, templates, and the MCP server for Claude) is preserved on the `full-app` branch.
+
+**The schema is frozen at the full app's schema.** `models.py` and `alembic/` still describe every table (cases, events, persons, etc.) even though this build only uses intakes, tasks, comments and users. That is deliberate: both builds run against the same database, so switching back is just a redeploy of `full-app`. Do **not** delete models or generate a migration that drops the unused tables. A trimmed `models.py` would make `alembic revision --autogenerate` emit `DROP TABLE` for real case data.
 
 ## Commands
 
@@ -128,7 +130,7 @@ All datetime handling follows a strict pattern. **Do not deviate from this.**
 | Saving to DB | UTC | `datetime.now(timezone.utc)` |
 | SQLAlchemy updates | UTC (server) | `func.now()` |
 | Generated documents (PDFs, DOCX, pleadings) | Pacific | `datetime.now(LA)` |
-| Chat/MCP display to users | Pacific | `datetime.now(pacific)` |
+| Chat display to users | Pacific | `datetime.now(pacific)` |
 | Export filenames | Pacific | `datetime.now(LA).strftime(...)` |
 
 **Frontend (`lib/datetime.ts`):**
@@ -147,42 +149,39 @@ All datetime handling follows a strict pattern. **Do not deviate from this.**
 ## Architecture
 
 ```
-main.py                    # FastAPI + MCP server entry point
+main.py                    # Starlette app entry point (routes, lifespan, Sheets sync loop)
 ├── config.py             # Pydantic BaseSettings (centralized env config)
 ├── models.py             # SQLAlchemy ORM models (schema source of truth)
 ├── schemas/              # Pydantic input/output schemas (package)
 │   ├── common.py         # Literals, constants, ContactInfo
 │   ├── inputs.py         # Create/Update input models
 │   └── outputs.py        # Output models (~37 models)
-├── tools.py              # MCP tools (~20 tools, all in one file)
-├── mcp_stdio.py          # MCP stdio transport for Claude Desktop
+├── tools.py              # AI chat tools (search, get_details, manage_task, manage_intake)
 ├── alembic/              # Alembic migration framework
 │   ├── env.py            # Migration environment config
 │   └── versions/         # Auto-generated migration files
 ├── db/                   # Database layer (SQLAlchemy ORM)
 │   ├── connection.py     # DB init, seed functions
 │   ├── session.py        # SQLAlchemy engine & SessionLocal factory
-│   ├── cases.py          # Case queries
-│   ├── persons.py        # Person management
+│   ├── intakes.py        # Intake queries + Google Sheets import
 │   ├── tasks.py          # Task operations
-│   ├── events.py         # Calendar/deadlines
-│   └── ...               # Other domain modules (~35 files total)
+│   └── ...               # Other domain modules (kept whole; db/__init__ re-exports them)
 ├── routes/               # REST API endpoints (web UI interface)
-│   ├── cases.py          # Case endpoints
+│   ├── intakes.py        # Intake endpoints
 │   ├── tasks.py          # Task endpoints
-│   └── ...               # Other route modules (~32 files total)
-├── services/             # Domain services
-│   └── chat/             # In-app chat (presets, modes, executor)
+│   └── ...               # auth, users, sse, export, comments, chat, health, static
+├── services/             # Domain services (intake AI, Sheets, PDFs)
+│   └── chat/             # In-app chat (registry, modes, executor)
 └── frontend/src/         # React + Vite + shadcn/ui
     ├── components/
     │   ├── ui/           # shadcn primitives only
     │   ├── layout/       # app shell: sidebar, header, footer
     │   └── common/       # shared app components (data-table, status-badge, etc.)
     ├── pages/            # co-located feature modules
-    │   ├── dashboard/    #   index.tsx + components/
-    │   ├── intakes/      #   index.tsx + components/
-    │   ├── cases/        #   index.tsx + components/
-    │   └── ...
+    │   ├── intakes/      #   index.tsx + detail.tsx + components/
+    │   ├── tasks/        #   index.tsx + components/
+    │   ├── users/        #   index.tsx + components/
+    │   └── login/
     ├── hooks/            # shared React hooks
     ├── lib/              # utilities (cn(), formatters)
     ├── services/         # API client functions (one file per domain)
@@ -333,10 +332,11 @@ frontend/src/
 ### Backend
 - **SQLAlchemy ORM**: `models.py` defines all ~34 database models (schema source of truth). Alembic generates migrations by diffing models against the live DB
 - **Centralized config**: `config.py` uses Pydantic `BaseSettings` to validate all env vars at startup (replaces scattered `os.environ` calls)
-- **Modular structure**: Each domain (cases, tasks, events, persons) has separate files in `db/` and `routes/`. MCP tools are consolidated in a single `tools.py`
-- **SQLAlchemy sessions**: All `db/` modules use `SessionLocal()` context manager. Two raw-SQL holdouts (`services/chat/presets.py`, `routes/export.py`) use `session.execute(text(...))` — same SQL, SQLAlchemy transport
+- **Modular structure**: Each domain has separate files in `db/` and `routes/`. AI chat tools are consolidated in a single `tools.py`
+- **SQLAlchemy sessions**: All `db/` modules use `SessionLocal()` context manager
 - **Pydantic schemas**: `schemas/` package has input models (`inputs.py`), output models (`outputs.py`), and shared Literal types (`common.py`). Re-exports everything so `from schemas import X` works
-- **MCP tools** return dicts/lists that FastMCP serializes; **routes** return FastAPI responses
+- **Chat tools** (`tools.py`) register on `services/chat/registry.py`'s `ToolRegistry`, which builds each tool's JSON schema from its signature; they return dicts the executor serializes. **Routes** return Starlette/FastAPI responses
+- **Route registration**: route modules decorate handlers with `@router.custom_route(path, methods=[...])`; `main.py`'s `RouteCollector` turns those into Starlette `Route`s
 
 ### Database
 - **Schema source of truth**: `models.py` (SQLAlchemy declarative models). ~34 model classes mapping to ~34 tables
@@ -352,15 +352,14 @@ frontend/src/
 
 The Dockerfile does NOT use a wildcard — it explicitly lists every file and directory to copy:
 ```dockerfile
-COPY main.py models.py tools.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
+COPY main.py models.py tools.py auth.py config.py alembic.ini ./
 COPY lib/ ./lib/
 COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
 COPY routes/ ./routes/
 COPY services/ ./services/
-COPY static/ ./static/
-COPY templates/ ./templates/
+COPY scripts/ ./scripts/
 ```
 
 **Checklist — do this EVERY TIME you create a new `.py` file or directory at the root:**
@@ -372,17 +371,15 @@ If you forget, production will crash with `ModuleNotFoundError` and the app will
 
 ## Production runs with a single gunicorn worker (`-w 1`) — do not change this
 
-The `Dockerfile` CMD runs `gunicorn` with `-w 1`. This is **deliberate**, not a performance oversight. MCP OAuth state (registered clients, auth codes, access/refresh tokens) lives in-memory in [`mcp_auth.py`](mcp_auth.py) — there is no shared store. Raising the worker count silently breaks Claude Desktop / claude.ai sign-ins, because the worker that handed out an auth code is usually not the worker that receives the `/token` exchange.
+The `Dockerfile` CMD runs `gunicorn` with `-w 1`. This is **deliberate**. SSE live-update subscribers ([`routes/sse.py`](routes/sse.py)), AI chat conversation history ([`routes/chat.py`](routes/chat.py)) and the login/chat rate limiters all live in process memory. With more workers, a change made through one worker never reaches browsers connected to another, and a chat follow-up can land on a worker that has never seen the conversation. Moving that state to a shared store (Postgres LISTEN/NOTIFY, Redis) is the prerequisite for more workers.
 
-If you need horizontal scale, the prerequisite is moving OAuth state to a shared backend (database or Redis). Until then, `-w 1` stays.
+## Chat modes and tools change together
 
-## MCP_INSTRUCTIONS must be updated when MCP tools change
-
-[`main.py`](main.py) defines a long `MCP_INSTRUCTIONS` string that Claude reads on connect. It documents every MCP tool, valid status/role/enum values, and data-entry guidance. **This string is not auto-generated** — it's hand-maintained. When you add, rename, or remove an MCP tool in [`tools.py`](tools.py), or when you add a new value to an enum in [`schemas/common.py`](schemas/common.py), update `MCP_INSTRUCTIONS` in the same change. Otherwise Claude won't know about the new capability (or will keep using a value you removed).
+The intake page's AI features call `/api/v1/chat/stream` with `mode="intakes"` (tool: `manage_intake`) or `mode="tasks"` (tools: `search`, `get_details`, `manage_task`). Allowlists and mode prompts live in [`services/chat/modes.py`](services/chat/modes.py). If you add or rename a tool in [`tools.py`](tools.py), update the mode allowlist that should expose it, or the model will never see it.
 
 ## Route registration order matters — static routes register last
 
-[`routes/__init__.py`](routes/__init__.py) registers route modules in a specific order, and **static routes must go last**. The static route module includes a catch-all that serves `index.html` for SPA client-side routing — if it registers before any API route, it shadows the entire `/api/v1/*` namespace and every API call returns the React app's HTML. If you add a new route module, add its `register_*_routes(mcp)` call before the static registration block, not after.
+[`routes/__init__.py`](routes/__init__.py) registers route modules in a specific order, and **static routes must go last**. The static route module includes a catch-all that serves `index.html` for SPA client-side routing — if it registers before any API route, it shadows the entire `/api/v1/*` namespace and every API call returns the React app's HTML. If you add a new route module, add its `register_*_routes(router)` call before the static registration block, not after.
 
 ## Local Development
 
@@ -423,9 +420,6 @@ set -a && source .env && set +a
 | `PORT` | No | 8000 | Backend server port (used by uvicorn and Vite proxy) |
 | `VITE_PORT` | No | 5173 | Frontend dev server port |
 | `ANTHROPIC_API_KEY` | No | (none) | For all AI features (chat, extraction, quick-create) |
-| `WEBHOOK_SECRET_COURTLISTENER` | No | (none) | Secret token for CourtListener webhook endpoint |
-| `MCP_AUTH_PASSWORD` | No | (none) | Password for MCP OAuth authentication (requires MCP_BASE_URL) |
-| `MCP_BASE_URL` | No | (none) | Public URL of server for OAuth (e.g., `https://mcp.example.com`) |
 | `MEDIA_DIR` | No | /app/media | Directory for uploaded files (invoices, liens, payees) |
 | `RESET_DB` | No | false | Set to `true` to drop all tables on startup (dev only) |
 
@@ -439,7 +433,6 @@ For one-shot calls that must return JSON, use `request_json()` in [`services/str
 
 - **Frontend**: http://localhost:5173 (Vite dev server)
 - **Backend API**: http://localhost:8000/api/v1/*
-- **MCP Server**: http://localhost:8000/mcp (Streamable HTTP)
 - **Health Check**: http://localhost:8000/api/v1/health (no auth required)
 
 ### Production Health Check
@@ -468,7 +461,7 @@ Returns: `status`, `db.connected`, `alembic_revision`, `git_commit`, `uptime_sec
 
 This repo is **public**. Treat anything committed as permanently public (it stays in history even if later removed). Never bake real-world identifiers into source, docs, tests, or seed data — use config/env, placeholders, or obviously-fake sample data:
 
-- **Production hosts/URLs** → read from `settings.mcp_base_url` (env `MCP_BASE_URL`); use `https://<your-production-host>` in docs, never the real domain.
+- **Production hosts/URLs** → read from config/env; use `https://<your-production-host>` in docs, never the real domain.
 - **Email addresses** → use `@example.com` with fake local parts. This includes seed/dev data, fixtures, and tests.
 - **Real people** → any dev/seed/fixture data must use **invented personas**, never real staff names/emails/bar numbers. (The old firm-roster seed scripts were removed for this reason.)
 - **Secrets** (API keys, tokens, passwords, `DATABASE_URL`) → env only, never in the repo.

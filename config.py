@@ -29,13 +29,6 @@ class Settings(BaseSettings):
     chat_max_tokens: int = 16384
     chat_debug: bool = False
 
-    # Webhooks
-    webhook_secret_courtlistener: str = ""
-
-    # MCP auth
-    mcp_auth_password: str | None = None
-    mcp_base_url: str | None = None
-
     # Media storage
     media_dir: str = "/app/media"
 

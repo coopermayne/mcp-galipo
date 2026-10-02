@@ -3,7 +3,7 @@ Shared types for the chat feature.
 
 This module defines the contract between:
 - Chat client (Claude API integration)
-- Tool executor (runs MCP tools)
+- Tool executor (runs chat tools)
 - Chat routes (REST API endpoints)
 - Frontend (TypeScript types mirror these)
 """

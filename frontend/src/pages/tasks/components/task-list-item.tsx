@@ -1,17 +1,14 @@
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  Link04Icon,
   Flag02Icon,
   Tick02Icon,
   Add01Icon,
   Cancel01Icon,
 } from "@hugeicons/core-free-icons"
 import type { TaskListItem as TaskListItemType } from "@/types/task"
-import { getEventsByCase, type CaseEvent } from "@/services/events"
 import { getStaff } from "@/services/staff"
-import { getCase } from "@/services/cases"
 import { Badge } from "@/components/ui/badge"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
@@ -20,14 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxEmpty,
-} from "@/components/ui/combobox"
 import {
   Tooltip,
   TooltipContent,
@@ -120,23 +109,9 @@ function TaskAssigneePicker({
     enabled: open,
   })
 
-  const { data: caseData } = useQuery({
-    queryKey: ["case", task.case_id],
-    queryFn: () => getCase(task.case_id!),
-    enabled: open && !!task.case_id,
-    staleTime: 60 * 1000,
-  })
-
   const allStaff = staffData?.data ?? []
   const available = allStaff.filter((s) => s.id !== task.assignee_id)
 
-  // Split into case staff vs others
-  const caseStaffIds = new Set([
-    ...(caseData?.attorneys ?? []).map((a) => a.id),
-    ...(caseData?.paralegals ?? []).map((p) => p.id),
-  ])
-  const onCase = available.filter((s) => caseStaffIds.has(s.id))
-  const others = available.filter((s) => !caseStaffIds.has(s.id))
 
   function pick(id: number) {
     onAssign(id)
@@ -208,26 +183,7 @@ function TaskAssigneePicker({
             </>
           )}
 
-          {/* Case staff first */}
-          {onCase.length > 0 && (
-            <>
-              {onCase.map((s) => (
-                <StaffRow
-                  key={s.id}
-                  staffId={s.id}
-                  initials={s.initials}
-                  name={`${s.firstName} ${s.lastName}`}
-                  onClick={() => pick(s.id)}
-                />
-              ))}
-              {others.length > 0 && (
-                <div className="border-t border-border/50 my-1" />
-              )}
-            </>
-          )}
-
-          {/* Other staff */}
-          {others.map((s) => (
+          {available.map((s) => (
             <StaffRow
               key={s.id}
               staffId={s.id}
@@ -247,8 +203,6 @@ interface TaskListItemProps {
   onTaskClick: (task: TaskListItemType) => void
   onUpdateTask: (taskId: number, field: string, value: unknown) => void
   hideCaseBadge?: boolean
-  /** Hide the linked-event chip (e.g. when already inside an event context) */
-  hideEventLinker?: boolean
   showDone?: boolean
   unreadCount?: number
 }
@@ -256,115 +210,6 @@ interface TaskListItemProps {
 function isOverdue(dateStr: string | null): boolean {
   if (!dateStr) return false
   return parseLocalDate(dateStr) < todayInLA()
-}
-
-function InlineEventLinker({
-  task,
-  onLink,
-}: {
-  task: TaskListItemType
-  onLink: (eventId: number | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLDivElement>(null)
-
-  const { data: caseEvents } = useQuery({
-    queryKey: ["events", "case", task.case_id, "list"],
-    queryFn: () => getEventsByCase(task.case_id!),
-    enabled: open && !!task.case_id,
-    staleTime: 60 * 1000,
-  })
-
-  const selectedEvent = caseEvents?.find((e) => e.id === task.event_id) ?? null
-
-  // Has linked event — show it, click to change
-  if (task.has_events && !open) {
-    return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
-        onClick={(e) => {
-          e.stopPropagation()
-          if (task.case_id) setOpen(true)
-        }}
-      >
-        <HugeiconsIcon icon={Link04Icon} className="size-3" />
-        {task.event_description
-          ? <span className="truncate max-w-[160px]">{task.event_description}</span>
-          : "Event"}
-        {task.event_date && (
-          <span className="text-muted-foreground/70">
-            {formatDate(task.event_date)}
-          </span>
-        )}
-      </button>
-    )
-  }
-
-  // No event — show "Link event" button or the open combobox
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(true)
-        }}
-      >
-        <HugeiconsIcon icon={Link04Icon} className="size-3" />
-        Link event
-      </button>
-    )
-  }
-
-  // Combobox is open
-  return (
-    <div
-      ref={anchorRef}
-      className="inline-flex"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <Combobox
-        value={selectedEvent}
-        onValueChange={(event: CaseEvent | null) => {
-          onLink(event?.id ?? null)
-          setOpen(false)
-        }}
-        items={caseEvents ?? []}
-        itemToStringLabel={(event: CaseEvent) => event.description}
-        open
-        onOpenChange={(isOpen) => {
-          if (!isOpen) setOpen(false)
-        }}
-      >
-        <ComboboxInput
-          placeholder="Search events..."
-          showClear={!!task.event_id}
-          showTrigger={false}
-          className="h-6 text-xs w-48"
-          autoFocus
-        />
-        <ComboboxContent anchor={anchorRef}>
-          <ComboboxList>
-            {(event: CaseEvent) => (
-              <ComboboxItem key={event.id} value={event}>
-                <div className="flex flex-col">
-                  <span>{event.description}</span>
-                  {event.date && (
-                    <span className="text-muted-foreground text-[10px]">
-                      {event.date}
-                    </span>
-                  )}
-                </div>
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-          <ComboboxEmpty>No events found</ComboboxEmpty>
-        </ComboboxContent>
-      </Combobox>
-    </div>
-  )
 }
 
 function formatCompletionDate(task: TaskListItemType): string {
@@ -400,7 +245,6 @@ export function TaskListItem({
   onTaskClick,
   onUpdateTask,
   hideCaseBadge,
-  hideEventLinker,
   showDone,
   unreadCount,
 }: TaskListItemProps) {
@@ -493,15 +337,6 @@ export function TaskListItem({
                 />
               </div>
 
-              {/* Linked event — inline combobox (hidden on mobile) */}
-              {!hideEventLinker && (task.has_events || task.case_id) && (
-                <span className="hidden sm:inline-flex">
-                  <InlineEventLinker
-                    task={task}
-                    onLink={(eventId) => onUpdateTask(task.id, "event_id", eventId)}
-                  />
-                </span>
-              )}
             </>
           )}
 

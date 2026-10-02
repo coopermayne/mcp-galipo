@@ -1,196 +1,46 @@
 """
-Tool definitions for the chat feature - generated from MCP tools.
+Tool definitions for the chat feature.
 
-This module dynamically generates tool definitions from the registered MCP tools,
-ensuring the chat feature always has access to the same tools as the MCP server.
-Supports mode-based tool filtering for focused chat interactions.
+Tools are defined in tools.py and registered on a local ToolRegistry; this
+module turns them into Claude API tool definitions, filtered by chat mode.
 """
 
 from typing import Any
-from fastmcp import FastMCP
 from tools import register_tools
 from .modes import get_mode_tools
+from .registry import ToolRegistry
 
-# Create a local MCP instance to extract tool metadata
-# This doesn't start a server, just gives us access to tool definitions
-_mcp = FastMCP("chat-tools-meta")
-register_tools(_mcp)
-
-# Tools to EXCLUDE from chat (blacklist approach - everything else is available)
-BLACKLIST: set[str] = {
-    "get_current_time",  # Date/time already in system prompt
-    "import_case",       # Too complex for chat — use MCP client directly
-}
-
-# Tools only available in "proceedings" mode (excluded from full/freeform chat)
-PROCEEDINGS_ONLY: set[str] = {
-    "list_jurisdictions",
-    "create_jurisdiction",
-    "manage_judge",
-}
-
-# Tools loaded eagerly per mode (most commonly used).
-# All other tools are deferred and loaded on-demand via tool search.
-EAGER_TOOLS: dict[str, set[str]] = {
-    "full": {
-        "search",
-        "get_details",
-        "manage_task",
-        "manage_event",
-        "manage_note",
-    },
-    "case_setup": {
-        "search",
-        "get_details",
-        "manage_case",
-        "manage_person",
-        "manage_case_staff",
-        "manage_proceeding",
-        "manage_judge",
-        "list_jurisdictions",
-        "create_jurisdiction",
-    },
-}
-
-
-def _clean_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    """Remove internal MCP parameters (like 'context') from a tool schema.
-
-    The MCP framework injects a 'context' parameter for internal use,
-    but this should not be exposed to Claude as a tool parameter.
-
-    Args:
-        schema: The raw schema from the MCP tool.
-
-    Returns:
-        A cleaned schema without internal parameters.
-    """
-    import copy
-    cleaned = copy.deepcopy(schema)
-
-    # Remove 'context' from properties
-    if "properties" in cleaned and "context" in cleaned["properties"]:
-        del cleaned["properties"]["context"]
-
-    # Remove 'context' from required list
-    if "required" in cleaned and "context" in cleaned["required"]:
-        cleaned["required"] = [r for r in cleaned["required"] if r != "context"]
-        # If required list is now empty, remove it
-        if not cleaned["required"]:
-            del cleaned["required"]
-
-    # Remove Context definition from $defs
-    if "$defs" in cleaned and "Context" in cleaned["$defs"]:
-        del cleaned["$defs"]["Context"]
-        # If $defs is now empty, remove it
-        if not cleaned["$defs"]:
-            del cleaned["$defs"]
-
-    return cleaned
+registry = ToolRegistry()
+register_tools(registry)
 
 
 def get_tool_definitions(mode: str | None = None) -> list[dict[str, Any]]:
-    """Generate tool definitions from MCP tools for Claude API.
-
-    Returns tool definitions in Claude's expected format, automatically
-    derived from the registered MCP tools. Internal parameters like
-    'context' are filtered out.
-
-    In "full" mode, uses deferred loading: commonly-used tools are loaded
-    eagerly, while others get ``defer_loading: true`` and are discovered
-    on-demand via the BM25 tool search server tool.
+    """Claude API tool definitions for a chat mode.
 
     Args:
-        mode: Optional chat mode to filter tools. If provided (and not 'full'),
-              only tools in the mode's allowlist will be returned.
+        mode: Chat mode. A mode with an allowlist gets only those tools;
+              no mode (or an unknown one) gets every registered tool.
 
     Returns:
         List of tool definitions with name, description, and input_schema.
-        In full mode, the list starts with the BM25 tool search server tool.
     """
-    definitions = []
-    # Modes that get all tools with deferred loading
-    all_tools_mode = mode in ("full", "case_setup") or mode is None
-    use_deferred = all_tools_mode
-
-    # In full/freeform mode, add the BM25 tool search server tool first
-    if use_deferred:
-        definitions.append({
-            "type": "tool_search_tool_bm25_20251119",
-            "name": "tool_search_tool_bm25",
-        })
-
-    # Get the allowed tools for this mode (empty list = all tools)
-    allowed_tools = get_mode_tools(mode) if mode and not all_tools_mode else []
-
-    for tool in _mcp._tool_manager._tools.values():
-        if tool.name in BLACKLIST:
-            continue
-
-        # Filter by mode if an allowlist is specified
-        if allowed_tools and tool.name not in allowed_tools:
-            continue
-
-        # Exclude proceedings-only tools unless in proceedings or case_setup mode
-        if tool.name in PROCEEDINGS_ONLY and mode not in ("proceedings", "case_setup"):
-            continue
-
-        # Clean the schema to remove internal MCP parameters
-        cleaned_schema = _clean_schema(tool.parameters)
-
-        tool_def: dict[str, Any] = {
+    allowed = get_mode_tools(mode)
+    return [
+        {
             "name": tool.name,
             "description": tool.description or f"Execute {tool.name}",
-            "input_schema": cleaned_schema,
+            "input_schema": tool.parameters,
         }
-
-        # In deferred modes, defer tools that aren't in the eager set for this mode
-        eager_set = EAGER_TOOLS.get(mode or "full", EAGER_TOOLS["full"])
-        if use_deferred and tool.name not in eager_set:
-            tool_def["defer_loading"] = True
-
-        definitions.append(tool_def)
-
-    return definitions
-
-
-def get_tool_names(mode: str | None = None) -> list[str]:
-    """Get list of available tool names, optionally filtered by mode.
-
-    Args:
-        mode: Optional chat mode to filter tools.
-
-    Returns:
-        List of tool name strings (excluding blacklisted tools).
-    """
-    allowed_tools = get_mode_tools(mode) if mode and mode != "full" else []
-
-    return [
-        tool.name for tool in _mcp._tool_manager._tools.values()
-        if tool.name not in BLACKLIST
-        and (not allowed_tools or tool.name in allowed_tools)
-        and (tool.name not in PROCEEDINGS_ONLY or mode == "proceedings")
+        for tool in registry.tools.values()
+        if not allowed or tool.name in allowed
     ]
 
 
+def get_tool_names(mode: str | None = None) -> list[str]:
+    """Names of the tools available in a chat mode."""
+    return [t["name"] for t in get_tool_definitions(mode)]
+
+
 def is_tool_available(name: str) -> bool:
-    """Check if a tool is available for chat.
-
-    Args:
-        name: The tool name to check.
-
-    Returns:
-        True if the tool exists and is not blacklisted.
-    """
-    if name in BLACKLIST:
-        return False
-    return name in _mcp._tool_manager._tools
-
-
-# Export the MCP instance for the executor to use
-def get_mcp_instance() -> FastMCP:
-    """Get the MCP instance with registered tools.
-
-    Used by the executor to call tools directly.
-    """
-    return _mcp
+    """True if a tool with this name is registered."""
+    return name in registry.tools

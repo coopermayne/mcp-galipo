@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { createTask } from "@/services/tasks"
 import { getStaff } from "@/services/staff"
-import { getCases } from "@/services/cases"
 import {
   Dialog,
   DialogContent,
@@ -33,7 +32,6 @@ interface AddTaskDialogProps {
 export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
   const queryClient = useQueryClient()
   const [description, setDescription] = useState("")
-  const [caseId, setCaseId] = useState<string>("")
   const [dueDate, setDueDate] = useState("")
   const [urgency, setUrgency] = useState("Medium")
   const [assigneeId, setAssigneeId] = useState<string>("")
@@ -44,16 +42,9 @@ export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
     enabled: open,
   })
 
-  const { data: casesData } = useQuery({
-    queryKey: ["cases", { limit: 200 }],
-    queryFn: () => getCases({ limit: 200 }),
-    enabled: open,
-  })
-
   const mutation = useMutation({
     mutationFn: () =>
       createTask({
-        case_id: caseId ? Number(caseId) : undefined,
         description,
         due_date: dueDate || undefined,
         urgency,
@@ -62,10 +53,8 @@ export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
     onSuccess: () => {
       toast.success("Task created")
       queryClient.invalidateQueries({ queryKey: ["tasks"] })
-      queryClient.invalidateQueries({ queryKey: ["cases"] })
       onOpenChange(false)
       setDescription("")
-      setCaseId("")
       setDueDate("")
       setUrgency("Medium")
       setAssigneeId("")
@@ -89,23 +78,6 @@ export function AddTaskDialog({ open, onOpenChange }: AddTaskDialogProps) {
               placeholder="Task description..."
               autoFocus
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Case (optional)</Label>
-            <Select value={caseId} onValueChange={(v) => setCaseId(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="No case (general)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No case (general)</SelectItem>
-                {(casesData?.cases ?? []).map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.short_name || c.case_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

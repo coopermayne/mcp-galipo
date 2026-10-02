@@ -22,10 +22,10 @@ from .sse import broadcast
 logger = logging.getLogger(__name__)
 
 
-def register_intake_routes(mcp):
+def register_intake_routes(router):
     """Register intake management routes."""
 
-    @mcp.custom_route("/api/v1/intakes", methods=["GET"])
+    @router.custom_route("/api/v1/intakes", methods=["GET"])
     async def api_list_intakes(request):
         """List intakes with optional status filter and pagination."""
         if err := auth.require_auth(request):
@@ -45,7 +45,7 @@ def register_intake_routes(mcp):
         )
         return JSONResponse(result)
 
-    @mcp.custom_route("/api/v1/intakes", methods=["POST"])
+    @router.custom_route("/api/v1/intakes", methods=["POST"])
     async def api_create_intake(request):
         """Create a new intake (manual entry)."""
         if err := auth.require_auth(request):
@@ -79,7 +79,7 @@ def register_intake_routes(mcp):
         # AI analysis is auto-triggered by the SQLAlchemy after_insert event listener
         return JSONResponse({"success": True, "intake": result}, status_code=201)
 
-    @mcp.custom_route("/api/v1/intakes/counts", methods=["GET"])
+    @router.custom_route("/api/v1/intakes/counts", methods=["GET"])
     async def api_intake_counts(request):
         """Get intake counts grouped by status."""
         if err := auth.require_auth(request):
@@ -87,7 +87,7 @@ def register_intake_routes(mcp):
         counts = await asyncio.to_thread(db.get_intake_status_counts)
         return JSONResponse(counts)
 
-    @mcp.custom_route("/api/v1/intakes/extract", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/extract", methods=["POST"])
     async def api_extract_intake(request):
         """Extract structured intake fields from raw text using AI."""
         if err := auth.require_auth(request):
@@ -114,7 +114,7 @@ def register_intake_routes(mcp):
 
     # --- Activity feed (registered BEFORE {intake_id} wildcard) ---
 
-    @mcp.custom_route("/api/v1/intakes/activity", methods=["GET"])
+    @router.custom_route("/api/v1/intakes/activity", methods=["GET"])
     async def api_intake_activity(request):
         """Get recent activity (system comments) across all intakes."""
         if err := auth.require_auth(request):
@@ -125,7 +125,7 @@ def register_intake_routes(mcp):
 
     # --- Comment routes (registered BEFORE {intake_id} wildcard) ---
 
-    @mcp.custom_route("/api/v1/intakes/unread-counts", methods=["GET"])
+    @router.custom_route("/api/v1/intakes/unread-counts", methods=["GET"])
     async def api_intake_unread_counts(request):
         """Get unread comment counts for the current user."""
         if err := auth.require_auth(request):
@@ -147,14 +147,14 @@ def register_intake_routes(mcp):
 
     # --- Transitions map (registered BEFORE {intake_id} wildcard) ---
 
-    @mcp.custom_route("/api/v1/intakes/transitions", methods=["GET"])
+    @router.custom_route("/api/v1/intakes/transitions", methods=["GET"])
     async def api_intake_transitions(request):
         """Get the allowed status transitions map."""
         if err := auth.require_auth(request):
             return err
         return JSONResponse(INTAKE_TRANSITIONS)
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["GET"])
+    @router.custom_route("/api/v1/intakes/{intake_id}", methods=["GET"])
     async def api_get_intake(request):
         """Get a single intake by ID."""
         if err := auth.require_auth(request):
@@ -165,103 +165,7 @@ def register_intake_routes(mcp):
             return api_error("Intake not found", "NOT_FOUND", 404)
         return JSONResponse(intake)
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/link-case", methods=["POST"])
-    async def api_link_intake_to_case(request):
-        """Link an existing case to this intake."""
-        if err := auth.require_auth(request):
-            return err
-        intake_id = int(request.path_params["intake_id"])
-        user = auth.get_current_user(request)
-        user_id = user["id"] if user else 0
-
-        body = await request.json()
-        case_id = body.get("case_id")
-        if case_id is None:
-            return api_error("case_id is required", "VALIDATION_ERROR", 400)
-
-        result = await asyncio.to_thread(
-            db.link_intake_to_case, intake_id, int(case_id)
-        )
-        if not result:
-            return api_error("Intake or case not found", "NOT_FOUND", 404)
-
-        # Log the link as a system comment on both the intake and the case feeds
-        name = user.get("firstName", "Someone") if user else "System"
-        db_user_id = _get_db_user_id(user)
-        intake_label = result.get("name") or f"Intake #{intake_id}"
-        await asyncio.to_thread(
-            db.add_intake_comment,
-            intake_id,
-            db_user_id,
-            f"{name} linked this intake to case '{result.get('case_name') or case_id}'",
-            True,  # is_system
-            {"type": "case_link", "case_id": int(case_id)},
-        )
-        await asyncio.to_thread(
-            db.add_case_comment,
-            int(case_id),
-            db_user_id,
-            f'{name} linked intake "{intake_label}" to this case',
-            True,  # is_system
-            {"type": "intake_link", "intake_id": intake_id},
-        )
-
-        broadcast({
-            "entity": "intake", "action": "updated",
-            "id": intake_id, "intake_id": intake_id, "user_id": user_id,
-        })
-        broadcast({"entity": "case", "action": "updated", "id": int(case_id)})
-        return JSONResponse({"success": True, "intake": result})
-
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/link-case", methods=["DELETE"])
-    async def api_unlink_intake_from_case(request):
-        """Disconnect this intake from its linked case."""
-        if err := auth.require_auth(request):
-            return err
-        intake_id = int(request.path_params["intake_id"])
-        user = auth.get_current_user(request)
-        user_id = user["id"] if user else 0
-
-        # Capture the linked case before clearing it, for the system comment
-        before = await asyncio.to_thread(db.get_intake_by_id, intake_id)
-        if not before:
-            return api_error("Intake not found", "NOT_FOUND", 404)
-        old_case_id = before.get("case_id")
-        old_case_name = before.get("case_name")
-
-        result = await asyncio.to_thread(db.unlink_intake_from_case, intake_id)
-        if not result:
-            return api_error("Intake not found", "NOT_FOUND", 404)
-
-        if old_case_id:
-            name = user.get("firstName", "Someone") if user else "System"
-            db_user_id = _get_db_user_id(user)
-            intake_label = before.get("name") or f"Intake #{intake_id}"
-            await asyncio.to_thread(
-                db.add_intake_comment,
-                intake_id,
-                db_user_id,
-                f"{name} disconnected this intake from case '{old_case_name or old_case_id}'",
-                True,  # is_system
-                {"type": "case_link", "case_id": old_case_id},
-            )
-            await asyncio.to_thread(
-                db.add_case_comment,
-                old_case_id,
-                db_user_id,
-                f'{name} disconnected intake "{intake_label}" from this case',
-                True,  # is_system
-                {"type": "intake_link", "intake_id": intake_id},
-            )
-            broadcast({"entity": "case", "action": "updated", "id": old_case_id})
-
-        broadcast({
-            "entity": "intake", "action": "updated",
-            "id": intake_id, "intake_id": intake_id, "user_id": user_id,
-        })
-        return JSONResponse({"success": True, "intake": result})
-
-    @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["PUT"])
+    @router.custom_route("/api/v1/intakes/{intake_id}", methods=["PUT"])
     async def api_update_intake(request):
         """Update an intake's status and/or notes."""
         if err := auth.require_auth(request):
@@ -316,7 +220,7 @@ def register_intake_routes(mcp):
         })
         return JSONResponse({"success": True, "intake": result})
 
-    @mcp.custom_route("/api/v1/intakes/bulk-archive", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/bulk-archive", methods=["POST"])
     async def api_bulk_archive_intakes(request):
         """Archive all intakes with a given status."""
         if err := auth.require_auth(request):
@@ -349,7 +253,7 @@ def register_intake_routes(mcp):
 
         return JSONResponse({"success": True, "count": len(archived_ids)})
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}", methods=["DELETE"])
+    @router.custom_route("/api/v1/intakes/{intake_id}", methods=["DELETE"])
     async def api_delete_intake(request):
         """Delete an intake record."""
         if err := auth.require_auth(request):
@@ -368,7 +272,7 @@ def register_intake_routes(mcp):
         })
         return JSONResponse({"success": True})
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["GET"])
+    @router.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["GET"])
     async def api_list_intake_comments(request):
         """List all comments for an intake, with the user's last_read_at."""
         if err := auth.require_auth(request):
@@ -380,7 +284,7 @@ def register_intake_routes(mcp):
         last_read_at = await asyncio.to_thread(db.get_last_read_at, intake_id, user_id)
         return JSONResponse({"comments": comments, "last_read_at": last_read_at})
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/{intake_id}/comments", methods=["POST"])
     async def api_add_intake_comment(request):
         """Add a comment to an intake."""
         if err := auth.require_auth(request):
@@ -406,7 +310,7 @@ def register_intake_routes(mcp):
         })
         return JSONResponse(comment, status_code=201)
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/interactions/summarize", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/{intake_id}/interactions/summarize", methods=["POST"])
     async def api_summarize_interaction(request):
         """Generate an AI summary for an interaction (preview step)."""
         if err := auth.require_auth(request):
@@ -442,7 +346,7 @@ def register_intake_routes(mcp):
 
         return JSONResponse({"summary": summary})
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/interactions", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/{intake_id}/interactions", methods=["POST"])
     async def api_save_interaction(request):
         """Save a logged interaction with user-approved summary."""
         if err := auth.require_auth(request):
@@ -483,7 +387,7 @@ def register_intake_routes(mcp):
         })
         return JSONResponse(comment, status_code=201)
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/read", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/{intake_id}/read", methods=["POST"])
     async def api_mark_intake_read(request):
         """Mark all comments as read for the current user."""
         if err := auth.require_auth(request):
@@ -496,7 +400,7 @@ def register_intake_routes(mcp):
         await asyncio.to_thread(db.mark_intake_read, intake_id, user["id"])
         return JSONResponse({"success": True})
 
-    @mcp.custom_route("/api/v1/intakes/{intake_id}/analyze", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/{intake_id}/analyze", methods=["POST"])
     async def api_analyze_single_intake(request):
         """Run AI analysis on a single intake (non-blocking).
 
@@ -519,7 +423,7 @@ def register_intake_routes(mcp):
         ).start()
         return JSONResponse({"success": True, "message": "Analysis started"}, status_code=202)
 
-    @mcp.custom_route("/api/v1/intakes/sync", methods=["POST"])
+    @router.custom_route("/api/v1/intakes/sync", methods=["POST"])
     async def api_sync_intakes(request):
         """Trigger a sync from Google Sheets."""
         if err := auth.require_auth(request):

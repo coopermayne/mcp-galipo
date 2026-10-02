@@ -66,12 +66,12 @@ def remove_client(queue: asyncio.Queue) -> None:
     logger.info("SSE client disconnected (%d remaining)", len(_clients))
 
 
-def register_sse_routes(mcp):
+def register_sse_routes(router):
     """Register the generic SSE stream endpoint."""
     import auth
     from fastapi.responses import JSONResponse, StreamingResponse
 
-    @mcp.custom_route("/api/v1/stream", methods=["GET"])
+    @router.custom_route("/api/v1/stream", methods=["GET"])
     async def api_event_stream(request):
         """SSE stream for real-time updates across the whole app.
 

@@ -1,40 +1,17 @@
 # Galipo
 
-A legal case management system for personal injury law firms, designed for solo practitioners and small litigation teams.
+The intake system for the firm: new matters come in (Google Sheets form sync, pasted emails/voicemails via AI, or manual entry), get triaged through a status pipeline, commented on, and followed up with tasks.
 
-Galipo operates as both:
-- An **MCP (Model Context Protocol) server** with 41+ tools for Claude AI integration
-- A **web-based dashboard** built with React for managing cases, tasks, deadlines, and legal team collaboration
+> **This is the pared-down, intake-only build.** The full case-management app (cases, calendar, contacts, financials, trial calendar, templates, MCP server for Claude) is preserved on the `full-app` branch. Both builds use the same database schema (`models.py` and `alembic/` are unchanged), so switching back is a redeploy of that branch against the same database.
 
 ## Features
 
-### Case Management
-- Track cases from intake through resolution
-- Manage case numbers, court assignments, and case status
-- Store case summaries, dates of injury, and outcomes
-- Search cases by name, number, person, or status
-
-### Person Management
-- Unified person system supporting clients, defendants, attorneys, judges, experts, witnesses, and more
-- Flexible attributes for person-type-specific data (e.g., hourly rates for experts, bar numbers for attorneys)
-- Assign persons to cases with specific roles and sides (plaintiff/defendant/neutral)
-- Track contact information with multiple phones/emails per person
-
-### Task & Deadline Management
-- Internal tasks with urgency levels (1-4: Low, Medium, High, Urgent)
-- Calendar deadlines for hearings, depositions, filing dates, and other events
-- Drag-and-drop task reordering
-- Group tasks by urgency or by case
-- Link tasks to specific deadlines
-
-### Time Tracking
-- Log activities with descriptions and time spent
-- Categorize by activity type (Meeting, Filing, Research, Drafting, Document Review)
-
-### MCP Integration
-- 41 tools accessible via Claude AI
-- Natural language case management ("Add Maria Martinez as a client to the Jones case")
-- Query deadlines, tasks, and case information conversationally
+- **Intakes**: list with pipeline counts, detail page, status transitions, comments, notes, interaction log (calls/emails), unread tracking
+- **Google Sheets sync**: new form submissions imported every 5 minutes
+- **AI**: create an intake from pasted text, per-intake analysis, interaction summaries, rejection letter draft, AI task creation
+- **Tasks**: intake follow-up tasks plus a "Your Tasks" list, with comments and assignees
+- **PDF export**: single intake, filtered list, or a batch
+- **Users**: admin user management
 
 ## Architecture
 
@@ -45,32 +22,14 @@ Galipo operates as both:
 └────────────────────┬────────────────────────────────────────┘
                      │ /api/v1/*
 ┌────────────────────▼────────────────────────────────────────┐
-│              Backend (FastAPI + FastMCP)                    │
-│  Python 3.12+, SSE transport, Bearer auth                   │
+│              Backend (Starlette, served by gunicorn)        │
+│  Python 3.12, SSE live updates, Bearer auth                 │
 └────────────────────┬────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────┐
 │                    PostgreSQL                               │
-│  9 core tables + lookup tables, JSONB for flexibility       │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-## Tech Stack
-
-### Backend
-- **FastAPI** - Web framework
-- **FastMCP** - MCP server framework
-- **PostgreSQL** - Database
-- **Uvicorn** - ASGI server
-
-### Frontend
-- **React 19** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **TanStack Query** - Server state management
-- **TanStack Table** - Data tables
-- **@dnd-kit** - Drag-and-drop
 
 ## Quick Start
 
@@ -100,57 +59,11 @@ uvicorn main:app --reload --port 8000
 cd frontend && npm run dev
 ```
 
-## Connecting to Claude.ai
-
-1. Go to [Claude.ai](https://claude.ai)
-2. Open **Settings** → **Integrations** (or look for MCP settings)
-3. Add a new MCP server with your deployment URL:
-   ```
-   https://your-deployment-url.com/sse
-   ```
-4. Save and start a new conversation
-
-### Example Commands
-- "List all my cases"
-- "Show me details for Smith v. Johnson"
-- "What events are coming up this week?"
-- "Add Maria Martinez as a client to the Jones case"
-- "Mark the discovery task as done"
-
-## Database Schema
-
-| Table | Purpose |
-|-------|---------|
-| `jurisdictions` | Courts and venues |
-| `cases` | Legal cases (central entity) |
-| `persons` | All people (clients, attorneys, judges, experts, etc.) |
-| `case_persons` | Person-to-case assignments with roles |
-| `events` | Deadlines, hearings, depositions |
-| `tasks` | Internal to-do items |
-| `activities` | Time tracking entries |
-| `notes` | Case notes |
-| `person_types` | Lookup table for person categories |
-| `expertise_types` | Lookup table for expert specializations |
-
-## MCP Tools
-
-Galipo exposes 41 MCP tools across these categories:
-
-- **Cases** - Create, update, search, and delete cases
-- **Persons** - Manage people and their case assignments
-- **Tasks** - Add, update, reorder, and bulk-update tasks
-- **Deadlines** - Manage calendar events and deadlines
-- **Calendar** - Combined view of tasks and deadlines
-- **Activities** - Log and manage time entries
-- **Notes** - Add and manage case notes
-- **Jurisdictions** - Manage courts/venues
-- **Lookup Tables** - Manage person types and expertise types
-
 ## Documentation
 
 - [SETUP.md](./docs/SETUP.md) - Development environment setup
 - [TODO.md](./docs/todo.md) - Planned features and known issues
-- [docs/](./docs/) - Additional planning documents
+- [docs/](./docs/) - Additional planning documents (most describe the full app on the `full-app` branch)
 
 ## Development with Claude Code
 
@@ -198,7 +111,7 @@ This is useful for end-to-end testing of the web UI during development. No addit
 
 - **Platform**: Coolify (or any Docker host)
 - **Database**: PostgreSQL
-- **Transport**: SSE on port 8000
+- **Port**: 8000
 
 The server runs on port 8000. Your reverse proxy (nginx, Caddy, etc.) should:
 - Proxy requests to `localhost:8000`

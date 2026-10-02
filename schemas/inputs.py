@@ -1,7 +1,7 @@
 """
 Pydantic input models for create/update operations.
 
-Used by both MCP tools and REST routes.
+Used by both chat tools and REST routes.
 """
 
 from typing import Any, Literal, Optional
