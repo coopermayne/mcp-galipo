@@ -11,6 +11,7 @@ Route modules:
 - comments: Task comment threads
 - chat: AI chat (intake creation, task creation)
 - health: Health check
+- webhooks: CourtListener webhook receiver
 - static: React app and SPA routing
 """
 
@@ -50,6 +51,7 @@ from .tasks import register_task_routes
 from .comments import register_comment_routes
 from .chat import register_chat_routes
 from .health import register_health_routes
+from .webhooks import register_webhook_routes
 from .static import register_static_routes
 
 # Re-export common utilities
@@ -75,6 +77,7 @@ def register_routes(router):
     register_comment_routes(router)
     register_chat_routes(router)
     register_health_routes(router)
+    register_webhook_routes(router)
 
     # Register static/SPA routes last (catch-all must be last)
     register_static_routes(router)

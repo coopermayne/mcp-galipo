@@ -1,0 +1,115 @@
+"""
+CourtListener webhook receiver.
+
+CourtListener posts Docket Alert events here. This build has no case UI, but
+the endpoint must stay up: CourtListener disables a webhook (and can disable
+the account's alerts) after repeated failed deliveries. Events are stored in
+webhook_logs so the full-app build can triage them.
+
+No session auth - validated by the secret token in the URL.
+"""
+
+import asyncio
+import logging
+from fastapi.responses import JSONResponse
+
+import db
+from config import settings
+from .common import api_error
+
+
+# Webhook secrets from settings
+WEBHOOK_SECRET_COURTLISTENER = settings.webhook_secret_courtlistener
+
+
+def register_webhook_routes(router):
+    """Register the CourtListener webhook receiver."""
+
+    @router.custom_route("/api/v1/webhooks/courtlistener/{token}", methods=["POST"])
+    async def receive_courtlistener_webhook(request):
+        """
+        Receive webhooks from CourtListener.
+
+        CourtListener sends webhook events for:
+        - Docket alerts (new filings on subscribed cases)
+        - Search alerts (new results matching saved searches)
+        - Old docket alerts (stale alert notifications)
+        - RECAP fetch completion
+        - Pray and pay grants
+
+        The webhook is stored for later processing. Returns 200 immediately.
+        No session auth - validated by secret token in URL.
+        """
+        # Validate token
+        token = request.path_params.get("token", "")
+        if not WEBHOOK_SECRET_COURTLISTENER:
+            return api_error(
+                "Webhook endpoint not configured",
+                "WEBHOOK_NOT_CONFIGURED",
+                500
+            )
+
+        if token != WEBHOOK_SECRET_COURTLISTENER:
+            return api_error("Invalid webhook token", "UNAUTHORIZED", 401)
+
+        # Extract idempotency key from headers (CourtListener sends this)
+        idempotency_key = request.headers.get("idempotency-key")
+
+        # Parse webhook payload first (before any DB operations)
+        try:
+            payload = await request.json()
+        except Exception:
+            return api_error("Invalid JSON payload", "INVALID_PAYLOAD", 400)
+
+        try:
+            # Check for duplicate if idempotency key provided
+            if idempotency_key:
+                exists = await asyncio.to_thread(db.idempotency_key_exists, idempotency_key)
+                if exists:
+                    # Return 200 OK for duplicates (idempotent behavior)
+                    return JSONResponse({"success": True, "duplicate": True})
+
+            # Extract event type from payload if available
+            # CourtListener webhooks have a "webhook" key with metadata
+            event_type = None
+            webhook_meta = payload.get("webhook", {})
+            if isinstance(webhook_meta, dict):
+                event_type = webhook_meta.get("event_type")
+
+            # Capture headers for debugging (exclude sensitive ones)
+            headers_to_store = {
+                "content-type": request.headers.get("content-type"),
+                "idempotency-key": idempotency_key,
+                "user-agent": request.headers.get("user-agent"),
+            }
+
+            # TODO: Implement webhook processing logic
+            # Currently we just log webhooks - need to actually process them:
+            # 1. Match incoming docket alerts to cases in Galipo (by docket number, case name, etc.)
+            # 2. For matched cases: create tasks, events, or notes based on the alert type
+            # 3. For unmatched: maybe surface in UI for manual linking or ignore
+            # 4. Mark webhook as "completed" or "failed" based on processing result
+            # 5. Consider background job queue vs synchronous processing
+
+            # Store the webhook for later processing
+            result = await asyncio.to_thread(
+                db.create_webhook_log,
+                source="courtlistener",
+                payload=payload,
+                event_type=event_type,
+                idempotency_key=idempotency_key,
+                headers=headers_to_store,
+            )
+
+            if result is None:
+                # Duplicate (idempotency key exists) - return 200 OK
+                return JSONResponse({"success": True, "duplicate": True})
+
+            # Return 200 immediately (webhook will be processed asynchronously)
+            return JSONResponse({"success": True, "id": result["id"]})
+
+        except Exception as e:
+            # Log error but still return 200 to prevent CourtListener retries
+            # The webhook data is in the request, we can debug from logs
+            logging.error(f"Webhook processing error: {e}")
+            return api_error(f"Database error: {str(e)}", "DATABASE_ERROR", 500)

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     chat_max_tokens: int = 16384
     chat_debug: bool = False
 
+    # Webhooks
+    webhook_secret_courtlistener: str = ""
+
     # Media storage
     media_dir: str = "/app/media"
 
