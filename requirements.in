@@ -3,7 +3,6 @@
 # requirements.txt is the generated lockfile (every package, exact versions)
 # that Docker installs from. Regenerate it with ./scripts/update-deps.sh.
 
-fastmcp>=2.14,<3
 fastapi
 uvicorn[standard]
 bcrypt
@@ -17,9 +16,6 @@ anthropic
 filelock
 PyJWT
 weasyprint
-docxtpl
-pypdf
-docxcompose
 pydantic-settings
 rapidfuzz
 httpx

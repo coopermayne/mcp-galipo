@@ -17,22 +17,11 @@ export type FeatureKey =
   | "ai-chat"
   | "log-my-day"
 
+// Only the features this intake-only build still has. The full FeatureKey
+// union stays so stored visibleFeatures from the full app still type-check.
 export const FEATURE_OPTIONS: { value: FeatureKey; label: string }[] = [
-  { value: "dashboard", label: "Dashboard" },
   { value: "intakes", label: "Intakes" },
-  { value: "cases", label: "Cases" },
-  { value: "case-detail", label: "Case Detail Page" },
-  { value: "case-health", label: "Case Health" },
-  { value: "financials", label: "Financials" },
-  { value: "invoices", label: "Invoices" },
   { value: "tasks", label: "Tasks" },
-  { value: "calendar", label: "Calendar" },
-  { value: "trial-calendar", label: "Trial Calendar" },
-  { value: "contacts", label: "Contacts" },
-  { value: "templates", label: "Templates" },
-  { value: "court-listener", label: "CourtListener" },
-  { value: "ai-chat", label: "AI Chat" },
-  { value: "log-my-day", label: "Log My Day" },
 ]
 
 /**

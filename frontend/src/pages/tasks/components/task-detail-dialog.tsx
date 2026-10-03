@@ -1,4 +1,3 @@
-import { useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
@@ -6,8 +5,6 @@ import type { TaskListItem } from "@/types/task"
 import type { TaskStatus, Urgency } from "@/types/case"
 import { getTask, updateTask, deleteTask } from "@/services/tasks"
 import { getStaff } from "@/services/staff"
-import { getEventsByCase, type CaseEvent } from "@/services/events"
-import { useCasePreview } from "@/hooks/use-case-preview"
 import { InlineEditField } from "@/components/common/inline-edit-field"
 import { DetailDialogActions } from "@/components/common/detail-dialog-actions"
 import { ActivityFeed } from "@/components/common/activity-feed"
@@ -28,14 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxEmpty,
-} from "@/components/ui/combobox"
 
 const TASK_STATUSES: TaskStatus[] = [
   "Pending",
@@ -60,9 +49,7 @@ export function TaskDetailDialog({
   onOpenChange,
 }: TaskDetailDialogProps) {
   const navigate = useNavigate()
-  const { openCasePreview } = useCasePreview()
   const queryClient = useQueryClient()
-  const dialogRef = useRef<HTMLDivElement>(null)
 
   const { data: detail } = useQuery({
     queryKey: ["task", task?.id],
@@ -74,13 +61,6 @@ export function TaskDetailDialog({
     queryKey: ["staff"],
     queryFn: getStaff,
     staleTime: 5 * 60 * 1000,
-  })
-
-  const { data: caseEvents } = useQuery({
-    queryKey: ["events", "case", task?.case_id, "list"],
-    queryFn: () => getEventsByCase(task!.case_id!),
-    enabled: !!task && !!task.case_id && open,
-    staleTime: 60 * 1000,
   })
 
   const mutation = useMutation({
@@ -110,7 +90,7 @@ export function TaskDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent ref={dialogRef} className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DetailDialogActions
           entityName="task"
           onDelete={() => deleteMutation.mutate()}
@@ -119,22 +99,9 @@ export function TaskDetailDialog({
         <DialogHeader>
           {/* Case or intake badge */}
           {task.short_name && (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => {
-                onOpenChange(false)
-                if (task.case_id) openCasePreview(task.case_id)
-              }}
-              className="w-fit h-auto p-0 border-0"
-            >
-              <Badge
-                className="hover:opacity-80 transition-opacity"
-                style={getBadgeStyle(task.case_color)}
-              >
-                {task.short_name}
-              </Badge>
-            </Button>
+            <Badge className="w-fit" style={getBadgeStyle(task.case_color)}>
+              {task.short_name}
+            </Badge>
           )}
           {!task.case_id && task.intake_id && task.intake_name && (
             <Button
@@ -254,49 +221,6 @@ export function TaskDetailDialog({
           </div>
         </div>
 
-        {/* Linked event */}
-        {task.case_id && (
-          <div className="border-t pt-3">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Linked Event
-            </span>
-            <Combobox
-              value={caseEvents?.find((e) => e.id === (d?.event_id ?? task.event_id)) ?? null}
-              onValueChange={(event: CaseEvent | null) => {
-                mutation.mutate({
-                  field: "event_id",
-                  value: event?.id ?? null,
-                })
-              }}
-              items={caseEvents ?? []}
-              itemToStringLabel={(event: CaseEvent) => event.description}
-            >
-              <ComboboxInput
-                placeholder="Search events..."
-                showClear={!!(d?.event_id ?? task.event_id)}
-                showTrigger
-                className="mt-1 text-xs"
-              />
-              <ComboboxContent container={dialogRef}>
-                <ComboboxList>
-                  {(event: CaseEvent) => (
-                    <ComboboxItem key={event.id} value={event}>
-                      <div className="flex flex-col">
-                        <span>{event.description}</span>
-                        {event.date && (
-                          <span className="text-muted-foreground text-[10px]">
-                            {event.date}
-                          </span>
-                        )}
-                      </div>
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-                <ComboboxEmpty>No events found</ComboboxEmpty>
-              </ComboboxContent>
-            </Combobox>
-          </div>
-        )}
 
         {/* Activity feed */}
         <ActivityFeed

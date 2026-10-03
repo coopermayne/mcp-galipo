@@ -2,11 +2,10 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalCircle01Icon, ArrowRight01Icon, ArrowDown01Icon, PrinterIcon, SparklesIcon, Link01Icon, Unlink01Icon } from "@hugeicons/core-free-icons"
+import { MoreHorizontalCircle01Icon, ArrowRight01Icon, PrinterIcon, SparklesIcon } from "@hugeicons/core-free-icons"
 import type { Intake, IntakeStatus } from "@/types/intake"
-import { updateIntake, getIntakeTransitions, createIntakeComment, unlinkIntakeFromCase } from "@/services/intakes"
+import { updateIntake, getIntakeTransitions, createIntakeComment } from "@/services/intakes"
 import { apiFetch } from "@/lib/api"
-import { useCasePreview } from "@/hooks/use-case-preview"
 import { StatusBadge } from "@/pages/intakes/components/status-badge"
 import { RejectionLetterDialog } from "@/pages/intakes/components/rejection-letter-dialog"
 import { getIntakeStatusStyle } from "@/pages/intakes/status-colors"
@@ -40,13 +39,6 @@ const ALL_STATUSES: IntakeStatus[] = [
   "Needs Rejection Letter",
   "Rejection Letter Sent",
   "No Response Needed",
-  "Needs Retainer",
-  "Retainer Sent",
-  "Retainer Signed",
-]
-
-// Statuses where the "Create Case" button should appear
-const CASE_CREATION_STATUSES: IntakeStatus[] = [
   "Needs Retainer",
   "Retainer Sent",
   "Retainer Signed",
@@ -108,17 +100,13 @@ function getCommentPlaceholder(from: IntakeStatus, to: IntakeStatus): string {
 interface IntakeDetailHeaderProps {
   intake: Intake
   onFocusComments?: () => void
-  onCreateCase?: () => void
-  onConnectCase?: () => void
 }
 
-export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: IntakeDetailHeaderProps) {
+export function IntakeDetailHeader({ intake }: IntakeDetailHeaderProps) {
   const queryClient = useQueryClient()
-  const { openCasePreview } = useCasePreview()
   const [pendingStatus, setPendingStatus] = useState<IntakeStatus | null>(null)
   const [commentDraft, setCommentDraft] = useState("")
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
-  const [showUnlinkWarning, setShowUnlinkWarning] = useState(false)
   const [showRejectionLetter, setShowRejectionLetter] = useState(false)
 
   const { data: transitions } = useQuery({
@@ -149,20 +137,6 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
     },
   })
 
-  const unlinkMutation = useMutation({
-    mutationFn: () => unlinkIntakeFromCase(intake.id),
-    onSuccess: (data) => {
-      queryClient.setQueryData(["intake", intake.id], data.intake)
-      queryClient.invalidateQueries({ queryKey: ["intakes"] })
-      queryClient.invalidateQueries({ queryKey: ["intake-comments", intake.id] })
-      queryClient.invalidateQueries({ queryKey: ["cases"] })
-      toast.success("Case disconnected")
-    },
-    onError: () => {
-      toast.error("Failed to disconnect case")
-    },
-  })
-
   const handleStatusClick = (newStatus: IntakeStatus) => {
     if (
       shouldEncourageComment(intake.status, newStatus) &&
@@ -189,26 +163,12 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
   const moveToStatuses = ALL_STATUSES.filter((s) => s !== intake.status)
   const isArchived = intake.status === "Archived"
 
-  const showCreateCase =
-    CASE_CREATION_STATUSES.includes(intake.status) && !intake.case_id
-  const hasLinkedCase = !!intake.case_id
-
   return (
     <>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">{intake.name || "Unnamed Intake"}</h1>
           <StatusBadge status={intake.status} />
-          {hasLinkedCase && (
-            <button
-              type="button"
-              onClick={() => intake.case_id != null && openCasePreview(intake.case_id)}
-              className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium hover:bg-primary/20 transition-colors cursor-pointer"
-            >
-              Case: {intake.case_name || `#${intake.case_id}`}
-              <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
-            </button>
-          )}
         </div>
         <div className="flex items-center gap-1.5">
           {intake.status === "Needs Rejection Letter" && (
@@ -221,30 +181,6 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
               <HugeiconsIcon icon={SparklesIcon} className="size-4 animate-pulse" />
               Write Rejection Letter
             </Button>
-          )}
-          {showCreateCase && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm px-4 gap-2"
-                >
-                  <HugeiconsIcon icon={SparklesIcon} className="size-4" />
-                  Create Case
-                  <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 opacity-80" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onCreateCase} className="gap-2">
-                  <HugeiconsIcon icon={SparklesIcon} className="size-4" />
-                  Create new case
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onConnectCase} className="gap-2">
-                  <HugeiconsIcon icon={Link01Icon} className="size-4" />
-                  Connect to existing case
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           )}
           {allowedTransitions.length > 0 && (
             <span className="mr-1.5 text-xs text-muted-foreground">
@@ -309,20 +245,6 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
                 >
                   Archive
                 </DropdownMenuItem>
-              )}
-              {hasLinkedCase && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setShowUnlinkWarning(true)}
-                    disabled={unlinkMutation.isPending}
-                    className="gap-2"
-                  >
-                    <HugeiconsIcon icon={Unlink01Icon} className="size-4" />
-                    Disconnect case
-                  </DropdownMenuItem>
-                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -406,28 +328,6 @@ export function IntakeDetailHeader({ intake, onCreateCase, onConnectCase }: Inta
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showUnlinkWarning} onOpenChange={setShowUnlinkWarning}>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect this case?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This unlinks {intake.case_name || `case #${intake.case_id}`} from this intake. The case itself is not deleted, and you can connect a case again afterward.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                setShowUnlinkWarning(false)
-                unlinkMutation.mutate()
-              }}
-            >
-              Disconnect
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

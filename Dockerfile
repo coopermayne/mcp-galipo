@@ -18,15 +18,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py models.py tools.py auth.py mcp_auth.py mcp_stdio.py config.py alembic.ini ./
+COPY main.py models.py tools.py auth.py config.py alembic.ini ./
 COPY lib/ ./lib/
 COPY schemas/ ./schemas/
 COPY alembic/ ./alembic/
 COPY db/ ./db/
 COPY routes/ ./routes/
 COPY services/ ./services/
-COPY static/ ./static/
-COPY templates/ ./templates/
 COPY scripts/ ./scripts/
 
 # Copy built React frontend from builder stage
@@ -39,9 +37,8 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 EXPOSE 8000
 
 # Use gunicorn with uvicorn workers for production
-# -w 4: 4 worker processes
 # -k uvicorn.workers.UvicornWorker: async worker class
 # --timeout 120: worker timeout in seconds
-# Single worker for now - OAuth state is in-memory and not shared across workers
-# TODO: Move OAuth state to Redis/database for multi-worker support
+# Single worker on purpose: SSE live-update subscribers, chat conversation
+# history and the login/chat rate limiters all live in process memory.
 CMD ["sh", "-c", "alembic upgrade head 2>/dev/null || (python -c 'from models import Base; from db.session import engine; Base.metadata.create_all(engine)' && alembic stamp head) && gunicorn main:app -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:8000 --timeout 120"]

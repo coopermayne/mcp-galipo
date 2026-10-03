@@ -1,8 +1,8 @@
 """
 Tool executor for the chat feature.
 
-This module executes tools by calling the MCP tool functions directly,
-ensuring consistent behavior between the MCP server and chat feature.
+This module executes tools by calling the functions registered in
+services.chat.tools directly.
 """
 
 import asyncio
@@ -15,22 +15,20 @@ from typing import Any
 from pydantic import BaseModel
 
 from services.chat.types import ToolCall, ToolResult
-from services.chat.tools import get_mcp_instance, BLACKLIST
+from services.chat.tools import registry
 
 logger = logging.getLogger(__name__)
 
 # Maximum characters for result content before truncation
 MAX_RESULT_CHARS = 12000
 
-# Get the MCP instance with all registered tools
-_mcp = get_mcp_instance()
 
 
 class ChatContext:
-    """Minimal context for calling MCP tools from the chat service.
+    """Minimal context passed to chat tools as their first argument.
 
-    MCP tools expect a Context object for logging. This provides a compatible
-    interface that logs to Python's standard logging instead of MCP's system.
+    Tools call context.info() etc. for logging; this sends that to Python's
+    standard logging.
     Also carries request-scoped data like the logged-in user_id and, when the
     chat is scoped to a case page, the active case_context. Tools use
     case_context to force-bind newly created entities to the case the user is
@@ -42,16 +40,16 @@ class ChatContext:
         self.case_context = case_context
 
     def info(self, msg: str) -> None:
-        logger.info(f"[MCP Tool] {msg}")
+        logger.info(f"[Chat Tool] {msg}")
 
     def debug(self, msg: str) -> None:
-        logger.debug(f"[MCP Tool] {msg}")
+        logger.debug(f"[Chat Tool] {msg}")
 
     def warning(self, msg: str) -> None:
-        logger.warning(f"[MCP Tool] {msg}")
+        logger.warning(f"[Chat Tool] {msg}")
 
     def error(self, msg: str) -> None:
-        logger.error(f"[MCP Tool] {msg}")
+        logger.error(f"[Chat Tool] {msg}")
 
     def report_progress(self, progress: float, total: float | None = None) -> None:
         """Report progress (no-op for chat context)."""
@@ -172,7 +170,7 @@ def _generate_summary(result: Any, tool_name: str, args: dict[str, Any]) -> str:
 
 def execute_tool(tool_call: ToolCall, user_id: int | None = None,
                  case_context: int | None = None) -> ToolResult:
-    """Execute a tool by calling the MCP tool function directly.
+    """Execute a tool by calling its registered function directly.
 
     Args:
         tool_call: The tool call to execute, containing name, id, and arguments.
@@ -188,20 +186,7 @@ def execute_tool(tool_call: ToolCall, user_id: int | None = None,
 
     start_time = time.time()
 
-    # Check if tool is blacklisted
-    if tool_call.name in BLACKLIST:
-        duration_ms = int((time.time() - start_time) * 1000)
-        logger.warning(f"Blacklisted tool requested: {tool_call.name}")
-        return ToolResult(
-            tool_use_id=tool_call.id,
-            content=f"Tool '{tool_call.name}' is not available",
-            is_error=True,
-            duration_ms=duration_ms,
-            summary=f"Error: Tool '{tool_call.name}' is not available"
-        )
-
-    # Get the tool from MCP
-    tool = _mcp._tool_manager._tools.get(tool_call.name)
+    tool = registry.tools.get(tool_call.name)
     if not tool:
         duration_ms = int((time.time() - start_time) * 1000)
         logger.warning(f"Unknown tool requested: {tool_call.name}")
@@ -214,8 +199,7 @@ def execute_tool(tool_call: ToolCall, user_id: int | None = None,
         )
 
     try:
-        # Call the MCP tool function with our chat context
-        # MCP tools expect (context, **kwargs) signature
+        # Tools take (context, **kwargs)
         # For Pydantic-model params, convert raw dicts to model instances
         args = dict(tool_call.arguments)
         sig = inspect.signature(tool.fn)
@@ -283,10 +267,5 @@ def execute_tool(tool_call: ToolCall, user_id: int | None = None,
 
 
 def get_available_tools() -> list[str]:
-    """Get list of all available tool names.
-
-    Returns:
-        List of tool name strings (excluding blacklisted tools).
-    """
-    return [name for name in _mcp._tool_manager._tools.keys()
-            if name not in BLACKLIST]
+    """Get list of all available tool names."""
+    return list(registry.tools)

@@ -1,8 +1,7 @@
 """
-MCP Server for Legal Case Management (Personal Injury Litigation)
+Galipo intake system: Starlette app serving the REST API and the React UI.
 
-A FastMCP server exposing tools to query and manage legal cases.
-Uses PostgreSQL database for persistent storage.
+Uses PostgreSQL for persistent storage.
 """
 
 import asyncio
@@ -12,68 +11,32 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import filelock
-from fastmcp import FastMCP
+from starlette.applications import Starlette
+from starlette.routing import Route
 
 import db
 from config import settings
-from tools import register_tools
 from routes import register_routes
-from mcp_auth import get_mcp_auth_provider
 
 logger = logging.getLogger(__name__)
 
 
-MCP_INSTRUCTIONS = """Legal Case Management System for personal injury law firms.
+class RouteCollector:
+    """Collects routes registered with @router.custom_route(path, methods=[...]).
 
-IMPORTANT: Call get_current_time at the start of any session to know the current date/time in Pacific Time.
+    Route modules were written against FastMCP's custom_route decorator; this
+    keeps that shape so they register onto a plain Starlette app.
+    """
 
-TOOLS OVERVIEW:
-- search(entity, ...) — universal search across cases, persons, events, tasks
-- get_details(entity, id) — full details for any entity by ID
-- manage_case(action, ...) — create/update/delete cases. Supports intake_id on create to link the source intake (a case can gather multiple intakes).
-- manage_person(action, ...) — create/update/delete persons (contacts)
-- manage_case_role(action, ...) — assign/update/change/remove person roles on cases
-- manage_event(action, ...) — create/update/delete calendar events
-- manage_task(action, ...) — create/update/delete/bulk_update tasks
-- manage_note(action, ...) — create/update/delete case notes
-- manage_proceeding(action, ...) — create/update/delete proceedings + add/remove judges
-- list_staff() — list all active staff members (for task assignment)
-- import_case(data) — bulk import a complete case with all related data
+    def __init__(self) -> None:
+        self.routes: list[Route] = []
 
-VALID VALUES (these are enforced — invalid values return an error with the valid options):
-- Case status: "Signing Up", "Pre-Claim", "Pre-Filing", "Pleadings", "Discovery", "Expert Discovery", "Pre-trial", "Trial", "Post-Trial", "Appeal", "Settl. Pend.", "Stayed", "Closed"
-- Task status: "Pending", "Active", "Done", "Partially Done", "Blocked", "Awaiting Atty Review"
-- Urgency: "Low", "Medium", "High", "Urgent"
-- Judge roles: "Judge", "Magistrate Judge", "Presiding", "Panel"
+    def custom_route(self, path: str, methods: list[str]):
+        def decorator(fn):
+            self.routes.append(Route(path, fn, methods=methods))
+            return fn
 
-ROLES SYSTEM (unified person-role management):
-Persons are assigned to cases via manage_case_role with role names (accepts both snake_case and space-separated):
-- client: plaintiff, contact, guardian_ad_litem, decedent
-- counsel: co_counsel, referring_attorney, opposing_counsel, criminal_defense_attorney, prosecutor, public_defender
-- defendant: municipality_defendant, individual_defendant
-- expert: plaintiff_expert, defense_expert
-- mediator: mediator
-- other: lien_holder, witness, claims_adjuster, special_needs_consultant
-
-JUDGES (standalone entities):
-Judges are NOT persons — they are assigned to proceedings, not cases.
-- Use manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
-
-PROCEEDINGS WORKFLOW:
-1. Create proceeding: manage_proceeding(action="create", case_id=N, case_number="24STCV12345", jurisdiction_id=M)
-2. Add judges: manage_proceeding(action="add_judge", proceeding_id=N, judge_id=M, judge_role="Judge")
-
-DATA ENTRY GUIDELINES:
-- Skip vacated, canceled, or stricken events/deadlines — do not add these
-- Use the calculation_note field for deadline sources (e.g., "Dkt. 47, LR 7-3")
-- For depositions, include the deponent name in the event description
-
-DUPLICATES (tasks and events):
-The first manage_event/manage_task create on a case that already has items returns status="review_existing" with every existing event (recent + upcoming) or open task on that case, and creates nothing. Compare what you're creating against that list yourself — the same real-world item may be worded differently or rescheduled:
-- Already there with the same details → tell the user; don't create it again.
-- Already there with changed details (e.g. a continued hearing) → ask the user whether to update it, showing old → new (e.g. "Update 'Depo of Jane Doe' from Apr 20 → May 10?"). On yes, call action="update" with that id and only the changed fields.
-- Genuinely new → re-call create with confirmed_new=true. One review covers every new item for that case in the same turn — create the genuinely new ones right away; only the matched ones wait for the user.
-Prefer updating an existing item over creating a new one when the user is correcting or rescheduling something."""
+        return decorator
 
 
 def initialize_database():
@@ -140,7 +103,7 @@ async def _periodic_intake_sync():
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
+async def lifespan(app: Starlette) -> AsyncIterator[None]:
     """Application lifespan handler.
 
     Initializes database on startup, cleans up on shutdown.
@@ -149,7 +112,7 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     # Startup
     initialize_database()
     sync_task = asyncio.create_task(_periodic_intake_sync())
-    yield {}
+    yield
     # Shutdown
     sync_task.cancel()
     try:
@@ -158,34 +121,10 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
         pass
 
 
-# Initialize the MCP server with lifespan and optional auth
-auth_provider = get_mcp_auth_provider()
-mcp = FastMCP(
-    "Legal Case Management",
-    instructions=MCP_INSTRUCTIONS,
-    auth=auth_provider,
-    lifespan=lifespan,
-)
+router = RouteCollector()
+register_routes(router)
 
-# Register MCP tools (for AI/Claude integration)
-register_tools(mcp)
-
-# Register HTTP routes (for web UI)
-# Routes are organized in the routes/ package with domain-specific modules:
-# - routes/auth.py: Authentication endpoints
-# - routes/cases.py: Case CRUD operations
-# - routes/tasks.py: Task management
-# - routes/events.py: Calendar events
-# - routes/persons.py: Contact management
-# - routes/notes.py: Case notes
-# - routes/stats.py: Dashboard stats and constants
-# - routes/static.py: Static file serving and SPA routing
-register_routes(mcp)
-
-# Export ASGI app for uvicorn/gunicorn
-# Streamable HTTP uses regular HTTP POST/GET instead of persistent SSE connections,
-# which works reliably through proxies and CDNs without timeout/disconnect issues.
-app = mcp.http_app(transport="streamable-http")
+app = Starlette(routes=router.routes, lifespan=lifespan)
 
 # Global exception handlers for clean JSON error responses
 from starlette.requests import Request
@@ -229,4 +168,6 @@ class TrailingSlashMiddleware(BaseHTTPMiddleware):
 app.add_middleware(TrailingSlashMiddleware)
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=settings.port)
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=settings.port)

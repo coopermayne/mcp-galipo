@@ -30,9 +30,9 @@ class CreateCommentInput(BaseModel):
     content: str
 
 
-def register_comment_routes(mcp):
+def register_comment_routes(router):
 
-    @mcp.custom_route(
+    @router.custom_route(
         "/api/v1/comments/unread-counts/{entity_type}", methods=["GET"]
     )
     async def api_comment_unread_counts(request):
@@ -54,7 +54,7 @@ def register_comment_routes(mcp):
         )
         return JSONResponse({str(k): v for k, v in counts.items()})
 
-    @mcp.custom_route(
+    @router.custom_route(
         "/api/v1/comments/{entity_type}/{entity_id}", methods=["GET"]
     )
     async def api_list_comments(request):
@@ -75,7 +75,7 @@ def register_comment_routes(mcp):
 
         return JSONResponse({"comments": comments, "last_read_at": last_read})
 
-    @mcp.custom_route(
+    @router.custom_route(
         "/api/v1/comments/{entity_type}/{entity_id}", methods=["POST"]
     )
     async def api_create_comment(request):
@@ -107,7 +107,7 @@ def register_comment_routes(mcp):
         })
         return JSONResponse({"comment": comment})
 
-    @mcp.custom_route(
+    @router.custom_route(
         "/api/v1/comments/{entity_type}/{entity_id}/read", methods=["POST"]
     )
     async def api_mark_comment_read(request):

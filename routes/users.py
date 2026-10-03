@@ -60,31 +60,10 @@ def _user_to_camel(user: dict) -> dict:
     return result
 
 
-def register_user_routes(mcp):
+def register_user_routes(router):
     """Register user management routes (admin-only)."""
 
-    @mcp.custom_route("/api/v1/attorneys", methods=["GET"])
-    async def api_get_attorneys(request):
-        """Get all active attorneys (non-admin endpoint for filters)."""
-        if err := auth.require_auth(request):
-            return err
-
-        users = get_all_users(include_inactive=False)
-        attorneys = [
-            {
-                "id": u["id"],
-                "firstName": u.get("first_name"),
-                "lastName": u.get("last_name"),
-                "initials": u.get("initials"),
-                "barNumber": u.get("bar_number"),
-                "email": u.get("email"),
-            }
-            for u in users
-            if u.get("position") == "attorney"
-        ]
-        return JSONResponse({"success": True, "data": attorneys})
-
-    @mcp.custom_route("/api/v1/staff", methods=["GET"])
+    @router.custom_route("/api/v1/staff", methods=["GET"])
     async def api_get_staff(request):
         """Get all active staff members (non-admin endpoint for avatars/filters)."""
         if err := auth.require_auth(request):
@@ -104,7 +83,7 @@ def register_user_routes(mcp):
         ]
         return JSONResponse({"success": True, "data": staff})
 
-    @mcp.custom_route("/api/v1/users", methods=["GET"])
+    @router.custom_route("/api/v1/users", methods=["GET"])
     async def api_get_users(request):
         """Get all users (admin-only)."""
         if err := auth.require_admin(request):
@@ -114,7 +93,7 @@ def register_user_routes(mcp):
         users = get_all_users(include_inactive=include_inactive)
         return JSONResponse({"success": True, "data": [_user_to_camel(u) for u in users]})
 
-    @mcp.custom_route("/api/v1/users", methods=["POST"])
+    @router.custom_route("/api/v1/users", methods=["POST"])
     async def api_create_user(request):
         """Create a new user (admin-only)."""
         if err := auth.require_admin(request):
@@ -168,7 +147,7 @@ def register_user_routes(mcp):
                 status_code=500
             )
 
-    @mcp.custom_route("/api/v1/users/{user_id}", methods=["GET"])
+    @router.custom_route("/api/v1/users/{user_id}", methods=["GET"])
     async def api_get_user(request):
         """Get a single user by ID (admin-only)."""
         if err := auth.require_admin(request):
@@ -185,7 +164,7 @@ def register_user_routes(mcp):
 
         return JSONResponse({"success": True, "data": _user_to_camel(user)})
 
-    @mcp.custom_route("/api/v1/users/{user_id}", methods=["PUT"])
+    @router.custom_route("/api/v1/users/{user_id}", methods=["PUT"])
     async def api_update_user(request):
         """Update a user (admin-only)."""
         if err := auth.require_admin(request):
@@ -256,7 +235,7 @@ def register_user_routes(mcp):
                 status_code=500
             )
 
-    @mcp.custom_route("/api/v1/users/{user_id}", methods=["DELETE"])
+    @router.custom_route("/api/v1/users/{user_id}", methods=["DELETE"])
     async def api_delete_user(request):
         """Deactivate a user (soft delete, admin-only)."""
         if err := auth.require_admin(request):
@@ -291,7 +270,7 @@ def register_user_routes(mcp):
             status_code=500
         )
 
-    @mcp.custom_route("/api/v1/users/{user_id}/reset-password", methods=["POST"])
+    @router.custom_route("/api/v1/users/{user_id}/reset-password", methods=["POST"])
     async def api_reset_user_password(request):
         """Reset a user's password to default (admin-only)."""
         if err := auth.require_admin(request):
@@ -319,17 +298,3 @@ def register_user_routes(mcp):
             {"success": False, "error": {"message": "Failed to reset password", "code": "RESET_FAILED"}},
             status_code=500
         )
-
-    @mcp.custom_route("/api/v1/users/{user_id}/cases", methods=["GET"])
-    async def api_get_user_cases(request):
-        """Get all cases a user is assigned to (as attorney or paralegal)."""
-        if err := auth.require_auth(request):
-            return err
-
-        from db.cases import get_cases_for_user
-
-        user_id = int(request.path_params["user_id"])
-        role = request.query_params.get("role")  # 'attorney', 'paralegal', or None for both
-
-        cases = get_cases_for_user(user_id, role)
-        return JSONResponse({"success": True, "data": cases})

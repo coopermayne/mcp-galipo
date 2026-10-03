@@ -7,9 +7,6 @@ Shared constants, error helpers, and path configurations.
 from pathlib import Path
 from fastapi.responses import JSONResponse
 
-# Static directories for both frontends
-STATIC_DIR = Path(__file__).parent.parent / "static"  # Legacy vanilla JS
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"  # Legacy templates
 REACT_DIST_DIR = Path(__file__).parent.parent / "frontend" / "dist"  # React build output
 REACT_ASSETS_DIR = REACT_DIST_DIR / "assets"
 
